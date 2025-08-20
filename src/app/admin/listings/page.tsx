@@ -108,12 +108,14 @@ export default function AdminListingsPage() {
     }
 
     // copy joins (categories, regions)
-    await supabase
-      .rpc("clone_site_taxonomies", {
+    try {
+      await supabase.rpc("clone_site_taxonomies", {
         p_from_site: id,
         p_to_site: inserted!.id,
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // ignore taxonomy clone failure — not critical for duplication flow
+    }
     // NOTE: gallery/story not auto-copied (assets) — we keep it simple here.
 
     setBusy(null);
