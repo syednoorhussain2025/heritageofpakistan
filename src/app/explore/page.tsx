@@ -1,7 +1,7 @@
 // src/app/explore/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -114,8 +114,32 @@ function Rating({
   );
 }
 
-/* ───────────── Page ───────────── */
+/* ───────────── Suspense wrapper (required for useSearchParams) ───────────── */
 export default function ExplorePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f4f4f4]">
+          <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-56 bg-gray-100 animate-pulse rounded-lg"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ExplorePageInner />
+    </Suspense>
+  );
+}
+
+/* ───────────── Original page logic moved here unchanged ───────────── */
+function ExplorePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -201,10 +225,7 @@ export default function ExplorePage() {
           case "top":
             query = query
               .order("avg_rating", { ascending: false, nullsFirst: false })
-              .order("review_count", {
-                ascending: false,
-                nullsFirst: false,
-              });
+              .order("review_count", { ascending: false, nullsFirst: false });
             break;
           case "random":
             // @ts-ignore - PostgREST supports order=rand() via 'order' with foreign.fn
@@ -253,7 +274,7 @@ export default function ExplorePage() {
     router.push(`/explore${qs}`);
   };
 
-  // Re‑apply when url changes (e.g., back/forward)
+  // Re-apply when url changes (e.g., back/forward)
   useEffect(() => {
     setName(searchParams.get("q") || "");
     setCategoryIds(parseMulti(searchParams.get("cats")));
