@@ -59,11 +59,13 @@ async function publicUrl(bucket: string, key: string) {
 }
 
 /* ───────────────────────────── Root wrapper ───────────────────────────── */
+/* NOTE: Use 'props: any' to avoid incorrect global PageProps constraints. */
 
-export default function EditListing({ params }: { params: { id: string } }) {
+export default function EditListing(props: any) {
+  const id = (props?.params?.id as string) ?? "";
   return (
     <AdminGuard>
-      <EditContent id={params.id} />
+      <EditContent id={id} />
     </AdminGuard>
   );
 }
