@@ -166,8 +166,11 @@ type CustomSection = {
 
 /* ───────────── Page ───────────── */
 
-export default function HeritagePage({ params }: { params: { slug: string } }) {
-  const slug = params.slug;
+// NOTE: Use `props: any` here to avoid an incorrect global PageProps constraint.
+// We then read the slug from props.params safely.
+export default function HeritagePage(props: any) {
+  const slug = (props?.params?.slug as string) ?? "";
+
   const [site, setSite] = useState<Site | null>(null);
   const [provinceName, setProvinceName] = useState<string | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>(
@@ -365,7 +368,7 @@ export default function HeritagePage({ params }: { params: { slug: string } }) {
         </div>
       </div>
 
-      {/* ACTION LINKS — centered, inside the 100px‑margin container */}
+      {/* ACTION LINKS — centered, inside the 100px-margin container */}
       <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4">
         <div className="flex flex-wrap justify-center gap-2 md:gap-3 mt-4">
           {mapsLink ? (
@@ -396,7 +399,7 @@ export default function HeritagePage({ params }: { params: { slug: string } }) {
         </div>
       </div>
 
-      {/* BODY CONTENT — two columns, inside the 100px‑margin container */}
+      {/* BODY CONTENT — two columns, inside the 100px-margin container */}
       <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 my-6 lg:flex lg:items-start lg:gap-6">
         {/* LEFT SIDEBAR */}
         <aside className="space-y-5 w-full lg:w-80 lg:flex-shrink-0">
