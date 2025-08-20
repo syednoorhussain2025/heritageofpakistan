@@ -22,12 +22,8 @@ type ImageRow = {
   publicUrl?: string | null;
 };
 
-export default function SiteGalleryPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const slug = params.slug;
+export default function SiteGalleryPage(props: any) {
+  const slug = (props?.params?.slug as string) ?? "";
   const [site, setSite] = useState<Site | null>(null);
   const [images, setImages] = useState<ImageRow[]>([]);
   const [loading, setLoading] = useState(true);
