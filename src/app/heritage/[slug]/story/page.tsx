@@ -21,12 +21,8 @@ type PhotoStoryItem = {
   sort_order: number;
 };
 
-export default function SitePhotoStoryPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const slug = params.slug;
+export default function SitePhotoStoryPage(props: any) {
+  const slug = (props?.params?.slug as string) ?? "";
 
   const [site, setSite] = useState<Site | null>(null);
   const [story, setStory] = useState<PhotoStory | null>(null);
