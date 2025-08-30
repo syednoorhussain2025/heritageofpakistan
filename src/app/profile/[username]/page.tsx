@@ -38,8 +38,10 @@ export default function PublicProfilePage() {
       setProfile(data as Profile);
       setLoading(false);
     }
-    load();
-  }, [username]);
+    if (username) {
+      load();
+    }
+  }, [username, supabase]);
 
   if (loading) return <p>Loading profile...</p>;
   if (!profile) return <p>User not found.</p>;
@@ -53,7 +55,6 @@ export default function PublicProfilePage() {
             src={getPublicUrl("avatars", profile.avatar_path, {
               width: 120,
               quality: 80,
-              format: "webp",
             })}
             alt="avatar"
             width={80}
