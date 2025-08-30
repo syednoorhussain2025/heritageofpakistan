@@ -197,7 +197,7 @@ export default function AddFromCollectionsModal({
 
       // All Photos
       const { data: pData, error: pErr } = await supabase
-        .from<CollectedImage>("collected_images")
+        .from("collected_images")
         .select("*")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
@@ -206,7 +206,7 @@ export default function AddFromCollectionsModal({
 
       // Collections
       const { data: cData, error: cErr } = await supabase
-        .from<PhotoCollection>("photo_collections")
+        .from("photo_collections")
         .select("*")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
@@ -221,7 +221,7 @@ export default function AddFromCollectionsModal({
       let firstItemByCollection = new Map<string, string>();
       if (noCoverIds.length) {
         const { data: items } = await supabase
-          .from<PhotoCollectionItem>("photo_collection_items")
+          .from("photo_collection_items")
           .select("collection_id,collected_id,sort_order")
           .in("collection_id", noCoverIds)
           .order("sort_order", { ascending: true });
@@ -240,7 +240,7 @@ export default function AddFromCollectionsModal({
 
       if (coverCollectedIds.size) {
         const { data: coverImgs } = await supabase
-          .from<CollectedImage>("collected_images")
+          .from("collected_images")
           .select("id,storage_path,image_url")
           .in("id", Array.from(coverCollectedIds));
         const byId = new Map<string, CollectedImage>();
@@ -283,7 +283,7 @@ export default function AddFromCollectionsModal({
     setPhotos([]); // optimistic skeletons
     try {
       const { data: items, error: iErr } = await supabase
-        .from<PhotoCollectionItem>("photo_collection_items")
+        .from("photo_collection_items")
         .select("collected_id")
         .eq("collection_id", c.id)
         .order("sort_order", { ascending: true });
@@ -297,7 +297,7 @@ export default function AddFromCollectionsModal({
       }
 
       const { data: pData, error: pErr } = await supabase
-        .from<CollectedImage>("collected_images")
+        .from("collected_images")
         .select("*")
         .in("id", ids);
       if (pErr) throw pErr;
