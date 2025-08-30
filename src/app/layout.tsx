@@ -5,9 +5,10 @@ import "./globals.css";
 import Header from "@/components/Header";
 import FontLoader from "@/components/FontLoader";
 import { IconProvider } from "@/components/Icon";
-import { BookmarkProvider } from "@/components/BookmarkProvider"; // existing
-import { WishlistProvider } from "@/components/WishlistProvider"; // wishlist context
-import { CollectionsProvider } from "@/components/CollectionsProvider"; // ✅ NEW: image collections context
+import { BookmarkProvider } from "@/components/BookmarkProvider";
+import { WishlistProvider } from "@/components/WishlistProvider";
+import { CollectionsProvider } from "@/components/CollectionsProvider";
+import { ProfileProvider } from "@/components/ProfileProvider"; // ✅ NEW: Profile context provider
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,15 +37,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f4f4f4]`}
       >
         <IconProvider>
-          {/* Wrap app with providers so pages, cards & modals can access them */}
-          <BookmarkProvider>
-            <WishlistProvider>
-              <CollectionsProvider>
-                <Header />
-                <main>{children}</main>
-              </CollectionsProvider>
-            </WishlistProvider>
-          </BookmarkProvider>
+          {/* ✅ Wrap with ProfileProvider to make profile data globally available */}
+          <ProfileProvider>
+            <BookmarkProvider>
+              <WishlistProvider>
+                <CollectionsProvider>
+                  <Header />
+                  <main>{children}</main>
+                </CollectionsProvider>
+              </WishlistProvider>
+            </BookmarkProvider>
+          </ProfileProvider>
         </IconProvider>
       </body>
     </html>

@@ -1,90 +1,28 @@
-"use client";
+// src/app/dashboard/layout.tsx
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import DashboardShellClient from "./DashboardShellClient";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Icon from "@/components/Icon"; // Assuming Icon component is available
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const supabase = await createClient();
 
-  // Sidebar nav (updated with Portfolio, retaining all previous items)
-  const nav = [
-    { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-    { href: "/dashboard/profile", label: "Profile", icon: "user" },
-    { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-    { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
-    { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-    { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-    { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
-    {
-      href: "/dashboard/placesvisited",
-      label: "Places Visited",
-      icon: "map-marker-alt",
-    },
-    { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-    {
-      href: "/dashboard/portfolio",
-      label: "My Portfolio",
-      icon: "image", // <-- pick/change icon key based on your Icon component
-    },
-    {
-      href: "/dashboard/recommendations",
-      label: "Recommendations",
-      icon: "lightbulb",
-    },
-  ];
+  // 1) Require an authenticated user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Routes that should render without the inner card container
-  const fullBleed =
-    typeof pathname === "string" && pathname.startsWith("/dashboard/notebook");
+  if (!user) {
+    redirect(`/auth/sign-in?redirectTo=/dashboard`);
+  }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-800">My Dashboard</h2>
-        </div>
-        <nav className="flex-1 px-4 py-2 space-y-2">
-          {nav.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-4 py-2 rounded-lg transition-colors duration-200 ${
-                  isActive
-                    ? "bg-orange-100 text-orange-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-              >
-                <Icon
-                  name={item.icon}
-                  className={`w-5 h-5 mr-3 ${
-                    isActive ? "text-orange-700" : ""
-                  }`}
-                />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
+  // 2) The logic to ensure a profile exists has been removed.
+  //    This is now handled automatically by the `on_auth_user_created`
+  //    database trigger, which is a more reliable approach.
 
-      {/* Content area */}
-      <main className={`flex-1 ml-64 ${fullBleed ? "p-0" : "p-8"}`}>
-        {fullBleed ? (
-          // Full-bleed: render children directly (no inner card)
-          <>{children}</>
-        ) : (
-          // Default: keep existing card styling
-          <div className="bg-white p-6 rounded-lg shadow-sm">{children}</div>
-        )}
-      </main>
-    </div>
-  );
+  // 3) Render the client-side UI shell
+  return <DashboardShellClient>{children}</DashboardShellClient>;
 }

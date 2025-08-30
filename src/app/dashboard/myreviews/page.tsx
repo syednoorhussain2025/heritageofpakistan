@@ -8,7 +8,8 @@ import { hardDeleteReview } from "@/lib/db/hardDelete";
 
 /* ---------- types ---------- */
 
-type ReviewRow = {
+// This type now includes the joined profile fields from the view
+type ReviewWithProfile = {
   id: string;
   user_id: string;
   site_id: string;
@@ -17,6 +18,10 @@ type ReviewRow = {
   visited_year: number | null;
   visited_month: number | null;
   created_at: string;
+  // Joined fields from the profiles table:
+  full_name: string | null;
+  avatar_url: string | null;
+  badge: string | null;
 };
 
 type ReviewPhoto = {
@@ -34,14 +39,6 @@ type SiteRow = {
 type RegionRow = { id: string; name: string };
 type CategoryRow = { id: string; name: string };
 
-type ProfileRow = {
-  id: string;
-  full_name: string | null;
-  username: string | null;
-  avatar_url: string | null;
-  badge: string | null;
-};
-
 /* ---------- helpers ---------- */
 
 function getPublicUrl(bucket: string, path: string) {
@@ -50,17 +47,16 @@ function getPublicUrl(bucket: string, path: string) {
   return data.publicUrl;
 }
 
-async function listUserReviews(userId: string): Promise<ReviewRow[]> {
+// ✅ UPDATED: This function now queries the 'reviews_with_profiles' view
+async function listUserReviews(userId: string): Promise<ReviewWithProfile[]> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      "id, user_id, site_id, rating, review_text, visited_year, visited_month, created_at"
-    )
+    .from("reviews_with_profiles") // Query the view instead of the table
+    .select("*") // The view already includes all necessary fields
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as ReviewRow[];
+  return (data ?? []) as ReviewWithProfile[];
 }
 
 async function listReviewPhotos(reviewId: string): Promise<ReviewPhoto[]> {
@@ -82,17 +78,6 @@ async function fetchSitesByIds(ids: string[]): Promise<SiteRow[]> {
     .in("id", ids);
   if (error) throw error;
   return (data ?? []) as SiteRow[];
-}
-
-async function fetchMyProfile(userId: string): Promise<ProfileRow | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, username, avatar_url, badge")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as ProfileRow) || null;
 }
 
 async function countHelpfulFlexible(reviewId: string): Promise<number> {
@@ -187,7 +172,7 @@ async function fetchCategoriesByIds(ids: string[]): Promise<CategoryRow[]> {
 export default function MyReviewsPage() {
   const { userId, authLoading, authError } = useAuthUserId();
 
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -201,7 +186,9 @@ export default function MyReviewsPage() {
 
   const [regions, setRegions] = useState<RegionRow[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
+
+  // ✅ REMOVED: No longer need to fetch the profile separately
+  // const [profile, setProfile] = useState<ProfileRow | null>(null);
 
   const [query, setQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("");
@@ -220,12 +207,9 @@ export default function MyReviewsPage() {
         setLoading(true);
         setPageError(null);
 
-        const [rows, me] = await Promise.all([
-          listUserReviews(userId),
-          fetchMyProfile(userId),
-        ]);
+        // ✅ SIMPLIFIED: Only need to fetch the reviews, which now include profile data
+        const rows = await listUserReviews(userId);
         setReviews(rows);
-        setProfile(me);
 
         const siteIds = Array.from(new Set(rows.map((r) => r.site_id)));
 
@@ -260,7 +244,6 @@ export default function MyReviewsPage() {
     })();
   }, [authLoading, userId]);
 
-  // Keep hooks above early returns
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
       const site = siteMap[r.site_id];
@@ -425,7 +408,6 @@ export default function MyReviewsPage() {
               site={siteMap[r.site_id]}
               onDelete={() => handleDeletePermanently(r.id)}
               deleting={deleting === r.id}
-              profile={profile}
             />
           ))}
         </div>
@@ -466,13 +448,11 @@ function ReviewRowCard({
   site,
   onDelete,
   deleting,
-  profile,
 }: {
-  review: ReviewRow;
+  review: ReviewWithProfile; // ✅ Use the new combined type
   site?: SiteRow;
   onDelete: () => void;
   deleting: boolean;
-  profile: ProfileRow | null;
 }) {
   const [photos, setPhotos] = useState<
     { url: string; caption: string | null }[]
@@ -511,12 +491,10 @@ function ReviewRowCard({
         }`
       : "Date not specified";
 
-  const displayName = profile?.full_name || profile?.username || "Traveler";
-
-  const avatarSrc = profile?.avatar_url
-    ? /^https?:\/\//i.test(profile.avatar_url)
-      ? profile.avatar_url
-      : getPublicUrl("avatars", profile.avatar_url)
+  // ✅ SIMPLIFIED: Get profile info directly from the review object
+  const displayName = review.full_name || "Traveler";
+  const avatarSrc = review.avatar_url
+    ? getPublicUrl("avatars", review.avatar_url)
     : null;
 
   return (
@@ -537,9 +515,9 @@ function ReviewRowCard({
           </div>
           <div>
             <div className="font-semibold leading-5">{displayName}</div>
-            {profile?.badge && (
+            {review.badge && (
               <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs">
-                {profile.badge}
+                {review.badge}
               </div>
             )}
           </div>
