@@ -98,23 +98,24 @@ const ResizableImageComponent: React.FC<NodeViewProps> = (props) => {
   if (display === "inline") {
     wrapperStyle.display = "inline-block";
     if (align === "left") {
-      wrapperStyle.cssFloat = "left";
+      wrapperStyle.float = "left";
       wrapperStyle.margin = "0 8px 4px 0";
     } else if (align === "right") {
-      wrapperStyle.cssFloat = "right";
+      wrapperStyle.float = "right";
       wrapperStyle.margin = "0 0 4px 8px";
     } else if (align === "center") {
       wrapperStyle.display = "block";
-      (wrapperStyle as any).textAlign = "center";
-      wrapperStyle.cssFloat = "none";
+      wrapperStyle.textAlign = "center";
+      wrapperStyle.float = "none";
       wrapperStyle.margin = "6px 0";
     }
   } else {
     wrapperStyle.display = "block";
     wrapperStyle.clear = "both";
-    (wrapperStyle as any).textAlign = "left";
-    wrapperStyle.marginTop = (wrapperStyle.marginTop as number) ?? 0;
-    wrapperStyle.marginBottom = (wrapperStyle.marginBottom as number) ?? 8;
+    wrapperStyle.textAlign = "left";
+    // Keep margins predictable
+    if (wrapperStyle.marginTop == null) wrapperStyle.marginTop = 0;
+    if (wrapperStyle.marginBottom == null) wrapperStyle.marginBottom = 8;
   }
 
   return (
