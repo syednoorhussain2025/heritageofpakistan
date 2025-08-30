@@ -49,7 +49,6 @@ export async function uploadReviewPhotos(params: {
     const publicUrl = getPublicUrl(bucket, path, {
       width: 1200,
       quality: 70,
-      format: "webp",
     });
 
     results.push({
