@@ -1,11 +1,11 @@
-import imageCompression from "browser-image-compression";
+import imageCompression, { Options } from "browser-image-compression";
 import { TARGET_MAX_BYTES, AVATAR_MAX_DIM } from "./constants";
 
 /** Compress/crop avatars to square WebP <=300KB, max 1024x1024. */
 export async function compressAvatarToWebP(file: File): Promise<File> {
   // image-compression can't crop; we rely on square sources or client UI cropper later.
   // Here we just cap size & re-encode to WebP.
-  const options: imageCompression.Options = {
+  const options: Options = {
     maxSizeMB: TARGET_MAX_BYTES / (1024 * 1024),
     maxWidthOrHeight: AVATAR_MAX_DIM,
     initialQuality: 0.8,
