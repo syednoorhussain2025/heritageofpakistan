@@ -384,69 +384,77 @@ export default function PortfolioManager() {
                 className={`relative group rounded-xl overflow-hidden bg-gray-100 ring-1 ring-black/5 ${
                   isReorderMode ? "cursor-grab active:cursor-grabbing" : ""
                 }`}
-                draggable={isReorderMode}
-                onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                  if (!isReorderMode) return;
-                  setDragIndex(idx);
-                  const img = new window.Image();
-                  img.src =
-                    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
-                  e.dataTransfer.setDragImage(img, 0, 0);
-                }}
-                onDragEnter={(e) => {
-                  if (!isReorderMode) return;
-                  e.preventDefault();
-                  setPhotos((prev) => {
-                    if (dragIndex === null || dragIndex === idx) return prev;
-                    const a = prev.slice();
-                    const [m] = a.splice(dragIndex, 1);
-                    a.splice(idx, 0, m);
-                    setDragIndex(idx);
-                    return a;
-                  });
-                  setOrderDirty(true);
-                }}
-                onDragOver={(e) => {
-                  if (isReorderMode) e.preventDefault();
-                }}
-                onDrop={(e) => {
-                  if (!isReorderMode) return;
-                  e.preventDefault();
-                  setDragIndex(null);
-                }}
-                onDragEnd={() => setDragIndex(null)}
               >
-                {isReorderMode && (
-                  <div className="absolute left-2 top-2 z-10 rounded-md bg-white/90 text-gray-700 ring-1 ring-black/5 opacity-80 pointer-events-none">
-                    <DotsHandle />
-                  </div>
-                )}
+                {/* 👇 Native HTML5 drag props moved here to avoid Framer Motion type clash */}
                 <div
-                  className={`transition-opacity ${
-                    p.is_public ? "" : "opacity-40"
-                  }`}
+                  className="contents"
+                  draggable={isReorderMode}
+                  onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                    if (!isReorderMode) return;
+                    setDragIndex(idx);
+                    const img = new window.Image();
+                    img.src =
+                      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+                    e.dataTransfer.setDragImage(img, 0, 0);
+                  }}
+                  onDragEnter={(e) => {
+                    if (!isReorderMode) return;
+                    e.preventDefault();
+                    setPhotos((prev) => {
+                      if (dragIndex === null || dragIndex === idx) return prev;
+                      const a = prev.slice();
+                      const [m] = a.splice(dragIndex, 1);
+                      a.splice(idx, 0, m);
+                      setDragIndex(idx);
+                      return a;
+                    });
+                    setOrderDirty(true);
+                  }}
+                  onDragOver={(e) => {
+                    if (isReorderMode) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (!isReorderMode) return;
+                    e.preventDefault();
+                    setDragIndex(null);
+                  }}
+                  onDragEnd={() => setDragIndex(null)}
                 >
-                  <Image
-                    src={p.publicUrl}
-                    alt={p.caption ?? "photo"}
-                    width={400}
-                    height={300}
-                    className="object-cover w-full h-48"
-                    unoptimized
-                  />
-                </div>
-                <div className="p-2 bg-white">
-                  <button
-                    onClick={() => togglePublic(p)}
-                    className={`w-full text-xs rounded py-1 ${
-                      p.is_public
-                        ? "bg-gray-200 text-gray-700"
-                        : "bg-green-600 text-white"
+                  {isReorderMode && (
+                    <div className="absolute left-2 top-2 z-10 rounded-md bg-white/90 text-gray-700 ring-1 ring-black/5 opacity-80 pointer-events-none">
+                      <DotsHandle />
+                    </div>
+                  )}
+                  <div
+                    className={`transition-opacity ${
+                      p.is_public ? "" : "opacity-40"
                     }`}
                   >
-                    {p.is_public ? "Remove from Portfolio" : "Add to Portfolio"}
-                  </button>
+                    <Image
+                      src={p.publicUrl}
+                      alt={p.caption ?? "photo"}
+                      width={400}
+                      height={300}
+                      className="object-cover w-full h-48"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="p-2 bg-white">
+                    <button
+                      onClick={() => togglePublic(p)}
+                      className={`w-full text-xs rounded py-1 ${
+                        p.is_public
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-green-600 text-white"
+                      }`}
+                    >
+                      {p.is_public
+                        ? "Remove from Portfolio"
+                        : "Add to Portfolio"}
+                    </button>
+                  </div>
                 </div>
+                {/* ☝️ End native drag wrapper */}
               </motion.div>
             ))}
           </AnimatePresence>
