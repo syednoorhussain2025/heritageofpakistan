@@ -15,7 +15,7 @@ import { useAuthUserId } from "@/hooks/useAuthUserId";
 type Profile = {
   full_name: string | null;
   avatar_url: string | null;
-  // Add any other profile fields you want to access globally
+  badge: string | null; // ✅ ADDED: Include the badge field
 };
 
 // Create the context with a default value
@@ -30,24 +30,22 @@ const ProfileContext = createContext<{
 // Create the Provider component
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
-  const { userId } = useAuthUserId(); // Get the logged-in user's ID
+  const { userId } = useAuthUserId();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If there's no user, we're done loading and there's no profile
     if (!userId) {
       setLoading(false);
       setProfile(null);
       return;
     }
 
-    // Fetch the profile from the database
     async function fetchProfile() {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, avatar_url")
+        .select("full_name, avatar_url, badge") // ✅ ADDED: Fetch the badge from the database
         .eq("id", userId)
         .single();
 
