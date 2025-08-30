@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
+export const dynamic = "force-dynamic"; // ✅ This line fixes the build error
+
 export default function SignInPage() {
   const supabase = createClient();
   const router = useRouter();
