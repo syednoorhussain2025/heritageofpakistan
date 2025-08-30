@@ -343,7 +343,6 @@ export default function SiteGalleryPage() {
       {/* ✅ Add-to-Collection modal */}
       {chooseOpen && chooseImage && (
         <AddToCollectionModal
-          open={chooseOpen}
           onClose={() => setChooseOpen(false)}
           image={{
             siteImageId: chooseImage.id,
