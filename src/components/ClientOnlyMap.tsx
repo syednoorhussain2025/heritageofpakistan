@@ -242,7 +242,6 @@ function OSMLeafletView({
 
   const memoizedIcons = useMemo(() => {
     if (icons.size === 0 || !settings) return new Map();
-    // ✅ FIX: The 'icon' property can be null, so we update the map's type definition.
     const cache = new Map<string, { icon: L.DivIcon | null; size: number }>();
 
     const globalIconName = settings.pin_icon_name || "map-pin";
@@ -279,8 +278,14 @@ function OSMLeafletView({
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution={settings.tile_layer_attribution}
-          url={settings.tile_layer_url}
+          attribution={
+            settings.tile_layer_attribution ||
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }
+          url={
+            settings.tile_layer_url ||
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          }
         />
         <MarkerClusterGroup
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
