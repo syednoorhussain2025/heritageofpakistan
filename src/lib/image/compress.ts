@@ -1,4 +1,4 @@
-import imageCompression from "browser-image-compression";
+import imageCompression, { Options } from "browser-image-compression";
 import { TARGET_MAX_BYTES, TARGET_MAX_DIM } from "./constants";
 
 /**
@@ -7,9 +7,9 @@ import { TARGET_MAX_BYTES, TARGET_MAX_DIM } from "./constants";
  */
 export async function compressToWebP(
   file: File,
-  opts?: Partial<imageCompression.Options>
+  opts?: Partial<Options>
 ): Promise<File> {
-  const options: imageCompression.Options = {
+  const options: Options = {
     maxSizeMB: TARGET_MAX_BYTES / (1024 * 1024), // ~0.3MB
     maxWidthOrHeight: TARGET_MAX_DIM,
     initialQuality: 0.82,
