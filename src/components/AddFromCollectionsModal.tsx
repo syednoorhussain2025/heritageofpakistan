@@ -241,7 +241,7 @@ export default function AddFromCollectionsModal({
       if (coverCollectedIds.size) {
         const { data: coverImgs } = await supabase
           .from("collected_images")
-          .select("id,storage_path,image_url")
+          .select("*") // ✅ FIX: Fetch all fields to match the 'CollectedImage' type
           .in("id", Array.from(coverCollectedIds));
         const byId = new Map<string, CollectedImage>();
         (coverImgs ?? []).forEach((x) => byId.set(x.id, x));
