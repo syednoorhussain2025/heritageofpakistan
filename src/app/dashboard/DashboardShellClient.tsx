@@ -33,8 +33,8 @@ export default function DashboardShellClient({
       icon: "image",
     },
     {
-      href: "/dashboard/recommendations",
-      label: "Recommendations",
+      href: "/dashboard/account-details",
+      label: "Account Details",
       icon: "lightbulb",
     },
   ];
