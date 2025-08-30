@@ -197,14 +197,7 @@ function ExplorePageContent() {
                 No sites match your filters.
               </div>
             ) : (
-              results.sites.map((s) => (
-                // UPDATED: Passing the viewCount prop to the card
-                <SitePreviewCard
-                  key={s.id}
-                  site={s}
-                  viewCount={viewTotals[s.id]}
-                />
-              ))
+              results.sites.map((s) => <SitePreviewCard key={s.id} site={s} />)
             )}
           </div>
           {results.total > PAGE_SIZE && (
