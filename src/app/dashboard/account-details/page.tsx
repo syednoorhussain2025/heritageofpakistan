@@ -12,7 +12,7 @@ const formatDate = (dateString: string) => {
 };
 
 export default async function AccountDetailsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const {
     data: { user },
