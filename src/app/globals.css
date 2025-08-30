@@ -1,0 +1,269 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  background: #fafafa;
+}
+
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* --- BRAND COLORS --- */
+  --brand-orange: #f78300;
+  --brand-blue: #040951;
+  --brand-green: #00b78b;
+  --brand-grey: #ababab;
+  --brand-lightgrey: #d4d4d4;
+  --brand-matteblack: #111111;
+
+  /* --- HEADER FONTS --- */
+  /* ---Header Menu Links --- */
+  --font-headermenu: "FuturaCyrillicMedium", sans-serif;
+  --font-headermenu-font-size: 17px;
+  --font-headermenu-font-color: #8f8f8f;
+  /* ---Header Logo --- */
+  --font-headerlogo-shorthand: 700 24px "FuturaCyrillicMedium", sans-serif;
+  --font-headerlogo-font-color: #00b78b;
+
+  /* --- General Font Definitions --- */
+  --font-body: "Lato", sans-serif;
+  --font-heading: "FuturaCyrillicHeavy", sans-serif;
+  --font-headerhelvetica: "HelveticaNeueMedium", sans-serif;
+
+  /* Retaining your existing Geist fonts */
+  --font-geist-sans: var(--font-geist-sans);
+  --font-geist-mono: var(--font-geist-mono);
+
+  /* Other design tokens */
+  --color-text: #111827;
+  --color-background: #f4f4f4;
+
+  /* --- Component Font Definitions --- */
+
+  /* Hero Section */
+  --font-hero-title: 700 5rem var(--font-heading); /* 48px */
+  --color-hero-title: #ffffff;
+  --font-hero-tagline: 1.125rem/1.5 var(--font-body); /* 18px */
+  --color-hero-tagline: rgba(255, 255, 255, 0.95);
+  --font-hero-cover-details: 1rem var(--font-body); /* 14px */
+  --color-hero-cover-details: #ffffff;
+
+  /* Buttons */
+  --font-button-photostory: 500 1rem var(--font-headerhelvetica); /* 14px */
+  --color-button-photostory: var(--color-text);
+  --font-button-action: 500 0.875rem var(--font-headerhelvetica); /* 14px */
+  --color-button-action: var(--color-text);
+
+  /* Section Content */
+  --font-section-header: 600 2rem var(--font-heading); /* 18px */
+  --color-section-header: var(--brand-blue);
+
+  /* Sidebar */
+  --font-sidebar-key: 0.875rem "Lato-Bold"; /* 14px */
+  --color-sidebar-key: #4b5563; /* gray-600 */
+  --font-sidebar-value: 500 0.875rem "Lato-Regular"; /* 14px */
+  --color-sidebar-value: var(--color-text);
+  --font-sidebar-text: 0.875rem var(--font-body); /* 14px */
+  --color-sidebar-text: #374151; /* gray-700 */
+  --color-sidebar-muted-text: #4b5563; /* gray-600 */
+
+  /* Main Content Articles */
+  --font-article-text: 1rem/1.5 var(--font-body); /* 16px */
+  --color-article-text: var(--color-text);
+  --font-article-heading: 600 1.5rem var(--font-heading);
+  --color-article-heading: var(--color-text);
+
+  /* Captions */
+  --font-caption: 0.75rem var(--font-body); /* 12px */
+  --color-caption: #4b5563; /* gray-600 */
+
+  /* NEW: Font class for category/region chips */
+  --font-category-chip: 500 0.9rem var(--font-body);
+}
+
+@layer components {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .font-sidebar-menu {
+    font-family: var(--font-heading);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* NEW: Font class for the panel headings */
+  .font-panel-heading {
+    font-family: var(--font-heading);
+    font-size: 20px; /* Corresponds to text-xl */
+    font-weight: 700; /* Corresponds to font-bold */
+  }
+
+  .font-hero-title {
+    font: var(--font-hero-title);
+    color: var(--color-hero-title);
+  }
+  .font-hero-tagline {
+    font: var(--font-hero-tagline);
+    color: var(--color-hero-tagline);
+  }
+  .font-hero-cover-details {
+    font: var(--font-hero-cover-details);
+    color: var(--color-hero-cover-details);
+  }
+  .font-button-photostory {
+    font: var(--font-button-photostory);
+    color: var(--color-button-photostory);
+  }
+  .font-button-action {
+    font: var(--font-button-action);
+    color: var(--color-button-action);
+  }
+  .font-section-header {
+    font: var(--font-section-header);
+    color: var(--color-section-header);
+  }
+  .font-sidebar-key {
+    font: var(--font-sidebar-key);
+    color: var(--color-sidebar-key);
+  }
+  .font-sidebar-value {
+    font: var(--font-sidebar-value);
+    color: var(--color-sidebar-value);
+  }
+  .font-sidebar-text {
+    font: var(--font-sidebar-text);
+    color: var(--color-sidebar-text);
+  }
+  .font-sidebar-muted-text {
+    font: var(--font-sidebar-text);
+    color: var(--color-sidebar-muted-text);
+  }
+  .font-caption {
+    font: var(--font-caption);
+    color: var(--color-caption);
+  }
+  .font-category-chip {
+    font: var(--font-category-chip);
+    color: var(--brand-blue);
+  }
+  .prose {
+    font: var(--font-article-text) !important;
+    color: var(--color-article-text);
+    display: flow-root;
+  }
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    font: var(--font-article-heading) !important;
+    color: var(--color-article-heading);
+  }
+  .prose figcaption {
+    font: var(--font-caption) !important;
+    color: var(--color-caption);
+  }
+  .prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+  }
+  .prose figure {
+    max-width: 100%;
+  }
+  .prose figure[style*="float"] {
+    width: auto;
+    max-width: 50%;
+  }
+  .prose figure > img {
+    width: 100%;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: var(--color-background);
+}
+
+pre,
+code {
+  font-family: var(--font-geist-mono);
+}
+
+/* --- Leaflet Map Customizations --- */
+.leaflet-popup-content-wrapper {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 12px;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-tip-container {
+  display: none;
+}
+.custom-map-icon {
+  background: none;
+  border: none;
+}
+.leaflet-marker-pane .leaflet-marker-icon {
+  z-index: 500;
+}
+.leaflet-marker-pane .leaflet-marker-icon:hover {
+  z-index: 1000 !important;
+}
+.marker-hover-target {
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: center;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.leaflet-marker-icon:hover .marker-hover-target {
+  transform: scale(1.2);
+}
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(247, 131, 0, 0.2) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--brand-orange) !important;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
