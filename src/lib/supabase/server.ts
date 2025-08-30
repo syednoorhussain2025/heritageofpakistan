@@ -1,11 +1,11 @@
 // What this does: server-side Supabase with cookie passthrough for SSR/middleware.
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, ReadonlyRequestCookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function createClient() {
-  const cookieStore = cookies();
+  const cookieStore = cookies() as ReadonlyRequestCookies;
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
