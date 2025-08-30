@@ -10,14 +10,21 @@ import { createClient } from "@/lib/supabaseClient";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";
-import { avatarSrc } from "@/lib/image/avatarSrc";
-// Import the type your map wants
+import { useProfile } from "@/components/ProfileProvider"; // ✅ Import the global profile hook
 import type { UserSite } from "@/components/UserVisitedMap";
 
 // Dynamically import the map (no SSR)
 const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
 });
+
+function avatarSrc(avatar_url?: string | null) {
+  if (!avatar_url) return null;
+  if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
+  const supabase = createClient();
+  const { data } = supabase.storage.from("avatars").getPublicUrl(avatar_url);
+  return data.publicUrl;
+}
 
 type SiteRow = {
   id: string;
@@ -28,17 +35,7 @@ type SiteRow = {
   longitude: number | null;
   location_free?: string | null;
   heritage_type?: string | null;
-
-  // Supabase returns an array of join-rows where each row has `categories`.
-  // In practice we've observed `categories` come back as an ARRAY with a single item.
-  // We'll normalize it below to the single-object-or-null shape the map expects.
   site_categories: { categories: { icon_key: string | null }[] }[];
-};
-
-type ProfileRow = {
-  full_name: string | null;
-  badge: string | null;
-  avatar_url: string | null;
 };
 
 type ReviewWithSite = ReviewRow & { site?: SiteRow };
@@ -61,7 +58,8 @@ const monthNames = [
 
 export default function PlacesVisitedPage() {
   const supabase = createClient();
-  const { userId, authLoading, authError } = useAuthUserId();
+  const { userId, authLoading } = useAuthUserId();
+  const { profile, loading: profileLoading } = useProfile(); // ✅ Get profile from context
 
   const [visitedCount, setVisitedCount] = useState(0);
   const [progress, setProgress] = useState({
@@ -70,7 +68,6 @@ export default function PlacesVisitedPage() {
     remaining: 0,
   });
   const [reviews, setReviews] = useState<ReviewWithSite[]>([]);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -87,20 +84,14 @@ export default function PlacesVisitedPage() {
         setLoading(true);
         setPageError(null);
 
-        // Fetch in parallel
-        const [count, userReviews, profileData] = await Promise.all([
+        // ✅ SIMPLIFIED: Fetch count and reviews. Profile data comes from the hook.
+        const [count, userReviews] = await Promise.all([
           countUserVisits(userId),
           listUserReviews(userId),
-          supabase
-            .from("profiles")
-            .select("full_name, badge, avatar_url")
-            .eq("id", userId)
-            .single(),
         ]);
 
         setVisitedCount(count);
         setProgress(progressToNextBadge(count));
-        setProfile(profileData.data);
 
         const siteIds = Array.from(new Set(userReviews.map((r) => r.site_id)));
 
@@ -130,7 +121,6 @@ export default function PlacesVisitedPage() {
     })();
   }, [authLoading, userId, supabase]);
 
-  // Normalize each review's site to the exact shape UserVisitedMap expects (UserSite)
   const sitesForMap: UserSite[] = reviews
     .map((r) => {
       const s = r.site;
@@ -138,7 +128,6 @@ export default function PlacesVisitedPage() {
 
       const normalizedCategories =
         s.site_categories?.map((sc) => ({
-          // Map array -> single object or null (first item if present)
           categories:
             Array.isArray(sc.categories) && sc.categories.length > 0
               ? sc.categories[0]
@@ -164,8 +153,8 @@ export default function PlacesVisitedPage() {
     })
     .filter((x): x is UserSite => x !== null);
 
-  if (authLoading || loading) return <p>Loading places visited...</p>;
-  if (authError) return <p className="text-red-600">Auth error: {authError}</p>;
+  if (authLoading || loading || profileLoading)
+    return <p>Loading places visited...</p>;
   if (!userId) return <p>Please sign in to view this page.</p>;
   if (pageError) return <p className="text-red-600">Error: {pageError}</p>;
 
@@ -174,6 +163,7 @@ export default function PlacesVisitedPage() {
       <UserVisitedMap
         locations={sitesForMap}
         onClose={() => setShowMap(false)}
+        // ✅ Pass the globally fetched profile to the map component
         profile={profile}
         visitedCount={visitedCount}
       />
