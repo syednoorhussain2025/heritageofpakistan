@@ -21,7 +21,8 @@ function resolveAvatarSrc(avatar_url?: string | null) {
   return storagePublicUrl("avatars", avatar_url);
 }
 
-type Review = {
+// ✅ UPDATED: A single type that includes both review and profile data from the view
+type ReviewWithProfile = {
   id: string;
   site_id: string;
   user_id: string;
@@ -30,10 +31,7 @@ type Review = {
   visited_month: number | null;
   visited_year: number | null;
   created_at: string;
-};
-
-type Profile = {
-  id: string;
+  // Joined fields from the 'profiles' table
   full_name: string | null;
   username: string | null;
   avatar_url: string | null;
@@ -56,8 +54,9 @@ export default function ReviewsTab({ siteId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  // ✅ SIMPLIFIED: Only need one state for reviews, as profile data is included
+  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
+
   const [photosByReview, setPhotosByReview] = useState<
     Record<string, ReviewPhoto[]>
   >({});
@@ -71,66 +70,58 @@ export default function ReviewsTab({ siteId }: Props) {
         setLoading(true);
         setError(null);
 
-        // 1) Reviews for this site (no soft-delete column)
+        // ✅ UPDATED: Fetch reviews and profiles in a single query from the view
         const { data: revs, error: rErr } = await supabase
-          .from("reviews")
-          .select(
-            "id, site_id, user_id, rating, review_text, visited_month, visited_year, created_at"
-          )
+          .from("reviews_with_profiles") // Use the view
+          .select("*") // It contains all review and profile columns
           .eq("site_id", siteId)
           .order("created_at", { ascending: false });
         if (rErr) throw rErr;
 
-        const reviewRows = (revs ?? []) as Review[];
+        const reviewRows = (revs ?? []) as ReviewWithProfile[];
         setReviews(reviewRows);
 
         const reviewIds = reviewRows.map((r) => r.id);
-        const userIds = Array.from(new Set(reviewRows.map((r) => r.user_id)));
 
-        // 2) Profiles
-        let profMap: Record<string, Profile> = {};
-        if (userIds.length) {
-          const { data: profRows, error: pErr } = await supabase
-            .from("profiles")
-            .select("id, full_name, username, avatar_url, badge")
-            .in("id", userIds);
-          if (pErr) throw pErr;
-          (profRows ?? []).forEach((p: any) => (profMap[p.id] = p));
-        }
-        setProfiles(profMap);
+        // Fetch photos and helpful counts in parallel
+        const [photoMap, { counts, voted }] = await Promise.all([
+          // Fetch photos
+          (async () => {
+            if (!reviewIds.length) return {};
+            const { data: phRows, error: phErr } = await supabase
+              .from("review_photos")
+              .select("id, review_id, storage_path, caption")
+              .in("review_id", reviewIds);
+            if (phErr) throw phErr;
+            const pMap: Record<string, ReviewPhoto[]> = {};
+            (phRows ?? []).forEach((p: any) => {
+              if (!pMap[p.review_id]) pMap[p.review_id] = [];
+              pMap[p.review_id].push(p);
+            });
+            return pMap;
+          })(),
+          // Fetch helpful counts and user's vote state
+          (async () => {
+            if (!reviewIds.length)
+              return { counts: {}, voted: new Set<string>() };
+            const { data: hvRows, error: hErr } = await supabase
+              .from("helpful_votes")
+              .select("review_id, voter_id")
+              .in("review_id", reviewIds);
+            if (hErr) throw hErr;
 
-        // 3) Photos for these reviews
-        let photoMap: Record<string, ReviewPhoto[]> = {};
-        if (reviewIds.length) {
-          const { data: phRows, error: phErr } = await supabase
-            .from("review_photos")
-            .select("id, review_id, storage_path, caption")
-            .in("review_id", reviewIds);
-          if (phErr) throw phErr;
+            const voteCounts: Record<string, number> = {};
+            const userVotes = new Set<string>();
+            (hvRows ?? []).forEach((row: any) => {
+              voteCounts[row.review_id] = (voteCounts[row.review_id] || 0) + 1;
+              if (row.voter_id && row.voter_id === userId)
+                userVotes.add(row.review_id);
+            });
+            return { counts: voteCounts, voted: userVotes };
+          })(),
+        ]);
 
-          (phRows ?? []).forEach((p: any) => {
-            if (!photoMap[p.review_id]) photoMap[p.review_id] = [];
-            photoMap[p.review_id].push(p);
-          });
-        }
         setPhotosByReview(photoMap);
-
-        // 4) Helpful counts + current user's vote state
-        let counts: Record<string, number> = {};
-        let voted = new Set<string>();
-        if (reviewIds.length) {
-          const { data: hvRows, error: hErr } = await supabase
-            .from("helpful_votes")
-            .select("review_id, voter_id")
-            .in("review_id", reviewIds);
-          if (hErr) throw hErr;
-
-          (hvRows ?? []).forEach((row: any) => {
-            counts[row.review_id] = (counts[row.review_id] || 0) + 1;
-            if (row.voter_id && row.voter_id === userId)
-              voted.add(row.review_id);
-          });
-        }
         setHelpfulCount(counts);
         setUserVoted(voted);
       } catch (e: any) {
@@ -173,7 +164,6 @@ export default function ReviewsTab({ siteId }: Props) {
           .eq("voter_id", userId);
         if (error) throw error;
       } else {
-        // upsert avoids duplicate constraint errors if a vote already exists
         const { error } = await supabase
           .from("helpful_votes")
           .upsert(
@@ -183,7 +173,7 @@ export default function ReviewsTab({ siteId }: Props) {
         if (error) throw error;
       }
     } catch (e: any) {
-      // revert on failure and show actual error
+      // revert on failure
       setUserVoted((prev) => {
         const cp = new Set(prev);
         if (hasVoted) cp.add(reviewId);
@@ -194,13 +184,7 @@ export default function ReviewsTab({ siteId }: Props) {
         ...prev,
         [reviewId]: Math.max(0, (prev[reviewId] || 0) + (hasVoted ? +1 : -1)),
       }));
-
-      const msg =
-        e?.message ||
-        e?.details ||
-        e?.hint ||
-        "Could not update vote. Please try again.";
-      alert(msg);
+      alert(e?.message || "Could not update vote. Please try again.");
       console.error("Helpful vote error:", e);
     } finally {
       setPendingVote((s) => {
@@ -221,8 +205,8 @@ export default function ReviewsTab({ siteId }: Props) {
   return (
     <div className="space-y-4">
       {rows.map((r) => {
-        const profile = profiles[r.user_id];
-        const avatar = resolveAvatarSrc(profile?.avatar_url);
+        // ✅ SIMPLIFIED: Profile data is now part of the review 'r' object
+        const avatar = resolveAvatarSrc(r.avatar_url);
         const voteCount = helpfulCount[r.id] || 0;
         const voted = userVoted.has(r.id);
 
@@ -234,7 +218,6 @@ export default function ReviewsTab({ siteId }: Props) {
             {/* Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                {/* Truly circular avatar: square wrapper + overflow-hidden + fill */}
                 <div className="relative w-14 h-14 rounded-full overflow-hidden bg-gray-200">
                   {avatar ? (
                     <NextImage
@@ -250,12 +233,10 @@ export default function ReviewsTab({ siteId }: Props) {
 
                 <div>
                   <div className="font-medium text-gray-900">
-                    {profile?.full_name || profile?.username || "Traveler"}
+                    {r.full_name || r.username || "Traveler"}
                   </div>
-                  {profile?.badge && (
-                    <div className="text-sm text-green-700">
-                      {profile.badge}
-                    </div>
+                  {r.badge && (
+                    <div className="text-sm text-green-700">{r.badge}</div>
                   )}
                 </div>
               </div>
@@ -315,14 +296,16 @@ export default function ReviewsTab({ siteId }: Props) {
                 onClick={() => toggleHelpful(r.id)}
                 disabled={pendingVote.has(r.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm transition
-                  ${
-                    voted
-                      ? "bg-amber-50 border-amber-300 text-amber-700"
-                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  } 
-                  ${
-                    pendingVote.has(r.id) ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
+                   ${
+                     voted
+                       ? "bg-amber-50 border-amber-300 text-amber-700"
+                       : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                   } 
+                   ${
+                     pendingVote.has(r.id)
+                       ? "opacity-60 cursor-not-allowed"
+                       : ""
+                   }`}
                 aria-pressed={voted}
               >
                 <span>👍</span>

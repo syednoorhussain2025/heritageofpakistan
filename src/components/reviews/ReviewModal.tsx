@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabaseClient";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useProfile } from "@/components/ProfileProvider"; // ✅ Import the global profile hook
 
 /* ---------- constants ---------- */
 
-// Align accepted types with DB check constraint (jpeg, png, webp, heic, heif)
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -20,7 +20,7 @@ const MAX_FILE_MB = 3;
 const TARGET_KB = 300;
 const MAX_WIDTH = 1600;
 
-/* ---------- storage + avatar helpers (same as ReviewsTab) ---------- */
+/* ---------- storage + avatar helpers ---------- */
 
 function storagePublicUrl(bucket: string, path?: string | null) {
   if (!path) return null;
@@ -29,14 +29,13 @@ function storagePublicUrl(bucket: string, path?: string | null) {
   return data.publicUrl;
 }
 
-/** Absolute URL stays; otherwise treat as path under `avatars` bucket */
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
   return storagePublicUrl("avatars", avatar_url);
 }
 
-/* ---------- image compression (returns blob + dimensions) ---------- */
+/* ---------- image compression ---------- */
 
 async function compressToWebpWithDims(
   file: File,
@@ -112,8 +111,8 @@ type LocalPhoto = {
 export default function ReviewModal({ open, onClose, siteId }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
+  const { profile } = useProfile(); // ✅ Get profile data from the global context
 
-  // animation state (slow & smooth)
   const [visible, setVisible] = useState(open);
   useEffect(() => {
     if (open) setVisible(true);
@@ -123,7 +122,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     }
   }, [open]);
 
-  // close on ESC
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -137,11 +135,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
       onClose();
   };
 
-  // site + user display
   const [siteTitle, setSiteTitle] = useState<string>("");
-  const [displayName, setDisplayName] = useState<string>("Traveler");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [badge, setBadge] = useState<string>("Beginner");
   const [userReviewTotal, setUserReviewTotal] = useState<number>(0);
 
   useEffect(() => {
@@ -157,37 +151,25 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
 
   useEffect(() => {
     if (!userId) return;
+    // This useEffect now only fetches the review count
     (async () => {
-      // Match ReviewsTab fields & logic
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, username, avatar_url, badge")
-        .eq("id", userId)
-        .maybeSingle();
-
-      const name = prof?.full_name || prof?.username || "Traveler";
-      setDisplayName(name);
-
-      const resolved = resolveAvatarSrc(prof?.avatar_url || null);
-      setAvatarUrl(resolved || null);
-
-      // Count user's total *active* reviews
-      const { count: totalReviews } = await supabase
+      const { count } = await supabase
         .from("reviews")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .neq("status", "deleted"); // <-- This ensures consistency
-      setUserReviewTotal(totalReviews ?? 0);
-
-      // The badge is now read directly from the profile.
-      setBadge(prof?.badge || "Beginner");
+        .neq("status", "deleted");
+      setUserReviewTotal(count ?? 0);
     })();
   }, [userId, supabase]);
+
+  // ✅ SIMPLIFIED: Get all profile info from the hook
+  const displayName = profile?.full_name || "Traveler";
+  const avatarUrl = resolveAvatarSrc(profile?.avatar_url);
+  const badge = profile?.badge || "Beginner";
 
   // form state
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
-  const ratingDisplay = hoverRating || rating;
   const [visitedYear, setVisitedYear] = useState<number | "">("");
   const [visitedMonth, setVisitedMonth] = useState<number | "">("");
   const [text, setText] = useState("");
@@ -201,22 +183,23 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     for (let y = now; y >= 1970; y--) arr.push(y);
     return arr;
   }, []);
-  const months = [
-    { v: 1, n: "Jan" },
-    { v: 2, n: "Feb" },
-    { v: 3, n: "Mar" },
-    { v: 4, n: "Apr" },
-    { v: 5, n: "May" },
-    { v: 6, n: "Jun" },
-    { v: 7, n: "Jul" },
-    { v: 8, n: "Aug" },
-    { v: 9, n: "Sep" },
-    { v: 10, n: "Oct" },
-    { v: 11, n: "Nov" },
-    { v: 12, n: "Dec" },
-  ];
-
-  /* ---------- file handling ---------- */
+  const months = useMemo(
+    () => [
+      { v: 1, n: "Jan" },
+      { v: 2, n: "Feb" },
+      { v: 3, n: "Mar" },
+      { v: 4, n: "Apr" },
+      { v: 5, n: "May" },
+      { v: 6, n: "Jun" },
+      { v: 7, n: "Jul" },
+      { v: 8, n: "Aug" },
+      { v: 9, n: "Sep" },
+      { v: 10, n: "Oct" },
+      { v: 11, n: "Nov" },
+      { v: 12, n: "Dec" },
+    ],
+    []
+  );
 
   function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -262,8 +245,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     });
   }
 
-  /* ---------- submit ---------- */
-
   async function onSubmit() {
     if (!userId) {
       alert("Please sign in to write a review.");
@@ -282,7 +263,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
       setBusy(true);
       setError(null);
 
-      // prevent duplicate review (pre-check)
       const { data: existing } = await supabase
         .from("reviews")
         .select("id")
@@ -292,10 +272,10 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         .maybeSingle();
       if (existing?.id) {
         alert("You have already submitted a review.");
+        setBusy(false);
         return;
       }
 
-      // insert review
       const { data: review, error: rErr } = await supabase
         .from("reviews")
         .insert({
@@ -309,43 +289,27 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         .select("id")
         .single();
 
-      if (rErr) {
-        const msg = (rErr.message || "") + " " + (rErr.details || "");
-        if (rErr.code === "23505" || /duplicate key/i.test(msg)) {
-          alert("You have already submitted a review.");
-          return;
-        }
-        throw rErr;
-      }
+      if (rErr) throw rErr;
 
-      // upload photos with sequential ordinals and full metadata
       let anyPhotos = false;
-
       for (let i = 0; i < photos.length; i++) {
         const p = photos[i];
-
-        // compress (get blob + dimensions)
         const { blob, width, height } = await compressToWebpWithDims(p.file);
         const ext = "webp";
-        // unified storage path convention
         const storagePath = `${userId}/reviews/${review.id}/${Date.now()}_${
           i + 1
         }.${ext}`;
 
-        // upload
         const { error: upErr } = await supabase.storage
           .from("user-photos")
           .upload(storagePath, blob, {
-            cacheControl: "3600",
-            upsert: false,
             contentType: "image/webp",
           });
         if (upErr) throw upErr;
 
-        // link row (matches your schema; no original_name)
         const { error: linkErr } = await supabase.from("review_photos").insert({
           review_id: review.id,
-          user_id: userId, // OK even if trigger sets it
+          user_id: userId,
           storage_path: storagePath,
           caption: p.caption || null,
           ordinal: i + 1,
@@ -354,27 +318,13 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
           width,
           height,
         });
-
         if (linkErr) {
           console.error("Link insert error:", linkErr);
-          alert(
-            `Link insert error: ${JSON.stringify(
-              {
-                code: linkErr.code,
-                message: linkErr.message,
-                details: linkErr.details,
-              },
-              null,
-              2
-            )}`
-          );
-          continue; // proceed with remaining photos
+          continue;
         }
-
         anyPhotos = true;
       }
 
-      // success message
       alert(
         `Review submitted!${
           anyPhotos ? "\n\nPhotos added to your Portfolio." : ""
@@ -389,8 +339,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     }
   }
 
-  /* ---------- render ---------- */
-
   if (!visible) return null;
 
   return (
@@ -400,10 +348,8 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
       } transition-opacity duration-300`}
       onMouseDown={onBackdropClick}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-      {/* Modal card */}
       <div className="absolute inset-0 flex items-center justify-center px-3 py-6">
         <div
           ref={cardRef}
@@ -412,7 +358,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
             open ? "scale-100 opacity-100" : "scale-95 opacity-0"
           } transition-all duration-300`}
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-5 border-b">
             <div className="flex items-center gap-2">
               <Icon name="star" className="text-amber-500" />
@@ -422,19 +367,15 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-100 transition"
-              aria-label="Close"
+              className="p-2 rounded-full hover:bg-gray-100"
             >
               <Icon name="times" />
             </button>
           </div>
 
-          {/* Body */}
           <div className="p-5 space-y-6 max-h-[75vh] overflow-y-auto">
-            {/* Rating + user block row */}
             <section>
               <div className="flex items-start justify-between gap-6">
-                {/* left: rating */}
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Rate your Experience
@@ -467,7 +408,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                   </div>
                 </div>
 
-                {/* right: avatar + name + badge + totals */}
                 <div className="flex items-center gap-3 mr-24">
                   <div className="h-20 w-20 rounded-full overflow-hidden ring-2 ring-amber-400/70 bg-gray-100 flex-shrink-0">
                     {avatarUrl ? (
@@ -495,7 +435,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
               </div>
             </section>
 
-            {/* When visited */}
             <section>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 When did you visit this place?
@@ -534,7 +473,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
               </div>
             </section>
 
-            {/* Text */}
             <section>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Share your Experience. Do include any Guidelines, Road
@@ -549,7 +487,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
               />
             </section>
 
-            {/* Upload */}
             <section>
               <div className="flex items-center gap-2 mb-2">
                 <Icon name="camera" />
@@ -557,7 +494,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                   Upload High Quality Photo of the Site (Max 3)
                 </label>
               </div>
-
               <div className="flex items-center gap-3">
                 <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white cursor-pointer hover:opacity-90">
                   <Icon name="upload" />
@@ -575,7 +511,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                   be used in your Photography portfolio.
                 </span>
               </div>
-
               {!!photos.length && (
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {photos.map((p, i) => (
@@ -614,12 +549,11 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
 
-          {/* Footer */}
           <div className="p-5 border-t flex items-center justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
               disabled={busy}
+              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
             >
               Cancel
             </button>

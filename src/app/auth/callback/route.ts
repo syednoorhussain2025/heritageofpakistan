@@ -13,46 +13,20 @@ export async function GET(req: Request) {
     );
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
-  // 1) Exchange the code for a session cookie
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-    code
-  );
-  if (exchangeError) {
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    console.error("Error exchanging code for session:", error.message);
     return NextResponse.redirect(
-      new URL(
-        `/auth/sign-in?error=${encodeURIComponent(exchangeError.message)}`,
-        origin
-      )
+      new URL(`/auth/sign-in?error=auth_error`, origin)
     );
   }
 
-  // 2) Ensure a profiles row exists (minimal, schema-safe)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) {
-    const { data: existing, error: readErr } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!existing && !readErr) {
-      const insertRow = {
-        id: user.id,
-        email: user.email ?? null,
-        full_name: (user.user_metadata as any)?.full_name ?? null,
-        avatar_url: (user.user_metadata as any)?.avatar_url ?? null,
-      };
-      await supabase
-        .from("profiles")
-        .insert(insertRow)
-        .single()
-        .catch(() => {});
-    }
-  }
+  // NOTE: The logic to manually create a profile has been removed.
+  // The `on_auth_user_created` database trigger you created earlier
+  // now handles this automatically and more reliably.
 
   return NextResponse.redirect(new URL(next, origin));
 }
