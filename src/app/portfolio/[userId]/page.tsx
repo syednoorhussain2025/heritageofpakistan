@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabaseClient";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 import { avatarSrc } from "@/lib/image/avatarSrc";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Icon from "@/components/Icon";
+
+type PortfolioLayout = "grid" | "masonry";
 
 type UserProfile = {
   id: string;
@@ -17,6 +19,7 @@ type UserProfile = {
   badge: string | null;
   username: string | null;
   portfolio_theme?: "light" | "dark";
+  portfolio_layout?: PortfolioLayout | null;
 };
 
 type Photo = {
@@ -24,18 +27,18 @@ type Photo = {
   url: string;
   caption: string | null;
   order_index: number;
+  width?: number | null;
+  height?: number | null;
 };
 
-// Header component for the portfolio page
 function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
   const isDark = profile?.portfolio_theme === "dark";
   const themeClasses = isDark
     ? "bg-black/80 text-white backdrop-blur-sm"
     : "bg-white/80 text-black backdrop-blur-sm";
-
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-20 h-14 flex items-center justify-between px-6 md:px-10 ${themeClasses} transition-colors duration-300`}
+      className={`fixed top-0 left-0 right-0 z-20 h-16 flex items-center justify-between px-6 md:px-10 shadow-md ${themeClasses}`}
     >
       <div className="font-bold text-lg">Heritage of Pakistan</div>
       {profile?.full_name && (
@@ -44,12 +47,12 @@ function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
             <Image
               src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
               alt="User avatar"
-              layout="fill"
-              objectFit="cover"
+              fill
+              className="object-cover"
             />
           </div>
           <div className="text-sm md:text-base font-semibold">
-            {profile.full_name}'s Photography Portfolio
+            {profile.full_name}&apos;s Photography Portfolio
           </div>
         </div>
       )}
@@ -57,127 +60,173 @@ function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
   );
 }
 
-// Lightbox component adapted from the gallery page
 function Lightbox({
   photos,
   index,
   onClose,
-  onPrev,
-  onNext,
-  profile,
+  setIndex,
+  isDark,
 }: {
   photos: Photo[];
   index: number;
   onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  profile: UserProfile | null;
+  setIndex: (n: number) => void;
+  isDark: boolean;
 }) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const [show, setShow] = useState(false);
   const photo = photos[index];
 
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 10);
-    return () => clearTimeout(t);
-  }, []);
-
-  const requestClose = useCallback(() => {
-    setShow(false);
-    setTimeout(() => onClose(), 350);
-  }, [onClose]);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") requestClose();
-      else if (e.key === "ArrowLeft") onPrev();
-      else if (e.key === "ArrowRight") onNext();
-    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setIndex((index + 1) % photos.length);
+      if (e.key === "ArrowLeft")
+        setIndex((index - 1 + photos.length) % photos.length);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [requestClose, onPrev, onNext]);
+  }, [index, photos.length, onClose, setIndex]);
 
   return (
-    <div
-      ref={overlayRef}
-      onMouseDown={(e) => {
-        if (e.target === overlayRef.current) requestClose();
-      }}
-      className={`fixed inset-0 z-[1000] flex items-center justify-center transition-opacity duration-300 ${
-        show ? "opacity-100" : "opacity-0"
-      } bg-black/85 backdrop-blur-sm`}
-      aria-modal="true"
-      role="dialog"
-    >
-      <div
-        className={`relative w-[92vw] h-[88vh] max-w-6xl mx-auto transition-transform duration-300 ${
-          show ? "scale-100 translate-y-0" : "scale-95 translate-y-1"
-        }`}
+    <AnimatePresence>
+      <motion.div
+        className={`fixed inset-0 z-[100] ${
+          isDark ? "bg-black/90" : "bg-black/85"
+        } flex items-center justify-center`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
       >
-        {/* Close */}
         <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={requestClose}
-          className="absolute -top-10 right-0 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white"
+          onClick={onClose}
           aria-label="Close"
-          title="Close"
         >
-          ✕
+          <Icon name="xmark" />
         </button>
-
-        {/* Prev / Next */}
         <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onPrev}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white/60 hover:text-white text-5xl font-thin transition-colors"
+          className="absolute left-2 md:left-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => setIndex((index - 1 + photos.length) % photos.length)}
           aria-label="Previous"
-          title="Previous"
         >
-          ‹
+          <Icon name="chevron-left" />
         </button>
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white/60 hover:text-white text-5xl font-thin transition-colors"
-          aria-label="Next"
-          title="Next"
-        >
-          ›
-        </button>
-
-        {/* Image */}
-        <div className="w-full h-full flex items-center justify-center">
-          {photo?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photo.url}
-              alt={photo.caption || ""}
-              className="max-w-[92vw] max-h-[85vh] object-contain shadow-2xl rounded-lg"
-              onMouseDown={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-200" />
+        <div className="max-w-[95vw] max-h-[85vh]">
+          <Image
+            src={photo.url}
+            alt={photo.caption ?? "photo"}
+            width={1600}
+            height={1200}
+            quality={90}
+            className="object-contain w-auto h-auto max-w-[95vw] max-h-[75vh] rounded-lg shadow-2xl"
+          />
+          {photo.caption && (
+            <p className="text-center mt-3 text-sm text-gray-200">
+              {photo.caption}
+            </p>
           )}
         </div>
+        <button
+          className="absolute right-2 md:right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => setIndex((index + 1) % photos.length)}
+          aria-label="Next"
+        >
+          <Icon name="chevron-right" />
+        </button>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
-        {/* Counter */}
-        <div className="absolute top-4 left-4 z-10 text-sm text-white/95 bg-black/50 px-2 py-1 rounded-md">
-          {index + 1} / {photos.length}
+/* ---------- Row-major masonry with canonical tile sizes + faster, sharper hover ---------- */
+
+const ROW_PX = 8; // auto-rows size
+const GAP_PX = 16; // gap-4
+const CAPTION_PX = 22; // fixed caption block (single line)
+
+const RATIO_PORTRAIT = 2 / 3; // 0.666…
+const RATIO_LANDSCAPE = 4 / 3; // 1.333…
+
+function isPortrait(p: Photo) {
+  if (p.width && p.height) return p.height >= p.width;
+  return false; // treat square as landscape
+}
+
+function CanonicalTile({
+  p,
+  i,
+  isDark,
+  onOpen,
+}: {
+  p: Photo;
+  i: number;
+  isDark: boolean;
+  onOpen: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [span, setSpan] = useState(1);
+
+  const targetRatio = isPortrait(p) ? RATIO_PORTRAIT : RATIO_LANDSCAPE; // width / height
+
+  const recompute = useCallback(() => {
+    if (!containerRef.current) return;
+    const w = containerRef.current.clientWidth;
+    if (w <= 0) return;
+    const imgHeight = w / targetRatio;
+    const total = imgHeight + (p.caption ? CAPTION_PX : 0);
+    const s = Math.ceil((total + GAP_PX) / (ROW_PX + GAP_PX));
+    if (s !== span) setSpan(s);
+  }, [p.caption, span, targetRatio]);
+
+  useEffect(() => {
+    const id = setTimeout(recompute, 0);
+    const ro = new ResizeObserver(() => recompute());
+    if (containerRef.current) ro.observe(containerRef.current);
+    const onResize = () => recompute();
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearTimeout(id);
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [recompute]);
+
+  return (
+    <motion.figure
+      className="rounded-lg overflow-hidden bg-white/5 cursor-zoom-in"
+      style={{ gridRowEnd: `span ${span}` }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      onClick={onOpen}
+    >
+      <div ref={containerRef}>
+        <div
+          className="relative w-full overflow-hidden group rounded-lg"
+          style={{ aspectRatio: `${targetRatio}` }}
+        >
+          <Image
+            src={p.url}
+            alt={p.caption ?? "portfolio photo"}
+            fill
+            quality={85}
+            sizes="(min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:768px) 33vw, (min-width:640px) 50vw, 100vw"
+            className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
+          />
         </div>
 
-        {/* Caption and Credit below image */}
-        <div className="absolute left-0 right-0 -bottom-0 translate-y-full mt-3 text-center">
-          <div className="inline-block bg-black/70 px-4 py-2 rounded-lg text-white/95 space-y-1">
-            {photo?.caption && <p className="text-sm">{photo.caption}</p>}
-            {profile?.full_name && (
-              <p className="text-xs text-white/70">
-                Shot by {profile.full_name}
-              </p>
-            )}
-          </div>
-        </div>
+        {p.caption && (
+          <figcaption
+            className={`text-sm px-1 py-1 leading-5 ${
+              isDark ? "text-gray-400" : "text-gray-700"
+            } line-clamp-1`}
+            style={{ height: CAPTION_PX }}
+          >
+            {p.caption}
+          </figcaption>
+        )}
       </div>
-    </div>
+    </motion.figure>
   );
 }
 
@@ -190,25 +239,7 @@ export default function PublicPortfolioPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
-
-  // Lightbox state
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const openLightbox = useCallback((idx: number) => {
-    setActiveIndex(idx);
-    setLightboxOpen(true);
-  }, []);
-
-  const closeLightbox = useCallback(() => setLightboxOpen(false), []);
-  const prevImage = useCallback(
-    () => setActiveIndex((i) => (i - 1 + photos.length) % photos.length),
-    [photos.length]
-  );
-  const nextImage = useCallback(
-    () => setActiveIndex((i) => (i + 1) % photos.length),
-    [photos.length]
-  );
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -218,41 +249,62 @@ export default function PublicPortfolioPage() {
     }
     (async () => {
       try {
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData, error: perr } = await supabase
           .from("profiles")
           .select(
-            "id, full_name, bio, avatar_url, badge, username, portfolio_theme"
+            "id, full_name, bio, avatar_url, badge, username, portfolio_theme, portfolio_layout"
           )
           .eq("id", userId)
           .single();
-
-        if (profileError) throw profileError;
+        if (perr) throw perr;
         setProfile(profileData as UserProfile);
 
-        const { data: portfolioItems, error: portfolioError } = await supabase
+        const { data: pfRows, error: pfErr } = await supabase
           .from("user_portfolio")
-          .select(
-            "photo_id, order_index, review_photos (id, storage_path, caption)"
-          )
+          .select("photo_id, order_index")
           .eq("user_id", userId)
           .eq("is_public", true)
           .order("order_index", { ascending: true });
+        if (pfErr) throw pfErr;
 
-        if (portfolioError) throw portfolioError;
+        const rows = (pfRows ?? []) as {
+          photo_id: string;
+          order_index: number;
+        }[];
+        if (!rows.length) {
+          setPhotos([]);
+          return;
+        }
 
-        const photoData = portfolioItems
-          .map((item: any) => ({
-            id: item.review_photos.id,
-            url: storagePublicUrl(
-              "user-photos",
-              item.review_photos.storage_path
-            ),
-            caption: item.review_photos.caption,
-            order_index: item.order_index,
-          }))
-          .sort((a, b) => a.order_index - b.order_index);
+        const ids = rows.map((r) => r.photo_id);
+        const { data: phData, error: phErr } = await supabase
+          .from("review_photos")
+          .select("id, storage_path, caption, width, height")
+          .in("id", ids);
+        if (phErr) throw phErr;
 
-        setPhotos(photoData);
+        const byId = new Map(
+          (phData ?? []).map((p: any) => [
+            p.id,
+            {
+              id: p.id as string,
+              url: storagePublicUrl("user-photos", p.storage_path),
+              caption: p.caption as string | null,
+              width: p.width as number | null,
+              height: p.height as number | null,
+            },
+          ])
+        );
+
+        const ordered: Photo[] = rows
+          .map(({ photo_id, order_index }) => {
+            const base = byId.get(photo_id);
+            if (!base) return null;
+            return { ...base, order_index } as Photo;
+          })
+          .filter(Boolean) as Photo[];
+
+        setPhotos(ordered);
       } catch (e: any) {
         setPageError(e?.message ?? "Could not load portfolio.");
       } finally {
@@ -263,8 +315,10 @@ export default function PublicPortfolioPage() {
 
   const isDarkTheme = profile?.portfolio_theme === "dark";
   const themeClasses = isDarkTheme
-    ? "bg-black text-gray-200"
+    ? "bg-[#0F1B2A] text-gray-200"
     : "bg-gray-50 text-gray-800";
+  const layout: PortfolioLayout =
+    (profile?.portfolio_layout as PortfolioLayout) || "masonry";
 
   if (loading)
     return (
@@ -284,20 +338,19 @@ export default function PublicPortfolioPage() {
     );
 
   return (
-    <div
-      className={`fixed inset-0 z-50 w-full h-full overflow-y-auto ${themeClasses} transition-colors duration-300`}
-    >
+    <div className={`min-h-screen ${themeClasses}`}>
       <PortfolioHeader profile={profile} />
-      <main className="pt-24 pb-12 px-4 md:px-8">
-        {/* User Profile Section */}
+
+      <main className="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+        {/* Profile header */}
         {profile && (
           <div className="max-w-4xl mx-auto mb-10 flex flex-col md:flex-row items-center gap-4 md:gap-6">
             <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-4 border-orange-400 shadow-lg flex-shrink-0">
               <Image
                 src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
                 alt="User avatar"
-                layout="fill"
-                objectFit="cover"
+                fill
+                className="object-cover"
               />
             </div>
             <div className="text-center md:text-left">
@@ -322,57 +375,74 @@ export default function PublicPortfolioPage() {
           </div>
         )}
 
+        {/* Photos */}
         {photos.length === 0 ? (
           <p className="text-center">
             This user hasn’t made any photos public yet.
           </p>
+        ) : layout === "grid" ? (
+          // Strict grid with faster, sharper hover
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {photos.map((p, i) => (
+              <motion.figure
+                key={p.id}
+                className="rounded-lg overflow-hidden bg-white/5 cursor-zoom-in"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                onClick={() => setLightboxIndex(i)}
+              >
+                <div className="relative w-full h-60 overflow-hidden group rounded-lg">
+                  <Image
+                    src={p.url}
+                    alt={p.caption ?? "portfolio photo"}
+                    fill
+                    quality={85}
+                    className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
+                  />
+                </div>
+                {p.caption && (
+                  <figcaption
+                    className={`text-sm px-1 mt-1 ${
+                      isDarkTheme ? "text-gray-400" : "text-gray-700"
+                    }`}
+                  >
+                    {p.caption}
+                  </figcaption>
+                )}
+              </motion.figure>
+            ))}
+          </div>
         ) : (
-          <>
-            <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
-              {photos.map((p, idx) => (
-                <motion.figure
-                  key={p.id}
-                  className="break-inside-avoid cursor-pointer group"
-                  onClick={() => openLightbox(idx)}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                >
-                  <div className="overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <Image
-                      src={p.url}
-                      alt={p.caption ?? "portfolio photo"}
-                      width={800}
-                      height={600}
-                      className="object-cover w-full transition-transform duration-300 group-hover:scale-105"
-                      unoptimized
-                    />
-                  </div>
-                  {p.caption && (
-                    <figcaption
-                      className={`text-sm px-1 pt-2 ${
-                        isDarkTheme ? "text-gray-400" : "text-gray-700"
-                      }`}
-                    >
-                      {p.caption}
-                    </figcaption>
-                  )}
-                </motion.figure>
-              ))}
-            </div>
-          </>
+          // Row-major masonry with canonical sizes + faster, sharper hover
+          <div
+            className="
+            grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
+            auto-rows-[8px] grid-flow-row
+          "
+          >
+            {photos.map((p, i) => (
+              <CanonicalTile
+                key={p.id}
+                p={p}
+                i={i}
+                isDark={isDarkTheme}
+                onOpen={() => setLightboxIndex(i)}
+              />
+            ))}
+          </div>
         )}
       </main>
 
-      {lightboxOpen && photos.length > 0 && (
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
         <Lightbox
           photos={photos}
-          index={activeIndex}
-          onClose={closeLightbox}
-          onPrev={prevImage}
-          onNext={nextImage}
-          profile={profile}
+          index={lightboxIndex}
+          setIndex={(n) => setLightboxIndex(n)}
+          onClose={() => setLightboxIndex(null)}
+          isDark={isDarkTheme}
         />
       )}
     </div>

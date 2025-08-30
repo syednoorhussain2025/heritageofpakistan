@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabaseClient";
-import { useAuthUserId } from "@/hooks/useAuthUserId";
-import { avatarSrc } from "@/lib/image/avatarSrc";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { listUserReviews } from "@/lib/db/reviews";
+import {
+  insertPortfolioItem,
+  listPortfolio,
+  updatePortfolioItem,
+  reorderPortfolioItems,
+} from "@/lib/db/portfolio";
 import Image from "next/image";
 import Link from "next/link";
-import Icon from "@/components/Icon";
-import { motion, AnimatePresence } from "framer-motion";
-import { listAllUserPhotos, updatePhotoCaption } from "@/lib/db/reviewPhotos";
-import {
-  listPortfolio,
-  reorderPortfolioItems,
-  updatePortfolioItem,
-  insertPortfolioItem,
-} from "@/lib/db/portfolio";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
+import { createClient } from "@/lib/supabaseClient";
+import { avatarSrc } from "@/lib/image/avatarSrc";
+import { motion, AnimatePresence } from "framer-motion";
 
 type PhotoItem = {
-  id: string;
+  id: string; // review_photos.id
   review_id: string;
   storage_path: string;
   caption: string | null;
@@ -28,97 +27,110 @@ type PhotoItem = {
   portfolio_item_id: string | null;
 };
 
+type PortfolioTheme = "light" | "dark";
+type PortfolioLayout = "grid" | "masonry";
+
 type ProfileData = {
   full_name: string | null;
   badge: string | null;
   avatar_url: string | null;
-  portfolio_theme?: "light" | "dark";
+  portfolio_theme: PortfolioTheme | null;
+  portfolio_layout: PortfolioLayout | null;
 };
 
 function DotsHandle() {
   return (
-    <div className="grid grid-cols-2 gap-[2px] p-1 cursor-grab active:cursor-grabbing">
+    <div className="grid grid-cols-3 gap-[2px] p-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <span key={i} className="w-1 h-1 rounded-full bg-gray-500" />
+        <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-600/90" />
       ))}
     </div>
   );
 }
 
-// Helper function to reorder arrays, from your working example
-function arrayMove<T>(arr: T[], from: number, to: number): T[] {
-  const newArr = [...arr];
-  const [item] = newArr.splice(from, 1);
-  newArr.splice(to, 0, item);
-  return newArr;
-}
-
 export default function PortfolioManager() {
-  const { userId, authLoading } = useAuthUserId();
-  const supabase = createClient();
-
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const { userId, authLoading, authError } = useAuthUserId();
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [portfolioTheme, setPortfolioTheme] = useState<PortfolioTheme>("light");
+  const [portfolioLayout, setPortfolioLayout] =
+    useState<PortfolioLayout>("masonry");
+
   const [isReorderMode, setIsReorderMode] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [orderDirty, setOrderDirty] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState("Copy Public Link");
 
-  const [dragIndex, setDragIndex] = useState<{
-    item: PhotoItem;
-    index: number;
-  } | null>(null);
+  const supabase = createClient();
 
-  const publicPortfolioUrl =
-    typeof window !== "undefined" && userId
-      ? `${window.location.origin}/portfolio/${userId}`
-      : "";
+  const publicUrl = useMemo(() => {
+    if (!userId || typeof window === "undefined") return "";
+    return `${window.location.origin}/portfolio/${userId}`;
+  }, [userId]);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(publicPortfolioUrl).then(() => {
-      setCopyStatus("Copied!");
-      setTimeout(() => setCopyStatus("Copy Public Link"), 2000);
-    });
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      alert("Public URL copied to clipboard.");
+    } catch {
+      alert("Could not copy. Please copy manually.");
+    }
   };
 
   const loadData = useCallback(async () => {
     if (!userId) return;
     try {
       setLoading(true);
-      const [profileData, portfolioItems, allPhotosData] = await Promise.all([
+      setPageError(null);
+
+      const [portfolio, reviews, profileRes] = await Promise.all([
+        listPortfolio(userId),
+        listUserReviews(userId),
         supabase
           .from("profiles")
-          .select("full_name, badge, avatar_url, portfolio_theme")
+          .select(
+            "full_name, badge, avatar_url, portfolio_theme, portfolio_layout"
+          )
           .eq("id", userId)
           .single(),
-        listPortfolio(userId),
-        listAllUserPhotos(userId),
       ]);
 
-      if (profileData.error) throw profileData.error;
-      setProfile(profileData.data);
+      const prof = profileRes.data as ProfileData;
+      setProfile(prof);
+      if (prof?.portfolio_theme) setPortfolioTheme(prof.portfolio_theme);
+      if (prof?.portfolio_layout) setPortfolioLayout(prof.portfolio_layout);
 
-      const portfolioMap = new Map(
-        portfolioItems.map((item) => [item.photo_id, item])
-      );
+      const reviewIds = reviews.map((r) => r.id);
+      let allReviewPhotos: any[] = [];
+      if (reviewIds.length > 0) {
+        const { data, error } = await supabase
+          .from("review_photos")
+          .select("*")
+          .in("review_id", reviewIds);
+        if (error) throw error;
+        allReviewPhotos = data ?? [];
+      }
 
-      const allPhotoItems = allPhotosData.map((p) => {
-        const portfolioItem = portfolioMap.get(p.id);
+      const combined: PhotoItem[] = allReviewPhotos.map((p) => {
+        const existing = portfolio.find((pf) => pf.photo_id === p.id);
         return {
           id: p.id,
           review_id: p.review_id,
           storage_path: p.storage_path,
           caption: p.caption,
           publicUrl: storagePublicUrl("user-photos", p.storage_path),
-          is_public: portfolioItem ? portfolioItem.is_public : true, // Default to public
-          order_index: portfolioItem ? portfolioItem.order_index : 999,
-          portfolio_item_id: portfolioItem ? portfolioItem.id : null,
+          is_public: existing ? !!existing.is_public : true,
+          order_index: existing ? existing.order_index : 999,
+          portfolio_item_id: existing ? existing.id : null,
         };
       });
 
-      allPhotoItems.sort((a, b) => a.order_index - b.order_index);
-      setPhotos(allPhotoItems);
+      combined.sort((a, b) => a.order_index - b.order_index);
+      setPhotos(combined);
     } catch (e: any) {
+      console.error(e);
       setPageError(e?.message ?? "Error loading portfolio");
     } finally {
       setLoading(false);
@@ -126,264 +138,320 @@ export default function PortfolioManager() {
   }, [userId, supabase]);
 
   useEffect(() => {
-    if (!authLoading && userId) {
-      loadData();
-    } else if (!authLoading) {
-      setLoading(false);
-    }
-  }, [authLoading, userId, loadData]);
+    if (!authLoading) void loadData();
+  }, [authLoading, loadData]);
 
-  const setTheme = async (theme: "light" | "dark") => {
+  // Save prefs through a server route (ensures cookies are used)
+  async function savePrefs(
+    patch: Partial<Pick<ProfileData, "portfolio_theme" | "portfolio_layout">>
+  ) {
+    const res = await fetch("/api/portfolio/prefs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || "Failed to save preferences");
+  }
+
+  async function savePortfolioTheme(theme: PortfolioTheme) {
     if (!userId) return;
-    setProfile((p) => (p ? { ...p, portfolio_theme: theme } : null));
-    await supabase
-      .from("profiles")
-      .update({ portfolio_theme: theme })
-      .eq("id", userId);
-  };
-
-  const togglePublic = async (photoId: string) => {
-    if (!userId) return;
-    const photo = photos.find((p) => p.id === photoId);
-    if (!photo) return;
-
-    const isCurrentlyPublic = photo.is_public;
-    setPhotos((currentPhotos) =>
-      currentPhotos.map((p) =>
-        p.id === photoId
-          ? {
-              ...p,
-              is_public: !isCurrentlyPublic,
-              portfolio_item_id: p.portfolio_item_id || "temp",
-            }
-          : p
-      )
-    );
-
     try {
-      if (photo.portfolio_item_id) {
-        await updatePortfolioItem(photoId, { is_public: !isCurrentlyPublic });
-      } else {
-        const newItem = await insertPortfolioItem(
-          userId,
-          photoId,
-          photos.length
-        );
-        setPhotos((current) =>
-          current.map((p) =>
-            p.id === photoId ? { ...p, portfolio_item_id: newItem.id } : p
-          )
-        );
-      }
-    } catch (e) {
-      setPhotos((currentPhotos) =>
-        currentPhotos.map((p) =>
-          p.id === photoId ? { ...p, is_public: isCurrentlyPublic } : p
-        )
-      );
-      console.error("Failed to toggle public status", e);
+      setPortfolioTheme(theme);
+      await savePrefs({ portfolio_theme: theme });
+    } catch (error: any) {
+      console.error("Failed to save theme:", error?.message ?? error);
+      alert(`Could not save theme: ${error?.message ?? "Unknown error"}`);
     }
-  };
+  }
 
-  const handleSaveCaption = async (photoId: string, newCaption: string) => {
-    setPhotos((currentPhotos) =>
-      currentPhotos.map((p) =>
-        p.id === photoId ? { ...p, caption: newCaption } : p
-      )
-    );
-    await updatePhotoCaption(photoId, newCaption);
-  };
+  async function savePortfolioLayout(layout: PortfolioLayout) {
+    if (!userId) return;
+    try {
+      setPortfolioLayout(layout);
+      await savePrefs({ portfolio_layout: layout });
+    } catch (error: any) {
+      console.error("Failed to save layout:", error?.message ?? error);
+      alert(`Could not save layout: ${error?.message ?? "Unknown error"}`);
+    }
+  }
 
-  const handleReorder = useCallback(
-    async (reorderedPhotos: PhotoItem[]) => {
+  const persistOrder = useCallback(
+    async (currentItems: PhotoItem[]) => {
       if (!userId) return;
-      // Update state immediately for smooth UI
-      setPhotos(reorderedPhotos);
-      // Persist the new order to the database
-      const publicPhotoIds = reorderedPhotos
-        .filter((p) => p.is_public)
-        .map((p) => p.id);
-      await reorderPortfolioItems(userId, publicPhotoIds);
+      setSavingOrder(true);
+      try {
+        const updates = currentItems.map((item, index) => ({
+          photo_id: item.id,
+          order_index: index, // 0..N-1 numbering
+        }));
+        await reorderPortfolioItems(userId, updates);
+        setOrderDirty(false);
+      } catch (e: any) {
+        console.error("Failed to save order", e?.message ?? e);
+        alert(`Could not save order: ${e?.message ?? "Unknown error"}`);
+      } finally {
+        setSavingOrder(false);
+      }
     },
     [userId]
   );
 
+  async function togglePublic(photo: PhotoItem) {
+    if (!userId) return;
+    const snapshot = [...photos];
+    setPhotos((prev) =>
+      prev.map((p) =>
+        p.id === photo.id ? { ...p, is_public: !p.is_public } : p
+      )
+    );
+    try {
+      await insertPortfolioItem(
+        userId,
+        photo.id,
+        photo.order_index,
+        !photo.is_public ? true : false
+      );
+    } catch (e: any) {
+      console.error(e?.message ?? e);
+      setPhotos(snapshot);
+      alert(
+        `Could not update portfolio visibility: ${
+          e?.message ?? "Unknown error"
+        }`
+      );
+    }
+  }
+
+  function arrayMove<T>(arr: T[], from: number, to: number) {
+    const a = arr.slice();
+    const [m] = a.splice(from, 1);
+    a.splice(to, 0, m);
+    return a;
+  }
+
   if (authLoading || loading) return <p>Loading portfolio...</p>;
+  if (authError) return <p className="text-red-600">Auth error: {authError}</p>;
   if (!userId) return <p>Please sign in to manage your portfolio.</p>;
+  if (pageError) return <p className="text-red-600">Error: {pageError}</p>;
 
   return (
-    <div className="space-y-8">
-      {/* My Portfolio Manager */}
-      <section className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">
-          My Portfolio Manager
-        </h2>
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          {/* Left Side: User Profile */}
+    <div>
+      <div className="bg-gray-100 rounded-lg p-4 mb-6 border">
+        <h2 className="text-xl font-semibold mb-4">My Portfolio Manager</h2>
+
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          {/* LEFT: Profile card */}
           {profile && (
             <div className="flex items-center gap-4">
-              <Image
-                src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
-                alt="User avatar"
-                width={64}
-                height={64}
-                className="rounded-full"
-              />
+              <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-orange-400">
+                <Image
+                  src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
+                  alt="User avatar"
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <div>
                 <div className="font-semibold text-lg">{profile.full_name}</div>
-                <div className="text-sm text-green-600">{profile.badge}</div>
+                {profile.badge && (
+                  <div className="text-md text-green-600">{profile.badge}</div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Right Side: Actions */}
-          <div className="flex flex-wrap items-center gap-6">
-            {/* Public Link Section */}
-            <div className="flex items-center gap-4">
-              <Link
-                href={publicPortfolioUrl}
-                target="_blank"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 flex-shrink-0"
-              >
-                <Icon name="external-link-alt" size={12} />
-                View
-              </Link>
+          {/* RIGHT: Controls column (Public URL at top, then switches) */}
+          <div className="flex flex-col gap-4 items-start md:items-end w-full md:w-auto">
+            {/* Public URL (moved ABOVE the buttons on the right) */}
+            <div className="w-full md:w-auto">
+              <label className="text-sm font-medium block mb-1">
+                Public URL
+              </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={publicPortfolioUrl}
-                  className="w-full sm:w-64 text-sm bg-gray-50 border border-gray-300 rounded-md px-2 py-1"
-                />
+                <span className="text-xs text-gray-700 break-all bg-white px-2 py-1 rounded border max-w-[28rem]">
+                  {publicUrl}
+                </span>
                 <button
-                  onClick={copyToClipboard}
-                  className="px-3 py-1 text-sm rounded-md bg-gray-700 text-white hover:bg-gray-800 w-36 text-center flex-shrink-0"
+                  onClick={copyUrl}
+                  className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium"
                 >
-                  {copyStatus}
+                  Copy
                 </button>
+                <Link
+                  href={`/portfolio/${userId}`}
+                  className="px-3 py-2 rounded bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold"
+                >
+                  Open
+                </Link>
               </div>
             </div>
 
-            {/* Separator */}
-            <div className="h-10 w-px bg-gray-200 self-center hidden md:block"></div>
-
-            {/* Theme Section */}
-            <div className="space-y-2 text-center md:text-left">
-              <div className="text-sm font-semibold text-gray-700">
-                Portfolio Theme
+            {/* Switchers */}
+            <div className="flex items-center gap-6">
+              <div>
+                <label className="text-sm font-medium">Portfolio Theme</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    onClick={() => savePortfolioTheme("light")}
+                    className={`px-3 py-1 text-sm rounded-full ${
+                      portfolioTheme === "light"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border"
+                    }`}
+                  >
+                    Light
+                  </button>
+                  <button
+                    onClick={() => savePortfolioTheme("dark")}
+                    className={`px-3 py-1 text-sm rounded-full ${
+                      portfolioTheme === "dark"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border"
+                    }`}
+                  >
+                    Dark
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTheme("light")}
-                  className={`px-4 py-1.5 text-sm rounded-md border transition-all ${
-                    profile?.portfolio_theme !== "dark"
-                      ? "bg-white ring-2 ring-blue-500 shadow"
-                      : "bg-gray-100 hover:bg-gray-200"
-                  }`}
-                >
-                  Light
-                </button>
-                <button
-                  onClick={() => setTheme("dark")}
-                  className={`px-4 py-1.5 text-sm rounded-md border transition-all ${
-                    profile?.portfolio_theme === "dark"
-                      ? "bg-gray-800 text-white ring-2 ring-blue-500 shadow"
-                      : "bg-gray-200 hover:bg-gray-300"
-                  }`}
-                >
-                  Dark
-                </button>
+
+              <div>
+                <label className="text-sm font-medium">Public Layout</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    onClick={() => savePortfolioLayout("grid")}
+                    className={`px-3 py-1 text-sm rounded-full ${
+                      portfolioLayout === "grid"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border"
+                    }`}
+                  >
+                    Grid
+                  </button>
+                  <button
+                    onClick={() => savePortfolioLayout("masonry")}
+                    className={`px-3 py-1 text-sm rounded-full ${
+                      portfolioLayout === "masonry"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border"
+                    }`}
+                  >
+                    Masonry
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Manage Photos */}
-      <section>
+      {/* Reorder / Photos */}
+      <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Manage Photos</h2>
-          <button
-            onClick={() => setIsReorderMode(!isReorderMode)}
-            className={`px-4 py-2 text-sm rounded-md flex items-center gap-2 ${
-              isReorderMode ? "bg-green-600 text-white" : "bg-gray-200"
-            }`}
-          >
-            <Icon name={isReorderMode ? "check" : "sort"} size={14} />
-            {isReorderMode ? "Done Reordering" : "Reorder Photos"}
-          </button>
+          <h2 className="text-xl font-semibold">Manage Photos</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                if (isReorderMode && orderDirty) await persistOrder(photos);
+                setIsReorderMode(!isReorderMode);
+              }}
+              className={`px-4 py-2 text-sm rounded-lg font-semibold ${
+                isReorderMode ? "bg-red-500 text-white" : "bg-gray-200"
+              }`}
+            >
+              {isReorderMode ? "Done Reordering" : "Reorder Photos"}
+            </button>
+            {savingOrder && (
+              <span className="text-sm text-gray-600">Saving…</span>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <AnimatePresence>
+        {photos.length === 0 && <p>No photos uploaded yet.</p>}
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <AnimatePresence initial={false}>
             {photos.map((p, idx) => (
               <motion.div
                 key={p.id}
-                layoutId={p.id}
-                draggable={isReorderMode && p.is_public}
-                onDragStart={() => {
-                  if (!isReorderMode || !p.is_public) return;
-                  setDragIndex({ item: p, index: idx });
+                layout
+                transition={{
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 35,
+                  mass: 0.6,
                 }}
-                onDragEnd={() => {
-                  setDragIndex(null);
+                className={`relative group rounded-xl overflow-hidden bg-gray-100 ring-1 ring-black/5 ${
+                  isReorderMode ? "cursor-grab active:cursor-grabbing" : ""
+                }`}
+                draggable={isReorderMode}
+                onDragStart={(e) => {
+                  if (!isReorderMode) return;
+                  setDragIndex(idx);
+                  const img = new window.Image();
+                  img.src =
+                    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+                  e.dataTransfer.setDragImage(img, 0, 0);
+                }}
+                onDragEnter={(e) => {
+                  if (!isReorderMode) return;
+                  e.preventDefault();
+                  setPhotos((prev) => {
+                    if (dragIndex === null || dragIndex === idx) return prev;
+                    const a = prev.slice();
+                    const [m] = a.splice(dragIndex, 1);
+                    a.splice(idx, 0, m);
+                    setDragIndex(idx);
+                    return a;
+                  });
+                  setOrderDirty(true);
                 }}
                 onDragOver={(e) => {
-                  if (!isReorderMode || !p.is_public || !dragIndex) return;
-                  e.preventDefault();
-                  if (dragIndex.index !== idx) {
-                    const newOrder = arrayMove(photos, dragIndex.index, idx);
-                    setDragIndex({ item: dragIndex.item, index: idx });
-                    handleReorder(newOrder);
-                  }
+                  if (isReorderMode) e.preventDefault();
                 }}
-                className={`border rounded-lg overflow-hidden flex flex-col`}
+                onDrop={(e) => {
+                  if (!isReorderMode) return;
+                  e.preventDefault();
+                  setDragIndex(null);
+                }}
+                onDragEnd={() => setDragIndex(null)}
               >
+                {isReorderMode && (
+                  <div className="absolute left-2 top-2 z-10 rounded-md bg-white/90 text-gray-700 ring-1 ring-black/5 opacity-80 pointer-events-none">
+                    <DotsHandle />
+                  </div>
+                )}
                 <div
-                  className={`relative aspect-square ${
-                    !p.is_public && "opacity-50"
+                  className={`transition-opacity ${
+                    p.is_public ? "" : "opacity-40"
                   }`}
                 >
-                  {isReorderMode && p.is_public && (
-                    <div className="absolute top-2 left-2 z-10 bg-white/80 rounded-md p-1">
-                      <DotsHandle />
-                    </div>
-                  )}
                   <Image
                     src={p.publicUrl}
-                    alt={p.caption || "photo"}
-                    layout="fill"
-                    objectFit="cover"
+                    alt={p.caption ?? "photo"}
+                    width={400}
+                    height={300}
+                    className="object-cover w-full h-48"
+                    unoptimized
                   />
-                  <button
-                    onClick={() => togglePublic(p.id)}
-                    className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white text-lg transition ${
-                      p.is_public ? "bg-green-600" : "bg-gray-500"
-                    }`}
-                    title={
-                      p.is_public ? "Included in Portfolio" : "Not in Portfolio"
-                    }
-                  >
-                    {p.is_public ? (
-                      <Icon name="check" size={14} />
-                    ) : (
-                      <Icon name="plus" size={14} />
-                    )}
-                  </button>
                 </div>
-                <div className="p-2 border-t bg-gray-50 flex-grow">
-                  <textarea
-                    defaultValue={p.caption ?? ""}
-                    placeholder="Add caption..."
-                    onBlur={(e) => handleSaveCaption(p.id, e.target.value)}
-                    className="w-full border rounded p-1 text-xs resize-none h-16"
-                  />
+                <div className="p-2 bg-white">
+                  <button
+                    onClick={() => togglePublic(p)}
+                    className={`w-full text-xs rounded py-1 ${
+                      p.is_public
+                        ? "bg-gray-200 text-gray-700"
+                        : "bg-green-600 text-white"
+                    }`}
+                  >
+                    {p.is_public ? "Remove from Portfolio" : "Add to Portfolio"}
+                  </button>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
