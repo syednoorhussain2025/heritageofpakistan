@@ -13,11 +13,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No valid fields" }, { status: 400 });
     }
 
-    const cookieStore = cookies();
+    // NOTE: Next 15 — cookies() can be async
+    const cookieStore = await cookies();
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { get: (n: string) => cookieStore.get(n)?.value } }
+      {
+        cookies: {
+          get: (name: string) => cookieStore.get(name)?.value,
+        },
+      }
     );
 
     const { data: auth, error: uerr } = await supabase.auth.getUser();
@@ -29,8 +35,10 @@ export async function POST(req: Request) {
       .from("profiles")
       .update(patch)
       .eq("id", auth.user.id);
-    if (error)
+
+    if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
     return NextResponse.json({ ok: true, ...patch });
   } catch (e: any) {
