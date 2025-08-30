@@ -1,3 +1,4 @@
+// src/app/dashboard/placesvisited/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,11 +10,11 @@ import { createClient } from "@/lib/supabaseClient";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";
-// **THE FIX IS HERE**: This now imports the correct data type from the correct file.
+// Use the type exported by your map component so shapes stay in sync
 import { UserSite as Site } from "@/components/UserVisitedMap";
 import { avatarSrc } from "@/lib/image/avatarSrc";
 
-// Dynamically import the new, self-contained map component
+// Dynamically import the map component (no SSR)
 const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
 });
@@ -27,6 +28,7 @@ type SiteRow = {
   longitude: number | null;
   location_free?: string | null;
   heritage_type?: string | null;
+  // IMPORTANT: categories is an object (one per join row), not an array
   site_categories: { categories: { icon_key: string | null } | null }[];
 };
 
@@ -82,7 +84,7 @@ export default function PlacesVisitedPage() {
         setLoading(true);
         setPageError(null);
 
-        // Fetch all data in parallel for better performance
+        // Fetch in parallel for speed
         const [count, userReviews, profileData] = await Promise.all([
           countUserVisits(userId),
           listUserReviews(userId),
@@ -106,7 +108,7 @@ export default function PlacesVisitedPage() {
             .select(
               "id, title, slug, cover_photo_url, latitude, longitude, location_free, heritage_type, site_categories!inner(categories(icon_key))"
             )
-            .in("id", siteIds);
+            .in("id", siteIds as string[]);
           if (error) throw error;
           sites = data ?? [];
         }
@@ -166,8 +168,8 @@ export default function PlacesVisitedPage() {
                 <Image
                   src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
                   alt="User avatar"
-                  layout="fill"
-                  objectFit="cover"
+                  fill
+                  className="object-cover"
                 />
               </div>
               <div>
