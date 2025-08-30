@@ -385,7 +385,7 @@ export default function PortfolioManager() {
                   isReorderMode ? "cursor-grab active:cursor-grabbing" : ""
                 }`}
                 draggable={isReorderMode}
-                onDragStart={(e) => {
+                onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                   if (!isReorderMode) return;
                   setDragIndex(idx);
                   const img = new window.Image();
