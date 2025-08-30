@@ -28,8 +28,9 @@ type SiteRow = {
   longitude: number | null;
   location_free?: string | null;
   heritage_type?: string | null;
-  // IMPORTANT: categories is an object (one per join row), not an array
-  site_categories: { categories: { icon_key: string | null } | null }[];
+  // CHANGED: Supabase returns an array here (one entry per join row),
+  // and each join's `categories` is also returned as an array.
+  site_categories: { categories: { icon_key: string | null }[] }[];
 };
 
 type ProfileRow = {
