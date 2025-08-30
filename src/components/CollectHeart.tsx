@@ -48,7 +48,12 @@ export default function CollectHeart({
   const [busy, setBusy] = useState(false);
 
   const key = useMemo(
-    () => makeCollectKey({ siteImageId, storagePath, imageUrl }),
+    () =>
+      makeCollectKey({
+        siteImageId: siteImageId ?? undefined,
+        storagePath: storagePath ?? undefined,
+        imageUrl: imageUrl ?? undefined,
+      }),
     [siteImageId, storagePath, imageUrl]
   );
   const isOn = isLoaded && collected.has(key);
