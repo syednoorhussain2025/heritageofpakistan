@@ -603,7 +603,10 @@ function ImageBubbleMenu({
   useEffect(() => {
     const rerender = () => force({});
     editor.on("transaction", rerender);
-    return () => editor.off("transaction", rerender);
+    return () => {
+      // ✅ return void cleanup; do not return the Editor instance
+      editor.off("transaction", rerender);
+    };
   }, [editor]);
 
   const attrs = editor.getAttributes("image") || {};
