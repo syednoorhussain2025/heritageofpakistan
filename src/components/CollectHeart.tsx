@@ -68,10 +68,7 @@ export default function CollectHeart({
         siteImageId: siteImageId ?? undefined,
         storagePath: storagePath ?? undefined,
         imageUrl: imageUrl ?? undefined,
-        // ✅ FIX: The 'siteId' property is not part of the 'CollectInput' type and has been removed.
-        altText,
-        caption,
-        credit,
+        // ✅ FIX: Removed altText, caption, and credit as they are not expected by toggleCollect.
       });
     } finally {
       setBusy(false);
