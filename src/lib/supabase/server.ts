@@ -1,4 +1,6 @@
 // What this does: server-side Supabase with cookie passthrough for SSR/middleware.
+"use server";
+
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
