@@ -10,11 +10,11 @@ import { createClient } from "@/lib/supabaseClient";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";
-// Use the type exported by your map component so shapes stay in sync
-import { UserSite as Site } from "@/components/UserVisitedMap";
 import { avatarSrc } from "@/lib/image/avatarSrc";
+// Import the type your map wants
+import type { UserSite } from "@/components/UserVisitedMap";
 
-// Dynamically import the map component (no SSR)
+// Dynamically import the map (no SSR)
 const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
 });
@@ -28,8 +28,10 @@ type SiteRow = {
   longitude: number | null;
   location_free?: string | null;
   heritage_type?: string | null;
-  // CHANGED: Supabase returns an array here (one entry per join row),
-  // and each join's `categories` is also returned as an array.
+
+  // Supabase returns an array of join-rows where each row has `categories`.
+  // In practice we've observed `categories` come back as an ARRAY with a single item.
+  // We'll normalize it below to the single-object-or-null shape the map expects.
   site_categories: { categories: { icon_key: string | null }[] }[];
 };
 
@@ -85,7 +87,7 @@ export default function PlacesVisitedPage() {
         setLoading(true);
         setPageError(null);
 
-        // Fetch in parallel for speed
+        // Fetch in parallel
         const [count, userReviews, profileData] = await Promise.all([
           countUserVisits(userId),
           listUserReviews(userId),
@@ -128,19 +130,39 @@ export default function PlacesVisitedPage() {
     })();
   }, [authLoading, userId, supabase]);
 
-  const sitesForMap = reviews
+  // Normalize each review's site to the exact shape UserVisitedMap expects (UserSite)
+  const sitesForMap: UserSite[] = reviews
     .map((r) => {
-      if (!r.site || !r.site.latitude || !r.site.longitude) return null;
-      return {
-        ...r.site,
-        latitude: r.site.latitude,
-        longitude: r.site.longitude,
+      const s = r.site;
+      if (!s || !s.latitude || !s.longitude) return null;
+
+      const normalizedCategories =
+        s.site_categories?.map((sc) => ({
+          // Map array -> single object or null (first item if present)
+          categories:
+            Array.isArray(sc.categories) && sc.categories.length > 0
+              ? sc.categories[0]
+              : null,
+        })) ?? [];
+
+      const normalized: UserSite = {
+        id: s.id,
+        title: s.title,
+        slug: s.slug,
+        cover_photo_url: s.cover_photo_url,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        location_free: s.location_free ?? null,
+        heritage_type: s.heritage_type ?? null,
+        site_categories: normalizedCategories,
         visited_year: r.visited_year,
         visited_month: r.visited_month,
-        rating: r.rating,
+        rating: r.rating ?? 0,
       };
+
+      return normalized;
     })
-    .filter(Boolean) as Site[];
+    .filter((x): x is UserSite => x !== null);
 
   if (authLoading || loading) return <p>Loading places visited...</p>;
   if (authError) return <p className="text-red-600">Auth error: {authError}</p>;
