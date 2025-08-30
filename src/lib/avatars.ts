@@ -26,7 +26,6 @@ export async function uploadAvatar(userId: string, file: File) {
   const publicUrl = getPublicUrl(bucket, path, {
     width: 256,
     quality: 70,
-    format: "webp",
   });
 
   return { bucket, path, publicUrl, size: compressed.size, mime: "image/webp" };
