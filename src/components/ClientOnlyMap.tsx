@@ -242,7 +242,8 @@ function OSMLeafletView({
 
   const memoizedIcons = useMemo(() => {
     if (icons.size === 0 || !settings) return new Map();
-    const cache = new Map<string, { icon: L.DivIcon; size: number }>();
+    // ✅ FIX: The 'icon' property can be null, so we update the map's type definition.
+    const cache = new Map<string, { icon: L.DivIcon | null; size: number }>();
 
     const globalIconName = settings.pin_icon_name || "map-pin";
     const globalIcon = createCustomIcon(globalIconName, settings);
