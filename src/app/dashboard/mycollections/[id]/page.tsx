@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import type { DragEvent as ReactDragEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import {
@@ -404,11 +405,16 @@ export default function CollectionDetailPage() {
                   onDragStart={(e) => {
                     if (!reorderMode) return;
                     setDragIndex(idx);
-                    // hide ghost
+
+                    // Framer Motion types onDragStart as MouseEvent | TouchEvent | PointerEvent.
+                    // Cast to the native HTML drag event to access dataTransfer reliably.
+                    const de = e as unknown as ReactDragEvent<HTMLDivElement>;
+
+                    // Hide the default ghost image for smoother UX
                     const img = new Image();
                     img.src =
                       "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
-                    e.dataTransfer.setDragImage(img, 0, 0);
+                    de.dataTransfer?.setDragImage(img, 0, 0);
                   }}
                   onDragEnter={(e) => {
                     if (!reorderMode) return;
