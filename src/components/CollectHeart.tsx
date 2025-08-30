@@ -65,7 +65,7 @@ export default function CollectHeart({
     setBusy(true); // instant spinner
     try {
       await toggleCollect({
-        key,
+        // ✅ FIX: The 'key' property is not part of the 'CollectInput' type and has been removed.
         siteImageId: siteImageId ?? undefined,
         storagePath: storagePath ?? undefined,
         imageUrl: imageUrl ?? undefined,
