@@ -1,3 +1,4 @@
+// src/app/api/reviews/hard-delete/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -28,13 +29,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing reviewId" }, { status: 400 });
     }
 
-    // 1) Identify current user via cookies (anon client)
-    const cookieStore = cookies();
+    // NOTE: In Next 15, cookies() can be async-typed in route handlers.
+    const cookieStore = (await (cookies() as unknown as Promise<
+      ReturnType<typeof cookies>
+    >)) as ReturnType<typeof cookies>;
+
+    // Auth via anon client, backed by request cookies
     const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       cookies: {
-        get: (n) => cookieStore.get(n)?.value,
-        set: (n, v, o) => cookieStore.set(n, v, o),
-        remove: (n, o) => cookieStore.set(n, "", { ...o, maxAge: 0 }),
+        get: (name: string) => cookieStore.get(name)?.value,
+        // In a route handler we don't need to set/remove cookies on the response
+        set: () => {},
+        remove: () => {},
       },
     });
 
@@ -48,23 +54,17 @@ export async function POST(req: Request) {
     if (!user)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    // 2) Collect storage paths BEFORE deleting (with the anon client; this should pass your RLS since it's the owner's rows)
+    // Collect photo storage paths BEFORE deletion (best-effort)
     let storagePaths: string[] = [];
     {
       const { data, error } = await supabase
         .from("review_photos")
         .select("storage_path")
         .eq("review_id", reviewId);
-
-      if (error) {
-        // not fatal; we can still proceed with DB delete
-        storagePaths = [];
-      } else {
-        storagePaths = (data ?? []).map((r) => r.storage_path);
-      }
+      if (!error && data) storagePaths = data.map((r) => r.storage_path);
     }
 
-    // 3) Hard delete through a SECURITY DEFINER RPC (bypasses RLS but enforces ownership)
+    // Hard delete through SECURITY DEFINER RPC (bypasses RLS but enforces ownership)
     {
       const { error } = await supabase.rpc("hard_delete_review", {
         in_review_id: reviewId,
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4) Best-effort storage cleanup with service role
+    // Best-effort Storage cleanup with service role
     if (storagePaths.length) {
       await fetch(`${SUPABASE_URL}/storage/v1/object/remove`, {
         method: "POST",
