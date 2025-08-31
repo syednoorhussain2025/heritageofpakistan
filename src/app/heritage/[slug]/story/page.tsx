@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation"; // ✅ useParams for client components
 import { supabase } from "@/lib/supabaseClient";
 
 type Site = { id: string; slug: string; title: string };
@@ -21,8 +22,86 @@ type PhotoStoryItem = {
   sort_order: number;
 };
 
-export default function SitePhotoStoryPage(props: any) {
-  const slug = (props?.params?.slug as string) ?? "";
+/* ───────────── Skeletons (dark theme) ───────────── */
+
+function SkBar({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded bg-white/10 ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+function SkCircle({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-full bg-white/10 ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+function TopBarSkeleton() {
+  return (
+    <div className="w-full flex justify-between items-center px-6 py-4 bg-black sticky top-0 z-10">
+      <div className="space-y-2">
+        <SkBar className="h-6 w-56" />
+        <SkBar className="h-4 w-72" />
+      </div>
+      <SkBar className="h-8 w-40 rounded" />
+    </div>
+  );
+}
+
+function HeroSkeleton() {
+  return (
+    <figure className="mb-12">
+      <SkBar className="w-full h-screen" />
+    </figure>
+  );
+}
+
+function ItemImageSkeleton() {
+  return (
+    <figure className="mb-12">
+      <SkBar className="w-full h-screen" />
+      <SkBar className="h-4 w-64 mx-auto mt-3 rounded" />
+    </figure>
+  );
+}
+
+function ItemTextSkeleton() {
+  return (
+    <div className="mb-12">
+      <div className="max-w-3xl mx-auto px-6 text-center space-y-3">
+        <SkBar className="h-4 w-full rounded" />
+        <SkBar className="h-4 w-5/6 rounded" />
+        <SkBar className="h-4 w-2/3 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <TopBarSkeleton />
+      <HeroSkeleton />
+      <div className="w-full">
+        <ItemImageSkeleton />
+        <ItemTextSkeleton />
+        <ItemImageSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── Page ───────────── */
+
+export default function SitePhotoStoryPage() {
+  const params = useParams();
+  const slug = (params?.slug as string) ?? ""; // ✅ fixes “params is a Promise” warning
 
   const [site, setSite] = useState<Site | null>(null);
   const [story, setStory] = useState<PhotoStory | null>(null);
@@ -30,6 +109,8 @@ export default function SitePhotoStoryPage(props: any) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!slug) return;
+
     (async () => {
       setLoading(true);
 
@@ -64,8 +145,7 @@ export default function SitePhotoStoryPage(props: any) {
     })();
   }, [slug]);
 
-  if (loading)
-    return <div className="min-h-screen bg-black text-white p-6">Loading…</div>;
+  if (loading) return <PageSkeleton />;
   if (!site)
     return (
       <div className="min-h-screen bg-black text-white p-6">Not found.</div>
