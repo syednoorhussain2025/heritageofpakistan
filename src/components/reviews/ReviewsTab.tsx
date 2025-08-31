@@ -251,9 +251,9 @@ export default function ReviewsTab({ siteId }: Props) {
               location: siteLocation,
               region: "",
               categories: [],
-              // Keep GPS hidden for reviews (no Maps pin)
-              latitude: undefined,
-              longitude: undefined,
+              // Keep GPS hidden for reviews (no Maps pin) — must be null (not undefined)
+              latitude: null,
+              longitude: null,
             },
             author: { name: authorName, profileUrl: authorProfileUrl },
           };
