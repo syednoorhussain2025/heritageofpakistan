@@ -98,7 +98,6 @@ function isPortrait(p: { width?: number | null; height?: number | null }) {
 
 function CanonicalTile({
   p,
-  i,
   isDark,
   onOpen,
 }: {
@@ -108,7 +107,6 @@ function CanonicalTile({
     width?: number | null;
     height?: number | null;
   };
-  i: number;
   isDark: boolean;
   onOpen: () => void;
 }) {
@@ -187,6 +185,9 @@ export default function PublicPortfolioPage() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
+  const [photoDims, setPhotoDims] = useState<
+    Record<string, { width?: number | null; height?: number | null }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -286,6 +287,19 @@ export default function PublicPortfolioPage() {
           ])
         );
 
+        // Build side-map for dimensions (NOT part of LightboxPhoto)
+        const dims: Record<
+          string,
+          { width?: number | null; height?: number | null }
+        > = {};
+        (phData ?? []).forEach((p) => {
+          const row = p as ReviewPhotoRow;
+          dims[row.id] = {
+            width: row.width ?? null,
+            height: row.height ?? null,
+          };
+        });
+
         const shaped: LightboxPhoto[] = orderedPortfolio
           .map(({ photo_id }) => {
             const ph = photoById.get(photo_id);
@@ -299,10 +313,6 @@ export default function PublicPortfolioPage() {
               url: storagePublicUrl("user-photos", ph.storage_path),
               storagePath: ph.storage_path,
               caption: ph.caption || null,
-              // width/height are included in your LightboxPhoto type in this app;
-              // if they’re optional, these assignments are still valid:
-              width: ph.width ?? undefined,
-              height: ph.height ?? undefined,
               isBookmarked: false, // not used here (no bookmark button)
               site: {
                 id: st?.id ?? "",
@@ -310,8 +320,7 @@ export default function PublicPortfolioPage() {
                 location: st?.location_free || "",
                 region: "",
                 categories: [],
-                // Use null (not undefined) to satisfy LightboxPhoto typing
-                latitude: st?.latitude ?? null,
+                latitude: st?.latitude ?? null, // must be null, not undefined
                 longitude: st?.longitude ?? null,
               },
               author: {
@@ -325,6 +334,7 @@ export default function PublicPortfolioPage() {
           .filter(Boolean) as LightboxPhoto[];
 
         setPhotos(shaped);
+        setPhotoDims(dims);
       } catch (e: any) {
         setPageError(e?.message ?? "Could not load portfolio.");
       } finally {
@@ -442,20 +452,24 @@ export default function PublicPortfolioPage() {
             auto-rows-[8px] grid-flow-row
           "
           >
-            {photos.map((p, i) => (
-              <CanonicalTile
-                key={p.id}
-                p={{
-                  url: p.url,
-                  caption: p.caption,
-                  width: (p as any).width,
-                  height: (p as any).height,
-                }}
-                i={i}
-                isDark={isDarkTheme}
-                onOpen={() => setLightboxIndex(i)}
-              />
-            ))}
+            {photos.map((p) => {
+              const dims = photoDims[p.id] || {};
+              return (
+                <CanonicalTile
+                  key={p.id}
+                  p={{
+                    url: p.url,
+                    caption: p.caption,
+                    width: dims.width,
+                    height: dims.height,
+                  }}
+                  isDark={isDarkTheme}
+                  onOpen={() =>
+                    setLightboxIndex(photos.findIndex((x) => x.id === p.id))
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </main>
