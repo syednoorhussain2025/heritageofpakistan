@@ -187,12 +187,72 @@ const ResizableImage = ImageExt.extend({
   },
 });
 
+/* ================================ Lightweight Skeletons ================================ */
+
+function SidebarItemSkeleton() {
+  return (
+    <li className="p-2.5 rounded-lg border-b border-gray-200 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <span className="w-3.5 h-3.5 rounded bg-gray-200 animate-pulse" />
+        <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+      </div>
+      <div className="h-2 w-24 bg-gray-200 rounded mt-2 ml-6 animate-pulse" />
+    </li>
+  );
+}
+
+function TitleBarSkeleton() {
+  return (
+    <div className="h-16 flex-shrink-0 px-6 border-b border-gray-200 flex items-center justify-between gap-4">
+      <div className="h-6 w-1/3 bg-gray-200 rounded animate-pulse" />
+      <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+    </div>
+  );
+}
+
+function ToolbarSkeleton() {
+  return (
+    <div className="flex-shrink-0 px-6 py-2 border-b border-gray-200 flex items-center flex-wrap gap-1.5">
+      {Array.from({ length: 14 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-7 rounded bg-gray-200 animate-pulse"
+          style={{ width: i % 4 === 0 ? 64 : 28 }}
+        />
+      ))}
+      <div className="ml-auto h-7 w-16 rounded bg-gray-200 animate-pulse" />
+    </div>
+  );
+}
+
+function EditorSkeleton() {
+  return (
+    <div className="flex-1 overflow-hidden px-8 py-6">
+      <div className="space-y-3">
+        <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-4/6 animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
+        <div className="h-64 bg-gray-100 rounded animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
 /* ================================ Page ================================ */
 
 export default function TravelNotebookPage() {
   const [notes, setNotes] = useState<TravelNote[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Existing loading for notes list
   const [loadingList, setLoadingList] = useState(true);
+
+  // New: loading state for the right pane while switching/creating notes
+  const [contentLoading, setContentLoading] = useState(false);
+
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -323,35 +383,39 @@ export default function TravelNotebookPage() {
     else Promise.resolve().then(fn);
   };
 
+  // Manage editor content & content skeleton
   useEffect(() => {
     if (!editor) return;
 
     editor.setEditable(!!activeNote);
 
-    const needsSet =
-      !!activeNote &&
-      JSON.stringify(activeNote.content) !== JSON.stringify(editor.getJSON());
-
-    if (needsSet) {
-      const nextContent = activeNote!.content || "";
+    if (activeNote) {
+      // show skeleton while swapping note content
+      setContentLoading(true);
+      const nextContent = activeNote.content || "";
       schedule(() => {
         if (!editor) return;
         editor.commands.setContent(nextContent, false);
+        // small timeout to allow the DOM to paint before removing skeleton
+        setTimeout(() => setContentLoading(false), 120);
       });
-    } else if (!activeNote) {
+    } else {
       schedule(() => {
         if (!editor) return;
         editor.commands.clearContent();
+        setContentLoading(false);
       });
     }
   }, [activeNote, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateNote = async (type: NoteType) => {
     setMenuOpen(false);
+    setContentLoading(true);
     const row = await createNote(type);
     const updatedNotes = await listNotes();
     setNotes(updatedNotes);
     setActiveId(row.id);
+    // contentLoading will be cleared by the effect above after setContent
   };
 
   const handleTitleChange = (id: string, title: string) => {
@@ -429,15 +493,24 @@ export default function TravelNotebookPage() {
           </div>
           <div className="flex-1 overflow-auto p-2 min-h-0">
             {loadingList ? (
+              <ul>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <SidebarItemSkeleton key={i} />
+                ))}
+              </ul>
+            ) : filteredNotes.length === 0 ? (
               <div className="text-center p-4 text-sm text-gray-500">
-                Loading...
+                No notes found.
               </div>
             ) : (
               <ul>
                 {filteredNotes.map((n) => (
                   <li
                     key={n.id}
-                    onClick={() => setActiveId(n.id)}
+                    onClick={() => {
+                      setActiveId(n.id);
+                      setContentLoading(true);
+                    }}
                     className={`p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors ${
                       activeId === n.id
                         ? "bg-orange-100"
@@ -474,6 +547,12 @@ export default function TravelNotebookPage() {
                 started. Plan your trips or make notes
               </p>
             </div>
+          ) : contentLoading ? (
+            <>
+              <TitleBarSkeleton />
+              <ToolbarSkeleton />
+              <EditorSkeleton />
+            </>
           ) : (
             <>
               <div className="h-16 flex-shrink-0 px-6 border-b border-gray-200 flex items-center justify-between gap-4">
