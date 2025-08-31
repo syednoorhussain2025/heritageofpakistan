@@ -15,7 +15,6 @@ export async function getSiteGalleryPhotosForLightbox(
   // 1. Fetch all required data in parallel
   const [siteRes, imagesRes, regionRes, categoryRes, bookmarkRes] =
     await Promise.all([
-      // ✅ ADDED architectural_style to the select query
       supabase
         .from("sites")
         .select(
@@ -55,7 +54,11 @@ export async function getSiteGalleryPhotosForLightbox(
       .filter(Boolean) as string[]) ?? []
   );
 
-  const siteRegion = regionRes.data?.[0]?.region?.name ?? "Unknown Region";
+  // FIX: The type error indicates `region` may be returned as an array.
+  // We now safely access the first element of that potential array.
+  const siteRegion =
+    (regionRes.data?.[0]?.region as any)?.name ?? "Unknown Region";
+
   const siteCategories =
     (categoryRes.data
       ?.map((c) => c.category.name)
@@ -77,7 +80,6 @@ export async function getSiteGalleryPhotosForLightbox(
       longitude: site.longitude,
       region: siteRegion,
       categories: siteCategories,
-      // ✅ ADDED the new architecturalStyle field
       architecturalStyle: site.architectural_style,
     },
     isBookmarked: bookmarkedPaths.has(img.storage_path),
