@@ -94,11 +94,10 @@ function PageSkeleton() {
 }
 
 /* ------------------ Fast spinner (for map loading only) ------------------ */
-
 function Spinner() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="h-12 w-12 border-4 border-[#F78300] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
