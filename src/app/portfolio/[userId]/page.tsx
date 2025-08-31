@@ -294,29 +294,33 @@ export default function PublicPortfolioPage() {
             const rv = ph.review_id ? reviewById.get(ph.review_id) : null;
             const st = rv?.site_id ? siteById.get(rv.site_id) : null;
 
-            return {
+            const shapedPhoto: LightboxPhoto = {
               id: ph.id,
               url: storagePublicUrl("user-photos", ph.storage_path),
               storagePath: ph.storage_path,
               caption: ph.caption || null,
+              // width/height are included in your LightboxPhoto type in this app;
+              // if they’re optional, these assignments are still valid:
               width: ph.width ?? undefined,
               height: ph.height ?? undefined,
               isBookmarked: false, // not used here (no bookmark button)
               site: {
-                id: st?.id,
+                id: st?.id ?? "",
                 name: st?.title || "",
                 location: st?.location_free || "",
                 region: "",
                 categories: [],
-                // Do NOT provide lat/long so the GPS pin is hidden in the universal lightbox
-                latitude: undefined,
-                longitude: undefined,
+                // Use null (not undefined) to satisfy LightboxPhoto typing
+                latitude: st?.latitude ?? null,
+                longitude: st?.longitude ?? null,
               },
               author: {
                 name: authorName,
                 profileUrl: authorProfileUrl,
               },
-            } as LightboxPhoto;
+            };
+
+            return shapedPhoto;
           })
           .filter(Boolean) as LightboxPhoto[];
 
@@ -444,8 +448,8 @@ export default function PublicPortfolioPage() {
                 p={{
                   url: p.url,
                   caption: p.caption,
-                  width: p.width,
-                  height: p.height,
+                  width: (p as any).width,
+                  height: (p as any).height,
                 }}
                 i={i}
                 isDark={isDarkTheme}
@@ -465,7 +469,7 @@ export default function PublicPortfolioPage() {
           /* Intentionally NOT passing:
              - onBookmarkToggle (hides bookmark button)
              - onAddToCollection (hides collection button)
-             And latitude/longitude are omitted from photo.site to hide the GPS pin.
+             GPS pin visibility is controlled by passing null lat/long above.
           */
         />
       )}
