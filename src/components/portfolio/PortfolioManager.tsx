@@ -85,7 +85,8 @@ export default function PortfolioManager() {
       setLoading(true);
       setPageError(null);
 
-      const [portfolio, reviews, profileRes] = await Promise.all([
+      // --- Step 1: Fetch all existing data ---
+      let [portfolio, reviews, profileRes] = await Promise.all([
         listPortfolio(userId),
         listUserReviews(userId),
         supabase
@@ -113,15 +114,46 @@ export default function PortfolioManager() {
         allReviewPhotos = data ?? [];
       }
 
+      // --- Step 2: Find and insert new photos (THE FIX) ---
+      const existingPhotoIds = new Set(portfolio.map((p) => p.photo_id));
+      const newPhotosToInsert = allReviewPhotos
+        .filter((p) => !existingPhotoIds.has(p.id))
+        .map((p, index) => ({
+          user_id: userId,
+          photo_id: p.id,
+          is_public: true, // Make them public by default
+          order_index: 1000 + index, // Place new items at the end
+        }));
+
+      if (newPhotosToInsert.length > 0) {
+        const { data: insertedItems, error: insertError } = await supabase
+          .from("user_portfolio")
+          .insert(newPhotosToInsert)
+          .select();
+
+        if (insertError) {
+          console.error(
+            "Failed to auto-add new photos to portfolio:",
+            insertError
+          );
+        } else if (insertedItems) {
+          // Add the newly created items to our in-memory list to avoid a re-fetch
+          portfolio = [...portfolio, ...insertedItems];
+        }
+      }
+
+      // --- Step 3: Combine all data for the UI ---
+      const portfolioMap = new Map(portfolio.map((p) => [p.photo_id, p]));
+
       const combined: PhotoItem[] = allReviewPhotos.map((p) => {
-        const existing = portfolio.find((pf) => pf.photo_id === p.id);
+        const existing = portfolioMap.get(p.id);
         return {
           id: p.id,
           review_id: p.review_id,
           storage_path: p.storage_path,
           caption: p.caption,
           publicUrl: storagePublicUrl("user-photos", p.storage_path),
-          is_public: existing ? !!existing.is_public : true,
+          is_public: existing ? existing.is_public : false, // Fallback if insert failed
           order_index: existing ? existing.order_index : 999,
           portfolio_item_id: existing ? existing.id : null,
         };
