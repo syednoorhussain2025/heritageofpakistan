@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { LightboxPhoto } from "../../types/lightbox";
-import Icon from "../Icon"; // Assuming Icon is at components/Icon.tsx
+import type { LightboxPhoto } from "../../types/lightbox";
+import Icon from "../Icon";
+
+/** ---------- CONFIG ---------- */
+const PANEL_W = 264; // px — desktop/tablet panel width
+const GAP = 20; // px — gap between image and panel
+const PADDING = 24; // px — overlay padding per side at md+ (p-6)
+const MAX_VH = { base: 76, md: 84, lg: 88 }; // image max-height in viewport %
 
 type LightboxProps = {
   photos: LightboxPhoto[];
   startIndex: number;
   onClose: () => void;
-  // Optional actions. Buttons will only show if these are provided.
   onBookmarkToggle?: (photo: LightboxPhoto) => void;
   onAddToCollection?: (photo: LightboxPhoto) => void;
 };
@@ -25,6 +30,19 @@ export function Lightbox({
 }: LightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
 
+  /** window size + responsive flags */
+  const [win, setWin] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const setSize = () =>
+      setWin({ w: window.innerWidth, h: window.innerHeight });
+    setSize();
+    window.addEventListener("resize", setSize);
+    return () => window.removeEventListener("resize", setSize);
+  }, []);
+  const isMdUp = win.w >= 768;
+  const isLgUp = win.w >= 1024;
+
+  /** keyboard nav */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -35,150 +53,313 @@ export function Lightbox({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [photos.length, onClose]);
+  }, [onClose, photos.length]);
 
+  /** current photo */
   const photo = photos[currentIndex];
   if (!photo) return null;
 
+  /** preload & keep geometry stable between images */
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null); // natural size for *currently shown* image
+  const [imgSrc, setImgSrc] = useState<string | null>(null); // url for *currently shown* image
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
+
+  // First mount: preload the initial image and then render it
+  useEffect(() => {
+    let cancelled = false;
+    const preload = (src: string) =>
+      new Promise<{ w: number; h: number }>((resolve, reject) => {
+        const i = new (window as any).Image();
+        i.onload = () =>
+          resolve({ w: i.naturalWidth || 1, h: i.naturalHeight || 1 });
+        i.onerror = reject;
+        i.src = src;
+      });
+
+    if (!imgSrc && photo?.url) {
+      setIsLoadingNext(true);
+      preload(photo.url)
+        .then(({ w, h }) => {
+          if (cancelled) return;
+          setNat({ w, h });
+          setImgSrc(photo.url);
+        })
+        .finally(() => !cancelled && setIsLoadingNext(false));
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When index changes: preload the *next* photo; keep the old geometry until ready.
+  useEffect(() => {
+    if (!photo?.url) return;
+    let cancelled = false;
+
+    const preload = (src: string) =>
+      new Promise<{ w: number; h: number }>((resolve, reject) => {
+        const i = new (window as any).Image();
+        i.onload = () =>
+          resolve({ w: i.naturalWidth || 1, h: i.naturalHeight || 1 });
+        i.onerror = reject;
+        i.src = src;
+      });
+
+    // If already showing this src, nothing to do
+    if (imgSrc === photo.url) return;
+
+    setIsLoadingNext(true);
+    preload(photo.url)
+      .then(({ w, h }) => {
+        if (cancelled) return;
+        // Atomically swap in: geometry first, then src
+        setNat({ w, h });
+        setImgSrc(photo.url);
+      })
+      .finally(() => !cancelled && setIsLoadingNext(false));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [photo?.url, imgSrc]);
+
+  /** helper: compute geometry deterministically (no DOM reads) */
+  const geom = useMemo(() => {
+    // fallback ratio if nat not ready yet (first ever paint only)
+    const nw = nat?.w ?? 3;
+    const nh = nat?.h ?? 2;
+
+    const pad = isMdUp ? PADDING : 16; // p-6 vs p-4
+    const vw = Math.max(320, win.w);
+    const vh = Math.max(320, win.h);
+
+    const maxH =
+      vh * ((isLgUp ? MAX_VH.lg : isMdUp ? MAX_VH.md : MAX_VH.base) / 100);
+
+    // on md+, reserve room for the panel + gap; on mobile, the panel stacks
+    const usableW = isMdUp ? vw - pad * 2 - (PANEL_W + GAP) : vw - pad * 2;
+
+    const scale = Math.min(usableW / nw, maxH / nh);
+    const imgW = Math.floor(nw * scale);
+    const imgH = Math.floor(nh * scale);
+
+    const totalW = isMdUp ? imgW + GAP + PANEL_W : imgW;
+
+    const contentLeft = Math.round((vw - totalW) / 2);
+    const imgLeft = contentLeft;
+    const imgTop = Math.round((vh - imgH) / 2);
+
+    const panelLeft = isMdUp ? imgLeft + imgW + GAP : pad;
+    const panelTop = isMdUp
+      ? imgTop + Math.round(imgH / 2)
+      : imgTop + imgH + 16;
+
+    return {
+      imgW,
+      imgH,
+      imgLeft,
+      imgTop,
+      panelLeft,
+      panelTop,
+      isMdUp,
+    };
+  }, [isMdUp, isLgUp, nat, win]);
+
   const googleMapsUrl =
-    photo.site.latitude && photo.site.longitude
+    photo.site.latitude != null && photo.site.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${photo.site.latitude},${photo.site.longitude}`
       : null;
 
+  /** ---------- RENDER ---------- */
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+        className="fixed inset-0 z-[100] bg-black/90"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* Main container for image and info */}
+        {/* Controls */}
+        <button
+          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <Icon name="xmark" />
+        </button>
+
+        <button
+          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+          }}
+          aria-label="Previous"
+        >
+          <Icon name="chevron-left" />
+        </button>
+
+        <button
+          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((p) => (p + 1) % photos.length);
+          }}
+          aria-label="Next"
+        >
+          <Icon name="chevron-right" />
+        </button>
+
+        {/* IMAGE (absolutely placed, sized precisely; rounded + clipped) */}
         <div
-          className="relative w-full h-full flex flex-col md:flex-row items-center justify-center gap-6"
+          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
+          style={{
+            left: geom.imgLeft,
+            top: geom.imgTop,
+            width: Math.max(1, geom.imgW),
+            height: Math.max(1, geom.imgH),
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close Button (Top right of screen) */}
-          <button
-            className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-20"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <Icon name="xmark" />
-          </button>
+          {/* Skeleton while the next image is preloading (keeps box size stable) */}
+          {(!imgSrc || isLoadingNext) && (
+            <div className="w-full h-full animate-pulse bg-white/10" />
+          )}
 
-          {/* Prev / Next Buttons */}
-          <button
-            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-20"
-            onClick={() =>
-              setCurrentIndex((p) => (p - 1 + photos.length) % photos.length)
-            }
-            aria-label="Previous"
-          >
-            <Icon name="chevron-left" />
-          </button>
-          <button
-            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-20"
-            onClick={() => setCurrentIndex((p) => (p + 1) % photos.length)}
-            aria-label="Next"
-          >
-            <Icon name="chevron-right" />
-          </button>
-
-          {/* Image Wrapper */}
-          <div className="relative flex-shrink-0 w-full md:w-auto md:h-full flex items-center justify-center">
+          {/* Actual image (only shown when preloaded) */}
+          {imgSrc && !isLoadingNext && (
             <Image
-              src={photo.url}
+              src={imgSrc}
               alt={photo.caption ?? ""}
-              width={1600}
-              height={1200}
+              width={Math.max(1, geom.imgW)}
+              height={Math.max(1, geom.imgH)}
+              priority
               quality={90}
-              className="object-contain w-auto h-auto max-w-[90vw] max-h-[70vh] md:max-h-full rounded-lg shadow-2xl"
+              unoptimized
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+              }}
             />
-          </div>
+          )}
+        </div>
 
-          {/* --- NEW: Info Panel (Right side on desktop) --- */}
-          <div className="w-full md:w-72 flex-shrink-0 text-white p-4 space-y-4 self-center">
-            {/* Site and Author Info */}
-            <div>
-              <h3 className="font-bold text-xl">{photo.site.name}</h3>
-              <p className="text-sm text-gray-300">{photo.site.location}</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Photo by:{" "}
-                {photo.author.profileUrl ? (
-                  <Link
-                    href={photo.author.profileUrl}
-                    className="hover:underline"
-                  >
-                    {photo.author.name}
-                  </Link>
-                ) : (
-                  <span>{photo.author.name}</span>
+        {/* INFO PANEL — glued to image's right edge; skeleton during preload */}
+        <div
+          className={
+            geom.isMdUp ? "absolute z-20" : "absolute z-20 w-[min(92vw,620px)]"
+          }
+          style={{
+            left: geom.panelLeft,
+            top: geom.isMdUp ? geom.panelTop : geom.panelTop,
+            transform: geom.isMdUp ? "translateY(-50%)" : "none",
+            width: geom.isMdUp ? PANEL_W : undefined,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Skeleton state mirrors panel layout */}
+          {!imgSrc || isLoadingNext ? (
+            <div className="space-y-3">
+              <div className="h-6 w-3/4 rounded bg-white/10 animate-pulse" />
+              <div className="h-3 w-5/6 rounded bg-white/10 animate-pulse" />
+              <div className="h-3 w-2/3 rounded bg-white/10 animate-pulse" />
+              <div className="flex gap-2 pt-1">
+                <div className="h-6 w-24 rounded-full bg-white/10 animate-pulse" />
+                <div className="h-6 w-28 rounded-full bg-white/10 animate-pulse" />
+                <div className="h-6 w-24 rounded-full bg-white/10 animate-pulse" />
+              </div>
+              <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                <div className="h-9 w-9 rounded-full bg-white/10 animate-pulse" />
+                <div className="h-9 flex-1 rounded-full bg-white/10 animate-pulse" />
+                <div className="h-9 w-9 rounded-full bg-white/10 animate-pulse" />
+              </div>
+            </div>
+          ) : (
+            <div className="text-white space-y-4">
+              <div>
+                <h3 className="font-bold text-xl">{photo.site.name}</h3>
+                {photo.site.location && (
+                  <p className="text-sm text-gray-300">{photo.site.location}</p>
                 )}
-              </p>
-            </div>
+                <p className="text-sm text-gray-400 mt-1">
+                  Photo by{" "}
+                  {photo.author.profileUrl ? (
+                    <Link
+                      href={photo.author.profileUrl}
+                      className="hover:underline"
+                    >
+                      {photo.author.name}
+                    </Link>
+                  ) : (
+                    <span>{photo.author.name}</span>
+                  )}
+                </p>
+              </div>
 
-            {/* Caption */}
-            {photo.caption && (
-              <p className="text-sm text-gray-200 bg-white/5 p-3 rounded-lg">
-                {photo.caption}
-              </p>
-            )}
+              {photo.caption && (
+                <p className="text-sm text-gray-200 bg-white/5 p-3 rounded-lg">
+                  {photo.caption}
+                </p>
+              )}
 
-            {/* Taxonomies */}
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
-                {photo.site.region}
-              </span>
-              {photo.site.categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
-                >
-                  {cat}
-                </span>
-              ))}
-            </div>
+              <div className="flex flex-wrap gap-2">
+                {photo.site.region && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
+                    {photo.site.region}
+                  </span>
+                )}
+                {photo.site.categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+                  >
+                    {cat}
+                  </span>
+                ))}
+              </div>
 
-            {/* Actions: Bookmark, Collection, GPS */}
-            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {onBookmarkToggle && (
-                <button
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  onClick={() => onBookmarkToggle(photo)}
-                  title={
-                    photo.isBookmarked
-                      ? "Remove from collection"
-                      : "Add to collection"
-                  }
-                >
-                  <Icon
-                    name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
-                  />
-                </button>
-              )}
-              {onAddToCollection && (
-                <button
-                  className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
-                  onClick={() => onAddToCollection(photo)}
-                >
-                  Add to Collection
-                </button>
-              )}
-              {googleMapsUrl && (
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  title="View on Google Maps"
-                >
-                  <Icon name="map-marker-alt" />
-                </a>
-              )}
+              <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                {onBookmarkToggle && (
+                  <button
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                    onClick={() => onBookmarkToggle(photo)}
+                    title={
+                      photo.isBookmarked
+                        ? "Remove from collection"
+                        : "Add to collection"
+                    }
+                  >
+                    <Icon
+                      name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
+                    />
+                  </button>
+                )}
+                {onAddToCollection && (
+                  <button
+                    className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                    onClick={() => onAddToCollection(photo)}
+                  >
+                    Add to Collection
+                  </button>
+                )}
+                {googleMapsUrl && (
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                    title="View on Google Maps"
+                  >
+                    <Icon name="map-marker-alt" />
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>
