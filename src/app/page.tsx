@@ -5,20 +5,20 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// --- TYPE DEFINITIONS ---
+/* =========================
+   Types
+========================= */
 type Option = { id: string; name: string };
 type Region = { id: string; name: string; parent_id: string | null };
 type SubRegionsMap = Record<string, Region[]>;
 
-// --- HELPER & UI COMPONENTS ---
-
-// Custom Hook to detect outside clicks
+/* =========================
+   Click Outside Hook
+========================= */
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
-      if (!ref.current || ref.current.contains(event.target as Node)) {
-        return;
-      }
+      if (!ref.current || ref.current.contains(event.target as Node)) return;
       handler();
     };
     document.addEventListener("mousedown", listener);
@@ -30,7 +30,9 @@ const useClickOutside = (ref: any, handler: () => void) => {
   }, [ref, handler]);
 };
 
-// --- Reusable Searchable Select Component (for Categories) ---
+/* =========================
+   SearchableSelect (Categories)
+========================= */
 const SearchableSelect = ({
   options,
   value,
@@ -124,7 +126,7 @@ const SearchableSelect = ({
           className={`absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-hover:bg-[#f78300] transition-all duration-300 ${
             isOpen ? "bg-[#f78300]" : ""
           }`}
-        ></div>
+        />
       </div>
 
       <div
@@ -159,7 +161,9 @@ const SearchableSelect = ({
   );
 };
 
-// --- Cascading Region Select Component ---
+/* =========================
+   Cascading RegionSelect
+========================= */
 const RegionSelect = ({
   parentRegions,
   subRegions,
@@ -270,7 +274,7 @@ const RegionSelect = ({
           className={`absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-hover:bg-[#f78300] transition-all duration-300 ${
             isOpen ? "bg-[#f78300]" : ""
           }`}
-        ></div>
+        />
       </div>
 
       <div
@@ -308,13 +312,21 @@ const RegionSelect = ({
   );
 };
 
-// --- MAIN PAGE COMPONENT ---
+/* =========================
+   Main Page
+========================= */
 export default function HomePage() {
   const router = useRouter();
+
+  // data & ui state
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  const [heroReady, setHeroReady] = useState<boolean>(false); // becomes true once image fully loads
+
   const [parentRegions, setParentRegions] = useState<Region[]>([]);
   const [subRegions, setSubRegions] = useState<SubRegionsMap>({});
   const [categories, setCategories] = useState<Option[]>([]);
+
+  // search state
   const [regionId, setRegionId] = useState<string>("");
   const [activeParentRegion, setActiveParentRegion] = useState<Region | null>(
     null
@@ -322,27 +334,40 @@ export default function HomePage() {
   const [categoryId, setCategoryId] = useState<string>("");
   const [q, setQ] = useState<string>("");
 
-  // States to control animations
-  const [bgLoaded, setBgLoaded] = useState(false);
-  const [textLoaded, setTextLoaded] = useState(false);
-  const [searchLoaded, setSearchLoaded] = useState(false);
+  // staged entrance AFTER hero is ready
+  const [textVisible, setTextVisible] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
 
+  // Load data + preload hero image
   useEffect(() => {
-    // Trigger animations sequentially
-    const timer1 = setTimeout(() => setBgLoaded(true), 100);
-    const timer2 = setTimeout(() => setTextLoaded(true), 300);
-    const timer3 = setTimeout(() => setSearchLoaded(true), 500);
-
-    // Fetching logic
     (async () => {
       try {
+        // Fetch hero image URL first
         const { data: gs } = await supabase
           .from("global_settings")
           .select("hero_image_url")
           .limit(1)
           .maybeSingle();
-        setHeroUrl(gs?.hero_image_url ?? null);
 
+        const nextHero = gs?.hero_image_url ?? null;
+        setHeroUrl(nextHero);
+
+        // Preload the hero image, then mark ready
+        if (nextHero) {
+          const img = new Image();
+          img.src = nextHero;
+          if (img.complete) {
+            setHeroReady(true);
+          } else {
+            img.onload = () => setHeroReady(true);
+            img.onerror = () => setHeroReady(false);
+          }
+        } else {
+          // no hero image—instantly "ready" so content can show
+          setHeroReady(true);
+        }
+
+        // Fetch filters in parallel (doesn't block hero dissolve)
         const [{ data: regData }, { data: catData }] = await Promise.all([
           supabase
             .from("regions")
@@ -366,18 +391,22 @@ export default function HomePage() {
           }, {})
         );
         setCategories((catData as Option[]) || []);
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
+      } catch (e) {
+        console.error("Error fetching initial data:", e);
       }
     })();
-
-    // Cleanup timers on component unmount
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
   }, []);
+
+  // Stagger text & search AFTER hero is ready
+  useEffect(() => {
+    if (!heroReady) return;
+    const t1 = setTimeout(() => setTextVisible(true), 150);
+    const t2 = setTimeout(() => setSearchVisible(true), 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [heroReady]);
 
   function onSearch() {
     const sp = new URLSearchParams();
@@ -388,39 +417,70 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative w-full h-screen">
-      <div className="absolute inset-0 bg-black">
-        {heroUrl && (
-          <img
-            src={heroUrl}
-            alt="Heritage of Pakistan"
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in ${
-              bgLoaded ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        )}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/40 to-transparent" />
+    <div className="relative w-full h-screen bg-white">
+      {/* White page overlay that dissolves away once the hero is ready */}
+      <div
+        className={`absolute inset-0 bg-white transition-opacity duration-600 ease-out ${
+          heroReady ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+        aria-hidden
+      />
 
+      {/* Subtle background gradients (visible under the hero during fade) */}
+      <div
+        className="absolute inset-0"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(1200px 600px at 20% 20%, rgba(247,131,0,0.18), transparent 60%), radial-gradient(1200px 600px at 80% 80%, rgba(0,0,0,0.18), transparent 55%)",
+        }}
+      />
+
+      {/* Hero image fades in only after fully loaded */}
+      {heroUrl && (
+        <img
+          src={heroUrl}
+          alt="Heritage of Pakistan"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out ${
+            heroReady ? "opacity-100" : "opacity-0"
+          }`}
+          draggable={false}
+        />
+      )}
+
+      {/* Bottom gradient for legibility */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/50 to-transparent" />
+
+      {/* Content */}
       <div className="relative z-10 h-full w-full flex flex-col items-center justify-center px-4">
-        <h1
-          className={`text-white text-4xl md:text-6xl font-extrabold text-center drop-shadow-lg transition-all duration-700 ease-out ${
-            textLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
-          }`}
-        >
-          Heritage of Pakistan
-        </h1>
-        <p
-          className={`mt-4 text-white/95 text-lg md:text-2xl text-center drop-shadow-md transition-all duration-700 ease-out delay-150 ${
-            textLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
-          }`}
-        >
-          Discover, Explore, Preserve
-        </p>
+        {/* Title + Subtitle (fade in after hero) */}
+        <div className="w-full max-w-5xl flex flex-col items-center">
+          <h1
+            className={`text-white text-4xl md:text-6xl font-extrabold text-center drop-shadow-lg transition-all duration-700 ease-out ${
+              textVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-3"
+            }`}
+          >
+            Heritage of Pakistan
+          </h1>
+          <p
+            className={`mt-4 text-white/95 text-lg md:text-2xl text-center drop-shadow-md transition-all duration-700 ease-out ${
+              textVisible
+                ? "opacity-100 translate-y-0 delay-100"
+                : "opacity-0 translate-y-3"
+            }`}
+          >
+            Discover, Explore, Preserve
+          </p>
+        </div>
 
+        {/* Search Bar (fade in after title/subtitle) */}
         <div
-          className={`mt-12 w-full max-w-5xl transition-opacity duration-700 ease-in ${
-            searchLoaded ? "opacity-100" : "opacity-0"
+          className={`mt-12 w-full max-w-5xl transition-all duration-700 ease-out ${
+            searchVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-2"
           }`}
         >
           <div className="bg-white/95 backdrop-blur-sm rounded-md shadow-2xl p-4">
@@ -455,7 +515,7 @@ export default function HomePage() {
                     placeholder="Search Heritage"
                     className="w-full py-2 bg-transparent text-gray-800 outline-none placeholder-gray-700"
                   />
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-focus-within:bg-[#f78300] transition-all duration-300"></div>
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-focus-within:bg-[#f78300] transition-all duration-300" />
                 </div>
               </div>
 
@@ -470,6 +530,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        {/* End search */}
       </div>
     </div>
   );
