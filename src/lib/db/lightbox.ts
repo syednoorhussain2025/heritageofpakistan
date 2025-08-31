@@ -54,14 +54,13 @@ export async function getSiteGalleryPhotosForLightbox(
       .filter(Boolean) as string[]) ?? []
   );
 
-  // FIX: The type error indicates `region` may be returned as an array.
-  // We now safely access the first element of that potential array.
   const siteRegion =
     (regionRes.data?.[0]?.region as any)?.name ?? "Unknown Region";
 
+  // FIX: Applied the same logic as for region to safely access the category name.
   const siteCategories =
     (categoryRes.data
-      ?.map((c) => c.category.name)
+      ?.map((c) => (c.category as any)?.name)
       .filter(Boolean) as string[]) ?? [];
 
   // 2. Map the raw database data into the clean, universal LightboxPhoto shape
