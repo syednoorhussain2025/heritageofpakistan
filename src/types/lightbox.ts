@@ -17,7 +17,8 @@ export type LightboxSite = {
   longitude: number | null;
   region: string;
   categories: string[];
-  architecturalStyle?: string | null; // ADD THIS LINE
+  architecturalStyle?: string | null;
+  tagline?: string | null; // // ADD THIS LINE
 };
 
 /**

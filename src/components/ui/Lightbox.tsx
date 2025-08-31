@@ -60,10 +60,9 @@ export function Lightbox({
   if (!photo) return null;
 
   /** preload & keep geometry stable between images */
-  const [nat, setNat] = useState<{ w: number; h: number } | null>(null); // natural size for *currently shown* image
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
 
-  // preload function
   const preload = (src: string) =>
     new Promise<{ w: number; h: number }>((resolve, reject) => {
       const i = new (window as any).Image();
@@ -73,7 +72,6 @@ export function Lightbox({
       i.src = src;
     });
 
-  // First mount
   useEffect(() => {
     let cancelled = false;
     if (!imgSrc && photo?.url) {
@@ -90,7 +88,6 @@ export function Lightbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // On index change
   useEffect(() => {
     if (!photo?.url) return;
     if (imgSrc === photo.url) return;
@@ -107,7 +104,6 @@ export function Lightbox({
     };
   }, [photo?.url, imgSrc]);
 
-  /** helper: compute geometry deterministically (no DOM reads) */
   const geom = useMemo(() => {
     const nw = nat?.w ?? 3;
     const nh = nat?.h ?? 2;
@@ -255,13 +251,14 @@ export function Lightbox({
                   <span>{photo.author.name}</span>
                 )}
               </p>
-            </div>
 
-            {photo.caption && (
-              <p className="text-sm text-gray-200 bg-white/5 p-3 rounded-lg">
-                {photo.caption}
-              </p>
-            )}
+              {/* ✅ Show caption here instead of tagline */}
+              {photo.caption && (
+                <p className="text-sm text-gray-200 mt-2 italic">
+                  {photo.caption}
+                </p>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {photo.site.region && (

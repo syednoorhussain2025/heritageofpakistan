@@ -18,7 +18,8 @@ export async function getSiteGalleryPhotosForLightbox(
       supabase
         .from("sites")
         .select(
-          "id, title, location_free, latitude, longitude, architectural_style"
+          // Added tagline to the selection
+          "id, title, location_free, latitude, longitude, architectural_style, tagline"
         )
         .eq("id", siteId)
         .single(),
@@ -40,7 +41,7 @@ export async function getSiteGalleryPhotosForLightbox(
             .from("collected_images")
             .select("storage_path")
             .eq("user_id", viewerId)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [] as { storage_path: string }[] }),
     ]);
 
   if (siteRes.error || !siteRes.data) throw new Error("Site not found.");
@@ -50,17 +51,17 @@ export async function getSiteGalleryPhotosForLightbox(
   const images = imagesRes.data || [];
   const bookmarkedPaths = new Set(
     (bookmarkRes.data
-      ?.map((b) => b.storage_path)
+      ?.map((b: { storage_path: string }) => b.storage_path)
       .filter(Boolean) as string[]) ?? []
   );
 
   const siteRegion =
     (regionRes.data?.[0]?.region as any)?.name ?? "Unknown Region";
 
-  // FIX: Applied the same logic as for region to safely access the category name.
+  // Safely extract category names
   const siteCategories =
     (categoryRes.data
-      ?.map((c) => (c.category as any)?.name)
+      ?.map((c: any) => (c.category as any)?.name)
       .filter(Boolean) as string[]) ?? [];
 
   // 2. Map the raw database data into the clean, universal LightboxPhoto shape
@@ -80,6 +81,8 @@ export async function getSiteGalleryPhotosForLightbox(
       region: siteRegion,
       categories: siteCategories,
       architecturalStyle: site.architectural_style,
+      // ✅ Include the tagline from the sites table
+      tagline: site.tagline ?? null,
     },
     isBookmarked: bookmarkedPaths.has(img.storage_path),
     storagePath: img.storage_path,
