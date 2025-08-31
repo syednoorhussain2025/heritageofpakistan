@@ -6,8 +6,11 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabaseClient";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 import { avatarSrc } from "@/lib/image/avatarSrc";
-import { motion, AnimatePresence } from "framer-motion";
-import Icon from "@/components/Icon";
+import { motion } from "framer-motion";
+
+/* —— Universal Lightbox —— */
+import { Lightbox } from "@/components/ui/Lightbox";
+import type { LightboxPhoto } from "@/types/lightbox";
 
 type PortfolioLayout = "grid" | "masonry";
 
@@ -22,13 +25,32 @@ type UserProfile = {
   portfolio_layout?: PortfolioLayout | null;
 };
 
-type Photo = {
-  id: string;
-  url: string;
-  caption: string | null;
+type PortfolioRow = {
+  photo_id: string;
   order_index: number;
+};
+
+type ReviewPhotoRow = {
+  id: string;
+  review_id: string;
+  storage_path: string;
+  caption: string | null;
   width?: number | null;
   height?: number | null;
+};
+
+type ReviewRow = {
+  id: string;
+  site_id: string;
+};
+
+type SiteRow = {
+  id: string;
+  title: string;
+  slug: string;
+  location_free?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
@@ -60,84 +82,7 @@ function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
   );
 }
 
-function Lightbox({
-  photos,
-  index,
-  onClose,
-  setIndex,
-  isDark,
-}: {
-  photos: Photo[];
-  index: number;
-  onClose: () => void;
-  setIndex: (n: number) => void;
-  isDark: boolean;
-}) {
-  const photo = photos[index];
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setIndex((index + 1) % photos.length);
-      if (e.key === "ArrowLeft")
-        setIndex((index - 1 + photos.length) % photos.length);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, photos.length, onClose, setIndex]);
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        className={`fixed inset-0 z-[100] ${
-          isDark ? "bg-black/90" : "bg-black/85"
-        } flex items-center justify-center`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        <button
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <Icon name="xmark" />
-        </button>
-        <button
-          className="absolute left-2 md:left-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
-          onClick={() => setIndex((index - 1 + photos.length) % photos.length)}
-          aria-label="Previous"
-        >
-          <Icon name="chevron-left" />
-        </button>
-        <div className="max-w-[95vw] max-h-[85vh]">
-          <Image
-            src={photo.url}
-            alt={photo.caption ?? "photo"}
-            width={1600}
-            height={1200}
-            quality={90}
-            className="object-contain w-auto h-auto max-w-[95vw] max-h-[75vh] rounded-lg shadow-2xl"
-          />
-          {photo.caption && (
-            <p className="text-center mt-3 text-sm text-gray-200">
-              {photo.caption}
-            </p>
-          )}
-        </div>
-        <button
-          className="absolute right-2 md:right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
-          onClick={() => setIndex((index + 1) % photos.length)}
-          aria-label="Next"
-        >
-          <Icon name="chevron-right" />
-        </button>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-/* ---------- Row-major masonry with canonical tile sizes + faster, sharper hover ---------- */
+/* ---------- Row-major masonry helpers ---------- */
 
 const ROW_PX = 8; // auto-rows size
 const GAP_PX = 16; // gap-4
@@ -146,7 +91,7 @@ const CAPTION_PX = 22; // fixed caption block (single line)
 const RATIO_PORTRAIT = 2 / 3; // 0.666…
 const RATIO_LANDSCAPE = 4 / 3; // 1.333…
 
-function isPortrait(p: Photo) {
+function isPortrait(p: { width?: number | null; height?: number | null }) {
   if (p.width && p.height) return p.height >= p.width;
   return false; // treat square as landscape
 }
@@ -157,7 +102,12 @@ function CanonicalTile({
   isDark,
   onOpen,
 }: {
-  p: Photo;
+  p: {
+    url: string;
+    caption: string | null;
+    width?: number | null;
+    height?: number | null;
+  };
   i: number;
   isDark: boolean;
   onOpen: () => void;
@@ -236,7 +186,7 @@ export default function PublicPortfolioPage() {
   const supabase = createClient();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -249,6 +199,7 @@ export default function PublicPortfolioPage() {
     }
     (async () => {
       try {
+        // 1) Load portfolio owner
         const { data: profileData, error: perr } = await supabase
           .from("profiles")
           .select(
@@ -257,8 +208,10 @@ export default function PublicPortfolioPage() {
           .eq("id", userId)
           .single();
         if (perr) throw perr;
-        setProfile(profileData as UserProfile);
+        const owner = profileData as UserProfile;
+        setProfile(owner);
 
+        // 2) Portfolio order
         const { data: pfRows, error: pfErr } = await supabase
           .from("user_portfolio")
           .select("photo_id, order_index")
@@ -267,44 +220,107 @@ export default function PublicPortfolioPage() {
           .order("order_index", { ascending: true });
         if (pfErr) throw pfErr;
 
-        const rows = (pfRows ?? []) as {
-          photo_id: string;
-          order_index: number;
-        }[];
-        if (!rows.length) {
+        const orderedPortfolio = (pfRows ?? []) as PortfolioRow[];
+        if (!orderedPortfolio.length) {
           setPhotos([]);
+          setLoading(false);
           return;
         }
 
-        const ids = rows.map((r) => r.photo_id);
+        const photoIds = orderedPortfolio.map((r) => r.photo_id);
+
+        // 3) review_photos (+ review_id to link to sites)
         const { data: phData, error: phErr } = await supabase
           .from("review_photos")
-          .select("id, storage_path, caption, width, height")
-          .in("id", ids);
+          .select("id, review_id, storage_path, caption, width, height")
+          .in("id", photoIds);
         if (phErr) throw phErr;
 
-        const byId = new Map(
-          (phData ?? []).map((p: any) => [
-            p.id,
-            {
-              id: p.id as string,
-              url: storagePublicUrl("user-photos", p.storage_path),
-              caption: p.caption as string | null,
-              width: p.width as number | null,
-              height: p.height as number | null,
-            },
+        const reviewIds = Array.from(
+          new Set(
+            (phData ?? [])
+              .map((p) => (p as ReviewPhotoRow).review_id)
+              .filter(Boolean)
+          )
+        ) as string[];
+
+        // 4) reviews → sites
+        const { data: reviewRows, error: rErr } = await supabase
+          .from("reviews")
+          .select("id, site_id")
+          .in("id", reviewIds);
+        if (rErr) throw rErr;
+
+        const siteIds = Array.from(
+          new Set(
+            (reviewRows ?? [])
+              .map((r) => (r as ReviewRow).site_id)
+              .filter(Boolean)
+          )
+        ) as string[];
+
+        const { data: siteRows, error: sErr } = await supabase
+          .from("sites")
+          .select("id, title, slug, location_free, latitude, longitude")
+          .in("id", siteIds);
+        if (sErr) throw sErr;
+
+        // Index helpers
+        const reviewById = new Map(
+          (reviewRows ?? []).map((r) => [(r as ReviewRow).id, r as ReviewRow])
+        );
+        const siteById = new Map(
+          (siteRows ?? []).map((s) => [(s as SiteRow).id, s as SiteRow])
+        );
+
+        const authorName = owner.full_name || owner.username || "User";
+        const authorProfileUrl = owner.username
+          ? `/u/${owner.username}`
+          : undefined;
+
+        // 5) Shape into LightboxPhoto[], respecting portfolio order
+        const photoById = new Map(
+          (phData ?? []).map((p) => [
+            (p as ReviewPhotoRow).id,
+            p as ReviewPhotoRow,
           ])
         );
 
-        const ordered: Photo[] = rows
-          .map(({ photo_id, order_index }) => {
-            const base = byId.get(photo_id);
-            if (!base) return null;
-            return { ...base, order_index } as Photo;
-          })
-          .filter(Boolean) as Photo[];
+        const shaped: LightboxPhoto[] = orderedPortfolio
+          .map(({ photo_id }) => {
+            const ph = photoById.get(photo_id);
+            if (!ph) return null;
 
-        setPhotos(ordered);
+            const rv = ph.review_id ? reviewById.get(ph.review_id) : null;
+            const st = rv?.site_id ? siteById.get(rv.site_id) : null;
+
+            return {
+              id: ph.id,
+              url: storagePublicUrl("user-photos", ph.storage_path),
+              storagePath: ph.storage_path,
+              caption: ph.caption || null,
+              width: ph.width ?? undefined,
+              height: ph.height ?? undefined,
+              isBookmarked: false, // not used here (no bookmark button)
+              site: {
+                id: st?.id,
+                name: st?.title || "",
+                location: st?.location_free || "",
+                region: "",
+                categories: [],
+                // Do NOT provide lat/long so the GPS pin is hidden in the universal lightbox
+                latitude: undefined,
+                longitude: undefined,
+              },
+              author: {
+                name: authorName,
+                profileUrl: authorProfileUrl,
+              },
+            } as LightboxPhoto;
+          })
+          .filter(Boolean) as LightboxPhoto[];
+
+        setPhotos(shaped);
       } catch (e: any) {
         setPageError(e?.message ?? "Could not load portfolio.");
       } finally {
@@ -381,7 +397,7 @@ export default function PublicPortfolioPage() {
             This user hasn’t made any photos public yet.
           </p>
         ) : layout === "grid" ? (
-          // Strict grid with faster, sharper hover
+          // Strict grid
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {photos.map((p, i) => (
               <motion.figure
@@ -415,7 +431,7 @@ export default function PublicPortfolioPage() {
             ))}
           </div>
         ) : (
-          // Row-major masonry with canonical sizes + faster, sharper hover
+          // Row-major masonry
           <div
             className="
             grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
@@ -425,7 +441,12 @@ export default function PublicPortfolioPage() {
             {photos.map((p, i) => (
               <CanonicalTile
                 key={p.id}
-                p={p}
+                p={{
+                  url: p.url,
+                  caption: p.caption,
+                  width: p.width,
+                  height: p.height,
+                }}
                 i={i}
                 isDark={isDarkTheme}
                 onOpen={() => setLightboxIndex(i)}
@@ -435,14 +456,17 @@ export default function PublicPortfolioPage() {
         )}
       </main>
 
-      {/* Lightbox */}
+      {/* —— Universal Lightbox —— */}
       {lightboxIndex !== null && (
         <Lightbox
           photos={photos}
-          index={lightboxIndex}
-          setIndex={(n) => setLightboxIndex(n)}
+          startIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          isDark={isDarkTheme}
+          /* Intentionally NOT passing:
+             - onBookmarkToggle (hides bookmark button)
+             - onAddToCollection (hides collection button)
+             And latitude/longitude are omitted from photo.site to hide the GPS pin.
+          */
         />
       )}
     </div>
