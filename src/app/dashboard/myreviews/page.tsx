@@ -100,7 +100,7 @@ async function countHelpfulFlexible(reviewId: string): Promise<number> {
 }
 
 async function fetchRegionLinks(siteIds: string[]): Promise<{
-  siteToRegions: Record<string, string[]>;
+  siteToRegions: { [key: string]: string[] };
   distinctRegionIds: string[];
 }> {
   if (!siteIds.length) return { siteToRegions: {}, distinctRegionIds: [] };
@@ -110,7 +110,7 @@ async function fetchRegionLinks(siteIds: string[]): Promise<{
     .select("site_id, region_id")
     .in("site_id", siteIds);
   if (error) throw error;
-  const siteToRegions: Record<string, string[]> = {};
+  const siteToRegions: { [key: string]: string[] } = {};
   const set = new Set<string>();
   for (const row of data ?? []) {
     const s = row.site_id as string;
@@ -123,7 +123,7 @@ async function fetchRegionLinks(siteIds: string[]): Promise<{
 }
 
 async function fetchCategoryLinks(siteIds: string[]): Promise<{
-  siteToCategories: Record<string, string[]>;
+  siteToCategories: { [key: string]: string[] };
   distinctCategoryIds: string[];
 }> {
   if (!siteIds.length) return { siteToCategories: {}, distinctCategoryIds: [] };
@@ -133,7 +133,7 @@ async function fetchCategoryLinks(siteIds: string[]): Promise<{
     .select("site_id, category_id")
     .in("site_id", siteIds);
   if (error) throw error;
-  const siteToCategories: Record<string, string[]> = {};
+  const siteToCategories: { [key: string]: string[] } = {};
   const set = new Set<string>();
   for (const row of data ?? []) {
     const s = row.site_id as string;
@@ -176,19 +176,16 @@ export default function MyReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  const [siteMap, setSiteMap] = useState<Record<string, SiteRow>>({});
-  const [siteToRegions, setSiteToRegions] = useState<Record<string, string[]>>(
-    {}
-  );
-  const [siteToCategories, setSiteToCategories] = useState<
-    Record<string, string[]>
-  >({});
+  const [siteMap, setSiteMap] = useState<{ [key: string]: SiteRow }>({});
+  const [siteToRegions, setSiteToRegions] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [siteToCategories, setSiteToCategories] = useState<{
+    [key: string]: string[];
+  }>({});
 
   const [regions, setRegions] = useState<RegionRow[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
-
-  // ✅ REMOVED: No longer need to fetch the profile separately
-  // const [profile, setProfile] = useState<ProfileRow | null>(null);
 
   const [query, setQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("");
@@ -207,14 +204,13 @@ export default function MyReviewsPage() {
         setLoading(true);
         setPageError(null);
 
-        // ✅ SIMPLIFIED: Only need to fetch the reviews, which now include profile data
         const rows = await listUserReviews(userId);
         setReviews(rows);
 
         const siteIds = Array.from(new Set(rows.map((r) => r.site_id)));
 
         const sites = await fetchSitesByIds(siteIds);
-        const siteById: Record<string, SiteRow> = {};
+        const siteById: { [key: string]: SiteRow } = {};
         for (const s of sites) siteById[s.id] = s;
         setSiteMap(siteById);
 
@@ -280,7 +276,7 @@ export default function MyReviewsPage() {
 
     try {
       setDeleting(id);
-      await hardDeleteReview(id, userId);
+      await hardDeleteReview(id); // ✅ server-side hard delete with service role
       setReviews((prev) => prev.filter((r) => r.id !== id));
     } catch (e: any) {
       const msg =
@@ -491,7 +487,6 @@ function ReviewRowCard({
         }`
       : "Date not specified";
 
-  // ✅ SIMPLIFIED: Get profile info directly from the review object
   const displayName = review.full_name || "Traveler";
   const avatarSrc = review.avatar_url
     ? getPublicUrl("avatars", review.avatar_url)
