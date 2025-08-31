@@ -10,13 +10,107 @@ import { createClient } from "@/lib/supabaseClient";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";
-import { useProfile } from "@/components/ProfileProvider"; // ✅ Import the global profile hook
+import { useProfile } from "@/components/ProfileProvider"; // ✅ Global profile
 import type { UserSite } from "@/components/UserVisitedMap";
 
-// Dynamically import the map (no SSR)
+/* --------------------------- Skeleton utilities --------------------------- */
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
+}
+
+function AvatarSkeleton() {
+  return <Skeleton className="relative w-20 h-20 rounded-full" />;
+}
+
+function StatSkeleton() {
+  return (
+    <div className="flex items-center gap-4">
+      <Skeleton className="w-16 h-16 rounded-full" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </div>
+  );
+}
+
+function ProgressSkeleton() {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-3 w-64" />
+      <Skeleton className="h-3 w-full rounded-full" />
+    </div>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div className="text-center">
+      <Skeleton className="relative w-40 h-40 mx-auto rounded-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-4 w-32 mx-auto" />
+        <div className="flex items-center justify-center gap-1">
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <Skeleton className="h-3 w-28 mx-auto" />
+      </div>
+    </div>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <Skeleton className="h-8 w-56 mb-4" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <AvatarSkeleton />
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-36" />
+      </div>
+      <div className="flex items-center justify-between mb-6">
+        <StatSkeleton />
+        <div className="text-right space-y-2">
+          <Skeleton className="h-4 w-28 ml-auto" />
+          <Skeleton className="h-3 w-40 ml-auto" />
+          <Skeleton className="h-4 w-28 ml-auto" />
+        </div>
+      </div>
+      <Skeleton className="h-3 w-full rounded-full mb-8" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------ Fast spinner (for map loading only) ------------------ */
+
+function Spinner() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+/* --------------------------- Dynamic map import --------------------------- */
+/* Replaces the map skeleton with a tiny spinner while the chunk loads */
 const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
+  loading: () => <Spinner />,
 });
+
+/* --------------------------------- Utils --------------------------------- */
 
 function avatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
@@ -56,10 +150,12 @@ const monthNames = [
   "December",
 ];
 
+/* --------------------------------- Page ---------------------------------- */
+
 export default function PlacesVisitedPage() {
   const supabase = createClient();
   const { userId, authLoading } = useAuthUserId();
-  const { profile, loading: profileLoading } = useProfile(); // ✅ Get profile from context
+  const { profile, loading: profileLoading } = useProfile(); // ✅ from context
 
   const [visitedCount, setVisitedCount] = useState(0);
   const [progress, setProgress] = useState({
@@ -84,7 +180,7 @@ export default function PlacesVisitedPage() {
         setLoading(true);
         setPageError(null);
 
-        // ✅ SIMPLIFIED: Fetch count and reviews. Profile data comes from the hook.
+        // ✅ Fetch count and reviews (profile via context)
         const [count, userReviews] = await Promise.all([
           countUserVisits(userId),
           listUserReviews(userId),
@@ -153,17 +249,16 @@ export default function PlacesVisitedPage() {
     })
     .filter((x): x is UserSite => x !== null);
 
-  if (authLoading || loading || profileLoading)
-    return <p>Loading places visited...</p>;
-  if (!userId) return <p>Please sign in to view this page.</p>;
-  if (pageError) return <p className="text-red-600">Error: {pageError}</p>;
+  // ✅ Full page skeleton during auth/profile/data load
+  if (authLoading || loading || profileLoading) return <PageSkeleton />;
+  if (!userId) return <p className="p-6">Please sign in to view this page.</p>;
+  if (pageError) return <p className="p-6 text-red-600">Error: {pageError}</p>;
 
   if (showMap) {
     return (
       <UserVisitedMap
         locations={sitesForMap}
         onClose={() => setShowMap(false)}
-        // ✅ Pass the globally fetched profile to the map component
         profile={profile}
         visitedCount={visitedCount}
       />
@@ -173,9 +268,11 @@ export default function PlacesVisitedPage() {
   return (
     <div className="max-w-7xl mx-auto p-6">
       <h1 className="text-3xl font-semibold mb-4">My Visited Places</h1>
+
+      {/* Header: avatar + map button */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          {profile && (
+          {profile ? (
             <div className="flex items-center gap-4">
               <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-orange-400">
                 <Image
@@ -188,6 +285,14 @@ export default function PlacesVisitedPage() {
               <div>
                 <div className="font-semibold text-xl">{profile.full_name}</div>
                 <div className="text-md text-green-600">{profile.badge}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <AvatarSkeleton />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-44" />
+                <Skeleton className="h-4 w-24" />
               </div>
             </div>
           )}
@@ -204,6 +309,7 @@ export default function PlacesVisitedPage() {
         )}
       </div>
 
+      {/* Stats + badge summary */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg border-4 border-white">
@@ -230,7 +336,8 @@ export default function PlacesVisitedPage() {
         </div>
       </div>
 
-      {progress.next && visitedCount > 0 && (
+      {/* Progress bar */}
+      {progress.next && visitedCount > 0 ? (
         <div className="w-full bg-gray-200 h-3 rounded-full mb-8">
           <div
             className="bg-green-600 h-3 rounded-full"
@@ -242,47 +349,57 @@ export default function PlacesVisitedPage() {
             }}
           />
         </div>
+      ) : (
+        <div className="mb-8">
+          <Skeleton className="h-3 w-full rounded-full" />
+        </div>
       )}
 
+      {/* Grid of visited sites */}
       {reviews.length === 0 && <p>You haven’t reviewed any places yet.</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-        {reviews.map((r) => (
-          <div key={r.id} className="text-center group">
-            <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden shadow-lg border-4 border-white transition-all duration-300">
-              {r.site?.cover_photo_url ? (
-                <Image
-                  src={r.site.cover_photo_url}
-                  alt={r.site.title}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="bg-gray-300 w-full h-full" />
-              )}
-            </div>
-            <div className="p-3">
-              <h3 className="font-medium">{r.site?.title ?? "Unknown Site"}</h3>
-              {r.rating && (
-                <div className="mt-1 flex items-center justify-center gap-1">
-                  <div className="text-amber-500 text-sm leading-none">
-                    {"★".repeat(Math.round(r.rating))}
-                  </div>
-                  <div className="text-gray-300 text-sm leading-none">
-                    {"★".repeat(5 - Math.round(r.rating))}
-                  </div>
+        {reviews.length > 0
+          ? reviews.map((r) => (
+              <div key={r.id} className="text-center group">
+                <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden shadow-lg border-4 border-white transition-all duration-300">
+                  {r.site?.cover_photo_url ? (
+                    <Image
+                      src={r.site.cover_photo_url}
+                      alt={r.site.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="bg-gray-300 w-full h-full" />
+                  )}
                 </div>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Visited in{" "}
-                {r.visited_month && r.visited_year
-                  ? `${monthNames[r.visited_month]} ${r.visited_year}`
-                  : new Date(r.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        ))}
+                <div className="p-3">
+                  <h3 className="font-medium">
+                    {r.site?.title ?? "Unknown Site"}
+                  </h3>
+                  {r.rating && (
+                    <div className="mt-1 flex items-center justify-center gap-1">
+                      <div className="text-amber-500 text-sm leading-none">
+                        {"★".repeat(Math.round(r.rating))}
+                      </div>
+                      <div className="text-gray-300 text-sm leading-none">
+                        {"★".repeat(5 - Math.round(r.rating))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Visited in{" "}
+                    {r.visited_month && r.visited_year
+                      ? `${monthNames[r.visited_month]} ${r.visited_year}`
+                      : new Date(r.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))
+          : [1, 2, 3, 4].map((k) => <CardSkeleton key={k} />)}
       </div>
 
+      {/* Badge modal */}
       {showBadgeModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"

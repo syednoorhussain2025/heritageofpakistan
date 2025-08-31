@@ -39,6 +39,12 @@ type SiteRow = {
 type RegionRow = { id: string; name: string };
 type CategoryRow = { id: string; name: string };
 
+/* ---------- tiny skeleton utility ---------- */
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
+}
+
 /* ---------- helpers ---------- */
 
 function getPublicUrl(bucket: string, path: string) {
@@ -156,6 +162,70 @@ async function fetchCategoriesByIds(ids: string[]): Promise<CategoryRow[]> {
   return (data ?? []) as CategoryRow[];
 }
 
+/* ---------- page-level skeletons ---------- */
+
+function ReviewCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow p-4">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        </div>
+        <Skeleton className="h-8 w-20" />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between">
+        <div className="space-y-1">
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <Skeleton className="h-5 w-28" />
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <Skeleton className="aspect-[4/3] w-full" />
+        <Skeleton className="aspect-[4/3] w-full" />
+        <Skeleton className="aspect-[4/3] w-full hidden sm:block" />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <Skeleton className="h-4 w-6" />
+        <Skeleton className="h-4 w-8" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+    </div>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-6 max-w-5xl mx-auto">
+        <Skeleton className="h-7 w-44 mb-4" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="space-y-4">
+          <ReviewCardSkeleton />
+          <ReviewCardSkeleton />
+          <ReviewCardSkeleton />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- page ---------- */
 
 export default function MyReviewsPage() {
@@ -268,15 +338,20 @@ export default function MyReviewsPage() {
     }
   }
 
-  if (authLoading || loading) return <div>Loading…</div>;
-  if (authError) return <div>Auth error: {authError}</div>;
-  if (!userId) return <div>Please sign in to view your reviews.</div>;
-  if (pageError) return <div>Error: {pageError}</div>;
+  // ✅ Page-level skeletons while auth or page data loads
+  if (authLoading || loading) return <PageSkeleton />;
+
+  if (authError) return <div className="p-6">Auth error: {authError}</div>;
+  if (!userId)
+    return <div className="p-6">Please sign in to view your reviews.</div>;
+  if (pageError)
+    return <div className="p-6 text-red-700">Error: {pageError}</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6 max-w-5xl mx-auto">
         <h1 className="text-2xl font-semibold mb-4">My Reviews</h1>
+
         {/* Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <input
@@ -314,6 +389,7 @@ export default function MyReviewsPage() {
         {filtered.length === 0 && (
           <p className="text-gray-600">No reviews found.</p>
         )}
+
         <div className="space-y-4">
           {filtered.map((r) => (
             <ReviewRowCard
@@ -368,16 +444,23 @@ function ReviewRowCard({
 }) {
   const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
   const [helpful, setHelpful] = useState<number>(0);
+  const [detailsLoading, setDetailsLoading] = useState<boolean>(true);
+
   const [lbOpen, setLbOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
 
   useEffect(() => {
+    let isMounted = true;
     (async () => {
+      setDetailsLoading(true);
       try {
         const [ph, hcount] = await Promise.all([
           listReviewPhotos(review.id),
           countHelpfulFlexible(review.id),
         ]);
+
+        if (!isMounted) return;
+
         setHelpful(hcount);
         setPhotos(
           ph.map((p) => ({
@@ -398,10 +481,16 @@ function ReviewRowCard({
           }))
         );
       } catch {
+        if (!isMounted) return;
         setPhotos([]);
         setHelpful(0);
+      } finally {
+        if (isMounted) setDetailsLoading(false);
       }
     })();
+    return () => {
+      isMounted = false;
+    };
   }, [review.id, review.full_name, site]);
 
   const visitedStr =
@@ -420,21 +509,27 @@ function ReviewRowCard({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-full overflow-hidden ring-2 ring-amber-400/60 bg-gray-100">
-            {avatarSrc && (
+            {avatarSrc ? (
               <img
                 src={avatarSrc}
                 alt="avatar"
                 className="h-full w-full object-cover"
               />
+            ) : (
+              <Skeleton className="h-full w-full rounded-full" />
             )}
           </div>
           <div>
             <div className="font-semibold">
               {review.full_name || "Traveler"}
             </div>
-            {review.badge && (
+            {review.badge ? (
               <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs">
                 {review.badge}
+              </div>
+            ) : (
+              <div className="mt-0.5">
+                <Skeleton className="h-4 w-20" />
               </div>
             )}
           </div>
@@ -464,14 +559,25 @@ function ReviewRowCard({
       </div>
 
       {/* Review text */}
-      {review.review_text && (
+      {review.review_text ? (
         <p className="mt-2 whitespace-pre-wrap text-gray-800">
           {review.review_text}
         </p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-5/6" />
+        </div>
       )}
 
-      {/* Photos */}
-      {photos.length > 0 && (
+      {/* Photos (with per-card skeletons) */}
+      {detailsLoading ? (
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <Skeleton className="aspect-[4/3] w-full" />
+          <Skeleton className="aspect-[4/3] w-full" />
+          <Skeleton className="aspect-[4/3] w-full hidden sm:block" />
+        </div>
+      ) : photos.length > 0 ? (
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {photos.map((p, idx) => (
             <button
@@ -493,15 +599,23 @@ function ReviewRowCard({
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {/* Helpful */}
-      <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-        <span className="text-emerald-600">👍</span>
-        <span>{helpful}</span>
-        <span className="text-gray-400">•</span>
-        <span className="text-gray-500">people found this helpful</span>
-      </div>
+      {/* Helpful (with per-card skeleton) */}
+      {detailsLoading ? (
+        <div className="mt-3 flex items-center gap-2">
+          <Skeleton className="h-4 w-6" />
+          <Skeleton className="h-4 w-8" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+          <span className="text-emerald-600">👍</span>
+          <span>{helpful}</span>
+          <span className="text-gray-400">•</span>
+          <span className="text-gray-500">people found this helpful</span>
+        </div>
+      )}
 
       {/* ✅ Universal Lightbox */}
       {lbOpen && (
