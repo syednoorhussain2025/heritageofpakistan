@@ -5,10 +5,11 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabaseClient";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
+import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox
+import type { LightboxPhoto } from "@/types/lightbox";
 
 /* ---------- types ---------- */
 
-// This type now includes the joined profile fields from the view
 type ReviewWithProfile = {
   id: string;
   user_id: string;
@@ -18,7 +19,6 @@ type ReviewWithProfile = {
   visited_year: number | null;
   visited_month: number | null;
   created_at: string;
-  // Joined fields from the profiles table:
   full_name: string | null;
   avatar_url: string | null;
   badge: string | null;
@@ -47,12 +47,11 @@ function getPublicUrl(bucket: string, path: string) {
   return data.publicUrl;
 }
 
-// ✅ UPDATED: This function now queries the 'reviews_with_profiles' view
 async function listUserReviews(userId: string): Promise<ReviewWithProfile[]> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("reviews_with_profiles") // Query the view instead of the table
-    .select("*") // The view already includes all necessary fields
+    .from("reviews_with_profiles")
+    .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -99,17 +98,13 @@ async function countHelpfulFlexible(reviewId: string): Promise<number> {
   return 0;
 }
 
-async function fetchRegionLinks(siteIds: string[]): Promise<{
-  siteToRegions: { [key: string]: string[] };
-  distinctRegionIds: string[];
-}> {
+async function fetchRegionLinks(siteIds: string[]) {
   if (!siteIds.length) return { siteToRegions: {}, distinctRegionIds: [] };
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("site_regions")
     .select("site_id, region_id")
     .in("site_id", siteIds);
-  if (error) throw error;
   const siteToRegions: { [key: string]: string[] } = {};
   const set = new Set<string>();
   for (const row of data ?? []) {
@@ -122,17 +117,13 @@ async function fetchRegionLinks(siteIds: string[]): Promise<{
   return { siteToRegions, distinctRegionIds: Array.from(set) };
 }
 
-async function fetchCategoryLinks(siteIds: string[]): Promise<{
-  siteToCategories: { [key: string]: string[] };
-  distinctCategoryIds: string[];
-}> {
+async function fetchCategoryLinks(siteIds: string[]) {
   if (!siteIds.length) return { siteToCategories: {}, distinctCategoryIds: [] };
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("site_categories")
     .select("site_id, category_id")
     .in("site_id", siteIds);
-  if (error) throw error;
   const siteToCategories: { [key: string]: string[] } = {};
   const set = new Set<string>();
   for (const row of data ?? []) {
@@ -148,22 +139,20 @@ async function fetchCategoryLinks(siteIds: string[]): Promise<{
 async function fetchRegionsByIds(ids: string[]): Promise<RegionRow[]> {
   if (!ids.length) return [];
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("regions")
     .select("id, name")
     .in("id", ids);
-  if (error) throw error;
   return (data ?? []) as RegionRow[];
 }
 
 async function fetchCategoriesByIds(ids: string[]): Promise<CategoryRow[]> {
   if (!ids.length) return [];
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("categories")
     .select("id, name")
     .in("id", ids);
-  if (error) throw error;
   return (data ?? []) as CategoryRow[];
 }
 
@@ -177,15 +166,14 @@ export default function MyReviewsPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [siteMap, setSiteMap] = useState<{ [key: string]: SiteRow }>({});
+  const [regions, setRegions] = useState<RegionRow[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [siteToRegions, setSiteToRegions] = useState<{
     [key: string]: string[];
   }>({});
   const [siteToCategories, setSiteToCategories] = useState<{
     [key: string]: string[];
   }>({});
-
-  const [regions, setRegions] = useState<RegionRow[]>([]);
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
 
   const [query, setQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("");
@@ -206,7 +194,6 @@ export default function MyReviewsPage() {
 
         const rows = await listUserReviews(userId);
         setReviews(rows);
-
         const siteIds = Array.from(new Set(rows.map((r) => r.site_id)));
 
         const sites = await fetchSitesByIds(siteIds);
@@ -247,14 +234,11 @@ export default function MyReviewsPage() {
         !query ||
         (r.review_text ?? "").toLowerCase().includes(query.toLowerCase()) ||
         (site?.title ?? "").toLowerCase().includes(query.toLowerCase());
-
       const siteRegions = siteToRegions[r.site_id] ?? [];
       const siteCategories = siteToCategories[r.site_id] ?? [];
-
       const matchesRegion = !regionFilter || siteRegions.includes(regionFilter);
       const matchesCategory =
         !categoryFilter || siteCategories.includes(categoryFilter);
-
       return matchesQuery && matchesRegion && matchesCategory;
     });
   }, [
@@ -269,107 +253,42 @@ export default function MyReviewsPage() {
 
   async function handleDeletePermanently(id: string) {
     if (!userId) return;
-    const confirmDelete = confirm(
-      "This will permanently delete your review AND its photos from storage. Continue?"
-    );
-    if (!confirmDelete) return;
-
+    if (
+      !confirm(
+        "This will permanently delete your review AND its photos from storage. Continue?"
+      )
+    )
+      return;
     try {
       setDeleting(id);
-      await hardDeleteReview(id); // ✅ server-side hard delete with service role
+      await hardDeleteReview(id);
       setReviews((prev) => prev.filter((r) => r.id !== id));
-    } catch (e: any) {
-      const msg =
-        e?.message || e?.details || e?.hint || "Failed to delete review.";
-      alert(msg);
-      console.error("hardDeleteReview failed:", e);
     } finally {
       setDeleting(null);
     }
   }
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="p-6 max-w-5xl mx-auto">
-          <div className="h-7 w-40 rounded bg-gray-200 animate-pulse mb-4" />
-          <div className="flex gap-3 mb-5">
-            <div className="h-10 flex-1 rounded bg-gray-200 animate-pulse" />
-            <div className="h-10 w-48 rounded bg-gray-200 animate-pulse" />
-            <div className="h-10 w-48 rounded bg-gray-200 animate-pulse" />
-          </div>
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-gray-200 bg-white shadow-lg shadow-gray-200/60 backdrop-blur-sm p-4"
-              >
-                <div className="flex gap-3">
-                  <div className="h-12 w-12 rounded-full bg-gray-200 animate-pulse" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-40 bg-gray-200 rounded animate-pulse" />
-                    <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                    <div className="h-4 w-56 bg-gray-200 rounded animate-pulse" />
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {Array.from({ length: 3 }).map((__, j) => (
-                    <div
-                      key={j}
-                      className="h-24 bg-gray-200 rounded animate-pulse"
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (authError)
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="p-6 max-w-5xl mx-auto">
-          <p className="text-red-600">Auth error: {authError}</p>
-        </div>
-      </div>
-    );
-  if (!userId)
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="p-6 max-w-5xl mx-auto">
-          <p>Please sign in to view your reviews.</p>
-        </div>
-      </div>
-    );
-  if (pageError)
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="p-6 max-w-5xl mx-auto">
-          <p className="text-red-600">Error: {pageError}</p>
-        </div>
-      </div>
-    );
+  if (authLoading || loading) return <div>Loading…</div>;
+  if (authError) return <div>Auth error: {authError}</div>;
+  if (!userId) return <div>Please sign in to view your reviews.</div>;
+  if (pageError) return <div>Error: {pageError}</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6 max-w-5xl mx-auto">
         <h1 className="text-2xl font-semibold mb-4">My Reviews</h1>
-
-        {/* Top controls: search + filters */}
+        {/* Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search reviews or site name…"
-            className="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="border rounded-lg px-3 py-2 w-full"
           />
           <select
             value={regionFilter}
             onChange={(e) => setRegionFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="border rounded-lg px-3 py-2 w-full"
           >
             <option value="">All Regions</option>
             {regions.map((r) => (
@@ -381,7 +300,7 @@ export default function MyReviewsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="border rounded-lg px-3 py-2 w-full"
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
@@ -395,7 +314,6 @@ export default function MyReviewsPage() {
         {filtered.length === 0 && (
           <p className="text-gray-600">No reviews found.</p>
         )}
-
         <div className="space-y-4">
           {filtered.map((r) => (
             <ReviewRowCard
@@ -413,7 +331,6 @@ export default function MyReviewsPage() {
 }
 
 /* ---------- stars ---------- */
-
 function Stars({ value }: { value: number }) {
   return (
     <div className="inline-flex items-center gap-1">
@@ -438,24 +355,19 @@ function Stars({ value }: { value: number }) {
 }
 
 /* ---------- card ---------- */
-
 function ReviewRowCard({
   review,
   site,
   onDelete,
   deleting,
 }: {
-  review: ReviewWithProfile; // ✅ Use the new combined type
+  review: ReviewWithProfile;
   site?: SiteRow;
   onDelete: () => void;
   deleting: boolean;
 }) {
-  const [photos, setPhotos] = useState<
-    { url: string; caption: string | null }[]
-  >([]);
+  const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
   const [helpful, setHelpful] = useState<number>(0);
-
-  // lightbox
   const [lbOpen, setLbOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
 
@@ -469,8 +381,20 @@ function ReviewRowCard({
         setHelpful(hcount);
         setPhotos(
           ph.map((p) => ({
+            id: p.id,
             url: getPublicUrl("user-photos", p.storage_path),
             caption: p.caption,
+            author: { name: review.full_name || "Traveler" },
+            site: {
+              id: site?.id || "",
+              name: site?.title || "Unknown site",
+              location: "",
+              latitude: null,
+              longitude: null,
+              region: "",
+              categories: [],
+            },
+            storagePath: p.storage_path,
           }))
         );
       } catch {
@@ -478,7 +402,7 @@ function ReviewRowCard({
         setHelpful(0);
       }
     })();
-  }, [review.id]);
+  }, [review.id, review.full_name, site]);
 
   const visitedStr =
     review.visited_month && review.visited_year
@@ -486,30 +410,28 @@ function ReviewRowCard({
           review.visited_year
         }`
       : "Date not specified";
-
-  const displayName = review.full_name || "Traveler";
   const avatarSrc = review.avatar_url
     ? getPublicUrl("avatars", review.avatar_url)
     : null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-lg shadow-gray-200/60 backdrop-blur-[2px] p-4">
+    <div className="rounded-xl border border-gray-200 bg-white shadow p-4">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-full overflow-hidden ring-2 ring-amber-400/60 bg-gray-100">
-            {avatarSrc ? (
+            {avatarSrc && (
               <img
                 src={avatarSrc}
                 alt="avatar"
                 className="h-full w-full object-cover"
               />
-            ) : (
-              <div className="h-full w-full" />
             )}
           </div>
           <div>
-            <div className="font-semibold leading-5">{displayName}</div>
+            <div className="font-semibold">
+              {review.full_name || "Traveler"}
+            </div>
             {review.badge && (
               <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs">
                 {review.badge}
@@ -517,7 +439,6 @@ function ReviewRowCard({
             )}
           </div>
         </div>
-
         <button
           onClick={onDelete}
           disabled={deleting}
@@ -526,23 +447,15 @@ function ReviewRowCard({
               ? "opacity-60 cursor-not-allowed"
               : "text-red-600 border-red-200 hover:bg-red-50"
           }`}
-          title="Delete permanently"
         >
-          {deleting ? (
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-block h-3.5 w-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-              Deleting…
-            </span>
-          ) : (
-            "Delete"
-          )}
+          {deleting ? "Deleting…" : "Delete"}
         </button>
       </div>
 
-      {/* Site + rating + meta */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-base font-bold truncate">
+      {/* Site + rating */}
+      <div className="mt-3 flex items-center justify-between">
+        <div>
+          <div className="text-base font-bold">
             {site?.title ?? "Unknown site"}
           </div>
           <div className="text-xs text-gray-500">{visitedStr}</div>
@@ -562,23 +475,21 @@ function ReviewRowCard({
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {photos.map((p, idx) => (
             <button
-              key={idx}
+              key={p.id}
               type="button"
               onClick={() => {
                 setLbIndex(idx);
                 setLbOpen(true);
               }}
               className="relative aspect-[4/3] rounded-lg overflow-hidden group cursor-pointer"
-              aria-label="Open photo"
             >
               <Image
                 src={p.url}
                 alt={p.caption ?? "photo"}
                 fill
-                className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width:640px) 50vw, 33vw"
               />
-              <div className="absolute inset-0 ring-1 ring-black/5 group-hover:ring-black/10" />
             </button>
           ))}
         </div>
@@ -586,65 +497,19 @@ function ReviewRowCard({
 
       {/* Helpful */}
       <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4 text-emerald-600"
-          fill="currentColor"
-        >
-          <path d="M9 21h6a2 2 0 0 0 2-2v-7h3l-1.34-5.36A2 2 0 0 0 16.72 5H13l.34-2.36A2 2 0 0 0 11.36 0L6 8v11a2 2 0 0 0 2 2z" />
-        </svg>
+        <span className="text-emerald-600">👍</span>
         <span>{helpful}</span>
         <span className="text-gray-400">•</span>
         <span className="text-gray-500">people found this helpful</span>
       </div>
 
-      {/* Full-screen Lightbox */}
+      {/* ✅ Universal Lightbox */}
       {lbOpen && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
-          onClick={() => setLbOpen(false)}
-        >
-          <div
-            className="relative w-full h-full flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photos[lbIndex].url}
-              alt={photos[lbIndex].caption ?? "photo"}
-              className="max-h-screen max-w-screen object-contain mx-auto"
-            />
-            {/* Close */}
-            <button
-              className="absolute top-4 right-4 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-3"
-              onClick={() => setLbOpen(false)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-            {/* Prev/Next */}
-            {photos.length > 1 && (
-              <>
-                <button
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-3"
-                  onClick={() =>
-                    setLbIndex((i) => (i - 1 + photos.length) % photos.length)
-                  }
-                  aria-label="Prev"
-                >
-                  ‹
-                </button>
-                <button
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-3"
-                  onClick={() => setLbIndex((i) => (i + 1) % photos.length)}
-                  aria-label="Next"
-                >
-                  ›
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <Lightbox
+          photos={photos}
+          startIndex={lbIndex}
+          onClose={() => setLbOpen(false)}
+        />
       )}
     </div>
   );
