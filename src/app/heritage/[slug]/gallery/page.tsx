@@ -37,9 +37,16 @@ type SiteHeaderInfo = {
   tagline?: string | null;
 };
 
+/** Some backends include intrinsic dimensions on each photo; your LightboxPhoto
+ * type doesn't, so we treat them as optional if present. */
+type PhotoWithDims = LightboxPhoto & {
+  width?: number;
+  height?: number;
+};
+
 /* ---------- Masonry (row-major) helpers ---------- */
 
-const ROW_PX = 8; // must match auto-rows height
+const ROW_PX = 8; // must match auto-rows value
 const GAP_PX = 16; // must match gap-4
 const FALLBACK_RATIO = 4 / 3;
 
@@ -53,11 +60,15 @@ function MasonryTile({
   siteId: string;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const ratioRef = useRef(
-    photo.width && photo.height && photo.width > 0 && photo.height > 0
-      ? photo.width / photo.height
-      : FALLBACK_RATIO
-  );
+
+  // Read optional dims without breaking types
+  const dims = photo as PhotoWithDims;
+  const initialRatio =
+    dims.width && dims.height && dims.width > 0 && dims.height > 0
+      ? dims.width / dims.height
+      : FALLBACK_RATIO;
+
+  const ratioRef = useRef<number>(initialRatio);
   const [span, setSpan] = useState(1);
 
   const recompute = useCallback(() => {
@@ -69,12 +80,10 @@ function MasonryTile({
     setSpan(rows);
   }, []);
 
-  // Reserve correct height before paint when we already know ratio
   useLayoutEffect(() => {
     recompute();
   }, [recompute]);
 
-  // Recompute on resize
   useEffect(() => {
     const ro = new ResizeObserver(() => recompute());
     if (wrapperRef.current) ro.observe(wrapperRef.current);
@@ -94,7 +103,7 @@ function MasonryTile({
       <div
         ref={wrapperRef}
         className="relative w-full overflow-hidden group rounded-xl"
-        style={{ aspectRatio: ratioRef.current }}
+        style={{ aspectRatio: `${ratioRef.current}` }}
         onClick={onOpen}
         title="Open"
       >
@@ -107,12 +116,11 @@ function MasonryTile({
           className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
           loading="lazy"
           onLoadingComplete={(img) => {
-            // If width/height were missing, correct ratio once and recompute
+            // If we lacked dims, correct the ratio once the image is loaded.
             const naturalRatio =
-              img.naturalWidth / img.naturalHeight || FALLBACK_RATIO;
+              (img.naturalWidth || 1) / (img.naturalHeight || 1);
             if (Math.abs(naturalRatio - ratioRef.current) > 0.005) {
               ratioRef.current = naturalRatio;
-              // Update aspect-ratio style immediately (no reflow flash)
               if (wrapperRef.current) {
                 (wrapperRef.current.style as any).aspectRatio =
                   String(naturalRatio);
@@ -165,7 +173,7 @@ export default function SiteGalleryPage() {
     try {
       setLoading(true);
 
-      // 1) Site info for compact header
+      // Site info for compact header
       const { data: siteData, error: sErr } = await supabase
         .from("sites")
         .select(
@@ -177,7 +185,7 @@ export default function SiteGalleryPage() {
       if (!siteData) throw new Error("Site not found.");
       setSite(siteData as SiteHeaderInfo);
 
-      // 2) Photos for universal Lightbox (include width/height if possible)
+      // Photos for Lightbox (dims may or may not be present)
       const photoData = await getSiteGalleryPhotosForLightbox(
         siteData.id,
         viewerId
@@ -194,7 +202,6 @@ export default function SiteGalleryPage() {
     if (slug) loadData();
   }, [slug, loadData]);
 
-  // Unique categories derived from photo metadata
   const categories: string[] = useMemo(() => {
     const set = new Set<string>();
     photos.forEach((p) =>
@@ -203,7 +210,6 @@ export default function SiteGalleryPage() {
     return Array.from(set);
   }, [photos]);
 
-  // Lightbox actions (bookmark toggle stays enabled)
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
       if (!viewerId) return alert("Please sign in to save photos.");
@@ -238,10 +244,9 @@ export default function SiteGalleryPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Compact site header — now with clearer side padding */}
+      {/* Compact site header — generous side padding */}
       <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-          {/* Circular image */}
           <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
             <Image
               src={circlePreview}
@@ -252,7 +257,6 @@ export default function SiteGalleryPage() {
             />
           </div>
 
-          {/* Textual meta */}
           <div className="flex-1 text-center sm:text-left">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <h1 className="text-2xl sm:text-3xl font-bold">{site.title}</h1>
