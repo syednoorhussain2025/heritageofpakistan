@@ -61,30 +61,28 @@ export function Lightbox({
 
   /** preload & keep geometry stable between images */
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null); // natural size for *currently shown* image
-  const [imgSrc, setImgSrc] = useState<string | null>(null); // url for *currently shown* image
-  const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
 
-  // First mount: preload the initial image and then render it
+  // preload function
+  const preload = (src: string) =>
+    new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const i = new (window as any).Image();
+      i.onload = () =>
+        resolve({ w: i.naturalWidth || 1, h: i.naturalHeight || 1 });
+      i.onerror = reject;
+      i.src = src;
+    });
+
+  // First mount
   useEffect(() => {
     let cancelled = false;
-    const preload = (src: string) =>
-      new Promise<{ w: number; h: number }>((resolve, reject) => {
-        const i = new (window as any).Image();
-        i.onload = () =>
-          resolve({ w: i.naturalWidth || 1, h: i.naturalHeight || 1 });
-        i.onerror = reject;
-        i.src = src;
-      });
-
     if (!imgSrc && photo?.url) {
-      setIsLoadingNext(true);
-      preload(photo.url)
-        .then(({ w, h }) => {
-          if (cancelled) return;
+      preload(photo.url).then(({ w, h }) => {
+        if (!cancelled) {
           setNat({ w, h });
           setImgSrc(photo.url);
-        })
-        .finally(() => !cancelled && setIsLoadingNext(false));
+        }
+      });
     }
     return () => {
       cancelled = true;
@@ -92,33 +90,18 @@ export function Lightbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When index changes: preload the *next* photo; keep the old geometry until ready.
+  // On index change
   useEffect(() => {
     if (!photo?.url) return;
-    let cancelled = false;
-
-    const preload = (src: string) =>
-      new Promise<{ w: number; h: number }>((resolve, reject) => {
-        const i = new (window as any).Image();
-        i.onload = () =>
-          resolve({ w: i.naturalWidth || 1, h: i.naturalHeight || 1 });
-        i.onerror = reject;
-        i.src = src;
-      });
-
-    // If already showing this src, nothing to do
     if (imgSrc === photo.url) return;
 
-    setIsLoadingNext(true);
-    preload(photo.url)
-      .then(({ w, h }) => {
-        if (cancelled) return;
-        // Atomically swap in: geometry first, then src
+    let cancelled = false;
+    preload(photo.url).then(({ w, h }) => {
+      if (!cancelled) {
         setNat({ w, h });
         setImgSrc(photo.url);
-      })
-      .finally(() => !cancelled && setIsLoadingNext(false));
-
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -126,18 +109,16 @@ export function Lightbox({
 
   /** helper: compute geometry deterministically (no DOM reads) */
   const geom = useMemo(() => {
-    // fallback ratio if nat not ready yet (first ever paint only)
     const nw = nat?.w ?? 3;
     const nh = nat?.h ?? 2;
 
-    const pad = isMdUp ? PADDING : 16; // p-6 vs p-4
+    const pad = isMdUp ? PADDING : 16;
     const vw = Math.max(320, win.w);
     const vh = Math.max(320, win.h);
 
     const maxH =
       vh * ((isLgUp ? MAX_VH.lg : isMdUp ? MAX_VH.md : MAX_VH.base) / 100);
 
-    // on md+, reserve room for the panel + gap; on mobile, the panel stacks
     const usableW = isMdUp ? vw - pad * 2 - (PANEL_W + GAP) : vw - pad * 2;
 
     const scale = Math.min(usableW / nw, maxH / nh);
@@ -212,24 +193,18 @@ export function Lightbox({
           <Icon name="chevron-right" />
         </button>
 
-        {/* IMAGE (absolutely placed, sized precisely; rounded + clipped) */}
-        <div
-          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
-          style={{
-            left: geom.imgLeft,
-            top: geom.imgTop,
-            width: Math.max(1, geom.imgW),
-            height: Math.max(1, geom.imgH),
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Skeleton while the next image is preloading (keeps box size stable) */}
-          {(!imgSrc || isLoadingNext) && (
-            <div className="w-full h-full animate-pulse bg-white/10" />
-          )}
-
-          {/* Actual image (only shown when preloaded) */}
-          {imgSrc && !isLoadingNext && (
+        {/* IMAGE */}
+        {imgSrc && (
+          <div
+            className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
+            style={{
+              left: geom.imgLeft,
+              top: geom.imgTop,
+              width: Math.max(1, geom.imgW),
+              height: Math.max(1, geom.imgH),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <Image
               src={imgSrc}
               alt={photo.caption ?? ""}
@@ -245,10 +220,10 @@ export function Lightbox({
                 display: "block",
               }}
             />
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* INFO PANEL — glued to image's right edge; skeleton during preload */}
+        {/* INFO PANEL */}
         <div
           className={
             geom.isMdUp ? "absolute z-20" : "absolute z-20 w-[min(92vw,620px)]"
@@ -261,105 +236,86 @@ export function Lightbox({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Skeleton state mirrors panel layout */}
-          {!imgSrc || isLoadingNext ? (
-            <div className="space-y-3">
-              <div className="h-6 w-3/4 rounded bg-white/10 animate-pulse" />
-              <div className="h-3 w-5/6 rounded bg-white/10 animate-pulse" />
-              <div className="h-3 w-2/3 rounded bg-white/10 animate-pulse" />
-              <div className="flex gap-2 pt-1">
-                <div className="h-6 w-24 rounded-full bg-white/10 animate-pulse" />
-                <div className="h-6 w-28 rounded-full bg-white/10 animate-pulse" />
-                <div className="h-6 w-24 rounded-full bg-white/10 animate-pulse" />
-              </div>
-              <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-                <div className="h-9 w-9 rounded-full bg-white/10 animate-pulse" />
-                <div className="h-9 flex-1 rounded-full bg-white/10 animate-pulse" />
-                <div className="h-9 w-9 rounded-full bg-white/10 animate-pulse" />
-              </div>
-            </div>
-          ) : (
-            <div className="text-white space-y-4">
-              <div>
-                <h3 className="font-bold text-xl">{photo.site.name}</h3>
-                {photo.site.location && (
-                  <p className="text-sm text-gray-300">{photo.site.location}</p>
-                )}
-                <p className="text-sm text-gray-400 mt-1">
-                  Photo by{" "}
-                  {photo.author.profileUrl ? (
-                    <Link
-                      href={photo.author.profileUrl}
-                      className="hover:underline"
-                    >
-                      {photo.author.name}
-                    </Link>
-                  ) : (
-                    <span>{photo.author.name}</span>
-                  )}
-                </p>
-              </div>
-
-              {photo.caption && (
-                <p className="text-sm text-gray-200 bg-white/5 p-3 rounded-lg">
-                  {photo.caption}
-                </p>
+          <div className="text-white space-y-4">
+            <div>
+              <h3 className="font-bold text-xl">{photo.site.name}</h3>
+              {photo.site.location && (
+                <p className="text-sm text-gray-300">{photo.site.location}</p>
               )}
-
-              <div className="flex flex-wrap gap-2">
-                {photo.site.region && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
-                    {photo.site.region}
-                  </span>
-                )}
-                {photo.site.categories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+              <p className="text-sm text-gray-400 mt-1">
+                Photo by{" "}
+                {photo.author.profileUrl ? (
+                  <Link
+                    href={photo.author.profileUrl}
+                    className="hover:underline"
                   >
-                    {cat}
-                  </span>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-                {onBookmarkToggle && (
-                  <button
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                    onClick={() => onBookmarkToggle(photo)}
-                    title={
-                      photo.isBookmarked
-                        ? "Remove from collection"
-                        : "Add to collection"
-                    }
-                  >
-                    <Icon
-                      name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
-                    />
-                  </button>
+                    {photo.author.name}
+                  </Link>
+                ) : (
+                  <span>{photo.author.name}</span>
                 )}
-                {onAddToCollection && (
-                  <button
-                    className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
-                    onClick={() => onAddToCollection(photo)}
-                  >
-                    Add to Collection
-                  </button>
-                )}
-                {googleMapsUrl && (
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                    title="View on Google Maps"
-                  >
-                    <Icon name="map-marker-alt" />
-                  </a>
-                )}
-              </div>
+              </p>
             </div>
-          )}
+
+            {photo.caption && (
+              <p className="text-sm text-gray-200 bg-white/5 p-3 rounded-lg">
+                {photo.caption}
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {photo.site.region && (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
+                  {photo.site.region}
+                </span>
+              )}
+              {photo.site.categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+              {onBookmarkToggle && (
+                <button
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  onClick={() => onBookmarkToggle(photo)}
+                  title={
+                    photo.isBookmarked
+                      ? "Remove from collection"
+                      : "Add to collection"
+                  }
+                >
+                  <Icon
+                    name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
+                  />
+                </button>
+              )}
+              {onAddToCollection && (
+                <button
+                  className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                  onClick={() => onAddToCollection(photo)}
+                >
+                  Add to Collection
+                </button>
+              )}
+              {googleMapsUrl && (
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  title="View on Google Maps"
+                >
+                  <Icon name="map-marker-alt" />
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>
