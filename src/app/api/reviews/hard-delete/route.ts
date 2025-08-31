@@ -29,18 +29,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing reviewId" }, { status: 400 });
     }
 
-    // NOTE: In Next 15, cookies() can be async-typed in route handlers.
-    const cookieStore = (await (cookies() as unknown as Promise<
-      ReturnType<typeof cookies>
-    >)) as ReturnType<typeof cookies>;
+    // Be tolerant of Next typings differences (sync vs promise):
+    const cookieStore: any = (cookies as unknown as () => any)();
 
     // Auth via anon client, backed by request cookies
     const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        // In a route handler we don't need to set/remove cookies on the response
-        set: () => {},
-        remove: () => {},
+        get(name: string) {
+          return cookieStore.get?.(name)?.value;
+        },
+        // In API routes we don't need to set/remove cookies on the response
+        set() {},
+        remove() {},
       },
     });
 
