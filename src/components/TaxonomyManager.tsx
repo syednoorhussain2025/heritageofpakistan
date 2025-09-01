@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
@@ -457,6 +458,15 @@ export default function TaxonomyManager({ title, table }: Props) {
                 />
                 {title}
               </h1>
+
+              {/* Back to Admin BELOW the title (grey) */}
+              <Link
+                href="/admin"
+                className="text-sm text-slate-500 hover:text-slate-700 hover:underline flex items-center gap-1"
+              >
+                ← Back to Admin
+              </Link>
+
               <div className="flex items-center gap-2 flex-shrink-0">
                 <input
                   placeholder="Search..."
