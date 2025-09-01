@@ -372,7 +372,7 @@ export default function IconManagerPage() {
                       className="group relative bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center aspect-square text-center shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div
-                        className="w-12 h-12 text-slate-700 transition-colors group-hover:text-blue-600"
+                        className="w-[50px] h-[50px] text-[50px] text-slate-700 transition-colors group-hover:text-blue-600"
                         dangerouslySetInnerHTML={{ __html: icon.svg_content }}
                       />
                       <p className="text-xs font-mono mt-2 text-slate-600 break-all">
