@@ -261,59 +261,59 @@ export default function IconManagerPage() {
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-gray-900 text-gray-300 p-8">
+      <div className="min-h-screen bg-slate-100/70 text-slate-800 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-white">Icon Manager</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Icon Manager</h1>
             <Link
               href="/admin"
-              className="text-sm text-blue-400 hover:underline flex items-center gap-2"
+              className="text-sm text-slate-600 hover:text-slate-800 hover:underline flex items-center gap-2"
             >
               <FaArrowLeft /> Back to Dashboard
             </Link>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded bg-red-900/50 text-red-400 border border-red-500/30 flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 border border-red-200 flex items-center gap-2">
               <FaExclamationCircle /> {error}
             </div>
           )}
           {success && (
-            <div className="mb-4 p-3 rounded bg-emerald-900/50 text-emerald-400 border border-emerald-500/30 flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-2">
               <FaCheckCircle /> {success}
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Upload Form */}
-            <div className="lg:col-span-1 bg-gray-800 border border-gray-700 rounded-xl p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-white">
+            <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-xl shadow-slate-300/50 backdrop-blur-sm">
+              <h2 className="text-xl font-semibold text-slate-900">
                 Upload New Icon
               </h2>
               <div>
-                <label className="text-sm font-medium text-gray-400">
+                <label className="text-sm font-semibold text-slate-700">
                   Icon Name (unique key)
                 </label>
                 <input
                   value={iconName}
                   onChange={(e) => setIconName(e.target.value)}
                   placeholder="e.g., fort-outline"
-                  className="mt-1 w-full border border-gray-600 rounded-lg px-3 py-2 bg-gray-700 text-white placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+                  className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-400">
+                <label className="text-sm font-semibold text-slate-700">
                   Tags (comma-separated)
                 </label>
                 <input
                   value={iconTags}
                   onChange={(e) => setIconTags(e.target.value)}
                   placeholder="e.g., landmark, punjab"
-                  className="mt-1 w-full border border-gray-600 rounded-lg px-3 py-2 bg-gray-700 text-white placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+                  className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-400">
+                <label className="text-sm font-semibold text-slate-700">
                   SVG File
                 </label>
                 <input
@@ -321,17 +321,17 @@ export default function IconManagerPage() {
                   type="file"
                   accept=".svg,image/svg+xml"
                   onChange={handleFileChange}
-                  className="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600/80 file:text-white hover:file:bg-blue-700"
+                  className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
                 />
               </div>
               {preview && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">
+                  <label className="text-sm font-semibold text-slate-700">
                     Preview
                   </label>
-                  <div className="mt-1 p-4 border border-gray-600 rounded-lg bg-gray-700 flex items-center justify-center">
+                  <div className="mt-1 p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex items-center justify-center">
                     <div
-                      className="w-16 h-16 text-white"
+                      className="w-16 h-16 text-slate-800"
                       dangerouslySetInnerHTML={{ __html: preview }}
                     />
                   </div>
@@ -340,7 +340,7 @@ export default function IconManagerPage() {
               <button
                 onClick={handleUpload}
                 disabled={busy || !selectedFile || !iconName}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors"
               >
                 {busy ? (
                   <FaSpinner className="animate-spin" />
@@ -358,10 +358,10 @@ export default function IconManagerPage() {
                 placeholder="Search by name or tag..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full mb-4 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full mb-4 rounded-md px-4 py-2 text-slate-900 placeholder-slate-400 bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
               />
               {loading ? (
-                <div className="text-center text-gray-400">
+                <div className="text-center text-slate-500">
                   Loading icons...
                 </div>
               ) : (
@@ -369,19 +369,19 @@ export default function IconManagerPage() {
                   {filteredIcons.map((icon) => (
                     <div
                       key={icon.id}
-                      className="group relative bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col items-center justify-center aspect-square text-center"
+                      className="group relative bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center aspect-square text-center shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div
-                        className="w-12 h-12 text-gray-300 transition-colors group-hover:text-blue-400"
+                        className="w-12 h-12 text-slate-700 transition-colors group-hover:text-blue-600"
                         dangerouslySetInnerHTML={{ __html: icon.svg_content }}
                       />
-                      <p className="text-xs font-mono mt-2 text-gray-400 break-all">
+                      <p className="text-xs font-mono mt-2 text-slate-600 break-all">
                         {icon.name}
                       </p>
                       <button
                         onClick={() => handleDelete(icon)}
                         disabled={busy}
-                        className="absolute top-1 right-1 p-1.5 bg-red-900/50 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-900"
+                        className="absolute top-1 right-1 p-1.5 bg-red-50 text-red-600 border border-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"
                         title="Delete icon"
                       >
                         <FaTrash size={12} />
