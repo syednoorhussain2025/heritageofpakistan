@@ -255,7 +255,7 @@ function EditContent({ id }: { id: string }) {
   >({});
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
-  const saveListingRef = useRef<() => Promise<void> | void>();
+  const saveListingRef = useRef<(() => Promise<void> | void) | undefined>();
 
   useEffect(() => {
     (async () => {
