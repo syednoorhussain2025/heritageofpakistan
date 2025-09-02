@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FaTrash, FaCheckCircle } from "react-icons/fa";
 import { Lightbox } from "@/components/ui/Lightbox"; // keep your existing path
-import type { LightboxPhoto } from "@/components/ui/Lightbox"; // ✅ import the type
 
 async function publicUrl(bucket: string, key: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
@@ -324,8 +323,8 @@ export default function GalleryUploader({
   }
 
   // -------- Lightbox adapter (use real site title) --------
-  // ✅ Shape matches LightboxPhoto (includes id & storagePath)
-  const lightboxPhotos: LightboxPhoto[] = useMemo(
+  // NOTE: no type import; we just provide the fields the Lightbox expects (id, storagePath, url, caption, etc.).
+  const lightboxPhotos = useMemo(
     () =>
       rows
         .filter((r) => !!r.publicUrl)
