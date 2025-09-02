@@ -1,0 +1,569 @@
+"use client";
+
+import React from "react";
+
+/**
+ * Travel & Details
+ * - Renders all subsections that used to be under the "location" tab:
+ *   1) Coordinates + Admin location (province)
+ *   2) General Info
+ *   3) UNESCO & Protection
+ *   4) Climate & Topography
+ *   5) Did you know
+ *   6) Travel Guide
+ *   7) Best Time (preset key)
+ *   8) Places to Stay
+ *
+ * Props are designed to match the integrator’s expectations.
+ */
+export default function TravelDetails({
+  form,
+  setField,
+  provinces,
+  inputStyles,
+  readOnlyInputStyles,
+}: {
+  form: any;
+  setField: <K extends string>(key: K, value: any) => void;
+  provinces: Array<{ id: string | number; name: string }>;
+  inputStyles: string;
+  readOnlyInputStyles: string;
+}) {
+  return (
+    <div className="space-y-8">
+      {/* 1) Coordinates + Admin location */}
+      <SectionBlock title="Where is it / Location">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Labeled label="Latitude">
+            <input
+              className={inputStyles}
+              value={form.latitude || ""}
+              onChange={(e) => setField("latitude", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Longitude">
+            <input
+              className={inputStyles}
+              value={form.longitude || ""}
+              onChange={(e) => setField("longitude", e.target.value)}
+            />
+          </Labeled>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <Labeled label="Town/City/Village">
+            <input
+              className={inputStyles}
+              value={form.town_city_village || ""}
+              onChange={(e) => setField("town_city_village", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Tehsil">
+            <input
+              className={inputStyles}
+              value={form.tehsil || ""}
+              onChange={(e) => setField("tehsil", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="District">
+            <input
+              className={inputStyles}
+              value={form.district || ""}
+              onChange={(e) => setField("district", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Region / Province (dropdown of 6)">
+            <select
+              className={inputStyles}
+              value={form.province_id || ""}
+              onChange={(e) =>
+                setField(
+                  "province_id",
+                  e.target.value ? Number(e.target.value) : null
+                )
+              }
+            >
+              <option value="">— Select —</option>
+              {provinces.map((p) => (
+                <option key={p.id} value={p.id as any}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Labeled>
+        </div>
+      </SectionBlock>
+
+      {/* 2) General Info */}
+      <SectionBlock title="General Info">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Labeled label="Name (auto from Title)">
+            <input
+              className={readOnlyInputStyles}
+              value={form.title || ""}
+              readOnly
+            />
+          </Labeled>
+
+          <Labeled label="Architectural Style">
+            <input
+              className={inputStyles}
+              value={form.architectural_style || ""}
+              onChange={(e) => setField("architectural_style", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Construction Materials">
+            <input
+              className={inputStyles}
+              value={form.construction_materials || ""}
+              onChange={(e) =>
+                setField("construction_materials", e.target.value)
+              }
+            />
+          </Labeled>
+
+          <Labeled label="Local Name">
+            <input
+              className={inputStyles}
+              value={form.local_name || ""}
+              onChange={(e) => setField("local_name", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Architect">
+            <input
+              className={inputStyles}
+              value={form.architect || ""}
+              onChange={(e) => setField("architect", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Construction Date">
+            <input
+              className={inputStyles}
+              value={form.construction_date || ""}
+              onChange={(e) => setField("construction_date", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Built by">
+            <input
+              className={inputStyles}
+              value={form.built_by || ""}
+              onChange={(e) => setField("built_by", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Dynasty">
+            <input
+              className={inputStyles}
+              value={form.dynasty || ""}
+              onChange={(e) => setField("dynasty", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Conservation Status">
+            <input
+              className={inputStyles}
+              value={form.conservation_status || ""}
+              onChange={(e) => setField("conservation_status", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Current Use">
+            <input
+              className={inputStyles}
+              value={form.current_use || ""}
+              onChange={(e) => setField("current_use", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Restored by">
+            <input
+              className={inputStyles}
+              value={form.restored_by || ""}
+              onChange={(e) => setField("restored_by", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Known for">
+            <input
+              className={inputStyles}
+              value={form.known_for || ""}
+              onChange={(e) => setField("known_for", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Era">
+            <input
+              className={inputStyles}
+              value={form.era || ""}
+              onChange={(e) => setField("era", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Inhabited by">
+            <input
+              className={inputStyles}
+              value={form.inhabited_by || ""}
+              onChange={(e) => setField("inhabited_by", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="National Park Established in">
+            <input
+              className={inputStyles}
+              value={form.national_park_established_in || ""}
+              onChange={(e) =>
+                setField("national_park_established_in", e.target.value)
+              }
+            />
+          </Labeled>
+
+          <Labeled label="Population">
+            <input
+              className={inputStyles}
+              value={form.population || ""}
+              onChange={(e) => setField("population", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Ethnic Groups">
+            <input
+              className={inputStyles}
+              value={form.ethnic_groups || ""}
+              onChange={(e) => setField("ethnic_groups", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Languages Spoken">
+            <input
+              className={inputStyles}
+              value={form.languages_spoken || ""}
+              onChange={(e) => setField("languages_spoken", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Excavation Status">
+            <input
+              className={inputStyles}
+              value={form.excavation_status || ""}
+              onChange={(e) => setField("excavation_status", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Excavated by">
+            <input
+              className={inputStyles}
+              value={form.excavated_by || ""}
+              onChange={(e) => setField("excavated_by", e.target.value)}
+            />
+          </Labeled>
+
+          <Labeled label="Administered by (label editable later)">
+            <input
+              className={inputStyles}
+              value={form.administered_by || ""}
+              onChange={(e) => setField("administered_by", e.target.value)}
+            />
+          </Labeled>
+        </div>
+      </SectionBlock>
+
+      {/* 3) UNESCO & Protection */}
+      <SectionBlock title="UNESCO & Protection">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Labeled label="UNESCO Status">
+            <select
+              className={inputStyles}
+              value={form.unesco_status || "None"}
+              onChange={(e) => setField("unesco_status", e.target.value)}
+            >
+              <option>None</option>
+              <option>Inscribed on the UNESCO World Heritage Site List</option>
+              <option>On the UNESCO World Heritage Tentative List</option>
+            </select>
+          </Labeled>
+          <Labeled label="UNESCO Line (optional one-liner)">
+            <input
+              className={inputStyles}
+              value={form.unesco_line || ""}
+              onChange={(e) => setField("unesco_line", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Protected under (free text)">
+            <input
+              className={inputStyles}
+              value={form.protected_under || ""}
+              onChange={(e) => setField("protected_under", e.target.value)}
+            />
+          </Labeled>
+        </div>
+      </SectionBlock>
+
+      {/* 4) Climate & Topography */}
+      <SectionBlock title="Climate & Topography">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Labeled label="Landform">
+            <input
+              className={inputStyles}
+              value={form.landform || ""}
+              onChange={(e) => setField("landform", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Altitude">
+            <input
+              className={inputStyles}
+              value={form.altitude || ""}
+              onChange={(e) => setField("altitude", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Mountain Range">
+            <input
+              className={inputStyles}
+              value={form.mountain_range || ""}
+              onChange={(e) => setField("mountain_range", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Weather Type">
+            <input
+              className={inputStyles}
+              value={form.weather_type || ""}
+              onChange={(e) => setField("weather_type", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Average Temp in Summers">
+            <input
+              className={inputStyles}
+              value={form.avg_temp_summers || ""}
+              onChange={(e) => setField("avg_temp_summers", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Average Temp in Winters">
+            <input
+              className={inputStyles}
+              value={form.avg_temp_winters || ""}
+              onChange={(e) => setField("avg_temp_winters", e.target.value)}
+            />
+          </Labeled>
+        </div>
+      </SectionBlock>
+
+      {/* 5) Did you know */}
+      <SectionBlock title="Did you Know">
+        <Labeled label="Interesting fact (free text)">
+          <textarea
+            className={inputStyles}
+            value={form.did_you_know || ""}
+            onChange={(e) => setField("did_you_know", e.target.value)}
+          />
+        </Labeled>
+      </SectionBlock>
+
+      {/* 6) Travel Guide */}
+      <SectionBlock title="Travel Guide">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Labeled label="Location (Travel Guide)">
+            <input
+              className={inputStyles}
+              value={form.travel_location || ""}
+              onChange={(e) => setField("travel_location", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="How to Reach">
+            <input
+              className={inputStyles}
+              value={form.travel_how_to_reach || ""}
+              onChange={(e) => setField("travel_how_to_reach", e.target.value)}
+            />
+          </Labeled>
+          <Labeled label="Nearest Major City">
+            <input
+              className={inputStyles}
+              value={form.travel_nearest_major_city || ""}
+              onChange={(e) =>
+                setField("travel_nearest_major_city", e.target.value)
+              }
+            />
+          </Labeled>
+          <Labeled label="Airport Access">
+            <select
+              className={inputStyles}
+              value={form.travel_airport_access || ""}
+              onChange={(e) =>
+                setField("travel_airport_access", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+            </select>
+          </Labeled>
+          <Labeled label="International Flight">
+            <select
+              className={inputStyles}
+              value={form.travel_international_flight || ""}
+              onChange={(e) =>
+                setField("travel_international_flight", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>Domestic Only</option>
+            </select>
+          </Labeled>
+          <Labeled label="Access Options">
+            <select
+              className={inputStyles}
+              value={form.travel_access_options || ""}
+              onChange={(e) =>
+                setField("travel_access_options", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>By Road Only</option>
+              <option>By Road and Air</option>
+              <option>By Road, Air and Railway</option>
+            </select>
+          </Labeled>
+          <Labeled label="Road Type & Condition">
+            <select
+              className={inputStyles}
+              value={form.travel_road_type_condition || ""}
+              onChange={(e) =>
+                setField("travel_road_type_condition", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Metalled</option>
+              <option>Dirt</option>
+              <option>Mixed</option>
+            </select>
+          </Labeled>
+          <Labeled label="Best Time to Visit (short free text)">
+            <input
+              className={inputStyles}
+              value={form.travel_best_time_free || ""}
+              onChange={(e) =>
+                setField("travel_best_time_free", e.target.value)
+              }
+            />
+          </Labeled>
+          <Labeled label="Full Travel Guide URL (optional button)">
+            <input
+              className={inputStyles}
+              value={form.travel_full_guide_url || ""}
+              onChange={(e) =>
+                setField("travel_full_guide_url", e.target.value)
+              }
+            />
+          </Labeled>
+        </div>
+      </SectionBlock>
+
+      {/* 7) Best Time preset */}
+      <SectionBlock title="Best Time to Visit (preset)">
+        <Labeled label="Preset Key (temporary; global presets later)">
+          <input
+            className={inputStyles}
+            value={form.best_time_option_key || ""}
+            onChange={(e) => setField("best_time_option_key", e.target.value)}
+          />
+        </Labeled>
+      </SectionBlock>
+
+      {/* 8) Places to Stay */}
+      <SectionBlock title="Places to Stay">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Labeled label="Hotels Available">
+            <select
+              className={inputStyles}
+              value={form.stay_hotels_available || ""}
+              onChange={(e) =>
+                setField("stay_hotels_available", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Limited Options</option>
+            </select>
+          </Labeled>
+          <Labeled label="Spending Night Recommended">
+            <select
+              className={inputStyles}
+              value={form.stay_spending_night_recommended || ""}
+              onChange={(e) =>
+                setField("stay_spending_night_recommended", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+            </select>
+          </Labeled>
+          <Labeled label="Camping Possible">
+            <select
+              className={inputStyles}
+              value={form.stay_camping_possible || ""}
+              onChange={(e) =>
+                setField("stay_camping_possible", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+              <option>Not Recommended</option>
+              <option>Not Suitable</option>
+            </select>
+          </Labeled>
+          <Labeled label="Places to Eat Available">
+            <select
+              className={inputStyles}
+              value={form.stay_places_to_eat_available || ""}
+              onChange={(e) =>
+                setField("stay_places_to_eat_available", e.target.value)
+              }
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+            </select>
+          </Labeled>
+        </div>
+      </SectionBlock>
+    </div>
+  );
+}
+
+/* ---------- Small local UI helpers ---------- */
+
+function SectionBlock({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="text-base font-semibold mb-4 text-gray-900">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Labeled({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <div className="text-sm font-semibold mb-1.5 text-gray-800">{label}</div>
+      {children}
+    </label>
+  );
+}
