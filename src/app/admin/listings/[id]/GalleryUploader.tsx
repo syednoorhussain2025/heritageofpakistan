@@ -4,7 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FaTrash, FaCheckCircle } from "react-icons/fa";
-import { Lightbox } from "@/components/ui/Lightbox"; // adjust path if needed
+import { Lightbox } from "@/components/ui/Lightbox"; // keep your existing path
+import type { LightboxPhoto } from "@/components/ui/Lightbox"; // ✅ import the type
 
 async function publicUrl(bucket: string, key: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
@@ -222,7 +223,6 @@ export default function GalleryUploader({
 
   // -------- Delete All (hard delete with password re-auth) --------
 
-  const totalImages = rows.length;
   const galleryFolder = useMemo(() => `gallery/${siteId}`, [siteId]);
 
   function openDeleteAllModal() {
@@ -324,11 +324,14 @@ export default function GalleryUploader({
   }
 
   // -------- Lightbox adapter (use real site title) --------
-  const lightboxPhotos = useMemo(
+  // ✅ Shape matches LightboxPhoto (includes id & storagePath)
+  const lightboxPhotos: LightboxPhoto[] = useMemo(
     () =>
       rows
         .filter((r) => !!r.publicUrl)
         .map((r) => ({
+          id: r.id,
+          storagePath: r.storage_path,
           url: r.publicUrl as string,
           caption: r.caption || r.alt_text || "",
           isBookmarked: false,
@@ -392,9 +395,10 @@ export default function GalleryUploader({
                   <button
                     type="button"
                     onClick={() => {
-                      const visibleIndex = rows
-                        .filter((r) => !!r.publicUrl)
-                        .findIndex((r) => r.id === img.id);
+                      const visible = rows.filter((r) => !!r.publicUrl);
+                      const visibleIndex = visible.findIndex(
+                        (r) => r.id === img.id
+                      );
                       setLbIndex(Math.max(0, visibleIndex));
                       setLbOpen(true);
                     }}
