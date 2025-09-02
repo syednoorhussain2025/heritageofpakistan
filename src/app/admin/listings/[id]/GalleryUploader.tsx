@@ -322,8 +322,7 @@ export default function GalleryUploader({
     }
   }
 
-  // -------- Lightbox adapter (use real site title) --------
-  // NOTE: no type import; we just provide the fields the Lightbox expects (id, storagePath, url, caption, etc.).
+  // -------- Lightbox adapter (add site.id to satisfy Lightbox types) --------
   const lightboxPhotos = useMemo(
     () =>
       rows
@@ -336,6 +335,7 @@ export default function GalleryUploader({
           isBookmarked: false,
           author: { name: "Uploaded by Admin", profileUrl: "" },
           site: {
+            id: String(siteId), // ✅ required by LightboxSite
             name: siteTitle || "Site",
             location: "",
             region: "",
@@ -344,7 +344,7 @@ export default function GalleryUploader({
             categories: [] as string[],
           },
         })),
-    [rows, siteTitle]
+    [rows, siteId, siteTitle]
   );
 
   // ---------------- Render ----------------
