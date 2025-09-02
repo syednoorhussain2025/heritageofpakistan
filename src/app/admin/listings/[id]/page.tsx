@@ -255,7 +255,10 @@ function EditContent({ id }: { id: string }) {
   >({});
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
-  const saveListingRef = useRef<(() => Promise<void> | void) | undefined>();
+  // ✅ FIX APPLIED HERE: Explicitly pass `undefined` as the initial value.
+  const saveListingRef = useRef<(() => Promise<void> | void) | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     (async () => {
@@ -584,7 +587,7 @@ function ListingForm({
     await saveCategoryJoins();
     await saveRegionJoins();
     alert("Saved.");
-  }, [form, selectedCatIds, selectedRegionIds]); // eslint-disable-line
+  }, [form, onSave, selectedCatIds, selectedRegionIds]); // eslint-disable-line
 
   useEffect(() => {
     onRegisterSave(saveAll);
