@@ -37,10 +37,11 @@ function ActionButton({
 }) {
   const base =
     "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium " +
-    "border border-slate-200 bg-white text-slate-800 select-none " +
-    "transition-colors whitespace-nowrap cursor-pointer";
+    "border border-slate-200 bg-white text-slate-800 cursor-pointer " +
+    "transition-colors whitespace-nowrap";
 
-  const hoverClass = "hover:bg-[var(--hover-color)] hover:text-white";
+  const hoverClass =
+    "hover:bg-[var(--hover-color)] hover:text-white hover:border-[var(--hover-color)]";
   const style = { ["--hover-color" as any]: HOVER_COLOR };
 
   const cls = `${base} ${hoverClass}`;
