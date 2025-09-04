@@ -1,174 +1,211 @@
-import React from "react";
-import Link from "next/link";
+// src/components/StickyHeader.tsx
+import React, { useEffect, useRef, useState } from "react";
+import Icon from "@/components/Icon";
 
-// --- Types ---
-// Re-defining the Site type here to make the component self-sufficient.
-// Ensure this matches the type definition in your main page.
-type Site = {
-  id: string;
-  slug: string;
-  title: string;
-};
+type Site = { id: string; slug: string; title: string };
 
-// --- Props for our component ---
 interface StickyHeaderProps {
   site: Site | null;
+
   isBookmarked: boolean;
   wishlisted: boolean;
   inTrip: boolean;
-  mapsLink: string | null;
-  isLoaded: boolean; // For bookmark loading state
+  isLoaded: boolean;
+
   toggleBookmark: (id: string) => void;
   setShowWishlistModal: (show: boolean) => void;
   setInTrip: (inTrip: boolean | ((prev: boolean) => boolean)) => void;
   doShare: () => void;
   setShowReviewModal: (show: boolean) => void;
+
+  locationFree?: string | null;
+  categoryIconKey?: string | null;
 }
 
-// --- Helper Components ---
+const HOVER_COLOR = "#4f46e5"; // purple hover
 
-function ActionButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const { children, className, ...rest } = props;
+function ActionButton({
+  children,
+  onClick,
+  href,
+  ariaPressed,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  href?: string;
+  ariaPressed?: boolean;
+}) {
+  const base =
+    "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium " +
+    "border border-slate-200 bg-white text-slate-800 select-none " +
+    "transition-colors whitespace-nowrap cursor-pointer";
+
+  const hoverClass = "hover:bg-[var(--hover-color)] hover:text-white";
+  const style = { ["--hover-color" as any]: HOVER_COLOR };
+
+  const cls = `${base} ${hoverClass}`;
+
+  if (href) {
+    return (
+      <a href={href} className={cls} style={style}>
+        {children}
+      </a>
+    );
+  }
   return (
     <button
-      {...rest}
-      className={`px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action text-sm transition-all duration-200 ${
-        className ?? ""
-      }`}
+      type="button"
+      className={cls}
+      onClick={onClick}
+      aria-pressed={ariaPressed}
+      style={style}
     >
       {children}
     </button>
   );
 }
 
-// Inlined a placeholder for the Icon component to resolve import errors.
-function Icon({
-  name,
-  size,
-  className,
-}: {
-  name: string;
-  size: number;
-  className?: string;
-}) {
-  // A simple placeholder to render an icon-like element.
-  const iconMap: { [key: string]: string } = {
-    heart: "❤️",
-  };
-  return (
-    <span className={className} style={{ fontSize: size }}>
-      {iconMap[name] || "●"}
-    </span>
-  );
-}
-
-// --- Main Component ---
-
 export default function StickyHeader({
   site,
   isBookmarked,
   wishlisted,
   inTrip,
-  mapsLink,
   isLoaded,
   toggleBookmark,
   setShowWishlistModal,
   setInTrip,
   doShare,
   setShowReviewModal,
+  locationFree,
+  categoryIconKey,
 }: StickyHeaderProps) {
-  // If there's no site data yet, render nothing.
-  if (!site) {
-    return null;
-  }
+  const stickyRef = useRef<HTMLDivElement | null>(null);
+  const [isStuck, setIsStuck] = useState(false);
+
+  useEffect(() => {
+    let ticking = false;
+    const measure = () => {
+      if (!stickyRef.current) return;
+      const rect = stickyRef.current.getBoundingClientRect();
+      setIsStuck(rect.top <= 0);
+      ticking = false;
+    };
+    const handler = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(measure);
+      }
+    };
+    measure();
+    window.addEventListener("scroll", handler, { passive: true });
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler);
+      window.removeEventListener("resize", handler);
+    };
+  }, []);
+
+  if (!site) return null;
 
   return (
-    <>
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md shadow-md animate-fade-in-down">
-        <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-3 flex justify-between items-center">
-          {/* Left Side: Site Title */}
-          <h2 className="text-lg font-bold text-gray-800 truncate pr-4">
-            {site.title}
-          </h2>
+    <div
+      ref={stickyRef}
+      className="sticky top-0 z-40 bg-white border-b border-slate-200"
+    >
+      <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-1.5">
+        <div className="flex items-center gap-3 md:gap-4">
+          {/* Left block: icon + title + location */}
+          <div
+            className={`flex items-center gap-3 min-w-0 transition-all duration-300 ease-out
+              ${
+                isStuck
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-1 pointer-events-none select-none"
+              }`}
+            aria-hidden={!isStuck}
+          >
+            <span className="inline-flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full bg-[var(--brand-orange)] flex-shrink-0">
+              <Icon
+                name={categoryIconKey || "gallery"}
+                size={16}
+                className="text-white"
+              />
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm md:text-base font-semibold text-slate-900 truncate">
+                {site.title}
+              </div>
+              {locationFree ? (
+                <div className="text-xs text-slate-600 truncate">
+                  {locationFree}
+                </div>
+              ) : null}
+            </div>
+          </div>
 
-          {/* Right Side: Action Buttons */}
-          <div className="flex flex-wrap justify-end items-center gap-2 md:gap-3">
-            {mapsLink && (
-              <a
-                href={mapsLink}
-                target="_blank"
-                className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action text-sm transition-all duration-200"
-              >
-                Open Pin
-              </a>
-            )}
+          <div className="flex-1" />
+
+          {/* Buttons */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
             <ActionButton
               onClick={() => toggleBookmark(site.id)}
-              className={
-                isBookmarked ? "text-red-500 border-red-200 bg-red-50" : ""
-              }
+              ariaPressed={isBookmarked}
             >
-              <div className="flex items-center gap-1.5">
-                <Icon name="heart" size={12} />
-                <span>
-                  {isLoaded
-                    ? isBookmarked
-                      ? "Bookmarked"
-                      : "Bookmark"
-                    : "Bookmark"}
-                </span>
-              </div>
-            </ActionButton>
-
-            <ActionButton onClick={() => setShowWishlistModal(true)}>
-              {wishlisted ? "Wishlisted ✓" : "Add to Wishlist"}
+              <Icon name="bookmark" size={14} className="text-current" />
+              <span>
+                {isLoaded
+                  ? isBookmarked
+                    ? "Bookmarked"
+                    : "Bookmark"
+                  : "Bookmark"}
+              </span>
             </ActionButton>
 
             <ActionButton onClick={() => setInTrip((t) => !t)}>
-              {inTrip ? "Added to Trip ✓" : "Add to Trip"}
+              <Icon name="route" size={14} className="text-current" />
+              <span>{inTrip ? "Added to Trip" : "Add to Trip"}</span>
             </ActionButton>
 
-            <a
-              href={`/heritage/${site.slug}/gallery`}
-              className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action text-sm transition-all duration-200"
-            >
-              Photo Gallery
-            </a>
+            <ActionButton onClick={() => setShowWishlistModal(true)}>
+              <Icon name="list-ul" size={14} className="text-current" />
+              <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
+            </ActionButton>
 
-            <ActionButton onClick={doShare}>Share</ActionButton>
+            <ActionButton href={`/heritage/${site.slug}/gallery`}>
+              <Icon name="gallery" size={14} className="text-current" />
+              <span>Photo Gallery</span>
+            </ActionButton>
 
-            <a
-              href="#reviews"
-              className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action text-sm transition-all duration-200"
-            >
-              Reviews
-            </a>
+            <ActionButton onClick={doShare}>
+              <Icon name="share" size={14} className="text-current" />
+              <span>Share</span>
+            </ActionButton>
 
-            <ActionButton
-              onClick={() => setShowReviewModal(true)}
-              className="bg-black text-white hover:bg-gray-800"
-            >
-              Share Your Experience
+            <ActionButton href="#reviews">
+              <Icon name="star" size={14} className="text-current" />
+              <span>Reviews</span>
+            </ActionButton>
+
+            <ActionButton onClick={() => setShowReviewModal(true)}>
+              <Icon name="hike" size={14} className="text-current" />
+              <span>Share your experience</span>
             </ActionButton>
           </div>
         </div>
       </div>
-      {/* CSS for the fade-in animation */}
+
       <style jsx global>{`
-        @keyframes fade-in-down {
-          0% {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .scrollbar-thin {
+          scrollbar-width: thin;
         }
-        .animate-fade-in-down {
-          animation: fade-in-down 0.3s ease-out;
+        .scrollbar-thin::-webkit-scrollbar {
+          height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          border-radius: 8px;
+          background-color: rgba(0, 0, 0, 0.15);
         }
       `}</style>
-    </>
+    </div>
   );
 }

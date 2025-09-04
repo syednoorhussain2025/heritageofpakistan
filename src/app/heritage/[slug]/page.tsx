@@ -1,16 +1,17 @@
 // src/app/heritage/[slug]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import DOMPurify from "isomorphic-dompurify";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
-import AddToWishlistModal from "@/components/AddToWishlistModal"; // existing
-import ReviewModal from "@/components/reviews/ReviewModal"; // modal
-import ReviewsTab from "@/components/reviews/ReviewsTab"; // reviews tab
+import AddToWishlistModal from "@/components/AddToWishlistModal";
+import ReviewModal from "@/components/reviews/ReviewModal";
+import ReviewsTab from "@/components/reviews/ReviewsTab";
+import StickyHeader from "@/components/StickyHeader"; // component action bar
 
 /* ───────────── UI helpers ───────────── */
 
@@ -81,20 +82,6 @@ function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
   );
 }
 
-function ActionButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const { children, className, ...rest } = props;
-  return (
-    <button
-      {...rest}
-      className={`px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action ${
-        className ?? ""
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 /* ───────────── Skeletons ───────────── */
 
 function SkeletonBar({ className = "" }: { className?: string }) {
@@ -134,18 +121,6 @@ function HeroSkeleton() {
   );
 }
 
-function ActionBarSkeleton() {
-  return (
-    <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4">
-      <div className="flex flex-wrap justify-center gap-2 md:gap-3 mt-4">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <SkeletonBar key={i} className="h-10 w-28 rounded-lg" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5">
@@ -153,38 +128,6 @@ function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
       {Array.from({ length: lines }).map((_, i) => (
         <SkeletonBar key={i} className="h-4 w-full mb-2" />
       ))}
-    </div>
-  );
-}
-
-function MapSkeleton() {
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-5">
-      <SkeletonBar className="h-6 w-44 mb-3" />
-      <SkeletonBar className="h-56 w-full rounded-lg mb-3" />
-      <SkeletonBar className="h-8 w-40 rounded mb-3" />
-      <div className="grid grid-cols-2 gap-3">
-        <SkeletonBar className="h-4 w-20" />
-        <SkeletonBar className="h-4 w-24 justify-self-end" />
-        <SkeletonBar className="h-4 w-20" />
-        <SkeletonBar className="h-4 w-24 justify-self-end" />
-      </div>
-    </div>
-  );
-}
-
-function ChipsSkeleton({ count = 6 }: { count?: number }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-5">
-      <SkeletonBar className="h-6 w-56 mb-3" />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: count }).map((_, i) => (
-          <div key={i} className="inline-flex items-center gap-2">
-            <SkeletonCircle className="w-8 h-8" />
-            <SkeletonBar className="h-4 w-28" />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -242,7 +185,7 @@ function ReviewsSkeleton() {
   );
 }
 
-/* ───────────── Types (updated for snapshots-only) ───────────── */
+/* ───────────── Types ───────────── */
 
 type Site = {
   id: string;
@@ -308,12 +251,10 @@ type Site = {
   travel_full_guide_url?: string | null;
   best_time_option_key?: string | null;
 
-  /* NEW: snapshots produced by the Admin builder */
   history_layout_html?: string | null;
   architecture_layout_html?: string | null;
   climate_layout_html?: string | null;
 
-  /* NEW: custom sections JSON — each must have layout_html to render */
   custom_sections_json?:
     | {
         id: string;
@@ -322,7 +263,6 @@ type Site = {
       }[]
     | null;
 
-  /* Stay */
   stay_hotels_available?: string | null;
   stay_spending_night_recommended?: string | null;
   stay_camping_possible?: string | null;
@@ -386,7 +326,6 @@ export default function HeritagePage() {
       try {
         setLoading(true);
 
-        // Pull snapshots + custom JSON directly on the site row
         const { data: s } = await supabase
           .from("sites")
           .select(
@@ -557,72 +496,21 @@ export default function HeritagePage() {
         </div>
       )}
 
-      {/* ACTION LINKS */}
-      {loading || !site ? (
-        <ActionBarSkeleton />
-      ) : (
-        <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4">
-          <div className="flex flex-wrap justify-center gap-2 md:gap-3 mt-4">
-            {mapsLink && (
-              <a
-                href={mapsLink}
-                target="_blank"
-                className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action"
-              >
-                Open Pin
-              </a>
-            )}
-            <ActionButton
-              onClick={() => site && toggleBookmark(site.id)}
-              className={
-                isBookmarked ? "text-red-500 border-red-200 bg-red-50" : ""
-              }
-            >
-              <div className="flex items-center gap-1.5">
-                <Icon name="heart" size={12} />
-                <span>
-                  {isLoaded
-                    ? isBookmarked
-                      ? "Bookmarked"
-                      : "Bookmark"
-                    : "Bookmark"}
-                </span>
-              </div>
-            </ActionButton>
-
-            <ActionButton onClick={() => setShowWishlistModal(true)}>
-              {wishlisted ? "Wishlisted ✓" : "Add to Wishlist"}
-            </ActionButton>
-            {showWishlistModal && site && (
-              <AddToWishlistModal
-                siteId={site.id}
-                onClose={() => setShowWishlistModal(false)}
-              />
-            )}
-
-            <ActionButton onClick={() => setInTrip((t) => !t)}>
-              {inTrip ? "Added to Trip ✓" : "Add to Trip"}
-            </ActionButton>
-            <a
-              href={site ? `/heritage/${site.slug}/gallery` : "#"}
-              className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action"
-            >
-              Photo Gallery
-            </a>
-            <ActionButton onClick={doShare}>Share</ActionButton>
-
-            <a
-              href="#reviews"
-              className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action"
-            >
-              Reviews
-            </a>
-
-            <ActionButton onClick={() => setShowReviewModal(true)}>
-              Share Your Experience
-            </ActionButton>
-          </div>
-        </div>
+      {/* Action Bar — render the component directly (no extra wrapper) */}
+      {!loading && site && (
+        <StickyHeader
+          site={{ id: site.id, slug: site.slug, title: site.title }}
+          isBookmarked={isBookmarked}
+          wishlisted={wishlisted}
+          inTrip={inTrip}
+          mapsLink={mapsLink}
+          isLoaded={isLoaded}
+          toggleBookmark={(id: string) => toggleBookmark(id)}
+          setShowWishlistModal={(show: boolean) => setShowWishlistModal(show)}
+          setInTrip={setInTrip}
+          doShare={doShare}
+          setShowReviewModal={(show: boolean) => setShowReviewModal(show)}
+        />
       )}
 
       {/* BODY CONTENT */}
@@ -631,7 +519,6 @@ export default function HeritagePage() {
         <aside className="space-y-5 w-full lg:w-80 lg:flex-shrink-0">
           {loading || !site ? (
             <>
-              <MapSkeleton />
               <SidebarCardSkeleton lines={7} />
               <SidebarCardSkeleton lines={5} />
               <SidebarCardSkeleton lines={12} />
@@ -849,7 +736,6 @@ export default function HeritagePage() {
         <main className="space-y-5 w-full lg:flex-1">
           {loading || !site ? (
             <>
-              <ChipsSkeleton />
               <SidebarCardSkeleton lines={6} />
               <SidebarCardSkeleton lines={6} />
               <SidebarCardSkeleton lines={6} />
@@ -883,7 +769,7 @@ export default function HeritagePage() {
                 )}
               </Section>
 
-              {/* ── SNAPSHOT-BASED ARTICLE SECTIONS (no fallbacks) ── */}
+              {/* Snapshot sections */}
               {site.history_layout_html ? (
                 <Section
                   title="History & Background"
@@ -911,7 +797,7 @@ export default function HeritagePage() {
                 </Section>
               ) : null}
 
-              {/* Custom sections from JSON only; render only those with layout_html */}
+              {/* Custom sections with layout_html only */}
               {Array.isArray(site.custom_sections_json) &&
                 site.custom_sections_json
                   .filter(
