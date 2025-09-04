@@ -1,0 +1,136 @@
+/* Base article container */
+.hop-article {
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Generic section grid – specific sections add their own grid via classes */
+.hop-section {
+  display: grid;
+  margin: 1.5rem 0;
+}
+
+/* Text defaults */
+.hop-text {
+  font-family: var(--font-article, ui-serif);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.hop-text .hop-p + .hop-p {
+  margin-top: 0.85rem;
+}
+
+/* Media defaults */
+.hop-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+.hop-media-placeholder {
+  border: 1px dashed #c9c9c9;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  color: #777;
+}
+.hop-caption {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.35rem;
+}
+
+/* ───────── Section-specific classes matching presets ───────── */
+
+/* heroIntro */
+.sec-heroIntro {
+  grid-template-columns: 1fr;
+  grid-template-areas: "media" "text";
+  gap: 1.25rem;
+}
+.sec-heroIntro .area-media {
+  grid-area: media;
+}
+.sec-heroIntro .area-text {
+  grid-area: text;
+}
+
+/* mediaLeftTextRight */
+.sec-mediaLeftTextRight {
+  grid-template-columns: 40% 1fr;
+  grid-template-areas: "media text";
+  gap: 1.25rem;
+}
+@media (max-width: 900px) {
+  .sec-mediaLeftTextRight {
+    grid-template-columns: 1fr;
+    grid-template-areas: "media" "text";
+  }
+}
+.sec-mediaLeftTextRight .area-media {
+  grid-area: media;
+}
+.sec-mediaLeftTextRight .area-text {
+  grid-area: text;
+}
+
+/* fullTextBand */
+.sec-fullTextBand {
+  grid-template-columns: 1fr;
+  grid-template-areas: "text";
+}
+
+/* ───────── Measurement signatures (used by Measurer) ─────────
+   These must mirror actual slot widths & typography and **must not contain ':'**.
+*/
+.hop-measure-base {
+  font-family: var(--font-article, ui-serif);
+  font-size: 16px;
+  line-height: 1.7;
+  padding: 0 16px;
+  width: 640px;
+}
+
+/* Example signatures for desktop (used in presets) */
+.sig-heroIntro__media__desktop {
+  width: 960px;
+}
+.sig-heroIntro__intro__desktop {
+  width: 960px;
+}
+.sig-mediaLeftTextRight__media__desktop {
+  width: 480px;
+}
+.sig-mediaLeftTextRight__text__desktop {
+  width: 680px;
+}
+.sig-fullTextBand__text__desktop {
+  width: 960px;
+}
+
+/* Tablet/mobile signatures (approximate; refine as needed) */
+@media (max-width: 900px) {
+  .sig-heroIntro__media__tablet,
+  .sig-heroIntro__intro__tablet,
+  .sig-mediaLeftTextRight__media__tablet,
+  .sig-mediaLeftTextRight__text__tablet,
+  .sig-fullTextBand__text__tablet {
+    width: 680px;
+  }
+}
+@media (max-width: 640px) {
+  .sig-heroIntro__media__mobile,
+  .sig-heroIntro__intro__mobile,
+  .sig-mediaLeftTextRight__media__mobile,
+  .sig-mediaLeftTextRight__text__mobile,
+  .sig-fullTextBand__text__mobile {
+    width: 360px;
+  }
+}
+
+/* Utility classes binding areas (FlowRenderer will apply these) */
+.area-media {
+}
+.area-text {
+}

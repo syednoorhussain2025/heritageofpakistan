@@ -8,9 +8,9 @@ import { supabase } from "@/lib/supabaseClient";
 import DOMPurify from "isomorphic-dompurify";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
-import AddToWishlistModal from "@/components/AddToWishlistModal"; // ✅ existing
-import ReviewModal from "@/components/reviews/ReviewModal"; // ✅ NEW (wired up below)
-import ReviewsTab from "@/components/reviews/ReviewsTab"; // ✅ NEW
+import AddToWishlistModal from "@/components/AddToWishlistModal"; // existing
+import ReviewModal from "@/components/reviews/ReviewModal"; // modal
+import ReviewsTab from "@/components/reviews/ReviewsTab"; // reviews tab
 
 /* ───────────── UI helpers ───────────── */
 
@@ -242,7 +242,7 @@ function ReviewsSkeleton() {
   );
 }
 
-/* ───────────── Types (subset) ───────────── */
+/* ───────────── Types (updated for snapshots-only) ───────────── */
 
 type Site = {
   id: string;
@@ -260,6 +260,7 @@ type Site = {
   tehsil?: string | null;
   district?: string | null;
   province_id?: number | null;
+
   architectural_style?: string | null;
   construction_materials?: string | null;
   local_name?: string | null;
@@ -273,23 +274,29 @@ type Site = {
   known_for?: string | null;
   era?: string | null;
   inhabited_by?: string | null;
+
   national_park_established_in?: string | null;
   population?: string | null;
   ethnic_groups?: string | null;
   languages_spoken?: string | null;
+
   excavation_status?: string | null;
   excavated_by?: string | null;
   administered_by?: string | null;
+
   unesco_status?: string | null;
   unesco_line?: string | null;
   protected_under?: string | null;
+
   landform?: string | null;
   altitude?: string | null;
   mountain_range?: string | null;
   weather_type?: string | null;
   avg_temp_summers?: string | null;
   avg_temp_winters?: string | null;
+
   did_you_know?: string | null;
+
   travel_location?: string | null;
   travel_how_to_reach?: string | null;
   travel_nearest_major_city?: string | null;
@@ -300,9 +307,22 @@ type Site = {
   travel_best_time_free?: string | null;
   travel_full_guide_url?: string | null;
   best_time_option_key?: string | null;
-  history_content?: string | null;
-  architecture_content?: string | null;
-  climate_env_content?: string | null;
+
+  /* NEW: snapshots produced by the Admin builder */
+  history_layout_html?: string | null;
+  architecture_layout_html?: string | null;
+  climate_layout_html?: string | null;
+
+  /* NEW: custom sections JSON — each must have layout_html to render */
+  custom_sections_json?:
+    | {
+        id: string;
+        title: string;
+        layout_html?: string | null;
+      }[]
+    | null;
+
+  /* Stay */
   stay_hotels_available?: string | null;
   stay_spending_night_recommended?: string | null;
   stay_camping_possible?: string | null;
@@ -339,14 +359,6 @@ type Bibliography = {
   sort_order: number;
 };
 
-type CustomSection = {
-  id: string;
-  site_id: string;
-  title: string;
-  content: string;
-  sort_order: number;
-};
-
 /* ───────────── Page ───────────── */
 
 export default function HeritagePage() {
@@ -361,16 +373,11 @@ export default function HeritagePage() {
   const [regions, setRegions] = useState<Taxonomy[]>([]);
   const [gallery, setGallery] = useState<ImageRow[]>([]);
   const [biblio, setBiblio] = useState<Bibliography[]>([]);
-  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
   const [hasPhotoStory, setHasPhotoStory] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [inTrip, setInTrip] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
-
-  // ✅ NEW: review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
-
-  // ✅ NEW: page-level loading state to drive skeletons
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -379,11 +386,19 @@ export default function HeritagePage() {
       try {
         setLoading(true);
 
+        // Pull snapshots + custom JSON directly on the site row
         const { data: s } = await supabase
           .from("sites")
-          .select("*")
+          .select(
+            `*,
+             history_layout_html,
+             architecture_layout_html,
+             climate_layout_html,
+             custom_sections_json`
+          )
           .eq("slug", slug)
           .single();
+
         if (!s) {
           setSite(null);
           return;
@@ -437,13 +452,6 @@ export default function HeritagePage() {
           .eq("site_id", s.id)
           .order("sort_order", { ascending: true });
         setBiblio((bib as any[]) || []);
-
-        const { data: cs } = await supabase
-          .from("custom_sections")
-          .select("*")
-          .eq("site_id", s.id)
-          .order("sort_order", { ascending: true });
-        setCustomSections((cs as any[]) || []);
 
         const { data: ps } = await supabase
           .from("photo_stories")
@@ -582,7 +590,6 @@ export default function HeritagePage() {
               </div>
             </ActionButton>
 
-            {/* wishlist button opens the modal */}
             <ActionButton onClick={() => setShowWishlistModal(true)}>
               {wishlisted ? "Wishlisted ✓" : "Add to Wishlist"}
             </ActionButton>
@@ -604,7 +611,6 @@ export default function HeritagePage() {
             </a>
             <ActionButton onClick={doShare}>Share</ActionButton>
 
-            {/* Jump to reviews anchor */}
             <a
               href="#reviews"
               className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 font-button-action"
@@ -612,7 +618,6 @@ export default function HeritagePage() {
               Reviews
             </a>
 
-            {/* ✅ NEW: open Review Modal */}
             <ActionButton onClick={() => setShowReviewModal(true)}>
               Share Your Experience
             </ActionButton>
@@ -878,38 +883,49 @@ export default function HeritagePage() {
                 )}
               </Section>
 
-              {site.history_content && (
+              {/* ── SNAPSHOT-BASED ARTICLE SECTIONS (no fallbacks) ── */}
+              {site.history_layout_html ? (
                 <Section
                   title="History & Background"
                   iconName="history-background"
                 >
-                  <Article content={site.history_content} />
+                  <Article html={site.history_layout_html} />
                 </Section>
-              )}
+              ) : null}
 
-              {site.architecture_content && (
+              {site.architecture_layout_html ? (
                 <Section
                   title="Architecture & Design"
                   iconName="architecture-design"
                 >
-                  <Article content={site.architecture_content} />
+                  <Article html={site.architecture_layout_html} />
                 </Section>
-              )}
+              ) : null}
 
-              {site.climate_env_content && (
+              {site.climate_layout_html ? (
                 <Section
                   title="Climate, Geography & Environment"
-                  iconName="climate-geography-environment"
+                  iconName="climate-topography"
                 >
-                  <Article content={site.climate_env_content} />
+                  <Article html={site.climate_layout_html} />
                 </Section>
-              )}
+              ) : null}
 
-              {customSections.map((s) => (
-                <Section key={s.id} title={s.title} iconName="custom-section">
-                  <Article content={s.content} />
-                </Section>
-              ))}
+              {/* Custom sections from JSON only; render only those with layout_html */}
+              {Array.isArray(site.custom_sections_json) &&
+                site.custom_sections_json
+                  .filter(
+                    (cs) => !!cs.layout_html && cs.layout_html.trim() !== ""
+                  )
+                  .map((cs) => (
+                    <Section
+                      key={cs.id}
+                      title={cs.title}
+                      iconName="history-background"
+                    >
+                      <Article html={cs.layout_html!} />
+                    </Section>
+                  ))}
 
               <Section title="Gallery" iconName="gallery">
                 {gallery.length ? (
@@ -1002,7 +1018,7 @@ export default function HeritagePage() {
                 )}
               </Section>
 
-              {/* ✅ MOVED BELOW BIBLIOGRAPHY */}
+              {/* Reviews */}
               <Section id="reviews" title="Traveler Reviews" iconName="star">
                 <ReviewsTab siteId={site.id} />
               </Section>
@@ -1011,7 +1027,7 @@ export default function HeritagePage() {
         </main>
       </div>
 
-      {/* ✅ Review Modal (opened by button) */}
+      {/* Review Modal */}
       {showReviewModal && site && (
         <ReviewModal
           open={showReviewModal}
@@ -1031,9 +1047,9 @@ export default function HeritagePage() {
   );
 }
 
-/* Rich HTML article renderer (sanitized) */
-function Article({ content }: { content: string }) {
-  const clean = DOMPurify.sanitize(content, {
+/* Sanitized HTML renderer for snapshots */
+function Article({ html }: { html: string }) {
+  const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "p",
       "img",
@@ -1056,6 +1072,8 @@ function Article({ content }: { content: string }) {
       "a",
       "figure",
       "figcaption",
+      "div",
+      "section",
     ],
     ALLOWED_ATTR: [
       "src",
@@ -1068,8 +1086,8 @@ function Article({ content }: { content: string }) {
       "class",
       "width",
       "height",
+      "loading",
     ],
-    // keep same permissive URI regex
     ALLOWED_URI_REGEXP:
       /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   });

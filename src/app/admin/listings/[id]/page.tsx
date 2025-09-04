@@ -6,10 +6,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabaseClient";
-import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa"; // ⬅️ added icons
+import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
 
-/* ───────── Externalized Components (same folder) ───────── */
+/* Externalized Components */
 import GalleryUploader from "./GalleryUploader";
 import PhotoStory from "./PhotoStory";
 import Bibliography from "./Bibliography";
@@ -17,8 +17,7 @@ import ArticlesSection from "./ArticlesSection";
 import TravelDetails from "./TravelDetails";
 import CategoriesRegionsSelector from "./CategoriesRegionsSelector";
 
-/* ─────────────────────────── Icon mappings ─────────────────────────── */
-
+/* Icon maps, tabs */
 const TAB_ICONS: Record<
   | "overview"
   | "categories"
@@ -56,8 +55,6 @@ const SECTION_ICONS: Record<string, string> = {
   photo: "gallery",
 };
 
-/* ─────────────────────────── Tabs ─────────────────────────── */
-
 type ListingTabKey =
   | "overview"
   | "categories"
@@ -91,15 +88,14 @@ const LISTING_TABS: {
   {
     key: "content",
     label: "Article",
-    sections: ["articles", "custom-sections"],
+    sections: ["articles"], // custom sections handled inside ArticlesSection
   },
   { key: "media", label: "Gallery", sections: ["gallery"] },
   { key: "bibliography", label: "Bibliography", sections: ["bibliography"] },
   { key: "photo", label: "Photo Story", sections: ["photo"] },
 ];
 
-/* ─────────────────────────── UI helpers ─────────────────────────── */
-
+/* UI helpers */
 function Section({
   title,
   children,
@@ -110,12 +106,24 @@ function Section({
   id: string;
 }) {
   const iconKey = SECTION_ICONS[id];
+  const isArticles = id === "articles"; // frameless + no title for Article section only
+
+  if (isArticles) {
+    // Frameless wrapper & no title for Article section
+    return (
+      <section id={id} className="scroll-mt-24 p-0 bg-transparent">
+        {children}
+      </section>
+    );
+  }
+
+  // Default (framed) wrapper for all other sections
   return (
     <section
       id={id}
-      className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24" // ⬅️ more rounded
+      className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"
     >
-      <h2 className="text-xl font-semibold mb-4 text-gray-900 flex items-center gap-3">
+      <h2 className="text-2xl font-semibold mb-4 text-gray-900 flex items-center gap-3">
         {iconKey && (
           <span className="grid place-items-center w-8 h-8 rounded-full bg-[#F78300]">
             <Icon name={iconKey} className="w-4 h-4 text-white" />
@@ -183,20 +191,17 @@ async function publicUrl(bucket: string, key: string) {
   return data.publicUrl;
 }
 
-/* Helper: derive bucket/path from a Supabase public URL for deletion */
 function parseStoragePathFromPublicUrl(url: string | undefined | null) {
   if (!url) return null;
-  // e.g. https://<project>.supabase.co/storage/v1/object/public/site-images/covers/123/file.jpg
   const marker = "/storage/v1/object/public/";
   const i = url.indexOf(marker);
   if (i === -1) return null;
-  const rest = url.slice(i + marker.length); // site-images/covers/123/file.jpg
+  const rest = url.slice(i + marker.length);
   const [bucket, ...pathParts] = rest.split("/");
   return { bucket, path: pathParts.join("/") };
 }
 
-/* ───────────────────────────── Root wrapper ───────────────────────────── */
-
+/* Root wrapper */
 export default function EditListing() {
   const { id } = useParams<{ id: string }>();
   return (
@@ -206,8 +211,7 @@ export default function EditListing() {
   );
 }
 
-/* ───────────────────────────── Sidebar Controls ───────────────────────────── */
-
+/* Sidebar controls */
 function SidebarControls({
   published,
   onTogglePublished,
@@ -245,20 +249,21 @@ function SidebarControls({
   );
 }
 
-/* ───────────────────────────── Page Content (full-bleed) ───────────────────────────── */
-
+/* Page */
 function EditContent({ id }: { id: string }) {
   const [site, setSite] = useState<any>(null);
   const [saving, setSaving] = useState(false);
-  const [completionStatus, setCompletionStatus] = useState<
-    Record<string, boolean>
-  >({});
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
-  // ✅ FIX APPLIED HERE: Explicitly pass `undefined` as the initial value.
   const saveListingRef = useRef<(() => Promise<void> | void) | undefined>(
     undefined
   );
+
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [allRegions, setAllRegions] = useState<any[]>([]);
+  const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
+  const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -289,15 +294,53 @@ function EditContent({ id }: { id: string }) {
     setSite(data);
   }
 
+  const loadTaxonomies = useCallback(async () => {
+    const [
+      { data: prov },
+      { data: cats },
+      { data: regs },
+      { data: sc },
+      { data: sr },
+    ] = await Promise.all([
+      supabase.from("provinces").select("id, name").order("name"),
+      supabase
+        .from("categories")
+        .select("id, name, parent_id, icon_key")
+        .order("name"),
+      supabase
+        .from("regions")
+        .select("id, name, parent_id, icon_key")
+        .order("name"),
+      supabase.from("site_categories").select("category_id").eq("site_id", id),
+      supabase.from("site_regions").select("region_id").eq("site_id", id),
+    ]);
+
+    setProvinces(prov || []);
+    setAllCategories(cats || []);
+    setAllRegions(regs || []);
+    setSelectedCatIds((sc?.map((r: any) => r.category_id) as string[]) || []);
+    setSelectedRegionIds((sr?.map((r: any) => r.region_id) as string[]) || []);
+  }, [id]);
+
+  useEffect(() => {
+    loadTaxonomies();
+  }, [loadTaxonomies]);
+
   if (!site)
     return (
-      <div className="p-10 text-gray-700 text-center bg-gray-50 min-h-screen">
+      <div
+        className="p-10 text-gray-700 text-center min-h-screen"
+        style={{ backgroundColor: "#f4f4f4" }}
+      >
         Loading…
       </div>
     );
 
   return (
-    <div className="bg-gray-50 text-gray-900 min-h-screen">
+    <div
+      className="text-gray-900 min-h-screen"
+      style={{ backgroundColor: "#f4f4f4" }}
+    >
       {/* Top bar */}
       <div className="sticky top-0 z-40 bg-gray-50/95 backdrop-blur border-b border-gray-200">
         <div className="px-3 sm:px-4 lg:px-6 py-2">
@@ -364,15 +407,22 @@ function EditContent({ id }: { id: string }) {
             />
           </div>
 
-          <main className="min-w-0">
+          <main className="min-w-0 space-y-8">
             <ListingForm
               site={site}
               onSave={saveSite}
               saving={saving}
-              onCompletionChange={setCompletionStatus}
               onRegisterSave={(fn) => (saveListingRef.current = fn)}
               externalPublished={published}
               listingTab={listingTab}
+              provinces={provinces}
+              allCategories={allCategories}
+              allRegions={allRegions}
+              selectedCatIds={selectedCatIds}
+              setSelectedCatIds={setSelectedCatIds}
+              selectedRegionIds={selectedRegionIds}
+              setSelectedRegionIds={setSelectedRegionIds}
+              onTaxonomyChanged={loadTaxonomies}
             />
           </main>
         </div>
@@ -381,14 +431,11 @@ function EditContent({ id }: { id: string }) {
   );
 }
 
-/* ───────────────── Inputs (more rounded) ───────────────── */
-
+/* inputs & helpers */
 const inputStyles =
   "w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500";
 const readOnlyInputStyles =
   "w-full bg-gray-100 border border-gray-300 rounded-xl px-3 py-2 text-gray-500 cursor-not-allowed";
-
-/* ───────────────── Section completion map ───────────────── */
 
 const sectionFields: Record<string, string[]> = {
   hero: ["title", "slug", "tagline", "cover_photo_url"],
@@ -413,130 +460,61 @@ const sectionFields: Record<string, string[]> = {
   articles: ["history_content"],
 };
 
-/* ───────────────── ListingForm ───────────────── */
-
 function ListingForm({
   site,
   onSave,
   saving,
-  onCompletionChange,
   onRegisterSave,
   externalPublished,
   listingTab,
+  provinces,
+  allCategories,
+  allRegions,
+  selectedCatIds,
+  setSelectedCatIds,
+  selectedRegionIds,
+  setSelectedRegionIds,
+  onTaxonomyChanged,
 }: {
   site: any;
   onSave: (n: any) => void;
   saving: boolean;
-  onCompletionChange: (status: Record<string, boolean>) => void;
   onRegisterSave: (fn: () => Promise<void>) => void;
   externalPublished: boolean;
   listingTab: ListingTabKey;
+  provinces: any[];
+  allCategories: any[];
+  allRegions: any[];
+  selectedCatIds: string[];
+  setSelectedCatIds: (ids: string[]) => void;
+  selectedRegionIds: string[];
+  setSelectedRegionIds: (ids: string[]) => void;
+  onTaxonomyChanged: () => Promise<void> | void;
 }) {
   const [form, setForm] = useState<any>(site);
-  const [provinces, setProvinces] = useState<any[]>([]);
-  const [allCategories, setAllCategories] = useState<any[]>([]);
-  const [allRegions, setAllRegions] = useState<any[]>([]);
-  const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
-  const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
-
-  // Cover meta (dimensions + KB)
+  const [deletingCover, setDeletingCover] = useState(false);
   const [coverMeta, setCoverMeta] = useState<{
     w?: number;
     h?: number;
     kb?: number;
   }>({});
-  const [deletingCover, setDeletingCover] = useState(false);
-
-  const completionStatus = useMemo(() => {
-    const status: Record<string, boolean> = {};
-    const isFilled = (value: any) =>
-      value !== null &&
-      value !== undefined &&
-      value !== "" &&
-      value !== "<p></p>";
-    for (const sectionId in sectionFields) {
-      status[sectionId] = sectionFields[sectionId].every((field) =>
-        isFilled(form[field])
-      );
-    }
-    status["categories-regions"] =
-      selectedCatIds.length > 0 && selectedRegionIds.length > 0;
-    return status;
-  }, [form, selectedCatIds, selectedRegionIds]);
-
-  useEffect(() => {
-    onCompletionChange(completionStatus);
-  }, [completionStatus, onCompletionChange]);
 
   useEffect(() => setForm(site), [site]);
-
   useEffect(() => {
     setForm((prev: any) => ({ ...prev, is_published: externalPublished }));
   }, [externalPublished]);
 
   useEffect(() => {
-    (async () => {
-      const [
-        { data: prov },
-        { data: cats },
-        { data: regs },
-        { data: sc },
-        { data: sr },
-      ] = await Promise.all([
-        supabase.from("provinces").select("id, name").order("name"),
-        supabase.from("categories").select("id, name, parent_id").order("name"),
-        supabase.from("regions").select("id, name, parent_id").order("name"),
-        supabase
-          .from("site_categories")
-          .select("category_id")
-          .eq("site_id", site.id),
-        supabase
-          .from("site_regions")
-          .select("region_id")
-          .eq("site_id", site.id),
-      ]);
-      setProvinces(prov || []);
-      setAllCategories(cats || []);
-      setAllRegions(regs || []);
-      setSelectedCatIds((sc?.map((r: any) => r.category_id) as string[]) || []);
-      setSelectedRegionIds(
-        (sr?.map((r: any) => r.region_id) as string[]) || []
-      );
-    })();
-  }, [site.id]);
-
-  function set<K extends string>(key: K, value: any) {
-    setForm((prev: any) => ({ ...prev, [key]: value }));
-  }
-
-  // Auto-slug from title
-  function generateSlugFromTitle() {
-    const src = (form.title || "").toString().trim().toLowerCase();
-    const slug = src
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "") // strip accents
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-    set("slug", slug);
-  }
-
-  // Compute cover image meta (dimensions + KB) when URL changes
-  useEffect(() => {
     let abort = false;
     async function computeMeta(url: string) {
       try {
-        // Dimensions
         const img = new Image();
         const sizePromise = (async () => {
-          // HEAD to fetch content-length if present
           const resp = await fetch(url, { method: "HEAD" });
           const len = resp.headers.get("content-length");
           if (!len) return undefined;
-          return Math.round(parseInt(len, 10) / 1024); // KB
+          return Math.round(parseInt(len, 10) / 1024);
         })();
-
         const dims = await new Promise<{ w: number; h: number } | undefined>(
           (resolve) => {
             img.onload = () =>
@@ -545,7 +523,6 @@ function ListingForm({
             img.src = url;
           }
         );
-
         const kb = await sizePromise;
         if (!abort) setCoverMeta({ w: dims?.w, h: dims?.h, kb });
       } catch {
@@ -559,12 +536,10 @@ function ListingForm({
     };
   }, [form.cover_photo_url]);
 
-  // Delete cover from storage (and clear field)
   async function deleteCover() {
     if (!form.cover_photo_url) return;
     const parsed = parseStoragePathFromPublicUrl(form.cover_photo_url);
     if (!parsed) {
-      // If parsing fails, still clear the field (we can't remove from storage)
       set("cover_photo_url", "");
       return;
     }
@@ -573,9 +548,7 @@ function ListingForm({
       const { error } = await supabase.storage
         .from(parsed.bucket)
         .remove([parsed.path]);
-      if (error) {
-        alert(error.message);
-      }
+      if (error) alert(error.message);
       set("cover_photo_url", "");
     } finally {
       setDeletingCover(false);
@@ -587,11 +560,15 @@ function ListingForm({
     await saveCategoryJoins();
     await saveRegionJoins();
     alert("Saved.");
-  }, [form, onSave, selectedCatIds, selectedRegionIds]); // eslint-disable-line
+  }, [form, onSave, selectedCatIds, selectedRegionIds]);
 
   useEffect(() => {
     onRegisterSave(saveAll);
   }, [saveAll, onRegisterSave]);
+
+  function set<K extends string>(key: K, value: any) {
+    setForm((prev: any) => ({ ...prev, [key]: value }));
+  }
 
   async function saveCategoryJoins() {
     const { data: curr } = await supabase
@@ -636,17 +613,19 @@ function ListingForm({
   }
 
   const visibleSections = useMemo(() => {
-    const tabCfg = LISTING_TABS.find((t) => t.key === listingTab)!;
+    const tabCfg = {
+      key: listingTab,
+      sections: LISTING_TABS.find((t) => t.key === listingTab)!.sections,
+    };
     return new Set(tabCfg.sections);
   }, [listingTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Cover */}
       {visibleSections.has("hero") && (
         <Section title="Cover" id="hero">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left column */}
             <div className="space-y-4">
               <Field label="Site Name">
                 <input
@@ -665,7 +644,20 @@ function ListingForm({
                   />
                   <button
                     type="button"
-                    onClick={generateSlugFromTitle}
+                    onClick={() => {
+                      const src = (form.title || "")
+                        .toString()
+                        .trim()
+                        .toLowerCase();
+                      const slug = src
+                        .normalize("NFKD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^a-z0-9\s-]/g, "")
+                        .replace(/\s+/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-|-$/g, "");
+                      set("slug", slug);
+                    }}
                     className="shrink-0 inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
                     title="Generate from Site Name"
                   >
@@ -692,7 +684,6 @@ function ListingForm({
               </Field>
             </div>
 
-            {/* Right column: preview + actions */}
             <div className="space-y-3">
               <div className="w-full aspect-video bg-gray-100 border border-gray-300 rounded-2xl overflow-hidden grid place-items-center">
                 {form.cover_photo_url ? (
@@ -706,7 +697,6 @@ function ListingForm({
                 )}
               </div>
 
-              {/* Meta + actions under preview */}
               <div className="flex items-center justify-between gap-3">
                 <div className="text-xs text-gray-500">
                   {coverMeta.w && coverMeta.h
@@ -742,7 +732,6 @@ function ListingForm({
             </div>
           </div>
 
-          {/* Full-width Tagline */}
           <div className="mt-6">
             <Field label="Tagline">
               <textarea
@@ -756,7 +745,7 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Taxanomy */}
+      {/* Taxonomy */}
       {visibleSections.has("categories-regions") && (
         <Section title="Taxanomy (multi-select)" id="categories-regions">
           <CategoriesRegionsSelector
@@ -766,6 +755,7 @@ function ListingForm({
             setSelectedCatIds={setSelectedCatIds}
             selectedRegionIds={selectedRegionIds}
             setSelectedRegionIds={setSelectedRegionIds}
+            onTaxonomyChanged={onTaxonomyChanged}
           />
         </Section>
       )}
@@ -783,14 +773,27 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Article */}
+      {/* Article (frameless + no 'Article' title) */}
       {visibleSections.has("articles") && (
         <Section title="Article" id="articles">
           <ArticlesSection
-            siteId={site.id}
+            siteId={form.id}
+            /* defaults */
             history_content={form.history_content || ""}
             architecture_content={form.architecture_content || ""}
             climate_env_content={form.climate_env_content || ""}
+            history_template_id={form.history_template_id || null}
+            architecture_template_id={form.architecture_template_id || null}
+            climate_template_id={form.climate_template_id || null}
+            history_images_json={form.history_images_json || {}}
+            architecture_images_json={form.architecture_images_json || {}}
+            climate_images_json={form.climate_images_json || {}}
+            history_layout_html={form.history_layout_html}
+            architecture_layout_html={form.architecture_layout_html}
+            climate_layout_html={form.climate_layout_html}
+            /* custom sections (NEW) */
+            custom_sections_json={form.custom_sections_json || []}
+            /* merge all changes */
             onChange={(patch) =>
               setForm((prev: any) => ({ ...prev, ...patch }))
             }
@@ -798,39 +801,31 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Custom sections */}
-      {visibleSections.has("custom-sections") && (
-        <Section title="Custom Long-form Sections" id="custom-sections">
-          <CustomSectionsEditor siteId={site.id} />
-        </Section>
-      )}
-
       {/* Gallery */}
       {visibleSections.has("gallery") && (
         <Section title="Gallery" id="gallery">
-          <GalleryUploader siteId={site.id} />
+          <GalleryUploader siteId={form.id} />
         </Section>
       )}
 
       {/* Bibliography */}
       {visibleSections.has("bibliography") && (
         <Section title="Bibliography" id="bibliography">
-          <Bibliography siteId={site.id} />
+          <Bibliography siteId={form.id} />
         </Section>
       )}
 
       {/* Photo Story */}
       {visibleSections.has("photo") && (
         <Section title="Photo Story" id="photo">
-          <PhotoStory siteId={site.id} slug={site.slug} title={site.title} />
+          <PhotoStory siteId={form.id} slug={form.slug} title={form.title} />
         </Section>
       )}
     </div>
   );
 }
 
-/* ────────────────── Cover Uploader ────────────────── */
-
+/* CoverUploader */
 function CoverUploader({
   value,
   onChange,
@@ -868,143 +863,6 @@ function CoverUploader({
           alt="Cover preview"
         />
       ) : null}
-    </div>
-  );
-}
-
-/* ───────────────────── Custom Sections Editor (inline) ───────────────────── */
-
-import { RichTextEditor as _InlineRichTextEditor } from "./ArticlesSection";
-
-function CustomSectionsEditor({ siteId }: { siteId: string | number }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  async function load() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("custom_sections")
-      .select("*")
-      .eq("site_id", siteId)
-      .order("sort_order", { ascending: true });
-    if (error) {
-      alert(error.message);
-      setLoading(false);
-      return;
-    }
-    setItems(data || []);
-    setLoading(false);
-  }
-  useEffect(() => {
-    load();
-  }, [siteId]);
-
-  async function addSection() {
-    const sort_order = items.length;
-    const { data, error } = await supabase
-      .from("custom_sections")
-      .insert({
-        site_id: siteId,
-        title: "New Section",
-        content: "",
-        sort_order,
-      })
-      .select()
-      .single();
-    if (error) return alert(error.message);
-    setItems([...items, data]);
-  }
-
-  async function updateItem(id: string, patch: any) {
-    const { data, error } = await supabase
-      .from("custom_sections")
-      .update(patch)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) return alert(error.message);
-    setItems(items.map((it) => (it.id === id ? data : it)));
-  }
-
-  async function removeItem(id: string) {
-    const { error } = await supabase
-      .from("custom_sections")
-      .delete()
-      .eq("id", id);
-    if (error) return alert(error.message);
-    setItems(items.filter((it) => it.id !== id));
-  }
-
-  async function move(id: string, dir: -1 | 1) {
-    const idx = items.findIndex((r) => r.id === id);
-    const swap = items[idx + dir];
-    if (!swap) return;
-    const a = items[idx];
-    const b = swap;
-    await supabase
-      .from("custom_sections")
-      .update({ sort_order: b.sort_order })
-      .eq("id", a.id);
-    await supabase
-      .from("custom_sections")
-      .update({ sort_order: a.sort_order })
-      .eq("id", b.id);
-    await load();
-  }
-
-  if (loading) return <div className="text-gray-500">Loading Sections…</div>;
-
-  return (
-    <div>
-      <div className="mb-4">
-        <Btn
-          onClick={addSection}
-          className="bg-indigo-600 text-white hover:bg-indigo-500"
-        >
-          Add Custom Section
-        </Btn>
-      </div>
-      <div className="space-y-4">
-        {items.map((s, i) => (
-          <div
-            key={s.id}
-            className="border border-gray-200 rounded-2xl p-4 bg-white"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-bold text-gray-600">
-                Section #{i + 1}
-              </div>
-              <div className="flex gap-2">
-                <Btn onClick={() => move(s.id, -1)}>↑</Btn>
-                <Btn onClick={() => move(s.id, 1)}>↓</Btn>
-                <Btn
-                  onClick={() => removeItem(s.id)}
-                  className="bg-red-600 text-white hover:bg-red-500"
-                >
-                  Delete
-                </Btn>
-              </div>
-            </div>
-            <Field label="Section Title">
-              <input
-                className={inputStyles}
-                value={s.title || ""}
-                onChange={(e) => updateItem(s.id, { title: e.target.value })}
-              />
-            </Field>
-            <FieldBlock label="Content">
-              <_InlineRichTextEditor
-                siteId={siteId}
-                value={s.content || ""}
-                onChange={(content) => updateItem(s.id, { content })}
-              />
-            </FieldBlock>
-          </div>
-        ))}
-      </div>
-      {items.length === 0 && (
-        <div className="text-sm text-gray-500">No custom sections yet.</div>
-      )}
     </div>
   );
 }
