@@ -76,7 +76,7 @@ body {
   /* Main Content Articles */
   --font-article-text: 1rem/1.5 var(--font-body); /* 16px */
   --color-article-text: var(--color-text);
-  --font-article-heading: 600 1.5rem var(--font-heading);
+  --font-article-heading: 600 1rem var(--font-heading);
   --color-article-heading: var(--color-text);
 
   /* Captions */
