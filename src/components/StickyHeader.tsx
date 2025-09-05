@@ -104,7 +104,7 @@ const FIXED_ITEMS: TocItem[] = [
     iconName: "bibliography-sources",
   },
   { id: "reviews", title: "Traveler Reviews", level: 2, iconName: "star" },
-  // changed to 'regiontax'
+  // CHANGED: use 'regiontax' icon for Places Nearby
   { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" },
 ];
 
@@ -228,7 +228,7 @@ export default function StickyHeader({
   const tocItems = FIXED_ITEMS;
   const activeId = useScrollSpy(tocItems);
 
-  // Sticky tracking
+  // Sticky tracking (for identity/trigger fade-in only)
   useEffect(() => {
     let ticking = false;
     const measure = () => {
@@ -300,7 +300,7 @@ export default function StickyHeader({
           </button>
         </div>
 
-        {/* Main header content */}
+        {/* Main header content (reduced padding) */}
         <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-1">
           <div className="flex items-center gap-3 md:gap-4">
             {/* Site identity */}
@@ -429,7 +429,7 @@ export default function StickyHeader({
             className={[
               "pointer-events-auto h-full w-[340px] max-w-[88vw]",
               "bg-gray-100 rounded-r-2xl shadow-xl border-r border-y border-slate-200",
-              "py-3 pr-2 pl-6 md:pl-8 flex flex-col", // shifts chain right
+              "py-3 pr-2 pl-6 md:pl-8 flex flex-col",
             ].join(" ")}
             role="navigation"
             aria-label="On this page"
@@ -442,21 +442,21 @@ export default function StickyHeader({
               </div>
             </div>
 
-            {/* Dashed vertical connector aligned through badge centers, with symmetric insets */}
+            {/* Dashed vertical connector aligned through badge centers */}
             <div className="relative flex-1">
               <span
                 aria-hidden
-                className="absolute left-[1.75rem] top-4 bottom-4 border-l-[3px] border-dashed border-slate-300/80"
+                className="absolute left-[1.75rem] top-0 bottom-0 border-l-[3px] border-dashed border-slate-300/80"
               />
 
-              {/* Compact rhythm with symmetric top/bottom padding */}
+              {/* Navigation */}
               <nav
                 className={[
                   "relative z-[1] pr-1 h-full no-scrollbar overflow-auto",
-                  "pt-4 pb-4",
+                  "pt-3 pb-5",
                 ].join(" ")}
               >
-                {FIXED_ITEMS.map((item) => {
+                {tocItems.map((item) => {
                   const textIndent =
                     item.level === 4
                       ? "pl-20"
@@ -465,9 +465,6 @@ export default function StickyHeader({
                       : "pl-16";
                   const isActive = activeId === item.id;
 
-                  // scale classes for badge + label (not the whole row) to avoid lateral jump
-                  const scaleCls = isActive ? "scale-[1.08]" : "scale-100";
-
                   return (
                     <button
                       key={item.id}
@@ -475,17 +472,22 @@ export default function StickyHeader({
                       className={[
                         "relative group w-full text-left flex items-center gap-4 px-2",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+                        // SMOOTHER: steadier transform with longer duration; no layout jank
+                        "transform origin-left transition-transform duration-200 ease-out",
+                        // INCREASED hover/active scale for better noticeability
+                        "hover:scale-[1.07]",
+                        isActive ? "scale-[1.07]" : "",
                         textIndent,
                         "py-2.5",
                       ].join(" ")}
                       aria-current={isActive ? "location" : undefined}
+                      style={{ willChange: "transform" }}
                     >
-                      {/* Badge scales independently */}
+                      {/* Badge */}
                       <span
                         className={[
-                          "absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-full",
-                          "w-8 h-8 transition-colors transition-transform duration-150",
-                          scaleCls,
+                          "absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-full transition-colors",
+                          "w-8 h-8",
                           isActive ? "bg-slate-700" : "bg-slate-200",
                           "group-hover:bg-slate-600",
                         ].join(" ")}
@@ -503,15 +505,12 @@ export default function StickyHeader({
                         />
                       </span>
 
-                      {/* Label scales independently from the left; padding remains stable */}
+                      {/* Label — keep font weight constant to avoid reflow */}
                       <span
                         className={[
-                          "truncate transition-colors transform origin-left inline-block",
-                          "text-[12px] md:text-[13px] transition-transform duration-150",
-                          scaleCls,
-                          isActive
-                            ? "text-slate-800 font-semibold"
-                            : "text-slate-500",
+                          "truncate transition-colors",
+                          "text-[12px] md:text-[13px] font-medium",
+                          isActive ? "text-slate-800" : "text-slate-500",
                           "group-hover:text-slate-600",
                         ].join(" ")}
                       >
