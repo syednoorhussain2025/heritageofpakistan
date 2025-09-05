@@ -1,7 +1,7 @@
 // src/app/heritage/[slug]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -44,6 +44,7 @@ function IconChip({
   );
 }
 
+/** Shared section component — heading size reduced & brand-aligned */
 function Section({
   title,
   iconName,
@@ -56,12 +57,19 @@ function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className="bg-white rounded-xl shadow-sm p-5">
-      <h2 className="font-section-header mb-3 flex items-center gap-2">
+    <section className="bg-white rounded-xl shadow-sm p-5">
+      <h2
+        id={id}
+        className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+        style={{
+          color: "var(--brand-blue, #1f6be0)",
+          fontFamily: "var(--font-article-heading, inherit)",
+        }}
+      >
         {iconName && (
           <Icon
             name={iconName}
-            size={20}
+            size={18}
             className="text-[var(--brand-orange)]"
           />
         )}
@@ -72,12 +80,13 @@ function Section({
   );
 }
 
+/** Sidebar key/value rows — lighter dividers, bold key, normal value */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className="flex justify-between gap-4 py-1 border-b last:border-b-0">
-      <div className="font-sidebar-key">{k}</div>
-      <div className="font-sidebar-value text-right">{String(v)}</div>
+    <div className="flex justify-between gap-4 py-2 border-b border-black/5 last:border-b-0">
+      <div className="text-[13px] font-semibold text-slate-900">{k}</div>
+      <div className="text-[13px] text-slate-700 text-right">{String(v)}</div>
     </div>
   );
 }
@@ -100,7 +109,8 @@ function HeroSkeleton() {
       <div className="w-full h-full bg-gray-200 animate-pulse" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
       <div className="absolute inset-0 flex items-end">
-        <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 pb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* match page gutters for symmetry */}
+        <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-6 lg:px-8 max-w-screen-2xl mx-auto">
           <div className="text-white">
             <SkeletonBar className="h-10 w-72 mb-3" />
             <SkeletonBar className="h-4 w-96 mb-2" />
@@ -124,7 +134,7 @@ function HeroSkeleton() {
 function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5">
-      <SkeletonBar className="h-6 w-48 mb-3" />
+      <SkeletonBar className="h-5 w-48 mb-3" />
       {Array.from({ length: lines }).map((_, i) => (
         <SkeletonBar key={i} className="h-4 w-full mb-2" />
       ))}
@@ -134,8 +144,8 @@ function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
 
 function GallerySkeleton({ count = 6 }: { count?: number }) {
   return (
-    <Section title="Gallery" iconName="gallery">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+    <Section id="gallery" title="Photo Gallery" iconName="gallery">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="rounded-lg overflow-hidden">
             <SkeletonBar className="h-40 w-full" />
@@ -151,7 +161,8 @@ function GallerySkeleton({ count = 6 }: { count?: number }) {
 function BibliographySkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <Section
-      title="Bibliography, Sources & Further Reading"
+      id="bibliography"
+      title="Bibliography & Sources"
       iconName="bibliography-sources"
     >
       <ol className="list-decimal list-inside space-y-2">
@@ -168,7 +179,7 @@ function BibliographySkeleton({ rows = 4 }: { rows?: number }) {
 function ReviewsSkeleton() {
   return (
     <Section id="reviews" title="Traveler Reviews" iconName="star">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="border rounded-lg p-3">
             <div className="flex items-center gap-3 mb-2">
@@ -320,6 +331,9 @@ export default function HeritagePage() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Keep ref on main for future features if needed
+  const contentRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -445,7 +459,8 @@ export default function HeritagePage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
           <div className="absolute inset-0 flex items-end">
-            <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 pb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* match page gutters for symmetry */}
+            <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-6 lg:px-8 max-w-screen-2xl mx-auto">
               <div className="text-white">
                 <h1 className="font-hero-title">{site.title}</h1>
                 {site.tagline && (
@@ -496,7 +511,7 @@ export default function HeritagePage() {
         </div>
       )}
 
-      {/* Action Bar — render the component directly (no extra wrapper) */}
+      {/* Action Bar */}
       {!loading && site && (
         <StickyHeader
           site={{ id: site.id, slug: site.slug, title: site.title }}
@@ -513,10 +528,10 @@ export default function HeritagePage() {
         />
       )}
 
-      {/* BODY CONTENT */}
-      <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 my-6 lg:flex lg:items-start lg:gap-6">
+      {/* BODY: centered, equal side gutters; TWO columns (left sidebar + main) */}
+      <div className="max-w-screen-2xl mx-auto my-6 px-4 md:px-6 lg:px-8 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
         {/* LEFT SIDEBAR */}
-        <aside className="space-y-5 w-full lg:w-80 lg:flex-shrink-0">
+        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
           {loading || !site ? (
             <>
               <SidebarCardSkeleton lines={7} />
@@ -537,10 +552,14 @@ export default function HeritagePage() {
                       className="w-full h-56"
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
+                      title={`Map of ${site.title}`}
                     />
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     Location coordinates not available.
                   </div>
                 )}
@@ -548,24 +567,30 @@ export default function HeritagePage() {
                   <a
                     href={mapsLink}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-sm"
                   >
                     Open Location
                   </a>
                 )}
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="text-xs text-gray-600">Latitude</div>
-                  <div className="text-xs font-medium text-gray-900 text-right">
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                  <div className="text-[13px] font-semibold text-slate-900">
+                    Latitude
+                  </div>
+                  <div className="text-[13px] text-slate-700 text-right">
                     {site.latitude ?? "—"}
                   </div>
-                  <div className="text-xs text-gray-600">Longitude</div>
-                  <div className="text-xs font-medium text-gray-900 text-right">
+                  <div className="text-[13px] font-semibold text-slate-900">
+                    Longitude
+                  </div>
+                  <div className="text-[13px] text-slate-700 text-right">
                     {site.longitude ?? "—"}
                   </div>
                 </div>
               </Section>
 
-              <Section title="Location" iconName="location">
+              {/* Location */}
+              <Section id="location" title="Location" iconName="location">
                 <KeyVal k="Town/City/Village" v={site.town_city_village} />
                 <KeyVal k="Tehsil" v={site.tehsil} />
                 <KeyVal k="District" v={site.district} />
@@ -588,13 +613,21 @@ export default function HeritagePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     No regions specified.
                   </div>
                 )}
               </Section>
 
-              <Section title="General Info" iconName="general-info">
+              {/* General Information */}
+              <Section
+                id="general"
+                title="General Information"
+                iconName="general-info"
+              >
                 <KeyVal k="Heritage Type" v={site.heritage_type} />
                 <KeyVal k="Architectural Style" v={site.architectural_style} />
                 <KeyVal
@@ -629,16 +662,26 @@ export default function HeritagePage() {
                   <div className="flex items-start gap-3">
                     <div className="text-2xl">🏛️</div>
                     <div>
-                      <div className="font-medium">{site.unesco_status}</div>
+                      <div className="font-medium text-[13px] text-slate-900">
+                        {site.unesco_status}
+                      </div>
                       {site.unesco_line && (
-                        <div className="font-sidebar-text mt-1">
+                        <div
+                          className="mt-1 text-[13px]"
+                          style={{
+                            color: "var(--muted-foreground, #5b6b84)",
+                          }}
+                        >
                           {site.unesco_line}
                         </div>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     No UNESCO designation listed.
                   </div>
                 )}
@@ -646,11 +689,19 @@ export default function HeritagePage() {
 
               <Section title="Protected under" iconName="protected-under">
                 {site.protected_under ? (
-                  <div className="font-sidebar-text whitespace-pre-wrap">
+                  <div
+                    className="whitespace-pre-wrap text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     {site.protected_under}
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">Not specified.</div>
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
+                    Not specified.
+                  </div>
                 )}
               </Section>
 
@@ -668,15 +719,24 @@ export default function HeritagePage() {
 
               <Section title="Did you Know" iconName="did-you-know">
                 {site.did_you_know ? (
-                  <div className="font-sidebar-text whitespace-pre-wrap">
+                  <div
+                    className="whitespace-pre-wrap text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     {site.did_you_know}
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">—</div>
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
+                    —
+                  </div>
                 )}
               </Section>
 
-              <Section title="Travel Guide" iconName="travel-guide">
+              {/* Travel Guide */}
+              <Section id="travel" title="Travel Guide" iconName="travel-guide">
                 <KeyVal k="Heritage Site" v={site.title} />
                 <KeyVal k="Location" v={site.travel_location} />
                 <KeyVal k="How to Reach" v={site.travel_how_to_reach} />
@@ -699,6 +759,7 @@ export default function HeritagePage() {
                   <a
                     href={site.travel_full_guide_url}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-sm"
                   >
                     Open Full Travel Guide
@@ -708,11 +769,19 @@ export default function HeritagePage() {
 
               <Section title="Best Time to Visit" iconName="best-time-to-visit">
                 {site.best_time_option_key ? (
-                  <div className="font-sidebar-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     {site.best_time_option_key}
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">—</div>
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
+                    —
+                  </div>
                 )}
               </Section>
 
@@ -732,8 +801,8 @@ export default function HeritagePage() {
           )}
         </aside>
 
-        {/* RIGHT MAIN */}
-        <main className="space-y-5 w-full lg:flex-1">
+        {/* RIGHT MAIN (scannable content) */}
+        <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
           {loading || !site ? (
             <>
               <SidebarCardSkeleton lines={6} />
@@ -746,7 +815,27 @@ export default function HeritagePage() {
             </>
           ) : (
             <>
+              {/* Photo Story section (main) */}
+              <Section id="photostory" title="Photo Story" iconName="camera">
+                {hasPhotoStory ? (
+                  <a
+                    href={`/heritage/${site.slug}/story`}
+                    className="inline-block px-4 py-2 rounded-lg bg-black text-white text-sm"
+                  >
+                    Open Photo Story
+                  </a>
+                ) : (
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
+                    No photo story yet.
+                  </div>
+                )}
+              </Section>
+
               <Section
+                id="categories"
                 title="Heritage Categories"
                 iconName="heritage-categories"
               >
@@ -763,7 +852,10 @@ export default function HeritagePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     No categories assigned.
                   </div>
                 )}
@@ -772,7 +864,8 @@ export default function HeritagePage() {
               {/* Snapshot sections */}
               {site.history_layout_html ? (
                 <Section
-                  title="History & Background"
+                  id="history"
+                  title="History and Background"
                   iconName="history-background"
                 >
                   <Article html={site.history_layout_html} />
@@ -781,7 +874,8 @@ export default function HeritagePage() {
 
               {site.architecture_layout_html ? (
                 <Section
-                  title="Architecture & Design"
+                  id="architecture"
+                  title="Architecture and Design"
                   iconName="architecture-design"
                 >
                   <Article html={site.architecture_layout_html} />
@@ -790,7 +884,8 @@ export default function HeritagePage() {
 
               {site.climate_layout_html ? (
                 <Section
-                  title="Climate, Geography & Environment"
+                  id="climate"
+                  title="Climate & Environment"
                   iconName="climate-topography"
                 >
                   <Article html={site.climate_layout_html} />
@@ -806,6 +901,7 @@ export default function HeritagePage() {
                   .map((cs) => (
                     <Section
                       key={cs.id}
+                      id={cs.id}
                       title={cs.title}
                       iconName="history-background"
                     >
@@ -813,10 +909,10 @@ export default function HeritagePage() {
                     </Section>
                   ))}
 
-              <Section title="Gallery" iconName="gallery">
+              <Section id="gallery" title="Photo Gallery" iconName="gallery">
                 {gallery.length ? (
                   <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {gallery.map((img) => (
                         <figure
                           key={img.id}
@@ -850,17 +946,24 @@ export default function HeritagePage() {
                     </a>
                   </>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     No photos uploaded yet.
                   </div>
                 )}
               </Section>
 
               <Section
+                id="photography"
                 title="Photography & Content"
                 iconName="photography-content"
               >
-                <div className="font-sidebar-text">
+                <div
+                  className="text-[13px]"
+                  style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                >
                   Unless noted otherwise, photographs and written content are ©
                   Heritage of Pakistan. Please contact us for permissions and
                   usage rights.
@@ -869,11 +972,12 @@ export default function HeritagePage() {
 
               {/* Bibliography */}
               <Section
-                title="Bibliography, Sources & Further Reading"
+                id="bibliography"
+                title="Bibliography & Sources"
                 iconName="bibliography-sources"
               >
                 {biblio.length ? (
-                  <ol className="list-decimal list-inside space-y-2 font-sidebar-text">
+                  <ol className="list-decimal list-inside space-y-2 text-[13px] text-slate-900">
                     {biblio.map((s) => (
                       <li key={s.id}>
                         <span className="font-medium">{s.title}</span>
@@ -898,7 +1002,10 @@ export default function HeritagePage() {
                     ))}
                   </ol>
                 ) : (
-                  <div className="font-sidebar-muted-text">
+                  <div
+                    className="text-[13px]"
+                    style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                  >
                     No sources listed.
                   </div>
                 )}
@@ -907,6 +1014,16 @@ export default function HeritagePage() {
               {/* Reviews */}
               <Section id="reviews" title="Traveler Reviews" iconName="star">
                 <ReviewsTab siteId={site.id} />
+              </Section>
+
+              {/* Places Nearby (placeholder) */}
+              <Section id="nearby" title="Places Nearby" iconName="map-pin">
+                <div
+                  className="text-[13px]"
+                  style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                >
+                  Coming soon.
+                </div>
               </Section>
             </>
           )}
@@ -929,6 +1046,18 @@ export default function HeritagePage() {
           onClose={() => setShowWishlistModal(false)}
         />
       )}
+
+      {/* Ensure headings respect sticky header offset globally */}
+      <style jsx global>{`
+        :root {
+          --sticky-offset: 72px;
+        }
+        h2[id],
+        h3[id],
+        h4[id] {
+          scroll-margin-top: var(--sticky-offset);
+        }
+      `}</style>
     </div>
   );
 }
@@ -973,6 +1102,7 @@ function Article({ html }: { html: string }) {
       "width",
       "height",
       "loading",
+      "id",
     ],
     ALLOWED_URI_REGEXP:
       /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
