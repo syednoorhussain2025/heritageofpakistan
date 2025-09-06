@@ -141,12 +141,19 @@ export default function AdminHome() {
       desc: "Control 'Visited Places'.",
       icon: "adminmap",
     },
-    // NEW: Layouts & Templates hub
+    // NEW: Listing Page Styling (requested)
+    {
+      href: "/admin/listing-styling",
+      title: "Listing Page Styling",
+      desc: "Style the Action Bar & Navigator.",
+      icon: "settings",
+    },
+    // Layouts & Templates hub
     {
       href: "/admin/layouts",
       title: "Layouts & Templates",
       desc: "Section & template builders.",
-      icon: "admin", // reuse a known icon key
+      icon: "admin",
     },
   ];
 
@@ -277,7 +284,7 @@ export default function AdminHome() {
                 />
               </div>
 
-              {/* Tabs grid */}
+              {/* Cards grid */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((c) => (
                   <Link

@@ -39,12 +39,13 @@ function ActionButton({
   href?: string;
   ariaPressed?: boolean;
 }) {
+  // `group` allows the icon badge to react to parent hover
   const base =
-    "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium " +
+    "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium " +
     "border border-slate-200 bg-white text-slate-800 cursor-pointer " +
     "transition-colors whitespace-nowrap";
-  const hoverClass =
-    "hover:bg-[var(--hover-color,#4f46e5)] hover:text-white hover:border-[var(--hover-color,#4f46e5)]";
+  // Hover: text turns brand orange; BORDER STAYS NEUTRAL
+  const hoverClass = "hover:text-[var(--brand-orange,#F78300)]";
   const cls = `${base} ${hoverClass}`;
 
   if (href) {
@@ -63,6 +64,26 @@ function ActionButton({
     >
       {children}
     </button>
+  );
+}
+
+// Circular icon badge used in each button
+function IconBadge({ name, size = 14 }: { name: string; size?: number }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center justify-center rounded-full w-8 h-8",
+        "bg-slate-200 transition-colors",
+        "group-hover:bg-[var(--brand-orange,#F78300)]",
+      ].join(" ")}
+      aria-hidden="true"
+    >
+      <Icon
+        name={name}
+        size={size}
+        className="transition-colors text-slate-700 group-hover:text-white"
+      />
+    </span>
   );
 }
 
@@ -104,8 +125,7 @@ const FIXED_ITEMS: TocItem[] = [
     iconName: "bibliography-sources",
   },
   { id: "reviews", title: "Traveler Reviews", level: 2, iconName: "star" },
-  // CHANGED: use 'regiontax' icon for Places Nearby
-  { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" },
+  { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" }, // use 'regiontax' icon
 ];
 
 function getStickyOffset(): number {
@@ -221,7 +241,7 @@ export default function StickyHeader({
   const [hoverPanel, setHoverPanel] = useState(false);
 
   const [navOpen, setNavOpen] = useState(false);
-  const [openedOnce, setOpenedOnce] = useState(false); // stop chevron animation after first open
+  const [openedOnce, setOpenedOnce] = useState(false);
   const openTimer = useRef<number | null>(null);
   const closeTimer = useRef<number | null>(null);
 
@@ -277,7 +297,6 @@ export default function StickyHeader({
       className="sticky top-0 z-40 bg-white border-b border-slate-200"
       aria-label="Sticky site header"
     >
-      {/* Slightly reduced header height to match site header */}
       <div className="relative">
         {/* Leftmost trigger (shows when stuck) */}
         <div
@@ -300,10 +319,10 @@ export default function StickyHeader({
           </button>
         </div>
 
-        {/* Main header content (reduced padding) */}
+        {/* Main header content */}
         <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-1">
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Site identity */}
+            {/* Site identity (visible when stuck) */}
             <div
               className={`flex items-center gap-3 min-w-0 transition-all duration-300 ease-out ${
                 isStuck
@@ -312,7 +331,7 @@ export default function StickyHeader({
               }`}
               aria-hidden={!isStuck}
             >
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-orange)] flex-shrink-0">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-orange,#F78300)] flex-shrink-0">
                 <Icon
                   name={categoryIconKey || "gallery"}
                   size={16}
@@ -331,15 +350,16 @@ export default function StickyHeader({
               </div>
             </div>
 
+            {/* equal spacers on both sides to keep the button cluster centered to page width */}
             <div className="flex-1" />
 
-            {/* Right actions */}
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
+            {/* Centered actions */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin justify-center mx-auto">
               <ActionButton
                 onClick={() => toggleBookmark(site.id)}
                 ariaPressed={isBookmarked}
               >
-                <Icon name="bookmark" size={14} className="text-current" />
+                <IconBadge name="bookmark" />
                 <span>
                   {isLoaded
                     ? isBookmarked
@@ -350,35 +370,34 @@ export default function StickyHeader({
               </ActionButton>
 
               <ActionButton onClick={() => setInTrip((t) => !t)}>
-                <Icon name="route" size={14} className="text-current" />
+                <IconBadge name="route" />
                 <span>{inTrip ? "Added to Trip" : "Add to Trip"}</span>
               </ActionButton>
 
               <ActionButton onClick={() => setShowWishlistModal(true)}>
-                <Icon name="list-ul" size={14} className="text-current" />
+                <IconBadge name="list-ul" />
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
               </ActionButton>
 
               <ActionButton href={`/heritage/${site.slug}/gallery`}>
-                <Icon name="gallery" size={14} className="text-current" />
+                <IconBadge name="gallery" />
                 <span>Photo Gallery</span>
               </ActionButton>
 
-              <ActionButton onClick={doShare}>
-                <Icon name="share" size={14} className="text-current" />
-                <span>Share</span>
-              </ActionButton>
-
-              <ActionButton href="#reviews">
-                <Icon name="star" size={14} className="text-current" />
-                <span>Reviews</span>
-              </ActionButton>
-
+              {/* Keep "Share your experience" before Share */}
               <ActionButton onClick={() => setShowReviewModal(true)}>
-                <Icon name="hike" size={14} className="text-current" />
+                <IconBadge name="hike" />
                 <span>Share your experience</span>
               </ActionButton>
+
+              {/* Right-most Share button */}
+              <ActionButton onClick={doShare}>
+                <IconBadge name="share" />
+                <span>Share</span>
+              </ActionButton>
             </div>
+
+            <div className="flex-1" />
           </div>
         </div>
       </div>
@@ -396,7 +415,7 @@ export default function StickyHeader({
         aria-hidden
       />
 
-      {/* Chevron indicator (animates until first open, then static) */}
+      {/* Chevron indicator */}
       <div
         className="fixed left-1 z-[41] pointer-events-none select-none"
         style={{ top: "50vh", transform: "translateY(-50%)" }}
@@ -472,9 +491,7 @@ export default function StickyHeader({
                       className={[
                         "relative group w-full text-left flex items-center gap-4 px-2",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
-                        // SMOOTHER: steadier transform with longer duration; no layout jank
                         "transform origin-left transition-transform duration-200 ease-out",
-                        // INCREASED hover/active scale for better noticeability
                         "hover:scale-[1.07]",
                         isActive ? "scale-[1.07]" : "",
                         textIndent,
@@ -505,7 +522,7 @@ export default function StickyHeader({
                         />
                       </span>
 
-                      {/* Label — keep font weight constant to avoid reflow */}
+                      {/* Label */}
                       <span
                         className={[
                           "truncate transition-colors",

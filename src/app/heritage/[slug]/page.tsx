@@ -110,7 +110,7 @@ function HeroSkeleton() {
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
       <div className="absolute inset-0 flex items-end">
         {/* match page gutters for symmetry */}
-        <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-6 lg:px-8 max-w-screen-2xl mx-auto">
+        <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
           <div className="text-white">
             <SkeletonBar className="h-10 w-72 mb-3" />
             <SkeletonBar className="h-4 w-96 mb-2" />
@@ -460,7 +460,7 @@ export default function HeritagePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
           <div className="absolute inset-0 flex items-end">
             {/* match page gutters for symmetry */}
-            <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-6 lg:px-8 max-w-screen-2xl mx-auto">
+            <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
               <div className="text-white">
                 <h1 className="font-hero-title">{site.title}</h1>
                 {site.tagline && (
@@ -529,7 +529,7 @@ export default function HeritagePage() {
       )}
 
       {/* BODY: centered, equal side gutters; TWO columns (left sidebar + main) */}
-      <div className="max-w-screen-2xl mx-auto my-6 px-4 md:px-6 lg:px-8 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
+      <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
         {/* LEFT SIDEBAR */}
         <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
           {loading || !site ? (

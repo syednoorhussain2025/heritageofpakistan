@@ -51,7 +51,7 @@
     "react-leaflet-markercluster": "^5.0.0-rc.0",
     "svgo": "^4.0.0",
     "yet-another-react-lightbox": "^3.25.0",
-    "zod": "^4.0.17"
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
