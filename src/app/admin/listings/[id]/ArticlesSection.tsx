@@ -3,15 +3,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import FlowComposer from "@/modules/flow-layout/FlowComposer";
-import {
-  seedDefaultSectionTypes,
-  loadArchetypeRows,
-  loadTemplates,
-  type SectionTypeRow,
-} from "@/modules/flow-layout/db";
-import { DEFAULT_SETTINGS } from "@/modules/flow-layout/default-sections";
-import type { TemplateDef } from "@/modules/flow-layout/types";
+import FlowComposer, {
+  makeSection,
+  type Section as FlowSection,
+  type ImageSlot,
+  type SectionKind,
+} from "@/modules/flow-layout/FlowComposer";
 import "@/modules/flow-layout/flow-layout.css";
 import Icon from "@/components/Icon";
 
@@ -25,42 +22,35 @@ type ImagePick = {
   alt?: string | null;
   caption?: string | null;
   href?: string | null;
+  aspectRatio?: number;
 };
 
 export type CustomSection = {
   id: string;
   title: string;
-  content: string;
-  template_id: string | null;
-  images_json: Record<string, ImagePick>;
-  /** NEW: persisted preview HTML for public page */
+  /** Manual builder data (kept inside custom_sections_json) */
+  sections_json?: FlowSection[];
+  /** Persisted preview HTML for public page */
   layout_html?: string | null;
 };
 
 type ArticlesSectionProps = {
   siteId: string | number;
 
-  /* default sections */
-  history_content: string;
-  architecture_content?: string;
-  climate_env_content?: string;
+  /* manual builder data per default part – mapped to existing *_layout_json */
+  history_layout_json?: FlowSection[] | null;
+  architecture_layout_json?: FlowSection[] | null;
+  climate_layout_json?: FlowSection[] | null;
 
-  history_template_id?: string | null;
-  architecture_template_id?: string | null;
-  climate_template_id?: string | null;
-
-  history_images_json?: Record<string, ImagePick> | null;
-  architecture_images_json?: Record<string, ImagePick> | null;
-  climate_images_json?: Record<string, ImagePick> | null;
-
-  /* snapshots (optional; passed through) */
+  /* snapshots (optional; passed through) – existing columns */
   history_layout_html?: string | null;
   architecture_layout_html?: string | null;
   climate_layout_html?: string | null;
 
-  /* custom sections */
+  /* custom sections (stored in existing custom_sections_json column) */
   custom_sections_json?: CustomSection[];
 
+  /** change sink that writes to Supabase */
   onChange: (patch: any) => void;
 };
 
@@ -74,148 +64,6 @@ const inputStyles =
 async function publicUrl(bucket: string, key: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
   return data.publicUrl;
-}
-
-/** parse a space value from config -> px number */
-function parseSpace(v: unknown): number | null {
-  if (v == null) return null;
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
-    const t = v.trim().toLowerCase();
-    if (t.endsWith("px")) {
-      const n = parseInt(t, 10);
-      return Number.isFinite(n) ? n : null;
-    }
-    // token aliases for convenience
-    const tokenMap: Record<string, number> = {
-      none: 0,
-      xs: 8,
-      sm: 12,
-      md: 24,
-      lg: 32,
-      xl: 48,
-    };
-    if (t in tokenMap) return tokenMap[t];
-    const asNum = Number(t);
-    if (Number.isFinite(asNum)) return asNum;
-  }
-  return null;
-}
-
-/** Build INLINE styles from a section-type config_json (avoids Tailwind purge issues) */
-function styleFromConfig(cfg: any): React.CSSProperties {
-  const s: React.CSSProperties = {};
-
-  const pt = parseSpace(cfg?.paddingTop ?? cfg?.paddingY);
-  const pb = parseSpace(cfg?.paddingBottom ?? cfg?.paddingY);
-  const pl = parseSpace(cfg?.paddingLeft ?? cfg?.paddingX);
-  const pr = parseSpace(cfg?.paddingRight ?? cfg?.paddingX);
-  const mt = parseSpace(cfg?.marginTop ?? cfg?.marginY);
-  const mb = parseSpace(cfg?.marginBottom ?? cfg?.marginY);
-
-  if (pt != null) s.paddingTop = pt;
-  if (pb != null) s.paddingBottom = pb;
-  if (pl != null) s.paddingLeft = pl;
-  if (pr != null) s.paddingRight = pr;
-  if (mt != null) s.marginTop = mt;
-  if (mb != null) s.marginBottom = mb;
-
-  // Background: accept CSS color/gradient keywords or hex
-  const bg = cfg?.background ?? cfg?.bg;
-  if (typeof bg === "string" && bg.trim()) {
-    s.background = bg.trim();
-  }
-
-  // Optional: rounded flag (could force a radius if needed)
-  // if (cfg?.rounded === true) s.borderRadius = 16;
-
-  return s;
-}
-
-/** Translate section-type rows into a runtime catalog used by FlowComposer */
-function catalogFromRows(rows: SectionTypeRow[]) {
-  const bySlug: Record<
-    string,
-    {
-      blocks: any[];
-      cssClass?: string;
-    }
-  > = {
-    "full-width-image": {
-      blocks: [{ id: "img_fw", kind: "image", imageSlotId: "slot_fw_1" }],
-      cssClass: "sec-full-width-image",
-    },
-    "full-width-text": {
-      blocks: [
-        {
-          id: "txt_fw",
-          kind: "text",
-          acceptsTextFlow: true,
-          textPolicy: { targetWords: 220 },
-        },
-      ],
-      cssClass: "sec-full-width-text",
-    },
-    "image-left-text-right": {
-      blocks: [
-        { id: "img_l", kind: "image", imageSlotId: "slot_left" },
-        {
-          id: "txt_r",
-          kind: "text",
-          acceptsTextFlow: true,
-          textPolicy: { targetWords: 140 },
-        },
-      ],
-      cssClass: "sec-img-left-text-right",
-    },
-    "image-right-text-left": {
-      blocks: [
-        {
-          id: "txt_l",
-          kind: "text",
-          acceptsTextFlow: true,
-          textPolicy: { targetWords: 140 },
-        },
-        { id: "img_r", kind: "image", imageSlotId: "slot_right" },
-      ],
-      cssClass: "sec-img-right-text-left",
-    },
-    "two-images": {
-      blocks: [
-        { id: "img_1", kind: "image", imageSlotId: "slot_1" },
-        { id: "img_2", kind: "image", imageSlotId: "slot_2" },
-      ],
-      cssClass: "sec-two-images",
-    },
-    "three-images": {
-      blocks: [
-        { id: "img_1", kind: "image", imageSlotId: "slot_1" },
-        { id: "img_2", kind: "image", imageSlotId: "slot_2" },
-        { id: "img_3", kind: "image", imageSlotId: "slot_3" },
-      ],
-      cssClass: "sec-three-images",
-    },
-  };
-
-  const map: Record<
-    string,
-    { blocks: any[]; cssClass?: string; style?: React.CSSProperties }
-  > = {};
-
-  rows.forEach((r: any) => {
-    const def = bySlug[r.slug];
-    if (!def) return;
-
-    const cfg = r?.config_json ?? {};
-    const inlineStyle = styleFromConfig(cfg);
-
-    map[r.id] = {
-      blocks: def.blocks,
-      cssClass: def.cssClass || "",
-      style: inlineStyle,
-    };
-  });
-  return map;
 }
 
 /** Small debounce helper (deps must be a FIXED-LENGTH array of primitives) */
@@ -238,7 +86,7 @@ function useDebouncedEffect(
 }
 
 /* -------------------------------------------------------------- */
-/* Image Picker Modal: true image ratios                          */
+/* Image Picker Modal: reads true image ratios                     */
 /* -------------------------------------------------------------- */
 
 function GalleryBrowserModal({
@@ -253,6 +101,7 @@ function GalleryBrowserModal({
     publicUrl: string;
     alt_text: string;
     caption: string | null;
+    aspectRatio?: number;
   }) => void;
   siteId: string | number;
 }) {
@@ -331,7 +180,13 @@ function GalleryBrowserModal({
                     type="button"
                     key={img.publicUrl}
                     className="group w-full text-left"
-                    onClick={() => onImageSelect(img)}
+                    onClick={() =>
+                      onImageSelect({
+                        ...img,
+                        aspectRatio:
+                          d?.w && d?.h && d.h > 0 ? d.w / d.h : undefined,
+                      })
+                    }
                     title={img.alt_text || ""}
                   >
                     <div className="relative w-full h-32 bg-white rounded-md border border-gray-300 grid place-items-center overflow-hidden">
@@ -377,36 +232,7 @@ function GalleryBrowserModal({
 }
 
 /* -------------------------------------------------------------- */
-/* Section Loader (templates + archetypes)                         */
-/* -------------------------------------------------------------- */
-
-async function loadTemplateWithSections(
-  templateId: string
-): Promise<TemplateDef | null> {
-  const { data: t } = await supabase
-    .from("templates")
-    .select("*")
-    .eq("id", templateId)
-    .single();
-  if (!t) return null;
-
-  const { data: ts } = await supabase
-    .from("template_sections")
-    .select("section_type_id, sort_order")
-    .eq("template_id", templateId)
-    .order("sort_order", { ascending: true });
-
-  return {
-    id: t.id,
-    name: t.name,
-    sections: (ts || []).map((row: any) => ({
-      sectionTypeId: row.section_type_id as string,
-    })),
-  } as TemplateDef;
-}
-
-/* -------------------------------------------------------------- */
-/* PartComposer: preview card + separate sidebar card              */
+/* PartComposer: manual builder + clean snapshot                   */
 /* -------------------------------------------------------------- */
 
 function CardHeader({
@@ -435,60 +261,67 @@ function CardHeader({
   );
 }
 
+function labelForKind(k: SectionKind): string {
+  switch (k) {
+    case "image-left-text-right":
+      return "Image Left / Text Right";
+    case "image-right-text-left":
+      return "Image Right / Text Left";
+    case "full-width-text":
+      return "Full-width Text";
+    case "full-width-image":
+      return "Full-width Image";
+    case "two-images":
+      return "Two Images";
+    case "three-images":
+      return "Three Images";
+    default:
+      return k.replaceAll("-", " ");
+  }
+}
+
 function PartComposer({
   siteId,
   title,
   iconKey,
-  text,
-  templateId,
-  initialImagesJson,
-  onTemplateChange,
-  onTextChange,
-  onImagesChange,
-  /** NEW: called with current preview HTML (or null) */
+  initialSections,
+  onSectionsChange,
+  /** called with current preview HTML (or null) */
   onSnapshotChange,
 }: {
   siteId: string | number;
   title: string;
-  iconKey: "history-background" | "architecture-design" | "climate-topography";
-  text: string;
-  templateId?: string | null;
-  initialImagesJson?: Record<string, ImagePick> | null;
-  onTemplateChange: (id: string | null) => void;
-  onTextChange: (v: string) => void;
-  onImagesChange: (map: Record<string, ImagePick>) => void;
+  iconKey:
+    | "history-background"
+    | "architecture-design"
+    | "climate-topography"
+    | "custom";
+  initialSections?: FlowSection[] | null;
+  onSectionsChange: (secs: FlowSection[]) => void;
   onSnapshotChange: (html: string | null) => void;
 }) {
-  const [catalog, setCatalog] = useState<
-    Record<
-      string,
-      { blocks: any[]; cssClass?: string; style?: React.CSSProperties }
-    >
-  >({});
-  const [templates, setTemplates] = useState<{ id: string; name: string }[]>(
-    []
-  );
-  const [tpl, setTpl] = useState<TemplateDef | null>(null);
-
-  const [imagesBySlot, setImagesBySlot] = useState<Record<string, ImagePick>>(
-    () => initialImagesJson || {}
+  const [sections, setSections] = useState<FlowSection[]>(
+    () => initialSections || []
   );
 
-  const previewRef = useRef<HTMLDivElement>(null);
-
+  // re-hydrate if prop changes from server
   const lastInitRef = useRef<string>("");
   useEffect(() => {
-    const next = JSON.stringify(initialImagesJson || {});
-    if (next !== lastInitRef.current) {
-      lastInitRef.current = next;
-      setImagesBySlot(initialImagesJson || {});
+    const nextKey = JSON.stringify(initialSections || []);
+    if (nextKey !== lastInitRef.current) {
+      lastInitRef.current = nextKey;
+      setSections(initialSections || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
+  }, [JSON.stringify(initialSections || [])]);
 
+  const previewRef = useRef<HTMLDivElement>(null);
+  const snapshotRef = useRef<HTMLDivElement>(null);
+
+  // pick image via gallery modal handshake
   const [showGallery, setShowGallery] = useState(false);
   const pickImage = async (slotId: string) =>
-    new Promise<ImagePick>((resolve) => {
+    new Promise<ImageSlot>((resolve) => {
       setShowGallery(true);
       (window as any).__pick = (img: any) => {
         setShowGallery(false);
@@ -497,89 +330,74 @@ function PartComposer({
           src: img.publicUrl,
           alt: img.alt_text || "",
           caption: img.caption || null,
+          aspectRatio:
+            typeof img.aspectRatio === "number" ? img.aspectRatio : undefined,
         });
       };
     });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await seedDefaultSectionTypes(DEFAULT_SETTINGS);
-      const rows = await loadArchetypeRows();
-      if (!cancelled) setCatalog(catalogFromRows(rows));
-      const tpls = await loadTemplates();
-      if (!cancelled) setTemplates((tpls.rows as any) || []);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!templateId) return setTpl(null);
-      const def = await loadTemplateWithSections(templateId);
-      if (!cancelled) setTpl(def);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [templateId]);
-
-  const handlePickedChange = (map: Record<string, ImagePick>) => {
-    const next = JSON.stringify(map || {});
-    const prev = JSON.stringify(imagesBySlot || {});
-    if (next === prev) return;
-    setImagesBySlot(map);
-    onImagesChange(map);
+  const handleFlowChange = (next: FlowSection[]) => {
+    setSections(next);
+    onSectionsChange(next);
   };
 
-  /** Persist the snapshot whenever inputs that affect preview change */
+  // sidebar controls
+  const addSection = (kind: SectionKind) =>
+    handleFlowChange([...(sections || []), makeSection(kind)]);
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= sections.length) return;
+    const next = [...sections];
+    const [s] = next.splice(i, 1);
+    next.splice(j, 0, s);
+    handleFlowChange(next);
+  };
+  const remove = (i: number) => {
+    const next = [...sections];
+    next.splice(i, 1);
+    handleFlowChange(next);
+  };
+
+  // Persist the snapshot from a clean, readonly mirror
   useDebouncedEffect(
     () => {
-      // If there is no template selected, don't persist placeholder HTML
-      if (!tpl) {
-        onSnapshotChange(null);
-        return;
-      }
-      const html = (previewRef.current?.innerHTML || "").trim();
-      onSnapshotChange(html || null);
+      const html = (snapshotRef.current?.innerHTML || "").trim();
+      onSnapshotChange(html && sections.length ? html : null);
     },
-    // FIXED-LENGTH deps of primitives to avoid "changed size" error
-    [
-      text, // 1
-      templateId ?? null, // 2
-      JSON.stringify(imagesBySlot || {}), // 3
-      tpl ? tpl.id : null, // 4
-    ] as const,
-    500
+    [JSON.stringify(sections || [])] as const,
+    400
   );
 
   return (
     <div className="space-y-4">
-      {/* Two separate floating cards with a visible gap */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Preview card (wider) */}
         <div className="lg:col-span-9">
           <div className="rounded-2xl bg-white shadow-md border border-gray-200">
             <div className="p-4 md:p-6">
               <CardHeader title={title} iconKey={iconKey} />
+
+              {/* Visible, editable preview — hide toolbars/controls inside */}
               <div ref={previewRef}>
-                {tpl ? (
-                  <FlowComposer
-                    masterText={text}
-                    template={tpl}
-                    sectionCatalog={catalog}
-                    onPickImage={(slot) => pickImage(slot)}
-                    initialPickedBySlot={imagesBySlot}
-                    onPickedChange={handlePickedChange}
-                  />
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    Pick a template in the right sidebar to preview.
-                  </div>
-                )}
+                <FlowComposer
+                  sections={sections}
+                  onChange={handleFlowChange}
+                  onPickImage={(slot) => pickImage(slot)}
+                  debugFrames={false}
+                  readonly={false}
+                  showToolbar={false}
+                  showControls={false}
+                />
+              </div>
+
+              {/* Hidden, readonly mirror → clean HTML snapshot */}
+              <div ref={snapshotRef} className="sr-only">
+                <FlowComposer
+                  sections={sections}
+                  onChange={() => {}}
+                  debugFrames={false}
+                  readonly={true}
+                />
               </div>
             </div>
           </div>
@@ -588,35 +406,87 @@ function PartComposer({
         {/* Sidebar card (narrower) */}
         <div className="lg:col-span-3">
           <div className="rounded-2xl bg-white shadow-md border border-gray-200">
-            <div className="p-4 md:p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Template
-                </label>
-                <select
-                  className={inputStyles}
-                  value={templateId || ""}
-                  onChange={(e) => onTemplateChange(e.target.value || null)}
-                >
-                  <option value="">— Select template —</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+            <div className="p-4 md:p-5 space-y-5">
+              <div className="text-sm text-gray-600">
+                Use the buttons below to add blocks. Click image areas to pick
+                photos, and click into text boxes to type. Text is capped to the
+                image column height.
               </div>
 
+              {/* Add toolbar */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Raw Text
-                </label>
-                <textarea
-                  className={inputStyles + " min-h-[160px]"}
-                  value={text}
-                  onChange={(e) => onTextChange(e.target.value)}
-                  placeholder="Plain text for this section"
-                />
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  Add a block
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {(
+                    [
+                      ["image-left-text-right", "Image Left / Text Right"],
+                      ["image-right-text-left", "Image Right / Text Left"],
+                      ["full-width-text", "Full-width Text"],
+                      ["full-width-image", "Full-width Image"],
+                      ["two-images", "Two Images"],
+                      ["three-images", "Three Images"],
+                    ] as [SectionKind, string][]
+                  ).map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className="px-2.5 py-1.5 rounded-md border text-sm hover:bg-gray-50 active:bg-gray-100 text-left"
+                      onClick={() => addSection(k)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sections list with move/delete controls */}
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  Sections
+                </div>
+                {sections.length === 0 ? (
+                  <div className="text-xs text-gray-500">
+                    No sections yet. Use “Add a block”.
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {sections.map((s, i) => (
+                      <li
+                        key={s.id || i}
+                        className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-2 py-1.5"
+                      >
+                        <span className="text-xs text-gray-700 truncate">
+                          {labelForKind(s.type as SectionKind)}
+                        </span>
+                        <span className="shrink-0 flex gap-1">
+                          <button
+                            className="px-2 py-0.5 text-xs rounded-md border hover:bg-gray-50"
+                            onClick={() => move(i, -1)}
+                            title="Move up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="px-2 py-0.5 text-xs rounded-md border hover:bg-gray-50"
+                            onClick={() => move(i, +1)}
+                            title="Move down"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            className="px-2 py-0.5 text-xs rounded-md border text-red-600 hover:bg-red-50"
+                            onClick={() => remove(i)}
+                            title="Delete"
+                          >
+                            Delete
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>
@@ -637,7 +507,7 @@ function PartComposer({
 }
 
 /* -------------------------------------------------------------- */
-/* Custom Sections                                                 */
+/* Custom Sections helpers                                         */
 /* -------------------------------------------------------------- */
 
 function newCustomSection(): CustomSection {
@@ -648,40 +518,36 @@ function newCustomSection(): CustomSection {
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`) ||
       String(+new Date()),
     title: "Untitled Section",
-    content: "",
-    template_id: null,
-    images_json: {},
+    sections_json: [],
     layout_html: null,
   };
 }
 
 /* -------------------------------------------------------------- */
-/* Exported component                                              */
+/* Exported page component                                         */
 /* -------------------------------------------------------------- */
 
 export default function ArticlesSection({
   siteId,
-  /* default parts */
-  history_content,
-  architecture_content,
-  climate_env_content,
-  history_template_id,
-  architecture_template_id,
-  climate_template_id,
-  history_images_json,
-  architecture_images_json,
-  climate_images_json,
+
+  /* manual builder data per default part (existing *_layout_json) */
+  history_layout_json,
+  architecture_layout_json,
+  climate_layout_json,
+
   /* snapshots (passed through) */
   history_layout_html,
   architecture_layout_html,
   climate_layout_html,
-  /* custom sections */
+
+  /* custom sections (manual) */
   custom_sections_json,
+
   onChange,
 }: ArticlesSectionProps) {
   const customSections = useMemo<CustomSection[]>(
     () =>
-      (custom_sections_json || []).map((s) => ({ layout_html: null, ...s })),
+      (custom_sections_json || []).map((s) => ({ sections_json: [], ...s })),
     [custom_sections_json]
   );
 
@@ -692,12 +558,8 @@ export default function ArticlesSection({
         siteId={siteId}
         title="History & Background"
         iconKey="history-background"
-        text={history_content || ""}
-        templateId={history_template_id || null}
-        initialImagesJson={history_images_json || {}}
-        onTemplateChange={(id) => onChange({ history_template_id: id })}
-        onTextChange={(v) => onChange({ history_content: v })}
-        onImagesChange={(map) => onChange({ history_images_json: map })}
+        initialSections={history_layout_json || []}
+        onSectionsChange={(secs) => onChange({ history_layout_json: secs })}
         onSnapshotChange={(html) => onChange({ history_layout_html: html })}
       />
 
@@ -706,32 +568,26 @@ export default function ArticlesSection({
         siteId={siteId}
         title="Architecture & Design"
         iconKey="architecture-design"
-        text={architecture_content || ""}
-        templateId={architecture_template_id || null}
-        initialImagesJson={architecture_images_json || {}}
-        onTemplateChange={(id) => onChange({ architecture_template_id: id })}
-        onTextChange={(v) => onChange({ architecture_content: v })}
-        onImagesChange={(map) => onChange({ architecture_images_json: map })}
+        initialSections={architecture_layout_json || []}
+        onSectionsChange={(secs) =>
+          onChange({ architecture_layout_json: secs })
+        }
         onSnapshotChange={(html) =>
           onChange({ architecture_layout_html: html })
         }
       />
 
-      {/* Climate (optional) */}
+      {/* Climate, Geography & Environment (optional) */}
       <PartComposer
         siteId={siteId}
         title="Climate, Geography & Environment"
         iconKey="climate-topography"
-        text={climate_env_content || ""}
-        templateId={climate_template_id || null}
-        initialImagesJson={climate_images_json || {}}
-        onTemplateChange={(id) => onChange({ climate_template_id: id })}
-        onTextChange={(v) => onChange({ climate_env_content: v })}
-        onImagesChange={(map) => onChange({ climate_images_json: map })}
+        initialSections={climate_layout_json || []}
+        onSectionsChange={(secs) => onChange({ climate_layout_json: secs })}
         onSnapshotChange={(html) => onChange({ climate_layout_html: html })}
       />
 
-      {/* Custom Sections Container */}
+      {/* Custom Sections */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-2xl font-semibold text-gray-900">
@@ -757,7 +613,6 @@ export default function ArticlesSection({
         ) : (
           customSections.map((cs, idx) => (
             <div key={cs.id} className="space-y-4">
-              {/* Two separate floating cards */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Preview (wider) */}
                 <div className="lg:col-span-9">
@@ -767,13 +622,13 @@ export default function ArticlesSection({
                         title={cs.title || "Untitled Section"}
                         iconKey="custom"
                       />
-                      <CustomComposerPreview
+                      <PartComposer
                         siteId={siteId}
-                        content={cs.content}
-                        templateId={cs.template_id}
-                        imagesJson={cs.images_json}
-                        onImagesChange={(map) =>
-                          updateCustom(idx, { images_json: map })
+                        title=""
+                        iconKey="custom"
+                        initialSections={cs.sections_json || []}
+                        onSectionsChange={(secs) =>
+                          updateCustom(idx, { sections_json: secs })
                         }
                         onSnapshotChange={(html) =>
                           updateCustom(idx, { layout_html: html })
@@ -800,11 +655,6 @@ export default function ArticlesSection({
                           placeholder="e.g., Cultural Significance"
                         />
                       </div>
-
-                      <SidebarControlsForCustom
-                        value={cs}
-                        onChange={(patch) => updateCustom(idx, patch)}
-                      />
 
                       <div className="pt-2">
                         <button
@@ -837,196 +687,4 @@ export default function ArticlesSection({
     next.splice(index, 1);
     onChange({ custom_sections_json: next });
   }
-}
-
-/* ----- Custom section helpers ----- */
-
-function SidebarControlsForCustom({
-  value,
-  onChange,
-}: {
-  value: CustomSection;
-  onChange: (patch: Partial<CustomSection>) => void;
-}) {
-  const [templates, setTemplates] = useState<{ id: string; name: string }[]>(
-    []
-  );
-
-  useEffect(() => {
-    (async () => {
-      const tpls = await loadTemplates();
-      setTemplates((tpls.rows as any) || []);
-    })();
-  }, []);
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Template
-        </label>
-        <select
-          className={inputStyles}
-          value={value.template_id || ""}
-          onChange={(e) => onChange({ template_id: e.target.value || null })}
-        >
-          <option value="">— Select template —</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Raw Text
-        </label>
-        <textarea
-          className={inputStyles + " min-h-[160px]"}
-          value={value.content}
-          onChange={(e) => onChange({ content: e.target.value })}
-          placeholder="Plain text for this section"
-        />
-      </div>
-    </div>
-  );
-}
-
-function CustomComposerPreview({
-  siteId,
-  content,
-  templateId,
-  imagesJson,
-  onImagesChange,
-  /** NEW: snapshot sink for customs */
-  onSnapshotChange,
-}: {
-  siteId: string | number;
-  content: string;
-  templateId: string | null;
-  imagesJson: Record<string, ImagePick>;
-  onImagesChange: (map: Record<string, ImagePick>) => void;
-  onSnapshotChange: (html: string | null) => void;
-}) {
-  const [catalog, setCatalog] = useState<
-    Record<
-      string,
-      { blocks: any[]; cssClass?: string; style?: React.CSSProperties }
-    >
-  >({});
-  const [tpl, setTpl] = useState<TemplateDef | null>(null);
-  const [imagesBySlot, setImagesBySlot] = useState<Record<string, ImagePick>>(
-    imagesJson || {}
-  );
-  const [showGallery, setShowGallery] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  const lastInitRef = useRef<string>("");
-  useEffect(() => {
-    const next = JSON.stringify(imagesJson || {});
-    if (next !== lastInitRef.current) {
-      lastInitRef.current = next;
-      setImagesBySlot(imagesJson || {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
-
-  const pickImage = async (slotId: string) =>
-    new Promise<ImagePick>((resolve) => {
-      setShowGallery(true);
-      (window as any).__pick = (img: any) => {
-        setShowGallery(false);
-        resolve({
-          slotId,
-          src: img.publicUrl,
-          alt: img.alt_text || "",
-          caption: img.caption || null,
-        });
-      };
-    });
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await seedDefaultSectionTypes(DEFAULT_SETTINGS);
-      const rows = await loadArchetypeRows();
-      if (!cancelled) setCatalog(catalogFromRows(rows));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!templateId) return setTpl(null);
-      const def = await loadTemplateWithSections(templateId);
-      if (!cancelled) setTpl(def);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [templateId]);
-
-  const handlePickedChange = (map: Record<string, ImagePick>) => {
-    const next = JSON.stringify(map || {});
-    const prev = JSON.stringify(imagesBySlot || {});
-    if (next === prev) return;
-    setImagesBySlot(map);
-    onImagesChange(map);
-  };
-
-  // Persist snapshot for custom section (avoid saving placeholder)
-  useDebouncedEffect(
-    () => {
-      if (!tpl) {
-        onSnapshotChange(null);
-        return;
-      }
-      const html = (previewRef.current?.innerHTML || "").trim();
-      onSnapshotChange(html || null);
-    },
-    // FIXED-LENGTH deps of primitives
-    [
-      content, // 1
-      templateId ?? null, // 2
-      JSON.stringify(imagesBySlot || {}), // 3
-      tpl ? tpl.id : null, // 4
-    ] as const,
-    500
-  );
-
-  return (
-    <>
-      <div ref={previewRef}>
-        {tpl ? (
-          <FlowComposer
-            masterText={content}
-            template={tpl}
-            sectionCatalog={catalog}
-            onPickImage={(slot) => pickImage(slot)}
-            initialPickedBySlot={imagesBySlot}
-            onPickedChange={handlePickedChange}
-          />
-        ) : (
-          <div className="text-sm text-gray-500">
-            Pick a template in the sidebar to preview.
-          </div>
-        )}
-      </div>
-
-      <GalleryBrowserModal
-        show={showGallery}
-        onClose={() => setShowGallery(false)}
-        onImageSelect={(img) => {
-          const fn = (window as any).__pick;
-          if (typeof fn === "function") fn(img);
-        }}
-        siteId={siteId}
-      />
-    </>
-  );
 }

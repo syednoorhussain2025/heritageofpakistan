@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@/modules/flow-layout/flow-layout.css"; // ← add this
 import Header from "@/components/Header";
 import FontLoader from "@/components/FontLoader";
 import { IconProvider } from "@/components/Icon";

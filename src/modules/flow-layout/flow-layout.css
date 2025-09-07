@@ -1,3 +1,11 @@
+/* Design tokens */
+:root {
+  /* Standard side image width for L/R layouts (desktop/tablet).
+     Tune once; engine will also use this via designTokens.widthPx. */
+  --side-img-w: clamp(360px, 35vw, 520px);
+  --section-gutter: 1.25rem;
+}
+
 /* Base article container */
 .hop-article {
   max-width: 72ch;
@@ -41,7 +49,41 @@
   margin-top: 0.35rem;
 }
 
-/* ───────── Section-specific classes matching presets ───────── */
+/* ───────── NEW: utilities for default section primitives ───────── */
+
+.flx--two-col {
+  display: grid;
+  grid-template-columns: auto 1fr; /* image column is sized by its contents */
+  gap: var(--section-gutter);
+  align-items: start;
+}
+
+.flx-img {
+  width: var(--side-img-w);
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f4f4f5;
+}
+
+/* The text container may receive data-text-lock="image" with an inline min-height */
+.flx-text[data-text-lock="image"] {
+  /* min-height comes inline from the snapshot; nothing else needed here */
+}
+
+/* Mobile behavior: stack columns and release the min-height lock */
+@media (max-width: 1024px) {
+  .flx--two-col {
+    display: block;
+  }
+  .flx-img {
+    width: 100%;
+  }
+  [data-text-lock="image"] {
+    min-height: 0 !important;
+  }
+}
+
+/* ───────── Section-specific classes matching presets (kept) ───────── */
 
 /* heroIntro */
 .sec-heroIntro {
@@ -56,7 +98,8 @@
   grid-area: text;
 }
 
-/* mediaLeftTextRight */
+/* mediaLeftTextRight
+   Note: our default primitives use .flx--two-col with token width; these classes are kept for compatibility. */
 .sec-mediaLeftTextRight {
   grid-template-columns: 40% 1fr;
   grid-template-areas: "media text";
@@ -101,7 +144,7 @@
 }
 .sig-mediaLeftTextRight__media__desktop {
   width: 480px;
-}
+} /* align with --side-img-w default */
 .sig-mediaLeftTextRight__text__desktop {
   width: 680px;
 }
@@ -129,7 +172,7 @@
   }
 }
 
-/* Utility classes binding areas (FlowRenderer will apply these) */
+/* Utility classes binding areas (FlowRenderer may apply these) */
 .area-media {
 }
 .area-text {

@@ -106,7 +106,78 @@ export const ARCHETYPES: {
   },
 ];
 
-/* (Optional) Presentational primitives for a renderer (kept from earlier plan) */
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+type ImageData = {
+  src: string;
+  alt?: string;
+  caption?: string | null;
+  credit?: string | null;
+  /** Defaults to 4:5 (portrait) for side images */
+  aspectRatio?: number;
+};
+
+function FigureBox({
+  image,
+  widthVar = "--side-img-w",
+  defaultWidthPx = 480,
+}: {
+  image: ImageData;
+  widthVar?: string;
+  defaultWidthPx?: number;
+}) {
+  const ar = image.aspectRatio ?? 4 / 5; // portrait default
+  return (
+    <figure style={{ margin: 0 }}>
+      <div
+        className="flx-img"
+        style={{
+          width: `var(${widthVar}, ${defaultWidthPx}px)`,
+          aspectRatio: `${ar}`,
+          overflow: "hidden",
+          borderRadius: 8,
+          background: "#f4f4f5",
+        }}
+      >
+        {/* Use object-fit to honor aspect; height follows from aspect-ratio */}
+        <img
+          src={image.src}
+          alt={image.alt || ""}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
+      {(image.caption || image.credit) && (
+        <figcaption
+          style={{
+            color: "#6b7280",
+            fontSize: 12,
+            marginTop: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          {image.caption}
+          {image.credit
+            ? image.caption
+              ? ` — ${image.credit}`
+              : image.credit
+            : null}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Presentational primitives                                          */
+/* ------------------------------------------------------------------ */
+
 export function FullWidthImage({
   src,
   alt,
@@ -166,6 +237,204 @@ export function FullWidthText({
         }}
       >
         <div style={{ fontSize: 18, lineHeight: 1.8 }}>{children}</div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Image Left + Text Right
+ * Enforces a stable side image width via CSS token and supports a minimum text height lock
+ * using `minTextHeightPx`. When snapshots are rendered publicly, an inline `min-height`
+ * will be injected into the text container and we’ll add `data-text-lock="image"`.
+ */
+export function ImageLeftTextRight({
+  image,
+  children,
+  settings,
+  minTextHeightPx,
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  /** Optional: engine/composer can pass the computed min-height (px) for the text block. */
+  minTextHeightPx?: number;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          className="flx--two-col"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr",
+            gap: gutter,
+            alignItems: "start",
+          }}
+        >
+          <FigureBox image={image} />
+          <div
+            className="flx-text"
+            data-text-lock={
+              typeof minTextHeightPx === "number" ? "image" : undefined
+            }
+            style={{
+              minHeight:
+                typeof minTextHeightPx === "number" && minTextHeightPx > 0
+                  ? `${minTextHeightPx}px`
+                  : undefined,
+              fontSize: 18,
+              lineHeight: 1.8,
+            }}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Image Right + Text Left
+ * Same behavior as the left variant; just flips column order.
+ */
+export function ImageRightTextLeft({
+  image,
+  children,
+  settings,
+  minTextHeightPx,
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  minTextHeightPx?: number;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          className="flx--two-col"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: gutter,
+            alignItems: "start",
+          }}
+        >
+          <div
+            className="flx-text"
+            data-text-lock={
+              typeof minTextHeightPx === "number" ? "image" : undefined
+            }
+            style={{
+              minHeight:
+                typeof minTextHeightPx === "number" && minTextHeightPx > 0
+                  ? `${minTextHeightPx}px`
+                  : undefined,
+              fontSize: 18,
+              lineHeight: 1.8,
+            }}
+          >
+            {children}
+          </div>
+          <FigureBox image={image} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Two images side-by-side
+ */
+export function TwoImages({
+  left,
+  right,
+  settings,
+}: {
+  left: ImageData;
+  right: ImageData;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: gutter,
+          }}
+        >
+          <FigureBox image={left} widthVar="--side-img-w" />
+          <FigureBox image={right} widthVar="--side-img-w" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Three images side-by-side
+ */
+export function ThreeImages({
+  a,
+  b,
+  c,
+  settings,
+}: {
+  a: ImageData;
+  b: ImageData;
+  c: ImageData;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: gutter,
+          }}
+        >
+          <FigureBox image={a} widthVar="--side-img-w" />
+          <FigureBox image={b} widthVar="--side-img-w" />
+          <FigureBox image={c} widthVar="--side-img-w" />
+        </div>
       </div>
     </section>
   );

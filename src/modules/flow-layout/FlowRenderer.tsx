@@ -31,6 +31,34 @@ type Props = {
   imagesBySlot?: Record<string, ImageRef | null>;
 } & ClassMaps;
 
+/** Provide sensible defaults for design tokens so height-lock can compute image height. */
+function withDefaultDesignTokens(input: FlowInput): FlowInput {
+  // Desktop/tablet: provide a pixel width for --side-img-w
+  const defaultSideW =
+    input.breakpoint === "desktop"
+      ? 480
+      : input.breakpoint === "tablet"
+      ? 420
+      : undefined;
+
+  const existing = input.designTokens?.widthPx ?? {};
+  const needSide =
+    existing["--side-img-w"] == null && typeof defaultSideW === "number";
+
+  if (!needSide) return input;
+
+  return {
+    ...input,
+    designTokens: {
+      ...(input.designTokens || {}),
+      widthPx: {
+        ...existing,
+        ...(needSide ? { "--side-img-w": defaultSideW! } : null),
+      },
+    },
+  };
+}
+
 export default function FlowRenderer({
   input,
   imagesBySlot = {},
@@ -39,7 +67,8 @@ export default function FlowRenderer({
   imageClassFor,
 }: Props) {
   const measurer = useMeasurer();
-  const layout: LayoutInstance = computeLayout(input, measurer);
+  const inputWithTokens = withDefaultDesignTokens(input);
+  const layout: LayoutInstance = computeLayout(inputWithTokens, measurer);
 
   const parts: React.ReactNode[] = [];
   let currentKey: string | null = null;
@@ -78,10 +107,23 @@ export default function FlowRenderer({
           sectionInstanceKey: blk.sectionInstanceKey,
           breakpoint: input.breakpoint,
         }) ?? "hop-text";
+
+      const minPx = (blk as any).minHeightPx as number | undefined;
+      const dataAttr =
+        typeof minPx === "number" && minPx > 0
+          ? { "data-text-lock": "image" }
+          : undefined;
+      const style =
+        typeof minPx === "number" && minPx > 0
+          ? ({ minHeight: `${minPx}px` } as React.CSSProperties)
+          : undefined;
+
       sectionChildren.push(
         <div
           key={`${blk.sectionInstanceKey}:${blk.blockId}:text`}
           className={cls}
+          {...dataAttr}
+          style={style}
         >
           {text.split(/\n{2,}/).map((p, i) => (
             <p key={i} className="hop-p">

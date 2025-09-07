@@ -34,6 +34,43 @@ type PickedImage = {
   credit?: string | null;
 };
 
+/* -------------------------------- Height lock -------------------------------- */
+
+function usePairHeightLock(
+  imgRef: React.RefObject<HTMLElement | null>,
+  setMinPx: (px?: number) => void
+) {
+  React.useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const update = () => {
+      if (!imgRef.current) return;
+      if (mql.matches) {
+        const h = imgRef.current.getBoundingClientRect().height;
+        setMinPx(Math.max(0, Math.round(h)));
+      } else {
+        setMinPx(undefined);
+      }
+    };
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    mql.addEventListener("change", update);
+    update();
+
+    return () => {
+      try {
+        ro.disconnect();
+      } catch {}
+      mql.removeEventListener("change", update);
+    };
+  }, [imgRef, setMinPx]);
+}
+
+/* -------------------------------- Components -------------------------------- */
+
 export default function SimplePreview({
   masterText,
   sectionCatalog,
@@ -184,10 +221,18 @@ export default function SimplePreview({
             grid-column: span 12;
           }
         }
+        /* Release the lock on small screens */
+        @media (max-width: 1024px) {
+          [data-text-lock="image"] {
+            min-height: 0 !important;
+          }
+        }
       `}</style>
     </div>
   );
 }
+
+/* -------------------------- Render dispatcher -------------------------- */
 
 function renderSection(
   blocks: Block[],
@@ -259,14 +304,7 @@ function renderSection(
     if (a.kind === "image" && b.kind === "text") {
       const txt = ctx.takeWords(b.textPolicy?.targetWords);
       return wrap(
-        <>
-          <div className="col-img">
-            <ImageSlot slot={a.imageSlotId} ctx={ctx} />
-          </div>
-          <div className="col-text">
-            <div className="spv-text">{txt || " "}</div>
-          </div>
-        </>,
+        <TwoColLeft text={txt} slot={a.imageSlotId} ctx={ctx} />,
         "sec-img-left-text-right"
       );
     }
@@ -274,14 +312,7 @@ function renderSection(
     if (a.kind === "text" && b.kind === "image") {
       const txt = ctx.takeWords(a.textPolicy?.targetWords);
       return wrap(
-        <>
-          <div className="col-text">
-            <div className="spv-text">{txt || " "}</div>
-          </div>
-          <div className="col-img">
-            <ImageSlot slot={b.imageSlotId} ctx={ctx} />
-          </div>
-        </>,
+        <TwoColRight text={txt} slot={b.imageSlotId} ctx={ctx} />,
         "sec-img-right-text-left"
       );
     }
@@ -305,19 +336,100 @@ function renderSection(
   );
 }
 
-function ImageSlot({
+/* ------------------------- Two-column variants ------------------------- */
+
+function TwoColLeft({
+  text,
   slot,
   ctx,
 }: {
+  text: string;
   slot: string;
   ctx: {
     imagesBySlot: Record<string, PickedImage>;
     pickImageFor: (slot: string) => Promise<void>;
   };
 }) {
+  const imgBoxRef = React.useRef<HTMLDivElement | null>(null);
+  const [minTextPx, setMinTextPx] = React.useState<number | undefined>();
+  usePairHeightLock(imgBoxRef, setMinTextPx);
+
+  return (
+    <>
+      <div className="col-img">
+        <ImageSlot slot={slot} ctx={ctx} containerRef={imgBoxRef} />
+      </div>
+      <div
+        className="col-text"
+        data-text-lock={typeof minTextPx === "number" ? "image" : undefined}
+        style={{
+          minHeight:
+            typeof minTextPx === "number" && minTextPx > 0
+              ? `${minTextPx}px`
+              : undefined,
+        }}
+      >
+        <div className="spv-text">{text || " "}</div>
+      </div>
+    </>
+  );
+}
+
+function TwoColRight({
+  text,
+  slot,
+  ctx,
+}: {
+  text: string;
+  slot: string;
+  ctx: {
+    imagesBySlot: Record<string, PickedImage>;
+    pickImageFor: (slot: string) => Promise<void>;
+  };
+}) {
+  const imgBoxRef = React.useRef<HTMLDivElement | null>(null);
+  const [minTextPx, setMinTextPx] = React.useState<number | undefined>();
+  usePairHeightLock(imgBoxRef, setMinTextPx);
+
+  return (
+    <>
+      <div
+        className="col-text"
+        data-text-lock={typeof minTextPx === "number" ? "image" : undefined}
+        style={{
+          minHeight:
+            typeof minTextPx === "number" && minTextPx > 0
+              ? `${minTextPx}px`
+              : undefined,
+        }}
+      >
+        <div className="spv-text">{text || " "}</div>
+      </div>
+      <div className="col-img">
+        <ImageSlot slot={slot} ctx={ctx} containerRef={imgBoxRef} />
+      </div>
+    </>
+  );
+}
+
+/* -------------------------------- Image slot -------------------------------- */
+
+function ImageSlot({
+  slot,
+  ctx,
+  containerRef,
+}: {
+  slot: string;
+  ctx: {
+    imagesBySlot: Record<string, PickedImage>;
+    pickImageFor: (slot: string) => Promise<void>;
+  };
+  /** Optional: let parent observe the image box height */
+  containerRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   const chosen = ctx.imagesBySlot[slot];
   return (
-    <div className="spv-imgbox">
+    <div className="spv-imgbox" ref={containerRef as any}>
       {chosen ? (
         <img src={chosen.storagePath} alt={chosen.alt || ""} />
       ) : (

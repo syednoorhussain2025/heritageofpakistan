@@ -79,11 +79,24 @@ export function renderSnapshotHTML({
           blk.sectionInstanceKey,
           layout.breakpoint
         ) ?? "hop-text";
+
+      // If the engine computed a minHeight for this text block, inline it and mark the lock.
+      const hasMin =
+        typeof (blk as any).minHeightPx === "number" &&
+        (blk as any).minHeightPx > 0;
+      const styleAttr = hasMin
+        ? ` style="min-height:${(blk as any).minHeightPx}px"`
+        : "";
+      const dataAttr = hasMin ? ` data-text-lock="image"` : "";
+
       const paras = txt
         .split(/\n{2,}/)
         .map((p) => `<p class="hop-p">${esc(p)}</p>`)
         .join("");
-      sectionChildren.push(`<div class="${esc(cls)}">${paras}</div>`);
+
+      sectionChildren.push(
+        `<div class="${esc(cls)}"${styleAttr}${dataAttr}>${paras}</div>`
+      );
     } else if (blk.type === "image") {
       // Prefer composite key, fallback to plain slotId
       const img =

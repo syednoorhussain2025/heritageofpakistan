@@ -58,7 +58,8 @@ export const HERO_INTRO: SectionDef = {
 export const MEDIA_LEFT_TEXT_RIGHT: SectionDef = {
   sectionTypeId: "mediaLeftTextRight",
   name: "Media Left / Text Right",
-  version: 1,
+  // Bumped: version 2 adds standardized image sizing + textFlowLock
+  version: 2,
   textAcceptsFlow: true,
   geometry: {
     desktop: {
@@ -86,7 +87,12 @@ export const MEDIA_LEFT_TEXT_RIGHT: SectionDef = {
       kind: "image",
       area: "media",
       imageSlotId: "slot_1",
-      aspectRatio: 4 / 3,
+      // Standardized side image sizing: prefer portrait 4:5 with a width token
+      aspectRatio: 4 / 5, // kept in sync with sizing.aspectRatio for clarity
+      sizing: {
+        widthToken: "--side-img-w",
+        aspectRatio: 4 / 5,
+      },
       maxHeightPx: 520,
     },
     {
@@ -102,6 +108,13 @@ export const MEDIA_LEFT_TEXT_RIGHT: SectionDef = {
       },
     },
   ],
+  // NEW: lock text height to the adjacent image height on desktop/tablet
+  textFlowLock: {
+    minHeightFromBlockId: "media",
+    overshootPct: 0.1,
+    overshootPx: 64,
+    breakpoints: ["desktop", "tablet"],
+  },
 };
 
 export const FULL_TEXT_BAND: SectionDef = {
@@ -159,9 +172,9 @@ export const TEMPLATE_LONGFORM_A: TemplateDef = {
   overflowStrategy: "continue",
   sections: [
     { sectionTypeId: "heroIntro", version: 1 },
-    { sectionTypeId: "mediaLeftTextRight", version: 1 },
+    { sectionTypeId: "mediaLeftTextRight", version: 2 }, // updated to v2
     { sectionTypeId: "fullTextBand", version: 1 },
-    { sectionTypeId: "mediaLeftTextRight", version: 1 },
+    { sectionTypeId: "mediaLeftTextRight", version: 2 }, // updated to v2
     { sectionTypeId: "fullTextBand", version: 1 },
   ],
 };
