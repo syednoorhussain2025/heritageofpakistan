@@ -128,16 +128,42 @@ function snapshotCleanHTML(root: HTMLElement): string {
   // Remove editor-only elements
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
 
-  // Remove editor decoration classes applied to inline text blocks
-  node.querySelectorAll(".flow-editor-decor").forEach((el) => {
-    el.classList.remove(
-      "flow-editor-decor",
-      "ring-1",
-      "ring-dashed",
-      "ring-gray-300",
-      "rounded-lg",
-      "p-2"
-    );
+  // Strip editor decoration classes (borders/rings/padding) from any element
+  // that had the flow-editor marker, so the public page is clean.
+  node.querySelectorAll<HTMLElement>(".flow-editor-decor").forEach((el) => {
+    const classes = (el.getAttribute("class") || "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter(
+        (c) =>
+          ![
+            "flow-editor-decor",
+            "ring",
+            "ring-1",
+            "ring-2",
+            "ring-dashed",
+            "ring-gray-100",
+            "ring-gray-200",
+            "ring-gray-300",
+            "border",
+            "border-dashed",
+            "border-gray-100",
+            "border-gray-200",
+            "border-gray-300",
+            "rounded",
+            "rounded-md",
+            "rounded-lg",
+            "rounded-xl",
+            "bg-gray-50",
+            "p-1",
+            "p-1.5",
+            "p-2",
+            "p-2.5",
+          ].includes(c) &&
+          !c.startsWith("ring-") && // any other ring-* utilities
+          !c.startsWith("border-") // any other border-* utilities
+      );
+    el.setAttribute("class", classes.join(" "));
   });
 
   // Remove contenteditable & data flags
@@ -147,6 +173,71 @@ function snapshotCleanHTML(root: HTMLElement): string {
   });
 
   return (node.innerHTML || "").trim();
+}
+
+/* -------------------------------------------------------------- */
+/* Lightweight Toast                                              */
+/* -------------------------------------------------------------- */
+
+type Toast = { id: string; message: string };
+
+function useToasts() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const add = (message: string) => {
+    const t = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      message,
+    };
+    setToasts((prev) => [...prev, t]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((x) => x.id !== t.id));
+    }, 1800);
+  };
+  const remove = (id: string) =>
+    setToasts((prev) => prev.filter((x) => x.id !== id));
+  return { toasts, add, remove };
+}
+
+function ToastViewport({
+  toasts,
+  onClose,
+}: {
+  toasts: Toast[];
+  onClose: (id: string) => void;
+}) {
+  return (
+    <div className="fixed bottom-4 right-4 z-50 space-y-2" data-edit-only>
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="pointer-events-auto flex items-start gap-3 rounded-lg bg-gray-900 text-white shadow-lg px-3 py-2"
+          role="status"
+        >
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3.5 w-3.5 text-emerald-400"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.704 5.29a1 1 0 010 1.415l-7.01 7.011a1 1 0 01-1.415 0L3.296 8.724a1 1 0 111.415-1.415l3.16 3.16 6.303-6.303a1 1 0 011.53.124z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </span>
+          <div className="text-sm">{t.message}</div>
+          <button
+            className="ml-2 text-xs text-gray-300 hover:text-white"
+            onClick={() => onClose(t.id)}
+            aria-label="Dismiss"
+          >
+            Close
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /* -------------------------------------------------------------- */
@@ -210,8 +301,11 @@ function GalleryBrowserModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-height-[80vh] max-h-[80vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      data-edit-only
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             Select an Image
@@ -296,7 +390,7 @@ function GalleryBrowserModal({
 }
 
 /* -------------------------------------------------------------- */
-/* PartComposer (manual builder + snapshot)                       */
+/* Card Header                                                    */
 /* -------------------------------------------------------------- */
 
 function CardHeader({
@@ -324,6 +418,10 @@ function CardHeader({
     </div>
   );
 }
+
+/* -------------------------------------------------------------- */
+/* PartComposer (manual builder + snapshot)                       */
+/* -------------------------------------------------------------- */
 
 function PartComposer({
   siteId,
@@ -365,6 +463,9 @@ function PartComposer({
   // sizing that mirrors the public page
   const { px: publicMainWidth, Sizer } = usePublicMainWidth();
 
+  // toasts
+  const { toasts, add: addToast, remove: removeToast } = useToasts();
+
   // pick image via gallery modal handshake
   const [showGallery, setShowGallery] = useState(false);
   const pickImage = async (slotId: string) =>
@@ -376,7 +477,10 @@ function PartComposer({
           slotId,
           src: img.publicUrl,
           alt: img.alt_text || "",
-          caption: img.caption || null,
+          caption: img.caption || null, // default from gallery
+          // keep a copy for fallback in FlowComposer
+          // @ts-ignore – FlowComposer extends ImageSlot at runtime
+          galleryCaption: img.caption || null,
           aspectRatio:
             typeof img.aspectRatio === "number" ? img.aspectRatio : undefined,
         });
@@ -410,6 +514,9 @@ function PartComposer({
     const arr = [...sections, next];
     setSections(arr);
     onSectionsChange(arr);
+    addToast(
+      sectionDefs.find((d) => d.kind === kind)?.addedToast || "Section added"
+    );
   };
 
   const moveSection = (idx: number, dir: -1 | 1) => {
@@ -420,6 +527,7 @@ function PartComposer({
     arr.splice(j, 0, s);
     setSections(arr);
     onSectionsChange(arr);
+    addToast(dir < 0 ? "Moved up" : "Moved down");
   };
 
   const deleteSection = (idx: number) => {
@@ -427,6 +535,7 @@ function PartComposer({
     arr.splice(idx, 1);
     setSections(arr);
     onSectionsChange(arr);
+    addToast("Section deleted");
   };
 
   // Sync the snapshot; strip editor-only UI
@@ -441,9 +550,72 @@ function PartComposer({
     250
   );
 
+  // ------------------------------------------
+  // Sidebar button definitions (with icons)
+  // ------------------------------------------
+  const sectionDefs: {
+    kind: SectionKind;
+    label: string;
+    iconLeft?: string;
+    iconRight?: string;
+    tooltip: string;
+    addedToast: string;
+  }[] = [
+    {
+      kind: "image-left-text-right",
+      label: "Image Left / Text Right",
+      iconLeft: "image",
+      iconRight: "align-center",
+      tooltip: "Two-column: image on the left, text on the right",
+      addedToast: "Added: Image Left / Text Right",
+    },
+    {
+      kind: "image-right-text-left",
+      label: "Image Right / Text Left",
+      iconLeft: "align-center",
+      iconRight: "image",
+      tooltip: "Two-column: text on the left, image on the right",
+      addedToast: "Added: Image Right / Text Left",
+    },
+    {
+      kind: "full-width-text",
+      label: "Full-width Text",
+      iconLeft: "align-center",
+      tooltip: "Single column, text spans the full width",
+      addedToast: "Added: Full-width Text",
+    },
+    {
+      kind: "full-width-image",
+      label: "Full-width Image",
+      iconLeft: "image",
+      tooltip: "Single column, image spans the full width",
+      addedToast: "Added: Full-width Image",
+    },
+    {
+      kind: "two-images",
+      label: "Two Images",
+      iconLeft: "image",
+      iconRight: "image",
+      tooltip: "Two images in a row",
+      addedToast: "Added: Two Images",
+    },
+    {
+      kind: "three-images",
+      label: "Three Images",
+      iconLeft: "image",
+      iconRight: "image",
+      tooltip: "Three images in a row",
+      addedToast: "Added: Three Images",
+    },
+  ];
+
+  // ------------------------------------------
+
   return (
     <>
       <Sizer />
+      <ToastViewport toasts={toasts} onClose={removeToast} />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Preview card (wider) */}
         <div className="lg:col-span-10">
@@ -481,23 +653,40 @@ function PartComposer({
                 <div className="text-sm text-gray-600 mb-2">
                   Build this section:
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    [
-                      ["image-left-text-right", "Image Left / Text Right"],
-                      ["image-right-text-left", "Image Right / Text Left"],
-                      ["full-width-text", "Full-width Text"],
-                      ["full-width-image", "Full-width Image"],
-                      ["two-images", "Two Images"],
-                      ["three-images", "Three Images"],
-                    ] as [SectionKind, string][]
-                  ).map(([k, label]) => (
+
+                <div className="grid grid-cols-1 gap-2">
+                  {sectionDefs.map((def) => (
                     <button
-                      key={k}
-                      className="px-2.5 py-1.5 rounded-md border text-xs hover:bg-gray-50"
-                      onClick={() => addSection(k)}
+                      key={def.kind}
+                      className="group w-full text-left px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-[#F78300]/10 hover:border-[#F78300] active:bg-[#F78300]/20 shadow-sm transition-all"
+                      onClick={() => addSection(def.kind)}
+                      title={def.tooltip}
+                      data-edit-only
                     >
-                      {label}
+                      <div className="flex items-center gap-2">
+                        {/* Leading icons (compact) */}
+                        <span className="inline-flex -space-x-1 items-center">
+                          {def.iconLeft && (
+                            <span className="inline-flex h-5 w-5 rounded-md bg-gray-100 border border-gray-200 grid place-items-center">
+                              <Icon
+                                name={def.iconLeft as any}
+                                className="w-3 h-3 text-gray-700"
+                              />
+                            </span>
+                          )}
+                          {def.iconRight && (
+                            <span className="inline-flex h-5 w-5 rounded-md bg-gray-100 border border-gray-200 grid place-items-center">
+                              <Icon
+                                name={def.iconRight as any}
+                                className="w-3 h-3 text-gray-700"
+                              />
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-sm font-medium text-gray-800">
+                          {def.label}
+                        </span>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -512,21 +701,22 @@ function PartComposer({
                     {sections.map((s, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between gap-2 text-xs border rounded-md px-2 py-1"
+                        className="flex items-center justify-between gap-2 text-xs border rounded-md px-2 py-1 bg-white"
+                        data-edit-only
                       >
                         <span className="truncate">
                           {s.type.replaceAll("-", " ")}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
-                            className="px-2 py-0.5 rounded border hover:bg-gray-50"
+                            className="px-2 py-0.5 rounded border hover:bg-[#F78300]/10 hover:border-[#F78300]"
                             onClick={() => moveSection(i, -1)}
                             title="Move up"
                           >
                             ↑
                           </button>
                           <button
-                            className="px-2 py-0.5 rounded border hover:bg-gray-50"
+                            className="px-2 py-0.5 rounded border hover:bg-[#F78300]/10 hover:border-[#F78300]"
                             onClick={() => moveSection(i, +1)}
                             title="Move down"
                           >
@@ -546,11 +736,7 @@ function PartComposer({
                 </div>
               )}
 
-              <div className="text-xs text-gray-500">
-                Tip: Click an image area to pick a photo. Click inside a text
-                box to edit inline. Editor borders & controls are removed from
-                the published page automatically.
-              </div>
+              {/* Instructional hint removed per request */}
             </div>
           </div>
         </div>
@@ -604,13 +790,9 @@ export default function ArticlesSection({
   custom_sections_json,
   onChange,
 }: ArticlesSectionProps) {
-  // IMPORTANT: preserve sections_json coming from DB (don't overwrite with [])
   const customSections = useMemo<CustomSection[]>(
     () =>
-      (custom_sections_json || []).map((s) => ({
-        ...s,
-        sections_json: s.sections_json ?? [],
-      })),
+      (custom_sections_json || []).map((s) => ({ sections_json: [], ...s })),
     [custom_sections_json]
   );
 
