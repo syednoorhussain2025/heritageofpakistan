@@ -76,7 +76,8 @@ function padY(cls?: Section["paddingY"]) {
       return "py-12";
     case "md":
     default:
-      return "py-8";
+      // tighter default to reduce the inter-section feel
+      return "py-6";
   }
 }
 
@@ -213,7 +214,10 @@ function Figure({
         )}
 
         {!readonly && (onPick || onReset) && (
-          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div
+            className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+            data-edit-only
+          >
             {onPick && (
               <button
                 type="button"
@@ -302,7 +306,9 @@ function InlineTextBlock({
       suppressContentEditableWarning
       onInput={handleInput}
       className={`prose prose-gray max-w-none outline-none ${
-        !readonly ? "rounded-lg ring-1 ring-dashed ring-gray-300" : ""
+        !readonly
+          ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg p-2"
+          : ""
       }`}
       style={{
         whiteSpace: "pre-wrap",
@@ -317,6 +323,7 @@ function InlineTextBlock({
         overflow: typeof maxHeightPx === "number" ? "hidden" : undefined,
         cursor: readonly ? "default" : "text",
       }}
+      data-editing={!readonly || undefined}
     />
   );
 }
@@ -565,7 +572,7 @@ function Toolbar({
   const btn =
     "px-2.5 py-1.5 rounded-md border text-xs hover:bg-gray-50 active:bg-gray-100";
   return (
-    <div className="mb-2 flex flex-wrap gap-2">
+    <div className="mb-2 flex flex-wrap gap-2" data-edit-only>
       <span className="text-sm text-gray-600 self-center mr-1">Add:</span>
       <button className={btn} onClick={() => onAdd("image-left-text-right")}>
         Image Left / Text Right
@@ -652,12 +659,16 @@ export default function FlowComposer({
   }
 
   return (
-    <div className="space-y-4">
+    // tighter spacing between sections
+    <div className="space-y-3">
       {/* Hidden in our editor since we moved it to the sidebar */}
       <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
 
       {sections.length === 0 && !readonly && showToolbar ? (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+        <div
+          className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600"
+          data-edit-only
+        >
           No sections yet. Use the buttons above to add your first section.
         </div>
       ) : null}
@@ -670,7 +681,7 @@ export default function FlowComposer({
 
         const controls =
           readonly || !showControls ? null : (
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-2" data-edit-only>
               <button
                 className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
                 onClick={() => moveSection(idx, -1)}
@@ -811,7 +822,8 @@ export function makeSection(kind: SectionKind): Section {
   const base: Section = {
     id: uid(),
     type: kind,
-    paddingY: "md",
+    // smaller internal padding by default to reduce the perceived gap
+    paddingY: "sm",
     bg: "none",
   };
 

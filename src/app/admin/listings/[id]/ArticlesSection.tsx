@@ -3,11 +3,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import FlowComposer, {
-  makeSection,
-  type Section as FlowSection,
-  type ImageSlot,
-  type SectionKind,
+import FlowComposer from "@/modules/flow-layout/FlowComposer";
+import type {
+  Section as FlowSection,
+  ImageSlot,
+  SectionKind,
 } from "@/modules/flow-layout/FlowComposer";
 import "@/modules/flow-layout/flow-layout.css";
 import Icon from "@/components/Icon";
@@ -50,7 +50,7 @@ type ArticlesSectionProps = {
   /* custom sections (stored in existing custom_sections_json column) */
   custom_sections_json?: CustomSection[];
 
-  /** change sink that writes to Supabase */
+  /** change sink */
   onChange: (patch: any) => void;
 };
 
@@ -66,27 +66,84 @@ async function publicUrl(bucket: string, key: string) {
   return data.publicUrl;
 }
 
-/** Small debounce helper (deps must be a FIXED-LENGTH array of primitives) */
+/** debounce helper (deps must be a FIXED-LENGTH array of primitives) */
 function useDebouncedEffect(
   effect: () => void,
   deps: readonly unknown[],
-  delay = 500
+  delay = 400
 ) {
   const timeout = useRef<number | null>(null);
   useEffect(() => {
     if (timeout.current) window.clearTimeout(timeout.current);
-    timeout.current = window.setTimeout(() => {
-      effect();
-    }, delay);
-    return () => {
-      if (timeout.current) window.clearTimeout(timeout.current);
-    };
+    timeout.current = window.setTimeout(() => effect(), delay);
+    return () => timeout.current && window.clearTimeout(timeout.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
 
+/** Build an off-screen sizer that mirrors the public page container+grid.
+ * We read the width of the RIGHT column (main content), so our preview matches. */
+function usePublicMainWidth() {
+  const mainRef = useRef<HTMLDivElement | null>(null);
+  const [px, setPx] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setPx(Math.round(r.width));
+    };
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    update();
+
+    return () => ro.disconnect();
+  }, []);
+
+  // Render the offscreen sizer once
+  return {
+    px,
+    Sizer: () => (
+      <div
+        aria-hidden
+        className="fixed -left-[99999px] -top-[99999px] pointer-events-none opacity-0"
+      >
+        {/* container/gutters & grid copied from public page */}
+        <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
+          <aside />
+          <main ref={mainRef} />
+        </div>
+      </div>
+    ),
+  };
+}
+
+/** Strip all editor-only UI & attributes before saving HTML */
+function snapshotCleanHTML(root: HTMLElement): string {
+  const node = root.cloneNode(true) as HTMLElement;
+
+  // Remove editor-only elements
+  node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
+
+  // Remove temporary editor border/decor class
+  node
+    .querySelectorAll(".flow-editor-decor")
+    .forEach((el) => el.classList.remove("flow-editor-decor"));
+
+  // Remove contenteditable & data flags
+  node.querySelectorAll("[contenteditable], [data-editing]").forEach((el) => {
+    el.removeAttribute("contenteditable");
+    el.removeAttribute("data-editing");
+  });
+
+  return (node.innerHTML || "").trim();
+}
+
 /* -------------------------------------------------------------- */
-/* Image Picker Modal: reads true image ratios                     */
+/* Image Picker Modal                                             */
 /* -------------------------------------------------------------- */
 
 function GalleryBrowserModal({
@@ -232,7 +289,7 @@ function GalleryBrowserModal({
 }
 
 /* -------------------------------------------------------------- */
-/* PartComposer: manual builder + clean snapshot                   */
+/* PartComposer (manual builder + snapshot)                       */
 /* -------------------------------------------------------------- */
 
 function CardHeader({
@@ -249,7 +306,7 @@ function CardHeader({
   const resolvedIcon = iconKey === "custom" ? "history-background" : iconKey;
 
   return (
-    <div className="flex items-center gap-3 mb-4">
+    <div className="flex items-center gap-3 mb-3">
       <span
         className="grid place-items-center w-9 h-9 rounded-full"
         style={{ backgroundColor: "#F78300" }}
@@ -259,25 +316,6 @@ function CardHeader({
       <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
     </div>
   );
-}
-
-function labelForKind(k: SectionKind): string {
-  switch (k) {
-    case "image-left-text-right":
-      return "Image Left / Text Right";
-    case "image-right-text-left":
-      return "Image Right / Text Left";
-    case "full-width-text":
-      return "Full-width Text";
-    case "full-width-image":
-      return "Full-width Image";
-    case "two-images":
-      return "Two Images";
-    case "three-images":
-      return "Three Images";
-    default:
-      return k.replaceAll("-", " ");
-  }
 }
 
 function PartComposer({
@@ -316,7 +354,9 @@ function PartComposer({
   }, [JSON.stringify(initialSections || [])]);
 
   const previewRef = useRef<HTMLDivElement>(null);
-  const snapshotRef = useRef<HTMLDivElement>(null);
+
+  // sizing that mirrors the public page
+  const { px: publicMainWidth, Sizer } = usePublicMainWidth();
 
   // pick image via gallery modal handshake
   const [showGallery, setShowGallery] = useState(false);
@@ -336,89 +376,105 @@ function PartComposer({
       };
     });
 
-  const handleFlowChange = (next: FlowSection[]) => {
-    setSections(next);
-    onSectionsChange(next);
+  /* ---- outside controls ---- */
+
+  const addSection = (kind: SectionKind) => {
+    const base = { type: kind, paddingY: "sm", bg: "none" } as FlowSection;
+    const next: FlowSection =
+      kind === "full-width-image"
+        ? { ...base, images: [{ slotId: "fw-1" }] }
+        : kind === "two-images"
+        ? { ...base, images: [{ slotId: "slot_1" }, { slotId: "slot_2" }] }
+        : kind === "three-images"
+        ? {
+            ...base,
+            images: [
+              { slotId: "slot_1" },
+              { slotId: "slot_2" },
+              { slotId: "slot_3" },
+            ],
+          }
+        : kind === "image-left-text-right"
+        ? { ...base, images: [{ slotId: "left-1" }], text: { text: "" } }
+        : kind === "image-right-text-left"
+        ? { ...base, images: [{ slotId: "right-1" }], text: { text: "" } }
+        : { ...base, text: { text: "" } };
+
+    const arr = [...sections, next];
+    setSections(arr);
+    onSectionsChange(arr);
   };
 
-  // sidebar controls
-  const addSection = (kind: SectionKind) =>
-    handleFlowChange([...(sections || []), makeSection(kind)]);
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
+  const moveSection = (idx: number, dir: -1 | 1) => {
+    const j = idx + dir;
     if (j < 0 || j >= sections.length) return;
-    const next = [...sections];
-    const [s] = next.splice(i, 1);
-    next.splice(j, 0, s);
-    handleFlowChange(next);
-  };
-  const remove = (i: number) => {
-    const next = [...sections];
-    next.splice(i, 1);
-    handleFlowChange(next);
+    const arr = [...sections];
+    const [s] = arr.splice(idx, 1);
+    arr.splice(j, 0, s);
+    setSections(arr);
+    onSectionsChange(arr);
   };
 
-  // Persist the snapshot from a clean, readonly mirror
+  const deleteSection = (idx: number) => {
+    const arr = [...sections];
+    arr.splice(idx, 1);
+    setSections(arr);
+    onSectionsChange(arr);
+  };
+
+  // Sync the snapshot; strip editor-only UI
   useDebouncedEffect(
     () => {
-      const html = (snapshotRef.current?.innerHTML || "").trim();
+      const root = previewRef.current;
+      if (!root) return onSnapshotChange(null);
+      const html = snapshotCleanHTML(root);
       onSnapshotChange(html && sections.length ? html : null);
     },
     [JSON.stringify(sections || [])] as const,
-    400
+    250
   );
 
   return (
-    <div className="space-y-4">
+    <>
+      <Sizer />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Preview card (wider) */}
-        <div className="lg:col-span-9">
-          <div className="rounded-2xl bg-white shadow-md border border-gray-200">
-            <div className="p-4 md:p-6">
-              <CardHeader title={title} iconKey={iconKey} />
-
-              {/* Visible, editable preview — hide toolbars/controls inside */}
-              <div ref={previewRef}>
-                <FlowComposer
-                  sections={sections}
-                  onChange={handleFlowChange}
-                  onPickImage={(slot) => pickImage(slot)}
-                  debugFrames={false}
-                  readonly={false}
-                  showToolbar={false}
-                  showControls={false}
-                />
-              </div>
-
-              {/* Hidden, readonly mirror → clean HTML snapshot */}
-              <div ref={snapshotRef} className="sr-only">
-                <FlowComposer
-                  sections={sections}
-                  onChange={() => {}}
-                  debugFrames={false}
-                  readonly={true}
-                />
-              </div>
+        <div className="lg:col-span-10">
+          <div
+            className="rounded-xl bg-white shadow-sm"
+            style={{
+              padding: 20,
+              width: publicMainWidth ? publicMainWidth : undefined,
+              maxWidth: "100%",
+              marginInline: "auto",
+            }}
+          >
+            <CardHeader title={title} iconKey={iconKey} />
+            <div ref={previewRef}>
+              <FlowComposer
+                sections={sections}
+                onChange={(arr) => {
+                  setSections(arr);
+                  onSectionsChange(arr);
+                }}
+                onPickImage={(slot) => pickImage(slot)}
+                showToolbar={false}
+                showControls={false}
+                debugFrames={false}
+              />
             </div>
           </div>
         </div>
 
         {/* Sidebar card (narrower) */}
-        <div className="lg:col-span-3">
-          <div className="rounded-2xl bg-white shadow-md border border-gray-200">
-            <div className="p-4 md:p-5 space-y-5">
-              <div className="text-sm text-gray-600">
-                Use the buttons below to add blocks. Click image areas to pick
-                photos, and click into text boxes to type. Text is capped to the
-                image column height.
-              </div>
-
-              {/* Add toolbar */}
+        <div className="lg:col-span-2">
+          <div className="rounded-xl bg-white shadow-sm border border-gray-200">
+            <div className="p-4 md:p-5 space-y-4">
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  Add a block
+                <div className="text-sm text-gray-600 mb-2">
+                  Build this section:
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(
                     [
                       ["image-left-text-right", "Image Left / Text Right"],
@@ -431,8 +487,7 @@ function PartComposer({
                   ).map(([k, label]) => (
                     <button
                       key={k}
-                      type="button"
-                      className="px-2.5 py-1.5 rounded-md border text-sm hover:bg-gray-50 active:bg-gray-100 text-left"
+                      className="px-2.5 py-1.5 rounded-md border text-xs hover:bg-gray-50"
                       onClick={() => addSection(k)}
                     >
                       {label}
@@ -441,52 +496,53 @@ function PartComposer({
                 </div>
               </div>
 
-              {/* Sections list with move/delete controls */}
-              <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  Sections
-                </div>
-                {sections.length === 0 ? (
-                  <div className="text-xs text-gray-500">
-                    No sections yet. Use “Add a block”.
+              {sections.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium text-gray-800 mb-2">
+                    Sections
                   </div>
-                ) : (
-                  <ul className="space-y-2">
+                  <div className="space-y-2">
                     {sections.map((s, i) => (
-                      <li
-                        key={s.id || i}
-                        className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-2 py-1.5"
+                      <div
+                        key={i}
+                        className="flex items-center justify-between gap-2 text-xs border rounded-md px-2 py-1"
                       >
-                        <span className="text-xs text-gray-700 truncate">
-                          {labelForKind(s.type as SectionKind)}
+                        <span className="truncate">
+                          {s.type.replaceAll("-", " ")}
                         </span>
-                        <span className="shrink-0 flex gap-1">
+                        <div className="flex items-center gap-1">
                           <button
-                            className="px-2 py-0.5 text-xs rounded-md border hover:bg-gray-50"
-                            onClick={() => move(i, -1)}
+                            className="px-2 py-0.5 rounded border hover:bg-gray-50"
+                            onClick={() => moveSection(i, -1)}
                             title="Move up"
                           >
                             ↑
                           </button>
                           <button
-                            className="px-2 py-0.5 text-xs rounded-md border hover:bg-gray-50"
-                            onClick={() => move(i, +1)}
+                            className="px-2 py-0.5 rounded border hover:bg-gray-50"
+                            onClick={() => moveSection(i, +1)}
                             title="Move down"
                           >
                             ↓
                           </button>
                           <button
-                            className="px-2 py-0.5 text-xs rounded-md border text-red-600 hover:bg-red-50"
-                            onClick={() => remove(i)}
+                            className="px-2 py-0.5 rounded border text-red-600 hover:bg-red-50"
+                            onClick={() => deleteSection(i)}
                             title="Delete"
                           >
-                            Delete
+                            ✕
                           </button>
-                        </span>
-                      </li>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                )}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500">
+                Tip: Click an image area to pick a photo. Click inside a text
+                box to edit inline. Editor borders & controls are removed from
+                the published page automatically.
               </div>
             </div>
           </div>
@@ -502,12 +558,12 @@ function PartComposer({
         }}
         siteId={siteId}
       />
-    </div>
+    </>
   );
 }
 
 /* -------------------------------------------------------------- */
-/* Custom Sections helpers                                         */
+/* Custom Sections helpers                                        */
 /* -------------------------------------------------------------- */
 
 function newCustomSection(): CustomSection {
@@ -524,25 +580,21 @@ function newCustomSection(): CustomSection {
 }
 
 /* -------------------------------------------------------------- */
-/* Exported page component                                         */
+/* Exported page component                                        */
 /* -------------------------------------------------------------- */
 
 export default function ArticlesSection({
   siteId,
-
   /* manual builder data per default part (existing *_layout_json) */
   history_layout_json,
   architecture_layout_json,
   climate_layout_json,
-
   /* snapshots (passed through) */
   history_layout_html,
   architecture_layout_html,
   climate_layout_html,
-
   /* custom sections (manual) */
   custom_sections_json,
-
   onChange,
 }: ArticlesSectionProps) {
   const customSections = useMemo<CustomSection[]>(
@@ -552,7 +604,7 @@ export default function ArticlesSection({
   );
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/* History & Background */}
       <PartComposer
         siteId={siteId}
@@ -577,7 +629,7 @@ export default function ArticlesSection({
         }
       />
 
-      {/* Climate, Geography & Environment (optional) */}
+      {/* Climate, Geography & Environment */}
       <PartComposer
         siteId={siteId}
         title="Climate, Geography & Environment"
@@ -607,7 +659,7 @@ export default function ArticlesSection({
         </div>
 
         {customSections.length === 0 ? (
-          <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6 text-sm text-gray-500">
+          <div className="rounded-xl bg-white shadow-sm border border-gray-200 p-6 text-sm text-gray-500">
             No custom sections yet.
           </div>
         ) : (
@@ -615,32 +667,30 @@ export default function ArticlesSection({
             <div key={cs.id} className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Preview (wider) */}
-                <div className="lg:col-span-9">
-                  <div className="rounded-2xl bg-white shadow-md border border-gray-200">
-                    <div className="p-4 md:p-6">
-                      <CardHeader
-                        title={cs.title || "Untitled Section"}
-                        iconKey="custom"
-                      />
-                      <PartComposer
-                        siteId={siteId}
-                        title=""
-                        iconKey="custom"
-                        initialSections={cs.sections_json || []}
-                        onSectionsChange={(secs) =>
-                          updateCustom(idx, { sections_json: secs })
-                        }
-                        onSnapshotChange={(html) =>
-                          updateCustom(idx, { layout_html: html })
-                        }
-                      />
-                    </div>
+                <div className="lg:col-span-10">
+                  <div className="rounded-xl bg-white shadow-sm p-5">
+                    <CardHeader
+                      title={cs.title || "Untitled Section"}
+                      iconKey="custom"
+                    />
+                    <PartComposer
+                      siteId={siteId}
+                      title=""
+                      iconKey="custom"
+                      initialSections={cs.sections_json || []}
+                      onSectionsChange={(secs) =>
+                        updateCustom(idx, { sections_json: secs })
+                      }
+                      onSnapshotChange={(html) =>
+                        updateCustom(idx, { layout_html: html })
+                      }
+                    />
                   </div>
                 </div>
 
                 {/* Sidebar (narrower) */}
-                <div className="lg:col-span-3">
-                  <div className="rounded-2xl bg-white shadow-md border border-gray-200">
+                <div className="lg:col-span-2">
+                  <div className="rounded-xl bg-white shadow-sm border border-gray-200">
                     <div className="p-4 md:p-5 space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
