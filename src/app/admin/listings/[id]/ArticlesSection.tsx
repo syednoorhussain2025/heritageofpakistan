@@ -128,10 +128,17 @@ function snapshotCleanHTML(root: HTMLElement): string {
   // Remove editor-only elements
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
 
-  // Remove temporary editor border/decor class
-  node
-    .querySelectorAll(".flow-editor-decor")
-    .forEach((el) => el.classList.remove("flow-editor-decor"));
+  // Remove editor decoration classes applied to inline text blocks
+  node.querySelectorAll(".flow-editor-decor").forEach((el) => {
+    el.classList.remove(
+      "flow-editor-decor",
+      "ring-1",
+      "ring-dashed",
+      "ring-gray-300",
+      "rounded-lg",
+      "p-2"
+    );
+  });
 
   // Remove contenteditable & data flags
   node.querySelectorAll("[contenteditable], [data-editing]").forEach((el) => {
