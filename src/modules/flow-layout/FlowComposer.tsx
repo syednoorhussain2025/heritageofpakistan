@@ -67,19 +67,10 @@ function uid() {
   );
 }
 
-function padY(cls?: Section["paddingY"]) {
-  switch (cls) {
-    case "none":
-      return "";
-    case "sm":
-      return "py-4";
-    case "lg":
-      return "py-12";
-    case "md":
-    default:
-      // tighter default to reduce the inter-section feel
-      return "py-6";
-  }
+/** Return NO padding utilities. This also neutralizes any stored
+ *  paddingY value coming from older data. */
+function padY(_cls?: Section["paddingY"]) {
+  return "";
 }
 
 function panel(bg?: Section["bg"]) {
@@ -88,7 +79,7 @@ function panel(bg?: Section["bg"]) {
     : "";
 }
 
-/** Combine base panel/padding with optional extra cssClass */
+/** Combine base panel (no padding) with optional extra cssClass */
 function wrapClass(sec: Section) {
   return [padY(sec.paddingY), panel(sec.bg), sec.cssClass]
     .filter(Boolean)
@@ -904,8 +895,8 @@ export default function FlowComposer({
         />
       ) : null}
 
-      {/* tighter spacing between sections */}
-      <div className="space-y-3">
+      {/* ZERO spacing between sections by default */}
+      <div className="space-y-0">
         {/* Hidden in our editor since we moved it to the sidebar */}
         <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
 
@@ -1073,8 +1064,8 @@ export function makeSection(kind: SectionKind): Section {
   const base: Section = {
     id: uid(),
     type: kind,
-    // smaller internal padding by default to reduce the perceived gap
-    paddingY: "sm",
+    // ZERO internal padding by default (you can add via settings later)
+    paddingY: "none",
     bg: "none",
   };
 
