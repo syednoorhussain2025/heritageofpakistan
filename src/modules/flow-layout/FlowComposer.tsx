@@ -16,7 +16,8 @@ export type SectionKind =
 export type ImageSlot = {
   src?: string;
   alt?: string | null;
-  caption?: string | null;
+  caption?: string | null; // per-article override
+  galleryCaption?: string | null; // inherited from gallery at pick time (fallback)
   href?: string | null;
   aspectRatio?: number; // for galleries/full width; side images standardized to 3/4
   /** composite slot key (optional for your picker) */
@@ -155,19 +156,118 @@ function usePairHeightLock(
   return minPx;
 }
 
+/* --------------------------- Shared helpers --------------------------- */
+
+function effectiveCaption(slot: ImageSlot): string | null {
+  // Prefer per-article override; otherwise fall back to gallery caption.
+  const c = (slot.caption ?? "").trim();
+  if (c) return c;
+  const g = (slot.galleryCaption ?? "").trim();
+  return g || null;
+}
+
+/* --------------------------- Caption Modal --------------------------- */
+
+function CaptionModal({
+  initial,
+  galleryCaption,
+  onSave,
+  onCancel,
+  onRevert,
+}: {
+  initial: string;
+  galleryCaption?: string | null;
+  onSave: (value: string | null) => void;
+  onCancel: () => void;
+  onRevert?: () => void;
+}) {
+  const [value, setValue] = React.useState<string>(initial);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      data-edit-only
+    >
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+        <div className="px-4 py-3 border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900">
+            Edit Image Caption
+          </h3>
+        </div>
+        <div className="p-4 space-y-3">
+          <textarea
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            rows={4}
+            placeholder="Add a caption (per-article override)…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          {typeof galleryCaption === "string" && galleryCaption.trim() ? (
+            <div className="text-xs text-gray-500">
+              Gallery caption: <em>{galleryCaption}</em>
+            </div>
+          ) : null}
+        </div>
+        <div className="px-4 py-3 border-t border-gray-200 flex items-center gap-2 justify-end">
+          {onRevert ? (
+            <button
+              type="button"
+              className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              onClick={() => onRevert()}
+              title="Use gallery caption instead"
+            >
+              Revert to Gallery
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+            onClick={() => onCancel()}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-900"
+            onClick={() => onSave(value.trim() ? value.trim() : null)}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------- Image Figure --------------------------- */
+
+// simple inline pencil icon (no external deps)
+function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M13.586 3.586a2 2 0 112.828 2.828l-9.193 9.193a2 2 0 01-.878.503l-3.12.78a.5.5 0 01-.606-.606l.78-3.12a2 2 0 01.503-.878l9.193-9.193zM12.172 5l2.828 2.828" />
+    </svg>
+  );
+}
 
 function Figure({
   slot,
   sidePortraitLock = false,
   onPick,
   onReset,
+  onOpenCaption,
   readonly,
 }: {
   slot: ImageSlot;
   sidePortraitLock?: boolean;
   onPick?: (slotId?: string) => void;
   onReset?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const hasImg = !!slot.src;
@@ -199,6 +299,8 @@ function Figure({
     />
   ) : null;
 
+  const displayCaption = effectiveCaption(slot);
+
   return (
     <figure className="w-full group">
       <div
@@ -213,7 +315,7 @@ function Figure({
           <Placeholder minH={sidePortraitLock ? 280 : 240}>Image</Placeholder>
         )}
 
-        {!readonly && (onPick || onReset) && (
+        {!readonly && (onPick || onReset || onOpenCaption) && (
           <div
             className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
             data-edit-only
@@ -224,7 +326,7 @@ function Figure({
                 onClick={() => onPick?.(slot.slotId)}
                 className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg-black"
               >
-                {hasImg ? "Change" : "Pick image"}
+                {hasImg ? "Change" : "Pick"}
               </button>
             )}
             {hasImg && onReset && (
@@ -236,12 +338,25 @@ function Figure({
                 Reset
               </button>
             )}
+            {hasImg && onOpenCaption && (
+              <button
+                type="button"
+                onClick={() => onOpenCaption?.(slot)}
+                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg-white inline-flex items-center gap-1"
+                title="Edit caption"
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
           </div>
         )}
       </div>
-      {slot.caption ? (
+
+      {/* PUBLIC CAPTION (override -> fallback) */}
+      {displayCaption ? (
         <figcaption className="mt-2 text-sm text-gray-500 text-center">
-          {slot.caption}
+          {displayCaption}
         </figcaption>
       ) : null}
     </figure>
@@ -337,12 +452,14 @@ function ImageLeftTextRight({
   onChangeText,
   onPickImage,
   onResetImage,
+  onOpenCaption,
   readonly,
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const img = (sec.images || [])[0] || { slotId: "left-1" };
@@ -360,6 +477,7 @@ function ImageLeftTextRight({
             sidePortraitLock
             onPick={onPickImage}
             onReset={onResetImage}
+            onOpenCaption={onOpenCaption}
             readonly={readonly}
           />
         </div>
@@ -394,12 +512,14 @@ function ImageRightTextLeft({
   onChangeText,
   onPickImage,
   onResetImage,
+  onOpenCaption,
   readonly,
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const img = (sec.images || [])[0] || { slotId: "right-1" };
@@ -438,6 +558,7 @@ function ImageRightTextLeft({
             sidePortraitLock
             onPick={onPickImage}
             onReset={onResetImage}
+            onOpenCaption={onOpenCaption}
             readonly={readonly}
           />
         </div>
@@ -450,11 +571,13 @@ function TwoImages({
   sec,
   onPickImage,
   onResetImage,
+  onOpenCaption,
   readonly,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const imgs = (sec.images || []).slice(0, 2);
@@ -462,15 +585,19 @@ function TwoImages({
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[0, 1].map((i) => (
-          <Figure
-            key={i}
-            slot={ensure(i)}
-            onPick={onPickImage}
-            onReset={onResetImage}
-            readonly={readonly}
-          />
-        ))}
+        {[0, 1].map((i) => {
+          const img = ensure(i);
+          return (
+            <Figure
+              key={i}
+              slot={img}
+              onPick={onPickImage}
+              onReset={onResetImage}
+              onOpenCaption={onOpenCaption}
+              readonly={readonly}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -480,11 +607,13 @@ function ThreeImages({
   sec,
   onPickImage,
   onResetImage,
+  onOpenCaption,
   readonly,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const imgs = (sec.images || []).slice(0, 3);
@@ -492,15 +621,19 @@ function ThreeImages({
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[0, 1, 2].map((i) => (
-          <Figure
-            key={i}
-            slot={ensure(i)}
-            onPick={onPickImage}
-            onReset={onResetImage}
-            readonly={readonly}
-          />
-        ))}
+        {[0, 1, 2].map((i) => {
+          const img = ensure(i);
+          return (
+            <Figure
+              key={i}
+              slot={img}
+              onPick={onPickImage}
+              onReset={onResetImage}
+              onOpenCaption={onOpenCaption}
+              readonly={readonly}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -510,11 +643,13 @@ function FullWidthImage({
   sec,
   onPickImage,
   onResetImage,
+  onOpenCaption,
   readonly,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
 }) {
   const img = (sec.images || [])[0] || { slotId: "fw-1" };
@@ -524,6 +659,7 @@ function FullWidthImage({
         slot={img}
         onPick={onPickImage}
         onReset={onResetImage}
+        onOpenCaption={onOpenCaption}
         readonly={readonly}
       />
     </div>
@@ -607,6 +743,12 @@ export default function FlowComposer({
   showControls = true,
   readonly = false,
 }: FlowComposerProps) {
+  const [captionEdit, setCaptionEdit] = React.useState<{
+    slotId?: string;
+    initial: string;
+    gallery?: string | null;
+  } | null>(null);
+
   const addSection = (kind: SectionKind) => {
     const next = [...(sections || []), makeSection(kind)];
     onChange(next);
@@ -633,6 +775,18 @@ export default function FlowComposer({
     onChange(next);
   };
 
+  // Helper: update a specific image slot within a section
+  const patchSlot = (
+    secIdx: number,
+    slotIdx: number,
+    patch: Partial<ImageSlot>
+  ) => {
+    const sec = sections[secIdx];
+    const imgs = [...(sec.images || [])];
+    imgs[slotIdx] = { ...(imgs[slotIdx] || {}), ...patch };
+    updateSection(secIdx, { images: imgs });
+  };
+
   const pickForSlot = async (idx: number, slotIdx = 0) => {
     if (!onPickImage || readonly) return;
     const sec = sections[idx];
@@ -641,178 +795,275 @@ export default function FlowComposer({
       `${sec.type}-${idx}-${slotIdx}`;
     const picked = await onPickImage(slotId);
     if (!picked) return;
+
+    // Capture gallery caption as fallback at pick time.
+    const galleryCaption =
+      typeof picked.caption === "string" && picked.caption.trim().length > 0
+        ? picked.caption
+        : null;
+
     const images = [...(sec.images || [])];
-    images[slotIdx] = { ...images[slotIdx], ...picked, slotId };
+    images[slotIdx] = {
+      ...images[slotIdx],
+      ...picked,
+      slotId,
+      // Set both: override defaults to gallery caption initially.
+      caption: galleryCaption,
+      galleryCaption,
+    };
     updateSection(idx, { images });
   };
 
   const resetSlot = (idx: number, slotIdx = 0) => {
     if (readonly) return;
     const sec = sections[idx];
+    const prev = (sec.images || [])[slotIdx];
     const images = [...(sec.images || [])];
-    images[slotIdx] = { slotId: images[slotIdx]?.slotId || undefined };
+    images[slotIdx] = {
+      slotId: prev?.slotId || undefined,
+      // wipe image data
+      src: undefined,
+      alt: null,
+      href: null,
+      aspectRatio: undefined,
+      // captions cleared
+      caption: null,
+      galleryCaption: null,
+    };
     updateSection(idx, { images });
   };
+
+  const setSlotCaptionById = (
+    slotId: string | undefined,
+    caption: string | null
+  ) => {
+    if (!slotId) return;
+    const next = sections.map((sec) => {
+      if (!sec.images?.length) return sec;
+      let changed = false;
+      const imgs = sec.images.map((img) => {
+        if (img.slotId === slotId) {
+          changed = true;
+          return { ...img, caption }; // null -> fallback to gallery on render
+        }
+        return img;
+      });
+      return changed ? { ...sec, images: imgs } : sec;
+    });
+    onChange(next);
+  };
+
+  const revertSlotCaptionById = (slotId: string | undefined) => {
+    if (!slotId) return;
+    const next = sections.map((sec) => {
+      if (!sec.images?.length) return sec;
+      let changed = false;
+      const imgs = sec.images.map((img) => {
+        if (img.slotId === slotId) {
+          changed = true;
+          return { ...img, caption: null };
+        }
+        return img;
+      });
+      return changed ? { ...sec, images: imgs } : sec;
+    });
+    onChange(next);
+  };
+
+  const openCaptionEditor = (slot: ImageSlot) => {
+    const initial = (slot.caption ?? "") || "";
+    setCaptionEdit({
+      slotId: slot.slotId,
+      initial,
+      gallery: slot.galleryCaption ?? null,
+    });
+  };
+
+  const closeCaptionEditor = () => setCaptionEdit(null);
 
   if (!Array.isArray(sections)) {
     return null;
   }
 
   return (
-    // tighter spacing between sections
-    <div className="space-y-3">
-      {/* Hidden in our editor since we moved it to the sidebar */}
-      <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
-
-      {sections.length === 0 && !readonly && showToolbar ? (
-        <div
-          className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600"
-          data-edit-only
-        >
-          No sections yet. Use the buttons above to add your first section.
-        </div>
+    <>
+      {/* Caption modal (editor-only) */}
+      {!readonly && captionEdit ? (
+        <CaptionModal
+          initial={captionEdit.initial}
+          galleryCaption={captionEdit.gallery ?? ""}
+          onCancel={closeCaptionEditor}
+          onRevert={() => {
+            revertSlotCaptionById(captionEdit.slotId);
+            closeCaptionEditor();
+          }}
+          onSave={(val) => {
+            setSlotCaptionById(captionEdit.slotId, val);
+            closeCaptionEditor();
+          }}
+        />
       ) : null}
 
-      {sections.map((sec, idx) => {
-        const key = sec.id || `${sec.type}-${idx}`;
-        const frame = debugFrames
-          ? "relative ring-1 ring-dashed ring-emerald-300 rounded-xl p-1"
-          : "";
+      {/* tighter spacing between sections */}
+      <div className="space-y-3">
+        {/* Hidden in our editor since we moved it to the sidebar */}
+        <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
 
-        const controls =
-          readonly || !showControls ? null : (
-            <div className="flex gap-2 mb-2" data-edit-only>
-              <button
-                className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
-                onClick={() => moveSection(idx, -1)}
-              >
-                ↑ Move up
-              </button>
-              <button
-                className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
-                onClick={() => moveSection(idx, +1)}
-              >
-                ↓ Move down
-              </button>
-              <button
-                className="px-2 py-1 text-xs rounded-md border text-red-600 hover:bg-red-50"
-                onClick={() => removeSection(idx)}
-              >
-                Delete
-              </button>
-            </div>
-          );
+        {sections.length === 0 && !readonly && showToolbar ? (
+          <div
+            className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600"
+            data-edit-only
+          >
+            No sections yet. Use the buttons above to add your first section.
+          </div>
+        ) : null}
 
-        switch (sec.type) {
-          case "image-left-text-right":
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <ImageLeftTextRight
-                  sec={sec}
-                  onChangeText={(v) =>
-                    updateSection(idx, {
-                      text: { ...(sec.text || {}), text: v },
-                    })
-                  }
-                  onPickImage={() => pickForSlot(idx, 0)}
-                  onResetImage={() => resetSlot(idx, 0)}
-                  readonly={readonly}
-                />
+        {sections.map((sec, idx) => {
+          const key = sec.id || `${sec.type}-${idx}`;
+          const frame = debugFrames
+            ? "relative ring-1 ring-dashed ring-emerald-300 rounded-xl p-1"
+            : "";
+
+          const controls =
+            readonly || !showControls ? null : (
+              <div className="flex gap-2 mb-2" data-edit-only>
+                <button
+                  className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
+                  onClick={() => moveSection(idx, -1)}
+                >
+                  ↑ Move up
+                </button>
+                <button
+                  className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
+                  onClick={() => moveSection(idx, +1)}
+                >
+                  ↓ Move down
+                </button>
+                <button
+                  className="px-2 py-1 text-xs rounded-md border text-red-600 hover:bg-red-50"
+                  onClick={() => removeSection(idx)}
+                >
+                  Delete
+                </button>
               </div>
             );
-          case "image-right-text-left":
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <ImageRightTextLeft
-                  sec={sec}
-                  onChangeText={(v) =>
-                    updateSection(idx, {
-                      text: { ...(sec.text || {}), text: v },
-                    })
-                  }
-                  onPickImage={() => pickForSlot(idx, 0)}
-                  onResetImage={() => resetSlot(idx, 0)}
-                  readonly={readonly}
-                />
-              </div>
-            );
-          case "two-images":
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <TwoImages
-                  sec={sec}
-                  onPickImage={(slotId) =>
-                    pickForSlot(
-                      idx,
-                      Number((slotId as any)?.split("_")[1]) - 1 || 0
-                    )
-                  }
-                  onResetImage={(slotId) =>
-                    resetSlot(
-                      idx,
-                      Number((slotId as any)?.split("_")[1]) - 1 || 0
-                    )
-                  }
-                  readonly={readonly}
-                />
-              </div>
-            );
-          case "three-images":
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <ThreeImages
-                  sec={sec}
-                  onPickImage={(slotId) =>
-                    pickForSlot(
-                      idx,
-                      Number((slotId as any)?.split("_")[1]) - 1 || 0
-                    )
-                  }
-                  onResetImage={(slotId) =>
-                    resetSlot(
-                      idx,
-                      Number((slotId as any)?.split("_")[1]) - 1 || 0
-                    )
-                  }
-                  readonly={readonly}
-                />
-              </div>
-            );
-          case "full-width-image":
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <FullWidthImage
-                  sec={sec}
-                  onPickImage={() => pickForSlot(idx, 0)}
-                  onResetImage={() => resetSlot(idx, 0)}
-                  readonly={readonly}
-                />
-              </div>
-            );
-          case "full-width-text":
-          default:
-            return (
-              <div key={key} className={frame}>
-                {controls}
-                <FullWidthText
-                  sec={sec}
-                  onChangeText={(v) =>
-                    updateSection(idx, {
-                      text: { ...(sec.text || {}), text: v },
-                    })
-                  }
-                  readonly={readonly}
-                />
-              </div>
-            );
-        }
-      })}
-    </div>
+
+          switch (sec.type) {
+            case "image-left-text-right":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <ImageLeftTextRight
+                    sec={sec}
+                    onChangeText={(v) =>
+                      updateSection(idx, {
+                        text: { ...(sec.text || {}), text: v },
+                      })
+                    }
+                    onPickImage={() => pickForSlot(idx, 0)}
+                    onResetImage={() => resetSlot(idx, 0)}
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "image-right-text-left":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <ImageRightTextLeft
+                    sec={sec}
+                    onChangeText={(v) =>
+                      updateSection(idx, {
+                        text: { ...(sec.text || {}), text: v },
+                      })
+                    }
+                    onPickImage={() => pickForSlot(idx, 0)}
+                    onResetImage={() => resetSlot(idx, 0)}
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "two-images":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <TwoImages
+                    sec={sec}
+                    onPickImage={(slotId) =>
+                      pickForSlot(
+                        idx,
+                        Number((slotId as any)?.split("_")[1]) - 1 || 0
+                      )
+                    }
+                    onResetImage={(slotId) =>
+                      resetSlot(
+                        idx,
+                        Number((slotId as any)?.split("_")[1]) - 1 || 0
+                      )
+                    }
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "three-images":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <ThreeImages
+                    sec={sec}
+                    onPickImage={(slotId) =>
+                      pickForSlot(
+                        idx,
+                        Number((slotId as any)?.split("_")[1]) - 1 || 0
+                      )
+                    }
+                    onResetImage={(slotId) =>
+                      resetSlot(
+                        idx,
+                        Number((slotId as any)?.split("_")[1]) - 1 || 0
+                      )
+                    }
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "full-width-image":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <FullWidthImage
+                    sec={sec}
+                    onPickImage={() => pickForSlot(idx, 0)}
+                    onResetImage={() => resetSlot(idx, 0)}
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "full-width-text":
+            default:
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <FullWidthText
+                    sec={sec}
+                    onChangeText={(v) =>
+                      updateSection(idx, {
+                        text: { ...(sec.text || {}), text: v },
+                      })
+                    }
+                    readonly={readonly}
+                  />
+                </div>
+              );
+          }
+        })}
+      </div>
+    </>
   );
 }
 

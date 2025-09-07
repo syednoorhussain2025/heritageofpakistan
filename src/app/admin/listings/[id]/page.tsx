@@ -778,22 +778,18 @@ function ListingForm({
         <Section title="Article" id="articles">
           <ArticlesSection
             siteId={form.id}
-            /* defaults */
-            history_content={form.history_content || ""}
-            architecture_content={form.architecture_content || ""}
-            climate_env_content={form.climate_env_content || ""}
-            history_template_id={form.history_template_id || null}
-            architecture_template_id={form.architecture_template_id || null}
-            climate_template_id={form.climate_template_id || null}
-            history_images_json={form.history_images_json || {}}
-            architecture_images_json={form.architecture_images_json || {}}
-            climate_images_json={form.climate_images_json || {}}
-            history_layout_html={form.history_layout_html}
-            architecture_layout_html={form.architecture_layout_html}
-            climate_layout_html={form.climate_layout_html}
-            /* custom sections (NEW) */
+            /* pass JSON builder state to rehydrate editor */
+            history_layout_json={form.history_layout_json || []}
+            architecture_layout_json={form.architecture_layout_json || []}
+            climate_layout_json={form.climate_layout_json || []}
+            /* pass HTML snapshots used by public page */
+            history_layout_html={form.history_layout_html || null}
+            architecture_layout_html={form.architecture_layout_html || null}
+            climate_layout_html={form.climate_layout_html || null}
+            /* custom sections */
             custom_sections_json={form.custom_sections_json || []}
-            /* merge all changes */
+            /* merge ALL patches (JSON + HTML) into form;
+               they will be persisted when you click Save Changes */
             onChange={(patch) =>
               setForm((prev: any) => ({ ...prev, ...patch }))
             }

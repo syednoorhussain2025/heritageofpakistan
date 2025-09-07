@@ -211,7 +211,7 @@ function GalleryBrowserModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-height-[80vh] max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             Select an Image
@@ -604,9 +604,13 @@ export default function ArticlesSection({
   custom_sections_json,
   onChange,
 }: ArticlesSectionProps) {
+  // IMPORTANT: preserve sections_json coming from DB (don't overwrite with [])
   const customSections = useMemo<CustomSection[]>(
     () =>
-      (custom_sections_json || []).map((s) => ({ sections_json: [], ...s })),
+      (custom_sections_json || []).map((s) => ({
+        ...s,
+        sections_json: s.sections_json ?? [],
+      })),
     [custom_sections_json]
   );
 
