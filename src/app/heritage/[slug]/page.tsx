@@ -1,7 +1,8 @@
 // src/app/heritage/[slug]/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -11,7 +12,8 @@ import { useBookmarks } from "@/components/BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import ReviewsTab from "@/components/reviews/ReviewsTab";
-import StickyHeader from "@/components/StickyHeader"; // component action bar
+import StickyHeader from "@/components/StickyHeader";
+import CollectHeart from "@/components/CollectHeart";
 
 /* ───────────── UI helpers ───────────── */
 
@@ -44,7 +46,6 @@ function IconChip({
   );
 }
 
-/** Shared section component — heading size reduced & brand-aligned */
 function Section({
   title,
   iconName,
@@ -80,7 +81,6 @@ function Section({
   );
 }
 
-/** Sidebar key/value rows — lighter dividers, bold key, normal value */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
   if (v === null || v === undefined || v === "") return null;
   return (
@@ -96,20 +96,17 @@ function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
 function SkeletonBar({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-gray-200 ${className}`} />;
 }
-
 function SkeletonCircle({ className = "" }: { className?: string }) {
   return (
     <div className={`animate-pulse rounded-full bg-gray-200 ${className}`} />
   );
 }
-
 function HeroSkeleton() {
   return (
     <div className="relative w-full h-screen">
       <div className="w-full h-full bg-gray-200 animate-pulse" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
       <div className="absolute inset-0 flex items-end">
-        {/* match page gutters for symmetry */}
         <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
           <div className="text-white">
             <SkeletonBar className="h-10 w-72 mb-3" />
@@ -130,7 +127,6 @@ function HeroSkeleton() {
     </div>
   );
 }
-
 function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-5">
@@ -141,7 +137,6 @@ function SidebarCardSkeleton({ lines = 4 }: { lines?: number }) {
     </div>
   );
 }
-
 function GallerySkeleton({ count = 6 }: { count?: number }) {
   return (
     <Section id="gallery" title="Photo Gallery" iconName="gallery">
@@ -157,7 +152,6 @@ function GallerySkeleton({ count = 6 }: { count?: number }) {
     </Section>
   );
 }
-
 function BibliographySkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <Section
@@ -175,7 +169,6 @@ function BibliographySkeleton({ rows = 4 }: { rows?: number }) {
     </Section>
   );
 }
-
 function ReviewsSkeleton() {
   return (
     <Section id="reviews" title="Traveler Reviews" iconName="star">
@@ -280,12 +273,7 @@ type Site = {
   stay_places_to_eat_available?: string | null;
 };
 
-type Taxonomy = {
-  id: string;
-  name: string;
-  icon_key: string | null;
-};
-
+type Taxonomy = { id: string; name: string; icon_key: string | null };
 type ImageRow = {
   id: string;
   site_id: string;
@@ -297,7 +285,6 @@ type ImageRow = {
   sort_order: number;
   publicUrl?: string | null;
 };
-
 type Bibliography = {
   id: string;
   site_id: string;
@@ -331,7 +318,6 @@ export default function HeritagePage() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Keep ref on main for future features if needed
   const contentRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -459,7 +445,6 @@ export default function HeritagePage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
           <div className="absolute inset-0 flex items-end">
-            {/* match page gutters for symmetry */}
             <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
               <div className="text-white">
                 <h1 className="font-hero-title">{site.title}</h1>
@@ -528,7 +513,7 @@ export default function HeritagePage() {
         />
       )}
 
-      {/* BODY: centered, equal side gutters; TWO columns (left sidebar + main) */}
+      {/* BODY */}
       <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
         {/* LEFT SIDEBAR */}
         <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
@@ -801,7 +786,7 @@ export default function HeritagePage() {
           )}
         </aside>
 
-        {/* RIGHT MAIN (scannable content) */}
+        {/* RIGHT MAIN */}
         <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
           {loading || !site ? (
             <>
@@ -815,7 +800,6 @@ export default function HeritagePage() {
             </>
           ) : (
             <>
-              {/* Photo Story section (main) */}
               <Section id="photostory" title="Photo Story" iconName="camera">
                 {hasPhotoStory ? (
                   <a
@@ -868,7 +852,7 @@ export default function HeritagePage() {
                   title="History and Background"
                   iconName="history-background"
                 >
-                  <Article html={site.history_layout_html} />
+                  <Article html={site.history_layout_html} siteId={site.id} />
                 </Section>
               ) : null}
 
@@ -878,7 +862,10 @@ export default function HeritagePage() {
                   title="Architecture and Design"
                   iconName="architecture-design"
                 >
-                  <Article html={site.architecture_layout_html} />
+                  <Article
+                    html={site.architecture_layout_html}
+                    siteId={site.id}
+                  />
                 </Section>
               ) : null}
 
@@ -888,11 +875,10 @@ export default function HeritagePage() {
                   title="Climate & Environment"
                   iconName="climate-topography"
                 >
-                  <Article html={site.climate_layout_html} />
+                  <Article html={site.climate_layout_html} siteId={site.id} />
                 </Section>
               ) : null}
 
-              {/* Custom sections with layout_html only */}
               {Array.isArray(site.custom_sections_json) &&
                 site.custom_sections_json
                   .filter(
@@ -905,7 +891,7 @@ export default function HeritagePage() {
                       title={cs.title}
                       iconName="history-background"
                     >
-                      <Article html={cs.layout_html!} />
+                      <Article html={cs.layout_html!} siteId={site.id} />
                     </Section>
                   ))}
 
@@ -970,7 +956,6 @@ export default function HeritagePage() {
                 </div>
               </Section>
 
-              {/* Bibliography */}
               <Section
                 id="bibliography"
                 title="Bibliography & Sources"
@@ -1011,12 +996,10 @@ export default function HeritagePage() {
                 )}
               </Section>
 
-              {/* Reviews */}
               <Section id="reviews" title="Traveler Reviews" iconName="star">
                 <ReviewsTab siteId={site.id} />
               </Section>
 
-              {/* Places Nearby (placeholder) */}
               <Section id="nearby" title="Places Nearby" iconName="map-pin">
                 <div
                   className="text-[13px]"
@@ -1047,7 +1030,6 @@ export default function HeritagePage() {
         />
       )}
 
-      {/* Ensure headings respect sticky header offset globally */}
       <style jsx global>{`
         :root {
           --sticky-offset: 72px;
@@ -1062,56 +1044,192 @@ export default function HeritagePage() {
   );
 }
 
-/* Sanitized HTML renderer for snapshots */
-function Article({ html }: { html: string }) {
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "p",
-      "img",
-      "hr",
-      "strong",
-      "em",
-      "u",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "br",
-      "span",
-      "a",
-      "figure",
-      "figcaption",
-      "div",
-      "section",
-    ],
-    ALLOWED_ATTR: [
-      "src",
-      "alt",
-      "title",
-      "style",
-      "href",
-      "target",
-      "rel",
-      "class",
-      "width",
-      "height",
-      "loading",
-      "id",
-    ],
-    ALLOWED_URI_REGEXP:
-      /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-  });
+/* ───────────── Article with single floating heart overlay ───────────── */
+
+function Article({ html, siteId }: { html: string; siteId: string }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  const clean = useMemo(
+    () =>
+      DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+          "p",
+          "img",
+          "hr",
+          "strong",
+          "em",
+          "u",
+          "ul",
+          "ol",
+          "li",
+          "blockquote",
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "br",
+          "span",
+          "a",
+          "figure",
+          "figcaption",
+          "div",
+          "section",
+        ],
+        ALLOWED_ATTR: [
+          "src",
+          "alt",
+          "title",
+          "style",
+          "href",
+          "target",
+          "rel",
+          "class",
+          "width",
+          "height",
+          "loading",
+          "id",
+        ],
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      }),
+    [html]
+  );
+
+  const [overlay, setOverlay] = useState<{
+    img: HTMLImageElement | null;
+    rect: DOMRect | null;
+    meta: {
+      imageUrl: string;
+      altText: string | null;
+      caption: string | null;
+    } | null;
+    visible: boolean;
+  }>({ img: null, rect: null, meta: null, visible: false });
+
+  // Wire listeners to show overlay
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const imgs = new Set<HTMLImageElement>();
+
+    const wire = (img: HTMLImageElement) => {
+      if (imgs.has(img)) return;
+      imgs.add(img);
+      img.addEventListener("mouseenter", onEnter);
+    };
+
+    const onEnter = (e: Event) => {
+      const img = e.currentTarget as HTMLImageElement;
+      const rect = img.getBoundingClientRect();
+
+      const container =
+        (img.closest("figure") as HTMLElement | null) ||
+        (img.parentElement as HTMLElement | null);
+      const capNode = container?.querySelector("figcaption");
+      const caption = capNode
+        ? (capNode.textContent || "").trim() || null
+        : null;
+
+      setOverlay({
+        img,
+        rect,
+        meta: {
+          imageUrl: img.getAttribute("src") || "",
+          altText: img.getAttribute("alt") || null,
+          caption,
+        },
+        visible: true,
+      });
+    };
+
+    // initial + observe late images
+    host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
+    const mo = new MutationObserver(() => {
+      host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
+    });
+    mo.observe(host, { childList: true, subtree: true });
+
+    return () => {
+      mo.disconnect();
+      imgs.forEach((img) => img.removeEventListener("mouseenter", onEnter));
+    };
+  }, [clean]);
+
+  // Keep position synced on scroll/resize
+  useEffect(() => {
+    if (!overlay.visible || !overlay.img) return;
+    const update = () => {
+      const rect = overlay.img!.getBoundingClientRect();
+      setOverlay((o) => ({ ...o, rect }));
+    };
+    const onScroll = () => requestAnimationFrame(update);
+    const onResize = () => requestAnimationFrame(update);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [overlay.visible, overlay.img]);
+
+  // Robust hide: if pointer is not over an article <img> OR the overlay, hide it
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const handleMove = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      const insideOverlay =
+        overlayRef.current && t ? overlayRef.current.contains(t) : false;
+      const isImg = t instanceof HTMLImageElement ? host.contains(t) : false;
+
+      if (!insideOverlay && !isImg) {
+        setOverlay({ img: null, rect: null, meta: null, visible: false });
+      }
+    };
+    document.addEventListener("mousemove", handleMove);
+    return () => document.removeEventListener("mousemove", handleMove);
+  }, []);
+
+  const overlayNode =
+    overlay.visible && overlay.rect && overlay.meta
+      ? createPortal(
+          <div
+            ref={overlayRef}
+            style={{
+              position: "fixed",
+              top: overlay.rect.top + 8,
+              left: overlay.rect.right - 8,
+              transform: "translateX(-100%)",
+              zIndex: 1000,
+              pointerEvents: "auto",
+            }}
+          >
+            {/* Pass siteId so DB insert works; CollectHeart shows toast via provider */}
+            <CollectHeart
+              variant="icon"
+              size={22}
+              siteId={siteId}
+              imageUrl={overlay.meta.imageUrl}
+              altText={overlay.meta.altText}
+              caption={overlay.meta.caption}
+            />
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
-    <div
-      className="prose max-w-none"
-      dangerouslySetInnerHTML={{ __html: clean }}
-    />
+    <>
+      <div
+        ref={hostRef}
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+      {overlayNode}
+    </>
   );
 }
