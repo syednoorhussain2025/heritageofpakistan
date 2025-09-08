@@ -490,7 +490,7 @@ function PartComposer({
   /* ---- outside controls ---- */
 
   const addSection = (kind: SectionKind) => {
-    const base = { type: kind, paddingY: "sm", bg: "none" } as FlowSection;
+    const base = { type: kind, paddingY: "none", bg: "none" } as FlowSection;
     const next: FlowSection =
       kind === "full-width-image"
         ? { ...base, images: [{ slotId: "fw-1" }] }

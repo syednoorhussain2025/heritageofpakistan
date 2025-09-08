@@ -67,10 +67,19 @@ function uid() {
   );
 }
 
-/** Return NO padding utilities. This also neutralizes any stored
- *  paddingY value coming from older data. */
-function padY(_cls?: Section["paddingY"]) {
-  return "";
+/** vertical padding inside a section (default: none) */
+function padY(cls?: Section["paddingY"]) {
+  switch (cls) {
+    case "sm":
+      return "py-4";
+    case "md":
+      return "py-6";
+    case "lg":
+      return "py-12";
+    case "none":
+    default:
+      return "";
+  }
 }
 
 function panel(bg?: Section["bg"]) {
@@ -79,7 +88,7 @@ function panel(bg?: Section["bg"]) {
     : "";
 }
 
-/** Combine base panel (no padding) with optional extra cssClass */
+/** Combine base panel/padding with optional extra cssClass */
 function wrapClass(sec: Section) {
   return [padY(sec.paddingY), panel(sec.bg), sec.cssClass]
     .filter(Boolean)
@@ -293,7 +302,9 @@ function Figure({
   const displayCaption = effectiveCaption(slot);
 
   return (
-    <figure className="w-full group">
+    <figure className="w-full group m-0">
+      {" "}
+      {/* margin reset to kill section gaps */}
       <div
         className={`relative w-full overflow-hidden rounded-xl ${
           hasImg ? "" : "bg-gray-50"
@@ -343,7 +354,6 @@ function Figure({
           </div>
         )}
       </div>
-
       {/* PUBLIC CAPTION (override -> fallback) */}
       {displayCaption ? (
         <figcaption className="mt-2 text-sm text-gray-500 text-center">
@@ -415,7 +425,7 @@ function InlineTextBlock({
         !readonly
           ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg p-2"
           : ""
-      }`}
+      } text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0`}
       style={{
         whiteSpace: "pre-wrap",
         minHeight:
@@ -428,6 +438,8 @@ function InlineTextBlock({
             : undefined,
         overflow: typeof maxHeightPx === "number" ? "hidden" : undefined,
         cursor: readonly ? "default" : "text",
+        textAlign: "justify",
+        textJustify: "inter-word",
       }}
       data-editing={!readonly || undefined}
     />
@@ -476,9 +488,11 @@ function ImageLeftTextRight({
           {readonly ? (
             textVal ? (
               <div
-                className="prose prose-gray max-w-none whitespace-pre-wrap"
+                className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
                 style={{
                   minHeight: typeof cap === "number" ? `${cap}px` : undefined,
+                  textAlign: "justify",
+                  textJustify: "inter-word",
                 }}
               >
                 {textVal}
@@ -526,9 +540,11 @@ function ImageRightTextLeft({
           {readonly ? (
             textVal ? (
               <div
-                className="prose prose-gray max-w-none whitespace-pre-wrap"
+                className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
                 style={{
                   minHeight: typeof cap === "number" ? `${cap}px` : undefined,
+                  textAlign: "justify",
+                  textJustify: "inter-word",
                 }}
               >
                 {textVal}
@@ -671,7 +687,13 @@ function FullWidthText({
     <div className={wrapClass(sec)} style={sec.style}>
       {readonly ? (
         textVal ? (
-          <div className="prose prose-gray max-w-none whitespace-pre-wrap">
+          <div
+            className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
+            style={{
+              textAlign: "justify",
+              textJustify: "inter-word",
+            }}
+          >
             {textVal}
           </div>
         ) : null
@@ -895,8 +917,8 @@ export default function FlowComposer({
         />
       ) : null}
 
-      {/* ZERO spacing between sections by default */}
-      <div className="space-y-0">
+      {/* ZERO spacing between section wrappers */}
+      <div className="[&>*]:mt-0 [&>*]:mb-0">
         {/* Hidden in our editor since we moved it to the sidebar */}
         <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
 
@@ -1064,7 +1086,7 @@ export function makeSection(kind: SectionKind): Section {
   const base: Section = {
     id: uid(),
     type: kind,
-    // ZERO internal padding by default (you can add via settings later)
+    // NO internal padding by default (fully tight). You can change per-section via paddingY.
     paddingY: "none",
     bg: "none",
   };
