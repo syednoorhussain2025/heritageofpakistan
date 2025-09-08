@@ -2,6 +2,15 @@
 "use client";
 
 import * as React from "react";
+import DOMPurify from "isomorphic-dompurify";
+
+/* ----------------------------- Tiptap ----------------------------- */
+import { EditorContent, useEditor, BubbleMenu } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Heading from "@tiptap/extension-heading";
+import TextStyle from "@tiptap/extension-text-style";
+import { Extension } from "@tiptap/core";
 
 /* ----------------------------- Types (UI) ----------------------------- */
 
@@ -25,6 +34,7 @@ export type ImageSlot = {
 };
 
 export type TextSlot = {
+  /** Stores sanitized HTML from Tiptap */
   text?: string;
 };
 
@@ -241,7 +251,6 @@ function CaptionModal({
 
 /* --------------------------- Image Figure --------------------------- */
 
-// simple inline pencil icon (no external deps)
 function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg
@@ -271,7 +280,6 @@ function Figure({
   readonly?: boolean;
 }) {
   const hasImg = !!slot.src;
-  // Standardize side images to 3/4 (portrait lock)
   const lockedRatio = sidePortraitLock ? 3 / 4 : slot.aspectRatio;
 
   const hasRatio =
@@ -279,7 +287,6 @@ function Figure({
     Number.isFinite(lockedRatio) &&
     lockedRatio > 0;
 
-  // Avoid a super-tall placeholder until an image exists.
   const useRatioBox = hasImg && hasRatio;
   const wrapStyle = useRatioBox
     ? { paddingTop: `${(1 / (lockedRatio as number)) * 100}%` }
@@ -303,8 +310,6 @@ function Figure({
 
   return (
     <figure className="w-full group m-0">
-      {" "}
-      {/* margin reset to kill section gaps */}
       <div
         className={`relative w-full overflow-hidden rounded-xl ${
           hasImg ? "" : "bg-gray-50"
@@ -354,13 +359,91 @@ function Figure({
           </div>
         )}
       </div>
-      {/* PUBLIC CAPTION (override -> fallback) */}
       {displayCaption ? (
         <figcaption className="mt-2 text-sm text-gray-500 text-center">
           {displayCaption}
         </figcaption>
       ) : null}
     </figure>
+  );
+}
+
+/* --------------------------- Tiptap helpers --------------------------- */
+
+/** Support line-height on paragraph and heading nodes */
+const LineHeight = Extension.create({
+  name: "lineHeight",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: (element) => element.style.lineHeight || null,
+            renderHTML: (attrs) => {
+              if (!attrs.lineHeight) return {};
+              return { style: `line-height:${attrs.lineHeight}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
+
+/** Toolbar button helper */
+function Btn({
+  active,
+  onClick,
+  title,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`px-2 py-1 text-xs rounded-md border ${
+        active
+          ? "bg-black text-white border-black"
+          : "bg-white hover:bg-gray-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  items,
+  title,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  items: { value: string; label: string }[];
+  title?: string;
+}) {
+  return (
+    <select
+      title={title}
+      className="px-2 py-1 text-xs rounded-md border bg-white"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {items.map((it) => (
+        <option key={it.value} value={it.value}>
+          {it.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -371,78 +454,257 @@ function InlineTextBlock({
   setValue,
   maxHeightPx,
   readonly,
+  /** Optional soft character limit (disabled by default) */
+  maxCharsSoft,
 }: {
+  /** HTML string (sanitized on save) */
   value: string;
   setValue: (v: string) => void;
   maxHeightPx?: number;
   readonly?: boolean;
+  maxCharsSoft?: number;
 }) {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const prevOk = React.useRef<string>(value || "");
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
+  const prevHtmlRef = React.useRef<string>(value || "");
+  const [overflowFlash, setOverflowFlash] = React.useState(false);
 
-  // keep DOM in sync when external value changes
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if ((el.textContent || "") !== (value || "")) {
-      el.textContent = value || "";
-    }
-    prevOk.current = value || "";
-  }, [value]);
-
-  const handleInput = () => {
-    if (readonly) return;
-    const el = ref.current;
-    if (!el) return;
-    const next = el.textContent || "";
-
-    if (typeof maxHeightPx === "number" && maxHeightPx > 0) {
-      // If the content makes the box taller than the cap, revert.
-      const tooTall = el.scrollHeight > el.clientHeight + 1;
-      if (tooTall) {
-        el.textContent = prevOk.current;
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        return;
+  // initialize editor
+  const editor = useEditor({
+    editable: !readonly,
+    extensions: [
+      StarterKit.configure({
+        heading: false, // controlled via Heading extension
+      }),
+      Heading.configure({ levels: [1, 2, 3, 4] }),
+      TextStyle,
+      LineHeight,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        HTMLAttributes: {
+          rel: "noopener noreferrer nofollow",
+          target: "_blank",
+        },
+      }),
+    ],
+    content: value || "",
+    onUpdate: ({ editor }) => {
+      // (1) Soft character cap (optional)
+      if (typeof maxCharsSoft === "number" && maxCharsSoft > 0) {
+        const txt = editor.state.doc.textBetween(
+          0,
+          editor.state.doc.content.size,
+          "\n"
+        );
+        if (txt.length > maxCharsSoft) {
+          editor.commands.undo();
+          flashOverflow();
+          return;
+        }
       }
-    }
 
-    prevOk.current = next;
-    setValue(next);
+      // (2) Sanitize and emit upstream
+      const html = editor.getHTML();
+      const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+      setValue(clean);
+
+      // (3) Height clamp: if overflow, undo and revert to previous good html
+      if (typeof maxHeightPx === "number" && maxHeightPx > 0) {
+        requestAnimationFrame(() => {
+          const el = wrapRef.current;
+          if (!el) return;
+
+          const overflows = el.scrollHeight > el.clientHeight + 1;
+          if (overflows) {
+            editor.commands.undo();
+            if (prevHtmlRef.current !== value) {
+              setValue(prevHtmlRef.current);
+            }
+            flashOverflow();
+          } else {
+            prevHtmlRef.current = clean;
+          }
+        });
+      } else {
+        prevHtmlRef.current = clean;
+      }
+    },
+  });
+
+  // keep editor in sync when external value changes
+  React.useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if ((value || "") !== (current || "")) {
+      editor.commands.setContent(value || "", false);
+      prevHtmlRef.current = value || "";
+    }
+  }, [value, editor]);
+
+  const flashOverflow = () => {
+    setOverflowFlash(true);
+    window.setTimeout(() => setOverflowFlash(false), 250);
   };
+
+  // line height setter
+  const setLH = (lh: string) => {
+    if (!editor) return;
+    const { $from } = editor.state.selection;
+    const parentName = $from.parent.type.name;
+    if (parentName === "heading") {
+      editor
+        .chain()
+        .focus()
+        .updateAttributes("heading", { lineHeight: lh })
+        .run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .updateAttributes("paragraph", { lineHeight: lh })
+        .run();
+    }
+  };
+
+  const currentBlock = React.useMemo(() => {
+    if (!editor) return "p";
+    if (editor.isActive("heading", { level: 1 })) return "h1";
+    if (editor.isActive("heading", { level: 2 })) return "h2";
+    if (editor.isActive("heading", { level: 3 })) return "h3";
+    if (editor.isActive("heading", { level: 4 })) return "h4";
+    return "p";
+  }, [editor, editor?.state?.selection?.from, editor?.state?.selection?.to]);
+
+  const wrapperClass =
+    "prose prose-gray max-w-none outline-none " +
+    (!readonly
+      ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg"
+      : "") +
+    " text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0";
 
   return (
     <div
-      ref={ref}
-      contentEditable={!readonly}
-      suppressContentEditableWarning
-      onInput={handleInput}
-      className={`prose prose-gray max-w-none outline-none ${
-        !readonly
-          ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg p-2"
-          : ""
-      } text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0`}
+      ref={wrapRef}
+      className={`${wrapperClass} ${overflowFlash ? "ring-red-400" : ""}`}
       style={{
-        whiteSpace: "pre-wrap",
         minHeight:
           typeof maxHeightPx === "number" && maxHeightPx > 0
-            ? `${maxHeightPx}px`
+            ? `${Math.max(120, maxHeightPx)}px`
             : undefined,
         maxHeight:
           typeof maxHeightPx === "number" && maxHeightPx > 0
             ? `${maxHeightPx}px`
             : undefined,
-        overflow: typeof maxHeightPx === "number" ? "hidden" : undefined,
+        overflow:
+          typeof maxHeightPx === "number" && maxHeightPx > 0
+            ? "hidden"
+            : undefined,
         cursor: readonly ? "default" : "text",
         textAlign: "justify",
         textJustify: "inter-word",
+        padding: !readonly ? "0.5rem" : undefined,
       }}
       data-editing={!readonly || undefined}
-    />
+    >
+      {editor?.isEditable && !readonly ? (
+        <BubbleMenu
+          editor={editor}
+          tippyOptions={{ duration: 150, placement: "top" }}
+          shouldShow={({ editor }) =>
+            editor.isFocused &&
+            (editor.isActive("paragraph") || editor.isActive("heading"))
+          }
+          className="flex items-center gap-1 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-1 z-50"
+          data-edit-only
+        >
+          {/* Block selector (fixed API) */}
+          <Select
+            title="Block type"
+            value={currentBlock}
+            onChange={(v) => {
+              const chain = editor.chain().focus();
+              if (v === "p") {
+                chain.setParagraph().run();
+              } else {
+                const level = Number(v.replace("h", "")) as 1 | 2 | 3 | 4;
+                chain.setHeading({ level }).run();
+              }
+            }}
+            items={[
+              { value: "p", label: "Paragraph" },
+              { value: "h1", label: "H1" },
+              { value: "h2", label: "H2" },
+              { value: "h3", label: "H3" },
+              { value: "h4", label: "H4" },
+            ]}
+          />
+
+          {/* Bold / Italic */}
+          <Btn
+            title="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
+            <span className="font-semibold">B</span>
+          </Btn>
+          <Btn
+            title="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <span className="italic">I</span>
+          </Btn>
+
+          {/* Line height */}
+          <Select
+            title="Line height"
+            value={"lh"}
+            onChange={(v) => setLH(v)}
+            items={[
+              { value: "1.2", label: "LH 1.2" },
+              { value: "1.5", label: "LH 1.5" },
+              { value: "1.75", label: "LH 1.75" },
+              { value: "2", label: "LH 2.0" },
+            ]}
+          />
+
+          {/* Link controls */}
+          <Btn
+            title="Add/Edit Link"
+            onClick={() => {
+              const previous = editor.getAttributes("link").href as
+                | string
+                | undefined;
+              const url = window.prompt("Enter URL", previous || "https://");
+              if (url === null) return;
+              if (url.trim() === "") {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              editor
+                .chain()
+                .focus()
+                .extendMarkRange("link")
+                .setLink({ href: url.trim() })
+                .run();
+            }}
+          >
+            Link
+          </Btn>
+          {editor.isActive("link") && (
+            <Btn
+              title="Remove Link"
+              onClick={() => editor.chain().focus().unsetLink().run()}
+            >
+              Unlink
+            </Btn>
+          )}
+        </BubbleMenu>
+      ) : null}
+
+      <EditorContent editor={editor} />
+    </div>
   );
 }
 
@@ -469,7 +731,7 @@ function ImageLeftTextRight({
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
   const minPx = usePairHeightLock(imageColRef, true);
   const cap = typeof minPx === "number" ? minPx + HANG_PX : undefined;
-  const textVal = sec.text?.text || "";
+  const html = sec.text?.text || "";
 
   return (
     <div className={wrapClass(sec)} style={sec.style}>
@@ -486,21 +748,24 @@ function ImageLeftTextRight({
         </div>
         <div className="md:col-span-7">
           {readonly ? (
-            textVal ? (
+            html ? (
               <div
-                className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
+                className="prose prose-gray max-w-none text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
                 style={{
                   minHeight: typeof cap === "number" ? `${cap}px` : undefined,
                   textAlign: "justify",
                   textJustify: "inter-word",
                 }}
-              >
-                {textVal}
-              </div>
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(html, {
+                    USE_PROFILES: { html: true },
+                  }),
+                }}
+              />
             ) : null
           ) : (
             <InlineTextBlock
-              value={textVal}
+              value={html}
               setValue={(v) => onChangeText(v)}
               maxHeightPx={cap}
               readonly={false}
@@ -531,28 +796,31 @@ function ImageRightTextLeft({
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
   const minPx = usePairHeightLock(imageColRef, true);
   const cap = typeof minPx === "number" ? minPx + HANG_PX : undefined;
-  const textVal = sec.text?.text || "";
+  const html = sec.text?.text || "";
 
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         <div className="md:col-span-7 order-2 md:order-1">
           {readonly ? (
-            textVal ? (
+            html ? (
               <div
-                className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
+                className="prose prose-gray max-w-none text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
                 style={{
                   minHeight: typeof cap === "number" ? `${cap}px` : undefined,
                   textAlign: "justify",
                   textJustify: "inter-word",
                 }}
-              >
-                {textVal}
-              </div>
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(html, {
+                    USE_PROFILES: { html: true },
+                  }),
+                }}
+              />
             ) : null
           ) : (
             <InlineTextBlock
-              value={textVal}
+              value={html}
               setValue={(v) => onChangeText(v)}
               maxHeightPx={cap}
               readonly={false}
@@ -682,24 +950,27 @@ function FullWidthText({
   onChangeText: (text: string) => void;
   readonly?: boolean;
 }) {
-  const textVal = sec.text?.text || "";
+  const html = sec.text?.text || "";
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       {readonly ? (
-        textVal ? (
+        html ? (
           <div
-            className="prose prose-gray max-w-none whitespace-pre-wrap text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
+            className="prose prose-gray max-w-none text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
             style={{
               textAlign: "justify",
               textJustify: "inter-word",
             }}
-          >
-            {textVal}
-          </div>
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(html, {
+                USE_PROFILES: { html: true },
+              }),
+            }}
+          />
         ) : null
       ) : (
         <InlineTextBlock
-          value={textVal}
+          value={html}
           setValue={(v) => onChangeText(v)}
           readonly={false}
         />
@@ -809,7 +1080,6 @@ export default function FlowComposer({
     const picked = await onPickImage(slotId);
     if (!picked) return;
 
-    // Capture gallery caption as fallback at pick time.
     const galleryCaption =
       typeof picked.caption === "string" && picked.caption.trim().length > 0
         ? picked.caption
@@ -820,7 +1090,6 @@ export default function FlowComposer({
       ...images[slotIdx],
       ...picked,
       slotId,
-      // Set both: override defaults to gallery caption initially.
       caption: galleryCaption,
       galleryCaption,
     };
@@ -834,12 +1103,10 @@ export default function FlowComposer({
     const images = [...(sec.images || [])];
     images[slotIdx] = {
       slotId: prev?.slotId || undefined,
-      // wipe image data
       src: undefined,
       alt: null,
       href: null,
       aspectRatio: undefined,
-      // captions cleared
       caption: null,
       galleryCaption: null,
     };
@@ -857,7 +1124,7 @@ export default function FlowComposer({
       const imgs = sec.images.map((img) => {
         if (img.slotId === slotId) {
           changed = true;
-          return { ...img, caption }; // null -> fallback to gallery on render
+          return { ...img, caption };
         }
         return img;
       });
@@ -900,7 +1167,6 @@ export default function FlowComposer({
 
   return (
     <>
-      {/* Caption modal (editor-only) */}
       {!readonly && captionEdit ? (
         <CaptionModal
           initial={captionEdit.initial}
@@ -917,9 +1183,7 @@ export default function FlowComposer({
         />
       ) : null}
 
-      {/* ZERO spacing between section wrappers */}
       <div className="[&>*]:mt-0 [&>*]:mb-0">
-        {/* Hidden in our editor since we moved it to the sidebar */}
         <Toolbar onAdd={addSection} hidden={readonly || !showToolbar} />
 
         {sections.length === 0 && !readonly && showToolbar ? (
@@ -1086,7 +1350,6 @@ export function makeSection(kind: SectionKind): Section {
   const base: Section = {
     id: uid(),
     type: kind,
-    // NO internal padding by default (fully tight). You can change per-section via paddingY.
     paddingY: "none",
     bg: "none",
   };
