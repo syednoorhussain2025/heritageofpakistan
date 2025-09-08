@@ -1,413 +1,697 @@
-// src/components/AddToCollectionModal.tsx
+// src/components/AddFromCollectionsModal.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import Icon from "@/components/Icon";
-import {
-  listPhotoCollections,
-  getCollectionsMembership,
-  toggleImageInCollection,
-  createPhotoCollection,
-  deletePhotoCollection,
-} from "@/lib/photoCollections";
+import React, { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/browser";
 
-/* Match the shape we pass from the Lightbox */
-type ImageIdentity = {
-  siteImageId?: string | null;
-  storagePath?: string | null;
-  imageUrl?: string | null;
-  siteId?: string | null;
-  altText?: string | null;
+/* ----------------------------- Types ----------------------------- */
+
+type CollectedImage = {
+  id: string;
+  user_id: string;
+  site_image_id?: string | null; // NEW: present in your table
+  dedupe_key?: string | null; // NEW: present if you added generated column
+  storage_path: string;
+  image_url?: string | null;
+  site_id?: string | null;
+  alt_text?: string | null;
   caption?: string | null;
   credit?: string | null;
+  created_at?: string;
 };
 
-function errText(e: any) {
-  if (!e) return "Unknown error";
-  if (typeof e === "string") return e;
-  if (e?.message) return e.message;
-  try {
-    return JSON.stringify(e);
-  } catch {
-    return String(e);
-  }
+type PhotoCollection = {
+  id: string;
+  user_id: string;
+  name: string;
+  is_public?: boolean | null;
+  cover_collected_id?: string | null;
+  notes?: string | null;
+  created_at?: string;
+};
+
+type PhotoCollectionItem = {
+  id: string;
+  user_id: string;
+  collection_id: string;
+  collected_id: string;
+  sort_order?: number | null;
+  created_at?: string;
+};
+
+export type PickerInsertItem = {
+  id: string;
+  src: string;
+  alt?: string | null;
+  title?: string | null;
+};
+
+/* ----------------------------- Utils ----------------------------- */
+
+function useSupabase() {
+  const [client] = useState(() => createClient());
+  return client;
 }
 
-function Spinner({
-  size = 16,
-  className = "",
-}: {
-  size?: number;
-  className?: string;
-}) {
-  const s = `${size}px`;
+/** Normalize any stored path into an object path inside 'site-images'. */
+function normalizeObjectPath(raw?: string) {
+  let p = (raw || "").trim();
+  // strip full public prefix if present
+  p = p.replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\//i, "");
+  // strip bucket prefix if present
+  p = p.replace(/^site-images\//i, "");
+  // strip leading slashes
+  p = p.replace(/^\/+/, "");
+  return p;
+}
+
+/** Build a public URL from the site-images bucket (or provided bucket). */
+function publicUrlForStoragePath(
+  supabase: ReturnType<typeof createClient>,
+  storage_path: string,
+  defaultBucket = "site-images"
+) {
+  if (!storage_path) return "";
+  // If caller passed "bucket/path/to/object", preserve that bucket
+  const firstSlash = storage_path.indexOf("/");
+  if (firstSlash > 0) {
+    const maybeBucket = storage_path.slice(0, firstSlash);
+    if (maybeBucket && maybeBucket !== defaultBucket) {
+      const objectPath = storage_path.slice(firstSlash + 1);
+      return (
+        supabase.storage.from(maybeBucket).getPublicUrl(objectPath).data
+          .publicUrl || ""
+      );
+    }
+    if (maybeBucket === defaultBucket) {
+      const objectPath = normalizeObjectPath(storage_path);
+      return (
+        supabase.storage.from(defaultBucket).getPublicUrl(objectPath).data
+          .publicUrl || ""
+      );
+    }
+  }
+  const objectPath = normalizeObjectPath(storage_path);
+  return (
+    supabase.storage.from(defaultBucket).getPublicUrl(objectPath).data
+      .publicUrl || ""
+  );
+}
+
+/* --------------------------- Small UI ---------------------------- */
+
+function TinySpinner() {
   return (
     <span
-      className={`inline-block rounded-full border-2 border-gray-300 border-t-transparent animate-spin ${className}`}
-      style={{ width: s, height: s }}
+      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent"
       aria-hidden="true"
     />
   );
 }
 
-export default function AddToCollectionModal({
-  image,
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return (
+    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+      <style jsx>{`
+        @keyframes shimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* --------------------------- Component --------------------------- */
+
+export default function AddFromCollectionsModal({
+  open,
   onClose,
+  onInsert,
+  bucket = "site-images",
 }: {
-  image: ImageIdentity;
+  open: boolean;
   onClose: () => void;
+  onInsert: (items: PickerInsertItem[]) => void;
+  bucket?: string;
 }) {
-  // Mount/fade animation
-  const [isOpen, setIsOpen] = useState(false);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const supabase = useSupabase();
 
-  // Data
-  const [collections, setCollections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // animation mount/unmount
+  const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
-  // Search/create
-  const [search, setSearch] = useState("");
-  const [newName, setNewName] = useState("");
-  const [privacy, setPrivacy] = useState<"private" | "public">("private");
-  const [busyCreate, setBusyCreate] = useState(false);
+  // data & ui
+  const [tab, setTab] = useState<"photos" | "collections">("photos");
+  const [loading, setLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [isInserting, setIsInserting] = useState(false);
 
-  // Membership + item UI states
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [toggling, setToggling] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<CollectedImage[]>([]);
+  const [collections, setCollections] = useState<PhotoCollection[]>([]);
+  const [collectionCovers, setCollectionCovers] = useState<
+    Record<string, string>
+  >({});
+  const [activeCollection, setActiveCollection] =
+    useState<PhotoCollection | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [q, setQ] = useState("");
 
-  // Toast
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // cache of public preview URLs
+  const [previewMap, setPreviewMap] = useState<Record<string, string>>({});
+  // per-image loaded state for skeletons
+  const [imgLoaded, setImgLoaded] = useState<Record<string, boolean>>({});
 
-  // Fade in when mounted
+  // show modal with fade-in
   useEffect(() => {
-    const t = setTimeout(() => setIsOpen(true), 10);
-    return () => clearTimeout(t);
-  }, []);
+    if (open) {
+      setVisible(true);
+      setLeaving(false);
+      setSelected({});
+      setActiveCollection(null);
+      setTab("photos");
+      void loadInitial(true);
+    } else if (visible) {
+      setLeaving(true);
+      const t = setTimeout(() => {
+        setVisible(false);
+        setLeaving(false);
+      }, 220);
+      return () => clearTimeout(t);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function requestClose() {
-    setIsOpen(false);
-    setTimeout(() => onClose(), 250);
-  }
-
-  function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === overlayRef.current) requestClose();
-  }
-
-  // Load collections + membership for this photo
+  // build preview URLs on photo set
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [cols, mem] = await Promise.all([
-          listPhotoCollections(),
-          getCollectionsMembership(image),
-        ]);
-        setCollections(cols);
-        setSelected(mem);
-      } finally {
-        setLoading(false);
+    if (!visible) return;
+    const map: Record<string, string> = {};
+    for (const p of photos) {
+      const url =
+        (p.image_url && /^https?:\/\//i.test(p.image_url) ? p.image_url : "") ||
+        publicUrlForStoragePath(supabase, p.storage_path, bucket);
+      map[p.id] = url;
+    }
+    setPreviewMap(map);
+    setImgLoaded({});
+  }, [photos, bucket, supabase, visible]);
+
+  async function loadInitial(withOptimistic = false) {
+    setErrMsg(null);
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+        error: uerr,
+      } = await supabase.auth.getUser();
+      if (uerr) throw uerr;
+      const uid = user?.id;
+      if (!uid) {
+        setErrMsg("You are not signed in.");
+        setPhotos([]);
+        setCollections([]);
+        return;
       }
-    })();
-  }, [image]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return collections;
-    return collections.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [collections, search]);
+      if (withOptimistic) setPhotos([]);
 
-  function showToast(message: string) {
-    setToastMsg(message);
-    setTimeout(() => setToastMsg(null), 3500); // slightly longer retention
-  }
+      // All Photos (full row for preview + alt/caption)
+      const { data: pData, error: pErr } = await supabase
+        .from("collected_images")
+        .select("*")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
+      if (pErr) throw pErr;
+      setPhotos((pData as CollectedImage[]) ?? []);
 
-  async function handleCreate() {
-    const name = newName.trim();
-    if (!name) return;
-    setBusyCreate(true);
-    try {
-      const c = await createPhotoCollection(name, privacy === "public");
-      setCollections((prev) => [
-        ...prev,
-        { ...c, itemCount: 0, coverUrl: null },
-      ]);
-      setNewName("");
-      showToast(`Created “${name}”`);
-    } catch (e) {
+      // Collections
+      const { data: cData, error: cErr } = await supabase
+        .from("photo_collections")
+        .select("*")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
+      if (cErr) throw cErr;
+      const cols = (cData as PhotoCollection[]) ?? [];
+      setCollections(cols);
+
+      // Covers: cover_collected_id or first item per collection
+      const noCoverIds = cols
+        .filter((c) => !c.cover_collected_id)
+        .map((c) => c.id);
+      let firstItemByCollection = new Map<string, string>();
+      if (noCoverIds.length) {
+        const { data: items } = await supabase
+          .from("photo_collection_items")
+          .select("collection_id,collected_id,sort_order")
+          .in("collection_id", noCoverIds)
+          .order("sort_order", { ascending: true });
+        (items as PhotoCollectionItem[] | null)?.forEach((it) => {
+          if (!firstItemByCollection.has(it.collection_id)) {
+            firstItemByCollection.set(it.collection_id, it.collected_id);
+          }
+        });
+      }
+
+      const coverCollectedIds = new Set<string>();
+      cols.forEach((c) => {
+        const cid = c.cover_collected_id || firstItemByCollection.get(c.id);
+        if (cid) coverCollectedIds.add(cid);
+      });
+
+      if (coverCollectedIds.size) {
+        const { data: coverImgs } = await supabase
+          .from("collected_images")
+          .select("*")
+          .in("id", Array.from(coverCollectedIds));
+        const byId = new Map<string, CollectedImage>();
+        (coverImgs as CollectedImage[] | null)?.forEach((x) =>
+          byId.set(x.id, x)
+        );
+
+        const map: Record<string, string> = {};
+        cols.forEach((c) => {
+          const cid = c.cover_collected_id || firstItemByCollection.get(c.id);
+          if (!cid) return;
+          const rec = byId.get(cid);
+          if (!rec) return;
+          map[c.id] =
+            (rec.image_url && /^https?:\/\//i.test(rec.image_url)
+              ? rec.image_url
+              : "") ||
+            publicUrlForStoragePath(supabase, rec.storage_path, bucket);
+        });
+        setCollectionCovers(map);
+      } else {
+        setCollectionCovers({});
+      }
+    } catch (e: any) {
       console.error(e);
-      alert(`Could not create collection: ${errText(e)}`);
+      setErrMsg(
+        typeof e?.message === "string"
+          ? e.message
+          : "Failed to load photos/collections."
+      );
+      setPhotos([]);
+      setCollections([]);
     } finally {
-      setBusyCreate(false);
+      setLoading(false);
     }
   }
 
-  async function toggleMembership(
-    collectionId: string,
-    collectionName: string
-  ) {
-    const isOn = selected.has(collectionId);
-    setToggling(collectionId);
+  async function openCollection(c: PhotoCollection) {
+    setLoading(true);
+    setErrMsg(null);
+    setActiveCollection(c);
+    setPhotos([]); // optimistic skeletons
+    try {
+      const { data: items, error: iErr } = await supabase
+        .from("photo_collection_items")
+        .select("collected_id")
+        .eq("collection_id", c.id)
+        .order("sort_order", { ascending: true });
+      if (iErr) throw iErr;
 
-    // optimistic UI
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (isOn) next.delete(collectionId);
-      else next.add(collectionId);
-      return next;
+      const ids = (items as { collected_id: string }[] | null)
+        ?.map((r) => r.collected_id)
+        .filter(Boolean) as string[];
+
+      if (!ids || ids.length === 0) {
+        setPhotos([]);
+        setTab("collections");
+        return;
+      }
+
+      const { data: pData, error: pErr } = await supabase
+        .from("collected_images")
+        .select("*")
+        .in("id", ids);
+      if (pErr) throw pErr;
+
+      setPhotos((pData as CollectedImage[]) ?? []);
+      setTab("collections");
+    } catch (e: any) {
+      console.error(e);
+      setErrMsg(
+        typeof e?.message === "string"
+          ? e.message
+          : "Failed to load collection."
+      );
+      setPhotos([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function insertSelected() {
+    if (isInserting) return;
+    setIsInserting(true);
+    requestAnimationFrame(() => {
+      const chosen = photos.filter((p) => selected[p.id]);
+      const payload: PickerInsertItem[] = chosen.map((p) => ({
+        id: p.id,
+        src:
+          previewMap[p.id] ||
+          (p.image_url && /^https?:\/\//i.test(p.image_url)
+            ? p.image_url
+            : "") ||
+          publicUrlForStoragePath(supabase, p.storage_path, bucket),
+        alt: p.caption ?? p.alt_text ?? null,
+        title: p.caption ?? null,
+      }));
+      onInsert(payload);
+      setIsInserting(false);
+      setLeaving(true);
+      setTimeout(() => {
+        setLeaving(false);
+        onClose();
+      }, 200);
     });
-    showToast(`${isOn ? "Removed from" : "Added to"} ${collectionName}`);
-
-    try {
-      await toggleImageInCollection(collectionId, image, isOn);
-    } catch (e) {
-      // revert on error
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (isOn) next.add(collectionId);
-        else next.delete(collectionId);
-        return next;
-      });
-      console.error(e);
-      showToast(`Failed to update ${collectionName}`);
-    } finally {
-      setToggling(null);
-    }
   }
 
-  async function handleDelete(collectionId: string, name: string) {
-    if (
-      !confirm(`Delete collection “${name}”? This won’t affect your library.`)
-    )
-      return;
-    setDeletingId(collectionId);
-    try {
-      await deletePhotoCollection(collectionId);
-      setCollections((prev) => prev.filter((c) => c.id !== collectionId));
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(collectionId);
-        return next;
-      });
-      showToast(`Deleted ${name}`);
-    } catch (e) {
-      console.error(e);
-      alert(`Could not delete collection: ${errText(e)}`);
-    } finally {
-      setDeletingId(null);
-    }
-  }
+  const filteredPhotos = useMemo(() => {
+    if (!q.trim()) return photos;
+    const needle = q.toLowerCase();
+    return photos.filter((p) =>
+      [
+        p.caption ?? "",
+        p.alt_text ?? "",
+        p.storage_path ?? "",
+        p.image_url ?? "",
+        p.credit ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [q, photos]);
+
+  if (!visible && !leaving) return null;
+
+  const showSkeletonGrid =
+    loading ||
+    (tab === "collections" && activeCollection && photos.length === 0);
+
+  const BODY_HEIGHT = "h-[520px]"; // stable, ~two rows
 
   return (
-    <>
-      {/* Overlay (same tone/blur as wishlist modal) */}
+    <div
+      className={`fixed inset-0 z-[999] flex items-center justify-center bg-black/35 backdrop-blur-md ${
+        leaving ? "animate-fadeOut" : "animate-fadeIn"
+      }`}
+    >
       <div
-        ref={overlayRef}
-        onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[1200] flex items-center justify-center bg-black/30 backdrop-blur-[1px] transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`w-[95vw] max-w-5xl rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden ${
+          leaving ? "animate-popOut" : "animate-popIn"
         }`}
-        aria-modal="true"
-        role="dialog"
       >
-        {/* Card */}
-        <div
-          className={`w-full max-w-xl mx-3 rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform ${
-            isOpen
-              ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-95 translate-y-2"
-          }`}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
-                <Icon name="images" className="text-[var(--brand-orange)]" />
-              </div>
-              <h2 className="text-lg font-semibold">Add to Collection</h2>
-            </div>
-            <div />
-          </div>
-
-          {/* Body */}
-          <div className="px-5 py-4 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Icon
-                name="search"
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder="Search your collections"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full border rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40"
-              />
-            </div>
-
-            {/* Create new collection */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
-              <input
-                type="text"
-                placeholder="New collection name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40"
-              />
-              <select
-                value={privacy}
-                onChange={(e) =>
-                  setPrivacy(e.target.value as "private" | "public")
-                }
-                className="border rounded-lg px-3 py-2"
-              >
-                <option value="private">Private</option>
-                <option value="public">Public</option>
-              </select>
-              <button
-                onClick={handleCreate}
-                disabled={busyCreate}
-                className="px-4 py-2 rounded-lg bg-[var(--brand-orange)] text-white hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {busyCreate && <Spinner size={14} />}
-                Create collection
-              </button>
-            </div>
-
-            {/* Collections list */}
-            <div className="max-h-80 overflow-y-auto pr-1">
-              {loading ? (
-                // Skeletons
-                <ul className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center gap-3 p-3 border rounded-xl bg-white"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse" />
-                      <div className="flex-1">
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2 animate-pulse" />
-                        <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse" />
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
-                    </li>
-                  ))}
-                </ul>
-              ) : filtered.length === 0 ? (
-                <div className="text-sm text-gray-500 px-1 py-2">
-                  No collections found.
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {filtered.map((c) => {
-                    const isOn = selected.has(c.id);
-                    const isBusy = toggling === c.id || deletingId === c.id;
-                    return (
-                      <li
-                        key={c.id}
-                        className={`group flex items-center gap-3 p-3 border rounded-xl bg-white transition-colors hover:bg-gray-50 hover:shadow-sm cursor-pointer ${
-                          isOn ? "border-[var(--brand-orange)]/40" : ""
-                        }`}
-                        onClick={() => toggleMembership(c.id, c.name)}
-                        title={
-                          isOn ? "Remove from collection" : "Add to collection"
-                        }
-                      >
-                        {/* Toggle icon button (list-style, like wishlist) */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleMembership(c.id, c.name);
-                          }}
-                          disabled={isBusy}
-                          className={`flex items-center justify-center w-9 h-9 rounded-full border transition-all ${
-                            isOn
-                              ? "bg-[var(--brand-orange)] border-[var(--brand-orange)] text-white shadow-sm"
-                              : "bg-white group-hover:bg-gray-100 text-gray-600"
-                          }`}
-                          aria-label={
-                            isOn
-                              ? "Remove from collection"
-                              : "Add to collection"
-                          }
-                          title={
-                            isOn
-                              ? "Remove from collection"
-                              : "Add to collection"
-                          }
-                        >
-                          {toggling === c.id ? (
-                            <Spinner size={14} className="border-white/70" />
-                          ) : (
-                            <Icon name="list-ul" size={16} />
-                          )}
-                        </button>
-
-                        {/* Name + meta */}
-                        <div className="flex-1 select-none">
-                          <div className="font-medium leading-5">{c.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {(c.is_public ? "public" : "private") +
-                              " • " +
-                              (c.itemCount ?? 0) +
-                              " items"}
-                          </div>
-                        </div>
-
-                        {/* Delete collection (X) */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(c.id, c.name);
-                          }}
-                          disabled={isBusy}
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          aria-label="Delete collection"
-                          title="Delete collection"
-                        >
-                          {deletingId === c.id ? (
-                            <Spinner size={14} />
-                          ) : (
-                            <Icon name="times" />
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-3">
             <button
-              onClick={requestClose}
-              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+              className={`px-3 py-1 rounded-lg text-sm ${
+                tab === "photos" && !activeCollection
+                  ? "bg-black text-white"
+                  : "bg-gray-100"
+              }`}
+              onClick={() => {
+                setTab("photos");
+                setActiveCollection(null);
+                setPhotos([]);
+                void loadInitial(true);
+              }}
+            >
+              All Photos
+            </button>
+            <button
+              className={`px-3 py-1 rounded-lg text-sm ${
+                tab === "collections" && !activeCollection
+                  ? "bg-black text-white"
+                  : "bg-gray-100"
+              }`}
+              onClick={() => {
+                setTab("collections");
+                setActiveCollection(null);
+              }}
+            >
+              Collections
+            </button>
+            {activeCollection && (
+              <span className="text-sm text-gray-500">
+                / {activeCollection.name}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {loading && <TinySpinner />}
+            <input
+              placeholder="Search photos…"
+              className="h-9 w-56 rounded-lg border px-3 text-sm"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <button
+              onClick={() => {
+                setLeaving(true);
+                setTimeout(() => {
+                  setLeaving(false);
+                  onClose();
+                }, 200);
+              }}
+              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
             >
               Close
             </button>
-            <Link
-              href="/dashboard/mycollections"
-              onClick={requestClose}
-              className="px-4 py-2 rounded-lg bg-black text-white hover:brightness-95"
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className={`overflow-hidden ${BODY_HEIGHT}`}>
+          <div className="h-full overflow-auto p-4">
+            {errMsg ? (
+              <div className="py-6">
+                <div className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+                  <div className="font-semibold mb-0.5">
+                    Couldn’t load items
+                  </div>
+                  <div>{errMsg}</div>
+                </div>
+              </div>
+            ) : tab === "collections" && !activeCollection ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {showSkeletonGrid && collections.length === 0 ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div key={`csk-${i}`} className="rounded-xl border">
+                      <SkeletonBlock className="aspect-[4/3] w-full rounded-t-xl" />
+                      <div className="border-t p-2">
+                        <SkeletonBlock className="h-3 rounded w-2/3" />
+                      </div>
+                    </div>
+                  ))
+                ) : collections.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-sm text-gray-500">
+                    No collections yet.
+                  </div>
+                ) : (
+                  collections.map((c) => {
+                    const cover = collectionCovers[c.id];
+                    return (
+                      <button
+                        key={c.id}
+                        className="group overflow-hidden rounded-xl border text-left transition hover:shadow focus:outline-none focus:ring-2 focus:ring-black/10"
+                        onClick={() => openCollection(c)}
+                      >
+                        <div className="relative aspect-[4/3] w-full bg-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {cover ? (
+                            <img
+                              src={cover}
+                              alt={c.name}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                            />
+                          ) : (
+                            <SkeletonBlock className="absolute inset-0" />
+                          )}
+                          <div className="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-0.5 text-[11px] text-white">
+                            Collection
+                          </div>
+                        </div>
+                        <div className="border-t px-3 py-2">
+                          <div className="truncate text-sm font-medium">
+                            {c.name}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {showSkeletonGrid ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={`psk-${i}`}
+                      className="overflow-hidden rounded-xl border"
+                    >
+                      <SkeletonBlock className="aspect-[4/3] w-full" />
+                      <div className="border-t px-3 py-1">
+                        <SkeletonBlock className="h-3 rounded w-1/2" />
+                      </div>
+                    </div>
+                  ))
+                ) : filteredPhotos.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-sm text-gray-500">
+                    No photos found.
+                  </div>
+                ) : (
+                  filteredPhotos.map((p) => {
+                    const url = previewMap[p.id] || "";
+                    const isSel = !!selected[p.id];
+                    const loaded = imgLoaded[p.id];
+
+                    return (
+                      <button
+                        key={p.id}
+                        className={`group relative overflow-hidden rounded-xl border transition hover:shadow ${
+                          isSel ? "ring-2 ring-black" : ""
+                        }`}
+                        onClick={() => toggleSelect(p.id)}
+                        type="button"
+                        title={p.caption ?? p.alt_text ?? ""}
+                      >
+                        <div className="relative aspect-[4/3] w-full bg-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {url ? (
+                            <>
+                              {!loaded && (
+                                <SkeletonBlock className="absolute inset-0" />
+                              )}
+                              <img
+                                src={url}
+                                alt={p.alt_text ?? p.caption ?? ""}
+                                loading="lazy"
+                                className={`h-full w-full object-cover transition-opacity ${
+                                  loaded ? "opacity-100" : "opacity-0"
+                                }`}
+                                onLoad={() =>
+                                  setImgLoaded((m) => ({ ...m, [p.id]: true }))
+                                }
+                              />
+                            </>
+                          ) : (
+                            <SkeletonBlock className="absolute inset-0" />
+                          )}
+                        </div>
+                        {(p.caption || p.alt_text) && (
+                          <div className="truncate border-t px-3 py-1 text-xs text-gray-600">
+                            {p.caption ?? p.alt_text}
+                          </div>
+                        )}
+                        <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[11px] shadow">
+                          {isSel ? "Selected" : "Select"}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t px-4 py-3">
+          <div className="text-xs text-gray-500">
+            {Object.values(selected).filter(Boolean).length} selected
+            {activeCollection ? ` · ${activeCollection.name}` : ""}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setLeaving(true);
+                setTimeout(() => {
+                  setLeaving(false);
+                  onClose();
+                }, 200);
+              }}
+              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
             >
-              My Collections
-            </Link>
+              Cancel
+            </button>
+            <button
+              onClick={insertSelected}
+              disabled={
+                Object.values(selected).filter(Boolean).length === 0 ||
+                isInserting
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-black px-3 py-1 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isInserting && <TinySpinner />}
+              Insert
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Black toast (same style + retention as wishlist) */}
-      {toastMsg && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[1300] px-4 py-2 rounded-lg bg-black text-white shadow-lg transition-opacity duration-200">
-          {toastMsg}
-        </div>
-      )}
-    </>
+      {/* animations */}
+      <style jsx global>{`
+        .animate-fadeIn {
+          animation: fadeIn 180ms ease-out both;
+        }
+        .animate-fadeOut {
+          animation: fadeOut 180ms ease-in both;
+        }
+        .animate-popIn {
+          animation: popIn 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .animate-popOut {
+          animation: popOut 160ms ease-in both;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+        @keyframes popIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes popOut {
+          from {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+        }
+      `}</style>
+    </div>
   );
 }

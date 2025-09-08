@@ -11,7 +11,7 @@ import {
 import {
   listCollections as listCollectedPhotos,
   removeFromCollection as removeFromLibrary,
-  makeCollectKey,
+  // Removed: makeCollectKey
 } from "@/lib/collections";
 
 /* Lightbox for Collected Photos */
@@ -189,12 +189,12 @@ export default function MyCollectionsDashboard() {
   }
 
   async function removeLibraryRow(it: any) {
-    const key = makeCollectKey({
+    // New: delete by identifiers (CollectInput), not by a precomputed string key
+    await removeFromLibrary({
       siteImageId: it.site_image_id ?? undefined,
       storagePath: it.storage_path ?? undefined,
       imageUrl: it.image_url ?? undefined,
     });
-    await removeFromLibrary(key);
     setPhotos((prev) => prev.filter((p) => p.id !== it.id));
   }
 

@@ -3,8 +3,9 @@
 
 import { useMemo, useState } from "react";
 import { useCollections } from "@/components/CollectionsProvider";
-import { makeCollectKey } from "@/lib/collections";
+import { computeDedupeKey } from "@/lib/collections";
 import Icon from "@/components/Icon";
+import { motion } from "framer-motion";
 
 type Props = {
   siteImageId?: string | null;
@@ -21,17 +22,6 @@ type Props = {
   size?: number; // icon size
 };
 
-function Spinner({ size = 16 }: { size?: number }) {
-  const s = `${size}px`;
-  return (
-    <span
-      className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
-      style={{ width: s, height: s }}
-      aria-hidden="true"
-    />
-  );
-}
-
 export default function CollectHeart({
   siteImageId,
   storagePath,
@@ -45,60 +35,60 @@ export default function CollectHeart({
   size = 18,
 }: Props) {
   const { collected, toggleCollect, isLoaded } = useCollections();
-  const [busy, setBusy] = useState(false);
+  const [popping, setPopping] = useState(false);
 
+  // Mirrors DB: coalesce(site_image_id::text, storage_path, image_url)
   const key = useMemo(
     () =>
-      makeCollectKey({
+      computeDedupeKey({
         siteImageId: siteImageId ?? undefined,
         storagePath: storagePath ?? undefined,
         imageUrl: imageUrl ?? undefined,
       }),
     [siteImageId, storagePath, imageUrl]
   );
-  const isOn = isLoaded && collected.has(key);
 
-  async function onClick(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (busy) return;
-    setBusy(true); // instant spinner
-    try {
-      await toggleCollect({
-        siteImageId: siteImageId ?? undefined,
-        storagePath: storagePath ?? undefined,
-        imageUrl: imageUrl ?? undefined,
-        // ✅ FIX: Removed altText, caption, and credit as they are not expected by toggleCollect.
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
+  const isOn = isLoaded && collected.has(key);
 
   const color = isOn ? "text-[var(--brand-orange)]" : "text-gray-300";
   const hover = isOn ? "" : "hover:text-[var(--brand-orange)]";
   const base =
     "cursor-pointer transition-transform duration-150 hover:scale-110 select-none";
-
   const wrapper =
     variant === "overlay"
       ? `absolute top-2 right-2 z-10 ${base} ${className}`
       : `${base} ${className}`;
 
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // trigger popping animation
+    setPopping(true);
+    setTimeout(() => setPopping(false), 150); // quick reset
+
+    // delegate background add/remove to provider
+    void toggleCollect({
+      siteImageId: siteImageId ?? undefined,
+      storagePath: storagePath ?? undefined,
+      imageUrl: imageUrl ?? undefined,
+      siteId: siteId ?? undefined,
+      altText: altText ?? null,
+      caption: caption ?? null,
+      credit: credit ?? null,
+    });
+  }
+
   return (
-    <button
-      onClick={onClick}
+    <motion.button
+      onClick={handleClick}
       aria-pressed={isOn}
       title={isOn ? "Remove from My Collections" : "Add to My Collections"}
       className={wrapper}
+      animate={popping ? { scale: 1.4 } : { scale: 1 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
     >
-      {busy ? (
-        <span className={`${color}`}>
-          <Spinner size={size} />
-        </span>
-      ) : (
-        <Icon name="heart" size={size} className={`${color} ${hover}`} />
-      )}
-    </button>
+      <Icon name="heart" size={size} className={`${color} ${hover}`} />
+    </motion.button>
   );
 }
