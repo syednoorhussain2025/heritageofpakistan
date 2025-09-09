@@ -915,7 +915,7 @@ export default function HeritagePage() {
                     siteTitle={site.title}
                     sectionId="history"
                     sectionTitle="History and Background"
-                    researchEnabled={false /* disable local bubble for test */}
+                    researchEnabled={false}
                     highlightQuote={
                       highlight.section_id === "history"
                         ? highlight.quote
@@ -938,7 +938,7 @@ export default function HeritagePage() {
                     siteTitle={site.title}
                     sectionId="architecture"
                     sectionTitle="Architecture and Design"
-                    researchEnabled={false /* disable local bubble for test */}
+                    researchEnabled={false}
                     highlightQuote={
                       highlight.section_id === "architecture"
                         ? highlight.quote
@@ -961,7 +961,7 @@ export default function HeritagePage() {
                     siteTitle={site.title}
                     sectionId="climate"
                     sectionTitle="Climate & Environment"
-                    researchEnabled={false /* disable local bubble for test */}
+                    researchEnabled={false}
                     highlightQuote={
                       highlight.section_id === "climate"
                         ? highlight.quote
@@ -990,9 +990,7 @@ export default function HeritagePage() {
                         siteTitle={site.title}
                         sectionId={cs.id}
                         sectionTitle={cs.title}
-                        researchEnabled={
-                          false /* disable local bubble for test */
-                        }
+                        researchEnabled={false}
                         highlightQuote={
                           highlight.section_id === cs.id
                             ? highlight.quote
@@ -1120,7 +1118,7 @@ export default function HeritagePage() {
         </main>
       </div>
 
-      {/* Global selection debug bubble (works anywhere on the page) */}
+      {/* Global selection bubble & persistent overlay */}
       {site && (
         <GlobalResearchDebug
           enabled={researchEnabled}
@@ -1150,46 +1148,189 @@ export default function HeritagePage() {
       <style jsx global>{`
         :root {
           --sticky-offset: 72px;
+
+          /* Soft, mature amber set */
+          --amber-50: #fffaf2;
+          --amber-100: #fff4e3;
+          --amber-150: #ffe9c7;
+          --amber-200: #ffdca6;
+          --amber-300: #f9c979;
+          --amber-400: #f3b75a;
+          --amber-500: var(--brand-orange, #f78300);
+          --amber-border: #e2b56c;
+          --amber-ink: #4a3a20;
         }
+
         h2[id],
         h3[id],
         h4[id] {
           scroll-margin-top: var(--sticky-offset);
         }
+
+        /* Selection callout container (no background = no white box) */
         .research-bubble {
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          background: #ffffff;
-          border-radius: 12px;
-          padding: 6px;
+          background: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          animation: none !important;
         }
+
+        /* The visible callout (speech bubble with pointer) */
+        .note-callout {
+          position: relative;
+          padding: 8px 10px;
+          background: var(--amber-100);
+          border: 1px solid var(--amber-border);
+          border-radius: 12px;
+          box-shadow: 0 8px 24px rgba(90, 62, 27, 0.12),
+            0 2px 6px rgba(0, 0, 0, 0.06);
+          animation: note-fade 140ms ease-out;
+        }
+        /* pointer tail */
+        .note-callout::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -6px;
+          width: 12px;
+          height: 12px;
+          transform: translateX(-50%) rotate(45deg);
+          background: var(--amber-100);
+          border-right: 1px solid var(--amber-border);
+          border-bottom: 1px solid var(--amber-border);
+        }
+
+        /* Button inside the callout: keep it calm and text-first */
+        .note-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 2px 4px; /* minimal so callout carries the weight */
+          border: 0;
+          background: transparent;
+          color: var(--amber-ink);
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.2;
+          border-radius: 8px;
+          transition: transform 140ms ease, opacity 140ms ease;
+        }
+        .note-btn:hover {
+          transform: translateY(-0.5px);
+          opacity: 0.92;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .note-btn:active {
+          transform: translateY(0);
+          opacity: 0.88;
+        }
+        .note-btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(226, 181, 108, 0.6);
+        }
+        .note-btn.saving {
+          cursor: default;
+          opacity: 0.85;
+        }
+
+        /* Softer highlight for selected text */
         .note-highlight {
-          background: #fff3cd;
+          --note-highlight-bg: #fff1d6;
+          --note-highlight-fg: #7a4b00;
+          background: var(--note-highlight-bg);
+          color: var(--note-highlight-fg);
           padding: 0 2px;
           border-radius: 2px;
+          box-shadow: inset 0 -0.1em 0 rgba(122, 75, 0, 0.15);
         }
-        /* 👇 --- FIX ADDED HERE --- 👇 */
-        /* This resets the selection behavior for the article container
-           and explicitly enables normal text selection on paragraphs,
-           lists, and other text elements within it. */
-        .prose {
-          user-select: auto;
+
+        /* Reader: keep selection styling and strip editor UI */
+        .reading-article {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+          cursor: text;
+          min-height: 0;
+          background: transparent !important;
         }
-        .prose p,
-        .prose li,
-        .prose blockquote,
-        .prose span,
-        .prose td,
-        .prose figcaption {
+        .reading-article p,
+        .reading-article li,
+        .reading-article blockquote,
+        .reading-article span,
+        .reading-article td,
+        .reading-article figcaption {
           user-select: text !important;
         }
-        /* 👆 --- END OF FIX --- 👆 */
+        .reading-article .hop-article,
+        .reading-article .hop-section,
+        .reading-article .hop-text,
+        .reading-article figure,
+        .reading-article .flx-img {
+          background: transparent !important;
+        }
+        .reading-article img,
+        .hop-article img {
+          -webkit-user-drag: none;
+          user-select: none;
+        }
+        .reading-article ::selection,
+        .hop-article ::selection {
+          background: #f7e0ac;
+          color: #5a3e1b;
+        }
+        .reading-article ::-moz-selection,
+        .hop-article ::-moz-selection {
+          background: #f7e0ac;
+          color: #5a3e1b;
+        }
+        .tiptap-bubble-menu,
+        .tiptap-floating-menu,
+        .ProseMirror-menubar,
+        .ProseMirror-menu,
+        .ProseMirror-tooltip,
+        .ProseMirror-prompt,
+        [data-bubble-menu],
+        [data-floating-menu],
+        [role="toolbar"][class*="menu"],
+        [class*="editor-toolbar"],
+        .tippy-box[data-state],
+        .tippy-popper {
+          display: none !important;
+          pointer-events: none !important;
+        }
+
+        /* Persisted selection overlay */
+        .sticky-sel-layer {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          z-index: 1000;
+        }
+        .sticky-sel-box {
+          position: fixed;
+          background: rgba(247, 224, 172, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(90, 62, 27, 0.32);
+          border-radius: 2px;
+        }
+
+        /* gentle appear; no translate to avoid “jump” */
+        @keyframes note-fade {
+          from {
+            opacity: 0;
+            transform: scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
       `}</style>
     </div>
   );
 }
 
-/* ───────────── Article with floating "heart" (local bubble disabled for test) ───────────── */
+/* ───────────── Article (snapshot reader) ───────────── */
 
 function Article({
   html,
@@ -1213,54 +1354,77 @@ function Article({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
-  const clean = useMemo(
-    () =>
-      DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: [
-          "p",
-          "img",
-          "hr",
-          "strong",
-          "em",
-          "u",
-          "ul",
-          "ol",
-          "li",
-          "blockquote",
-          "h1",
-          "h2",
-          "h3",
-          "h4",
-          "h5",
-          "h6",
-          "br",
-          "span",
-          "a",
-          "figure",
-          "figcaption",
-          "div",
-          "section",
-          "mark",
-        ],
-        ALLOWED_ATTR: [
-          "src",
-          "alt",
-          "title",
-          "style",
-          "href",
-          "target",
-          "rel",
-          "class",
-          "width",
-          "height",
-          "loading",
-          "id",
-        ],
-        ALLOWED_URI_REGEXP:
-          /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-      }),
-    [html]
-  );
+  const clean = useMemo(() => {
+    const allowed = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        "p",
+        "img",
+        "hr",
+        "strong",
+        "em",
+        "u",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "br",
+        "span",
+        "a",
+        "figure",
+        "figcaption",
+        "div",
+        "section",
+        "mark",
+      ],
+      ALLOWED_ATTR: [
+        "src",
+        "alt",
+        "title",
+        "style",
+        "href",
+        "target",
+        "rel",
+        "class",
+        "width",
+        "height",
+        "loading",
+        "id",
+        "draggable",
+        "data-text-lock",
+      ],
+      ALLOWED_URI_REGEXP:
+        /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
+
+    const div = document.createElement("div");
+    div.innerHTML = allowed;
+
+    const KILL = [
+      ".tiptap-bubble-menu",
+      ".tiptap-floating-menu",
+      ".ProseMirror-menubar",
+      ".ProseMirror-menu",
+      ".ProseMirror-tooltip",
+      ".ProseMirror-prompt",
+      "[data-bubble-menu]",
+      "[data-floating-menu]",
+      "[role='toolbar']",
+    ];
+    KILL.forEach((sel) => div.querySelectorAll(sel).forEach((n) => n.remove()));
+
+    div.querySelectorAll<HTMLElement>("*").forEach((el) => {
+      const st = (el.getAttribute("style") || "").toLowerCase();
+      if (st.includes("position:fixed")) el.remove();
+    });
+
+    return div.innerHTML;
+  }, [html]);
 
   /* Image hover "CollectHeart" overlay */
   const [overlay, setOverlay] = useState<{
@@ -1278,13 +1442,12 @@ function Article({
     const host = hostRef.current;
     if (!host) return;
 
-    const imgs = new Set<HTMLImageElement>();
+    host.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+      img.setAttribute("draggable", "false");
+      (img.style as any).WebkitUserDrag = "none";
+    });
 
-    const wire = (img: HTMLImageElement) => {
-      if (imgs.has(img)) return;
-      imgs.add(img);
-      img.addEventListener("mouseenter", onEnter);
-    };
+    const wired = new Set<HTMLImageElement>();
 
     const onEnter = (e: Event) => {
       const img = e.currentTarget as HTMLImageElement;
@@ -1310,6 +1473,16 @@ function Article({
       });
     };
 
+    const onLeave = () =>
+      setOverlay({ img: null, rect: null, meta: null, visible: false });
+
+    const wire = (img: HTMLImageElement) => {
+      if (wired.has(img)) return;
+      wired.add(img);
+      img.addEventListener("mouseenter", onEnter);
+      img.addEventListener("mouseleave", onLeave);
+    };
+
     host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
     const mo = new MutationObserver(() => {
       host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
@@ -1318,18 +1491,30 @@ function Article({
 
     return () => {
       mo.disconnect();
-      imgs.forEach((img) => img.removeEventListener("mouseenter", onEnter));
+      wired.forEach((img) => {
+        img.removeEventListener("mouseenter", onEnter);
+        img.removeEventListener("mouseleave", onLeave);
+      });
     };
   }, [clean]);
 
   useEffect(() => {
     if (!overlay.visible || !overlay.img) return;
+
     const update = () => {
-      const rect = overlay.img!.getBoundingClientRect();
-      setOverlay((o) => ({ ...o, rect }));
+      if (!overlay.img) return;
+      const rect = overlay.img.getBoundingClientRect();
+      const offscreen = rect.bottom < 0 || rect.top > window.innerHeight;
+      if (offscreen) {
+        setOverlay({ img: null, rect: null, meta: null, visible: false });
+      } else {
+        setOverlay((o) => ({ ...o, rect }));
+      }
     };
+
     const onScroll = () => requestAnimationFrame(update);
     const onResize = () => requestAnimationFrame(update);
+
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
@@ -1345,42 +1530,14 @@ function Article({
       const t = e.target as Node | null;
       const insideOverlay =
         overlayRef.current && t ? overlayRef.current.contains(t) : false;
-      const isImg = t instanceof HTMLImageElement ? host.contains(t) : false;
-
-      if (!insideOverlay && !isImg) {
+      const insideHost = t ? host.contains(t) : false;
+      if (!insideOverlay && !insideHost) {
         setOverlay({ img: null, rect: null, meta: null, visible: false });
       }
     };
     document.addEventListener("mousemove", handleMove);
     return () => document.removeEventListener("mousemove", handleMove);
   }, []);
-
-  const overlayNode =
-    overlay.visible && overlay.rect && overlay.meta
-      ? createPortal(
-          <div
-            ref={overlayRef}
-            style={{
-              position: "fixed",
-              top: overlay.rect.top + 8,
-              left: overlay.rect.right - 8,
-              transform: "translateX(-100%)",
-              zIndex: 1000,
-              pointerEvents: "auto",
-            }}
-          >
-            <CollectHeart
-              variant="icon"
-              size={22}
-              siteId={siteId}
-              imageUrl={overlay.meta.imageUrl}
-              altText={overlay.meta.altText}
-              caption={overlay.meta.caption}
-            />
-          </div>,
-          document.body
-        )
-      : null;
 
   /* Deep-link highlight */
   useEffect(() => {
@@ -1423,15 +1580,44 @@ function Article({
     <>
       <div
         ref={hostRef}
-        className="prose max-w-none"
+        className="prose max-w-none reading-article"
+        data-section-id={sectionId}
+        data-section-title={sectionTitle}
+        data-site-id={siteId}
+        data-site-title={siteTitle}
+        style={{ background: "transparent" }}
         dangerouslySetInnerHTML={{ __html: clean }}
       />
-      {overlayNode}
+      {overlay.visible && overlay.rect && overlay.meta
+        ? createPortal(
+            <div
+              ref={overlayRef}
+              style={{
+                position: "fixed",
+                top: Math.max(8, overlay.rect.top + 8),
+                left: overlay.rect.right - 8,
+                transform: "translateX(-100%)",
+                zIndex: 1000,
+                pointerEvents: "auto",
+              }}
+            >
+              <CollectHeart
+                variant="icon"
+                size={22}
+                siteId={siteId}
+                imageUrl={overlay.meta.imageUrl}
+                altText={overlay.meta.altText}
+                caption={overlay.meta.caption}
+              />
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
 
-/* ───────────── Global selection bubble (DEBUG) ───────────── */
+/* ───────────── Global selection bubble with persisted overlay ───────────── */
 
 function GlobalResearchDebug({
   enabled,
@@ -1444,6 +1630,7 @@ function GlobalResearchDebug({
   siteSlug: string;
   siteTitle: string;
 }) {
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [bubble, setBubble] = useState<{
     visible: boolean;
     top: number;
@@ -1454,69 +1641,97 @@ function GlobalResearchDebug({
     left: 0,
   });
 
-  const closeBubble = () => setBubble((b) => ({ ...b, visible: false }));
+  const [rects, setRects] = useState<
+    Array<{ top: number; left: number; width: number; height: number }>
+  >([]);
 
-  const getSelectionText = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return "";
-    return sel.toString().trim();
+  const [saving, setSaving] = useState(false);
+
+  const lastSelectionRef = useRef<string>("");
+  const lastSectionIdRef = useRef<string | null>(null);
+  const lastSectionTitleRef = useRef<string | null>(null);
+  const lastContextTextRef = useRef<string | null>(null);
+
+  const clearAll = () => {
+    setBubble((b) => ({ ...b, visible: false }));
+    setRects([]);
+    lastSelectionRef.current = "";
+    lastSectionIdRef.current = null;
+    lastSectionTitleRef.current = null;
+    lastContextTextRef.current = null;
+    setSaving(false);
   };
 
-  const showBubbleAtSelection = () => {
-    if (!enabled) return;
+  const captureSelection = () => {
+    if (!enabled) return false;
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
+
+    const quote = sel.toString().trim();
+    if (!quote || quote.length < 5) return false;
+
     const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    const r = range.getBoundingClientRect();
+    const clientRects = Array.from(range.getClientRects()).map((cr) => ({
+      top: cr.top,
+      left: cr.left,
+      width: cr.width,
+      height: cr.height,
+    }));
+
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const elAtCenter = document.elementFromPoint(cx, cy) as HTMLElement | null;
+    const article = elAtCenter?.closest(
+      ".reading-article"
+    ) as HTMLElement | null;
+
+    lastSectionIdRef.current = article?.dataset.sectionId ?? null;
+    lastSectionTitleRef.current = article?.dataset.sectionTitle ?? null;
+    lastContextTextRef.current = (
+      article?.innerText ||
+      document.body.innerText ||
+      ""
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+
+    lastSelectionRef.current = quote;
+    setRects(clientRects);
     setBubble({
       visible: true,
-      top: Math.max(8, rect.top - 42), // viewport coords
-      left: rect.left + rect.width / 2,
+      top: Math.max(8, r.top - 42),
+      left: r.left + r.width / 2,
     });
+
+    sel.removeAllRanges();
+    return true;
   };
 
   useEffect(() => {
     const onMouseUp = () => {
-      const txt = getSelectionText();
-      if (enabled && txt && txt.length >= 5) showBubbleAtSelection();
-      else closeBubble();
+      if (!captureSelection()) clearAll();
     };
-
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeBubble();
-      else {
-        const txt = getSelectionText();
-        if (enabled && txt && txt.length >= 5) showBubbleAtSelection();
-        else closeBubble();
-      }
+      if (e.key === "Escape") clearAll();
     };
-
-    const onContextMenu = (e: MouseEvent) => {
-      if (!enabled) return;
-      const txt = getSelectionText();
-      if (txt && txt.length >= 5) {
-        e.preventDefault();
-        setBubble({
-          visible: true,
-          top: e.clientY + 4,
-          left: e.clientX,
-        });
-      }
+    const onScrollOrResize = () => clearAll();
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (bubbleRef.current && t && bubbleRef.current.contains(t)) return;
+      clearAll();
     };
-
-    const onScrollOrResize = () => closeBubble();
 
     document.addEventListener("mouseup", onMouseUp);
     document.addEventListener("keyup", onKeyUp as any);
-    document.addEventListener("contextmenu", onContextMenu);
+    document.addEventListener("mousedown", onMouseDown);
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize);
 
     return () => {
       document.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("keyup", onKeyUp as any);
-      document.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
     };
@@ -1524,10 +1739,16 @@ function GlobalResearchDebug({
 
   const handleSaveSelection = async () => {
     try {
-      const quote = getSelectionText();
-      if (!quote || quote.length < 3) return;
+      if (saving) return;
+      const quote = (lastSelectionRef.current || "").trim();
+      if (!quote) return;
 
-      const full = (document.body.innerText || "").replace(/\s+/g, " ").trim();
+      setSaving(true);
+
+      const full = (lastContextTextRef.current || document.body.innerText || "")
+        .replace(/\s+/g, " ")
+        .trim();
+
       let idx = full.indexOf(quote);
       if (idx < 0) idx = full.toLowerCase().indexOf(quote.toLowerCase());
       const before = idx >= 0 ? full.slice(Math.max(0, idx - 160), idx) : null;
@@ -1540,43 +1761,84 @@ function GlobalResearchDebug({
         site_id: siteId,
         site_slug: siteSlug,
         site_title: siteTitle,
-        section_id: null,
-        section_title: null,
+        section_id: lastSectionIdRef.current,
+        section_title: lastSectionTitleRef.current,
         quote_text: quote,
         context_before: before,
         context_after: after,
       });
 
-      closeBubble();
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
+      clearAll();
       alert("Saved to Notebook → Research");
     } catch (e) {
       console.error(e);
+      setSaving(false);
       alert("Could not save. Please sign in and try again.");
     }
   };
 
-  if (!enabled || !bubble.visible) return null;
+  if (!enabled) return null;
 
   return createPortal(
-    <div
-      className="research-bubble fixed z-[1001]"
-      style={{
-        top: bubble.top,
-        left: bubble.left,
-        transform: "translate(-50%, -100%)",
-      }}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <button
-        onClick={handleSaveSelection}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-black text-white text-sm hover:opacity-90"
-      >
-        <Icon name="bookmark" size={14} />
-        Add to Note
-      </button>
-    </div>,
+    <>
+      {rects.length > 0 && (
+        <div className="sticky-sel-layer">
+          {rects.map((r, i) => (
+            <div
+              key={i}
+              className="sticky-sel-box"
+              style={{
+                top: r.top,
+                left: r.left,
+                width: r.width,
+                height: r.height,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {bubble.visible && (
+        <div
+          ref={bubbleRef}
+          className="research-bubble fixed z-[1001]"
+          style={{
+            top: bubble.top,
+            left: bubble.left,
+            transform: "translate(-50%, -100%)",
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div className="note-callout">
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSaveSelection();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSaveSelection();
+              }}
+              disabled={saving}
+              className={`note-btn ${saving ? "saving" : ""}`}
+              aria-live="polite"
+            >
+              <Icon
+                name={saving ? "info" : "book"}
+                size={16}
+                className="text-[inherit]"
+              />
+              {saving ? "Saving…" : "Add to Note"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>,
     document.body
   );
 }

@@ -33,7 +33,6 @@ type Props = {
 
 /** Provide sensible defaults for design tokens so height-lock can compute image height. */
 function withDefaultDesignTokens(input: FlowInput): FlowInput {
-  // Desktop/tablet: provide a pixel width for --side-img-w
   const defaultSideW =
     input.breakpoint === "desktop"
       ? 480
@@ -58,6 +57,23 @@ function withDefaultDesignTokens(input: FlowInput): FlowInput {
     },
   };
 }
+
+// selection-friendly styles (don’t rely only on CSS file)
+const SELECT_TEXT: React.CSSProperties = {
+  userSelect: "text",
+  WebkitUserSelect: "text",
+  msUserSelect: "text",
+};
+const SELECT_AUTO: React.CSSProperties = {
+  userSelect: "auto",
+  WebkitUserSelect: "auto",
+  msUserSelect: "auto",
+};
+const NO_SELECT_MEDIA: React.CSSProperties = {
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  msUserSelect: "none",
+};
 
 export default function FlowRenderer({
   input,
@@ -84,7 +100,11 @@ export default function FlowRenderer({
         breakpoint: input.breakpoint,
       }) ?? "hop-section";
     parts.push(
-      <section key={`sec-${currentKey}-${parts.length}`} className={sectionCls}>
+      <section
+        key={`sec-${currentKey}-${parts.length}`}
+        className={sectionCls}
+        style={SELECT_AUTO} /* make sure sections don’t disable selection */
+      >
         {sectionChildren}
       </section>
     );
@@ -113,10 +133,10 @@ export default function FlowRenderer({
         typeof minPx === "number" && minPx > 0
           ? { "data-text-lock": "image" }
           : undefined;
-      const style =
+      const style: React.CSSProperties =
         typeof minPx === "number" && minPx > 0
-          ? ({ minHeight: `${minPx}px` } as React.CSSProperties)
-          : undefined;
+          ? { ...SELECT_TEXT, minHeight: `${minPx}px` }
+          : SELECT_TEXT;
 
       sectionChildren.push(
         <div
@@ -126,7 +146,7 @@ export default function FlowRenderer({
           style={style}
         >
           {text.split(/\n{2,}/).map((p, i) => (
-            <p key={i} className="hop-p">
+            <p key={i} className="hop-p" style={SELECT_TEXT}>
               {p}
             </p>
           ))}
@@ -141,7 +161,6 @@ export default function FlowRenderer({
           breakpoint: input.breakpoint,
         }) ?? "hop-media";
 
-      // Prefer composite key, fallback to plain slotId for backward compat
       const compositeKey = `${blk.sectionInstanceKey}:${blk.imageSlotId}`;
       const image =
         imagesBySlot[compositeKey] ?? imagesBySlot[blk.imageSlotId] ?? null;
@@ -150,6 +169,7 @@ export default function FlowRenderer({
         <figure
           key={`${blk.sectionInstanceKey}:${blk.blockId}:img`}
           className={cls}
+          style={SELECT_AUTO}
         >
           {image ? (
             <img
@@ -157,15 +177,20 @@ export default function FlowRenderer({
               alt={image.alt || ""}
               loading="lazy"
               decoding="async"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              style={NO_SELECT_MEDIA}
             />
           ) : (
-            <div className="hop-media-placeholder">
+            <div className="hop-media-placeholder" style={NO_SELECT_MEDIA}>
               Image slot: {blk.imageSlotId}{" "}
               <span className="opacity-60">({blk.sectionInstanceKey})</span>
             </div>
           )}
           {image?.caption ? (
-            <figcaption className="hop-caption">{image.caption}</figcaption>
+            <figcaption className="hop-caption" style={SELECT_TEXT}>
+              {image.caption}
+            </figcaption>
           ) : null}
         </figure>
       );
@@ -174,11 +199,16 @@ export default function FlowRenderer({
         <div
           key={`${blk.sectionInstanceKey}:${blk.blockId}:other`}
           className="hop-other"
+          style={SELECT_AUTO}
         />
       );
     }
   }
   flushSection();
 
-  return <div className="hop-article">{parts}</div>;
+  return (
+    <div className="hop-article" style={SELECT_AUTO}>
+      {parts}
+    </div>
+  );
 }

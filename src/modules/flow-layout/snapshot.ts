@@ -81,13 +81,21 @@ export function renderSnapshotHTML({
         ) ?? "hop-text";
 
       // If the engine computed a minHeight for this text block, inline it and mark the lock.
-      const hasMin =
-        typeof (blk as any).minHeightPx === "number" &&
-        (blk as any).minHeightPx > 0;
-      const styleAttr = hasMin
-        ? ` style="min-height:${(blk as any).minHeightPx}px"`
-        : "";
-      const dataAttr = hasMin ? ` data-text-lock="image"` : "";
+      const minPx =
+        typeof (blk as any).minHeightPx === "number"
+          ? (blk as any).minHeightPx
+          : 0;
+
+      // ✨ Force native, granular text selection on this block
+      const styleBits = [
+        "-webkit-user-select:text",
+        "-ms-user-select:text",
+        "user-select:text",
+      ];
+      if (minPx > 0) styleBits.push(`min-height:${minPx}px`);
+
+      const styleAttr = ` style="${styleBits.join(";")}"`;
+      const dataAttr = minPx > 0 ? ` data-text-lock="image"` : "";
 
       const paras = txt
         .split(/\n{2,}/)
@@ -95,7 +103,9 @@ export function renderSnapshotHTML({
         .join("");
 
       sectionChildren.push(
-        `<div class="${esc(cls)}"${styleAttr}${dataAttr}>${paras}</div>`
+        `<div class="${esc(
+          cls
+        )}"${styleAttr}${dataAttr} data-selectable="text">${paras}</div>`
       );
     } else if (blk.type === "image") {
       // Prefer composite key, fallback to plain slotId
@@ -116,12 +126,13 @@ export function renderSnapshotHTML({
         const cap = img.caption
           ? `<figcaption class="hop-caption">${esc(img.caption)}</figcaption>`
           : "";
+        // ✨ Make images non-draggable so drag-to-select text near images feels native
         sectionChildren.push(
           `<figure class="${esc(cls)}"><img src="${esc(
             img.storagePath
           )}" alt="${esc(
             img.alt || ""
-          )}" loading="lazy" decoding="async" />${cap}</figure>`
+          )}" loading="lazy" decoding="async" draggable="false" />${cap}</figure>`
         );
       } else {
         sectionChildren.push(
@@ -140,5 +151,8 @@ export function renderSnapshotHTML({
   }
   flush();
 
-  return `<div class="hop-article">${parts.join("")}</div>`;
+  // Helpful root marker for debugging/targeting if needed
+  return `<div class="hop-article" data-hop-published="1">${parts.join(
+    ""
+  )}</div>`;
 }

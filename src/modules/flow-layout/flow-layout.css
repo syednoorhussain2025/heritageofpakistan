@@ -177,3 +177,24 @@
 }
 .area-text {
 }
+
+/* ────────────────────────────────────────────────────────────── */
+/* 🧼 Text selection normalization for PUBLIC articles            */
+/* Ensures editor leftovers (select-none, inline user-select)     */
+/* don't force whole-block selection on the published page.       */
+/* ────────────────────────────────────────────────────────────── */
+
+.hop-article,
+.hop-article * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Explicitly override common blockers from editor output */
+.hop-article .select-none,
+.hop-article [contenteditable],
+.hop-article [draggable],
+.hop-article [style*="user-select"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
