@@ -20,11 +20,19 @@ interface StickyHeaderProps {
 
   locationFree?: string | null;
   categoryIconKey?: string | null;
+
+  /** Optional map link (passed from page) */
+  mapsLink?: string | null;
+
+  /** Research Tools controlled props (optional) */
+  researchMode?: boolean;
+  onChangeResearchMode?: (enabled: boolean) => void;
 }
 
 const DEFAULT_STICKY_OFFSET = 72;
 const EDGE_WIDTH_PX = 30;
 const CHEVRON_SIZE = 36;
+const RESEARCH_LS_KEY = "researchMode";
 
 /* ───────────── Small UI helper ───────────── */
 
@@ -125,7 +133,7 @@ const FIXED_ITEMS: TocItem[] = [
     iconName: "bibliography-sources",
   },
   { id: "reviews", title: "Traveler Reviews", level: 2, iconName: "star" },
-  { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" }, // use 'regiontax' icon
+  { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" },
 ];
 
 function getStickyOffset(): number {
@@ -203,6 +211,11 @@ export default function StickyHeader({
   setShowReviewModal,
   locationFree,
   categoryIconKey,
+  mapsLink,
+
+  // NEW: Research tools
+  researchMode,
+  onChangeResearchMode,
 }: StickyHeaderProps) {
   const stickyRef = useRef<HTMLDivElement | null>(null);
   const [isStuck, setIsStuck] = useState(false);
@@ -288,6 +301,50 @@ export default function StickyHeader({
       closeTimer.current = window.setTimeout(() => setNavOpen(false), 140);
     }
   }, [hoverBtn, hoverEdge, hoverPanel, openedOnce]);
+
+  // ─── Research Tools (persisted to localStorage). Works controlled + uncontrolled.
+  const [researchModeInternal, setResearchModeInternal] =
+    useState<boolean>(false);
+
+  // Initialize from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RESEARCH_LS_KEY);
+      if (raw != null && researchMode === undefined) {
+        setResearchModeInternal(raw === "1" || raw === "true");
+      }
+    } catch {
+      /* no-op */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // If parent controls it, reflect in internal state (for icon/label immediate UI)
+  useEffect(() => {
+    if (typeof researchMode === "boolean") {
+      setResearchModeInternal(researchMode);
+    }
+  }, [researchMode]);
+
+  const researchEnabled =
+    typeof researchMode === "boolean" ? researchMode : researchModeInternal;
+
+  const toggleResearch = () => {
+    const next = !researchEnabled;
+
+    // Notify parent if provided
+    onChangeResearchMode?.(next);
+
+    // Persist + update internal state
+    try {
+      localStorage.setItem(RESEARCH_LS_KEY, next ? "1" : "0");
+    } catch {
+      /* no-op */
+    }
+    if (researchMode === undefined) {
+      setResearchModeInternal(next);
+    }
+  };
 
   if (!site) return null;
 
@@ -384,6 +441,14 @@ export default function StickyHeader({
                 <span>Photo Gallery</span>
               </ActionButton>
 
+              {/* Optional: maps deep-link if provided */}
+              {mapsLink ? (
+                <ActionButton href={mapsLink}>
+                  <IconBadge name="location" />
+                  <span>Open Location</span>
+                </ActionButton>
+              ) : null}
+
               {/* Keep "Share your experience" before Share */}
               <ActionButton onClick={() => setShowReviewModal(true)}>
                 <IconBadge name="hike" />
@@ -394,6 +459,17 @@ export default function StickyHeader({
               <ActionButton onClick={doShare}>
                 <IconBadge name="share" />
                 <span>Share</span>
+              </ActionButton>
+
+              {/* NEW: Research Tools toggle */}
+              <ActionButton
+                onClick={toggleResearch}
+                ariaPressed={researchEnabled}
+              >
+                <IconBadge name="book" />
+                <span>
+                  {researchEnabled ? "Research: ON" : "Research Tools"}
+                </span>
               </ActionButton>
             </div>
 

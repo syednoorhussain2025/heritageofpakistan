@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import DOMPurify from "isomorphic-dompurify";
@@ -14,6 +14,7 @@ import ReviewModal from "@/components/reviews/ReviewModal";
 import ReviewsTab from "@/components/reviews/ReviewsTab";
 import StickyHeader from "@/components/StickyHeader";
 import CollectHeart from "@/components/CollectHeart";
+import { saveResearchNote } from "@/lib/notebook";
 
 /* ───────────── UI helpers ───────────── */
 
@@ -106,7 +107,7 @@ function HeroSkeleton() {
     <div className="relative w-full h-screen">
       <div className="w-full h-full bg-gray-200 animate-pulse" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
-      <div className="absolute inset-0 flex items-end">
+      <div className="absolute inset-0 flex items=end">
         <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
           <div className="text-white">
             <SkeletonBar className="h-10 w-72 mb-3" />
@@ -301,7 +302,9 @@ type Bibliography = {
 
 export default function HeritagePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = (params.slug as string) ?? "";
+  const deepLinkNoteId = searchParams?.get("note") || null;
 
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
 
@@ -318,7 +321,23 @@ export default function HeritagePage() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // research tools toggle
+  const [researchEnabled, setResearchEnabled] = useState<boolean>(false);
+
+  // deep-link highlight
+  const [highlight, setHighlight] = useState<{
+    quote: string | null;
+    section_id: string | null;
+  }>({ quote: null, section_id: null });
+
   const contentRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("researchMode");
+      if (raw != null) setResearchEnabled(raw === "1" || raw === "true");
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!slug) return;
@@ -398,11 +417,41 @@ export default function HeritagePage() {
           .eq("site_id", s.id)
           .maybeSingle();
         setHasPhotoStory(!!ps);
+
+        if (deepLinkNoteId) {
+          const { data: rn } = await supabase
+            .from("research_notes")
+            .select("id, quote_text, section_id")
+            .eq("id", deepLinkNoteId)
+            .maybeSingle();
+          if (rn?.quote_text) {
+            setHighlight({
+              quote: rn.quote_text as string,
+              section_id: (rn.section_id as string) || null,
+            });
+          }
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, [slug]);
+  }, [slug, deepLinkNoteId]);
+
+  useEffect(() => {
+    if (!highlight.section_id) return;
+    const el = document.getElementById(highlight.section_id);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const top =
+      window.scrollY +
+      rect.top -
+      (parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--sticky-offset"
+        )
+      ) || 72);
+    window.scrollTo({ top, behavior: "smooth" });
+  }, [highlight.section_id]);
 
   const lat = site?.latitude ? Number(site.latitude) : null;
   const lng = site?.longitude ? Number(site.longitude) : null;
@@ -510,6 +559,13 @@ export default function HeritagePage() {
           setInTrip={setInTrip}
           doShare={doShare}
           setShowReviewModal={(show: boolean) => setShowReviewModal(show)}
+          researchMode={researchEnabled}
+          onChangeResearchMode={(v) => {
+            setResearchEnabled(v);
+            try {
+              localStorage.setItem("researchMode", v ? "1" : "0");
+            } catch {}
+          }}
         />
       )}
 
@@ -852,7 +908,20 @@ export default function HeritagePage() {
                   title="History and Background"
                   iconName="history-background"
                 >
-                  <Article html={site.history_layout_html} siteId={site.id} />
+                  <Article
+                    html={site.history_layout_html}
+                    siteId={site.id}
+                    siteSlug={site.slug}
+                    siteTitle={site.title}
+                    sectionId="history"
+                    sectionTitle="History and Background"
+                    researchEnabled={false /* disable local bubble for test */}
+                    highlightQuote={
+                      highlight.section_id === "history"
+                        ? highlight.quote
+                        : null
+                    }
+                  />
                 </Section>
               ) : null}
 
@@ -865,6 +934,16 @@ export default function HeritagePage() {
                   <Article
                     html={site.architecture_layout_html}
                     siteId={site.id}
+                    siteSlug={site.slug}
+                    siteTitle={site.title}
+                    sectionId="architecture"
+                    sectionTitle="Architecture and Design"
+                    researchEnabled={false /* disable local bubble for test */}
+                    highlightQuote={
+                      highlight.section_id === "architecture"
+                        ? highlight.quote
+                        : null
+                    }
                   />
                 </Section>
               ) : null}
@@ -875,7 +954,20 @@ export default function HeritagePage() {
                   title="Climate & Environment"
                   iconName="climate-topography"
                 >
-                  <Article html={site.climate_layout_html} siteId={site.id} />
+                  <Article
+                    html={site.climate_layout_html}
+                    siteId={site.id}
+                    siteSlug={site.slug}
+                    siteTitle={site.title}
+                    sectionId="climate"
+                    sectionTitle="Climate & Environment"
+                    researchEnabled={false /* disable local bubble for test */}
+                    highlightQuote={
+                      highlight.section_id === "climate"
+                        ? highlight.quote
+                        : null
+                    }
+                  />
                 </Section>
               ) : null}
 
@@ -891,7 +983,22 @@ export default function HeritagePage() {
                       title={cs.title}
                       iconName="history-background"
                     >
-                      <Article html={cs.layout_html!} siteId={site.id} />
+                      <Article
+                        html={cs.layout_html!}
+                        siteId={site.id}
+                        siteSlug={site.slug}
+                        siteTitle={site.title}
+                        sectionId={cs.id}
+                        sectionTitle={cs.title}
+                        researchEnabled={
+                          false /* disable local bubble for test */
+                        }
+                        highlightQuote={
+                          highlight.section_id === cs.id
+                            ? highlight.quote
+                            : null
+                        }
+                      />
                     </Section>
                   ))}
 
@@ -1013,6 +1120,16 @@ export default function HeritagePage() {
         </main>
       </div>
 
+      {/* Global selection debug bubble (works anywhere on the page) */}
+      {site && (
+        <GlobalResearchDebug
+          enabled={researchEnabled}
+          siteId={site.id}
+          siteSlug={site.slug}
+          siteTitle={site.title}
+        />
+      )}
+
       {/* Review Modal */}
       {showReviewModal && site && (
         <ReviewModal
@@ -1039,14 +1156,60 @@ export default function HeritagePage() {
         h4[id] {
           scroll-margin-top: var(--sticky-offset);
         }
+        .research-bubble {
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          background: #ffffff;
+          border-radius: 12px;
+          padding: 6px;
+        }
+        .note-highlight {
+          background: #fff3cd;
+          padding: 0 2px;
+          border-radius: 2px;
+        }
+        /* 👇 --- FIX ADDED HERE --- 👇 */
+        /* This resets the selection behavior for the article container
+           and explicitly enables normal text selection on paragraphs,
+           lists, and other text elements within it. */
+        .prose {
+          user-select: auto;
+        }
+        .prose p,
+        .prose li,
+        .prose blockquote,
+        .prose span,
+        .prose td,
+        .prose figcaption {
+          user-select: text !important;
+        }
+        /* 👆 --- END OF FIX --- 👆 */
       `}</style>
     </div>
   );
 }
 
-/* ───────────── Article with single floating heart overlay ───────────── */
+/* ───────────── Article with floating "heart" (local bubble disabled for test) ───────────── */
 
-function Article({ html, siteId }: { html: string; siteId: string }) {
+function Article({
+  html,
+  siteId,
+  siteSlug,
+  siteTitle,
+  sectionId,
+  sectionTitle,
+  researchEnabled,
+  highlightQuote,
+}: {
+  html: string;
+  siteId: string;
+  siteSlug: string;
+  siteTitle: string;
+  sectionId: string;
+  sectionTitle: string;
+  researchEnabled: boolean;
+  highlightQuote: string | null;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -1077,6 +1240,7 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
           "figcaption",
           "div",
           "section",
+          "mark",
         ],
         ALLOWED_ATTR: [
           "src",
@@ -1098,6 +1262,7 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
     [html]
   );
 
+  /* Image hover "CollectHeart" overlay */
   const [overlay, setOverlay] = useState<{
     img: HTMLImageElement | null;
     rect: DOMRect | null;
@@ -1109,7 +1274,6 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
     visible: boolean;
   }>({ img: null, rect: null, meta: null, visible: false });
 
-  // Wire listeners to show overlay
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -1146,7 +1310,6 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
       });
     };
 
-    // initial + observe late images
     host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
     const mo = new MutationObserver(() => {
       host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
@@ -1159,7 +1322,6 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
     };
   }, [clean]);
 
-  // Keep position synced on scroll/resize
   useEffect(() => {
     if (!overlay.visible || !overlay.img) return;
     const update = () => {
@@ -1176,7 +1338,6 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
     };
   }, [overlay.visible, overlay.img]);
 
-  // Robust hide: if pointer is not over an article <img> OR the overlay, hide it
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -1208,7 +1369,6 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
               pointerEvents: "auto",
             }}
           >
-            {/* Pass siteId so DB insert works; CollectHeart shows toast via provider */}
             <CollectHeart
               variant="icon"
               size={22}
@@ -1222,6 +1382,43 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
         )
       : null;
 
+  /* Deep-link highlight */
+  useEffect(() => {
+    if (!highlightQuote || !hostRef.current) return;
+
+    const root = hostRef.current;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const target = highlightQuote.trim();
+    if (!target) return;
+
+    const findInNode = (node: Text, needle: string) => {
+      const hay = node.nodeValue || "";
+      const idx = hay.indexOf(needle);
+      if (idx >= 0) return { idx, node };
+      const idx2 = hay.toLowerCase().indexOf(needle.toLowerCase());
+      if (idx2 >= 0) return { idx: idx2, node };
+      return null;
+    };
+
+    let found: { node: Text; idx: number } | null = null;
+    while (walker.nextNode()) {
+      const n = walker.currentNode as Text;
+      found = findInNode(n, target);
+      if (found) break;
+    }
+    if (!found) return;
+
+    try {
+      const range = document.createRange();
+      range.setStart(found.node, found.idx);
+      range.setEnd(found.node, found.idx + target.length);
+      const mark = document.createElement("mark");
+      mark.className = "note-highlight";
+      range.surroundContents(mark);
+      mark.scrollIntoView({ block: "center", behavior: "smooth" });
+    } catch {}
+  }, [highlightQuote]);
+
   return (
     <>
       <div
@@ -1231,5 +1428,155 @@ function Article({ html, siteId }: { html: string; siteId: string }) {
       />
       {overlayNode}
     </>
+  );
+}
+
+/* ───────────── Global selection bubble (DEBUG) ───────────── */
+
+function GlobalResearchDebug({
+  enabled,
+  siteId,
+  siteSlug,
+  siteTitle,
+}: {
+  enabled: boolean;
+  siteId: string;
+  siteSlug: string;
+  siteTitle: string;
+}) {
+  const [bubble, setBubble] = useState<{
+    visible: boolean;
+    top: number;
+    left: number;
+  }>({
+    visible: false,
+    top: 0,
+    left: 0,
+  });
+
+  const closeBubble = () => setBubble((b) => ({ ...b, visible: false }));
+
+  const getSelectionText = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return "";
+    return sel.toString().trim();
+  };
+
+  const showBubbleAtSelection = () => {
+    if (!enabled) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    setBubble({
+      visible: true,
+      top: Math.max(8, rect.top - 42), // viewport coords
+      left: rect.left + rect.width / 2,
+    });
+  };
+
+  useEffect(() => {
+    const onMouseUp = () => {
+      const txt = getSelectionText();
+      if (enabled && txt && txt.length >= 5) showBubbleAtSelection();
+      else closeBubble();
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeBubble();
+      else {
+        const txt = getSelectionText();
+        if (enabled && txt && txt.length >= 5) showBubbleAtSelection();
+        else closeBubble();
+      }
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      if (!enabled) return;
+      const txt = getSelectionText();
+      if (txt && txt.length >= 5) {
+        e.preventDefault();
+        setBubble({
+          visible: true,
+          top: e.clientY + 4,
+          left: e.clientX,
+        });
+      }
+    };
+
+    const onScrollOrResize = () => closeBubble();
+
+    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("keyup", onKeyUp as any);
+    document.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+
+    return () => {
+      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("keyup", onKeyUp as any);
+      document.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [enabled]);
+
+  const handleSaveSelection = async () => {
+    try {
+      const quote = getSelectionText();
+      if (!quote || quote.length < 3) return;
+
+      const full = (document.body.innerText || "").replace(/\s+/g, " ").trim();
+      let idx = full.indexOf(quote);
+      if (idx < 0) idx = full.toLowerCase().indexOf(quote.toLowerCase());
+      const before = idx >= 0 ? full.slice(Math.max(0, idx - 160), idx) : null;
+      const after =
+        idx >= 0
+          ? full.slice(idx + quote.length, idx + quote.length + 160)
+          : null;
+
+      await saveResearchNote({
+        site_id: siteId,
+        site_slug: siteSlug,
+        site_title: siteTitle,
+        section_id: null,
+        section_title: null,
+        quote_text: quote,
+        context_before: before,
+        context_after: after,
+      });
+
+      closeBubble();
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      alert("Saved to Notebook → Research");
+    } catch (e) {
+      console.error(e);
+      alert("Could not save. Please sign in and try again.");
+    }
+  };
+
+  if (!enabled || !bubble.visible) return null;
+
+  return createPortal(
+    <div
+      className="research-bubble fixed z-[1001]"
+      style={{
+        top: bubble.top,
+        left: bubble.left,
+        transform: "translate(-50%, -100%)",
+      }}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <button
+        onClick={handleSaveSelection}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-black text-white text-sm hover:opacity-90"
+      >
+        <Icon name="bookmark" size={14} />
+        Add to Note
+      </button>
+    </div>,
+    document.body
   );
 }

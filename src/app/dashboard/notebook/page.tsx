@@ -1,3 +1,4 @@
+// src/app/dashboard/notebook/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -5,10 +6,12 @@ import Icon from "@/components/Icon";
 import NotebookEditor from "@/components/NotebookEditor";
 import {
   createNote,
-  listNotes,
-  TravelNote,
+  listAllNotes,
   updateNote,
   NoteType,
+  UnifiedNoteListItem,
+  getNote, // NEW: fetch a travel note by id when opened
+  TravelNote,
 } from "@/lib/notebook";
 import AddFromCollectionsModal, {
   PickerInsertItem,
@@ -113,7 +116,6 @@ const ResizableImageComponent: React.FC<NodeViewProps> = (props) => {
     wrapperStyle.display = "block";
     wrapperStyle.clear = "both";
     wrapperStyle.textAlign = "left";
-    // Keep margins predictable
     if (wrapperStyle.marginTop == null) wrapperStyle.marginTop = 0;
     if (wrapperStyle.marginBottom == null) wrapperStyle.marginBottom = 8;
   }
@@ -243,14 +245,22 @@ function EditorSkeleton() {
 
 /* ================================ Page ================================ */
 
-export default function TravelNotebookPage() {
-  const [notes, setNotes] = useState<TravelNote[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+type Active =
+  | { kind: "travel"; note: TravelNote }
+  | {
+      kind: "research";
+      note: UnifiedNoteListItem; // contains site_* and section_* plus summary (quote)
+    }
+  | null;
 
-  // Existing loading for notes list
+export default function TravelNotebookPage() {
+  const [list, setList] = useState<UnifiedNoteListItem[]>([]);
+  const [active, setActive] = useState<Active>(null);
+
+  // Existing loading for list
   const [loadingList, setLoadingList] = useState(true);
 
-  // New: loading state for the right pane while switching/creating notes
+  // Loading for the right pane while switching/creating notes
   const [contentLoading, setContentLoading] = useState(false);
 
   const [search, setSearch] = useState("");
@@ -266,12 +276,7 @@ export default function TravelNotebookPage() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const activeNote = useMemo(
-    () => notes.find((n) => n.id === activeId),
-    [notes, activeId]
-  );
-
-  // --- Lock page scrolling while notebook is mounted (prevents browser scrollbar)
+  // --- Lock page scrolling while notebook is mounted
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -314,15 +319,13 @@ export default function TravelNotebookPage() {
       },
     },
     onBlur: ({ editor }) => {
-      if (activeNote) {
-        const currentNoteState = notes.find((n) => n.id === activeNote.id);
+      if (active?.kind === "travel") {
         const latestContent = editor.getJSON();
         if (
-          JSON.stringify(currentNoteState?.content) !==
-          JSON.stringify(latestContent)
+          JSON.stringify(active.note.content) !== JSON.stringify(latestContent)
         ) {
           updateNote({
-            id: activeNote.id,
+            id: active.note.id,
             content: latestContent,
             content_text: editor.getText(),
           });
@@ -331,11 +334,12 @@ export default function TravelNotebookPage() {
     },
   });
 
+  // Initial load of unified list; wires global listeners
   useEffect(() => {
     (async () => {
       setLoadingList(true);
-      const rows = await listNotes();
-      setNotes(rows);
+      const rows = await listAllNotes();
+      setList(rows);
       setLoadingList(false);
     })();
 
@@ -355,7 +359,7 @@ export default function TravelNotebookPage() {
     };
   }, []);
 
-  // Fit the frame to the viewport below the header (no page scrollbar)
+  // Fit the frame to the viewport below the header
   useEffect(() => {
     const compute = () => {
       const el = frameRef.current;
@@ -383,20 +387,19 @@ export default function TravelNotebookPage() {
     else Promise.resolve().then(fn);
   };
 
-  // Manage editor content & content skeleton
+  // Manage editor content & skeleton based on active item
   useEffect(() => {
     if (!editor) return;
 
-    editor.setEditable(!!activeNote);
+    const isTravel = active?.kind === "travel";
+    editor.setEditable(!!isTravel);
 
-    if (activeNote) {
-      // show skeleton while swapping note content
+    if (active?.kind === "travel") {
       setContentLoading(true);
-      const nextContent = activeNote.content || "";
+      const nextContent = active.note.content || "";
       schedule(() => {
         if (!editor) return;
         editor.commands.setContent(nextContent, false);
-        // small timeout to allow the DOM to paint before removing skeleton
         setTimeout(() => setContentLoading(false), 120);
       });
     } else {
@@ -406,35 +409,61 @@ export default function TravelNotebookPage() {
         setContentLoading(false);
       });
     }
-  }, [activeNote, editor]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateNote = async (type: NoteType) => {
     setMenuOpen(false);
     setContentLoading(true);
     const row = await createNote(type);
-    const updatedNotes = await listNotes();
-    setNotes(updatedNotes);
-    setActiveId(row.id);
-    // contentLoading will be cleared by the effect above after setContent
+    // Refresh unified list
+    const updated = await listAllNotes();
+    setList(updated);
+    // Load the freshly created travel note document
+    const full = await getNote(row.id);
+    if (full) {
+      setActive({ kind: "travel", note: full });
+    }
+    // contentLoading will be cleared by effect after setContent
+  };
+
+  const openListItem = async (item: UnifiedNoteListItem) => {
+    setContentLoading(true);
+    if (item.kind === "travel") {
+      const full = await getNote(item.id);
+      if (full) setActive({ kind: "travel", note: full });
+    } else {
+      setActive({ kind: "research", note: item });
+    }
+    setTimeout(() => setContentLoading(false), 120);
   };
 
   const handleTitleChange = (id: string, title: string) => {
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+    // Only for travel notes (editable)
+    if (active?.kind !== "travel") return;
+    setActive((prev) =>
+      prev?.kind === "travel"
+        ? { kind: "travel", note: { ...prev.note, title } }
+        : prev
+    );
     if (titleDebounceTimer.current) clearTimeout(titleDebounceTimer.current);
     titleDebounceTimer.current = setTimeout(async () => {
       await updateNote({ id, title });
+      // Reflect updated title in list
+      setList((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
     }, 800);
   };
 
-  const filteredNotes = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return notes;
-    return notes.filter(
+    if (!q) return list;
+    return list.filter(
       (n) =>
         n.title.toLowerCase().includes(q) ||
-        (n.content_text || "").toLowerCase().includes(q)
+        (n.summary || "").toLowerCase().includes(q) ||
+        (n.site_title || "").toLowerCase().includes(q) ||
+        (n.section_title || "").toLowerCase().includes(q)
     );
-  }, [notes, search]);
+  }, [list, search]);
 
   return (
     <div
@@ -498,35 +527,47 @@ export default function TravelNotebookPage() {
                   <SidebarItemSkeleton key={i} />
                 ))}
               </ul>
-            ) : filteredNotes.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="text-center p-4 text-sm text-gray-500">
                 No notes found.
               </div>
             ) : (
               <ul>
-                {filteredNotes.map((n) => (
+                {filtered.map((n) => (
                   <li
                     key={n.id}
-                    onClick={() => {
-                      setActiveId(n.id);
-                      setContentLoading(true);
-                    }}
-                    className={`p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors ${
-                      activeId === n.id
-                        ? "bg-orange-100"
-                        : "hover:bg-gray-200/50"
-                    }`}
+                    onClick={() => openListItem(n)}
+                    className={`p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors hover:bg-gray-200/50`}
                   >
-                    <div className="flex items-center gap-2 font-semibold text-sm text-gray-800 truncate">
-                      <Icon
-                        name={n.type === "note" ? "file-alt" : "tasks"}
-                        size={12}
-                        className="text-orange-500 flex-shrink-0"
-                      />
-                      {n.title}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                          n.kind === "travel"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {n.kind}
+                      </span>
+                      <div className="flex items-center gap-2 font-semibold text-sm text-gray-800 truncate">
+                        <Icon
+                          name={n.kind === "travel" ? "file-alt" : "bookmark"}
+                          size={12}
+                          className={`flex-shrink-0 ${
+                            n.kind === "travel"
+                              ? "text-blue-500"
+                              : "text-emerald-600"
+                          }`}
+                        />
+                        <span className="truncate">{n.title}</span>
+                      </div>
                     </div>
                     <div className="text-xs text-gray-500 truncate mt-1 pl-6">
-                      {new Date(n.created_at).toLocaleDateString()}
+                      {n.kind === "research" && n.site_title
+                        ? `${n.site_title}${
+                            n.section_title ? " · " + n.section_title : ""
+                          }`
+                        : new Date(n.created_at).toLocaleDateString()}
                     </div>
                   </li>
                 ))}
@@ -536,7 +577,7 @@ export default function TravelNotebookPage() {
         </aside>
 
         <main className="flex-1 flex flex-col bg-white min-h-0">
-          {!activeNote ? (
+          {!active ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500 p-6">
               <Icon name="book" size={48} className="text-gray-300 mb-4" />
               <h3 className="text-2xl font-bold text-gray-800 mb-2">
@@ -544,7 +585,7 @@ export default function TravelNotebookPage() {
               </h3>
               <p className="max-w-md text-gray-600">
                 Select an item from the left, or create a new one to get
-                started. Plan your trips or make notes
+                started. Plan your trips or capture research excerpts.
               </p>
             </div>
           ) : contentLoading ? (
@@ -553,13 +594,13 @@ export default function TravelNotebookPage() {
               <ToolbarSkeleton />
               <EditorSkeleton />
             </>
-          ) : (
+          ) : active.kind === "travel" ? (
             <>
               <div className="h-16 flex-shrink-0 px-6 border-b border-gray-200 flex items-center justify-between gap-4">
                 <input
-                  value={activeNote.title}
+                  value={active.note.title}
                   onChange={(e) =>
-                    handleTitleChange(activeNote.id, e.target.value)
+                    handleTitleChange(active.note.id, e.target.value)
                   }
                   className="bg-transparent text-2xl font-bold text-gray-800 outline-none w-full"
                 />
@@ -594,6 +635,70 @@ export default function TravelNotebookPage() {
               {/* Only this area scrolls */}
               <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0">
                 <NotebookEditor editor={editor} />
+              </div>
+            </>
+          ) : (
+            // Research note compact view
+            <>
+              <div className="h-16 flex-shrink-0 px-6 border-b border-gray-200 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase">
+                    Research
+                  </span>
+                  <div className="text-2xl font-bold text-gray-800">
+                    {active.note.site_title || "Research Excerpt"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={
+                      active.note.site_slug
+                        ? `/heritage/${active.note.site_slug}${
+                            active.note.section_id
+                              ? `#${active.note.section_id}`
+                              : ""
+                          }?note=${active.note.id}`
+                        : "#"
+                    }
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-lg bg-black text-white text-sm"
+                    title="Open in context"
+                  >
+                    <Icon name="external-link-alt" size={14} />
+                    View in context
+                  </a>
+                  <button
+                    onClick={() => {
+                      if (!shellRef.current) return;
+                      if (!document.fullscreenElement)
+                        shellRef.current.requestFullscreen();
+                      else document.exitFullscreen();
+                    }}
+                    title="Toggle Fullscreen"
+                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <Icon
+                      name={isFullScreen ? "compress" : "expand"}
+                      size={16}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Read-only body */}
+              <div className="flex-1 overflow-y-auto px-8 py-6 min-h-0">
+                <div className="max-w-3xl">
+                  {active.note.section_title && (
+                    <div className="text-sm text-gray-500 mb-2">
+                      Section: {active.note.section_title}
+                    </div>
+                  )}
+                  <blockquote className="border-l-4 border-emerald-300 pl-4 text-gray-800 text-[15px] leading-relaxed">
+                    {active.note.summary /* quote_text from view */}
+                  </blockquote>
+                  <div className="mt-3 text-xs text-gray-500">
+                    Saved on {new Date(active.note.created_at).toLocaleString()}
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -683,7 +788,6 @@ function ImageBubbleMenu({
     const rerender = () => force({});
     editor.on("transaction", rerender);
     return () => {
-      // ✅ return void cleanup; do not return the Editor instance
       editor.off("transaction", rerender);
     };
   }, [editor]);
@@ -702,7 +806,6 @@ function ImageBubbleMenu({
     editor.chain().focus().updateAttributes("image", { align: a }).run();
   };
 
-  // stable append container (avoid NotFoundError & fullscreen clipping)
   const appendRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!appendRef.current) {
