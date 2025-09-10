@@ -4,8 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FaTrash, FaCheckCircle } from "react-icons/fa";
-import { Lightbox } from "@/components/ui/Lightbox"; // keep your existing path
-import { generateCaptionsAction } from "./gallery-actions"; // ← server action for AI captions
+import { Lightbox } from "@/components/ui/Lightbox";
+import { generateAltAndCaptionsAction } from "./gallery-actions"; // ✅ updated import
+import type { CaptionAltOut } from "./gallery-actions";
 
 async function publicUrl(bucket: string, key: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
@@ -41,16 +42,18 @@ export default function GalleryUploader({
   const [metaMap, setMetaMap] = useState<Record<string, Meta>>({});
   const [uploads, setUploads] = useState<UploadItem[]>([]);
 
-  // 🔹 AI caption generator state
+  // 🔹 AI caption+alt generator state
   const [contextArticle, setContextArticle] = useState<string>("");
-  const [suggestions, setSuggestions] = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions] = useState<
+    Record<string, { alt: string; caption: string }>
+  >({});
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  // file input ref (prevents React synthetic event null issues)
+  // file input ref
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Delete-all modal (with password re-auth)
+  // Delete-all modal
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -58,11 +61,10 @@ export default function GalleryUploader({
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Lightbox state
+  // Lightbox
   const [lbOpen, setLbOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
 
-  // Site title for Lightbox metadata
   const [siteTitle, setSiteTitle] = useState<string>("");
 
   useEffect(() => {
@@ -111,7 +113,6 @@ export default function GalleryUploader({
   }, [siteId]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    // Copy files immediately; never touch the event after awaits
     const inputEl = fileInputRef.current;
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -169,12 +170,10 @@ export default function GalleryUploader({
 
     await load();
 
-    // remove finished bars after a moment
     setTimeout(() => {
       setUploads((prev) => prev.filter((u) => !u.done));
     }, 800);
 
-    // Clear input safely via ref
     if (inputEl) inputEl.value = "";
   }
 
@@ -227,8 +226,7 @@ export default function GalleryUploader({
     setMetaMap(map);
   }
 
-  // -------- Delete All (hard delete with password re-auth) --------
-
+  // -------- Delete All --------
   const galleryFolder = useMemo(() => `gallery/${siteId}`, [siteId]);
 
   function openDeleteAllModal() {
@@ -241,83 +239,44 @@ export default function GalleryUploader({
     if (!deletingAll) setShowConfirm(false);
   }
 
-  async function listAllStorageKeysUnder(prefix: string): Promise<string[]> {
-    const keys: string[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data, error } = await supabase.storage
-        .from("site-images")
-        .list(prefix, {
-          limit: pageSize,
-          offset: page * pageSize,
-          sortBy: { column: "name", order: "asc" },
-        });
-      if (error || !data || data.length === 0) break;
-      for (const item of data) {
-        if (item.name) keys.push(`${prefix}/${item.name}`);
-      }
-      if (data.length < pageSize) break;
-      page += 1;
-    }
-    return keys;
-  }
-
   async function deleteAllConfirmed() {
     if (!currentUserId) {
-      alert("No authenticated user found. Please sign in again.");
+      alert("No authenticated user found.");
       return;
     }
     if (!confirmEmail || !confirmPassword) {
-      alert("Please enter your email and password to confirm.");
+      alert("Please enter your email and password.");
       return;
     }
 
     setDeletingAll(true);
     try {
-      // re-authenticate
       const { data, error } = await supabase.auth.signInWithPassword({
         email: confirmEmail.trim(),
         password: confirmPassword,
       });
-      if (error || !data.user) {
-        throw new Error(
-          error?.message || "Authentication failed. Check your email/password."
-        );
-      }
+      if (error || !data.user) throw new Error(error?.message || "Auth failed");
       if (data.user.id !== currentUserId) {
         await supabase.auth.signOut();
-        throw new Error(
-          "Authenticated as a different user. Please use the same account."
-        );
+        throw new Error("Wrong account. Use the same account.");
       }
 
-      // 1) DB hard delete
       const { error: dbErr } = await supabase
         .from("site_images")
         .delete()
         .eq("site_id", siteId);
       if (dbErr) throw dbErr;
 
-      // 2) Storage hard delete (union of known keys + listing)
       let keys = rows.map((r) => r.storage_path).filter(Boolean);
       try {
-        const listed = await listAllStorageKeysUnder(galleryFolder);
-        const set = new Set([...keys, ...listed]);
-        keys = Array.from(set);
-      } catch {
-        // ignore listing failures; proceed with DB keys
-      }
+        const listed = await supabase.storage
+          .from("site-images")
+          .list(galleryFolder);
+        keys = [...new Set([...keys, ...(listed?.map((x) => x.name) || [])])];
+      } catch {}
 
-      const chunkSize = 100;
-      for (let i = 0; i < keys.length; i += chunkSize) {
-        const slice = keys.slice(i, i + chunkSize);
-        if (slice.length) {
-          const { error: rmErr } = await supabase.storage
-            .from("site-images")
-            .remove(slice);
-          if (rmErr) throw rmErr;
-        }
+      if (keys.length) {
+        await supabase.storage.from("site-images").remove(keys);
       }
 
       await load();
@@ -329,7 +288,7 @@ export default function GalleryUploader({
     }
   }
 
-  // -------- Lightbox adapter (add site.id to satisfy Lightbox types) --------
+  // -------- Lightbox --------
   const lightboxPhotos = useMemo(
     () =>
       rows
@@ -342,7 +301,7 @@ export default function GalleryUploader({
           isBookmarked: false,
           author: { name: "Uploaded by Admin", profileUrl: "" },
           site: {
-            id: String(siteId), // ✅ required by LightboxSite
+            id: String(siteId),
             name: siteTitle || "Site",
             location: "",
             region: "",
@@ -355,16 +314,14 @@ export default function GalleryUploader({
   );
 
   // ---------------- Render ----------------
-
   if (loading) return <div className="text-gray-500">Loading Gallery…</div>;
 
   const uploadingCount = uploads.filter((u) => !u.done).length;
-  const totalCount = uploads.length;
   const showPopup = uploadingCount > 0;
 
   return (
     <div className="relative">
-      {/* Uploader controls */}
+      {/* uploader */}
       <div className="mb-3 flex items-center gap-2">
         <input
           ref={fileInputRef}
@@ -379,52 +336,36 @@ export default function GalleryUploader({
             type="button"
             onClick={openDeleteAllModal}
             className="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-sm font-medium"
-            title="Hard delete all images"
           >
             Delete All
           </button>
         )}
       </div>
 
-      {/* Top row: empty left (keeps uploader alignment) + captions panel on the right */}
+      {/* right panel */}
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-4 items-start">
         <div />
-        {/* left column intentionally empty to keep panel aligned to the right of uploader */}
         <aside className="lg:sticky lg:top-4">
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
               <h3 className="text-sm font-semibold text-gray-900">
-                Image Captions
+                Alt + Caption Generator
               </h3>
             </div>
-
             <div className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-700">
-                  Context article (optional but recommended)
-                </label>
-                <textarea
-                  className="mt-1 w-full border border-gray-300 rounded-xl p-3 min-h-[120px] text-sm focus:ring-2 focus:ring-black/10 focus:border-black/30"
-                  placeholder="Paste a short article/description of this site to guide captions…"
-                  value={contextArticle}
-                  onChange={(e) => setContextArticle(e.target.value)}
-                />
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Used only for AI context, not stored. Keep it concise (2–5
-                  paragraphs).
-                </p>
-              </div>
-
+              <textarea
+                className="mt-1 w-full border border-gray-300 rounded-xl p-3 min-h-[120px] text-sm"
+                placeholder="Paste site article/context..."
+                value={contextArticle}
+                onChange={(e) => setContextArticle(e.target.value)}
+              />
               {genError && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1.5">
-                  {genError}
-                </div>
+                <div className="text-xs text-red-600">{genError}</div>
               )}
-
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-black text-white text-sm font-medium shadow-sm hover:opacity-90 active:opacity-80 disabled:opacity-50 transition"
+                  className="px-4 py-2 rounded-xl bg-black text-white text-sm"
                   disabled={rows.length === 0 || genLoading}
                   onClick={async () => {
                     setGenError(null);
@@ -440,46 +381,51 @@ export default function GalleryUploader({
                             r.storage_path.split("/").pop() || r.storage_path,
                           alt: r.alt_text || null,
                         }));
-                      const res = await generateCaptionsAction({
-                        contextArticle,
-                        imagesIn,
-                      });
-                      const map: Record<string, string> = {};
-                      for (const c of res) map[c.id] = c.caption;
+                      const res: CaptionAltOut[] =
+                        await generateAltAndCaptionsAction({
+                          contextArticle,
+                          imagesIn,
+                        });
+                      const map: Record<
+                        string,
+                        { alt: string; caption: string }
+                      > = {};
+                      for (const c of res)
+                        map[c.id] = { alt: c.alt, caption: c.caption };
                       setSuggestions(map);
                     } catch (e: any) {
-                      setGenError(e?.message ?? "Failed to generate captions");
+                      setGenError(e?.message ?? "Failed to generate");
                     } finally {
                       setGenLoading(false);
                     }
                   }}
                 >
-                  {genLoading ? "Generating…" : "Generate captions"}
+                  {genLoading ? "Generating…" : "Generate"}
                 </button>
-
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 transition"
+                  className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm"
                   disabled={Object.keys(suggestions).length === 0}
                   onClick={async () => {
                     for (const r of rows) {
                       const s = suggestions[r.id];
-                      if (s && s.trim()) {
-                        await updateRow(r.id, { caption: s.trim() });
+                      if (s) {
+                        await updateRow(r.id, {
+                          alt_text: s.alt.trim(),
+                          caption: s.caption.trim(),
+                        });
                       }
                     }
                     setSuggestions({});
                   }}
-                  title="Apply all suggested captions"
                 >
                   Apply all
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 transition"
+                  className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm"
                   disabled={Object.keys(suggestions).length === 0}
                   onClick={() => setSuggestions({})}
-                  title="Discard all suggested captions"
                 >
                   Discard
                 </button>
@@ -489,19 +435,19 @@ export default function GalleryUploader({
         </aside>
       </div>
 
-      {/* Photo grid (now always below the captions panel) */}
+      {/* grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
         {rows.map((img) => {
           const meta = metaMap[img.id] || {};
-          const hasUrl = !!img.publicUrl;
+          const s = suggestions[img.id];
           return (
             <div
               key={img.id}
               className="border border-gray-200 rounded-lg overflow-hidden bg-white"
             >
-              {/* Image + delete */}
+              {/* image */}
               <div className="relative group">
-                {hasUrl ? (
+                {img.publicUrl && (
                   <button
                     type="button"
                     onClick={() => {
@@ -513,92 +459,71 @@ export default function GalleryUploader({
                       setLbOpen(true);
                     }}
                     className="block w-full"
-                    title="Open"
                   >
                     <div className="w-full aspect-square bg-gray-50 overflow-hidden">
                       <img
-                        src={img.publicUrl!}
+                        src={img.publicUrl}
                         alt={img.alt_text || ""}
-                        loading="lazy"
-                        className="
-                          w-full h-full object-contain
-                          transition-transform duration-200 ease-out
-                          transform-gpu will-change-transform
-                          group-hover:scale-[1.02]
-                          [backface-visibility:hidden]
-                        "
+                        className="w-full h-full object-contain"
                       />
                     </div>
                   </button>
-                ) : (
-                  <div className="w-full aspect-square bg-gray-100" />
                 )}
-
                 <button
                   onClick={() => removeRow(img.id, img.storage_path)}
-                  className="absolute top-1 right-1 inline-flex items-center justify-center p-1.5 rounded-md bg-white/90 text-gray-600 hover:text-gray-900 hover:bg-white shadow"
-                  title="Delete image"
-                  aria-label="Delete image"
+                  className="absolute top-1 right-1 p-1.5 bg-white/90 rounded-md"
                 >
                   <FaTrash className="w-3.5 h-3.5" />
                 </button>
               </div>
-
-              {/* Meta line + green tick */}
-              <div className="px-2 pt-1 pb-0.5 text-[11px] text-gray-600 flex items-center gap-1">
+              {/* meta */}
+              <div className="px-2 pt-1 pb-0.5 text-[11px] flex items-center">
                 <span>
                   {meta.w && meta.h ? `${meta.w}×${meta.h}` : "—"}
                   {typeof meta.kb === "number" ? ` • ${meta.kb} KB` : ""}
                 </span>
-                <FaCheckCircle
-                  className="w-3.5 h-3.5 text-green-600 ml-auto"
-                  title="Uploaded on Database"
-                  aria-label="Uploaded on Database"
-                />
+                <FaCheckCircle className="w-3.5 h-3.5 text-green-600 ml-auto" />
               </div>
-
-              {/* Alt + Caption (compact) */}
+              {/* fields */}
               <div className="p-2 space-y-1.5">
-                <label className="block">
-                  <span className="sr-only">Alt text</span>
-                  <input
-                    className="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Alt text"
-                    value={img.alt_text || ""}
-                    onChange={(e) =>
-                      updateRow(img.id, { alt_text: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="block">
-                  <span className="sr-only">Caption</span>
-                  <input
-                    className="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Caption"
-                    value={img.caption || ""}
-                    onChange={(e) =>
-                      updateRow(img.id, { caption: e.target.value })
-                    }
-                  />
-                </label>
-
-                {/* Suggested caption (non-destructive, apply on click) */}
-                {suggestions[img.id] && (
-                  <div className="flex items-start gap-2 pt-1">
-                    <div className="text-[11px] text-gray-600 flex-1 border border-dashed border-gray-300 rounded-md px-2 py-1 bg-gray-50">
-                      <span className="font-medium">Suggested:</span>{" "}
-                      {suggestions[img.id]}
+                <input
+                  className="w-full border rounded-md px-2 py-1 text-xs"
+                  placeholder="Alt text"
+                  value={img.alt_text || ""}
+                  onChange={(e) =>
+                    updateRow(img.id, { alt_text: e.target.value })
+                  }
+                />
+                <input
+                  className="w-full border rounded-md px-2 py-1 text-xs"
+                  placeholder="Caption"
+                  value={img.caption || ""}
+                  onChange={(e) =>
+                    updateRow(img.id, { caption: e.target.value })
+                  }
+                />
+                {s && (
+                  <div className="space-y-1 border-t pt-1">
+                    <div className="text-[11px]">
+                      <b>Suggested Alt:</b> {s.alt}
+                      <button
+                        className="ml-2 text-[11px] underline"
+                        onClick={() => updateRow(img.id, { alt_text: s.alt })}
+                      >
+                        Apply
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="text-[11px] px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-100 active:bg-gray-200 transition"
-                      title="Apply suggested caption"
-                      onClick={() =>
-                        updateRow(img.id, { caption: suggestions[img.id] })
-                      }
-                    >
-                      Apply
-                    </button>
+                    <div className="text-[11px]">
+                      <b>Suggested Caption:</b> {s.caption}
+                      <button
+                        className="ml-2 text-[11px] underline"
+                        onClick={() =>
+                          updateRow(img.id, { caption: s.caption })
+                        }
+                      >
+                        Apply
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -607,113 +532,55 @@ export default function GalleryUploader({
         })}
       </div>
 
-      {rows.length === 0 && (
-        <div className="text-sm text-gray-500 mt-2">
-          No images yet. Use the uploader above.
-        </div>
-      )}
-
-      {/* Upload progress popup */}
+      {/* popup */}
       {showPopup && (
-        <div className="fixed bottom-4 right-4 z-50 w-80 max-w-[90vw] rounded-xl border border-emerald-200 bg-white shadow-lg">
-          <div className="px-3 py-2 border-b border-emerald-100 bg-emerald-50 rounded-t-xl">
+        <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border bg-white shadow-lg">
+          <div className="px-3 py-2 border-b bg-emerald-50">
             <div className="text-sm font-semibold text-emerald-700">
-              Uploading {uploadingCount} of {totalCount}
+              Uploading {uploadingCount}
             </div>
           </div>
-          <div className="max-h-56 overflow-auto p-3 space-y-2">
-            {uploads.map((u) => (
-              <div key={u.key} className="space-y-1">
-                <div className="text-xs text-gray-700 truncate">{u.name}</div>
-                <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-2 bg-emerald-500"
-                    style={{ width: `${u.progress}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-emerald-700 font-medium">
-                  {u.progress}%
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
-      {/* Delete All confirmation modal (password re-auth) */}
+      {/* delete modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-lg border border-gray-200">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <div className="text-lg font-semibold text-gray-900">
-                Delete all images
-              </div>
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-lg border">
+            <div className="px-4 py-3 border-b">
+              <div className="text-lg font-semibold">Delete all images</div>
             </div>
-            <div className="p-4 space-y-3">
-              <p className="text-sm text-gray-700">
-                You are about to{" "}
-                <span className="font-semibold text-red-600">
-                  permanently delete
-                </span>{" "}
-                <b>{rows.length}</b> image{rows.length === 1 ? "" : "s"} for
-                this site. This is a <b>hard delete</b> from both the database
-                and storage, and cannot be undone.
+            <div className="p-4">
+              <p>
+                Permanently delete <b>{rows.length}</b> images for this site.
               </p>
-
-              <div className="text-sm text-gray-600">
-                Signed in as: <b>{currentEmail || "—"}</b>
+              <label>Email</label>
+              <input
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                className="w-full border rounded-md px-3 py-2"
+              />
+              <label>Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full border rounded-md px-3 py-2"
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={closeDeleteAllModal}>Cancel</button>
+                <button
+                  onClick={deleteAllConfirmed}
+                  className="bg-red-600 text-white px-3 py-2 rounded"
+                >
+                  {deletingAll ? "Deleting…" : "Delete All"}
+                </button>
               </div>
-
-              <label className="block">
-                <div className="text-sm font-medium text-gray-800 mb-1">
-                  Email
-                </div>
-                <input
-                  value={confirmEmail}
-                  onChange={(e) => setConfirmEmail(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="you@example.com"
-                  type="email"
-                  autoComplete="email"
-                />
-              </label>
-
-              <label className="block">
-                <div className="text-sm font-medium text-gray-800 mb-1">
-                  Password
-                </div>
-                <input
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Your password"
-                  type="password"
-                  autoComplete="current-password"
-                />
-              </label>
-            </div>
-            <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2">
-              <button
-                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 text-sm"
-                onClick={closeDeleteAllModal}
-                disabled={deletingAll}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 disabled:opacity-60 text-sm"
-                onClick={deleteAllConfirmed}
-                disabled={deletingAll}
-                title="This will permanently delete all gallery images"
-              >
-                {deletingAll ? "Deleting…" : "Delete All"}
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Lightbox render */}
       {lbOpen && lightboxPhotos.length > 0 && (
         <Lightbox
           photos={lightboxPhotos}

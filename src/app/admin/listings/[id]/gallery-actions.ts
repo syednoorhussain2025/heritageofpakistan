@@ -2,10 +2,12 @@
 "use server";
 
 /**
- * Server action to generate short, site-aware captions for a gallery.
- * - Uses Supabase's public render endpoint to serve low-res images (HTTPS, fetchable by OpenAI)
- * - Batches images per request with short, AI-friendly IDs (img1, img2, …)
- * - Strict mapping back to real DB ids to avoid misalignment/shuffling
+ * Server action to generate short, site-aware alt text + captions for a gallery.
+ * - Alt text = factual description for accessibility/SEO.
+ * - Caption = short, narrative line for gallery storytelling.
+ * - Uses Supabase's render endpoint to serve low-res images (HTTPS, fetchable by OpenAI).
+ * - Batches images per request with AI-friendly ids (img1, img2, …).
+ * - Strict mapping back to real DB ids to avoid misalignment/shuffling.
  */
 
 type InputImage = {
@@ -22,18 +24,15 @@ type AiImage = {
   filename: string;
 };
 
-type CaptionOut = { id: string; caption: string };
+export type CaptionAltOut = { id: string; alt: string; caption: string };
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 if (!OPENAI_API_KEY) {
-  console.warn("OPENAI_API_KEY is not set (caption generation will fail).");
+  console.warn("OPENAI_API_KEY is not set (caption/alt generation will fail).");
 }
 
 /**
- * Turn a Supabase "object" public URL into a "render/image" URL with width/quality params.
- * Example:
- *   https://xyz.supabase.co/storage/v1/object/public/site-images/gallery/foo.jpg
- * → https://xyz.supabase.co/storage/v1/render/image/public/site-images/gallery/foo.jpg?width=512&quality=60
+ * Turn a Supabase object URL into a render URL with width/quality params.
  */
 function supabaseRenderUrl(u: string, w = 512, q = 60): string {
   try {
@@ -47,7 +46,7 @@ function supabaseRenderUrl(u: string, w = 512, q = 60): string {
     url.searchParams.set("resize", "contain");
     return url.toString();
   } catch {
-    return u; // fallback (still fetchable, just larger)
+    return u; // fallback
   }
 }
 
@@ -60,20 +59,22 @@ function limitWords(s: string, maxWords = 12): string {
 async function callOpenAIVisionBatch(
   images: AiImage[],
   context: string
-): Promise<Record<string, string>> {
-  // Build strict, ID-locked prompt
+): Promise<Record<string, { alt: string; caption: string }>> {
+  // System role
   const system = [
     {
       role: "system",
       content:
-        "You are a captioning assistant for a heritage & travel website. " +
-        "Write a single, concise caption (<= 12 words), in plain English, " +
-        "factually tied to the provided context. Do not invent details.",
+        "You are assisting a heritage & travel website.\n" +
+        "- ALT TEXT: factual, literal description of the image (<= 12 words).\n" +
+        "- CAPTION: short narrative (<= 12 words), tied to heritage/travel context.\n" +
+        "Do not invent details. Output JSON exactly as requested.",
     },
   ];
 
   const expectedIds = images.map((x) => x.aiId);
 
+  // Build prompt
   const content: any[] = [];
   content.push({
     type: "text",
@@ -81,13 +82,14 @@ async function callOpenAIVisionBatch(
       "Site context:\n" +
       context +
       "\n\nTask:\n" +
-      "- For each image, return ONE short caption (<= 12 words).\n" +
-      "- Use the EXACT ids I provide (do not rename or reorder them).\n" +
-      "- Output JSON ONLY with this exact schema:\n" +
-      '  {"captions":[{"id":"img1","caption":"..."},{"id":"img2","caption":"..."}]}\n' +
-      `Expected ids (all must be present, exactly once each): ${expectedIds.join(
-        ", "
-      )}`,
+      "- For each image, return BOTH alt and caption.\n" +
+      "- Alt = factual description for accessibility.\n" +
+      "- Caption = short narrative line.\n" +
+      "- Each <= 12 words.\n" +
+      "- Use EXACT ids I provide (do not rename or reorder).\n" +
+      "- Output JSON ONLY with this schema:\n" +
+      '  {"images":[{"id":"img1","alt":"...","caption":"..."}, {"id":"img2","alt":"...","caption":"..."}]}\n' +
+      `Expected ids (all must be present once each): ${expectedIds.join(", ")}`,
   });
 
   for (const img of images) {
@@ -130,37 +132,36 @@ async function callOpenAIVisionBatch(
     parsed = {};
   }
 
-  const out: Record<string, string> = {};
-  const arr = Array.isArray(parsed?.captions) ? parsed.captions : [];
+  const out: Record<string, { alt: string; caption: string }> = {};
+  const arr = Array.isArray(parsed?.images) ? parsed.images : [];
   for (const item of arr) {
-    if (
-      !item ||
-      typeof item.id !== "string" ||
-      typeof item.caption !== "string"
-    )
-      continue;
-    out[item.id] = limitWords(item.caption.trim(), 12);
+    if (!item || typeof item.id !== "string") continue;
+    const alt =
+      typeof item.alt === "string"
+        ? limitWords(item.alt.trim(), 12)
+        : "Photo of heritage site.";
+    const caption =
+      typeof item.caption === "string"
+        ? limitWords(item.caption.trim(), 12)
+        : "Heritage site photo.";
+    out[item.id] = { alt, caption };
   }
-  return out; // map of aiId -> caption
+  return out;
 }
 
 /**
- * Generate short captions for images using a site context article.
- * - Transforms each input into an AI-friendly entry (img1, img2, …)
- * - Calls the model in batches
- * - Maps captions back to real DB ids and guarantees alignment
+ * Generate alt text + captions for images using a site context article.
  */
-export async function generateCaptionsAction(args: {
+export async function generateAltAndCaptionsAction(args: {
   contextArticle: string;
   imagesIn: InputImage[];
-}): Promise<CaptionOut[]> {
+}): Promise<CaptionAltOut[]> {
   const { contextArticle, imagesIn } = args;
 
   if (!contextArticle?.trim())
     throw new Error("Please paste a short site context article first.");
   if (!imagesIn?.length) return [];
 
-  // Build AI-friendly batch items
   const aiItems: AiImage[] = imagesIn.map((img, i) => ({
     aiId: `img${i + 1}`,
     realId: img.id,
@@ -168,24 +169,21 @@ export async function generateCaptionsAction(args: {
     url: supabaseRenderUrl(img.publicUrl, 512, 60),
   }));
 
-  // Batch for efficiency (6 per request is a good balance)
   const BATCH = 6;
-  const results: CaptionOut[] = [];
+  const results: CaptionAltOut[] = [];
 
   for (let i = 0; i < aiItems.length; i += BATCH) {
     const slice = aiItems.slice(i, i + BATCH);
 
-    // Call model
-    const aiIdToCaption = await callOpenAIVisionBatch(slice, contextArticle);
+    const aiIdToData = await callOpenAIVisionBatch(slice, contextArticle);
 
-    // Map back to real DB ids; ensure every aiId gets a caption
     for (const item of slice) {
-      const cap = aiIdToCaption[item.aiId];
-      const caption =
-        typeof cap === "string" && cap.trim()
-          ? limitWords(cap.trim(), 12)
-          : "Photo of Chauburji monument."; // simple fallback
-      results.push({ id: item.realId, caption });
+      const data = aiIdToData[item.aiId];
+      results.push({
+        id: item.realId,
+        alt: data?.alt || "Heritage site photo.",
+        caption: data?.caption || "Heritage site image.",
+      });
     }
   }
 
