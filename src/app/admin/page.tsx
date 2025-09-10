@@ -129,6 +129,13 @@ export default function AdminHome() {
       desc: "Manage all SVG icons.",
       icon: "admin",
     },
+    // NEW: Bibliography Manager (centralized)
+    {
+      href: "/admin/bibliography",
+      title: "Bibliography Manager",
+      desc: "Centralized sources & citations.",
+      icon: "book",
+    },
     {
       href: "/admin/map",
       title: "Map Settings",
