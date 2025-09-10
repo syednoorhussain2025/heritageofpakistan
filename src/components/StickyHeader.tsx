@@ -50,9 +50,9 @@ function ActionButton({
   // `group` allows the icon badge to react to parent hover
   const base =
     "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium " +
-    "border border-slate-200 bg-white text-slate-800 cursor-pointer " +
+    "bg-white text-slate-800 cursor-pointer " +
     "transition-colors whitespace-nowrap";
-  // Hover: text turns brand orange; BORDER STAYS NEUTRAL
+  // Hover: text turns brand orange
   const hoverClass = "hover:text-[var(--brand-orange,#F78300)]";
   const cls = `${base} ${hoverClass}`;
 
@@ -124,7 +124,7 @@ const FIXED_ITEMS: TocItem[] = [
     level: 2,
     iconName: "architecture-design",
   },
-  { id: "gallery", title: "Photo Gallery", level: 2, iconName: "gallery" },
+  { id: "gallery", title: "Gallery", level: 2, iconName: "gallery" },
   { id: "travel", title: "Travel Guide", level: 2, iconName: "travel-guide" },
   {
     id: "bibliography",
@@ -438,27 +438,13 @@ export default function StickyHeader({
 
               <ActionButton href={`/heritage/${site.slug}/gallery`}>
                 <IconBadge name="gallery" />
-                <span>Photo Gallery</span>
+                <span>Gallery</span>
               </ActionButton>
-
-              {/* Optional: maps deep-link if provided */}
-              {mapsLink ? (
-                <ActionButton href={mapsLink}>
-                  <IconBadge name="location" />
-                  <span>Open Location</span>
-                </ActionButton>
-              ) : null}
 
               {/* Keep "Share your experience" before Share */}
               <ActionButton onClick={() => setShowReviewModal(true)}>
                 <IconBadge name="hike" />
                 <span>Share your experience</span>
-              </ActionButton>
-
-              {/* Right-most Share button */}
-              <ActionButton onClick={doShare}>
-                <IconBadge name="share" />
-                <span>Share</span>
               </ActionButton>
 
               {/* NEW: Research Tools toggle */}

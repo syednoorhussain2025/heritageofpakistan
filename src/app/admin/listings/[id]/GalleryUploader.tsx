@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FaTrash, FaCheckCircle } from "react-icons/fa";
 import { Lightbox } from "@/components/ui/Lightbox"; // keep your existing path
+import { generateCaptionsAction } from "./gallery-actions"; // ← server action for AI captions
 
 async function publicUrl(bucket: string, key: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(key);
@@ -39,6 +40,12 @@ export default function GalleryUploader({
   const [loading, setLoading] = useState(true);
   const [metaMap, setMetaMap] = useState<Record<string, Meta>>({});
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+
+  // 🔹 AI caption generator state
+  const [contextArticle, setContextArticle] = useState<string>("");
+  const [suggestions, setSuggestions] = useState<Record<string, string>>({});
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   // file input ref (prevents React synthetic event null issues)
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -357,6 +364,7 @@ export default function GalleryUploader({
 
   return (
     <div className="relative">
+      {/* Uploader controls */}
       <div className="mb-3 flex items-center gap-2">
         <input
           ref={fileInputRef}
@@ -378,7 +386,110 @@ export default function GalleryUploader({
         )}
       </div>
 
-      {/* Dense 5-column grid; show FULL image (object-contain) and a smooth low-alias hover transform */}
+      {/* Top row: empty left (keeps uploader alignment) + captions panel on the right */}
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-4 items-start">
+        <div />
+        {/* left column intentionally empty to keep panel aligned to the right of uploader */}
+        <aside className="lg:sticky lg:top-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Image Captions
+              </h3>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700">
+                  Context article (optional but recommended)
+                </label>
+                <textarea
+                  className="mt-1 w-full border border-gray-300 rounded-xl p-3 min-h-[120px] text-sm focus:ring-2 focus:ring-black/10 focus:border-black/30"
+                  placeholder="Paste a short article/description of this site to guide captions…"
+                  value={contextArticle}
+                  onChange={(e) => setContextArticle(e.target.value)}
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Used only for AI context, not stored. Keep it concise (2–5
+                  paragraphs).
+                </p>
+              </div>
+
+              {genError && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1.5">
+                  {genError}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-black text-white text-sm font-medium shadow-sm hover:opacity-90 active:opacity-80 disabled:opacity-50 transition"
+                  disabled={rows.length === 0 || genLoading}
+                  onClick={async () => {
+                    setGenError(null);
+                    setGenLoading(true);
+                    setSuggestions({});
+                    try {
+                      const imagesIn = rows
+                        .filter((r) => r.publicUrl)
+                        .map((r) => ({
+                          id: r.id,
+                          publicUrl: r.publicUrl as string,
+                          filename:
+                            r.storage_path.split("/").pop() || r.storage_path,
+                          alt: r.alt_text || null,
+                        }));
+                      const res = await generateCaptionsAction({
+                        contextArticle,
+                        imagesIn,
+                      });
+                      const map: Record<string, string> = {};
+                      for (const c of res) map[c.id] = c.caption;
+                      setSuggestions(map);
+                    } catch (e: any) {
+                      setGenError(e?.message ?? "Failed to generate captions");
+                    } finally {
+                      setGenLoading(false);
+                    }
+                  }}
+                >
+                  {genLoading ? "Generating…" : "Generate captions"}
+                </button>
+
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 transition"
+                  disabled={Object.keys(suggestions).length === 0}
+                  onClick={async () => {
+                    for (const r of rows) {
+                      const s = suggestions[r.id];
+                      if (s && s.trim()) {
+                        await updateRow(r.id, { caption: s.trim() });
+                      }
+                    }
+                    setSuggestions({});
+                  }}
+                  title="Apply all suggested captions"
+                >
+                  Apply all
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 transition"
+                  disabled={Object.keys(suggestions).length === 0}
+                  onClick={() => setSuggestions({})}
+                  title="Discard all suggested captions"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Photo grid (now always below the captions panel) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
         {rows.map((img) => {
           const meta = metaMap[img.id] || {};
@@ -470,6 +581,26 @@ export default function GalleryUploader({
                     }
                   />
                 </label>
+
+                {/* Suggested caption (non-destructive, apply on click) */}
+                {suggestions[img.id] && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <div className="text-[11px] text-gray-600 flex-1 border border-dashed border-gray-300 rounded-md px-2 py-1 bg-gray-50">
+                      <span className="font-medium">Suggested:</span>{" "}
+                      {suggestions[img.id]}
+                    </div>
+                    <button
+                      type="button"
+                      className="text-[11px] px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-100 active:bg-gray-200 transition"
+                      title="Apply suggested caption"
+                      onClick={() =>
+                        updateRow(img.id, { caption: suggestions[img.id] })
+                      }
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
