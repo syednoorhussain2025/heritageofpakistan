@@ -298,6 +298,71 @@ type Bibliography = {
   sort_order: number;
 };
 
+/* ───────────── Helpers (bibliography join + CSL) ───────────── */
+
+function authorsFromCSL(csl: any, max = 4): string | null {
+  if (!csl || !Array.isArray(csl.author) || csl.author.length === 0)
+    return null;
+  const names = csl.author.map((a: any) =>
+    a?.family || a?.given
+      ? [a.family, a.given].filter(Boolean).join(", ")
+      : a?.literal || ""
+  );
+  const clipped = names.slice(0, max).filter(Boolean);
+  if (clipped.length === 0) return null;
+  return clipped.join("; ") + (names.length > max ? " et al." : "");
+}
+
+async function loadBibliographyForPublic(siteId: string) {
+  // Preferred path: via join table
+  const { data: links, error: e1 } = await supabase
+    .from("listing_bibliography")
+    .select(
+      `
+      biblio_id,
+      sort_order,
+      note,
+      bibliography_sources:biblio_id (
+        id, title, authors, year, publisher_or_site, url, notes, csl
+      )
+    `
+    )
+    .eq("listing_id", siteId)
+    .order("sort_order", { ascending: true });
+
+  if (!e1 && links && links.length > 0) {
+    return links.map((l: any) => {
+      const src = l.bibliography_sources || {};
+      const yearFromCSL =
+        src?.csl?.issued?.["date-parts"]?.[0]?.[0] ??
+        (src?.year ? parseInt(src.year, 10) : null);
+      const publisherFromCSL =
+        src?.csl?.publisher ?? src?.csl?.["container-title"] ?? null;
+
+      return {
+        id: src.id,
+        site_id: siteId,
+        title: src.title,
+        authors: authorsFromCSL(src.csl, 4) || src.authors || null,
+        year: yearFromCSL ? String(yearFromCSL) : src.year || null,
+        publisher_or_site: publisherFromCSL || src.publisher_or_site || null,
+        url: src?.csl?.URL || src.url || null,
+        notes: l?.note ?? src?.notes ?? null,
+        sort_order: l?.sort_order ?? 0,
+      } as Bibliography;
+    });
+  }
+
+  // Legacy fallback (direct by site_id)
+  const { data: bibLegacy } = await supabase
+    .from("bibliography_sources")
+    .select("*")
+    .eq("site_id", siteId)
+    .order("sort_order", { ascending: true });
+
+  return (bibLegacy as any[]) ?? [];
+}
+
 /* ───────────── Page ───────────── */
 
 export default function HeritagePage() {
@@ -404,12 +469,9 @@ export default function HeritagePage() {
         );
         setGallery(withUrls);
 
-        const { data: bib } = await supabase
-          .from("bibliography_sources")
-          .select("*")
-          .eq("site_id", s.id)
-          .order("sort_order", { ascending: true });
-        setBiblio((bib as any[]) || []);
+        // UPDATED: bibliography via join with legacy fallback
+        const b = await loadBibliographyForPublic(s.id);
+        setBiblio(b as Bibliography[]);
 
         const { data: ps } = await supabase
           .from("photo_stories")

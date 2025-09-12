@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@citation-js/plugin-csl": "^0.7.18",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@react-google-maps/api": "^2.20.7",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -35,6 +36,7 @@
     "@types/react-leaflet-markercluster": "^3.0.4",
     "browser-image-compression": "^2.0.2",
     "chalk": "^5.6.0",
+    "citation-js": "^0.7.20",
     "fast-xml-parser": "^5.2.5",
     "framer-motion": "^11.18.2",
     "hast-util-to-jsx-runtime": "^2.3.6",
@@ -50,6 +52,7 @@
     "react-leaflet": "^5.0.0",
     "react-leaflet-google-layer": "^4.0.0",
     "react-leaflet-markercluster": "^5.0.0-rc.0",
+    "recharts": "^3.2.0",
     "rehype-external-links": "^3.0.0",
     "rehype-parse": "^9.0.1",
     "rehype-sanitize": "^6.0.0",
@@ -66,6 +69,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.4.7",
+    "patch-package": "^8.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

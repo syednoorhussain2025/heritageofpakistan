@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CitationWizard from "@/components/biblio/CitationWizard";
+import { Cite } from "@citation-js/core";
+import "@citation-js/plugin-csl";
 
 /* ------------------------------------------------------------------ */
 /* Small UI bits                                                       */
@@ -195,162 +197,6 @@ function Toasts({
 }
 
 /* ------------------------------------------------------------------ */
-/* Authors editor (for "Add New Source" modal)                         */
-/* ------------------------------------------------------------------ */
-function AuthorsEditor({
-  value,
-  onChange,
-  role,
-}: {
-  value: Person[];
-  onChange: (v: Person[]) => void;
-  role: Person["role"];
-}) {
-  const list = value.filter((p) => p.role === role);
-
-  const update = (idx: number, patch: Partial<Person>) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const globalIndex = indices[idx];
-    if (globalIndex == null) return;
-    const next = value.slice();
-    next[globalIndex] = { ...next[globalIndex], ...patch };
-    onChange(next);
-  };
-
-  const add = (kind: "person" | "org") =>
-    onChange([...value, { role, kind, given: "", family: "", literal: "" }]);
-
-  const remove = (idx: number) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const globalIndex = indices[idx];
-    onChange(value.filter((_, i) => i !== globalIndex));
-  };
-
-  const move = (idx: number, dir: -1 | 1) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const currentGlobal = indices[idx];
-    const swapGlobal = indices[idx + dir];
-    if (currentGlobal == null || swapGlobal == null) return;
-    const next = value.slice();
-    const tmp = next[currentGlobal];
-    next[currentGlobal] = next[swapGlobal];
-    next[swapGlobal] = tmp;
-    onChange(next);
-  };
-
-  return (
-    <div className="space-y-3">
-      {list.length === 0 ? (
-        <div className="text-xs text-slate-500">No {role}s yet.</div>
-      ) : null}
-      {list.map((p, idx) => (
-        <div
-          key={idx}
-          className="border border-slate-200 rounded-xl p-3 bg-white"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold text-slate-700">
-              {role} #{idx + 1}
-            </div>
-            <div className="flex gap-2">
-              <Btn onClick={() => move(idx, -1)} disabled={idx === 0}>
-                ↑
-              </Btn>
-              <Btn
-                onClick={() => move(idx, +1)}
-                disabled={idx === list.length - 1}
-              >
-                ↓
-              </Btn>
-              <Btn
-                className="bg-red-50 text-red-700 border border-red-200"
-                onClick={() => remove(idx)}
-              >
-                Remove
-              </Btn>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 mb-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={p.kind === "person"}
-                onChange={() => update(idx, { kind: "person", literal: "" })}
-              />
-              Person
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={p.kind === "org"}
-                onChange={() =>
-                  update(idx, { kind: "org", given: "", family: "" })
-                }
-              />
-              Organization
-            </label>
-          </div>
-
-          {p.kind === "person" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Given (first)">
-                <input
-                  className={inputStyles}
-                  value={p.given ?? ""}
-                  onChange={(e) => update(idx, { given: e.target.value })}
-                  placeholder="Ayesha"
-                />
-              </Field>
-              <Field label="Family (last)">
-                <input
-                  className={inputStyles}
-                  value={p.family ?? ""}
-                  onChange={(e) => update(idx, { family: e.target.value })}
-                  placeholder="Malik"
-                />
-              </Field>
-            </div>
-          ) : (
-            <Field label="Organization">
-              <input
-                className={inputStyles}
-                value={p.literal ?? ""}
-                onChange={(e) => update(idx, { literal: e.target.value })}
-                placeholder="UNESCO World Heritage Centre"
-              />
-            </Field>
-          )}
-        </div>
-      ))}
-
-      <div className="flex gap-2">
-        <Btn
-          onClick={() => add("person")}
-          className="bg-emerald-50 text-emerald-700 border border-emerald-200"
-        >
-          Add {role} (Person)
-        </Btn>
-        <Btn
-          onClick={() => add("org")}
-          className="bg-emerald-50 text-emerald-700 border border-emerald-200"
-        >
-          Add {role} (Organization)
-        </Btn>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Skeletons                                                           */
 /* ------------------------------------------------------------------ */
 function AttachedRowSkeleton() {
@@ -386,6 +232,79 @@ function SearchSkeletonRow() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Citation styles (global selector)                                   */
+/* ------------------------------------------------------------------ */
+const STYLE_OPTIONS = [
+  { id: "apa", label: "APA" },
+  { id: "mla", label: "MLA" },
+  { id: "chicago-author-date", label: "Chicago (Author–Date)" },
+  { id: "chicago-note-bibliography", label: "Chicago (Notes/Bibliography)" },
+  { id: "ieee", label: "IEEE" },
+  { id: "harvard1", label: "Harvard" },
+  { id: "vancouver", label: "Vancouver" },
+  { id: "ama", label: "AMA" },
+  { id: "acs-nano", label: "ACS" },
+  { id: "turabian-fullnote-bibliography", label: "Turabian" },
+];
+
+/* Sample CSL-JSON used for the live preview */
+const SAMPLE_CSL: any = {
+  type: "article-journal",
+  title: "Fort Architecture and Urban Memory in Sindh",
+  author: [
+    { family: "Malik", given: "Ayesha" },
+    { family: "Khan", given: "Usman" },
+  ],
+  "container-title": "Journal of South Asian Studies",
+  issued: { "date-parts": [[2021]] },
+  volume: "18",
+  issue: "2",
+  page: "145-168",
+  DOI: "10.5555/abcd.2021.145",
+  URL: "https://example.org/article/fort-architecture",
+  publisher: "Oxford University Press",
+};
+
+/* ---------- Helpers to render CSL HTML for rows (with fallback) ----- */
+function toCSLFromRow(row: BiblioRow): any {
+  if (row.csl) return row.csl;
+  // Minimal fallback if legacy rows don’t have CSL stored
+  return buildCSL({
+    id: row.id,
+    type: row.type ?? "book",
+    title: row.title,
+    authors: [],
+    editors: [],
+    translators: [],
+    container_title: row.container_title ?? undefined,
+    publisher: row.publisher ?? undefined,
+    year_int: row.year_int ?? undefined,
+    doi: row.doi ?? undefined,
+    isbn: row.isbn ?? undefined,
+    issn: row.issn ?? undefined,
+    url: row.url ?? undefined,
+  });
+}
+
+function formatCslEntryHtml(data: any, style: string): string {
+  try {
+    const cite = new Cite([data]);
+    const html = cite.format("bibliography", {
+      format: "html",
+      template: style,
+      lang: "en-US",
+    });
+    // Extract a single entry’s inner HTML for cleaner inline display
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    const entry = div.querySelector(".csl-entry");
+    return entry ? entry.innerHTML : html;
+  } catch {
+    return "";
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Main Component                                                      */
 /* ------------------------------------------------------------------ */
 export default function Bibliography({ siteId }: { siteId: string | number }) {
@@ -398,13 +317,20 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   >([]);
   const [loading, setLoading] = useState(true);
 
+  // Global citation style (admin control)
+  const [styleId, setStyleId] = useState<string>("apa");
+  const [savingStyle, setSavingStyle] = useState(false);
+
+  // Live style preview
+  const [stylePreviewHtml, setStylePreviewHtml] = useState<string>("");
+
   // Search typeahead
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<BiblioRow[]>([]);
   const [openDropdown, setOpenDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const [justAdded, setJustAdded] = useState<Set<string>>(new Set()); // for quick “Added” badge
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
 
   // New Source modal
   const [newOpen, setNewOpen] = useState(false);
@@ -441,7 +367,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   /* --------------------------- Data loaders --------------------------- */
   async function loadAttached() {
     setLoading(true);
-    // 1) read join rows for this listing
     const { data: links, error: e1 } = await supabase
       .from("listing_bibliography")
       .select("biblio_id, sort_order")
@@ -460,7 +385,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
       return;
     }
 
-    // 2) fetch bibliography rows by IDs
     const { data: bibs, error: e2 } = await supabase
       .from("bibliography_sources")
       .select(
@@ -474,7 +398,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
       return;
     }
 
-    // merge sort_order & sort
     const orderMap = new Map<string, number>();
     (links as AttachRow[])?.forEach((l) =>
       orderMap.set(l.biblio_id, l.sort_order ?? 0)
@@ -488,14 +411,27 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     setLoading(false);
   }
 
+  async function loadCitationStyle() {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "citation")
+      .maybeSingle();
+    if (!error && data?.value?.style) {
+      setStyleId(data.value.style);
+    } else {
+      setStyleId("apa");
+    }
+  }
+
   useEffect(() => {
     loadAttached();
+    loadCitationStyle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
 
   /* ------------------------------ Search ----------------------------- */
   async function searchLibrary(query: string) {
-    // Stage 1: full-text on search_tsv
     let r1 = await supabase
       .from("bibliography_sources")
       .select(
@@ -509,7 +445,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
       return r1.data as BiblioRow[];
     }
 
-    // Stage 2: ILIKE fallback
     const r2 = await supabase
       .from("bibliography_sources")
       .select(
@@ -525,7 +460,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     return (r2.data as BiblioRow[]) ?? [];
   }
 
-  // Debounced typeahead
   useEffect(() => {
     const t = setTimeout(async () => {
       if (!q.trim()) {
@@ -550,7 +484,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!dropdownRef.current) return;
@@ -609,106 +542,65 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     await loadAttached();
   }
 
-  /* ------------------------- Add New Source -------------------------- */
-  function resetNewForm() {
-    setForm({
-      title: "",
-      type: "book",
-      container_title: "",
-      publisher: "",
-      year_int: undefined,
-      doi: "",
-      isbn: "",
-      issn: "",
-      url: "",
-      notes: "",
-      people: [],
-    });
-  }
-
-  async function saveNewSource() {
-    if (!form.title.trim()) {
-      notify("Title is required.", "error");
-      return;
-    }
-    setSavingNew(true);
-
-    const authors = form.people.filter((p) => p.role === "author");
-    const editors = form.people.filter((p) => p.role === "editor");
-    const translators = form.people.filter((p) => p.role === "translator");
-
-    const csl = buildCSL({
-      type: form.type,
-      title: form.title,
-      authors,
-      editors,
-      translators,
-      container_title: form.container_title || undefined,
-      publisher: form.publisher || undefined,
-      year_int: form.year_int || undefined,
-      doi: form.doi || undefined,
-      isbn: form.isbn || undefined,
-      issn: form.issn || undefined,
-      url: form.url || undefined,
-    });
-
-    const payload = {
-      title: form.title,
-      type: form.type,
-      container_title: form.container_title || null,
-      publisher: form.publisher || null,
-      year_int: form.year_int ?? null,
-      doi: form.doi?.trim() ? form.doi.trim() : null,
-      isbn: form.isbn?.trim() ? form.isbn.trim() : null,
-      issn: form.issn?.trim() ? form.issn.trim() : null,
-      url: form.url?.trim() ? form.url.trim() : null,
-      notes: form.notes || null,
-      csl,
-    };
-
-    const { data, error } = await supabase
-      .from("bibliography_sources")
-      .insert(payload)
-      .select("id")
-      .single();
-
-    setSavingNew(false);
-
-    if (error) {
-      notify(`Save failed: ${error.message}`, "error");
-      return;
-    }
-    const newId = (data as any).id as string;
-    notify("Source created.", "success");
-
-    const ok =
-      typeof window !== "undefined"
-        ? window.confirm("Add to the current listing?")
-        : false;
-    if (ok) {
-      const { error: e2 } = await supabase.from("listing_bibliography").upsert(
-        [
-          {
-            listing_id: listingId,
-            biblio_id: newId,
-            sort_order: attached.length,
-          },
-        ],
-        { onConflict: "listing_id,biblio_id" }
+  /* -------------------- Global Citation Style Save -------------------- */
+  async function saveCitationStyle(next: string) {
+    try {
+      setSavingStyle(true);
+      setStyleId(next);
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert([{ key: "citation", value: { style: next } }], {
+          onConflict: "key",
+        });
+      if (error) throw error;
+      notify(
+        `Citation style set to ${
+          STYLE_OPTIONS.find((s) => s.id === next)?.label ?? next
+        }.`,
+        "success"
       );
-      if (e2) {
-        notify("Failed to attach new source.", "error");
-      } else {
-        notify("Source attached.", "success");
-        await loadAttached();
-      }
+    } catch (e: any) {
+      notify(`Could not save citation style. ${e?.message ?? ""}`, "error");
+    } finally {
+      setSavingStyle(false);
     }
-    setNewOpen(false);
-    resetNewForm();
   }
+
+  /* ---------------------- Live Style Preview logic -------------------- */
+  function computePreviewHtml(style: string): string {
+    try {
+      const cite = new Cite([SAMPLE_CSL]);
+      const html = cite.format("bibliography", {
+        format: "html",
+        template: style,
+        lang: "en-US",
+      });
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      const entry = div.querySelector(".csl-entry");
+      return entry ? entry.innerHTML : html;
+    } catch {
+      return "— Preview unavailable for this style —";
+    }
+  }
+
+  useEffect(() => {
+    setStylePreviewHtml(computePreviewHtml(styleId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styleId]);
+
+  /* ------------- Memo: formatted HTML for each attached row ---------- */
+  const formattedMap = useMemo(() => {
+    const m = new Map<string, string>();
+    attached.forEach((row) => {
+      const data = toCSLFromRow(row);
+      const html = formatCslEntryHtml(data, styleId);
+      if (html) m.set(row.id, html);
+    });
+    return m;
+  }, [attached, styleId]);
 
   /* -------------------------------- UI -------------------------------- */
-
   const attachedIds = new Set(attached.map((a) => a.id));
 
   return (
@@ -717,129 +609,179 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
 
       {/* Header + search */}
       <div className="border-b border-slate-200 p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-t-xl">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-          <div className="text-lg font-bold text-slate-800">Bibliography</div>
-          <div className="flex-1" />
-          <div className="relative" ref={dropdownRef}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+            <div className="text-lg font-bold text-slate-800">Bibliography</div>
+
+            {/* Global Citation Style selector */}
             <div className="flex items-center gap-2">
-              <input
-                className={inputStyles}
-                style={{ width: 360 }}
-                placeholder="Search library (title, author, DOI, URL)…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onFocus={() => q.trim() && setOpenDropdown(true)}
-              />
-              <Btn
-                onClick={() => {
-                  if (!q.trim()) return;
-                  searchLibrary(q.trim()).then((rows) => {
-                    setResults(rows);
-                    setOpenDropdown(true);
-                  });
-                }}
-                disabled={searching}
+              <span className="text-sm font-medium text-slate-700">
+                Citation Style:
+              </span>
+              <select
+                className="px-2 py-1 rounded-md border border-slate-300 bg-white text-sm"
+                value={styleId}
+                onChange={(e) => saveCitationStyle(e.target.value)}
+                disabled={savingStyle}
+                title="Applies globally to all public listing pages"
               >
-                {searching ? "Searching…" : "Search"}
-              </Btn>
-              <Btn
-                onClick={() => {
-                  setResults([]);
-                  setQ("");
-                  setOpenDropdown(false);
-                }}
-              >
-                Clear
-              </Btn>
-              <Btn
-                className="bg-emerald-600 text-white hover:bg-emerald-500"
-                onClick={() => setWizardOpen(true)}
-              >
-                Citation Wizard
-              </Btn>
-              <Btn
-                className="bg-emerald-600/90 text-white hover:bg-emerald-500"
-                onClick={() => setNewOpen(true)}
-              >
-                Add New Source
-              </Btn>
+                {STYLE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {savingStyle && (
+                <span className="text-xs text-emerald-700">Saving…</span>
+              )}
             </div>
 
-            {/* Typeahead dropdown (click = attach) */}
-            {openDropdown && (results.length > 0 || searching) && (
-              <div className="absolute z-40 mt-2 w-[640px] max-w-[85vw] rounded-lg border border-slate-200 bg-white shadow-xl">
-                <div className="p-2 text-xs text-slate-600 border-b flex items-center justify-between">
-                  <span>Search Results</span>
-                  <span className="text-slate-400">
-                    {searching ? "Searching…" : `${results.length} found`}
-                  </span>
-                </div>
-
-                <div className="max-h-[320px] overflow-auto divide-y">
-                  {searching && results.length === 0 ? (
-                    <>
-                      <SearchSkeletonRow />
-                      <SearchSkeletonRow />
-                      <SearchSkeletonRow />
-                      <SearchSkeletonRow />
-                    </>
-                  ) : (
-                    results.map((r) => {
-                      const isAlready =
-                        attachedIds.has(r.id) || justAdded.has(r.id);
-                      return (
-                        <button
-                          key={r.id}
-                          className={`w-full text-left p-3 hover:bg-emerald-50/60 ${
-                            isAlready
-                              ? "opacity-60 cursor-not-allowed"
-                              : "cursor-pointer"
-                          }`}
-                          onClick={() => !isAlready && attachOne(r.id)}
-                          disabled={isAlready}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="min-w-0">
-                              <div className="font-medium text-slate-900 truncate">
-                                {r.title}
-                              </div>
-                              <div className="text-xs text-slate-600 truncate">
-                                {authorsToInline(r.csl, 3) || "—"} • {r.type} •{" "}
-                                {[r.container_title, r.publisher, r.year_int]
-                                  .filter(Boolean)
-                                  .join(" • ")}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate">
-                                {r.doi || r.url || r.isbn || r.issn || ""}
-                              </div>
-                            </div>
-                            {isAlready ? (
-                              <span className="ml-auto text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
-                                Added
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                  {!searching && results.length === 0 && (
-                    <div className="p-3 text-sm text-slate-600">
-                      No results.
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-2 flex items-center justify-end">
-                  <Btn onClick={() => setOpenDropdown(false)}>Close</Btn>
-                </div>
+            <div className="flex-1" />
+            <div className="relative" ref={dropdownRef}>
+              <div className="flex items-center gap-2">
+                <input
+                  className={inputStyles}
+                  style={{ width: 360 }}
+                  placeholder="Search library (title, author, DOI, URL)…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onFocus={() => q.trim() && setOpenDropdown(true)}
+                />
+                <Btn
+                  onClick={() => {
+                    if (!q.trim()) return;
+                    searchLibrary(q.trim()).then((rows) => {
+                      setResults(rows);
+                      setOpenDropdown(true);
+                    });
+                  }}
+                  disabled={searching}
+                >
+                  {searching ? "Searching…" : "Search"}
+                </Btn>
+                <Btn
+                  onClick={() => {
+                    setResults([]);
+                    setQ("");
+                    setOpenDropdown(false);
+                  }}
+                >
+                  Clear
+                </Btn>
+                <Btn
+                  className="bg-emerald-600 text-white hover:bg-emerald-500"
+                  onClick={() => setWizardOpen(true)}
+                >
+                  Citation Wizard
+                </Btn>
+                <Btn
+                  className="bg-emerald-600/90 text-white hover:bg-emerald-500"
+                  onClick={() => setNewOpen(true)}
+                >
+                  Add New Source
+                </Btn>
               </div>
-            )}
+
+              {/* Typeahead dropdown (click = attach) */}
+              {openDropdown && (results.length > 0 || searching) && (
+                <div className="absolute z-40 mt-2 w-[640px] max-w-[85vw] rounded-lg border border-slate-200 bg-white shadow-xl">
+                  <div className="p-2 text-xs text-slate-600 border-b flex items-center justify-between">
+                    <span>Search Results</span>
+                    <span className="text-slate-400">
+                      {searching ? "Searching…" : `${results.length} found`}
+                    </span>
+                  </div>
+
+                  <div className="max-h-[320px] overflow-auto divide-y">
+                    {searching && results.length === 0 ? (
+                      <>
+                        <SearchSkeletonRow />
+                        <SearchSkeletonRow />
+                        <SearchSkeletonRow />
+                        <SearchSkeletonRow />
+                      </>
+                    ) : (
+                      results.map((r) => {
+                        const isAlready =
+                          attachedIds.has(r.id) || justAdded.has(r.id);
+                        return (
+                          <button
+                            key={r.id}
+                            className={`w-full text-left p-3 hover:bg-emerald-50/60 ${
+                              isAlready
+                                ? "opacity-60 cursor-not-allowed"
+                                : "cursor-pointer"
+                            }`}
+                            onClick={() => !isAlready && attachOne(r.id)}
+                            disabled={isAlready}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="min-w-0">
+                                <div className="font-medium text-slate-900 truncate">
+                                  {r.title}
+                                </div>
+                                <div className="text-xs text-slate-600 truncate">
+                                  {authorsToInline(r.csl, 3) || "—"} • {r.type}{" "}
+                                  •{" "}
+                                  {[r.container_title, r.publisher, r.year_int]
+                                    .filter(Boolean)
+                                    .join(" • ")}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {r.doi || r.url || r.isbn || r.issn || ""}
+                                </div>
+                              </div>
+                              {isAlready ? (
+                                <span className="ml-auto text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
+                                  Added
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                    {!searching && results.length === 0 && (
+                      <div className="p-3 text-sm text-slate-600">
+                        No results.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-2 flex items-center justify-end">
+                    <Btn onClick={() => setOpenDropdown(false)}>Close</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Live style preview card */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <div className="text-xs font-semibold text-amber-900 mb-1">
+              Sample Preview (
+              {STYLE_OPTIONS.find((s) => s.id === styleId)?.label || styleId})
+            </div>
+            <ol className="list-decimal list-inside">
+              <li
+                className="text-sm text-amber-900"
+                dangerouslySetInnerHTML={{ __html: stylePreviewHtml }}
+              />
+            </ol>
+            <div className="text-[11px] text-amber-800 mt-1">
+              This is a sample rendering. Actual listings use each item’s stored
+              CSL data.
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-600">
+            The selected citation style applies <b>globally</b> on public
+            listing pages that render bibliography via CSL.
           </div>
         </div>
       </div>
 
-      {/* Attached list (lean rows) */}
+      {/* Attached list (now rendered in selected citation style) */}
       <div className="p-3 space-y-2">
         {loading ? (
           <>
@@ -850,46 +792,60 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         ) : attached.length === 0 ? (
           <div className="text-sm text-slate-500">No sources linked yet.</div>
         ) : (
-          attached.map((s, i) => (
-            <div
-              key={s.id}
-              className="flex items-start justify-between gap-3 border border-slate-200 rounded-md bg-white px-3 py-2"
-            >
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="w-6 text-right font-semibold text-slate-700">
-                  {i + 1}.
+          attached.map((s, i) => {
+            const html = formattedMap.get(s.id);
+            const showFallback = !html || html.trim() === "";
+            return (
+              <div
+                key={s.id}
+                className="flex items-start justify-between gap-3 border border-slate-200 rounded-md bg-white px-3 py-2"
+              >
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-6 text-right font-semibold text-slate-700">
+                    {i + 1}.
+                  </div>
+                  <div className="min-w-0">
+                    {/* CSL-rendered entry */}
+                    {!showFallback ? (
+                      <div
+                        className="text-[13px] leading-relaxed text-slate-900 csl-render break-words"
+                        dangerouslySetInnerHTML={{ __html: html! }}
+                      />
+                    ) : (
+                      <>
+                        <div className="font-medium text-slate-900 truncate">
+                          {s.title}
+                        </div>
+                        <div className="text-xs text-slate-600 truncate">
+                          {authorsToInline(s.csl, 4) || "—"} •{" "}
+                          {[s.type, s.container_title, s.publisher, s.year_int]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </div>
+                        <div className="text-[11px] text-slate-500 break-all">
+                          {s.doi ? `https://doi.org/${s.doi}` : s.url || ""}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-slate-900 truncate">
-                    {s.title}
-                  </div>
-                  <div className="text-xs text-slate-600 truncate">
-                    {authorsToInline(s.csl, 4) || "—"} •{" "}
-                    {[s.type, s.container_title, s.publisher, s.year_int]
-                      .filter(Boolean)
-                      .join(" • ")}
-                  </div>
-                  <div className="text-[11px] text-slate-500 break-all">
-                    {s.doi ? `https://doi.org/${s.doi}` : s.url || ""}
-                  </div>
+                <div className="flex gap-1 shrink-0">
+                  <Btn className="px-2 py-1" onClick={() => move(s.id, -1)}>
+                    ↑
+                  </Btn>
+                  <Btn className="px-2 py-1" onClick={() => move(s.id, 1)}>
+                    ↓
+                  </Btn>
+                  <Btn
+                    className="px-2 py-1 bg-red-600 text-white hover:bg-red-500"
+                    onClick={() => detach(s.id)}
+                  >
+                    Remove
+                  </Btn>
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Btn className="px-2 py-1" onClick={() => move(s.id, -1)}>
-                  ↑
-                </Btn>
-                <Btn className="px-2 py-1" onClick={() => move(s.id, 1)}>
-                  ↓
-                </Btn>
-                <Btn
-                  className="px-2 py-1 bg-red-600 text-white hover:bg-red-500"
-                  onClick={() => detach(s.id)}
-                >
-                  Remove
-                </Btn>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

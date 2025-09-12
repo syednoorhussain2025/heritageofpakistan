@@ -148,12 +148,19 @@ export default function AdminHome() {
       desc: "Control 'Visited Places'.",
       icon: "adminmap",
     },
-    // NEW: Listing Page Styling (requested)
+    // NEW: Listing Page Styling icon updated to 'paint'
     {
       href: "/admin/listing-styling",
       title: "Listing Page Styling",
       desc: "Style the Action Bar & Navigator.",
-      icon: "settings",
+      icon: "paint",
+    },
+    // NEW: AI Settings link
+    {
+      href: "/admin/ai",
+      title: "AI Settings",
+      desc: "Configure AI-powered features.",
+      icon: "ai",
     },
     // Layouts & Templates hub
     {
