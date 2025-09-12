@@ -69,6 +69,11 @@ const LISTING_TABS: {
   label: string;
   sections: string[];
 }[] = [
+  {
+    key: "content",
+    label: "Article",
+    sections: ["articles"], // custom sections handled inside ArticlesSection
+  },
   { key: "overview", label: "Cover", sections: ["hero"] },
   { key: "categories", label: "Taxanomy", sections: ["categories-regions"] },
   {
@@ -84,11 +89,6 @@ const LISTING_TABS: {
       "best-time",
       "places-to-stay",
     ],
-  },
-  {
-    key: "content",
-    label: "Article",
-    sections: ["articles"], // custom sections handled inside ArticlesSection
   },
   { key: "media", label: "Gallery", sections: ["gallery"] },
   { key: "bibliography", label: "Bibliography", sections: ["bibliography"] },
@@ -254,7 +254,7 @@ function EditContent({ id }: { id: string }) {
   const [site, setSite] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState<boolean>(false);
-  const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
+  const [listingTab, setListingTab] = useState<ListingTabKey>("content");
   const saveListingRef = useRef<(() => Promise<void> | void) | undefined>(
     undefined
   );

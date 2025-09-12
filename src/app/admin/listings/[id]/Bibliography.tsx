@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import CitationWizard from "@/components/biblio/CitationWizard";
 
 /* ------------------------------------------------------------------ */
 /* Small UI bits                                                       */
@@ -434,6 +435,9 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     people: [],
   });
 
+  // Citation Wizard (listing mode)
+  const [wizardOpen, setWizardOpen] = useState(false);
+
   /* --------------------------- Data loaders --------------------------- */
   async function loadAttached() {
     setLoading(true);
@@ -682,18 +686,16 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         ? window.confirm("Add to the current listing?")
         : false;
     if (ok) {
-      const { error: e2 } = await supabase
-        .from("listing_bibliography")
-        .upsert(
-          [
-            {
-              listing_id: listingId,
-              biblio_id: newId,
-              sort_order: attached.length,
-            },
-          ],
-          { onConflict: "listing_id,biblio_id" }
-        );
+      const { error: e2 } = await supabase.from("listing_bibliography").upsert(
+        [
+          {
+            listing_id: listingId,
+            biblio_id: newId,
+            sort_order: attached.length,
+          },
+        ],
+        { onConflict: "listing_id,biblio_id" }
+      );
       if (e2) {
         notify("Failed to attach new source.", "error");
       } else {
@@ -751,6 +753,12 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
               </Btn>
               <Btn
                 className="bg-emerald-600 text-white hover:bg-emerald-500"
+                onClick={() => setWizardOpen(true)}
+              >
+                Citation Wizard
+              </Btn>
+              <Btn
+                className="bg-emerald-600/90 text-white hover:bg-emerald-500"
                 onClick={() => setNewOpen(true)}
               >
                 Add New Source
@@ -1148,6 +1156,14 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
           </div>
         </div>
       )}
+
+      {/* Citation Wizard (listing mode) */}
+      <CitationWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        listingId={listingId}
+        onAttached={loadAttached}
+      />
     </div>
   );
 }

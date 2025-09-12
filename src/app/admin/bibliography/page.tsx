@@ -6,6 +6,7 @@ import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
 import { supabase } from "@/lib/supabaseClient";
+import CitationWizard from "@/components/biblio/CitationWizard"; // ⬅️ Wizard
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -400,6 +401,7 @@ export default function BibliographyManagerPage() {
 
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null); // null => list mode
+  const [wizardOpen, setWizardOpen] = useState(false); // ⬅️ NEW
 
   const [toasts, setToasts] = useState<ToastT[]>([]);
   const notify = (msg: string, tone: ToastT["tone"] = "info") => {
@@ -567,6 +569,50 @@ export default function BibliographyManagerPage() {
     setEditing(r);
   };
 
+  // ⬇️ Duplicate detection by identifiers (DOI / URL / ISBN)
+  async function findDuplicateByIdentifiers(): Promise<Row | null> {
+    // DOI first (exact)
+    if (form.doi?.trim()) {
+      const { data } = await supabase
+        .from("bibliography_sources")
+        .select(
+          "id,title,type,container_title,publisher,year_int,doi,isbn,issn,url,notes,csl,created_at,updated_at"
+        )
+        .eq("doi", form.doi.trim())
+        .limit(1)
+        .maybeSingle();
+      if (data) return data as Row;
+    }
+
+    // URL (exact OR contains)
+    if (form.url?.trim()) {
+      const url = form.url.trim();
+      const { data } = await supabase
+        .from("bibliography_sources")
+        .select(
+          "id,title,type,container_title,publisher,year_int,doi,isbn,issn,url,notes,csl,created_at,updated_at"
+        )
+        .or(`url.eq.${url},url.ilike.%${url}%`)
+        .limit(1);
+      if (data && data[0]) return data[0] as Row;
+    }
+
+    // ISBN (exact OR contains)
+    if (form.isbn?.trim()) {
+      const isbn = form.isbn.trim();
+      const { data } = await supabase
+        .from("bibliography_sources")
+        .select(
+          "id,title,type,container_title,publisher,year_int,doi,isbn,issn,url,notes,csl,created_at,updated_at"
+        )
+        .or(`isbn.eq.${isbn},isbn.ilike.%${isbn}%`)
+        .limit(1);
+      if (data && data[0]) return data[0] as Row;
+    }
+
+    return null;
+  }
+
   const save = async () => {
     if (!form.title.trim()) {
       notify("Title is required.", "error");
@@ -609,6 +655,7 @@ export default function BibliographyManagerPage() {
 
     let res;
     if (form.id) {
+      // Update existing
       res = await supabase
         .from("bibliography_sources")
         .update(payload)
@@ -616,6 +663,17 @@ export default function BibliographyManagerPage() {
         .select("id")
         .single();
     } else {
+      // Creating new — check for duplicates first
+      const dup = await findDuplicateByIdentifiers();
+      if (dup) {
+        notify(
+          "Matched an existing item by identifiers. Switched to editing that record.",
+          "info"
+        );
+        startEdit(dup);
+        return;
+      }
+      // No duplicate — safe to insert
       res = await supabase
         .from("bibliography_sources")
         .insert(payload)
@@ -814,12 +872,20 @@ export default function BibliographyManagerPage() {
               </span>
             </div>
             {!editing ? (
-              <Btn
-                className="border-emerald-300 text-emerald-700 bg-white"
-                onClick={startNew}
-              >
-                <Icon name="plus" /> New Source
-              </Btn>
+              <div className="flex gap-2">
+                <Btn
+                  className="border-emerald-300 text-emerald-700 bg-white"
+                  onClick={() => setWizardOpen(true)}
+                >
+                  Citation Wizard
+                </Btn>
+                <Btn
+                  className="border-emerald-300 text-emerald-700 bg-white"
+                  onClick={startNew}
+                >
+                  <Icon name="plus" /> New Source
+                </Btn>
+              </div>
             ) : null}
           </div>
         </div>
@@ -1374,6 +1440,16 @@ export default function BibliographyManagerPage() {
             </div>
           </div>
         ) : null}
+
+        {/* ⬇️ Mount the Citation Wizard (no listingId here; central library) */}
+        <CitationWizard
+          open={wizardOpen}
+          onClose={() => {
+            setWizardOpen(false);
+            // ensure grid reflects newly created items from the wizard
+            load();
+          }}
+        />
       </div>
     </AdminGuard>
   );
