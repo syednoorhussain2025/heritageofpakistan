@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import Papa from "papaparse";
 
 /**
  * Travel & Details
@@ -21,13 +22,205 @@ import Icon from "@/components/Icon";
 const TITLE_ICON_MAP: Record<string, string> = {
   "Where is it / Location": "map", // keep whatever matches your Icon set (e.g., "location" or "map-pin")
   "General Info": "info",
-  "UNESCO & Protection": "unesco", // ✅ per your keys
-  "Climate & Topography": "climate-topography", // ✅ per your keys
+  "UNESCO & Protection": "unesco",
+  "Climate & Topography": "climate-topography",
   "Did you Know": "lightbulb",
   "Travel Guide": "book",
-  "Best Time to Visit (preset)": "climate-geography-environment", // ✅ per your keys
-  "Places to Stay": "places-to-stay", // ✅ per your keys
+  "Best Time to Visit (preset)": "climate-geography-environment",
+  "Places to Stay": "places-to-stay",
 };
+
+/* ----------------------------- CSV Import ----------------------------- */
+
+/** Canonical headers for our simple CSV template (one row = one site) */
+const TEMPLATE_HEADERS = [
+  "title",
+  "latitude",
+  "longitude",
+  "town_city_village",
+  "tehsil",
+  "district",
+  "province", // name; will map to province_id
+  "architectural_style",
+  "construction_materials",
+  "local_name",
+  "architect",
+  "construction_date",
+  "built_by",
+  "dynasty",
+  "conservation_status",
+  "current_use",
+  "restored_by",
+  "known_for",
+  "era",
+  "inhabited_by",
+  "national_park_established_in",
+  "population",
+  "ethnic_groups",
+  "languages_spoken",
+  "excavation_status",
+  "excavated_by",
+  "administered_by",
+  "unesco_status",
+  "unesco_line",
+  "protected_under",
+  "landform",
+  "altitude",
+  "mountain_range",
+  "weather_type",
+  "avg_temp_summers",
+  "avg_temp_winters",
+  "travel_location",
+  "travel_how_to_reach",
+  "travel_nearest_major_city",
+  "travel_airport_access",
+  "travel_international_flight",
+  "travel_access_options",
+  "travel_road_type_condition",
+  "travel_best_time_free",
+  "travel_full_guide_url",
+  "best_time_option_key",
+  "stay_hotels_available",
+  "stay_spending_night_recommended",
+  "stay_camping_possible",
+  "stay_places_to_eat_available",
+  "did_you_know",
+] as const;
+
+type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
+
+/** Normalize a header (lowercase, remove extra punctuation/spaces) */
+function normHeader(h: string): string {
+  return h
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/** Map common header variants → canonical keys used by this page */
+const HEADER_TO_FIELD: Record<string, CanonicalKey | "province_name"> = {
+  // location
+  latitude: "latitude",
+  lat: "latitude",
+
+  longitude: "longitude",
+  lon: "longitude",
+  lng: "longitude",
+
+  town: "town_city_village",
+  city: "town_city_village",
+  village: "town_city_village",
+  town_city_village: "town_city_village",
+
+  tehsil: "tehsil",
+  district: "district",
+
+  province: "province_name",
+  region: "province_name",
+  region_province: "province_name",
+
+  // general info
+  title: "title",
+  name: "title",
+  architectural_style: "architectural_style",
+  construction_materials: "construction_materials",
+  local_name: "local_name",
+  architect: "architect",
+  construction_date: "construction_date",
+  built_by: "built_by",
+  dynasty: "dynasty",
+  conservation_status: "conservation_status",
+  current_use: "current_use",
+  restored_by: "restored_by",
+  known_for: "known_for",
+  era: "era",
+  inhabited_by: "inhabited_by",
+  national_park_established_in: "national_park_established_in",
+  population: "population",
+  ethnic_groups: "ethnic_groups",
+  languages_spoken: "languages_spoken",
+  excavation_status: "excavation_status",
+  excavated_by: "excavated_by",
+  administered_by: "administered_by",
+
+  // unesco
+  unesco_status: "unesco_status",
+  unesco_line: "unesco_line",
+  protected_under: "protected_under",
+
+  // climate & topography
+  landform: "landform",
+  altitude: "altitude",
+  mountain_range: "mountain_range",
+  weather_type: "weather_type",
+  avg_temp_summers: "avg_temp_summers",
+  average_temp_summers: "avg_temp_summers",
+  avg_temp_winters: "avg_temp_winters",
+  average_temp_winters: "avg_temp_winters",
+
+  // travel
+  travel_location: "travel_location",
+  location_travel_guide: "travel_location",
+  travel_how_to_reach: "travel_how_to_reach",
+  how_to_reach: "travel_how_to_reach",
+  travel_nearest_major_city: "travel_nearest_major_city",
+  nearest_major_city: "travel_nearest_major_city",
+  travel_airport_access: "travel_airport_access",
+  airport_access: "travel_airport_access",
+  travel_international_flight: "travel_international_flight",
+  international_flight: "travel_international_flight",
+  travel_access_options: "travel_access_options",
+  access_options: "travel_access_options",
+  travel_road_type_condition: "travel_road_type_condition",
+  road_type_condition: "travel_road_type_condition",
+  travel_best_time_free: "travel_best_time_free",
+  best_time_free: "travel_best_time_free",
+  travel_full_guide_url: "travel_full_guide_url",
+
+  // best time
+  best_time_option_key: "best_time_option_key",
+
+  // stay
+  stay_hotels_available: "stay_hotels_available",
+  hotels_available: "stay_hotels_available",
+  stay_spending_night_recommended: "stay_spending_night_recommended",
+  spending_night_recommended: "stay_spending_night_recommended",
+  stay_camping_possible: "stay_camping_possible",
+  camping_possible: "stay_camping_possible",
+  stay_places_to_eat_available: "stay_places_to_eat_available",
+  places_to_eat_available: "stay_places_to_eat_available",
+
+  // misc
+  did_you_know: "did_you_know",
+};
+
+/** UNESCO status normalization to match your select options */
+function normalizeUnescoStatus(v: any): string | null {
+  if (!v) return "None";
+  const s = String(v).toLowerCase();
+  if (s.includes("inscrib")) {
+    return "Inscribed on the UNESCO World Heritage Site List";
+  }
+  if (s.includes("tentative")) {
+    return "On the UNESCO World Heritage Tentative List";
+  }
+  if (s.includes("none") || s === "" || s === "no") return "None";
+  return v;
+}
+
+/** Tidy yes/no-ish values */
+function normalizeYesNo(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim().toLowerCase();
+  if (["y", "yes", "true", "1"].includes(s)) return "Yes";
+  if (["n", "no", "false", "0"].includes(s)) return "No";
+  return v;
+}
+
+/** Build a CSV template string (headers only) */
+const TEMPLATE_CSV = `${TEMPLATE_HEADERS.join(",")}\n`;
+
+/* ----------------------------- Component ----------------------------- */
 
 export default function TravelDetails({
   form,
@@ -43,8 +236,18 @@ export default function TravelDetails({
   readOnlyInputStyles: string;
 }) {
   return (
-    // we control vertical spacing via SectionBlock margins (my-*)
     <div className="space-y-0">
+      {/* CSV Import bar */}
+      <ImporterBar
+        provinces={provinces}
+        onApply={(kv) => {
+          Object.entries(kv).forEach(([key, value]) => {
+            // @ts-ignore generic setter
+            setField(key as any, value as any);
+          });
+        }}
+      />
+
       {/* 1) Coordinates + Admin location */}
       <SectionBlock title="Where is it / Location">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -546,6 +749,150 @@ export default function TravelDetails({
           </Labeled>
         </div>
       </SectionBlock>
+    </div>
+  );
+}
+
+/* ---------- Importer Bar (CSV only, client-side) ---------- */
+
+function ImporterBar({
+  provinces,
+  onApply,
+}: {
+  provinces: Array<{ id: string | number; name: string }>;
+  onApply: (kv: Record<string, any>) => void;
+}) {
+  const [status, setStatus] = useState<string | null>(null);
+  const templateHref = useMemo(
+    () => `data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE_CSV)}`,
+    []
+  );
+
+  function mapProvinceNameToId(name: string | null | undefined) {
+    if (!name) return null;
+    const n = name.trim().toLowerCase();
+    const hit = provinces.find(
+      (p) => String(p.name).trim().toLowerCase() === n
+    );
+    return hit ? hit.id : null;
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setStatus("Parsing CSV…");
+    Papa.parse<Record<string, any>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        if (res.errors?.length) {
+          setStatus(`Failed to parse: ${res.errors[0].message}`);
+          return;
+        }
+        const rows = (res.data || []).filter((r) =>
+          Object.values(r || {}).some((v) => String(v || "").trim() !== "")
+        );
+        if (!rows.length) {
+          setStatus("No rows found in the CSV.");
+          return;
+        }
+
+        // For simplicity: take the first row
+        const src = rows[0];
+        const kv: Record<string, any> = {};
+        let applied = 0;
+
+        // map headers → canonical
+        for (const [rawKey, rawVal] of Object.entries(src)) {
+          const nh = normHeader(rawKey);
+          const target = HEADER_TO_FIELD[nh];
+          if (!target) continue;
+
+          let val: any = rawVal;
+
+          // field-by-field normalization
+          if (target === "unesco_status") {
+            val = normalizeUnescoStatus(val);
+          }
+          if (
+            target === "travel_airport_access" ||
+            target === "stay_hotels_available" ||
+            target === "stay_spending_night_recommended" ||
+            target === "stay_places_to_eat_available"
+          ) {
+            val = normalizeYesNo(val);
+          }
+
+          if (target === "province_name") {
+            const pid = mapProvinceNameToId(String(val || ""));
+            if (pid != null) {
+              kv["province_id"] = pid;
+              applied++;
+            }
+            continue;
+          }
+
+          // numeric nudge for lat/lng/altitude if they look like numbers
+          if (
+            ["latitude", "longitude", "altitude"].includes(target) &&
+            val !== null &&
+            val !== undefined
+          ) {
+            const num = Number(String(val).replace(/,/g, ""));
+            if (!Number.isNaN(num)) val = num;
+          }
+
+          kv[target] = val;
+          applied++;
+        }
+
+        onApply(kv);
+        setStatus(`Applied ${applied} fields from “${file.name}”.`);
+      },
+      error: (err) => {
+        setStatus(`Error: ${err?.message || "unknown error"}`);
+      },
+    });
+
+    // reset input so same file can be uploaded repeatedly
+    e.currentTarget.value = "";
+  }
+
+  return (
+    <div className="mx-4 sm:mx-6 md:mx-10 lg:mx-14 xl:mx-20 2xl:mx-28 my-12 md:my-16 lg:my-20">
+      <div className="bg-white border border-gray-200 rounded-xl px-6 py-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-gray-900">
+            Import data (CSV only)
+          </div>
+          <div className="text-xs text-gray-600">
+            Use the template headers for smooth import. We’ll fill this form
+            from the first row.
+          </div>
+          {status ? (
+            <div className="text-xs text-gray-700 mt-1">{status}</div>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-3">
+          <a
+            href={templateHref}
+            download="site_details_template.csv"
+            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-50"
+          >
+            Download CSV template
+          </a>
+          <label className="inline-flex cursor-pointer items-center rounded-md bg-[var(--brand-orange)] px-3 py-2 text-xs font-semibold text-white hover:opacity-95">
+            Upload CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={onFile}
+              className="sr-only"
+            />
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
