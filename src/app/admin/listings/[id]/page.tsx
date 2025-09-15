@@ -8,6 +8,7 @@ import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
+import Papa from "papaparse";
 
 /* Externalized Components */
 import GalleryUploader from "./GalleryUploader";
@@ -88,7 +89,7 @@ const LISTING_TABS: {
   {
     key: "content",
     label: "Article",
-    sections: ["articles"], // custom sections handled inside ArticlesSection
+    sections: ["articles"],
   },
   { key: "media", label: "Gallery", sections: ["gallery"] },
   { key: "bibliography", label: "Bibliography", sections: ["bibliography"] },
@@ -100,16 +101,17 @@ function Section({
   title,
   children,
   id,
+  tools,
 }: {
   title: string;
   children: React.ReactNode;
   id: string;
+  tools?: React.ReactNode;
 }) {
   const iconKey = SECTION_ICONS[id];
   const isArticles = id === "articles"; // frameless + no title for Article section only
 
   if (isArticles) {
-    // Frameless wrapper & no title for Article section
     return (
       <section id={id} className="scroll-mt-24 p-0 bg-transparent">
         {children}
@@ -117,20 +119,22 @@ function Section({
     );
   }
 
-  // Default (framed) wrapper for all other sections
   return (
     <section
       id={id}
       className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"
     >
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900 flex items-center gap-3">
-        {iconKey && (
-          <span className="grid place-items-center w-8 h-8 rounded-full bg-[#F78300]">
-            <Icon name={iconKey} className="w-4 h-4 text-white" />
-          </span>
-        )}
-        {title}
-      </h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-900 flex items-center gap-3">
+          {iconKey && (
+            <span className="grid place-items-center w-8 h-8 rounded-full bg-[#F78300]">
+              <Icon name={iconKey} className="w-4 h-4 text-white" />
+            </span>
+          )}
+          {title}
+        </h2>
+        {tools ? <div className="mb-4">{tools}</div> : null}
+      </div>
       {children}
     </section>
   );
@@ -217,11 +221,13 @@ function SidebarControls({
   onTogglePublished,
   onSave,
   saving,
+  uploaderSlot,
 }: {
   published: boolean;
   onTogglePublished: (v: boolean) => void;
   onSave: () => void | Promise<void>;
   saving: boolean;
+  uploaderSlot?: React.ReactNode; // 👈 slot rendered below Save
 }) {
   return (
     <nav className="lg:fixed lg:left-4 lg:top-28 lg:w-64 w-full lg:w-64 z-30">
@@ -244,12 +250,230 @@ function SidebarControls({
             {saving ? "Saving…" : "Save Changes"}
           </Btn>
         </div>
+
+        {/* Uploader lives here */}
+        {uploaderSlot ? (
+          <div className="pt-2 border-t border-gray-200">{uploaderSlot}</div>
+        ) : null}
       </div>
     </nav>
   );
 }
 
-/* Page */
+/* ---------------- CSV canonicalization & mapping (shared) ---------------- */
+
+type CanonicalKV = Record<string, any>;
+
+/** Headers including Cover + Travel Details */
+const TEMPLATE_HEADERS = [
+  // Cover
+  "title", // Site Name
+  "slug",
+  "heritage_type",
+  "cover_location",
+  "tagline",
+  // Location block
+  "latitude",
+  "longitude",
+  "town_city_village",
+  "tehsil",
+  "district",
+  "province",
+  // General info
+  "architectural_style",
+  "construction_materials",
+  "local_name",
+  "architect",
+  "construction_date",
+  "built_by",
+  "dynasty",
+  "conservation_status",
+  "current_use",
+  "restored_by",
+  "known_for",
+  "era",
+  "inhabited_by",
+  "national_park_established_in",
+  "population",
+  "ethnic_groups",
+  "languages_spoken",
+  "excavation_status",
+  "excavated_by",
+  "administered_by",
+  // UNESCO
+  "unesco_status",
+  "unesco_line",
+  "protected_under",
+  // Climate
+  "landform",
+  "altitude",
+  "mountain_range",
+  "weather_type",
+  "avg_temp_summers",
+  "avg_temp_winters",
+  // Travel
+  "travel_location",
+  "travel_how_to_reach",
+  "travel_nearest_major_city",
+  "travel_airport_access",
+  "travel_international_flight",
+  "travel_access_options",
+  "travel_road_type_condition",
+  "travel_best_time_free",
+  "travel_full_guide_url",
+  // Best time
+  "best_time_option_key",
+  // Stay
+  "stay_hotels_available",
+  "stay_spending_night_recommended",
+  "stay_camping_possible",
+  "stay_places_to_eat_available",
+  // Misc
+  "did_you_know",
+] as const;
+
+type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
+function normHeader(h: string): string {
+  return h
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+function normalizeUnescoStatus(
+  v: any
+): "None" | "Inscribed" | "Tentative" | null {
+  if (v == null) return "None";
+  const s = String(v).trim().toLowerCase();
+  if (s === "inscribed" || s.includes("inscrib")) return "Inscribed";
+  if (s === "tentative" || s.includes("tentative")) return "Tentative";
+  return "None";
+}
+function normalizeYesNo(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim().toLowerCase();
+  if (["y", "yes", "true", "1"].includes(s)) return "Yes";
+  if (["n", "no", "false", "0"].includes(s)) return "No";
+  return v;
+}
+function normalizeSlug(s: string): string {
+  return s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** Map common header variants → canonical keys */
+const HEADER_TO_FIELD: Record<
+  string,
+  CanonicalKey | "province_name" | "location_free"
+> = {
+  // Cover
+  title: "title",
+  name: "title",
+  site_name: "title",
+  slug: "slug",
+  heritage_type: "heritage_type",
+  heritage: "heritage_type",
+  type: "heritage_type",
+  cover_location: "cover_location",
+  location: "cover_location",
+  place: "cover_location",
+  tagline: "tagline",
+
+  // Location
+  latitude: "latitude",
+  lat: "latitude",
+  longitude: "longitude",
+  lon: "longitude",
+  lng: "longitude",
+  town: "town_city_village",
+  city: "town_city_village",
+  village: "town_city_village",
+  town_city_village: "town_city_village",
+  tehsil: "tehsil",
+  district: "district",
+  province: "province_name",
+  region: "province_name",
+  region_province: "province_name",
+
+  // General info
+  architectural_style: "architectural_style",
+  construction_materials: "construction_materials",
+  local_name: "local_name",
+  architect: "architect",
+  construction_date: "construction_date",
+  built_by: "built_by",
+  dynasty: "dynasty",
+  conservation_status: "conservation_status",
+  current_use: "current_use",
+  restored_by: "restored_by",
+  known_for: "known_for",
+  era: "era",
+  inhabited_by: "inhabited_by",
+  national_park_established_in: "national_park_established_in",
+  population: "population",
+  ethnic_groups: "ethnic_groups",
+  languages_spoken: "languages_spoken",
+  excavation_status: "excavation_status",
+  excavated_by: "excavated_by",
+  administered_by: "administered_by",
+
+  // UNESCO
+  unesco_status: "unesco_status",
+  unesco_line: "unesco_line",
+  protected_under: "protected_under",
+
+  // Climate
+  landform: "landform",
+  altitude: "altitude",
+  mountain_range: "mountain_range",
+  weather_type: "weather_type",
+  avg_temp_summers: "avg_temp_summers",
+  average_temp_summers: "avg_temp_summers",
+  avg_temp_winters: "avg_temp_winters",
+  average_temp_winters: "avg_temp_winters",
+
+  // Travel
+  travel_location: "travel_location",
+  location_travel_guide: "travel_location",
+  travel_how_to_reach: "travel_how_to_reach",
+  how_to_reach: "travel_how_to_reach",
+  travel_nearest_major_city: "travel_nearest_major_city",
+  nearest_major_city: "travel_nearest_major_city",
+  travel_airport_access: "travel_airport_access",
+  airport_access: "travel_airport_access",
+  travel_international_flight: "travel_international_flight",
+  international_flight: "travel_international_flight",
+  travel_access_options: "travel_access_options",
+  access_options: "travel_access_options",
+  travel_road_type_condition: "travel_road_type_condition",
+  road_type_condition: "travel_road_type_condition",
+  travel_best_time_free: "travel_best_time_free",
+  best_time_free: "travel_best_time_free",
+  travel_full_guide_url: "travel_full_guide_url",
+
+  // Best time
+  best_time_option_key: "best_time_option_key",
+
+  // Stay
+  stay_hotels_available: "stay_hotels_available",
+  hotels_available: "stay_hotels_available",
+  stay_spending_night_recommended: "stay_spending_night_recommended",
+  spending_night_recommended: "stay_spending_night_recommended",
+  stay_camping_possible: "stay_camping_possible",
+  camping_possible: "stay_camping_possible",
+  stay_places_to_eat_available: "stay_places_to_eat_available",
+  places_to_eat_available: "stay_places_to_eat_available",
+
+  // Misc
+  did_you_know: "did_you_know",
+};
+
+/* Root Page */
 function EditContent({ id }: { id: string }) {
   const [site, setSite] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -258,6 +482,12 @@ function EditContent({ id }: { id: string }) {
   const saveListingRef = useRef<(() => Promise<void> | void) | undefined>(
     undefined
   );
+
+  // Uploader plumbing (shared cache + appliers registered by ListingForm)
+  const [uploadCache, setUploadCache] = useState<CanonicalKV | null>(null);
+  const [lastUploadName, setLastUploadName] = useState<string | null>(null);
+  const applyCoverRef = useRef<((p: CanonicalKV) => void) | null>(null);
+  const applyDetailsRef = useRef<((p: CanonicalKV) => void) | null>(null);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [allCategories, setAllCategories] = useState<any[]>([]);
@@ -281,12 +511,35 @@ function EditContent({ id }: { id: string }) {
     })();
   }, [id]);
 
+  // ---------- NEW: sanitize payload before saving ----------
+  function sanitizeForSave(payload: any) {
+    const next = { ...payload };
+
+    // convert "" → null and coerce numerics
+    for (const k of Object.keys(next)) {
+      if (NUMERIC_DETAIL_KEYS.has(k as any)) {
+        if (next[k] === "" || next[k] === undefined) {
+          next[k] = null;
+        } else if (typeof next[k] === "string") {
+          const n = Number(next[k].replace?.(/,/g, "") ?? next[k]);
+          next[k] = Number.isFinite(n) ? n : null;
+        }
+      }
+    }
+
+    if (next.province_id === "") next.province_id = null;
+
+    return next;
+  }
+  // --------------------------------------------------------
+
   async function saveSite(next: any) {
     setSaving(true);
+    const payload = sanitizeForSave(next); // ← use sanitizer
     const { data, error } = await supabase
       .from("sites")
-      .update({ ...next, updated_at: new Date().toISOString() })
-      .eq("id", next.id)
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq("id", payload.id)
       .select()
       .single();
     setSaving(false);
@@ -335,6 +588,21 @@ function EditContent({ id }: { id: string }) {
         Loading…
       </div>
     );
+
+  // Sidebar importer slot (desktop & mobile)
+  const uploaderSlot = (
+    <SidebarImporter
+      provinces={provinces}
+      onParsed={(payload, fname) => {
+        setUploadCache(payload);
+        setLastUploadName(fname || null);
+        // Auto-apply to both sections once on upload
+        if (applyCoverRef.current) applyCoverRef.current(payload);
+        if (applyDetailsRef.current) applyDetailsRef.current(payload);
+      }}
+      lastUploadName={lastUploadName}
+    />
+  );
 
   return (
     <div
@@ -392,6 +660,7 @@ function EditContent({ id }: { id: string }) {
             onSave={async () => {
               if (saveListingRef.current) await saveListingRef.current();
             }}
+            uploaderSlot={uploaderSlot}
           />
         </div>
 
@@ -404,6 +673,7 @@ function EditContent({ id }: { id: string }) {
               onSave={async () => {
                 if (saveListingRef.current) await saveListingRef.current();
               }}
+              uploaderSlot={uploaderSlot}
             />
           </div>
 
@@ -423,6 +693,11 @@ function EditContent({ id }: { id: string }) {
               selectedRegionIds={selectedRegionIds}
               setSelectedRegionIds={setSelectedRegionIds}
               onTaxonomyChanged={loadTaxonomies}
+              uploadCache={uploadCache}
+              onRegisterUploadAppliers={(applyCover, applyDetails) => {
+                applyCoverRef.current = applyCover;
+                applyDetailsRef.current = applyDetails;
+              }}
             />
           </main>
         </div>
@@ -460,6 +735,77 @@ const sectionFields: Record<string, string[]> = {
   articles: ["history_content"],
 };
 
+// Cover + TravelDetails field groups for apply/clear
+const COVER_KEYS = [
+  "title",
+  "slug",
+  "heritage_type",
+  "location_free",
+  "tagline",
+] as const;
+const DETAIL_KEYS = [
+  "latitude",
+  "longitude",
+  "town_city_village",
+  "tehsil",
+  "district",
+  "province_id",
+  "architectural_style",
+  "construction_materials",
+  "local_name",
+  "architect",
+  "construction_date",
+  "built_by",
+  "dynasty",
+  "conservation_status",
+  "current_use",
+  "restored_by",
+  "known_for",
+  "era",
+  "inhabited_by",
+  "national_park_established_in",
+  "population",
+  "ethnic_groups",
+  "languages_spoken",
+  "excavation_status",
+  "excavated_by",
+  "administered_by",
+  "unesco_status",
+  "unesco_line",
+  "protected_under",
+  "landform",
+  "altitude",
+  "mountain_range",
+  "weather_type",
+  "avg_temp_summers",
+  "avg_temp_winters",
+  "travel_location",
+  "travel_how_to_reach",
+  "travel_nearest_major_city",
+  "travel_airport_access",
+  "travel_international_flight",
+  "travel_access_options",
+  "travel_road_type_condition",
+  "travel_best_time_free",
+  "travel_full_guide_url",
+  "best_time_option_key",
+  "stay_hotels_available",
+  "stay_spending_night_recommended",
+  "stay_camping_possible",
+  "stay_places_to_eat_available",
+  "did_you_know",
+] as const;
+
+/* ---- NEW: enumerate numeric columns so we null them instead of "" ---- */
+const NUMERIC_DETAIL_KEYS = new Set<string>([
+  "latitude",
+  "longitude",
+  "altitude",
+  "avg_temp_summers",
+  "avg_temp_winters",
+  "population",
+]);
+
 function ListingForm({
   site,
   onSave,
@@ -475,6 +821,8 @@ function ListingForm({
   selectedRegionIds,
   setSelectedRegionIds,
   onTaxonomyChanged,
+  uploadCache,
+  onRegisterUploadAppliers,
 }: {
   site: any;
   onSave: (n: any) => void;
@@ -490,6 +838,11 @@ function ListingForm({
   selectedRegionIds: string[];
   setSelectedRegionIds: (ids: string[]) => void;
   onTaxonomyChanged: () => Promise<void> | void;
+  uploadCache: CanonicalKV | null;
+  onRegisterUploadAppliers: (
+    applyCover: (p: CanonicalKV) => void,
+    applyDetails: (p: CanonicalKV) => void
+  ) => void;
 }) {
   const [form, setForm] = useState<any>(site);
   const [deletingCover, setDeletingCover] = useState(false);
@@ -570,6 +923,37 @@ function ListingForm({
     setForm((prev: any) => ({ ...prev, [key]: value }));
   }
 
+  // Apply / Clear helpers
+  const applyCover = useCallback((payload: CanonicalKV) => {
+    COVER_KEYS.forEach((k) => {
+      if (payload[k] !== undefined) set(k as any, payload[k]);
+    });
+  }, []);
+  const applyDetails = useCallback((payload: CanonicalKV) => {
+    DETAIL_KEYS.forEach((k) => {
+      if (payload[k] !== undefined) set(k as any, payload[k]);
+    });
+  }, []);
+  const clearCover = useCallback(() => {
+    COVER_KEYS.forEach((k) => set(k as any, ""));
+  }, []);
+  const clearDetails = useCallback(() => {
+    DETAIL_KEYS.forEach((k) => {
+      if (k === "province_id") {
+        set(k as any, null);
+      } else if (NUMERIC_DETAIL_KEYS.has(k as string)) {
+        set(k as any, null); // numeric fields -> null
+      } else {
+        set(k as any, "");
+      }
+    });
+  }, []);
+
+  // Expose appliers to parent so sidebar uploader can auto-apply once
+  useEffect(() => {
+    onRegisterUploadAppliers(applyCover, applyDetails);
+  }, [applyCover, applyDetails, onRegisterUploadAppliers]);
+
   async function saveCategoryJoins() {
     const { data: curr } = await supabase
       .from("site_categories")
@@ -624,7 +1008,32 @@ function ListingForm({
     <div className="space-y-8">
       {/* Cover */}
       {visibleSections.has("hero") && (
-        <Section title="Cover" id="hero">
+        <Section
+          title="Cover"
+          id="hero"
+          tools={
+            <div className="flex items-center gap-2">
+              <Btn
+                onClick={() => uploadCache && applyCover(uploadCache)}
+                disabled={!uploadCache}
+                className="bg-[var(--brand-blue,#1e40af)] text-white hover:opacity-90"
+                title={
+                  uploadCache
+                    ? "Apply data from last upload"
+                    : "Upload a CSV from the sidebar first"
+                }
+              >
+                Add from uploader
+              </Btn>
+              <Btn
+                onClick={clearCover}
+                className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+              >
+                Clear All
+              </Btn>
+            </div>
+          }
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
               <Field label="Site Name">
@@ -762,7 +1171,32 @@ function ListingForm({
 
       {/* Site Details */}
       {visibleSections.has("location") && (
-        <Section title="Site Details" id="location">
+        <Section
+          title="Site Details"
+          id="location"
+          tools={
+            <div className="flex items-center gap-2">
+              <Btn
+                onClick={() => uploadCache && applyDetails(uploadCache)}
+                disabled={!uploadCache}
+                className="bg-[var(--brand-blue,#1e40af)] text-white hover:opacity-90"
+                title={
+                  uploadCache
+                    ? "Apply data from last upload"
+                    : "Upload a CSV from the sidebar first"
+                }
+              >
+                Add from uploader
+              </Btn>
+              <Btn
+                onClick={clearDetails}
+                className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+              >
+                Clear All
+              </Btn>
+            </div>
+          }
+        >
           <TravelDetails
             form={form}
             setField={set}
@@ -773,23 +1207,18 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Article (frameless + no 'Article' title) */}
+      {/* Article */}
       {visibleSections.has("articles") && (
         <Section title="Article" id="articles">
           <ArticlesSection
             siteId={form.id}
-            /* pass JSON builder state to rehydrate editor */
             history_layout_json={form.history_layout_json || []}
             architecture_layout_json={form.architecture_layout_json || []}
             climate_layout_json={form.climate_layout_json || []}
-            /* pass HTML snapshots used by public page */
             history_layout_html={form.history_layout_html || null}
             architecture_layout_html={form.architecture_layout_html || null}
             climate_layout_html={form.climate_layout_html || null}
-            /* custom sections */
             custom_sections_json={form.custom_sections_json || []}
-            /* merge ALL patches (JSON + HTML) into form;
-               they will be persisted when you click Save Changes */
             onChange={(patch) =>
               setForm((prev: any) => ({ ...prev, ...patch }))
             }
@@ -859,6 +1288,157 @@ function CoverUploader({
           alt="Cover preview"
         />
       ) : null}
+    </div>
+  );
+}
+
+/* ---------------- Sidebar Importer (CSV-only, client-side) ---------------- */
+
+function SidebarImporter({
+  provinces,
+  onParsed,
+  lastUploadName,
+}: {
+  provinces: Array<{ id: string | number; name: string }>;
+  onParsed: (payload: CanonicalKV, filename?: string) => void;
+  lastUploadName: string | null;
+}) {
+  const [status, setStatus] = useState<string | null>(null);
+  const templateHref = useMemo(
+    () =>
+      `data:text/csv;charset=utf-8,${encodeURIComponent(
+        `${TEMPLATE_HEADERS.join(",")}\n`
+      )}`,
+    []
+  );
+
+  function mapProvinceNameToId(name: string | null | undefined) {
+    if (!name) return null;
+    const n = name.trim().toLowerCase();
+    const hit = provinces.find(
+      (p) => String(p.name).trim().toLowerCase() === n
+    );
+    return hit ? hit.id : null;
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setStatus("Parsing CSV…");
+    Papa.parse<Record<string, any>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        if (res.errors?.length) {
+          setStatus(`Failed to parse: ${res.errors[0].message}`);
+          return;
+        }
+        const rows = (res.data || []).filter((r) =>
+          Object.values(r || {}).some((v) => String(v || "").trim() !== "")
+        );
+        if (!rows.length) {
+          setStatus("No rows found in the CSV.");
+          return;
+        }
+        // Use first row
+        const src = rows[0];
+        const kv: CanonicalKV = {};
+        let applied = 0;
+
+        for (const [rawKey, rawVal] of Object.entries(src)) {
+          const nh = normHeader(rawKey);
+          const target = HEADER_TO_FIELD[nh];
+          if (!target) continue;
+
+          let val: any = rawVal;
+
+          // Normalizations
+          if (target === "unesco_status") val = normalizeUnescoStatus(val);
+          if (
+            target === "travel_airport_access" ||
+            target === "stay_hotels_available" ||
+            target === "stay_spending_night_recommended" ||
+            target === "stay_places_to_eat_available"
+          ) {
+            val = normalizeYesNo(val);
+          }
+
+          if (target === "province_name") {
+            const pid = mapProvinceNameToId(String(val || ""));
+            if (pid != null) {
+              kv["province_id"] = pid;
+              applied++;
+            }
+            continue;
+          }
+
+          // Numbers for lat/lng/altitude (others coerced on save)
+          if (
+            ["latitude", "longitude", "altitude"].includes(target) &&
+            val != null
+          ) {
+            const num = Number(String(val).replace(/,/g, ""));
+            if (!Number.isNaN(num)) val = num;
+          }
+
+          // Cover specific
+          if (target === "cover_location") {
+            kv["location_free"] = val;
+            applied++;
+            continue;
+          }
+          if (target === "slug" && typeof val === "string") {
+            val = normalizeSlug(val);
+          }
+
+          kv[target] = val;
+          applied++;
+        }
+
+        onParsed(kv, file.name);
+        setStatus(`Parsed and cached ${applied} fields from “${file.name}”.`);
+      },
+      error: (err) => setStatus(`Error: ${err?.message || "unknown error"}`),
+    });
+
+    // allow re-upload of same file
+    e.currentTarget.value = "";
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-semibold text-gray-900">
+        Import data (CSV)
+      </div>
+      <div className="text-xs text-gray-600">
+        Upload once. Then use{" "}
+        <span className="font-medium">Add from uploader</span> in sections.
+      </div>
+      {lastUploadName ? (
+        <div className="text-xs text-gray-700">
+          Last upload: <span className="font-medium">{lastUploadName}</span>
+        </div>
+      ) : null}
+      {status ? <div className="text-xs text-gray-700">{status}</div> : null}
+      <div className="flex items-center gap-2">
+        <a
+          href={templateHref}
+          download="site_template.csv"
+          className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+        >
+          Download CSV template
+        </a>
+        <label className="inline-flex cursor-pointer items-center rounded-md bg-[var(--brand-orange,#F78300)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-95">
+          Upload CSV
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={onFile}
+            className="sr-only"
+          />
+        </label>
+      </div>
     </div>
   );
 }
