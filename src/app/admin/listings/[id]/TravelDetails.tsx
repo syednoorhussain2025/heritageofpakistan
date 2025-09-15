@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Icon from "@/components/Icon";
 
 /**
  * Travel & Details
@@ -16,6 +17,18 @@ import React from "react";
  *
  * Props are designed to match the integrator’s expectations.
  */
+
+const TITLE_ICON_MAP: Record<string, string> = {
+  "Where is it / Location": "map", // keep whatever matches your Icon set (e.g., "location" or "map-pin")
+  "General Info": "info",
+  "UNESCO & Protection": "unesco", // ✅ per your keys
+  "Climate & Topography": "climate-topography", // ✅ per your keys
+  "Did you Know": "lightbulb",
+  "Travel Guide": "book",
+  "Best Time to Visit (preset)": "climate-geography-environment", // ✅ per your keys
+  "Places to Stay": "places-to-stay", // ✅ per your keys
+};
+
 export default function TravelDetails({
   form,
   setField,
@@ -30,7 +43,8 @@ export default function TravelDetails({
   readOnlyInputStyles: string;
 }) {
   return (
-    <div className="space-y-8">
+    // we control vertical spacing via SectionBlock margins (my-*)
+    <div className="space-y-0">
       {/* 1) Coordinates + Admin location */}
       <SectionBlock title="Where is it / Location">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -545,10 +559,25 @@ function SectionBlock({
   title: string;
   children: React.ReactNode;
 }) {
+  const iconName = TITLE_ICON_MAP[title];
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
-      <h3 className="text-base font-semibold mb-4 text-gray-900">{title}</h3>
-      {children}
+    // OUTER MARGINS: increased vertical gap between sections
+    <div className="mx-4 sm:mx-6 md:mx-10 lg:mx-14 xl:mx-20 2xl:mx-28 my-12 md:my-16 lg:my-20">
+      {/* CARD */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl px-8 md:px-10 py-6 md:py-7 shadow-sm">
+        <h3 className="flex items-center gap-2 text-lg md:text-xl font-semibold mb-4 text-[var(--brand-blue)]">
+          {iconName ? (
+            <Icon
+              name={iconName}
+              className="w-6 h-6 md:w-7 md:h-7 text-[var(--brand-orange)]"
+              aria-hidden="true"
+            />
+          ) : null}
+          {title}
+        </h3>
+        {children}
+      </div>
     </div>
   );
 }
