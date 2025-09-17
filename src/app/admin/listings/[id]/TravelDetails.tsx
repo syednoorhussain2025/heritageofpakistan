@@ -6,6 +6,8 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useLayoutEffect,
+  ChangeEvent,
 } from "react";
 import Icon from "@/components/Icon";
 
@@ -87,12 +89,88 @@ function parseMaybeFloat(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/* ----------------------------- Auto-resizing Textarea ----------------------------- */
+
+type AutoGrowProps = {
+  value: string;
+  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  className?: string;
+  readOnly?: boolean;
+  minRows?: number; // default 1
+  maxRows?: number; // default 10
+  name?: string;
+  id?: string;
+  inputMode?: React.HTMLAttributes<HTMLTextAreaElement>["inputMode"];
+};
+
+function AutoGrow({
+  value,
+  onChange,
+  placeholder,
+  className,
+  readOnly,
+  minRows = 1,
+  maxRows = 10,
+  name,
+  id,
+  inputMode,
+}: AutoGrowProps) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const lineHeightRef = useRef<number>(20); // fallback
+
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const lh = parseFloat(getComputedStyle(el).lineHeight || "20");
+    lineHeightRef.current = Number.isFinite(lh) ? lh : lineHeightRef.current;
+
+    const maxH = lineHeightRef.current * maxRows + 2; // borders
+    el.style.height = "auto";
+    el.style.overflowY = "hidden";
+    const needed = el.scrollHeight;
+    if (needed > maxH) {
+      el.style.height = `${maxH}px`;
+      el.style.overflowY = "auto";
+    } else {
+      el.style.height = `${needed}px`;
+    }
+  }, [maxRows]);
+
+  useLayoutEffect(() => {
+    resize();
+  }, [value, resize]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const lh = parseFloat(getComputedStyle(el).lineHeight || "20");
+    const minH = (Number.isFinite(lh) ? lh : 20) * minRows + 2;
+    if (el.clientHeight < minH) el.style.height = `${minH}px`;
+  }, [minRows]);
+
+  return (
+    <textarea
+      ref={ref}
+      name={name}
+      id={id}
+      className={`${className} resize-none leading-6`}
+      value={value ?? ""}
+      onChange={(e) => {
+        onChange(e);
+        requestAnimationFrame(resize);
+      }}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      rows={minRows}
+      style={{ height: "auto" }}
+      inputMode={inputMode}
+    />
+  );
+}
+
 /* ----------------------------- Google Maps Loader ----------------------------- */
 
-/**
- * Dynamically loads Google Maps JS if not loaded.
- * Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (with Places API) in env.
- */
 function useGoogleMaps() {
   const [ready, setReady] = useState<boolean>(
     !!(globalThis as any)?.google?.maps
@@ -113,7 +191,6 @@ function useGoogleMaps() {
     }
     const s = document.createElement("script");
     s.id = "gmaps-script";
-    // include Places library for the search box
     s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
     s.async = true;
     s.defer = true;
@@ -131,7 +208,6 @@ type PickableMapProps = {
   lng?: number;
   onPick: (lat: number, lng: number) => void;
   className?: string;
-  /** When the container becomes visible (e.g., fullscreen), trigger resize */
   visibleKey?: string | number;
 };
 
@@ -153,11 +229,9 @@ function PickableMap({
     if (dLat !== undefined && dLng !== undefined) {
       return { lat: dLat, lng: dLng };
     }
-    // Pakistan fallback center
     return { lat: 30.3753, lng: 69.3451 };
   }, [lat, lng]);
 
-  // Initialize map + marker + search
   useEffect(() => {
     if (!ready || !containerRef.current) return;
     const g = (globalThis as any).google;
@@ -168,27 +242,24 @@ function PickableMap({
       zoom: 10,
       streetViewControl: false,
       mapTypeControl: true,
-      fullscreenControl: false, // we roll our own fullscreen outside
+      fullscreenControl: false,
       gestureHandling: "greedy",
     });
 
     const marker = new g.maps.Marker({
       position: center,
       map,
-      // hover-to-drag UX
       draggable: false,
       cursor: "grab",
       draggableCursor: "grabbing",
     });
 
-    // Click map → move marker + update
     map.addListener("click", (e: any) => {
       const p = { lat: e.latLng.lat(), lng: e.latLng.lng() };
       marker.setPosition(p);
       onPick(p.lat, p.lng);
     });
 
-    // Hover → allow dragging; leave → disable dragging
     marker.addListener("mouseover", () => marker.setDraggable(true));
     marker.addListener("mouseout", () => marker.setDraggable(false));
     marker.addListener("dragend", (e: any) => {
@@ -196,11 +267,9 @@ function PickableMap({
       onPick(p.lat, p.lng);
     });
 
-    // ---- Search (Places Autocomplete) ----
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Search location…";
-    // inline styling so it looks good without extra CSS
     Object.assign(input.style, {
       boxSizing: "border-box",
       border: "1px solid #d1d5db",
@@ -246,10 +315,8 @@ function PickableMap({
       mapRef.current = null;
       markerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep marker/center in sync if lat/lng change from inputs
   useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
@@ -259,7 +326,6 @@ function PickableMap({
     map.setCenter(center);
   }, [center]);
 
-  // When container becomes visible (e.g., opening overlay), force resize
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -307,7 +373,6 @@ export default function TravelDetails({
   inputStyles: string;
   readOnlyInputStyles: string;
 }) {
-  // For fullscreen overlay
   const [mapOpen, setMapOpen] = useState(false);
   const [visibleKey, setVisibleKey] = useState<number>(0);
 
@@ -335,47 +400,55 @@ export default function TravelDetails({
     <div className="space-y-0">
       {/* 1) Coordinates + Admin location + Map Preview */}
       <SectionBlock title="Where is it / Location">
-        {/* Desktop: left column with all inputs, right side is the map (col-span-2) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* LEFT: stack ALL location inputs */}
           <div className="flex flex-col gap-4">
             <Labeled label="Latitude">
-              <input
+              <AutoGrow
                 className={inputStyles}
                 value={form.latitude || ""}
                 onChange={(e) => setField("latitude", e.target.value)}
                 placeholder="e.g., 34.811100"
                 inputMode="decimal"
+                minRows={1}
+                maxRows={3}
               />
             </Labeled>
             <Labeled label="Longitude">
-              <input
+              <AutoGrow
                 className={inputStyles}
                 value={form.longitude || ""}
                 onChange={(e) => setField("longitude", e.target.value)}
                 placeholder="e.g., 74.369400"
                 inputMode="decimal"
+                minRows={1}
+                maxRows={3}
               />
             </Labeled>
             <Labeled label="Town/City/Village">
-              <input
+              <AutoGrow
                 className={inputStyles}
                 value={form.town_city_village || ""}
                 onChange={(e) => setField("town_city_village", e.target.value)}
+                minRows={1}
+                maxRows={4}
               />
             </Labeled>
             <Labeled label="Tehsil">
-              <input
+              <AutoGrow
                 className={inputStyles}
                 value={form.tehsil || ""}
                 onChange={(e) => setField("tehsil", e.target.value)}
+                minRows={1}
+                maxRows={4}
               />
             </Labeled>
             <Labeled label="District">
-              <input
+              <AutoGrow
                 className={inputStyles}
                 value={form.district || ""}
                 onChange={(e) => setField("district", e.target.value)}
+                minRows={1}
+                maxRows={4}
               />
             </Labeled>
             <Labeled label="Region / Province (dropdown of 6)">
@@ -399,14 +472,13 @@ export default function TravelDetails({
             </Labeled>
           </div>
 
-          {/* RIGHT: Map area (col-span-2) with actions below */}
+          {/* RIGHT: Map area */}
           <div className="lg:col-span-2">
             <PickableMap
               lat={latNum}
               lng={lngNum}
               onPick={handlePick}
               visibleKey={visibleKey}
-              // slightly taller than before
               className="w-full h-80 md:h-96 lg:h-[360px] xl:h-[400px]"
             />
             <div className="mt-3 flex items-center justify-end gap-3">
@@ -443,174 +515,217 @@ export default function TravelDetails({
       <SectionBlock title="General Info">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Labeled label="Name (auto from Title)">
-            <input
+            <AutoGrow
               className={readOnlyInputStyles}
               value={form.title || ""}
+              onChange={() => {}}
               readOnly
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Architectural Style">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.architectural_style || ""}
               onChange={(e) => setField("architectural_style", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Construction Materials">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.construction_materials || ""}
               onChange={(e) =>
                 setField("construction_materials", e.target.value)
               }
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Local Name">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.local_name || ""}
               onChange={(e) => setField("local_name", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Architect">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.architect || ""}
               onChange={(e) => setField("architect", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Construction Date">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.construction_date || ""}
               onChange={(e) => setField("construction_date", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Built by">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.built_by || ""}
               onChange={(e) => setField("built_by", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Dynasty">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.dynasty || ""}
               onChange={(e) => setField("dynasty", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Conservation Status">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.conservation_status || ""}
               onChange={(e) => setField("conservation_status", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Current Use">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.current_use || ""}
               onChange={(e) => setField("current_use", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Restored by">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.restored_by || ""}
               onChange={(e) => setField("restored_by", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Known for">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.known_for || ""}
               onChange={(e) => setField("known_for", e.target.value)}
+              minRows={1}
+              maxRows={8}
             />
           </Labeled>
 
           <Labeled label="Era">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.era || ""}
               onChange={(e) => setField("era", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Inhabited by">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.inhabited_by || ""}
               onChange={(e) => setField("inhabited_by", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="National Park Established in">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.national_park_established_in || ""}
               onChange={(e) =>
                 setField("national_park_established_in", e.target.value)
               }
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Population">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.population || ""}
               onChange={(e) => setField("population", e.target.value)}
+              minRows={1}
+              maxRows={3}
             />
           </Labeled>
 
           <Labeled label="Ethnic Groups">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.ethnic_groups || ""}
               onChange={(e) => setField("ethnic_groups", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Languages Spoken">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.languages_spoken || ""}
               onChange={(e) => setField("languages_spoken", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
 
           <Labeled label="Excavation Status">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.excavation_status || ""}
               onChange={(e) => setField("excavation_status", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Excavated by">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.excavated_by || ""}
               onChange={(e) => setField("excavated_by", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
-          <Labeled label="Administered by (label editable later)">
-            <input
+          <Labeled label="Administered by ">
+            <AutoGrow
               className={inputStyles}
               value={form.administered_by || ""}
               onChange={(e) => setField("administered_by", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
         </div>
@@ -636,24 +751,28 @@ export default function TravelDetails({
           </Labeled>
 
           <Labeled label="UNESCO Line (optional one-liner)">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.unesco_line || ""}
               onChange={(e) => setField("unesco_line", e.target.value)}
               onBlur={(e) =>
                 setField("unesco_line", nullIfEmpty(e.target.value))
               }
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
 
           <Labeled label="Protected under (free text)">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.protected_under || ""}
               onChange={(e) => setField("protected_under", e.target.value)}
               onBlur={(e) =>
                 setField("protected_under", nullIfEmpty(e.target.value))
               }
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
         </div>
@@ -663,45 +782,57 @@ export default function TravelDetails({
       <SectionBlock title="Climate & Topography">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Labeled label="Landform">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.landform || ""}
               onChange={(e) => setField("landform", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="Altitude">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.altitude || ""}
               onChange={(e) => setField("altitude", e.target.value)}
+              minRows={1}
+              maxRows={3}
             />
           </Labeled>
           <Labeled label="Mountain Range">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.mountain_range || ""}
               onChange={(e) => setField("mountain_range", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="Weather Type">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.weather_type || ""}
               onChange={(e) => setField("weather_type", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="Average Temp in Summers">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.avg_temp_summers || ""}
               onChange={(e) => setField("avg_temp_summers", e.target.value)}
+              minRows={1}
+              maxRows={3}
             />
           </Labeled>
           <Labeled label="Average Temp in Winters">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.avg_temp_winters || ""}
               onChange={(e) => setField("avg_temp_winters", e.target.value)}
+              minRows={1}
+              maxRows={3}
             />
           </Labeled>
         </div>
@@ -710,10 +841,12 @@ export default function TravelDetails({
       {/* 5) Did you know */}
       <SectionBlock title="Did you Know">
         <Labeled label="Interesting fact (free text)">
-          <textarea
+          <AutoGrow
             className={inputStyles}
             value={form.did_you_know || ""}
             onChange={(e) => setField("did_you_know", e.target.value)}
+            minRows={2}
+            maxRows={12}
           />
         </Labeled>
       </SectionBlock>
@@ -722,26 +855,32 @@ export default function TravelDetails({
       <SectionBlock title="Travel Guide">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Labeled label="Location (Travel Guide)">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.travel_location || ""}
               onChange={(e) => setField("travel_location", e.target.value)}
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="How to Reach">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.travel_how_to_reach || ""}
               onChange={(e) => setField("travel_how_to_reach", e.target.value)}
+              minRows={1}
+              maxRows={6}
             />
           </Labeled>
           <Labeled label="Nearest Major City">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.travel_nearest_major_city || ""}
               onChange={(e) =>
                 setField("travel_nearest_major_city", e.target.value)
               }
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="Airport Access">
@@ -799,16 +938,18 @@ export default function TravelDetails({
             </select>
           </Labeled>
           <Labeled label="Best Time to Visit (short free text)">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.travel_best_time_free || ""}
               onChange={(e) =>
                 setField("travel_best_time_free", e.target.value)
               }
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
           <Labeled label="Full Travel Guide URL (optional button)">
-            <input
+            <AutoGrow
               className={inputStyles}
               value={form.travel_full_guide_url || ""}
               onChange={(e) =>
@@ -817,6 +958,8 @@ export default function TravelDetails({
               onBlur={(e) =>
                 setField("travel_full_guide_url", nullIfEmpty(e.target.value))
               }
+              minRows={1}
+              maxRows={4}
             />
           </Labeled>
         </div>
@@ -825,13 +968,15 @@ export default function TravelDetails({
       {/* 7) Best Time preset */}
       <SectionBlock title="Best Time to Visit (preset)">
         <Labeled label="Preset Key (temporary; global presets later)">
-          <input
+          <AutoGrow
             className={inputStyles}
             value={form.best_time_option_key || ""}
             onChange={(e) => setField("best_time_option_key", e.target.value)}
             onBlur={(e) =>
               setField("best_time_option_key", nullIfEmpty(e.target.value))
             }
+            minRows={1}
+            maxRows={4}
           />
         </Labeled>
       </SectionBlock>

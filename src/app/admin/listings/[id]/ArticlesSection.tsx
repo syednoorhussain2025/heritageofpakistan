@@ -128,8 +128,7 @@ function snapshotCleanHTML(root: HTMLElement): string {
   // Remove editor-only elements
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
 
-  // Strip editor decoration classes (borders/rings/padding) from any element
-  // that had the flow-editor marker, so the public page is clean.
+  // Strip editor decoration classes (borders/rings/padding)
   node.querySelectorAll<HTMLElement>(".flow-editor-decor").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -160,8 +159,8 @@ function snapshotCleanHTML(root: HTMLElement): string {
             "p-2",
             "p-2.5",
           ].includes(c) &&
-          !c.startsWith("ring-") && // any other ring-* utilities
-          !c.startsWith("border-") // any other border-* utilities
+          !c.startsWith("ring-") &&
+          !c.startsWith("border-")
       );
     el.setAttribute("class", classes.join(" "));
   });
@@ -241,7 +240,7 @@ function ToastViewport({
 }
 
 /* -------------------------------------------------------------- */
-/* Image Picker Modal                                             */
+/* Image Picker Modal (masonry + hover zoom + click-outside close) */
 /* -------------------------------------------------------------- */
 
 function GalleryBrowserModal({
@@ -298,14 +297,28 @@ function GalleryBrowserModal({
     };
   }, [show, siteId]);
 
+  // Close with ESC
+  useEffect(() => {
+    if (!show) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [show, onClose]);
+
   if (!show) return null;
 
   return (
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
       data-edit-only
+      onClick={onClose} // click outside closes
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[80vh] flex flex-col">
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()} // prevent inner clicks from bubbling
+      >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             Select an Image
@@ -322,7 +335,8 @@ function GalleryBrowserModal({
           {loading ? (
             <p className="text-gray-600">Loading images…</p>
           ) : images.length ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            // Masonry using CSS multi-column layout
+            <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-x-4">
               {images.map((img) => {
                 const d = dims[img.publicUrl];
                 const orient =
@@ -334,47 +348,53 @@ function GalleryBrowserModal({
                       : "portrait"
                     : undefined;
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={img.publicUrl}
-                    className="group w-full text-left"
-                    onClick={() =>
-                      onImageSelect({
-                        ...img,
-                        aspectRatio:
-                          d?.w && d?.h && d.h > 0 ? d.w / d.h : undefined,
-                      })
-                    }
+                    className="mb-4 break-inside-avoid"
                     title={img.alt_text || ""}
                   >
-                    <div className="relative w-full h-32 bg-white rounded-md border border-gray-300 grid place-items-center overflow-hidden">
-                      <img
-                        src={img.publicUrl}
-                        alt={img.alt_text || ""}
-                        className="max-h-full max-w-full object-contain"
-                        onLoad={(e) => {
-                          const el = e.currentTarget;
-                          if (el.naturalWidth && el.naturalHeight) {
-                            setDims((m) => ({
-                              ...m,
-                              [img.publicUrl]: {
-                                w: el.naturalWidth,
-                                h: el.naturalHeight,
-                              },
-                            }));
-                          }
-                        }}
-                      />
-                      {orient && (
-                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/70 text-white">
-                          {orient}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1 truncate">
-                      {img.alt_text || "No alt text"}
-                    </p>
-                  </button>
+                    <button
+                      type="button"
+                      className="group block w-full text-left"
+                      onClick={() =>
+                        onImageSelect({
+                          ...img,
+                          aspectRatio:
+                            d?.w && d?.h && d.h > 0 ? d.w / d.h : undefined,
+                        })
+                      }
+                    >
+                      <div className="relative w-full overflow-hidden rounded-md border border-gray-300 bg-white">
+                        <img
+                          src={img.publicUrl}
+                          alt={img.alt_text || ""}
+                          loading="lazy"
+                          className="w-full h-auto transition-transform duration-200 ease-out group-hover:scale-[1.03]"
+                          style={{ willChange: "transform" }}
+                          onLoad={(e) => {
+                            const el = e.currentTarget;
+                            if (el.naturalWidth && el.naturalHeight) {
+                              setDims((m) => ({
+                                ...m,
+                                [img.publicUrl]: {
+                                  w: el.naturalWidth,
+                                  h: el.naturalHeight,
+                                },
+                              }));
+                            }
+                          }}
+                        />
+                        {orient && (
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[10px] rounded bg-black/70 text-white">
+                            {orient}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {img.alt_text || "No alt text"}
+                      </p>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -420,7 +440,7 @@ function CardHeader({
 }
 
 /* -------------------------------------------------------------- */
-/* PartComposer (manual builder + snapshot)                       */
+/* PartComposer (manual builder + snapshot + inline controls)     */
 /* -------------------------------------------------------------- */
 
 function PartComposer({
@@ -487,36 +507,40 @@ function PartComposer({
       };
     });
 
-  /* ---- outside controls ---- */
+  /* ---- insertion popover state ---- */
+  const [insertAt, setInsertAt] = useState<number | null>(null);
 
-  const addSection = (kind: SectionKind) => {
+  /* ---- helpers ---- */
+
+  const makeNewSection = (kind: SectionKind): FlowSection => {
     const base = { type: kind, paddingY: "none", bg: "none" } as FlowSection;
-    const next: FlowSection =
-      kind === "full-width-image"
-        ? { ...base, images: [{ slotId: "fw-1" }] }
-        : kind === "two-images"
-        ? { ...base, images: [{ slotId: "slot_1" }, { slotId: "slot_2" }] }
-        : kind === "three-images"
-        ? {
-            ...base,
-            images: [
-              { slotId: "slot_1" },
-              { slotId: "slot_2" },
-              { slotId: "slot_3" },
-            ],
-          }
-        : kind === "image-left-text-right"
-        ? { ...base, images: [{ slotId: "left-1" }], text: { text: "" } }
-        : kind === "image-right-text-left"
-        ? { ...base, images: [{ slotId: "right-1" }], text: { text: "" } }
-        : { ...base, text: { text: "" } };
+    return kind === "full-width-image"
+      ? { ...base, images: [{ slotId: "fw-1" }] }
+      : kind === "two-images"
+      ? { ...base, images: [{ slotId: "slot_1" }, { slotId: "slot_2" }] }
+      : kind === "three-images"
+      ? {
+          ...base,
+          images: [
+            { slotId: "slot_1" },
+            { slotId: "slot_2" },
+            { slotId: "slot_3" },
+          ],
+        }
+      : kind === "image-left-text-right"
+      ? { ...base, images: [{ slotId: "left-1" }], text: { text: "" } }
+      : kind === "image-right-text-left"
+      ? { ...base, images: [{ slotId: "right-1" }], text: { text: "" } }
+      : { ...base, text: { text: "" } };
+  };
 
-    const arr = [...sections, next];
-    setSections(arr);
-    onSectionsChange(arr);
-    addToast(
-      sectionDefs.find((d) => d.kind === kind)?.addedToast || "Section added"
-    );
+  const addSectionAt = (kind: SectionKind, index: number) => {
+    const next = [...sections];
+    next.splice(index, 0, makeNewSection(kind));
+    setSections(next);
+    onSectionsChange(next);
+    setInsertAt(null);
+    addToast("Section inserted");
   };
 
   const moveSection = (idx: number, dir: -1 | 1) => {
@@ -538,6 +562,13 @@ function PartComposer({
     addToast("Section deleted");
   };
 
+  const updateOne = (idx: number, updated: FlowSection) => {
+    const arr = [...sections];
+    arr[idx] = updated;
+    setSections(arr);
+    onSectionsChange(arr);
+  };
+
   // Sync the snapshot; strip editor-only UI
   useDebouncedEffect(
     () => {
@@ -550,8 +581,17 @@ function PartComposer({
     250
   );
 
+  // Close insertion popover on ESC
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInsertAt(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   // ------------------------------------------
-  // Sidebar button definitions (with icons)
+  // Section type options (formerly sidebar)
   // ------------------------------------------
   const sectionDefs: {
     kind: SectionKind;
@@ -559,7 +599,6 @@ function PartComposer({
     iconLeft?: string;
     iconRight?: string;
     tooltip: string;
-    addedToast: string;
   }[] = [
     {
       kind: "image-left-text-right",
@@ -567,7 +606,6 @@ function PartComposer({
       iconLeft: "image",
       iconRight: "align-center",
       tooltip: "Two-column: image on the left, text on the right",
-      addedToast: "Added: Image Left / Text Right",
     },
     {
       kind: "image-right-text-left",
@@ -575,21 +613,18 @@ function PartComposer({
       iconLeft: "align-center",
       iconRight: "image",
       tooltip: "Two-column: text on the left, image on the right",
-      addedToast: "Added: Image Right / Text Left",
     },
     {
       kind: "full-width-text",
       label: "Full-width Text",
       iconLeft: "align-center",
       tooltip: "Single column, text spans the full width",
-      addedToast: "Added: Full-width Text",
     },
     {
       kind: "full-width-image",
       label: "Full-width Image",
       iconLeft: "image",
       tooltip: "Single column, image spans the full width",
-      addedToast: "Added: Full-width Image",
     },
     {
       kind: "two-images",
@@ -597,7 +632,6 @@ function PartComposer({
       iconLeft: "image",
       iconRight: "image",
       tooltip: "Two images in a row",
-      addedToast: "Added: Two Images",
     },
     {
       kind: "three-images",
@@ -605,9 +639,109 @@ function PartComposer({
       iconLeft: "image",
       iconRight: "image",
       tooltip: "Three images in a row",
-      addedToast: "Added: Three Images",
     },
   ];
+
+  const InsertionButton = ({
+    index,
+    topOffset = -10, // px offset to sit at the junction
+  }: {
+    index: number;
+    topOffset?: number;
+  }) => (
+    <div
+      className="absolute"
+      style={{ left: -28, top: topOffset }}
+      data-edit-only
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setInsertAt((cur) => (cur === index ? null : index));
+        }}
+        title="Add section here"
+        className="grid place-items-center w-7 h-7 rounded-full bg-emerald-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-105 active:scale-100"
+      >
+        +
+      </button>
+
+      {/* Popover */}
+      {insertAt === index && (
+        <>
+          {/* click-outside catcher */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setInsertAt(null)}
+            data-edit-only
+          />
+          <div
+            className="absolute z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
+            style={{ left: 36 }}
+            data-edit-only
+          >
+            <div className="text-xs text-gray-500 px-2 py-1">Add section</div>
+            <div className="max-h-64 overflow-auto space-y-1">
+              {sectionDefs.map((def) => (
+                <button
+                  key={def.kind}
+                  className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
+                  title={def.tooltip}
+                  onClick={() => addSectionAt(def.kind, index)}
+                >
+                  {def.iconLeft && (
+                    <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                      <Icon name={def.iconLeft as any} className="w-3 h-3" />
+                    </span>
+                  )}
+                  {def.iconRight && (
+                    <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                      <Icon name={def.iconRight as any} className="w-3 h-3" />
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-800">{def.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const SectionControls = ({ index }: { index: number }) => (
+    <div
+      className="absolute top-1/2 -translate-y-1/2"
+      style={{ right: -40 }}
+      data-edit-only
+    >
+      <div className="flex flex-col gap-1">
+        <button
+          className="px-2 py-1 rounded border bg-white hover:bg-gray-50 shadow-sm disabled:opacity-40"
+          onClick={() => moveSection(index, -1)}
+          disabled={index === 0}
+          title="Move up"
+        >
+          ↑
+        </button>
+        <button
+          className="px-2 py-1 rounded border bg-white hover:bg-gray-50 shadow-sm disabled:opacity-40"
+          onClick={() => moveSection(index, +1)}
+          disabled={index === sections.length - 1}
+          title="Move down"
+        >
+          ↓
+        </button>
+        <button
+          className="px-2 py-1 rounded border bg-white hover:bg-red-50 text-red-600 shadow-sm"
+          onClick={() => deleteSection(index)}
+          title="Delete"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
 
   // ------------------------------------------
 
@@ -616,132 +750,120 @@ function PartComposer({
       <Sizer />
       <ToastViewport toasts={toasts} onClose={removeToast} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Preview card (wider) */}
-        <div className="lg:col-span-10">
-          <div
-            className="rounded-xl bg-white shadow-sm"
-            style={{
-              padding: 20,
-              width: publicMainWidth ? publicMainWidth : undefined,
-              maxWidth: "100%",
-              marginInline: "auto",
-            }}
-          >
-            <CardHeader title={title} iconKey={iconKey} />
-            <div ref={previewRef}>
-              <FlowComposer
-                sections={sections}
-                onChange={(arr) => {
-                  setSections(arr);
-                  onSectionsChange(arr);
-                }}
-                onPickImage={(slot) => pickImage(slot)}
-                showToolbar={false}
-                showControls={false}
-                debugFrames={false}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Single wide preview column (sidebar removed) */}
+      <div
+        className="rounded-xl bg-white shadow-sm"
+        style={{
+          padding: 20,
+          width: publicMainWidth ? publicMainWidth : undefined,
+          maxWidth: "100%",
+          marginInline: "auto",
+        }}
+      >
+        <CardHeader title={title} iconKey={iconKey} />
 
-        {/* Sidebar card (narrower) */}
-        <div className="lg:col-span-2">
-          <div className="rounded-xl bg-white shadow-sm border border-gray-200">
-            <div className="p-4 md:p-5 space-y-4">
-              <div>
-                <div className="text-sm text-gray-600 mb-2">
-                  Build this section:
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {sectionDefs.map((def) => (
-                    <button
-                      key={def.kind}
-                      className="group w-full text-left px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-[#F78300]/10 hover:border-[#F78300] active:bg-[#F78300]/20 shadow-sm transition-all"
-                      onClick={() => addSection(def.kind)}
-                      title={def.tooltip}
+        <div ref={previewRef} className="relative">
+          {/* No sections: show first add affordance */}
+          {sections.length === 0 && (
+            <div
+              className="relative border border-dashed border-gray-300 rounded-xl p-10 text-center"
+              data-edit-only
+            >
+              <div className="text-gray-500 mb-3">No content yet</div>
+              <div className="inline-block relative">
+                <button
+                  type="button"
+                  className="grid place-items-center w-12 h-12 rounded-full bg-emerald-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-105 active:scale-100"
+                  onClick={() => setInsertAt(0)}
+                  title="Add first section"
+                >
+                  +
+                </button>
+                {/* Popover for first add */}
+                {insertAt === 0 && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setInsertAt(null)}
+                      data-edit-only
+                    />
+                    <div
+                      className="absolute z-50 mt-3 left-1/2 -translate-x-1/2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
                       data-edit-only
                     >
-                      <div className="flex items-center gap-2">
-                        {/* Leading icons (compact) */}
-                        <span className="inline-flex -space-x-1 items-center">
-                          {def.iconLeft && (
-                            <span className="inline-flex h-5 w-5 rounded-md bg-gray-100 border border-gray-200 grid place-items-center">
-                              <Icon
-                                name={def.iconLeft as any}
-                                className="w-3 h-3 text-gray-700"
-                              />
-                            </span>
-                          )}
-                          {def.iconRight && (
-                            <span className="inline-flex h-5 w-5 rounded-md bg-gray-100 border border-gray-200 grid place-items-center">
-                              <Icon
-                                name={def.iconRight as any}
-                                className="w-3 h-3 text-gray-700"
-                              />
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-sm font-medium text-gray-800">
-                          {def.label}
-                        </span>
+                      <div className="text-xs text-gray-500 px-2 py-1">
+                        Add section
                       </div>
-                    </button>
-                  ))}
-                </div>
+                      <div className="max-h-64 overflow-auto space-y-1">
+                        {sectionDefs.map((def) => (
+                          <button
+                            key={def.kind}
+                            className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
+                            title={def.tooltip}
+                            onClick={() => addSectionAt(def.kind, 0)}
+                          >
+                            {def.iconLeft && (
+                              <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                                <Icon
+                                  name={def.iconLeft as any}
+                                  className="w-3 h-3"
+                                />
+                              </span>
+                            )}
+                            {def.iconRight && (
+                              <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                                <Icon
+                                  name={def.iconRight as any}
+                                  className="w-3 h-3"
+                                />
+                              </span>
+                            )}
+                            <span className="text-sm text-gray-800">
+                              {def.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sections list with junction “+” and per-section controls */}
+          {sections.map((s, i) => (
+            <div key={i} className="relative my-6">
+              {/* Junction “+” (before each section, including the first) */}
+              <InsertionButton index={i} topOffset={-12} />
+
+              {/* The actual section content (single-section composer) */}
+              <div className="flow-section-wrapper">
+                <FlowComposer
+                  sections={[s]}
+                  onChange={(arr) => {
+                    if (Array.isArray(arr) && arr[0]) {
+                      updateOne(i, arr[0] as FlowSection);
+                    }
+                  }}
+                  onPickImage={(slot) => pickImage(slot)}
+                  showToolbar={false}
+                  showControls={false}
+                  debugFrames={false}
+                />
               </div>
 
-              {sections.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium text-gray-800 mb-2">
-                    Sections
-                  </div>
-                  <div className="space-y-2">
-                    {sections.map((s, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-2 text-xs border rounded-md px-2 py-1 bg-white"
-                        data-edit-only
-                      >
-                        <span className="truncate">
-                          {s.type.replaceAll("-", " ")}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            className="px-2 py-0.5 rounded border hover:bg-[#F78300]/10 hover:border-[#F78300]"
-                            onClick={() => moveSection(i, -1)}
-                            title="Move up"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            className="px-2 py-0.5 rounded border hover:bg-[#F78300]/10 hover:border-[#F78300]"
-                            onClick={() => moveSection(i, +1)}
-                            title="Move down"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            className="px-2 py-0.5 rounded border text-red-600 hover:bg-red-50"
-                            onClick={() => deleteSection(i)}
-                            title="Delete"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Instructional hint removed per request */}
+              {/* Controls on the right, outside the content */}
+              <SectionControls index={i} />
             </div>
-          </div>
+          ))}
+
+          {/* Note: by design we do NOT render a trailing "+" after the last section,
+              since your requirement specified the junctions and the first add. */}
         </div>
       </div>
 
+      {/* Image gallery modal */}
       <GalleryBrowserModal
         show={showGallery}
         onClose={() => setShowGallery(false)}
@@ -858,58 +980,40 @@ export default function ArticlesSection({
         ) : (
           customSections.map((cs, idx) => (
             <div key={cs.id} className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* Preview (wider) */}
-                <div className="lg:col-span-10">
-                  <div className="rounded-xl bg-white shadow-sm p-5">
-                    <CardHeader
-                      title={cs.title || "Untitled Section"}
-                      iconKey="custom"
-                    />
-                    <PartComposer
-                      siteId={siteId}
-                      title=""
-                      iconKey="custom"
-                      initialSections={cs.sections_json || []}
-                      onSectionsChange={(secs) =>
-                        updateCustom(idx, { sections_json: secs })
-                      }
-                      onSnapshotChange={(html) =>
-                        updateCustom(idx, { layout_html: html })
-                      }
-                    />
-                  </div>
-                </div>
+              {/* For custom sections we reuse PartComposer with inline controls */}
+              <PartComposer
+                siteId={siteId}
+                title={cs.title || "Untitled Section"}
+                iconKey="custom"
+                initialSections={cs.sections_json || []}
+                onSectionsChange={(secs) =>
+                  updateCustom(idx, { sections_json: secs })
+                }
+                onSnapshotChange={(html) =>
+                  updateCustom(idx, { layout_html: html })
+                }
+              />
 
-                {/* Sidebar (narrower) */}
-                <div className="lg:col-span-2">
-                  <div className="rounded-xl bg-white shadow-sm border border-gray-200">
-                    <div className="p-4 md:p-5 space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Section Title
-                        </label>
-                        <input
-                          className={inputStyles}
-                          value={cs.title}
-                          onChange={(e) =>
-                            updateCustom(idx, { title: e.target.value })
-                          }
-                          placeholder="e.g., Cultural Significance"
-                        />
-                      </div>
+              {/* Title input for the custom section */}
+              <div className="rounded-xl bg-white shadow-sm border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Section Title
+                </label>
+                <input
+                  className={inputStyles}
+                  value={cs.title}
+                  onChange={(e) => updateCustom(idx, { title: e.target.value })}
+                  placeholder="e.g., Cultural Significance"
+                />
 
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={() => removeCustom(idx)}
-                          className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-500"
-                        >
-                          Delete Section
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                <div className="pt-3" data-edit-only>
+                  <button
+                    type="button"
+                    onClick={() => removeCustom(idx)}
+                    className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-500"
+                  >
+                    Delete Custom Section
+                  </button>
                 </div>
               </div>
             </div>

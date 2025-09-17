@@ -215,6 +215,38 @@ export default function EditListing() {
   );
 }
 
+/* Small bottom-right toast for auto-save */
+function SavingToast({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <div className="fixed bottom-4 right-4 z-[60]">
+      <div className="flex items-center gap-2 rounded-lg bg-black/80 text-white px-3 py-2 shadow-lg">
+        <svg
+          className="h-4 w-4 animate-spin"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4A4 4 0 008 12H4z"
+          />
+        </svg>
+        <span className="text-sm font-medium">Saving…</span>
+      </div>
+    </div>
+  );
+}
+
 /* Sidebar controls */
 function SidebarControls({
   published,
@@ -222,12 +254,18 @@ function SidebarControls({
   onSave,
   saving,
   uploaderSlot,
+  autoSaveEnabled,
+  onToggleAutoSave,
+  lastSavedAt,
 }: {
   published: boolean;
   onTogglePublished: (v: boolean) => void;
-  onSave: () => void | Promise<void>;
+  onSave: (opts?: { silent?: boolean }) => void | Promise<void>;
   saving: boolean;
   uploaderSlot?: React.ReactNode; // 👈 slot rendered below Save
+  autoSaveEnabled: boolean;
+  onToggleAutoSave: (v: boolean) => void;
+  lastSavedAt: Date | null;
 }) {
   return (
     <nav className="lg:fixed lg:left-4 lg:top-28 lg:w-64 w-full lg:w-64 z-30">
@@ -241,14 +279,28 @@ function SidebarControls({
           />
           <span className="text-gray-900 font-medium">Published</span>
         </label>
+
+        <label className="inline-flex items-center gap-3">
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+            checked={autoSaveEnabled}
+            onChange={(e) => onToggleAutoSave(e.target.checked)}
+          />
+          <span className="text-gray-900 font-medium">Auto Save</span>
+        </label>
+
         <div>
           <Btn
-            onClick={onSave}
+            onClick={() => onSave({ silent: false })}
             className="w-full bg-black text-white hover:bg-gray-900 disabled:opacity-60"
             disabled={saving}
           >
             {saving ? "Saving…" : "Save Changes"}
           </Btn>
+          <div className="mt-1 text-[11px] text-gray-500">
+            Last saved: {lastSavedAt ? lastSavedAt.toLocaleTimeString() : "—"}
+          </div>
         </div>
 
         {/* Uploader lives here */}
@@ -306,7 +358,7 @@ const TEMPLATE_HEADERS = [
   // UNESCO
   "unesco_status",
   "unesco_line",
-  "protected_under (e.g Antiquities Act 1976)",
+  "protected_under (e.g Antiquities Act 1975)",
 
   // Climate
   "landform (e.g Mountains, Land, Lake)",
@@ -337,7 +389,7 @@ const TEMPLATE_HEADERS = [
   "stay_places_to_eat_available (Yes, No, Limited Options)",
 
   // Misc
-  "did_you_know (e.g The Jahanabad Buddha near Malam Jabba is one of the largest carved Buddha reliefs in Pakistan)",
+  "did_you_know (One line interesting fact e.g The Jahanabad Buddha near Malam Jabba is one of the largest carved Buddha reliefs in Pakistan)",
 ] as const;
 
 type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
@@ -494,9 +546,16 @@ function EditContent({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
-  const saveListingRef = useRef<(() => Promise<void> | void) | undefined>(
-    undefined
-  );
+
+  // NEW: auto-save state (default ON) + last saved timestamp
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(true);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [autoSaving, setAutoSaving] = useState<boolean>(false); // controls bottom-right toast
+
+  // Registerable save function ref (now accepts {silent})
+  const saveListingRef = useRef<
+    ((opts?: { silent?: boolean }) => Promise<void> | void) | undefined
+  >(undefined);
 
   // Uploader plumbing (shared cache + appliers registered by ListingForm)
   const [uploadCache, setUploadCache] = useState<CanonicalKV | null>(null);
@@ -568,6 +627,7 @@ function EditContent({ id }: { id: string }) {
     setSaving(false);
     if (error) return alert(error.message);
     setSite(data);
+    setLastSavedAt(new Date()); // record save time
   }
 
   const loadTaxonomies = useCallback(async () => {
@@ -601,6 +661,22 @@ function EditContent({ id }: { id: string }) {
   useEffect(() => {
     loadTaxonomies();
   }, [loadTaxonomies]);
+
+  // NEW: periodic auto-save every 60s when enabled
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+    const timer = setInterval(async () => {
+      if (saveListingRef.current && !saving) {
+        setAutoSaving(true);
+        try {
+          await saveListingRef.current({ silent: true });
+        } finally {
+          setAutoSaving(false);
+        }
+      }
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [autoSaveEnabled, saving]);
 
   if (!site)
     return (
@@ -680,10 +756,13 @@ function EditContent({ id }: { id: string }) {
             published={published}
             onTogglePublished={setPublished}
             saving={saving}
-            onSave={async () => {
-              if (saveListingRef.current) await saveListingRef.current();
+            onSave={async (opts) => {
+              if (saveListingRef.current) await saveListingRef.current(opts);
             }}
             uploaderSlot={uploaderSlot}
+            autoSaveEnabled={autoSaveEnabled}
+            onToggleAutoSave={setAutoSaveEnabled}
+            lastSavedAt={lastSavedAt}
           />
         </div>
 
@@ -693,10 +772,13 @@ function EditContent({ id }: { id: string }) {
               published={published}
               onTogglePublished={setPublished}
               saving={saving}
-              onSave={async () => {
-                if (saveListingRef.current) await saveListingRef.current();
+              onSave={async (opts) => {
+                if (saveListingRef.current) await saveListingRef.current(opts);
               }}
               uploaderSlot={uploaderSlot}
+              autoSaveEnabled={autoSaveEnabled}
+              onToggleAutoSave={setAutoSaveEnabled}
+              lastSavedAt={lastSavedAt}
             />
           </div>
 
@@ -725,6 +807,9 @@ function EditContent({ id }: { id: string }) {
           </main>
         </div>
       </div>
+
+      {/* Bottom-right auto-save indicator */}
+      <SavingToast visible={autoSaving} />
     </div>
   );
 }
@@ -843,7 +928,7 @@ function ListingForm({
   site: any;
   onSave: (n: any) => void;
   saving: boolean;
-  onRegisterSave: (fn: () => Promise<void>) => void;
+  onRegisterSave: (fn: (opts?: { silent?: boolean }) => Promise<void>) => void;
   externalPublished: boolean;
   listingTab: ListingTabKey;
   provinces: any[];
@@ -924,20 +1009,23 @@ function ListingForm({
     }
   }
 
-  const saveAll = useCallback(async () => {
-    // Ensure the in-form value is normalized too, so user sees what will be saved
-    setForm((prev: any) => ({
-      ...prev,
-      unesco_status: normalizeUnescoStatus(prev.unesco_status ?? "none"),
-    }));
-    await onSave({
-      ...form,
-      unesco_status: normalizeUnescoStatus(form.unesco_status ?? "none"),
-    });
-    await saveCategoryJoins();
-    await saveRegionJoins();
-    alert("Saved.");
-  }, [form, onSave, selectedCatIds, selectedRegionIds]);
+  const saveAll = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      // Ensure the in-form value is normalized too, so user sees what will be saved
+      setForm((prev: any) => ({
+        ...prev,
+        unesco_status: normalizeUnescoStatus(prev.unesco_status ?? "none"),
+      }));
+      await onSave({
+        ...form,
+        unesco_status: normalizeUnescoStatus(form.unesco_status ?? "none"),
+      });
+      await saveCategoryJoins();
+      await saveRegionJoins();
+      if (!opts?.silent) alert("Saved.");
+    },
+    [form, onSave, selectedCatIds, selectedRegionIds]
+  );
 
   useEffect(() => {
     onRegisterSave(saveAll);
