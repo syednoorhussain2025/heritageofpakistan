@@ -271,7 +271,7 @@ const TEMPLATE_HEADERS = [
   "slug (matching the title)",
   "heritage_type (e.g Colonial Era Building, Lake, Mughal Era Garden)",
   "cover_location (City/town, Province)(e.g Lahore, Punjab)",
-  "tagline (50 words summary of the location which introduces)",
+  "tagline (around 50 words introduction of the site)",
 
   // Location block
   "latitude",
