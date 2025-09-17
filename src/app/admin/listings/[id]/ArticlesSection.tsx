@@ -313,11 +313,11 @@ function GalleryBrowserModal({
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
       data-edit-only
-      onClick={onClose} // click outside closes
+      onClick={onClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()} // prevent inner clicks from bubbling
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -335,7 +335,6 @@ function GalleryBrowserModal({
           {loading ? (
             <p className="text-gray-600">Loading images…</p>
           ) : images.length ? (
-            // Masonry using CSS multi-column layout
             <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-x-4">
               {images.map((img) => {
                 const d = dims[img.publicUrl];
@@ -497,7 +496,7 @@ function PartComposer({
           slotId,
           src: img.publicUrl,
           alt: img.alt_text || "",
-          caption: img.caption || null, // default from gallery
+          caption: img.caption || null,
           // keep a copy for fallback in FlowComposer
           // @ts-ignore – FlowComposer extends ImageSlot at runtime
           galleryCaption: img.caption || null,
@@ -642,16 +641,19 @@ function PartComposer({
     },
   ];
 
+  /* ---------------- NEW: support top as number | string -------- */
   const InsertionButton = ({
     index,
-    topOffset = -10, // px offset to sit at the junction
+    topOffset = -10,
+    top, // overrides topOffset when provided
   }: {
     index: number;
     topOffset?: number;
+    top?: number | string;
   }) => (
     <div
       className="absolute"
-      style={{ left: -28, top: topOffset }}
+      style={{ left: -28, top: top ?? topOffset }}
       data-edit-only
     >
       <button
@@ -669,7 +671,6 @@ function PartComposer({
       {/* Popover */}
       {insertAt === index && (
         <>
-          {/* click-outside catcher */}
           <div
             className="fixed inset-0 z-40"
             onClick={() => setInsertAt(null)}
@@ -745,6 +746,9 @@ function PartComposer({
 
   // ------------------------------------------
 
+  // Right-side safe gutter so the card itself is narrower than the main column
+  const RIGHT_SAFE_GUTTER_PX = 96; // tweak to align with your red guide
+
   return (
     <>
       <Sizer />
@@ -755,9 +759,14 @@ function PartComposer({
         className="rounded-xl bg-white shadow-sm"
         style={{
           padding: 20,
-          width: publicMainWidth ? publicMainWidth : undefined,
+          // ↓ shrink actual width of the white container
+          width: publicMainWidth
+            ? Math.max(0, publicMainWidth - RIGHT_SAFE_GUTTER_PX)
+            : undefined,
+          // ↓ keep left edge aligned; leave free space to the right
+          marginLeft: 0,
+          marginRight: RIGHT_SAFE_GUTTER_PX,
           maxWidth: "100%",
-          marginInline: "auto",
         }}
       >
         <CardHeader title={title} iconKey={iconKey} />
@@ -779,7 +788,6 @@ function PartComposer({
                 >
                   +
                 </button>
-                {/* Popover for first add */}
                 {insertAt === 0 && (
                   <>
                     <div
@@ -832,34 +840,42 @@ function PartComposer({
           )}
 
           {/* Sections list with junction “+” and per-section controls */}
-          {sections.map((s, i) => (
-            <div key={i} className="relative my-6">
-              {/* Junction “+” (before each section, including the first) */}
-              <InsertionButton index={i} topOffset={-12} />
+          {sections.map((s, i) => {
+            const isLast = i === sections.length - 1;
+            return (
+              <div key={i} className="relative my-6">
+                {/* Junction “+” (before each section, including the first) */}
+                <InsertionButton index={i} topOffset={-12} />
 
-              {/* The actual section content (single-section composer) */}
-              <div className="flow-section-wrapper">
-                <FlowComposer
-                  sections={[s]}
-                  onChange={(arr) => {
-                    if (Array.isArray(arr) && arr[0]) {
-                      updateOne(i, arr[0] as FlowSection);
-                    }
-                  }}
-                  onPickImage={(slot) => pickImage(slot)}
-                  showToolbar={false}
-                  showControls={false}
-                  debugFrames={false}
-                />
+                {/* The actual section content */}
+                <div className="flow-section-wrapper">
+                  <FlowComposer
+                    sections={[s]}
+                    onChange={(arr) => {
+                      if (Array.isArray(arr) && arr[0]) {
+                        updateOne(i, arr[0] as FlowSection);
+                      }
+                    }}
+                    onPickImage={(slot) => pickImage(slot)}
+                    showToolbar={false}
+                    showControls={false}
+                    debugFrames={false}
+                  />
+                </div>
+
+                {/* Controls on the right, outside the content */}
+                <SectionControls index={i} />
+
+                {/* Green “+” at the left bottom of the LAST section */}
+                {isLast && (
+                  <InsertionButton
+                    index={sections.length} // insert AFTER the last section
+                    top={"calc(100% - 12px)"} // bottom junction
+                  />
+                )}
               </div>
-
-              {/* Controls on the right, outside the content */}
-              <SectionControls index={i} />
-            </div>
-          ))}
-
-          {/* Note: by design we do NOT render a trailing "+" after the last section,
-              since your requirement specified the junctions and the first add. */}
+            );
+          })}
         </div>
       </div>
 
@@ -980,7 +996,7 @@ export default function ArticlesSection({
         ) : (
           customSections.map((cs, idx) => (
             <div key={cs.id} className="space-y-4">
-              {/* For custom sections we reuse PartComposer with inline controls */}
+              {/* Reuse PartComposer with inline controls */}
               <PartComposer
                 siteId={siteId}
                 title={cs.title || "Untitled Section"}
@@ -994,7 +1010,7 @@ export default function ArticlesSection({
                 }
               />
 
-              {/* Title input for the custom section */}
+              {/* Title input */}
               <div className="rounded-xl bg-white shadow-sm border border-gray-200 p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Section Title
