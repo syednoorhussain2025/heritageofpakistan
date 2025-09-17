@@ -207,8 +207,10 @@ export function Lightbox({
               width={Math.max(1, geom.imgW)}
               height={Math.max(1, geom.imgH)}
               priority
-              quality={90}
-              unoptimized
+              sizes="100vw" // fullscreen overlay: let browser choose best candidate
+              // Optional progressive placeholder if stored on the photo object
+              placeholder={(photo as any).blurDataURL ? "blur" : "empty"}
+              blurDataURL={(photo as any).blurDataURL || undefined}
               style={{
                 width: "100%",
                 height: "100%",

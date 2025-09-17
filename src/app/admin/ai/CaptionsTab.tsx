@@ -105,12 +105,14 @@ export default function CaptionsTab({
           <input
             type="text"
             className="w-full border rounded-xl p-3"
-            placeholder="e.g., gpt-4o"
+            placeholder="e.g., gpt-5, gpt-5-thinking, gpt-4o"
             value={value.modelId ?? ""}
             onChange={(e) => update("modelId", e.target.value || null)}
           />
           <p className="text-xs text-gray-500 mt-1">
-            Leave blank to use the global model from the Settings tab.
+            Leave blank to use the global model from the Settings tab. For
+            complex image understanding, try <code>gpt-5-thinking</code>; for
+            speed/cost, <code>gpt-4o-mini</code> is a good baseline.
           </p>
         </div>
 

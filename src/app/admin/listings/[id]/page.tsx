@@ -264,90 +264,105 @@ function SidebarControls({
 
 type CanonicalKV = Record<string, any>;
 
-/** Headers including Cover + Travel Details */
+/** Headers including Cover + Travel Details (descriptive for template) */
 const TEMPLATE_HEADERS = [
   // Cover
-  "title", // Site Name
-  "slug",
-  "heritage_type",
-  "cover_location",
-  "tagline",
+  "title (Site Name, no brackets)", // Site Name
+  "slug (matching the title)",
+  "heritage_type (e.g Colonial Era Building, Lake, Mughal Era Garden)",
+  "cover_location (City/town, Province)(e.g Lahore, Punjab)",
+  "tagline (50 words summary of the location which introduces)",
+
   // Location block
   "latitude",
   "longitude",
   "town_city_village",
   "tehsil",
-  "district",
-  "province",
+  "district (e.g Lahore, Islamabad, Faisalabad)",
+  "province (e.g Punjab, Gilgit Baltistan) ",
+
   // General info
-  "architectural_style",
-  "construction_materials",
-  "local_name",
-  "architect",
-  "construction_date",
+  "architectural_style (e.g Mughal Architecture, Sikh Architecture, Indo Saracenic)",
+  "construction_materials (e.g Brick, plaster, marble)",
+  "local_name (e.g Shahi Qila for Lahore Fort)",
+  "architect (e.g Nayar Ali Dada for Alhamra)",
+  "construction_date (e.g 18th Century, 1956,)",
   "built_by",
-  "dynasty",
-  "conservation_status",
-  "current_use",
-  "restored_by",
-  "known_for",
-  "era",
-  "inhabited_by",
-  "national_park_established_in",
-  "population",
-  "ethnic_groups",
-  "languages_spoken",
-  "excavation_status",
-  "excavated_by",
-  "administered_by",
+  "dynasty (e.g Mughal Dynasty)",
+  "conservation_status (e.g Needs Conservation, Under threat)",
+  "current_use (e.g Heritage Site, Hotel, Toursit site)",
+  "restored_by (e.g Agha Khan Cultural Service)",
+  "known_for (e.g Frescoes, Natural Views)",
+  "era (e.g Mughal Era)",
+  "inhabited_by (e.g Gojar Tribes, Pashtuns etc)",
+  "national_park_established_in (e.g 1976)",
+  "population (e.g Est 550)",
+  "ethnic_groups (e.g Gojars, Bakarwals)",
+  "languages_spoken (e.g urdu, pashto)",
+  "excavation_status (e.g Excavated in 1922)",
+  "excavated_by (e.g John Marshal)",
+  "administered_by (e.g Punjab Archaeology Department)",
+
   // UNESCO
   "unesco_status",
   "unesco_line",
-  "protected_under",
+  "protected_under (e.g Antiquities Act 1976)",
+
   // Climate
-  "landform",
-  "altitude",
-  "mountain_range",
-  "weather_type",
-  "avg_temp_summers",
+  "landform (e.g Mountains, Land, Lake)",
+  "altitude (e.g 2300 meters (5333 feet) above sea level)",
+  "mountain_range (e.g Karakoram)",
+  "weather_type (e.g Moderate Summers, Extreme Cold Winters)",
+  "avg_temp_summers (e.g Ranges from 8°C to 23°C)",
   "avg_temp_winters",
+
   // Travel
-  "travel_location",
-  "travel_how_to_reach",
-  "travel_nearest_major_city",
-  "travel_airport_access",
+  "travel_location (City, Province)(e.g Malam Jabba, Khyber Pakhtunkhwa )",
+  "travel_how_to_reach (e.g 45 km from Mingora (1.5 Hours Drive)",
+  "travel_nearest_major_city (e.g Mingora, Khyber Pakhtunkhwa)",
+  "travel_airport_access (Yes/No)",
   "travel_international_flight",
-  "travel_access_options",
-  "travel_road_type_condition",
-  "travel_best_time_free",
+  "travel_access_options (etc By Road Only, By Road & Airport), By Road, Railway and Airport",
+  "travel_road_type_condition (etc Metalled Road)",
+  "travel_best_time_free (e.g Summers)",
   "travel_full_guide_url",
+
   // Best time
-  "best_time_option_key",
+  "best_time_option_key (e.g The Best Time to Visit mountain regions of Khyberpakhtunkhwa is Summers. Preferably from April to September. Winters are Extremely Cold and Snowfall blocks most of access. Hence Winters are not recommended.)",
+
   // Stay
-  "stay_hotels_available",
-  "stay_spending_night_recommended",
-  "stay_camping_possible",
-  "stay_places_to_eat_available",
+  "stay_hotels_available (Yes/No/limited options)",
+  "stay_spending_night_recommended (Yes/No or Good Place to stay)",
+  "stay_camping_possible (Not recommended, Not suitable, Yes)",
+  "stay_places_to_eat_available (Yes, No, Limited Options)",
+
   // Misc
-  "did_you_know",
+  "did_you_know (e.g The Jahanabad Buddha near Malam Jabba is one of the largest carved Buddha reliefs in Pakistan)",
 ] as const;
 
 type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
 function normHeader(h: string): string {
-  return h
+  // Strip any explanatory part in parentheses first, then canonicalize
+  const base = h.replace(/\(.*/, "").trim();
+  return base
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
-function normalizeUnescoStatus(
-  v: any
-): "None" | "Inscribed" | "Tentative" | null {
-  if (v == null) return "None";
+
+/** IMPORTANT:
+ * Coerce to the exact lowercase enum values that satisfy the DB CHECK constraint.
+ * We assume the constraint allows only: 'none' | 'inscribed' | 'tentative'.
+ */
+function normalizeUnescoStatus(v: any): "none" | "inscribed" | "tentative" {
+  if (v == null) return "none";
   const s = String(v).trim().toLowerCase();
-  if (s === "inscribed" || s.includes("inscrib")) return "Inscribed";
-  if (s === "tentative" || s.includes("tentative")) return "Tentative";
-  return "None";
+  if (s.includes("inscrib")) return "inscribed";
+  if (s.includes("tentative")) return "tentative";
+  if (s === "inscribed" || s === "tentative" || s === "none") return s as any;
+  return "none";
 }
+
 function normalizeYesNo(v: any): string | null {
   if (v == null) return null;
   const s = String(v).trim().toLowerCase();
@@ -511,11 +526,11 @@ function EditContent({ id }: { id: string }) {
     })();
   }, [id]);
 
-  // ---------- NEW: sanitize payload before saving ----------
+  // ---------- sanitize payload before saving ----------
   function sanitizeForSave(payload: any) {
     const next = { ...payload };
 
-    // convert "" → null and coerce numerics
+    // Coerce numeric fields and empty strings to null
     for (const k of Object.keys(next)) {
       if (NUMERIC_DETAIL_KEYS.has(k as any)) {
         if (next[k] === "" || next[k] === undefined) {
@@ -527,15 +542,23 @@ function EditContent({ id }: { id: string }) {
       }
     }
 
+    // Province select can be "", coerce to null/number
     if (next.province_id === "") next.province_id = null;
+    if (next.province_id != null && next.province_id !== "") {
+      const pid = Number(next.province_id);
+      next.province_id = Number.isFinite(pid) ? pid : null;
+    }
+
+    // 🔒 Canonicalize UNESCO status (lowercase) to satisfy DB check constraint.
+    next.unesco_status = normalizeUnescoStatus(next.unesco_status ?? "none");
 
     return next;
   }
-  // --------------------------------------------------------
+  // ---------------------------------------------------
 
   async function saveSite(next: any) {
     setSaving(true);
-    const payload = sanitizeForSave(next); // ← use sanitizer
+    const payload = sanitizeForSave(next);
     const { data, error } = await supabase
       .from("sites")
       .update({ ...payload, updated_at: new Date().toISOString() })
@@ -796,15 +819,8 @@ const DETAIL_KEYS = [
   "did_you_know",
 ] as const;
 
-/* ---- NEW: enumerate numeric columns so we null them instead of "" ---- */
-const NUMERIC_DETAIL_KEYS = new Set<string>([
-  "latitude",
-  "longitude",
-  "altitude",
-  "avg_temp_summers",
-  "avg_temp_winters",
-  "population",
-]);
+/* numeric columns we must null instead of sending "" */
+const NUMERIC_DETAIL_KEYS = new Set<string>(["latitude", "longitude"]);
 
 function ListingForm({
   site,
@@ -909,7 +925,15 @@ function ListingForm({
   }
 
   const saveAll = useCallback(async () => {
-    await onSave(form);
+    // Ensure the in-form value is normalized too, so user sees what will be saved
+    setForm((prev: any) => ({
+      ...prev,
+      unesco_status: normalizeUnescoStatus(prev.unesco_status ?? "none"),
+    }));
+    await onSave({
+      ...form,
+      unesco_status: normalizeUnescoStatus(form.unesco_status ?? "none"),
+    });
     await saveCategoryJoins();
     await saveRegionJoins();
     alert("Saved.");
@@ -931,7 +955,13 @@ function ListingForm({
   }, []);
   const applyDetails = useCallback((payload: CanonicalKV) => {
     DETAIL_KEYS.forEach((k) => {
-      if (payload[k] !== undefined) set(k as any, payload[k]);
+      if (payload[k] !== undefined) {
+        if (k === "unesco_status") {
+          set(k as any, normalizeUnescoStatus(payload[k]));
+        } else {
+          set(k as any, payload[k]);
+        }
+      }
     });
   }, []);
   const clearCover = useCallback(() => {
@@ -941,6 +971,8 @@ function ListingForm({
     DETAIL_KEYS.forEach((k) => {
       if (k === "province_id") {
         set(k as any, null);
+      } else if (k === "unesco_status") {
+        set(k as any, "none");
       } else if (NUMERIC_DETAIL_KEYS.has(k as string)) {
         set(k as any, null); // numeric fields -> null
       } else {
@@ -1304,13 +1336,16 @@ function SidebarImporter({
   lastUploadName: string | null;
 }) {
   const [status, setStatus] = useState<string | null>(null);
-  const templateHref = useMemo(
-    () =>
-      `data:text/csv;charset=utf-8,${encodeURIComponent(
-        `${TEMPLATE_HEADERS.join(",")}\n`
-      )}`,
-    []
-  );
+
+  // Quote each header (many contain commas/parentheses)
+  const templateHref = useMemo(() => {
+    const headerLine = TEMPLATE_HEADERS.map(
+      (h) => `"${String(h).replace(/"/g, '""')}"`
+    ).join(",");
+    return `data:text/csv;charset=utf-8,${encodeURIComponent(
+      headerLine + "\n"
+    )}`;
+  }, []);
 
   function mapProvinceNameToId(name: string | null | undefined) {
     if (!name) return null;
@@ -1373,11 +1408,8 @@ function SidebarImporter({
             continue;
           }
 
-          // Numbers for lat/lng/altitude (others coerced on save)
-          if (
-            ["latitude", "longitude", "altitude"].includes(target) &&
-            val != null
-          ) {
+          // Numbers for lat/lng only (others coerced on save if needed)
+          if (["latitude", "longitude"].includes(target) && val != null) {
             const num = Number(String(val).replace(/,/g, ""));
             if (!Number.isNaN(num)) val = num;
           }

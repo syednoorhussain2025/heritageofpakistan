@@ -202,23 +202,24 @@ function MasonryTile({
           src={photo.url}
           alt={photo.caption ?? ""}
           fill
-          quality={85}
           sizes="(min-width:1536px) 18vw, (min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:768px) 33vw, (min-width:640px) 50vw, 100vw"
           className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
           loading="lazy"
+          fetchPriority="low"
+          // Progressive placeholder if you store a tiny preview; safe fallback otherwise
+          placeholder={(photo as any).blurDataURL ? "blur" : "empty"}
+          blurDataURL={(photo as any).blurDataURL || undefined}
           onLoad={async (e) => {
             // Ensure bitmap is decoded before we reveal
             try {
               const el = e.currentTarget as HTMLImageElement;
-              // decode() avoids flash of unpainted content in some browsers
               if ("decode" in el) {
-                await el.decode();
+                await (el as any).decode?.();
               }
             } catch {
               /* ignore */
             } finally {
               imgReadyRef.current = true;
-              // If tile is in view & ratio ready, we can reveal
               if (ratioReady) setVisible(true);
             }
           }}
@@ -396,6 +397,11 @@ export default function SiteGalleryPage() {
                 fill
                 className="object-cover"
                 sizes="112px"
+                // Above-the-fold avatar: prioritize for better LCP
+                priority
+                // Optional progressive placeholder if stored
+                placeholder={(site as any).cover_blurDataURL ? "blur" : "empty"}
+                blurDataURL={(site as any).cover_blurDataURL || undefined}
               />
             </div>
 

@@ -60,11 +60,40 @@ const DEFAULTS: AISettings = {
   },
 };
 
-// Curated model list
+/**
+ * Curated model list (OpenAI-first).
+ * Includes GPT-5 “general” and “thinking” tiers plus GPT-4o family.
+ * You can still type a custom string elsewhere if needed (e.g., via override fields).
+ */
 const MODEL_OPTIONS: { id: string; label: string; note: string }[] = [
-  { id: "gpt-4o", label: "GPT-4o", note: "Most capable (balanced)" },
-  { id: "gpt-4o-mini", label: "GPT-4o-mini", note: "Fastest + cheapest" },
-  { id: "gpt-4-turbo", label: "GPT-4 Turbo", note: "High quality (slower)" },
+  // ——— GPT-5 family ———
+  { id: "gpt-5", label: "GPT-5", note: "General-purpose (balanced)" },
+  {
+    id: "gpt-5-thinking",
+    label: "GPT-5 Thinking",
+    note: "Best reasoning; higher latency",
+  },
+  {
+    id: "gpt-5-thinking-mini",
+    label: "GPT-5 Thinking Mini",
+    note: "Reasoning, faster/cheaper",
+  },
+  {
+    id: "gpt-5-thinking-nano",
+    label: "GPT-5 Thinking Nano",
+    note: "Lightweight reasoning",
+  },
+
+  // ——— GPT-4o family (kept for cost/perf balance & compatibility) ———
+  { id: "gpt-4o", label: "GPT-4o", note: "Strong multimodal (balanced)" },
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o-mini",
+    note: "Fastest + cheapest in 4o family",
+  },
+
+  // ——— Legacy/compatibility (optional to keep) ———
+  { id: "gpt-4-turbo", label: "GPT-4 Turbo", note: "High quality (older)" },
   { id: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", note: "Legacy, cheap" },
 ];
 
@@ -218,7 +247,7 @@ export default function AISettingsPage() {
               AI Engine — Admin
             </h1>
             <div className="flex items-center gap-2">
-              {/* NEW: View Usage button */}
+              {/* View Usage button */}
               <button
                 className="px-4 py-2 rounded-2xl border hover:bg-black/5"
                 onClick={() => setShowUsage(true)}
@@ -330,7 +359,9 @@ export default function AISettingsPage() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500 mt-1">
-                        Choose a model best suited for your workload.
+                        GPT-5 “Thinking” is ideal for complex reasoning;{" "}
+                        <code>gpt-5</code> and <code>gpt-4o</code> remain strong
+                        general options.
                       </p>
                     </div>
                   </div>
