@@ -2,8 +2,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { TextareaHTMLAttributes } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { FaTrash, FaCheckCircle } from "react-icons/fa";
+import {
+  FaTrash,
+  FaCheckCircle,
+  FaRedoAlt,
+  FaSearchPlus,
+} from "react-icons/fa";
 import { Lightbox } from "@/components/ui/Lightbox";
 import {
   generateAltAndCaptionsAction,
@@ -165,6 +171,45 @@ type ActionReturn =
       usdEstimate?: number | null;
     };
 
+/* ---------------------- Auto-grow Textarea ---------------------- */
+function AutoGrowTextarea(
+  props: TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows?: number }
+) {
+  const { className = "", onChange, minRows = 2, ...rest } = props;
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  const sync = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    sync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rest.value]);
+
+  return (
+    <textarea
+      {...rest}
+      ref={ref}
+      rows={minRows}
+      onInput={sync}
+      onChange={(e) => {
+        onChange?.(e);
+        requestAnimationFrame(sync);
+      }}
+      className={[
+        "w-full border border-gray-200 rounded-md px-2 py-1 pr-8",
+        "text-[11px] text-gray-600 leading-snug",
+        "overflow-hidden resize-none",
+        className,
+      ].join(" ")}
+    />
+  );
+}
+
 /* ---------------------- Component ---------------------- */
 const GEN_CHUNK_SIZE = 12;
 
@@ -227,6 +272,14 @@ export default function GalleryUploader({
   const [lbIndex, setLbIndex] = useState(0);
 
   const [siteTitle, setSiteTitle] = useState<string>("");
+
+  // Bulk select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking] = useState(false);
+
+  // Context popup
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [tempContext, setTempContext] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -367,6 +420,11 @@ export default function GalleryUploader({
       delete next[id];
       return next;
     });
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }
 
   async function computeMetaForRow(r: Row): Promise<Meta> {
@@ -463,7 +521,110 @@ export default function GalleryUploader({
     }
   }
 
-  // -------- Lightbox --------
+  // -------- Lightbox helpers --------
+  function openLightboxFor(id: string) {
+    const visible = rows.filter((r) => !!r.publicUrl);
+    const visibleIndex = visible.findIndex((r) => r.id === id);
+    setLbIndex(Math.max(0, visibleIndex));
+    setLbOpen(true);
+  }
+
+  // -------- Bulk select helpers --------
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    setBulkWorking(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const selectedRows = rows.filter((r) => ids.includes(r.id));
+      const storageKeys = selectedRows
+        .map((r) => r.storage_path)
+        .filter(Boolean);
+
+      const { error: dbErr } = await supabase
+        .from("site_images")
+        .delete()
+        .in("id", ids);
+      if (dbErr) throw dbErr;
+
+      if (storageKeys.length) {
+        await supabase.storage.from("site-images").remove(storageKeys);
+      }
+
+      setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      alert(e?.message || "Failed to delete selected images.");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function recreateCaptionsSelected() {
+    if (selectedIds.size === 0) return;
+    try {
+      setGenError(null);
+      setGenLoading(true);
+      setSuggestions({});
+      setSkipped([]);
+
+      const selected = rows.filter((r) => selectedIds.has(r.id));
+      await generateFor(selected);
+    } catch (e: any) {
+      setGenError(e?.message ?? "Failed to regenerate captions.");
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  async function applySuggestionsForSelected() {
+    for (const id of Array.from(selectedIds)) {
+      const s = suggestions[id];
+      if (s) {
+        await updateRow(id, {
+          alt_text: s.alt.trim(),
+          caption: s.caption.trim(),
+        });
+      }
+    }
+    // Clear applied suggestions for selected items
+    setSuggestions((prev) => {
+      const next = { ...prev };
+      for (const id of Array.from(selectedIds)) {
+        delete next[id];
+      }
+      return next;
+    });
+  }
+
+  function discardSuggestionsForSelected() {
+    setSuggestions((prev) => {
+      const next = { ...prev };
+      for (const id of Array.from(selectedIds)) {
+        delete next[id];
+      }
+      return next;
+    });
+  }
+
+  const selectedSuggestionsCount = useMemo(
+    () =>
+      Array.from(selectedIds).reduce(
+        (acc, id) => acc + (suggestions[id] ? 1 : 0),
+        0
+      ),
+    [selectedIds, suggestions]
+  );
+
+  // -------- Lightbox photos --------
   const lightboxPhotos = useMemo(
     () =>
       rows
@@ -645,7 +806,6 @@ export default function GalleryUploader({
   const showPopup = uploadingCount > 0;
 
   const hasGenProgress = genLoading && genTotal > 0;
-  const genRemaining = Math.max(0, genTotal - genDone);
   const genPct =
     genTotal > 0 ? Math.min(100, Math.round((genDone / genTotal) * 100)) : 0;
 
@@ -697,7 +857,6 @@ export default function GalleryUploader({
                 Missing items: <b>{missingCount}</b> / {rows.length}
               </div>
 
-              {/* live run details */}
               {(genLoading || tokTotal > 0 || activeModel) && (
                 <div className="rounded-xl border border-gray-200 p-3 bg-white/60">
                   <div className="flex items-center justify-between">
@@ -764,8 +923,7 @@ export default function GalleryUploader({
                 </div>
               )}
 
-              {/* progress panel */}
-              {(genLoading || genTotal > 0) && (
+              {(hasGenProgress || genTotal > 0) && (
                 <div className="rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between text-sm mb-2">
                     <div className="font-medium">
@@ -855,37 +1013,57 @@ export default function GalleryUploader({
         {rows.map((img) => {
           const meta = metaMap[img.id] || {};
           const s = suggestions[img.id];
+          const selected = selectedIds.has(img.id);
           return (
             <div
               key={img.id}
-              className="border border-gray-200 rounded-lg overflow-hidden bg-white"
+              className={`border border-gray-200 rounded-lg overflow-hidden bg-white ${
+                selected
+                  ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white"
+                  : ""
+              }`}
             >
               <div className="relative group">
                 {img.publicUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const visible = rows.filter((r) => !!r.publicUrl);
-                      const visibleIndex = visible.findIndex(
-                        (r) => r.id === img.id
-                      );
-                      setLbIndex(Math.max(0, visibleIndex));
-                      setLbOpen(true);
-                    }}
-                    className="block w-full"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleSelect(img.id)}
+                    className="block w-full cursor-pointer"
                   >
                     <div className="w-full aspect-square bg-gray-50 overflow-hidden">
                       <img
                         src={img.publicUrl}
                         alt={img.alt_text || ""}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain transform-gpu transition-transform duration-150 ease-out group-hover:scale-[1.03] select-none"
+                        style={{ willChange: "transform" }}
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Open in Lightbox (lighter + less distracting) */}
+                {img.publicUrl && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openLightboxFor(img.id);
+                    }}
+                    className="absolute top-1 left-1 p-1.5 bg-white/80 rounded-md shadow-sm text-gray-400 hover:text-gray-600"
+                    title="Open preview"
+                  >
+                    <FaSearchPlus className="w-3.5 h-3.5" />
                   </button>
                 )}
+
+                {/* Delete single (lighter) */}
                 <button
-                  onClick={() => removeRow(img.id, img.storage_path)}
-                  className="absolute top-1 right-1 p-1.5 bg-white/90 rounded-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeRow(img.id, img.storage_path);
+                  }}
+                  className="absolute top-1 right-1 p-1.5 bg-white/80 rounded-md text-gray-400 hover:text-gray-600"
+                  title="Delete"
                 >
                   <FaTrash className="w-3.5 h-3.5" />
                 </button>
@@ -900,22 +1078,54 @@ export default function GalleryUploader({
               </div>
 
               <div className="p-2 space-y-1.5">
-                <input
-                  className="w-full border rounded-md px-2 py-1 text-xs"
-                  placeholder="Alt text"
-                  value={img.alt_text || ""}
-                  onChange={(e) =>
-                    updateRow(img.id, { alt_text: e.target.value })
-                  }
-                />
-                <input
-                  className="w-full border rounded-md px-2 py-1 text-xs"
-                  placeholder="Caption"
-                  value={img.caption || ""}
-                  onChange={(e) =>
-                    updateRow(img.id, { caption: e.target.value })
-                  }
-                />
+                {/* Alt text (auto-grow) + copy-from-caption icon on hover */}
+                <div className="relative group/tbx">
+                  <AutoGrowTextarea
+                    minRows={2}
+                    placeholder="Alt text"
+                    value={img.alt_text || ""}
+                    onChange={(e) =>
+                      updateRow(img.id, { alt_text: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
+                    title="copy from caption"
+                    onClick={() =>
+                      updateRow(img.id, {
+                        alt_text: (img.caption || "").trim(),
+                      })
+                    }
+                  >
+                    <FaRedoAlt className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Caption (auto-grow) + copy-from-alt icon on hover */}
+                <div className="relative group/tbx">
+                  <AutoGrowTextarea
+                    minRows={2}
+                    placeholder="Caption"
+                    value={img.caption || ""}
+                    onChange={(e) =>
+                      updateRow(img.id, { caption: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
+                    title="copy from alt text"
+                    onClick={() =>
+                      updateRow(img.id, {
+                        caption: (img.alt_text || "").trim(),
+                      })
+                    }
+                  >
+                    <FaRedoAlt className="w-3 h-3" />
+                  </button>
+                </div>
+
                 {s && (
                   <div className="space-y-1 border-t pt-1">
                     <div className="text-[11px]">
@@ -988,6 +1198,169 @@ export default function GalleryUploader({
                   className="bg-red-600 text-white px-3 py-2 rounded"
                 >
                   {deletingAll ? "Deleting…" : "Delete All"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom bulk toolbar (progress + apply/discard for selected) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t border-gray-200 shadow-lg">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-gray-700">
+                <b>{selectedIds.size}</b> selected
+              </div>
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={bulkWorking}
+                className="px-3.5 py-2 rounded-lg border border-red-300 text-red-700 bg-white hover:bg-red-50 text-sm disabled:opacity-60"
+              >
+                Delete Selected
+              </button>
+              <button
+                type="button"
+                onClick={recreateCaptionsSelected}
+                disabled={genLoading || bulkWorking}
+                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+              >
+                Recreate Captions
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempContext(contextArticle || "");
+                  setShowContextModal(true);
+                }}
+                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+                title="Provide site context for generation"
+              >
+                Add context
+              </button>
+
+              {/* Apply/Discard for selected items only */}
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={applySuggestionsForSelected}
+                  disabled={selectedSuggestionsCount === 0 || genLoading}
+                  className="px-3.5 py-2 rounded-lg border border-gray-300 bg-black text-white text-sm disabled:opacity-60"
+                  title={
+                    selectedSuggestionsCount === 0
+                      ? "No new suggestions for selected items"
+                      : "Apply suggestions to selected"
+                  }
+                >
+                  Apply Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={discardSuggestionsForSelected}
+                  disabled={selectedSuggestionsCount === 0 || genLoading}
+                  className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+                >
+                  Discard Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-sm text-gray-600 underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Compact progress + model info in bottom bar */}
+            {(genLoading || genTotal > 0 || tokTotal > 0 || activeModel) && (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-[12px] text-gray-700">
+                  <div className="flex items-center gap-3">
+                    <span>
+                      Model: <b>{activeModel ?? "—"}</b>
+                    </span>
+                    <span>
+                      Prompt: <b>{tokIn}</b>
+                    </span>
+                    <span>
+                      Completion: <b>{tokOut}</b>
+                    </span>
+                    <span>
+                      Total: <b>{tokTotal}</b>
+                    </span>
+                    <span>
+                      USD:&nbsp;
+                      <b>{usd != null ? `$${usd.toFixed(4)}` : "—"}</b>
+                    </span>
+                    {chunksTotal > 0 && (
+                      <span>
+                        Chunks: <b>{chunksDone}</b>/<b>{chunksTotal}</b>
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-gray-600">
+                    {genLoading
+                      ? `Generating… ${genDone}/${genTotal}`
+                      : genTotal > 0
+                      ? `Generated ${genDone}/${genTotal}`
+                      : ""}
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-2 bg-emerald-500 transition-all"
+                    style={{ width: `${genPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Context popup (small) */}
+      {showContextModal && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowContextModal(false)}
+          />
+          <div className="relative w-full max-w-lg mx-auto mb-16 sm:mb-0 bg-white border border-gray-200 rounded-xl shadow-xl">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <div className="text-sm font-semibold">Add context</div>
+              <div className="text-xs text-gray-600 mt-0.5">
+                This text will be used as site context when recreating captions
+                for the selected photos.
+              </div>
+            </div>
+            <div className="p-4">
+              <textarea
+                rows={6}
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700"
+                placeholder="Enter site context…"
+                value={tempContext}
+                onChange={(e) => setTempContext(e.target.value)}
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm"
+                  onClick={() => setShowContextModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                  onClick={() => {
+                    setContextArticle(tempContext.trim());
+                    setShowContextModal(false);
+                  }}
+                >
+                  Save context
                 </button>
               </div>
             </div>
