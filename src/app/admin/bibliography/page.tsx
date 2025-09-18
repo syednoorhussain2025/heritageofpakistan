@@ -1,12 +1,12 @@
 // src/app/admin/bibliography/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
 import { supabase } from "@/lib/supabaseClient";
-import CitationWizard from "@/components/biblio/CitationWizard"; // ⬅️ Wizard
+import CitationWizard from "@/components/biblio/CitationWizard";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -41,7 +41,6 @@ type SiteRow = {
   slug: string | null;
 };
 
-// For resolver results (CSL-ish)
 type CSLName = { given?: string; family?: string; literal?: string };
 type CSL = {
   id?: string;
@@ -81,10 +80,34 @@ function Btn({
   return (
     <button
       {...props}
-      className={`px-3 py-2 rounded-lg text-sm font-medium transition border bg-white hover:shadow-sm active:scale-[0.99] disabled:opacity-50 ${
+      className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition border bg-white hover:shadow-sm active:scale-[0.99] disabled:opacity-50 ${
         className ?? ""
       }`}
     />
+  );
+}
+
+function IconBtn({
+  title,
+  onClick,
+  children,
+  className,
+}: {
+  title: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`inline-flex items-center justify-center h-7 w-7 rounded-md border bg-white hover:shadow-sm active:scale-[0.98] ${
+        className ?? ""
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -100,8 +123,8 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="block">
-      <div className="text-[13px] font-semibold text-slate-800 mb-1.5">
+    <label className="block min-w-0">
+      <div className="text-xs font-semibold text-slate-800 mb-1.5">
         {label} {required ? <span className="text-red-500">*</span> : null}
       </div>
       {children}
@@ -111,7 +134,7 @@ function Field({
 }
 
 const inputStyle =
-  "w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
+  "w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
 
 /* ------------------------------ Toasts ------------------------------ */
 
@@ -128,7 +151,7 @@ function Toasts({
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`min-w-[240px] max-w-[420px] rounded-xl px-4 py-3 text-sm shadow-md border ${
+          className={`min-w-[240px] max-w-[420px] rounded-xl px-4 py-3 text-xs shadow-md border ${
             t.tone === "success"
               ? "bg-emerald-50 border-emerald-200 text-emerald-900"
               : t.tone === "error"
@@ -146,12 +169,12 @@ function Toasts({
                     ? "x"
                     : "info"
                 }
-                size={16}
+                size={15}
               />
             </span>
-            <div className="flex-1">{t.msg}</div>
+            <div className="flex-1 min-w-0 break-words">{t.msg}</div>
             <button
-              className="text-xs opacity-60 hover:opacity-90"
+              className="text-[11px] opacity-60 hover:opacity-90"
               onClick={() => dismiss(t.id)}
             >
               Close
@@ -163,168 +186,7 @@ function Toasts({
   );
 }
 
-/* --------------------------- Author Editor --------------------------- */
-
-function AuthorsEditor({
-  value,
-  onChange,
-  role,
-}: {
-  value: Person[];
-  onChange: (v: Person[]) => void;
-  role: Person["role"]; // author | editor | translator
-}) {
-  const list = value.filter((p) => p.role === role);
-
-  const update = (idx: number, patch: Partial<Person>) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const globalIndex = indices[idx];
-    if (globalIndex == null) return;
-    const next = value.slice();
-    next[globalIndex] = { ...next[globalIndex], ...patch };
-    onChange(next);
-  };
-
-  const add = (kind: "person" | "org") =>
-    onChange([...value, { role, kind, given: "", family: "", literal: "" }]);
-
-  const remove = (idx: number) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const globalIndex = indices[idx];
-    onChange(value.filter((_, i) => i !== globalIndex));
-  };
-
-  const move = (idx: number, dir: -1 | 1) => {
-    const indices = value
-      .map((p, i) => ({ p, i }))
-      .filter((x) => x.p.role === role)
-      .map((x) => x.i);
-    const currentGlobal = indices[idx];
-    const swapGlobal = indices[idx + dir];
-    if (currentGlobal == null || swapGlobal == null) return;
-    const next = value.slice();
-    const tmp = next[currentGlobal];
-    next[currentGlobal] = next[swapGlobal];
-    next[swapGlobal] = tmp;
-    onChange(next);
-  };
-
-  return (
-    <div className="space-y-3">
-      {list.length === 0 ? (
-        <div className="text-xs text-slate-500">No {role}s yet.</div>
-      ) : null}
-      {list.map((p, idx) => (
-        <div
-          key={idx}
-          className="border border-slate-200 rounded-xl p-3 bg-white"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold text-slate-700">
-              {role} #{idx + 1}
-            </div>
-            <div className="flex gap-2">
-              <Btn
-                onClick={() => move(idx, -1)}
-                disabled={idx === 0}
-                className="border-slate-300"
-              >
-                ↑
-              </Btn>
-              <Btn
-                onClick={() => move(idx, +1)}
-                disabled={idx === list.length - 1}
-                className="border-slate-300"
-              >
-                ↓
-              </Btn>
-              <Btn
-                className="border-red-300 text-red-600"
-                onClick={() => remove(idx)}
-                title="Remove"
-              >
-                Remove
-              </Btn>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 mb-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={p.kind === "person"}
-                onChange={() => update(idx, { kind: "person", literal: "" })}
-              />
-              Person
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={p.kind === "org"}
-                onChange={() =>
-                  update(idx, { kind: "org", given: "", family: "" })
-                }
-              />
-              Organization
-            </label>
-          </div>
-
-          {p.kind === "person" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Given (first)">
-                <input
-                  className={inputStyle}
-                  value={p.given ?? ""}
-                  onChange={(e) => update(idx, { given: e.target.value })}
-                  placeholder="Ayesha"
-                />
-              </Field>
-              <Field label="Family (last)">
-                <input
-                  className={inputStyle}
-                  value={p.family ?? ""}
-                  onChange={(e) => update(idx, { family: e.target.value })}
-                  placeholder="Malik"
-                />
-              </Field>
-            </div>
-          ) : (
-            <Field label="Organization">
-              <input
-                className={inputStyle}
-                value={p.literal ?? ""}
-                onChange={(e) => update(idx, { literal: e.target.value })}
-                placeholder="UNESCO World Heritage Centre"
-              />
-            </Field>
-          )}
-        </div>
-      ))}
-
-      <div className="flex gap-2">
-        <Btn
-          onClick={() => add("person")}
-          className="border-emerald-300 text-emerald-700"
-        >
-          Add {role} (Person)
-        </Btn>
-        <Btn
-          onClick={() => add("org")}
-          className="border-emerald-300 text-emerald-700"
-        >
-          Add {role} (Organization)
-        </Btn>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------- CSL build / flatten ------------------------- */
+/* ------------------------- CSL build / helpers ------------------------- */
 
 function buildCSL(payload: {
   id?: string;
@@ -391,18 +253,193 @@ function authorsToInline(csl: any, max = 3) {
   return clipped.filter(Boolean).join("; ") + suffix;
 }
 
+/* --------------------------- Person Editor --------------------------- */
+
+type PersonEditorProps = {
+  value: Person[];
+  onChange: (v: Person[]) => void;
+  role: Person["role"];
+};
+
+function AuthorsEditor({ value, onChange, role }: PersonEditorProps) {
+  const list = value.filter((p) => p.role === role);
+
+  const indicesForRole = () =>
+    value
+      .map((p, i) => ({ p, i }))
+      .filter((x) => x.p.role === role)
+      .map((x) => x.i);
+
+  const update = (idx: number, patch: Partial<Person>) => {
+    const indices = indicesForRole();
+    const globalIndex = indices[idx];
+    if (globalIndex == null) return;
+    const next = value.slice();
+    next[globalIndex] = { ...next[globalIndex], ...patch };
+    onChange(next);
+  };
+
+  const add = (kind: "person" | "org") =>
+    onChange([...value, { role, kind, given: "", family: "", literal: "" }]);
+
+  const remove = (idx: number) => {
+    const indices = indicesForRole();
+    const globalIndex = indices[idx];
+    onChange(value.filter((_, i) => i !== globalIndex));
+  };
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const indices = indicesForRole();
+    const currentGlobal = indices[idx];
+    const swapGlobal = indices[idx + dir];
+    if (currentGlobal == null || swapGlobal == null) return;
+    const next = value.slice();
+    const tmp = next[currentGlobal];
+    next[currentGlobal] = next[swapGlobal];
+    next[swapGlobal] = tmp;
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {list.length === 0 ? (
+        <div className="text-xs text-slate-500">No {role}s yet.</div>
+      ) : null}
+      {list.map((p, idx) => (
+        <div
+          key={idx}
+          className="border border-slate-200 rounded-xl p-3 bg-white"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-semibold text-slate-700">
+              {role} #{idx + 1}
+            </div>
+            <div className="flex gap-2">
+              <Btn
+                onClick={() => move(idx, -1)}
+                disabled={idx === 0}
+                className="border-slate-300"
+              >
+                ↑
+              </Btn>
+              <Btn
+                onClick={() => move(idx, +1)}
+                disabled={idx === list.length - 1}
+                className="border-slate-300"
+              >
+                ↓
+              </Btn>
+              <Btn
+                className="border-red-300 text-red-600"
+                onClick={() => remove(idx)}
+                title="Remove"
+              >
+                Remove
+              </Btn>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mb-3">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="radio"
+                checked={p.kind === "person"}
+                onChange={() => update(idx, { kind: "person", literal: "" })}
+              />
+              Person
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="radio"
+                checked={p.kind === "org"}
+                onChange={() =>
+                  update(idx, { kind: "org", given: "", family: "" })
+                }
+              />
+              Organization
+            </label>
+          </div>
+
+          {p.kind === "person" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Given (first)">
+                <input
+                  className={inputStyle}
+                  value={p.given ?? ""}
+                  onChange={(e) => update(idx, { given: e.target.value })}
+                  placeholder="Ayesha"
+                />
+              </Field>
+              <Field label="Family (last)">
+                <input
+                  className={inputStyle}
+                  value={p.family ?? ""}
+                  onChange={(e) => update(idx, { family: e.target.value })}
+                  placeholder="Malik"
+                />
+              </Field>
+            </div>
+          ) : (
+            <Field label="Organization">
+              <input
+                className={inputStyle}
+                value={p.literal ?? ""}
+                onChange={(e) => update(idx, { literal: e.target.value })}
+                placeholder="UNESCO World Heritage Centre"
+              />
+            </Field>
+          )}
+        </div>
+      ))}
+
+      <div className="flex gap-2">
+        <Btn
+          onClick={() => add("person")}
+          className="border-emerald-300 text-emerald-700"
+        >
+          Add {role} (Person)
+        </Btn>
+        <Btn
+          onClick={() => add("org")}
+          className="border-emerald-300 text-emerald-700"
+        >
+          Add {role} (Organization)
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------ The Page ------------------------------ */
 
 export default function BibliographyManagerPage() {
+  // data
   const [rows, setRows] = useState<Row[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  // list filters
   const [query, setQuery] = useState("");
   const [type, setType] = useState<string>("");
   const [year, setYear] = useState<string>("");
+  const [authorFilter, setAuthorFilter] = useState<string>(""); // selected author literal
 
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<Row | null>(null); // null => list mode
-  const [wizardOpen, setWizardOpen] = useState(false); // ⬅️ NEW
+  // title suggestions (robust search box)
+  const [titleSuggestions, setTitleSuggestions] = useState<
+    { id: string; title: string }[]
+  >([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const suggestRef = useRef<HTMLDivElement | null>(null);
 
+  // author dropdown search
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [authorOpen, setAuthorOpen] = useState(false);
+  const authorRef = useRef<HTMLDivElement | null>(null);
+
+  // editor / wizard
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // toasts
   const [toasts, setToasts] = useState<ToastT[]>([]);
   const notify = (msg: string, tone: ToastT["tone"] = "info") => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -410,6 +447,7 @@ export default function BibliographyManagerPage() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
   };
 
+  // sites modal
   const [sitesModal, setSitesModal] = useState<{
     open: boolean;
     biblio?: Row | null;
@@ -417,6 +455,7 @@ export default function BibliographyManagerPage() {
     loading: boolean;
   }>({ open: false, biblio: null, sites: [], loading: false });
 
+  // form (editor)
   const [form, setForm] = useState<{
     id?: string;
     title: string;
@@ -444,7 +483,7 @@ export default function BibliographyManagerPage() {
     people: [],
   });
 
-  // --- Lookup state (resolver wiring) ---
+  // lookup
   const [lkInput, setLkInput] = useState("");
   const [lkBusy, setLkBusy] = useState(false);
   const [lkResults, setLkResults] = useState<Candidate[]>([]);
@@ -463,9 +502,40 @@ export default function BibliographyManagerPage() {
     [form.people]
   );
 
+  // distinct authors for filter from the current rows
+  const allAuthors = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) {
+      const arr = Array.isArray(r?.csl?.author) ? r.csl.author : [];
+      for (const a of arr) {
+        if (a?.family || a?.given) {
+          s.add([a.family, a.given].filter(Boolean).join(", "));
+        } else if (a?.literal) {
+          s.add(a.literal);
+        }
+      }
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (!authorFilter) return rows;
+    return rows.filter((r) => {
+      const arr = Array.isArray(r?.csl?.author) ? r.csl.author : [];
+      return arr.some((a: any) => {
+        const name =
+          a?.family || a?.given
+            ? [a.family, a.given].filter(Boolean).join(", ")
+            : a?.literal || "";
+        return name.toLowerCase() === authorFilter.toLowerCase();
+      });
+    });
+  }, [rows, authorFilter]);
+
+  /* ------------------------------ Load -------------------------------- */
+
   const load = async () => {
     setBusy(true);
-    // Base query
     let q = supabase
       .from("bibliography_sources")
       .select(
@@ -473,14 +543,13 @@ export default function BibliographyManagerPage() {
         { count: "exact" }
       )
       .order("updated_at", { ascending: false })
-      .limit(60);
+      .limit(100);
 
-    // Prefer full-text search on search_tsv (includes authors, title, container, publisher, identifiers)
-    if (query.trim()) {
-      q = q.textSearch("search_tsv", query.trim(), { type: "websearch" });
-      // Fallback ilike across common columns as well (broad OR)
+    const trimmedQuery = query.trim();
+    if (trimmedQuery) {
+      q = q.textSearch("search_tsv", trimmedQuery, { type: "websearch" });
       q = q.or(
-        `title.ilike.%${query}%,container_title.ilike.%${query}%,publisher.ilike.%${query}%,doi.ilike.%${query}%,url.ilike.%${query}%`
+        `title.ilike.%${trimmedQuery}%,container_title.ilike.%${trimmedQuery}%,publisher.ilike.%${trimmedQuery}%,doi.ilike.%${trimmedQuery}%,url.ilike.%${trimmedQuery}%,csl::text.ilike.%${trimmedQuery}%`
       );
     }
     if (type) q = q.eq("type", type);
@@ -501,8 +570,40 @@ export default function BibliographyManagerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, type, year]);
 
+  /* ----------------------- Title suggestions (typeahead) ----------------------- */
+
+  // click outside to close suggestion popover
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!suggestRef.current) return;
+      if (!suggestRef.current.contains(e.target as any)) setSuggestOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  async function fetchTitleSuggestions(q: string) {
+    if (!q || q.trim().length < 2) {
+      setTitleSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("bibliography_sources")
+      .select("id,title")
+      .ilike("title", `%${q}%`)
+      .order("updated_at", { ascending: false })
+      .limit(8);
+    if (!error) {
+      setTitleSuggestions((data as any[]) ?? []);
+      setSuggestOpen(true);
+    }
+  }
+
+  /* --------------------------- Editor wiring --------------------------- */
+
   const startNew = () => {
-    setEditing(null);
+    setEditing({} as any);
     setForm({
       title: "",
       type: "book",
@@ -516,15 +617,12 @@ export default function BibliographyManagerPage() {
       notes: "",
       people: [],
     });
-    // clear lookup state as we enter create mode
     setLkInput("");
     setLkResults([]);
     setLkOpen(false);
-    setEditing({} as any);
   };
 
   const startEdit = (r: Row) => {
-    // map CSL -> people
     const people: Person[] = [];
     const csl = r.csl || {};
     const pushRole = (arr: any[], role: Person["role"]) => {
@@ -561,17 +659,13 @@ export default function BibliographyManagerPage() {
       people,
     });
 
-    // reset lookup
     setLkInput("");
     setLkResults([]);
     setLkOpen(false);
-
     setEditing(r);
   };
 
-  // ⬇️ Duplicate detection by identifiers (DOI / URL / ISBN)
   async function findDuplicateByIdentifiers(): Promise<Row | null> {
-    // DOI first (exact)
     if (form.doi?.trim()) {
       const { data } = await supabase
         .from("bibliography_sources")
@@ -584,7 +678,6 @@ export default function BibliographyManagerPage() {
       if (data) return data as Row;
     }
 
-    // URL (exact OR contains)
     if (form.url?.trim()) {
       const url = form.url.trim();
       const { data } = await supabase
@@ -597,7 +690,6 @@ export default function BibliographyManagerPage() {
       if (data && data[0]) return data[0] as Row;
     }
 
-    // ISBN (exact OR contains)
     if (form.isbn?.trim()) {
       const isbn = form.isbn.trim();
       const { data } = await supabase
@@ -655,7 +747,6 @@ export default function BibliographyManagerPage() {
 
     let res;
     if (form.id) {
-      // Update existing
       res = await supabase
         .from("bibliography_sources")
         .update(payload)
@@ -663,7 +754,6 @@ export default function BibliographyManagerPage() {
         .select("id")
         .single();
     } else {
-      // Creating new — check for duplicates first
       const dup = await findDuplicateByIdentifiers();
       if (dup) {
         notify(
@@ -673,7 +763,6 @@ export default function BibliographyManagerPage() {
         startEdit(dup);
         return;
       }
-      // No duplicate — safe to insert
       res = await supabase
         .from("bibliography_sources")
         .insert(payload)
@@ -708,7 +797,6 @@ export default function BibliographyManagerPage() {
 
   const openSites = async (row: Row) => {
     setSitesModal({ open: true, biblio: row, sites: [], loading: true });
-    // 1) get listing ids from join table
     const { data: links, error: e1 } = await supabase
       .from("listing_bibliography")
       .select("listing_id")
@@ -726,7 +814,6 @@ export default function BibliographyManagerPage() {
       return;
     }
 
-    // 2) fetch site records
     const { data: sites, error: e2 } = await supabase
       .from("sites")
       .select("id,title,slug")
@@ -799,7 +886,6 @@ export default function BibliographyManagerPage() {
   }
 
   function prefillFromCSL(csl: CSL) {
-    // Map basic fields
     const title = csl.title || "";
     const type = (csl.type as string) || "book";
     const container = (csl["container-title"] as string) || "";
@@ -829,58 +915,80 @@ export default function BibliographyManagerPage() {
       isbn,
       issn,
       url,
-      // Replace people array; keep notes as-is
       people: [...authors, ...editors, ...translators],
     }));
 
-    notify(
-      `Form prefilled from ${csl.DOI ? "Crossref" : "resolver"}.`,
-      "success"
-    );
+    notify(`Form prefilled.`, "success");
   }
 
   /* ------------------------------ Render ------------------------------ */
 
+  // derived UI
+  const list = filteredRows;
+
+  // close author dropdown on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!authorRef.current) return;
+      if (!authorRef.current.contains(e.target as any)) setAuthorOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
   return (
     <AdminGuard>
-      <div className="px-5 py-6">
+      <div className="px-8 py-6 max-w-screen-xl mx-auto bg-white">
         <Toasts
           toasts={toasts}
           dismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
         />
 
-        {/* Header */}
-        <div className="rounded-2xl border bg-gradient-to-r from-emerald-50 to-blue-50 px-4 py-4 mb-6">
+        {/* Header (Amber style) */}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 shadow-sm px-4 py-4 mb-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin"
-                className="text-slate-600 hover:text-slate-800 inline-flex items-center gap-1"
-                title="Back to Admin"
-              >
-                <Icon name="arrow-left" />
-                <span className="sr-only">Back</span>
-              </Link>
-              <h1
-                className="text-2xl font-bold"
-                style={{ color: "var(--brand-blue)" }}
-              >
-                Bibliography Manager
-              </h1>
-              <span className="ml-2 inline-flex items-center rounded-full bg-white/80 border border-emerald-200 px-2 py-0.5 text-xs text-emerald-700">
-                <Icon name="book" size={14} /> &nbsp;Central Library
-              </span>
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Back behavior: if editing, go back to list; else go to admin */}
+              {editing ? (
+                <button
+                  onClick={() => setEditing(null)}
+                  className="text-slate-700 hover:text-slate-900 inline-flex items-center gap-1"
+                  title="Back to list"
+                >
+                  <Icon name="arrow-left" />
+                  <span className="sr-only">Back</span>
+                </button>
+              ) : (
+                <Link
+                  href="/admin"
+                  className="text-slate-700 hover:text-slate-900 inline-flex items-center gap-1"
+                  title="Back to Admin"
+                >
+                  <Icon name="arrow-left" />
+                  <span className="sr-only">Back</span>
+                </Link>
+              )}
+
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                  <Icon name="book" size={20} className="text-amber-700" />
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 whitespace-nowrap">
+                  Bibliography Manager
+                </h1>
+              </div>
             </div>
+
             {!editing ? (
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <Btn
-                  className="border-emerald-300 text-emerald-700 bg-white"
+                  className="border-amber-300 text-amber-800 bg-white"
                   onClick={() => setWizardOpen(true)}
                 >
-                  Citation Wizard
+                  <Icon name="magic" /> &nbsp;Citation Wizard
                 </Btn>
                 <Btn
-                  className="border-emerald-300 text-emerald-700 bg-white"
+                  className="border-amber-300 text-amber-800 bg-white"
                   onClick={startNew}
                 >
                   <Icon name="plus" /> New Source
@@ -892,15 +1000,62 @@ export default function BibliographyManagerPage() {
 
         {/* Filters / Search */}
         {!editing ? (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
-            <input
-              className={inputStyle}
-              placeholder="Search title, author, container, publisher, DOI, URL…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 mb-5">
+            {/* Title search with suggestions & "Clear" arrow above when searching */}
+            <div className="relative lg:col-span-3" ref={suggestRef}>
+              {query.trim() ? (
+                <button
+                  className="absolute -top-5 right-0 text-slate-600 hover:text-slate-900 inline-flex items-center justify-center text-xs"
+                  title="Clear search"
+                  onClick={() => {
+                    setQuery("");
+                    setTitleSuggestions([]);
+                    setSuggestOpen(false);
+                  }}
+                >
+                  <Icon name="arrow-up" /> Clear
+                </button>
+              ) : null}
+
+              <input
+                className={inputStyle}
+                placeholder="Search title, author, publisher, DOI, URL, etc…"
+                value={query}
+                onChange={async (e) => {
+                  const v = e.target.value;
+                  setQuery(v);
+                  await fetchTitleSuggestions(v);
+                }}
+                onFocus={() => {
+                  if (titleSuggestions.length) setSuggestOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setSuggestOpen(false);
+                }}
+              />
+              {suggestOpen && titleSuggestions.length > 0 ? (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  <div className="max-h-64 overflow-auto divide-y">
+                    {titleSuggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        className="block w-full text-left px-3 py-2 hover:bg-amber-50"
+                        onClick={() => {
+                          setQuery(s.title);
+                          setSuggestOpen(false);
+                        }}
+                      >
+                        <div className="text-xs text-slate-800">{s.title}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Type */}
             <select
-              className={inputStyle}
+              className={inputStyle + " lg:col-span-1"}
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
@@ -911,135 +1066,201 @@ export default function BibliographyManagerPage() {
                 </option>
               ))}
             </select>
+
+            {/* Year */}
             <input
-              className={inputStyle}
+              className={inputStyle + " lg:col-span-1"}
               placeholder="Year"
               value={year}
               onChange={(e) =>
                 setYear(e.target.value.replace(/\D/g, "").slice(0, 4))
               }
             />
-            <div className="flex gap-2">
-              <Btn onClick={load} disabled={busy} className="border-slate-300">
-                {busy ? "Loading…" : "Refresh"}
-              </Btn>
-              <Btn
-                className="border-slate-300"
-                onClick={() => {
-                  setQuery("");
-                  setType("");
-                  setYear("");
+
+            {/* Author filter (closed by default; opens when typing) */}
+            <div className="relative lg:col-span-1" ref={authorRef}>
+              <input
+                className={inputStyle}
+                placeholder="Filter by author…"
+                value={authorQuery || authorFilter}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAuthorQuery(v);
+                  setAuthorOpen(v.trim().length > 0);
                 }}
-              >
-                Clear
-              </Btn>
+                onFocus={() => {
+                  if ((authorQuery || "").trim().length > 0)
+                    setAuthorOpen(true);
+                }}
+              />
+              {authorOpen ? (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-64 overflow-auto">
+                  {(allAuthors || [])
+                    .filter((a) =>
+                      authorQuery
+                        ? a.toLowerCase().includes(authorQuery.toLowerCase())
+                        : a
+                    )
+                    .slice(0, 30)
+                    .map((a) => (
+                      <button
+                        key={a}
+                        className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-amber-50 ${
+                          a === authorFilter ? "bg-amber-50" : ""
+                        }`}
+                        onClick={() => {
+                          setAuthorFilter(a === authorFilter ? "" : a);
+                          setAuthorQuery("");
+                          setAuthorOpen(false);
+                        }}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
 
         {/* List */}
         {!editing ? (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <table className="w-full text-sm">
+          <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto">
+            <table className="w-full text-xs table-fixed">
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-600">
+                  <th className="px-3 py-2 w-[56px]">#</th>
                   <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2">Authors</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Container</th>
-                  <th className="px-3 py-2">Publisher</th>
-                  <th className="px-3 py-2">Year</th>
-                  <th className="px-3 py-2">DOI</th>
-                  <th className="px-3 py-2"></th>
+                  <th className="px-3 py-2 w-[8rem]">Type</th>
+                  <th className="px-3 py-2 w-[22%]">Author(s)</th>
+                  <th className="px-3 py-2 w-[6rem]">Year</th>
+                  <th className="px-3 py-2 w-[22%]">Publisher</th>
+                  <th className="px-3 py-2 w-[110px]"></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {list.length === 0 ? (
                   <tr>
                     <td
                       className="px-3 py-6 text-center text-slate-500"
-                      colSpan={8}
+                      colSpan={7}
                     >
                       No results.
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r, i) => (
-                    <tr
-                      key={r.id}
-                      className={`border-t hover:bg-emerald-50/40 ${
-                        i % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                      }`}
-                    >
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-slate-900">
-                          {r.title}
-                        </div>
-                        <div className="text-xs text-slate-500 truncate max-w-[520px]">
-                          {r.url ||
-                            r.doi ||
-                            r.isbn ||
-                            r.issn ||
-                            r.container_title ||
-                            ""}
-                        </div>
-                      </td>
+                  list.map((r, i) => {
+                    const idx = i + 1;
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-t border-slate-200 cursor-pointer hover:bg-amber-50"
+                        onClick={() => startEdit(r)}
+                        role="button"
+                      >
+                        {/* Serial */}
+                        <td className="px-3 py-2 align-top text-slate-500">
+                          {idx}
+                        </td>
 
-                      {/* AUTHORS (from CSL) */}
-                      <td className="px-3 py-2 max-w-[260px]">
-                        <div className="truncate text-slate-700">
-                          {authorsToInline(r.csl, 3) || (
+                        {/* Title */}
+                        <td className="px-3 py-2 align-top">
+                          <div className="font-medium text-slate-900 whitespace-normal break-words">
+                            {r.title || (
+                              <span className="text-slate-400">Untitled</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Type column */}
+                        <td className="px-3 py-2 align-top">
+                          {r.type ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-medium">
+                              {r.type}
+                            </span>
+                          ) : (
                             <span className="text-slate-400">—</span>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="px-3 py-2">
-                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-slate-700 bg-white border-slate-300">
-                          {r.type}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">{r.container_title}</td>
-                      <td className="px-3 py-2">{r.publisher}</td>
-                      <td className="px-3 py-2">{r.year_int ?? ""}</td>
-                      <td className="px-3 py-2">{r.doi ?? ""}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-2 justify-end">
-                          <Btn
-                            className="border-amber-300 text-amber-700"
-                            onClick={() => openSites(r)}
-                            title="Show linked listings"
-                          >
-                            Sites
-                          </Btn>
-                          <Btn
-                            className="border-blue-300 text-blue-700"
-                            onClick={() => startEdit(r)}
-                          >
-                            Edit
-                          </Btn>
-                          <Btn
-                            className="border-red-300 text-red-600"
-                            onClick={() => remove(r.id)}
-                          >
-                            Delete
-                          </Btn>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        {/* Authors */}
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-slate-700 whitespace-normal break-words">
+                            {authorsToInline(r.csl, 5) || (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Year */}
+                        <td className="px-3 py-2 align-top">
+                          {r.year_int ?? ""}
+                        </td>
+
+                        {/* Publisher */}
+                        <td className="px-3 py-2 align-top">
+                          <div className="whitespace-normal break-words">
+                            {r.publisher}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td
+                          className="px-3 py-2 align-top"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex gap-1.5 justify-end">
+                            <IconBtn
+                              title="Linked sites"
+                              onClick={() => openSites(r)}
+                              className="border-slate-300"
+                            >
+                              <Icon
+                                name="list-ol"
+                                size={15}
+                                className="text-amber-700"
+                              />
+                            </IconBtn>
+                            <IconBtn
+                              title="Edit details"
+                              onClick={() => startEdit(r)}
+                              className="border-slate-300"
+                            >
+                              <Icon
+                                name="info"
+                                size={15}
+                                className="text-blue-700"
+                              />
+                            </IconBtn>
+                            <IconBtn
+                              title="Delete"
+                              onClick={() => remove(r.id)}
+                              className="border-slate-300"
+                            >
+                              <Icon
+                                name="trash"
+                                size={15}
+                                className="text-red-600"
+                              />
+                            </IconBtn>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         ) : null}
 
-        {/* Editor */}
+        {/* Editor (detail) */}
         {editing ? (
           <div className="mt-2 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-              {/* ---------- Lookup strip (resolver) ---------- */}
-              <div className="border border-emerald-200 rounded-2xl p-4 bg-emerald-50/40">
+            {/* Left: Lookup + core fields */}
+            <div className="lg:col-span-2 space-y-4 min-w-0">
+              {/* Lookup strip (section = light grey) */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
                 <div className="flex items-center gap-2 mb-3">
                   <Icon name="search" />
                   <div className="font-semibold text-slate-800">
@@ -1057,7 +1278,7 @@ export default function BibliographyManagerPage() {
                     }}
                   />
                   <Btn
-                    className="border-emerald-400 text-emerald-700"
+                    className="border-amber-300 text-amber-800"
                     onClick={runLookup}
                     disabled={lkBusy || !lkInput.trim()}
                   >
@@ -1101,7 +1322,7 @@ export default function BibliographyManagerPage() {
                       ) : (
                         lkResults.map((c, idx) => {
                           const r = c.csl || {};
-                          const authors =
+                          const auth =
                             Array.isArray(r.author) && r.author.length
                               ? authorsToInline({ author: r.author }, 3)
                               : "—";
@@ -1126,17 +1347,17 @@ export default function BibliographyManagerPage() {
                                   )}
                                 </div>
                                 <div className="text-xs text-slate-600 truncate">
-                                  {authors} • {r.type || "—"} •{" "}
+                                  {auth} • {r.type || "—"} •{" "}
                                   {[r["container-title"], r.publisher, year]
                                     .filter(Boolean)
                                     .join(" • ")}
                                 </div>
-                                <div className="text-[11px] text-slate-500 truncate">
+                                <div className="text-[11px] text-slate-500 break-all">
                                   {idPart}
                                 </div>
                               </div>
                               <Btn
-                                className="border-emerald-300 text-emerald-700"
+                                className="border-amber-300 text-amber-800"
                                 onClick={() => prefillFromCSL(r)}
                               >
                                 Use
@@ -1149,9 +1370,9 @@ export default function BibliographyManagerPage() {
                   </div>
                 ) : null}
               </div>
-              {/* ---------- /Lookup strip ---------- */}
 
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
+              {/* Core fields (section = light grey; inputs stay white) */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="Title" required>
                     <input
@@ -1276,7 +1497,21 @@ export default function BibliographyManagerPage() {
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
+              {/* Quick Preview (section = light grey) */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+                <div className="text-sm font-semibold mb-2">Quick Preview</div>
+                <div className="text-xs text-slate-700">
+                  <PreviewFromForm form={form} />
+                </div>
+                <div className="text-xs text-slate-500 mt-2">
+                  Styling is approximate. We’ll plug in a CSL renderer later.
+                </div>
+              </div>
+            </div>
+
+            {/* Right: People editors (section = light grey) */}
+            <div className="space-y-4 min-w-0">
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
                 <div className="text-sm font-semibold mb-3">Authors</div>
                 <AuthorsEditor
                   value={form.people}
@@ -1285,7 +1520,7 @@ export default function BibliographyManagerPage() {
                 />
               </div>
 
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
                 <div className="text-sm font-semibold mb-3">Editors</div>
                 <AuthorsEditor
                   value={form.people}
@@ -1294,7 +1529,7 @@ export default function BibliographyManagerPage() {
                 />
               </div>
 
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
                 <div className="text-sm font-semibold mb-3">Translators</div>
                 <AuthorsEditor
                   value={form.people}
@@ -1302,63 +1537,24 @@ export default function BibliographyManagerPage() {
                   role="translator"
                 />
               </div>
+            </div>
+          </div>
+        ) : null}
 
-              <div className="flex gap-2">
-                <Btn
-                  className="border-emerald-300 text-emerald-700"
-                  onClick={save}
-                >
-                  Save Source
-                </Btn>
+        {/* Fixed bottom action bar */}
+        {editing ? (
+          <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
+            <div className="mx-auto max-w-screen-xl px-8 pb-4 flex justify-end">
+              <div className="rounded-t-2xl border border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-lg px-4 py-3 flex items-center gap-2 pointer-events-auto">
                 <Btn
                   className="border-slate-300"
                   onClick={() => setEditing(null)}
                 >
                   Cancel
                 </Btn>
-              </div>
-            </div>
-
-            {/* Right column: lightweight preview & raw CSL */}
-            <div className="space-y-4">
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
-                <div className="text-sm font-semibold mb-2">Quick Preview</div>
-                <div className="text-sm text-slate-700">
-                  <PreviewFromForm form={form} />
-                </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  Styling is approximate. We’ll plug in a CSL renderer in a
-                  later step.
-                </div>
-              </div>
-
-              <div className="border border-slate-200 rounded-2xl p-4 bg-white">
-                <div className="text-sm font-semibold mb-2">
-                  CSL JSON (computed)
-                </div>
-                <pre className="text-xs bg-slate-50 p-3 rounded-md overflow-auto max-h-[360px]">
-                  {JSON.stringify(
-                    buildCSL({
-                      id: form.id,
-                      type: form.type,
-                      title: form.title,
-                      authors: form.people.filter((p) => p.role === "author"),
-                      editors: form.people.filter((p) => p.role === "editor"),
-                      translators: form.people.filter(
-                        (p) => p.role === "translator"
-                      ),
-                      container_title: form.container_title || undefined,
-                      publisher: form.publisher || undefined,
-                      year_int: form.year_int || undefined,
-                      doi: form.doi || undefined,
-                      isbn: form.isbn || undefined,
-                      issn: form.issn || undefined,
-                      url: form.url || undefined,
-                    }),
-                    null,
-                    2
-                  )}
-                </pre>
+                <Btn className="border-amber-300 text-amber-800" onClick={save}>
+                  Save Source
+                </Btn>
               </div>
             </div>
           </div>
@@ -1376,7 +1572,7 @@ export default function BibliographyManagerPage() {
             <div className="absolute inset-0 flex items-center justify-center p-4">
               <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between">
-                  <div className="font-semibold text-slate-800">
+                  <div className="font-semibold text-slate-800 text-sm">
                     Linked Sites —{" "}
                     <span className="text-slate-600">
                       {sitesModal.biblio?.title}
@@ -1394,13 +1590,13 @@ export default function BibliographyManagerPage() {
 
                 <div className="p-4 max-h-[60vh] overflow-auto">
                   {sitesModal.loading ? (
-                    <div className="text-sm text-slate-600">Loading…</div>
+                    <div className="text-xs text-slate-600">Loading…</div>
                   ) : sitesModal.sites.length === 0 ? (
-                    <div className="text-sm text-slate-600">
+                    <div className="text-xs text-slate-600">
                       No listings are linked to this source.
                     </div>
                   ) : (
-                    <ul className="space-y-2">
+                    <ul className="space-y-2 text-xs">
                       {sitesModal.sites.map((s) => (
                         <li
                           key={s.id}
@@ -1410,13 +1606,13 @@ export default function BibliographyManagerPage() {
                             <div className="font-medium truncate">
                               {s.title}
                             </div>
-                            <div className="text-xs text-slate-500 truncate">
+                            <div className="text-[11px] text-slate-500 truncate">
                               {s.slug || s.id}
                             </div>
                           </div>
                           <Link
                             href={`/admin/listings/${s.id}`}
-                            className="text-emerald-700 border border-emerald-300 rounded-md px-2 py-1 text-sm hover:bg-emerald-50"
+                            className="text-amber-800 border border-amber-300 rounded-md px-2 py-1 text-xs hover:bg-amber-50"
                           >
                             Open
                           </Link>
@@ -1428,7 +1624,7 @@ export default function BibliographyManagerPage() {
 
                 <div className="px-4 py-3 bg-slate-50 border-t text-right">
                   <button
-                    className="text-sm text-slate-700 hover:text-slate-900"
+                    className="text-xs text-slate-700 hover:text-slate-900"
                     onClick={() =>
                       setSitesModal({ open: false, sites: [], loading: false })
                     }
@@ -1441,12 +1637,11 @@ export default function BibliographyManagerPage() {
           </div>
         ) : null}
 
-        {/* ⬇️ Mount the Citation Wizard (no listingId here; central library) */}
+        {/* Citation Wizard */}
         <CitationWizard
           open={wizardOpen}
           onClose={() => {
             setWizardOpen(false);
-            // ensure grid reflects newly created items from the wizard
             load();
           }}
         />
@@ -1513,7 +1708,7 @@ function PreviewFromForm({
     .trim();
 
   return (
-    <div className="text-slate-800">
+    <div className="text-slate-800 break-words">
       {authorStr ? authorStr + "." : ""}
       {year} <i>{form.title}</i>
       {editorStr}.{cont}

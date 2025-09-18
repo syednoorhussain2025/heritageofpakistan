@@ -25,6 +25,23 @@ function Btn({
     </button>
   );
 }
+
+function IconBtn({
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...props}
+      className={`p-2 rounded-md border transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-red-500 ${
+        props.className ?? "border-slate-200 text-slate-400 hover:text-red-600"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Field({
   label,
   children,
@@ -35,15 +52,20 @@ function Field({
   hint?: string;
 }) {
   return (
-    <label className="block">
-      <div className="text-sm font-semibold mb-1.5 text-slate-800">{label}</div>
+    <label className="block min-w-0">
+      {/* one step smaller */}
+      <div className="text-xs font-semibold mb-1 text-slate-700">{label}</div>
       {children}
-      {hint ? <div className="text-xs text-slate-500 mt-1">{hint}</div> : null}
+      {hint ? (
+        <div className="text-[11px] text-slate-500 mt-1">{hint}</div>
+      ) : null}
     </label>
   );
 }
+
+/* Compact inputs: slightly smaller font + padding */
 const inputStyles =
-  "w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 focus:ring-emerald-500 focus:border-emerald-500";
+  "w-full bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-[13px] text-slate-900 placeholder-slate-400 focus:ring-emerald-500 focus:border-emerald-500";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -74,6 +96,25 @@ type AttachRow = {
   biblio_id: string;
   sort_order: number | null;
 };
+
+/** ⬇️ For Auto-Lookup (CSL-ish) */
+type CSLName = { given?: string; family?: string; literal?: string };
+type CSL = {
+  id?: string;
+  type?: string;
+  title?: string;
+  author?: CSLName[];
+  editor?: CSLName[];
+  translator?: CSLName[];
+  ["container-title"]?: string;
+  publisher?: string;
+  issued?: { "date-parts": number[][] };
+  DOI?: string;
+  ISBN?: string | string[];
+  ISSN?: string | string[];
+  URL?: string;
+};
+type Candidate = { csl: CSL; score: number; source: string };
 
 /* ------------------------------------------------------------------ */
 /* Helper: CSL build + author formatting                               */
@@ -142,6 +183,112 @@ function authorsToInline(csl: any, max = 3) {
   const clipped = names.slice(0, max);
   const suffix = names.length > max ? " et al." : "";
   return clipped.filter(Boolean).join("; ") + suffix;
+}
+
+/* -------------------- NEW: Normalizers + duplicate finder ----------- */
+function normalizeDoi(s?: string | null) {
+  if (!s) return "";
+  return s
+    .trim()
+    .replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
+    .toLowerCase();
+}
+function normalizeIsbn(s?: string | null) {
+  if (!s) return "";
+  return s.replace(/[-\s]/g, "").toUpperCase();
+}
+function normalizeUrl(s?: string | null) {
+  if (!s) return "";
+  try {
+    const u = new URL(s.trim());
+    u.hash = "";
+    u.search = "";
+    return u.toString().replace(/\/$/, "");
+  } catch {
+    return s.trim();
+  }
+}
+async function findExistingByIds({
+  doi,
+  isbn,
+  url,
+}: {
+  doi?: string;
+  isbn?: string;
+  url?: string;
+}): Promise<string | null> {
+  try {
+    if (doi) {
+      const r = await supabase
+        .from("bibliography_sources")
+        .select("id")
+        .eq("doi", doi)
+        .maybeSingle();
+      if (!r.error && r.data?.id) return r.data.id as string;
+    }
+    if (isbn) {
+      const r = await supabase
+        .from("bibliography_sources")
+        .select("id")
+        .eq("isbn", isbn)
+        .maybeSingle();
+      if (!r.error && r.data?.id) return r.data.id as string;
+    }
+    if (url) {
+      const r = await supabase
+        .from("bibliography_sources")
+        .select("id")
+        .eq("url", url)
+        .maybeSingle();
+      if (!r.error && r.data?.id) return r.data.id as string;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/* ---------------- Title-Case (on paste) helper ---------------------- */
+const SMALL_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+  "with",
+]);
+function toTitleCase(text: string) {
+  const words = text.toLowerCase().split(/(\s+|-)/); // keep spaces & hyphens
+  let index = 0;
+  return words
+    .map((w) => {
+      if (/^\s+$/.test(w) || w === "-") return w;
+      const isFirst = index === 0;
+      const isSmall = SMALL_WORDS.has(w);
+      index++;
+      if (!isSmall || isFirst) {
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }
+      return w;
+    })
+    .join("");
+}
+function pasteToTitleCase(
+  e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  setter: (val: string) => void
+) {
+  e.preventDefault();
+  const txt = e.clipboardData.getData("text");
+  setter(toTitleCase(txt));
 }
 
 /* ------------------------------------------------------------------ */
@@ -268,7 +415,7 @@ const SAMPLE_CSL: any = {
 /* ---------- Helpers to render CSL HTML for rows (with fallback) ----- */
 function toCSLFromRow(row: BiblioRow): any {
   if (row.csl) return row.csl;
-  // Minimal fallback if legacy rows don’t have CSL stored
+  // Minimal fallback
   return buildCSL({
     id: row.id,
     type: row.type ?? "book",
@@ -285,7 +432,6 @@ function toCSLFromRow(row: BiblioRow): any {
     url: row.url ?? undefined,
   });
 }
-
 function formatCslEntryHtml(data: any, style: string): string {
   try {
     const cite = new Cite([data]);
@@ -294,7 +440,6 @@ function formatCslEntryHtml(data: any, style: string): string {
       template: style,
       lang: "en-US",
     });
-    // Extract a single entry’s inner HTML for cleaner inline display
     const div = document.createElement("div");
     div.innerHTML = html;
     const entry = div.querySelector(".csl-entry");
@@ -311,13 +456,13 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   const listingId = String(siteId);
   const { toasts, notify, dismiss } = useToasts();
 
-  // Attached items (from join table) displayed with details from central table
+  // Attached items
   const [attached, setAttached] = useState<
     (BiblioRow & { sort_order: number })[]
   >([]);
   const [loading, setLoading] = useState(true);
 
-  // Global citation style (admin control)
+  // Citation style
   const [styleId, setStyleId] = useState<string>("apa");
   const [savingStyle, setSavingStyle] = useState(false);
 
@@ -335,34 +480,30 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   // New Source modal
   const [newOpen, setNewOpen] = useState(false);
   const [savingNew, setSavingNew] = useState(false);
-  const [form, setForm] = useState<{
-    title: string;
-    type: string;
-    container_title?: string | null;
-    publisher?: string | null;
-    year_int?: number | null;
-    doi?: string | null;
-    isbn?: string | null;
-    issn?: string | null;
-    url?: string | null;
-    notes?: string | null;
-    people: Person[];
-  }>({
+
+  const INITIAL_FORM = {
     title: "",
     type: "book",
     container_title: "",
     publisher: "",
-    year_int: undefined,
+    year_int: undefined as number | undefined,
     doi: "",
     isbn: "",
     issn: "",
     url: "",
     notes: "",
-    people: [],
-  });
+    people: [] as Person[],
+  };
+  const [form, setForm] = useState<typeof INITIAL_FORM>({ ...INITIAL_FORM });
 
-  // Citation Wizard (listing mode)
+  // Citation Wizard
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  /* --------------------------- Auto-Lookup state ---------------------- */
+  const [lkInput, setLkInput] = useState("");
+  const [lkBusy, setLkBusy] = useState(false);
+  const [lkResults, setLkResults] = useState<Candidate[]>([]);
+  const [lkOpen, setLkOpen] = useState(false);
 
   /* --------------------------- Data loaders --------------------------- */
   async function loadAttached() {
@@ -427,7 +568,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   useEffect(() => {
     loadAttached();
     loadCitationStyle();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
 
   /* ------------------------------ Search ----------------------------- */
@@ -481,7 +621,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
       }
     }, 250);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   useEffect(() => {
@@ -586,7 +725,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
 
   useEffect(() => {
     setStylePreviewHtml(computePreviewHtml(styleId));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleId]);
 
   /* ------------- Memo: formatted HTML for each attached row ---------- */
@@ -600,17 +738,126 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     return m;
   }, [attached, styleId]);
 
+  /* --------------------- Auto-Lookup functions ----------------------- */
+  async function runLookup() {
+    const input = lkInput.trim();
+    if (!input) return;
+    try {
+      setLkBusy(true);
+      setLkResults([]);
+      setLkOpen(true);
+
+      const preDoi = normalizeDoi(input);
+      const preIsbn = normalizeIsbn(input);
+      const preUrl = normalizeUrl(input);
+      const existing = await findExistingByIds({
+        doi: preDoi || undefined,
+        isbn: preIsbn || undefined,
+        url: preUrl || undefined,
+      });
+      if (existing) {
+        await attachOne(existing);
+        notify("Source already exists; attached to this listing.", "success");
+        closeNewModal();
+        return;
+      }
+
+      const r = await fetch("/api/cite/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      });
+      const json = await r.json();
+      if (!r.ok || !json?.ok) throw new Error(json?.error || "Resolver failed");
+      const candidates: Candidate[] = Array.isArray(json.candidates)
+        ? json.candidates
+        : [];
+      setLkResults(candidates);
+      notify(
+        candidates.length ? "Found citation candidates." : "No matches found.",
+        candidates.length ? "success" : "info"
+      );
+    } catch (e: any) {
+      notify(e?.message || "Lookup failed.", "error");
+      setLkResults([]);
+      setLkOpen(false);
+    } finally {
+      setLkBusy(false);
+    }
+  }
+
+  function cslNameToPerson(
+    arr: CSLName[] | undefined,
+    role: Person["role"]
+  ): Person[] {
+    if (!Array.isArray(arr)) return [];
+    return arr.map((a) =>
+      a && (a.family || a.given)
+        ? { role, kind: "person", given: a.given || "", family: a.family || "" }
+        : { role, kind: "org", literal: a?.literal || "" }
+    );
+  }
+
+  function prefillFromCSL(csl: CSL) {
+    const supported = new Set<string>(TYPES as readonly string[]);
+    const type = csl.type && supported.has(csl.type) ? csl.type : "book";
+    const title = csl.title || "";
+    const container = (csl["container-title"] as string) || "";
+    const publisher = csl.publisher || "";
+    const year =
+      (Array.isArray(csl.issued?.["date-parts"]) &&
+        csl.issued?.["date-parts"]?.[0]?.[0]) ||
+      undefined;
+    const doi = csl.DOI || "";
+    const url = csl.URL || "";
+    const isbn = Array.isArray(csl.ISBN) ? csl.ISBN[0] || "" : csl.ISBN || "";
+    const issn = Array.isArray(csl.ISSN) ? csl.ISSN[0] || "" : csl.ISSN || "";
+
+    const authors = cslNameToPerson(csl.author, "author");
+    const editors = cslNameToPerson(csl.editor, "editor");
+    const translators = cslNameToPerson(csl.translator, "translator");
+
+    setForm((s) => ({
+      ...s,
+      title,
+      type,
+      container_title: container,
+      publisher,
+      year_int: year,
+      doi,
+      isbn,
+      issn,
+      url,
+      people: [...authors, ...editors, ...translators],
+    }));
+
+    notify(`Form prefilled from lookup.`, "success");
+  }
+
+  /* -------------------- Clear + Close helpers ------------------------ */
+  function resetNewSource() {
+    setForm({ ...INITIAL_FORM });
+    setLkInput("");
+    setLkResults([]);
+    setLkOpen(false);
+    setSavingNew(false);
+  }
+  function closeNewModal() {
+    resetNewSource();
+    setNewOpen(false);
+  }
+
   /* -------------------------------- UI -------------------------------- */
   const attachedIds = new Set(attached.map((a) => a.id));
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white/80">
+    <div className="w-full max-w-full overflow-x-hidden rounded-xl border border-slate-200 bg-white/80">
       <Toasts toasts={toasts} dismiss={dismiss} />
 
       {/* Header + search */}
       <div className="border-b border-slate-200 p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-t-xl">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+        <div className="flex flex-col gap-3 min-w-0">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 min-w-0">
             <div className="text-lg font-bold text-slate-800">Bibliography</div>
 
             {/* Global Citation Style selector */}
@@ -637,11 +884,13 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
             </div>
 
             <div className="flex-1" />
-            <div className="relative" ref={dropdownRef}>
-              <div className="flex items-center gap-2">
+            <div
+              className="relative w-full md:w-auto min-w-0"
+              ref={dropdownRef}
+            >
+              <div className="flex items-center gap-2 min-w-0">
                 <input
-                  className={inputStyles}
-                  style={{ width: 360 }}
+                  className={`${inputStyles} w-full md:w-96`}
                   placeholder="Search library (title, author, DOI, URL)…"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -684,7 +933,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
 
               {/* Typeahead dropdown (click = attach) */}
               {openDropdown && (results.length > 0 || searching) && (
-                <div className="absolute z-40 mt-2 w-[640px] max-w-[85vw] rounded-lg border border-slate-200 bg-white shadow-xl">
+                <div className="absolute z-40 mt-2 left-0 right-0 md:right-auto md:w-[640px] max-w-[92vw] rounded-lg border border-slate-200 bg-white shadow-xl">
                   <div className="p-2 text-xs text-slate-600 border-b flex items-center justify-between">
                     <span>Search Results</span>
                     <span className="text-slate-400">
@@ -715,7 +964,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                             onClick={() => !isAlready && attachOne(r.id)}
                             disabled={isAlready}
                           >
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
                               <div className="min-w-0">
                                 <div className="font-medium text-slate-900 truncate">
                                   {r.title}
@@ -727,12 +976,12 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                                     .filter(Boolean)
                                     .join(" • ")}
                                 </div>
-                                <div className="text-[11px] text-slate-500 truncate">
+                                <div className="text-[11px] text-slate-500 break-all">
                                   {r.doi || r.url || r.isbn || r.issn || ""}
                                 </div>
                               </div>
                               {isAlready ? (
-                                <span className="ml-auto text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
+                                <span className="ml-auto text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 shrink-0">
                                   Added
                                 </span>
                               ) : null}
@@ -764,7 +1013,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
             </div>
             <ol className="list-decimal list-inside">
               <li
-                className="text-sm text-amber-900"
+                className="text-sm text-amber-900 break-words break-all"
                 dangerouslySetInnerHTML={{ __html: stylePreviewHtml }}
               />
             </ol>
@@ -781,7 +1030,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         </div>
       </div>
 
-      {/* Attached list (now rendered in selected citation style) */}
+      {/* Attached list */}
       <div className="p-3 space-y-2">
         {loading ? (
           <>
@@ -801,11 +1050,10 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                 className="flex items-start justify-between gap-3 border border-slate-200 rounded-md bg-white px-3 py-2"
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-6 text-right font-semibold text-slate-700">
+                  <div className="w-6 text-right font-semibold text-slate-700 shrink-0">
                     {i + 1}.
                   </div>
                   <div className="min-w-0">
-                    {/* CSL-rendered entry */}
                     {!showFallback ? (
                       <div
                         className="text-[13px] leading-relaxed text-slate-900 csl-render break-words"
@@ -836,12 +1084,21 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                   <Btn className="px-2 py-1" onClick={() => move(s.id, 1)}>
                     ↓
                   </Btn>
-                  <Btn
-                    className="px-2 py-1 bg-red-600 text-white hover:bg-red-500"
+                  {/* Light grey trash icon, red on hover */}
+                  <IconBtn
+                    aria-label="Remove"
+                    title="Remove"
                     onClick={() => detach(s.id)}
                   >
-                    Remove
-                  </Btn>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-5 w-5"
+                    >
+                      <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9zm2 2h2V5h-2v0zM8 7h8v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V7z" />
+                    </svg>
+                  </IconBtn>
                 </div>
               </div>
             );
@@ -854,251 +1111,398 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => setNewOpen(false)}
+            onClick={closeNewModal}
           />
           <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+            {/* wider modal */}
+            <div className="w-full max-w-5xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
               <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between">
                 <div className="font-semibold text-slate-800">
                   Add New Source
                 </div>
                 <button
                   className="text-slate-600 hover:text-slate-800"
-                  onClick={() => setNewOpen(false)}
+                  onClick={closeNewModal}
                 >
                   Close
                 </button>
               </div>
-              <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[80vh] overflow-auto">
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field label="Title">
-                        <input
-                          className={inputStyles}
-                          value={form.title}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, title: e.target.value }))
-                          }
-                          placeholder="The Forts of Sindh"
-                        />
-                      </Field>
-                      <Field label="Type">
-                        <select
-                          className={inputStyles}
-                          value={form.type}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, type: e.target.value }))
-                          }
-                        >
-                          {TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
 
-                      <Field label="Container (Journal / Book / Site)">
-                        <input
-                          className={inputStyles}
-                          value={form.container_title ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              container_title: e.target.value,
-                            }))
-                          }
-                          placeholder="Journal of South Asian Studies"
-                        />
-                      </Field>
-                      <Field label="Publisher / Institution">
-                        <input
-                          className={inputStyles}
-                          value={form.publisher ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              publisher: e.target.value,
-                            }))
-                          }
-                          placeholder="Oxford University Press"
-                        />
-                      </Field>
-
-                      <Field label="Year">
-                        <input
-                          className={inputStyles}
-                          value={form.year_int ? String(form.year_int) : ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              year_int: e.target.value
-                                ? Number(
-                                    e.target.value
-                                      .replace(/\D/g, "")
-                                      .slice(0, 4)
-                                  )
-                                : undefined,
-                            }))
-                          }
-                          placeholder="2022"
-                        />
-                      </Field>
-                      <Field label="DOI">
-                        <input
-                          className={inputStyles}
-                          value={form.doi ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              doi: e.target.value.trim(),
-                            }))
-                          }
-                          placeholder="10.1234/abcd.5678"
-                        />
-                      </Field>
-
-                      <Field label="ISBN">
-                        <input
-                          className={inputStyles}
-                          value={form.isbn ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              isbn: e.target.value.trim(),
-                            }))
-                          }
-                          placeholder="978-0-123456-47-2"
-                        />
-                      </Field>
-                      <Field label="ISSN">
-                        <input
-                          className={inputStyles}
-                          value={form.issn ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              issn: e.target.value.trim(),
-                            }))
-                          }
-                          placeholder="1234-5678"
-                        />
-                      </Field>
-
-                      <Field label="URL">
-                        <input
-                          className={inputStyles}
-                          value={form.url ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({
-                              ...s,
-                              url: e.target.value.trim(),
-                            }))
-                          }
-                          placeholder="https://example.com/article"
-                        />
-                      </Field>
-                      <Field label="Admin notes">
-                        <textarea
-                          className={inputStyles}
-                          rows={3}
-                          value={form.notes ?? ""}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, notes: e.target.value }))
-                          }
-                          placeholder="Internal note about this source."
-                        />
-                      </Field>
+              {/* Scrollable content */}
+              <div className="p-5 space-y-6 max-h-[80vh] overflow-auto">
+                {/* 🔝 Top row: 50/50 Lookup ↔ Quick Preview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Lookup */}
+                  <div className="border border-amber-300 rounded-2xl p-4 bg-amber-50">
+                    <div className="font-semibold text-amber-900 mb-2">
+                      Lookup (URL / DOI / ISBN / Title)
                     </div>
-                  </div>
-
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="text-sm font-semibold mb-3">Authors</div>
-                    <AuthorsEditor
-                      value={form.people}
-                      onChange={(people) => setForm((s) => ({ ...s, people }))}
-                      role="author"
-                    />
-                  </div>
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="text-sm font-semibold mb-3">Editors</div>
-                    <AuthorsEditor
-                      value={form.people}
-                      onChange={(people) => setForm((s) => ({ ...s, people }))}
-                      role="editor"
-                    />
-                  </div>
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="text-sm font-semibold mb-3">
-                      Translators
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <input
+                        className={inputStyles}
+                        placeholder="Paste a URL (publisher/news/blog), DOI, ISBN, or a title…"
+                        value={lkInput}
+                        onChange={(e) => setLkInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") runLookup();
+                        }}
+                        onPaste={(e) =>
+                          pasteToTitleCase(e, (txt) => setLkInput(txt))
+                        }
+                      />
+                      <Btn
+                        className="border-amber-300 text-amber-800 bg-amber-100 hover:bg-amber-200"
+                        onClick={runLookup}
+                        disabled={lkBusy || !lkInput.trim()}
+                      >
+                        {lkBusy ? "Fetching…" : "Fetch"}
+                      </Btn>
+                      <Btn
+                        className="border-slate-300"
+                        onClick={() => {
+                          setLkInput("");
+                          setLkResults([]);
+                          setLkOpen(false);
+                        }}
+                      >
+                        Clear
+                      </Btn>
                     </div>
-                    <AuthorsEditor
-                      value={form.people}
-                      onChange={(people) => setForm((s) => ({ ...s, people }))}
-                      role="translator"
-                    />
+
+                    {lkOpen ? (
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                        <div className="text-xs text-slate-600 px-3 py-2 border-b bg-slate-50">
+                          {lkBusy
+                            ? "Looking up…"
+                            : lkResults.length
+                            ? `Candidates (${lkResults.length})`
+                            : "No candidates yet"}
+                        </div>
+                        <div className="max-h-[280px] overflow-auto divide-y">
+                          {lkBusy && lkResults.length === 0 ? (
+                            <>
+                              <div className="p-3 animate-pulse">
+                                <div className="h-4 w-3/4 bg-slate-200 rounded mb-1" />
+                                <div className="h-3 w-2/3 bg-slate-200 rounded mb-1" />
+                                <div className="h-3 w-1/3 bg-slate-200 rounded" />
+                              </div>
+                              <div className="p-3 animate-pulse">
+                                <div className="h-4 w-2/3 bg-slate-200 rounded mb-1" />
+                                <div className="h-3 w-1/2 bg-slate-200 rounded mb-1" />
+                                <div className="h-3 w-1/4 bg-slate-200 rounded" />
+                              </div>
+                            </>
+                          ) : (
+                            lkResults.map((c, idx) => {
+                              const r = c.csl || {};
+                              const authors =
+                                Array.isArray(r.author) && r.author.length
+                                  ? authorsToInline({ author: r.author }, 3)
+                                  : "—";
+                              const year = (r as any)?.issued?.[
+                                "date-parts"
+                              ]?.[0]?.[0];
+                              const idPart =
+                                r.DOI ||
+                                (Array.isArray(r.ISBN) ? r.ISBN[0] : r.ISBN) ||
+                                r.URL ||
+                                "";
+                              return (
+                                <div
+                                  key={idx}
+                                  className="p-3 flex items-start gap-3"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium text-slate-900 truncate">
+                                      {r.title || (
+                                        <span className="text-slate-400">
+                                          Untitled
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-slate-600 truncate">
+                                      {authors} • {r.type || "—"} •{" "}
+                                      {[r["container-title"], r.publisher, year]
+                                        .filter(Boolean)
+                                        .join(" • ")}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 truncate break-all">
+                                      {idPart}
+                                    </div>
+                                  </div>
+                                  <Btn
+                                    className="border-amber-300 text-amber-800 bg-amber-100 hover:bg-amber-200"
+                                    onClick={() => prefillFromCSL(r)}
+                                  >
+                                    Use
+                                  </Btn>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div className="flex gap-2">
-                    <Btn
-                      className="bg-emerald-600 text-white hover:bg-emerald-500"
-                      onClick={saveNewSource}
-                      disabled={savingNew}
-                    >
-                      {savingNew ? "Saving…" : "Save Source"}
-                    </Btn>
-                    <Btn onClick={() => setNewOpen(false)}>Cancel</Btn>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="text-sm font-semibold mb-2">
+                  {/* Quick Preview (same width) */}
+                  <div className="border border-sky-300 rounded-xl p-4 bg-sky-50">
+                    <div className="text-sm font-semibold mb-2 text-sky-900">
                       Quick Preview
                     </div>
-                    <div className="text-sm text-slate-700">
+                    <div className="text-sm text-sky-900">
                       <PreviewFromForm form={form} />
                     </div>
-                    <div className="text-xs text-slate-500 mt-2">
+                    <div className="text-xs text-sky-800 mt-2">
                       Styling is approximate; the site renderer will use CSL.
                     </div>
                   </div>
+                </div>
 
-                  <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                    <div className="text-sm font-semibold mb-2">
-                      CSL JSON (computed)
+                {/* Bottom row: metadata (left) + contributors (right) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Metadata */}
+                  <div className="lg:col-span-2 space-y-4 min-w-0">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field label="Title">
+                          <input
+                            className={inputStyles}
+                            value={form.title}
+                            onChange={(e) =>
+                              setForm((s) => ({ ...s, title: e.target.value }))
+                            }
+                            onPaste={(e) =>
+                              pasteToTitleCase(e, (txt) =>
+                                setForm((s) => ({ ...s, title: txt }))
+                              )
+                            }
+                            placeholder="The Forts of Sindh"
+                          />
+                        </Field>
+                        <Field label="Type">
+                          <select
+                            className={inputStyles}
+                            value={form.type}
+                            onChange={(e) =>
+                              setForm((s) => ({ ...s, type: e.target.value }))
+                            }
+                          >
+                            {TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+
+                        <Field label="Container (Journal / Book / Site)">
+                          <input
+                            className={inputStyles}
+                            value={form.container_title ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                container_title: e.target.value,
+                              }))
+                            }
+                            onPaste={(e) =>
+                              pasteToTitleCase(e, (txt) =>
+                                setForm((s) => ({
+                                  ...s,
+                                  container_title: txt,
+                                }))
+                              )
+                            }
+                            placeholder="Journal of South Asian Studies"
+                          />
+                        </Field>
+                        <Field label="Publisher / Institution">
+                          <input
+                            className={inputStyles}
+                            value={form.publisher ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                publisher: e.target.value,
+                              }))
+                            }
+                            onPaste={(e) =>
+                              pasteToTitleCase(e, (txt) =>
+                                setForm((s) => ({ ...s, publisher: txt }))
+                              )
+                            }
+                            placeholder="Oxford University Press"
+                          />
+                        </Field>
+
+                        <Field label="Year">
+                          <input
+                            className={inputStyles}
+                            value={form.year_int ? String(form.year_int) : ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                year_int: e.target.value
+                                  ? Number(
+                                      e.target.value
+                                        .replace(/\D/g, "")
+                                        .slice(0, 4)
+                                    )
+                                  : undefined,
+                              }))
+                            }
+                            placeholder="2022"
+                          />
+                        </Field>
+                        <Field label="DOI">
+                          <input
+                            className={inputStyles}
+                            value={form.doi ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                doi: e.target.value.trim(),
+                              }))
+                            }
+                            onBlur={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                doi: normalizeDoi(e.target.value),
+                              }))
+                            }
+                            placeholder="10.1234/abcd.5678"
+                          />
+                        </Field>
+
+                        <Field label="ISBN">
+                          <input
+                            className={inputStyles}
+                            value={form.isbn ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                isbn: e.target.value.trim(),
+                              }))
+                            }
+                            onBlur={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                isbn: normalizeIsbn(e.target.value),
+                              }))
+                            }
+                            placeholder="978-0-123456-47-2"
+                          />
+                        </Field>
+                        <Field label="ISSN">
+                          <input
+                            className={inputStyles}
+                            value={form.issn ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                issn: e.target.value.trim(),
+                              }))
+                            }
+                            placeholder="1234-5678"
+                          />
+                        </Field>
+
+                        <Field label="URL">
+                          <input
+                            className={inputStyles}
+                            value={form.url ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                url: e.target.value.trim(),
+                              }))
+                            }
+                            onBlur={(e) =>
+                              setForm((s) => ({
+                                ...s,
+                                url: normalizeUrl(e.target.value),
+                              }))
+                            }
+                            placeholder="https://example.com/article"
+                          />
+                        </Field>
+                        <Field label="Admin notes">
+                          <textarea
+                            className={inputStyles}
+                            rows={3}
+                            value={form.notes ?? ""}
+                            onChange={(e) =>
+                              setForm((s) => ({ ...s, notes: e.target.value }))
+                            }
+                            onPaste={(e) =>
+                              pasteToTitleCase(e, (txt) =>
+                                setForm((s) => ({ ...s, notes: txt }))
+                              )
+                            }
+                            placeholder="Internal note about this source."
+                          />
+                        </Field>
+                      </div>
                     </div>
-                    <pre className="text-xs bg-slate-50 p-3 rounded-md overflow-auto max-h-[360px]">
-                      {JSON.stringify(
-                        buildCSL({
-                          type: form.type,
-                          title: form.title,
-                          authors: form.people.filter(
-                            (p) => p.role === "author"
-                          ),
-                          editors: form.people.filter(
-                            (p) => p.role === "editor"
-                          ),
-                          translators: form.people.filter(
-                            (p) => p.role === "translator"
-                          ),
-                          container_title: form.container_title || undefined,
-                          publisher: form.publisher || undefined,
-                          year_int: form.year_int || undefined,
-                          doi: form.doi || undefined,
-                          isbn: form.isbn || undefined,
-                          issn: form.issn || undefined,
-                          url: form.url || undefined,
-                        }),
-                        null,
-                        2
-                      )}
-                    </pre>
+                  </div>
+
+                  {/* Contributors (right column) */}
+                  <div className="space-y-4 min-w-0">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <div className="text-sm font-semibold mb-3">Authors</div>
+                      <AuthorsEditor
+                        value={form.people}
+                        onChange={(people) =>
+                          setForm((s) => ({ ...s, people }))
+                        }
+                        role="author"
+                      />
+                    </div>
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <div className="text-sm font-semibold mb-3">Editors</div>
+                      <AuthorsEditor
+                        value={form.people}
+                        onChange={(people) =>
+                          setForm((s) => ({ ...s, people }))
+                        }
+                        role="editor"
+                      />
+                    </div>
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <div className="text-sm font-semibold mb-3">
+                        Translators
+                      </div>
+                      <AuthorsEditor
+                        value={form.people}
+                        onChange={(people) =>
+                          setForm((s) => ({ ...s, people }))
+                        }
+                        role="translator"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="px-4 py-3 bg-slate-50 border-t text-right">
+
+              {/* 🔻 Bottom fixed bar: action buttons always visible */}
+              <div className="px-4 py-3 bg-white border-t flex items-center justify-between">
+                <div className="flex flex-wrap gap-2">
+                  <Btn
+                    className="bg-emerald-600 text-white hover:bg-emerald-500"
+                    onClick={saveNewSource}
+                    disabled={savingNew}
+                  >
+                    {savingNew ? "Saving…" : "Save Source"}
+                  </Btn>
+                  <Btn
+                    className="bg-amber-100 text-amber-900 border border-amber-200 hover:bg-amber-200"
+                    onClick={resetNewSource}
+                  >
+                    Clear All
+                  </Btn>
+                  <Btn onClick={closeNewModal}>Cancel</Btn>
+                </div>
                 <a
                   href="/admin/bibliography"
                   target="_blank"
@@ -1122,6 +1526,102 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
       />
     </div>
   );
+
+  /* -------------------- internal helpers for modal -------------------- */
+  async function saveNewSource() {
+    try {
+      setSavingNew(true);
+
+      // Normalize identifiers
+      const doi = normalizeDoi(form.doi);
+      const isbn = normalizeIsbn(form.isbn);
+      const url = normalizeUrl(form.url);
+
+      // If it already exists, just attach
+      const existing = await findExistingByIds({
+        doi: doi || undefined,
+        isbn: isbn || undefined,
+        url: url || undefined,
+      });
+      if (existing) {
+        await attachOne(existing);
+        notify("Source already exists; attached to this listing.", "success");
+        closeNewModal();
+        return;
+      }
+
+      // Build CSL with normalized values
+      const csl = buildCSL({
+        type: form.type,
+        title: form.title,
+        authors: form.people.filter((p) => p.role === "author"),
+        editors: form.people.filter((p) => p.role === "editor"),
+        translators: form.people.filter((p) => p.role === "translator"),
+        container_title: form.container_title || undefined,
+        publisher: form.publisher || undefined,
+        year_int: form.year_int || undefined,
+        doi: doi || undefined,
+        isbn: isbn || undefined,
+        issn: form.issn || undefined,
+        url: url || undefined,
+      });
+
+      const { data, error } = await supabase
+        .from("bibliography_sources")
+        .insert([
+          {
+            title: form.title,
+            type: form.type,
+            container_title: form.container_title,
+            publisher: form.publisher,
+            year_int: form.year_int ?? null,
+            doi: doi || null,
+            isbn: isbn || null,
+            issn: form.issn,
+            url: url || null,
+            notes: form.notes,
+            csl,
+          },
+        ])
+        .select("id")
+        .single();
+
+      if (error) {
+        // Handle duplicate
+        if (
+          (error as any).code === "23505" ||
+          /duplicate key value/i.test(String(error?.message))
+        ) {
+          const recovered = await findExistingByIds({
+            doi: doi || undefined,
+            isbn: isbn || undefined,
+            url: url || undefined,
+          });
+          if (recovered) {
+            await attachOne(recovered);
+            notify(
+              "Source already existed; attached to this listing.",
+              "success"
+            );
+            closeNewModal();
+            return;
+          }
+        }
+        throw error;
+      }
+
+      notify("Source saved.", "success");
+      closeNewModal();
+
+      if (data?.id) {
+        await attachOne(data.id);
+      }
+    } catch (e: any) {
+      notify(`Could not save source. ${e?.message ?? ""}`, "error");
+    } finally {
+      setSavingNew(false);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1181,12 +1681,121 @@ function PreviewFromForm({
     .trim();
 
   return (
-    <div className="text-slate-800">
+    <div className="text-slate-800 break-words break-all">
       {authorStr ? authorStr + "." : ""}
       {year} <i>{form.title}</i>
       {editorStr}.{cont}
       {publ}
       {idents ? <span className="break-all">{idents}</span> : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* People editor (author/editor/translator)                            */
+/* ------------------------------------------------------------------ */
+function AuthorsEditor({
+  value,
+  onChange,
+  role,
+}: {
+  value: Person[];
+  onChange: (p: Person[]) => void;
+  role: Person["role"];
+}) {
+  const rows = value.filter((p) => p.role === role);
+  function updateAt(i: number, patch: Partial<Person>) {
+    const all = [...value];
+    const idx = all.findIndex((p) => p.role === role && i-- === 0);
+    if (idx >= 0) all[idx] = { ...all[idx], ...patch };
+    onChange(all);
+  }
+  function add(kind: Person["kind"]) {
+    onChange([...value, { role, kind }]);
+  }
+  function remove(i: number) {
+    let seen = -1;
+    onChange(value.filter((p) => !(p.role === role && ++seen === i)));
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((p, i) => (
+        <div
+          key={i}
+          className="rounded-md border border-slate-200 bg-white p-3"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-600">
+              {role.charAt(0).toUpperCase() + role.slice(1)} {i + 1}
+            </span>
+            <IconBtn
+              aria-label="Remove"
+              title="Remove"
+              onClick={() => remove(i)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9zm2 2h2V5h-2v0zM8 7h8v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V7z" />
+              </svg>
+            </IconBtn>
+          </div>
+
+          {/* Stacked fields for visibility */}
+          <div className="space-y-2">
+            <select
+              className={inputStyles}
+              value={p.kind}
+              onChange={(e) => updateAt(i, { kind: e.target.value as any })}
+            >
+              <option value="person">Person</option>
+              <option value="org">Organization</option>
+            </select>
+
+            {p.kind === "person" ? (
+              <>
+                <input
+                  className={inputStyles}
+                  placeholder="Family (Last)"
+                  value={p.family ?? ""}
+                  onChange={(e) => updateAt(i, { family: e.target.value })}
+                  onPaste={(e) =>
+                    pasteToTitleCase(e, (txt) => updateAt(i, { family: txt }))
+                  }
+                />
+                <input
+                  className={inputStyles}
+                  placeholder="Given (First)"
+                  value={p.given ?? ""}
+                  onChange={(e) => updateAt(i, { given: e.target.value })}
+                  onPaste={(e) =>
+                    pasteToTitleCase(e, (txt) => updateAt(i, { given: txt }))
+                  }
+                />
+              </>
+            ) : (
+              <input
+                className={inputStyles}
+                placeholder="Organization name"
+                value={p.literal ?? ""}
+                onChange={(e) => updateAt(i, { literal: e.target.value })}
+                onPaste={(e) =>
+                  pasteToTitleCase(e, (txt) => updateAt(i, { literal: txt }))
+                }
+              />
+            )}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex flex-wrap gap-2">
+        <Btn onClick={() => add("person")}>Add Person</Btn>
+        <Btn onClick={() => add("org")}>Add Organization</Btn>
+      </div>
     </div>
   );
 }
