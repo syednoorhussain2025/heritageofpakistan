@@ -8,6 +8,55 @@ import Icon from "@/components/Icon";
 import { supabase } from "@/lib/supabaseClient";
 import CitationWizard from "@/components/biblio/CitationWizard";
 
+/* ----------------------------- Helpers ----------------------------- */
+
+function toTitleCase(str: string): string {
+  if (!str) return "";
+  const minorWords = new Set([
+    "a",
+    "an",
+    "the",
+    "and",
+    "but",
+    "or",
+    "for",
+    "nor",
+    "on",
+    "at",
+    "to",
+    "from",
+    "by",
+    "of",
+    "in",
+    "with",
+  ]);
+
+  return str
+    .split(" ")
+    .map((word, index) => {
+      if (word === "") return "";
+
+      if (word.length > 1 && word === word.toUpperCase()) {
+        return word; // Preserve acronyms
+      }
+
+      const lowerWord = word.toLowerCase();
+      if (index > 0 && minorWords.has(lowerWord)) {
+        return lowerWord;
+      }
+      return lowerWord.charAt(0).toUpperCase() + lowerWord.slice(1);
+    })
+    .join(" ");
+}
+
+function toNameCase(str: string): string {
+  if (!str) return "";
+  return str
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join("-");
+}
+
 /* ----------------------------- Types ----------------------------- */
 
 type Person = {
@@ -366,7 +415,9 @@ function AuthorsEditor({ value, onChange, role }: PersonEditorProps) {
                 <input
                   className={inputStyle}
                   value={p.given ?? ""}
-                  onChange={(e) => update(idx, { given: e.target.value })}
+                  onChange={(e) =>
+                    update(idx, { given: toNameCase(e.target.value) })
+                  }
                   placeholder="Ayesha"
                 />
               </Field>
@@ -374,7 +425,9 @@ function AuthorsEditor({ value, onChange, role }: PersonEditorProps) {
                 <input
                   className={inputStyle}
                   value={p.family ?? ""}
-                  onChange={(e) => update(idx, { family: e.target.value })}
+                  onChange={(e) =>
+                    update(idx, { family: toNameCase(e.target.value) })
+                  }
                   placeholder="Malik"
                 />
               </Field>
@@ -384,7 +437,9 @@ function AuthorsEditor({ value, onChange, role }: PersonEditorProps) {
               <input
                 className={inputStyle}
                 value={p.literal ?? ""}
-                onChange={(e) => update(idx, { literal: e.target.value })}
+                onChange={(e) =>
+                  update(idx, { literal: toTitleCase(e.target.value) })
+                }
                 placeholder="UNESCO World Heritage Centre"
               />
             </Field>
@@ -416,6 +471,9 @@ export default function BibliographyManagerPage() {
   // data
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 50;
 
   // list filters
   const [query, setQuery] = useState("");
@@ -536,6 +594,9 @@ export default function BibliographyManagerPage() {
 
   const load = async () => {
     setBusy(true);
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let q = supabase
       .from("bibliography_sources")
       .select(
@@ -543,7 +604,7 @@ export default function BibliographyManagerPage() {
         { count: "exact" }
       )
       .order("updated_at", { ascending: false })
-      .limit(100);
+      .range(from, to);
 
     const trimmedQuery = query.trim();
     if (trimmedQuery) {
@@ -555,7 +616,7 @@ export default function BibliographyManagerPage() {
     if (type) q = q.eq("type", type);
     if (year) q = q.eq("year_int", Number(year));
 
-    const { data, error } = await q;
+    const { data, error, count } = await q;
     setBusy(false);
     if (error) {
       console.error(error);
@@ -563,12 +624,13 @@ export default function BibliographyManagerPage() {
       return;
     }
     setRows((data as Row[]) ?? []);
+    setTotal(count ?? 0);
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, type, year]);
+  }, [query, type, year, page]);
 
   /* ----------------------- Title suggestions (typeahead) ----------------------- */
 
@@ -906,10 +968,10 @@ export default function BibliographyManagerPage() {
 
     setForm((s) => ({
       ...s,
-      title,
+      title: toTitleCase(title),
       type,
-      container_title: container,
-      publisher,
+      container_title: toTitleCase(container),
+      publisher: toTitleCase(publisher),
       year_int: year,
       doi,
       isbn,
@@ -1009,6 +1071,7 @@ export default function BibliographyManagerPage() {
                   title="Clear search"
                   onClick={() => {
                     setQuery("");
+                    if (page !== 0) setPage(0);
                     setTitleSuggestions([]);
                     setSuggestOpen(false);
                   }}
@@ -1024,6 +1087,7 @@ export default function BibliographyManagerPage() {
                 onChange={async (e) => {
                   const v = e.target.value;
                   setQuery(v);
+                  if (page !== 0) setPage(0);
                   await fetchTitleSuggestions(v);
                 }}
                 onFocus={() => {
@@ -1042,6 +1106,7 @@ export default function BibliographyManagerPage() {
                         className="block w-full text-left px-3 py-2 hover:bg-amber-50"
                         onClick={() => {
                           setQuery(s.title);
+                          if (page !== 0) setPage(0);
                           setSuggestOpen(false);
                         }}
                       >
@@ -1057,7 +1122,10 @@ export default function BibliographyManagerPage() {
             <select
               className={inputStyle + " lg:col-span-1"}
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => {
+                setType(e.target.value);
+                if (page !== 0) setPage(0);
+              }}
             >
               <option value="">All types</option>
               {TYPES.map((t) => (
@@ -1072,9 +1140,10 @@ export default function BibliographyManagerPage() {
               className={inputStyle + " lg:col-span-1"}
               placeholder="Year"
               value={year}
-              onChange={(e) =>
-                setYear(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
+              onChange={(e) => {
+                setYear(e.target.value.replace(/\D/g, "").slice(0, 4));
+                if (page !== 0) setPage(0);
+              }}
             />
 
             {/* Author filter (closed by default; opens when typing) */}
@@ -1112,6 +1181,7 @@ export default function BibliographyManagerPage() {
                           setAuthorFilter(a === authorFilter ? "" : a);
                           setAuthorQuery("");
                           setAuthorOpen(false);
+                          if (page !== 0) setPage(0);
                         }}
                       >
                         {a}
@@ -1125,133 +1195,160 @@ export default function BibliographyManagerPage() {
 
         {/* List */}
         {!editing ? (
-          <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto">
-            <table className="w-full text-xs table-fixed">
-              <thead className="bg-slate-50">
-                <tr className="text-left text-slate-600">
-                  <th className="px-3 py-2 w-[56px]">#</th>
-                  <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2 w-[8rem]">Type</th>
-                  <th className="px-3 py-2 w-[22%]">Author(s)</th>
-                  <th className="px-3 py-2 w-[6rem]">Year</th>
-                  <th className="px-3 py-2 w-[22%]">Publisher</th>
-                  <th className="px-3 py-2 w-[110px]"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.length === 0 ? (
-                  <tr>
-                    <td
-                      className="px-3 py-6 text-center text-slate-500"
-                      colSpan={7}
-                    >
-                      No results.
-                    </td>
+          <>
+            <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto">
+              <table className="w-full text-xs table-fixed">
+                <thead className="bg-slate-50">
+                  <tr className="text-left text-slate-600">
+                    <th className="px-3 py-2 w-[56px]">#</th>
+                    <th className="px-3 py-2">Title</th>
+                    <th className="px-3 py-2 w-[8rem]">Type</th>
+                    <th className="px-3 py-2 w-[22%]">Author(s)</th>
+                    <th className="px-3 py-2 w-[6rem]">Year</th>
+                    <th className="px-3 py-2 w-[22%]">Publisher</th>
+                    <th className="px-3 py-2 w-[110px]"></th>
                   </tr>
-                ) : (
-                  list.map((r, i) => {
-                    const idx = i + 1;
-                    return (
-                      <tr
-                        key={r.id}
-                        className="border-t border-slate-200 cursor-pointer hover:bg-amber-50"
-                        onClick={() => startEdit(r)}
-                        role="button"
+                </thead>
+                <tbody>
+                  {list.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-3 py-6 text-center text-slate-500"
+                        colSpan={7}
                       >
-                        {/* Serial */}
-                        <td className="px-3 py-2 align-top text-slate-500">
-                          {idx}
-                        </td>
+                        {busy ? "Loading..." : "No results."}
+                      </td>
+                    </tr>
+                  ) : (
+                    list.map((r, i) => {
+                      const idx = page * PAGE_SIZE + i + 1;
+                      return (
+                        <tr
+                          key={r.id}
+                          className="border-t border-slate-200 cursor-pointer hover:bg-amber-50"
+                          onClick={() => startEdit(r)}
+                          role="button"
+                        >
+                          {/* Serial */}
+                          <td className="px-3 py-2 align-top text-slate-500">
+                            {idx}
+                          </td>
 
-                        {/* Title */}
-                        <td className="px-3 py-2 align-top">
-                          <div className="font-medium text-slate-900 whitespace-normal break-words">
-                            {r.title || (
-                              <span className="text-slate-400">Untitled</span>
-                            )}
-                          </div>
-                        </td>
+                          {/* Title */}
+                          <td className="px-3 py-2 align-top">
+                            <div className="font-medium text-slate-900 whitespace-normal break-words">
+                              {r.title || (
+                                <span className="text-slate-400">Untitled</span>
+                              )}
+                            </div>
+                          </td>
 
-                        {/* Type column */}
-                        <td className="px-3 py-2 align-top">
-                          {r.type ? (
-                            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-medium">
-                              {r.type}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-
-                        {/* Authors */}
-                        <td className="px-3 py-2 align-top">
-                          <div className="text-slate-700 whitespace-normal break-words">
-                            {authorsToInline(r.csl, 5) || (
+                          {/* Type column */}
+                          <td className="px-3 py-2 align-top">
+                            {r.type ? (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-medium">
+                                {r.type}
+                              </span>
+                            ) : (
                               <span className="text-slate-400">—</span>
                             )}
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Year */}
-                        <td className="px-3 py-2 align-top">
-                          {r.year_int ?? ""}
-                        </td>
+                          {/* Authors */}
+                          <td className="px-3 py-2 align-top">
+                            <div className="text-slate-700 whitespace-normal break-words">
+                              {authorsToInline(r.csl, 5) || (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </div>
+                          </td>
 
-                        {/* Publisher */}
-                        <td className="px-3 py-2 align-top">
-                          <div className="whitespace-normal break-words">
-                            {r.publisher}
-                          </div>
-                        </td>
+                          {/* Year */}
+                          <td className="px-3 py-2 align-top">
+                            {r.year_int ?? ""}
+                          </td>
 
-                        {/* Actions */}
-                        <td
-                          className="px-3 py-2 align-top"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex gap-1.5 justify-end">
-                            <IconBtn
-                              title="Linked sites"
-                              onClick={() => openSites(r)}
-                              className="border-slate-300"
-                            >
-                              <Icon
-                                name="list-ol"
-                                size={15}
-                                className="text-amber-700"
-                              />
-                            </IconBtn>
-                            <IconBtn
-                              title="Edit details"
-                              onClick={() => startEdit(r)}
-                              className="border-slate-300"
-                            >
-                              <Icon
-                                name="info"
-                                size={15}
-                                className="text-blue-700"
-                              />
-                            </IconBtn>
-                            <IconBtn
-                              title="Delete"
-                              onClick={() => remove(r.id)}
-                              className="border-slate-300"
-                            >
-                              <Icon
-                                name="trash"
-                                size={15}
-                                className="text-red-600"
-                              />
-                            </IconBtn>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          {/* Publisher */}
+                          <td className="px-3 py-2 align-top">
+                            <div className="whitespace-normal break-words">
+                              {r.publisher}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td
+                            className="px-3 py-2 align-top"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex gap-1.5 justify-end">
+                              <IconBtn
+                                title="Linked sites"
+                                onClick={() => openSites(r)}
+                                className="border-slate-300"
+                              >
+                                <Icon
+                                  name="list-ol"
+                                  size={15}
+                                  className="text-amber-700"
+                                />
+                              </IconBtn>
+                              <IconBtn
+                                title="Edit details"
+                                onClick={() => startEdit(r)}
+                                className="border-slate-300"
+                              >
+                                <Icon
+                                  name="info"
+                                  size={15}
+                                  className="text-blue-700"
+                                />
+                              </IconBtn>
+                              <IconBtn
+                                title="Delete"
+                                onClick={() => remove(r.id)}
+                                className="border-slate-300"
+                              >
+                                <Icon
+                                  name="trash"
+                                  size={15}
+                                  className="text-red-600"
+                                />
+                              </IconBtn>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {total > PAGE_SIZE ? (
+              <div className="mt-4 flex items-center justify-between text-xs">
+                <div>
+                  Showing {page * PAGE_SIZE + 1} -{" "}
+                  {Math.min((page + 1) * PAGE_SIZE, total)} of {total} results
+                </div>
+                <div className="flex gap-2">
+                  <Btn
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="border-slate-300"
+                  >
+                    Previous
+                  </Btn>
+                  <Btn
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={(page + 1) * PAGE_SIZE >= total}
+                    className="border-slate-300"
+                  >
+                    Next
+                  </Btn>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {/* Editor (detail) */}
@@ -1379,7 +1476,10 @@ export default function BibliographyManagerPage() {
                       className={inputStyle}
                       value={form.title}
                       onChange={(e) =>
-                        setForm((s) => ({ ...s, title: e.target.value }))
+                        setForm((s) => ({
+                          ...s,
+                          title: toTitleCase(e.target.value),
+                        }))
                       }
                       placeholder="The Forts of Sindh"
                     />
@@ -1407,7 +1507,7 @@ export default function BibliographyManagerPage() {
                       onChange={(e) =>
                         setForm((s) => ({
                           ...s,
-                          container_title: e.target.value,
+                          container_title: toTitleCase(e.target.value),
                         }))
                       }
                       placeholder="Journal of South Asian Studies"
@@ -1418,7 +1518,10 @@ export default function BibliographyManagerPage() {
                       className={inputStyle}
                       value={form.publisher ?? ""}
                       onChange={(e) =>
-                        setForm((s) => ({ ...s, publisher: e.target.value }))
+                        setForm((s) => ({
+                          ...s,
+                          publisher: toTitleCase(e.target.value),
+                        }))
                       }
                       placeholder="Oxford University Press"
                     />
@@ -1489,7 +1592,10 @@ export default function BibliographyManagerPage() {
                       rows={3}
                       value={form.notes ?? ""}
                       onChange={(e) =>
-                        setForm((s) => ({ ...s, notes: e.target.value }))
+                        setForm((s) => ({
+                          ...s,
+                          notes: toTitleCase(e.target.value),
+                        }))
                       }
                       placeholder="Internal note about how this source is used."
                     />
