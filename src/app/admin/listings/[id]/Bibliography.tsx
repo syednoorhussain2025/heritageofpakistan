@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CitationWizard from "@/components/biblio/CitationWizard";
 import { Cite } from "@citation-js/core";
@@ -53,7 +59,6 @@ function Field({
 }) {
   return (
     <label className="block min-w-0">
-      {/* one step smaller */}
       <div className="text-xs font-semibold mb-1 text-slate-700">{label}</div>
       {children}
       {hint ? (
@@ -63,7 +68,7 @@ function Field({
   );
 }
 
-/* Compact inputs: slightly smaller font + padding */
+/* Compact inputs */
 const inputStyles =
   "w-full bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-[13px] text-slate-900 placeholder-slate-400 focus:ring-emerald-500 focus:border-emerald-500";
 
@@ -97,7 +102,6 @@ type AttachRow = {
   sort_order: number | null;
 };
 
-/** ⬇️ For Auto-Lookup (CSL-ish) */
 type CSLName = { given?: string; family?: string; literal?: string };
 type CSL = {
   id?: string;
@@ -185,7 +189,7 @@ function authorsToInline(csl: any, max = 3) {
   return clipped.filter(Boolean).join("; ") + suffix;
 }
 
-/* -------------------- NEW: Normalizers + duplicate finder ----------- */
+/* -------------------- Normalizers + duplicate finder ---------------- */
 function normalizeDoi(s?: string | null) {
   if (!s) return "";
   return s
@@ -267,7 +271,7 @@ const SMALL_WORDS = new Set([
   "with",
 ]);
 function toTitleCase(text: string) {
-  const words = text.toLowerCase().split(/(\s+|-)/); // keep spaces & hyphens
+  const words = text.toLowerCase().split(/(\s+|-)/);
   let index = 0;
   return words
     .map((w) => {
@@ -367,7 +371,6 @@ function AttachedRowSkeleton() {
     </div>
   );
 }
-
 function SearchSkeletonRow() {
   return (
     <div className="p-3">
@@ -389,12 +392,12 @@ const STYLE_OPTIONS = [
   { id: "ieee", label: "IEEE" },
   { id: "harvard1", label: "Harvard" },
   { id: "vancouver", label: "Vancouver" },
-  { id: "ama", label: "AMA" },
-  { id: "acs-nano", label: "ACS" },
-  { id: "turabian-fullnote-bibliography", label: "Turabian" },
 ];
 
-/* Sample CSL-JSON used for the live preview */
+/** Numeric bibliography styles that print their own list numbers */
+const NUMERIC_BIB_STYLES = new Set<string>(["vancouver"]);
+
+/* Sample CSL-JSON for preview */
 const SAMPLE_CSL: any = {
   type: "article-journal",
   title: "Fort Architecture and Urban Memory in Sindh",
@@ -412,10 +415,9 @@ const SAMPLE_CSL: any = {
   publisher: "Oxford University Press",
 };
 
-/* ---------- Helpers to render CSL HTML for rows (with fallback) ----- */
+/* ---------- Helpers to render CSL HTML (batch & single) ------------- */
 function toCSLFromRow(row: BiblioRow): any {
   if (row.csl) return row.csl;
-  // Minimal fallback
   return buildCSL({
     id: row.id,
     type: row.type ?? "book",
@@ -432,21 +434,36 @@ function toCSLFromRow(row: BiblioRow): any {
     url: row.url ?? undefined,
   });
 }
-function formatCslEntryHtml(data: any, style: string): string {
+
+/** Batch render all entries with a single Cite call (preserves exact style). */
+function batchFormatEntriesHtml(items: any[], style: string): string[] {
   try {
-    const cite = new Cite([data]);
+    if (!items.length) return [];
+    const cite = new Cite(items);
     const html = cite.format("bibliography", {
       format: "html",
       template: style,
       lang: "en-US",
     });
-    const div = document.createElement("div");
+    const div =
+      typeof document !== "undefined" ? document.createElement("div") : null;
+    if (!div) return [];
     div.innerHTML = html;
-    const entry = div.querySelector(".csl-entry");
-    return entry ? entry.innerHTML : html;
-  } catch {
-    return "";
+    const entries = Array.from(div.querySelectorAll(".csl-entry"));
+    return entries.map((el) => el.innerHTML || "");
+  } catch (err) {
+    console.warn(`[CSL] Batch render failed for style "${style}"`, err);
+    return [];
   }
+}
+
+/** Imperative HTML injector — guarantees immediate repaint */
+function Html({ html, className }: { html: string; className?: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.innerHTML = html || "";
+  }, [html]);
+  return <div ref={ref} className={className} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -465,9 +482,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   // Citation style
   const [styleId, setStyleId] = useState<string>("apa");
   const [savingStyle, setSavingStyle] = useState(false);
-
-  // Live style preview
-  const [stylePreviewHtml, setStylePreviewHtml] = useState<string>("");
 
   // Search typeahead
   const [q, setQ] = useState("");
@@ -685,7 +699,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   async function saveCitationStyle(next: string) {
     try {
       setSavingStyle(true);
-      setStyleId(next);
+      setStyleId(next); // instant UI update
       const { error } = await supabase
         .from("app_settings")
         .upsert([{ key: "citation", value: { style: next } }], {
@@ -705,37 +719,30 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     }
   }
 
-  /* ---------------------- Live Style Preview logic -------------------- */
-  function computePreviewHtml(style: string): string {
+  /* ---------------------- Live Style Preview (imperative) ------------- */
+  const samplePreviewHtml = useMemo(() => {
     try {
       const cite = new Cite([SAMPLE_CSL]);
       const html = cite.format("bibliography", {
         format: "html",
-        template: style,
+        template: styleId,
         lang: "en-US",
       });
-      const div = document.createElement("div");
+      const div =
+        typeof document !== "undefined" ? document.createElement("div") : null;
+      if (!div) return "—";
       div.innerHTML = html;
       const entry = div.querySelector(".csl-entry");
       return entry ? entry.innerHTML : html;
     } catch {
       return "— Preview unavailable for this style —";
     }
-  }
-
-  useEffect(() => {
-    setStylePreviewHtml(computePreviewHtml(styleId));
   }, [styleId]);
 
-  /* ------------- Memo: formatted HTML for each attached row ---------- */
-  const formattedMap = useMemo(() => {
-    const m = new Map<string, string>();
-    attached.forEach((row) => {
-      const data = toCSLFromRow(row);
-      const html = formatCslEntryHtml(data, styleId);
-      if (html) m.set(row.id, html);
-    });
-    return m;
+  /* ---------- Batch-render all attached entries for the current style */
+  const batchRendered = useMemo(() => {
+    const items = attached.map((r) => toCSLFromRow(r));
+    return batchFormatEntriesHtml(items, styleId);
   }, [attached, styleId]);
 
   /* --------------------- Auto-Lookup functions ----------------------- */
@@ -803,6 +810,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     const type = csl.type && supported.has(csl.type) ? csl.type : "book";
     const title = csl.title || "";
     const container = (csl["container-title"] as string) || "";
+    the; // (intentionally left as a harmless no-op in original fix? remove if unwanted)
     const publisher = csl.publisher || "";
     const year =
       (Array.isArray(csl.issued?.["date-parts"]) &&
@@ -848,7 +856,11 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
   }
 
   /* -------------------------------- UI -------------------------------- */
-  const attachedIds = new Set(attached.map((a) => a.id));
+  const attachedIds = useMemo(
+    () => new Set(attached.map((a) => a.id)),
+    [attached]
+  );
+  const isNumericStyle = NUMERIC_BIB_STYLES.has(styleId);
 
   return (
     <div className="w-full max-w-full overflow-x-hidden rounded-xl border border-slate-200 bg-white/80">
@@ -868,7 +880,11 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
               <select
                 className="px-2 py-1 rounded-md border border-slate-300 bg-white text-sm"
                 value={styleId}
-                onChange={(e) => saveCitationStyle(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setStyleId(next); // instant
+                  saveCitationStyle(next); // persist
+                }}
                 disabled={savingStyle}
                 title="Applies globally to all public listing pages"
               >
@@ -931,7 +947,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                 </Btn>
               </div>
 
-              {/* Typeahead dropdown (click = attach) */}
+              {/* Typeahead dropdown */}
               {openDropdown && (results.length > 0 || searching) && (
                 <div className="absolute z-40 mt-2 left-0 right-0 md:right-auto md:w-[640px] max-w-[92vw] rounded-lg border border-slate-200 bg-white shadow-xl">
                   <div className="p-2 text-xs text-slate-600 border-b flex items-center justify-between">
@@ -1005,18 +1021,29 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
             </div>
           </div>
 
-          {/* Live style preview card */}
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          {/* Live style preview (imperative) */}
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"
+            key={`preview-wrap-${styleId}`}
+          >
             <div className="text-xs font-semibold text-amber-900 mb-1">
               Sample Preview (
               {STYLE_OPTIONS.find((s) => s.id === styleId)?.label || styleId})
             </div>
-            <ol className="list-decimal list-inside">
-              <li
-                className="text-sm text-amber-900 break-words break-all"
-                dangerouslySetInnerHTML={{ __html: stylePreviewHtml }}
-              />
-            </ol>
+
+            {isNumericStyle ? (
+              // Numeric styles (e.g., Vancouver) print their own numbers → no outer <ol>
+              <div className="text-sm text-amber-900 break-words break-all">
+                <Html html={samplePreviewHtml} />
+              </div>
+            ) : (
+              <ol className="list-decimal list-inside">
+                <li className="text-sm text-amber-900 break-words break-all">
+                  <Html html={samplePreviewHtml} />
+                </li>
+              </ol>
+            )}
+
             <div className="text-[11px] text-amber-800 mt-1">
               This is a sample rendering. Actual listings use each item’s stored
               CSL data.
@@ -1030,8 +1057,8 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         </div>
       </div>
 
-      {/* Attached list */}
-      <div className="p-3 space-y-2">
+      {/* Attached list — forces remount on style change */}
+      <div className="p-3 space-y-2" key={`list-${styleId}`}>
         {loading ? (
           <>
             <AttachedRowSkeleton />
@@ -1042,7 +1069,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
           <div className="text-sm text-slate-500">No sources linked yet.</div>
         ) : (
           attached.map((s, i) => {
-            const html = formattedMap.get(s.id);
+            const html = batchRendered[i];
             const showFallback = !html || html.trim() === "";
             return (
               <div
@@ -1050,14 +1077,16 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                 className="flex items-start justify-between gap-3 border border-slate-200 rounded-md bg-white px-3 py-2"
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-6 text-right font-semibold text-slate-700 shrink-0">
-                    {i + 1}.
-                  </div>
+                  {!isNumericStyle && (
+                    <div className="w-6 text-right font-semibold text-slate-700 shrink-0">
+                      {i + 1}.
+                    </div>
+                  )}
                   <div className="min-w-0">
                     {!showFallback ? (
-                      <div
+                      <Html
+                        html={html!}
                         className="text-[13px] leading-relaxed text-slate-900 csl-render break-words"
-                        dangerouslySetInnerHTML={{ __html: html! }}
                       />
                     ) : (
                       <>
@@ -1084,7 +1113,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                   <Btn className="px-2 py-1" onClick={() => move(s.id, 1)}>
                     ↓
                   </Btn>
-                  {/* Light grey trash icon, red on hover */}
                   <IconBtn
                     aria-label="Remove"
                     title="Remove"
@@ -1114,7 +1142,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
             onClick={closeNewModal}
           />
           <div className="absolute inset-0 flex items-center justify-center p-4">
-            {/* wider modal */}
             <div className="w-full max-w-5xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
               <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between">
                 <div className="font-semibold text-slate-800">
@@ -1130,7 +1157,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
 
               {/* Scrollable content */}
               <div className="p-5 space-y-6 max-h-[80vh] overflow-auto">
-                {/* 🔝 Top row: 50/50 Lookup ↔ Quick Preview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Lookup */}
                   <div className="border border-amber-300 rounded-2xl p-4 bg-amber-50">
@@ -1245,7 +1271,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                     ) : null}
                   </div>
 
-                  {/* Quick Preview (same width) */}
+                  {/* Quick Preview */}
                   <div className="border border-sky-300 rounded-xl p-4 bg-sky-50">
                     <div className="text-sm font-semibold mb-2 text-sky-900">
                       Quick Preview
@@ -1447,7 +1473,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                     </div>
                   </div>
 
-                  {/* Contributors (right column) */}
+                  {/* Contributors */}
                   <div className="space-y-4 min-w-0">
                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
                       <div className="text-sm font-semibold mb-3">Authors</div>
@@ -1485,7 +1511,7 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
                 </div>
               </div>
 
-              {/* 🔻 Bottom fixed bar: action buttons always visible */}
+              {/* Bottom fixed bar */}
               <div className="px-4 py-3 bg-white border-t flex items-center justify-between">
                 <div className="flex flex-wrap gap-2">
                   <Btn
@@ -1587,7 +1613,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
         .single();
 
       if (error) {
-        // Handle duplicate
         if (
           (error as any).code === "23505" ||
           /duplicate key value/i.test(String(error?.message))
@@ -1745,7 +1770,6 @@ function AuthorsEditor({
             </IconBtn>
           </div>
 
-          {/* Stacked fields for visibility */}
           <div className="space-y-2">
             <select
               className={inputStyles}

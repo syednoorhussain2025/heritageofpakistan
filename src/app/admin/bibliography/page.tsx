@@ -481,6 +481,13 @@ export default function BibliographyManagerPage() {
   const [year, setYear] = useState<string>("");
   const [authorFilter, setAuthorFilter] = useState<string>(""); // selected author literal
 
+  // site filter
+  const [allSites, setAllSites] = useState<SiteRow[]>([]);
+  const [siteFilter, setSiteFilter] = useState<string>(""); // selected site ID
+  const [siteFilterQuery, setSiteFilterQuery] = useState("");
+  const [siteFilterOpen, setSiteFilterOpen] = useState(false);
+  const siteFilterRef = useRef<HTMLDivElement | null>(null);
+
   // title suggestions (robust search box)
   const [titleSuggestions, setTitleSuggestions] = useState<
     { id: string; title: string }[]
@@ -597,6 +604,32 @@ export default function BibliographyManagerPage() {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
+    let biblioIds: string[] | null = null;
+    if (siteFilter) {
+      const { data: links, error: linkError } = await supabase
+        .from("listing_bibliography")
+        .select("biblio_id")
+        .eq("listing_id", siteFilter);
+
+      if (linkError) {
+        console.error(linkError);
+        notify(
+          "Failed to fetch bibliography links for the selected site.",
+          "error"
+        );
+        setBusy(false);
+        return;
+      }
+
+      biblioIds = (links ?? []).map((l: any) => l.biblio_id);
+      if (biblioIds.length === 0) {
+        setRows([]);
+        setTotal(0);
+        setBusy(false);
+        return;
+      }
+    }
+
     let q = supabase
       .from("bibliography_sources")
       .select(
@@ -605,6 +638,10 @@ export default function BibliographyManagerPage() {
       )
       .order("updated_at", { ascending: false })
       .range(from, to);
+
+    if (biblioIds) {
+      q = q.in("id", biblioIds);
+    }
 
     const trimmedQuery = query.trim();
     if (trimmedQuery) {
@@ -630,7 +667,25 @@ export default function BibliographyManagerPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, type, year, page]);
+  }, [query, type, year, page, siteFilter]);
+
+  // Fetch all sites for the filter dropdown on mount
+  useEffect(() => {
+    async function fetchSites() {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id, title, slug")
+        .order("title");
+      if (error) {
+        console.error(error);
+        notify("Failed to load sites for filter.", "error");
+      } else {
+        setAllSites((data as SiteRow[]) ?? []);
+      }
+    }
+    fetchSites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ----------------------- Title suggestions (typeahead) ----------------------- */
 
@@ -988,11 +1043,18 @@ export default function BibliographyManagerPage() {
   // derived UI
   const list = filteredRows;
 
-  // close author dropdown on outside click
+  // close dropdowns on outside click
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (!authorRef.current) return;
-      if (!authorRef.current.contains(e.target as any)) setAuthorOpen(false);
+      if (authorRef.current && !authorRef.current.contains(e.target as any)) {
+        setAuthorOpen(false);
+      }
+      if (
+        siteFilterRef.current &&
+        !siteFilterRef.current.contains(e.target as any)
+      ) {
+        setSiteFilterOpen(false);
+      }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -1062,7 +1124,7 @@ export default function BibliographyManagerPage() {
 
         {/* Filters / Search */}
         {!editing ? (
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-8 gap-3 mb-5">
             {/* Title search with suggestions & "Clear" arrow above when searching */}
             <div className="relative lg:col-span-3" ref={suggestRef}>
               {query.trim() ? (
@@ -1187,6 +1249,84 @@ export default function BibliographyManagerPage() {
                         {a}
                       </button>
                     ))}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Site Filter Dropdown */}
+            <div className="relative lg:col-span-2" ref={siteFilterRef}>
+              <button
+                className={
+                  inputStyle +
+                  " text-left w-full flex justify-between items-center"
+                }
+                onClick={() => setSiteFilterOpen(!siteFilterOpen)}
+              >
+                <span
+                  className={siteFilter ? "text-slate-900" : "text-slate-400"}
+                >
+                  {siteFilter
+                    ? allSites.find((s) => s.id === siteFilter)?.title ??
+                      "Filter by site..."
+                    : "Filter by site..."}
+                </span>
+                <Icon
+                  name="chevron-down"
+                  size={14}
+                  className="text-slate-500"
+                />
+              </button>
+              {siteFilter && (
+                <button
+                  className="absolute -top-5 right-0 text-slate-600 hover:text-slate-900 inline-flex items-center justify-center text-xs"
+                  title="Clear site filter"
+                  onClick={() => {
+                    setSiteFilter("");
+                    setSiteFilterQuery("");
+                    setSiteFilterOpen(false);
+                    if (page !== 0) setPage(0);
+                  }}
+                >
+                  <Icon name="arrow-up" /> Clear
+                </button>
+              )}
+              {siteFilterOpen ? (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+                  <div className="p-2 border-b">
+                    <input
+                      className={inputStyle}
+                      placeholder="Search sites..."
+                      value={siteFilterQuery}
+                      onChange={(e) => setSiteFilterQuery(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-auto">
+                    {(allSites || [])
+                      .filter((s) =>
+                        siteFilterQuery
+                          ? s.title
+                              .toLowerCase()
+                              .includes(siteFilterQuery.toLowerCase())
+                          : true
+                      )
+                      .map((s) => (
+                        <button
+                          key={s.id}
+                          className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-amber-50 ${
+                            s.id === siteFilter ? "bg-amber-100" : ""
+                          }`}
+                          onClick={() => {
+                            setSiteFilter(s.id);
+                            setSiteFilterQuery("");
+                            setSiteFilterOpen(false);
+                            if (page !== 0) setPage(0);
+                          }}
+                        >
+                          {s.title}
+                        </button>
+                      ))}
+                  </div>
                 </div>
               ) : null}
             </div>

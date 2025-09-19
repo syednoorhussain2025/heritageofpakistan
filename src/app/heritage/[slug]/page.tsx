@@ -16,6 +16,10 @@ import StickyHeader from "@/components/StickyHeader";
 import CollectHeart from "@/components/CollectHeart";
 import { saveResearchNote } from "@/lib/notebook";
 
+// NEW: CSL renderer imports
+import { Cite } from "@citation-js/core";
+import "@citation-js/plugin-csl";
+
 /* ───────────── UI helpers ───────────── */
 
 function IconChip({
@@ -286,35 +290,84 @@ type ImageRow = {
   sort_order: number;
   publicUrl?: string | null;
 };
-type Bibliography = {
+
+// What we actually render publicly now
+type PublicBiblioItem = {
   id: string;
-  site_id: string;
-  title?: string | null;
-  authors?: string | null;
-  year?: string | null;
-  publisher_or_site?: string | null;
-  url?: string | null;
-  notes?: string | null;
+  csl: any; // CSL JSON object (normalized)
+  note?: string | null; // optional listing_bibliography.note to append
   sort_order: number;
 };
 
-/* ───────────── Helpers (bibliography join + CSL) ───────────── */
+/* ───────────── CSL helpers ───────────── */
 
-function authorsFromCSL(csl: any, max = 4): string | null {
-  if (!csl || !Array.isArray(csl.author) || csl.author.length === 0)
-    return null;
-  const names = csl.author.map((a: any) =>
-    a?.family || a?.given
-      ? [a.family, a.given].filter(Boolean).join(", ")
-      : a?.literal || ""
-  );
-  const clipped = names.slice(0, max).filter(Boolean);
-  if (clipped.length === 0) return null;
-  return clipped.join("; ") + (names.length > max ? " et al." : "");
+// Build a minimal CSL object if the source lacked one
+function buildFallbackCSL(src: any): any {
+  const out: any = {
+    id: src?.id,
+    type: src?.type || "book",
+    title: src?.title || "",
+  };
+  if (src?.authors) {
+    // crude parse if authors is a plain string
+    out.author = String(src.authors)
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((full: string) => {
+        const [family, given] = full.split(",").map((x) => x.trim());
+        return family || given
+          ? { family: family || undefined, given }
+          : { literal: full };
+      });
+  }
+  if (src?.publisher_or_site) out.publisher = src.publisher_or_site;
+  if (src?.url) out.URL = src.url;
+  if (src?.year)
+    out.issued = {
+      "date-parts": [[Number(src.year) || new Date().getFullYear()]],
+    };
+  return out;
 }
 
-async function loadBibliographyForPublic(siteId: string) {
-  // Preferred path: via join table
+// Batch format array of CSL items into an array of entry HTML strings
+function batchFormatCSL(items: any[], styleId: string): string[] {
+  if (!items.length) return [];
+  const cite = new Cite(items);
+  const html = cite.format("bibliography", {
+    format: "html",
+    template: styleId,
+    lang: "en-US",
+  });
+  // extract .csl-entry nodes
+  const container =
+    typeof document !== "undefined" ? document.createElement("div") : null;
+  if (!container) return [];
+  container.innerHTML = html;
+  const entries = Array.from(container.querySelectorAll(".csl-entry"));
+  return entries.map((el) => el.innerHTML || "");
+}
+
+/* ───────────── Data loaders ───────────── */
+
+// Load global citation style (same setting the admin page saves)
+async function loadGlobalCitationStyle(): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "citation")
+      .maybeSingle();
+    if (!error && data?.value?.style) return data.value.style as string;
+  } catch {}
+  return "apa"; // sensible default
+}
+
+// Build the public bibliography list with CSL in the same order as the join table
+async function loadBibliographyForPublic(
+  siteId: string
+): Promise<PublicBiblioItem[]> {
+  // Prefer the join table
   const { data: links, error: e1 } = await supabase
     .from("listing_bibliography")
     .select(
@@ -323,44 +376,43 @@ async function loadBibliographyForPublic(siteId: string) {
       sort_order,
       note,
       bibliography_sources:biblio_id (
-        id, title, authors, year, publisher_or_site, url, notes, csl
+        id, title, type, authors, year, publisher_or_site, url, notes, csl
       )
     `
     )
     .eq("listing_id", siteId)
     .order("sort_order", { ascending: true });
 
-  if (!e1 && links && links.length > 0) {
-    return links.map((l: any) => {
-      const src = l.bibliography_sources || {};
-      const yearFromCSL =
-        src?.csl?.issued?.["date-parts"]?.[0]?.[0] ??
-        (src?.year ? parseInt(src.year, 10) : null);
-      const publisherFromCSL =
-        src?.csl?.publisher ?? src?.csl?.["container-title"] ?? null;
-
+  if (!e1 && Array.isArray(links) && links.length) {
+    return (links as any[]).map((row) => {
+      const src = row.bibliography_sources || {};
+      const csl =
+        src?.csl && typeof src.csl === "object"
+          ? src.csl
+          : buildFallbackCSL(src);
       return {
         id: src.id,
-        site_id: siteId,
-        title: src.title,
-        authors: authorsFromCSL(src.csl, 4) || src.authors || null,
-        year: yearFromCSL ? String(yearFromCSL) : src.year || null,
-        publisher_or_site: publisherFromCSL || src.publisher_or_site || null,
-        url: src?.csl?.URL || src.url || null,
-        notes: l?.note ?? src?.notes ?? null,
-        sort_order: l?.sort_order ?? 0,
-      } as Bibliography;
+        csl,
+        note: row?.note ?? src?.notes ?? null,
+        sort_order: row?.sort_order ?? 0,
+      } as PublicBiblioItem;
     });
   }
 
-  // Legacy fallback (direct by site_id)
-  const { data: bibLegacy } = await supabase
+  // Legacy fallback: sources directly attached to site_id
+  const { data: legacy } = await supabase
     .from("bibliography_sources")
     .select("*")
     .eq("site_id", siteId)
     .order("sort_order", { ascending: true });
 
-  return (bibLegacy as any[]) ?? [];
+  return (legacy || []).map((src: any, i: number) => ({
+    id: src.id,
+    csl:
+      src?.csl && typeof src.csl === "object" ? src.csl : buildFallbackCSL(src),
+    note: src?.notes ?? null,
+    sort_order: src?.sort_order ?? i,
+  }));
 }
 
 /* ───────────── Page ───────────── */
@@ -378,13 +430,16 @@ export default function HeritagePage() {
   const [categories, setCategories] = useState<Taxonomy[]>([]);
   const [regions, setRegions] = useState<Taxonomy[]>([]);
   const [gallery, setGallery] = useState<ImageRow[]>([]);
-  const [biblio, setBiblio] = useState<Bibliography[]>([]);
+  const [biblio, setBiblio] = useState<PublicBiblioItem[]>([]);
   const [hasPhotoStory, setHasPhotoStory] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [inTrip, setInTrip] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // NEW: global citation style id (apa | mla | chicago-... etc.)
+  const [styleId, setStyleId] = useState<string>("apa");
 
   // research tools toggle
   const [researchEnabled, setResearchEnabled] = useState<boolean>(false);
@@ -428,6 +483,10 @@ export default function HeritagePage() {
         }
         setSite(s as Site);
 
+        // load global citation style FIRST (so preview renders right away)
+        const style = await loadGlobalCitationStyle();
+        setStyleId(style);
+
         if (s.province_id) {
           const { data: p } = await supabase
             .from("provinces")
@@ -469,9 +528,9 @@ export default function HeritagePage() {
         );
         setGallery(withUrls);
 
-        // UPDATED: bibliography via join with legacy fallback
+        // UPDATED: bibliography via join with CSL objects
         const b = await loadBibliographyForPublic(s.id);
-        setBiblio(b as Bibliography[]);
+        setBiblio(b);
 
         const { data: ps } = await supabase
           .from("photo_stories")
@@ -537,6 +596,16 @@ export default function HeritagePage() {
       alert("Link copied!");
     }
   }
+
+  // NEW: Memoized batch HTML entries for CSL bibliography
+  const cslRenderedEntries = useMemo(() => {
+    try {
+      const items = biblio.map((b) => b.csl);
+      return batchFormatCSL(items, styleId);
+    } catch {
+      return [];
+    }
+  }, [biblio, styleId]);
 
   return (
     <div className="min-h-screen bg-[#f4f4f4]">
@@ -1123,6 +1192,7 @@ export default function HeritagePage() {
                 </div>
               </Section>
 
+              {/* NEW: CSL-driven public bibliography */}
               <Section
                 id="bibliography"
                 title="Bibliography & Sources"
@@ -1130,28 +1200,27 @@ export default function HeritagePage() {
               >
                 {biblio.length ? (
                   <ol className="list-decimal list-inside space-y-2 text-[13px] text-slate-900">
-                    {biblio.map((s) => (
-                      <li key={s.id}>
-                        <span className="font-medium">{s.title}</span>
-                        {s.authors && <> — {s.authors}</>}
-                        {s.year && <> ({s.year})</>}
-                        {s.publisher_or_site && <>. {s.publisher_or_site}</>}
-                        {s.url && (
-                          <>
-                            {" "}
-                            <a
-                              className="text-blue-600"
-                              href={s.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Link
-                            </a>
-                          </>
-                        )}
-                        {s.notes && <> — {s.notes}</>}
-                      </li>
-                    ))}
+                    {biblio.map((row, i) => {
+                      const entryHtml = cslRenderedEntries[i] || "";
+                      return (
+                        <li key={row.id}>
+                          {/* CSL-rendered entry */}
+                          <span
+                            className="csl-entry"
+                            dangerouslySetInnerHTML={{ __html: entryHtml }}
+                          />
+                          {/* Optional listing note, appended politely */}
+                          {row.note ? (
+                            <>
+                              {" "}
+                              <span className="text-slate-600">
+                                — {row.note}
+                              </span>
+                            </>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ol>
                 ) : (
                   <div
@@ -1380,11 +1449,9 @@ export default function HeritagePage() {
         @keyframes note-fade {
           from {
             opacity: 0;
-            transform: scale(0.98);
           }
           to {
             opacity: 1;
-            transform: scale(1);
           }
         }
       `}</style>
