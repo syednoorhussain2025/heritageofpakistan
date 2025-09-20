@@ -109,9 +109,10 @@ function Section({
   tools?: React.ReactNode;
 }) {
   const iconKey = SECTION_ICONS[id];
-  const isArticles = id === "articles"; // frameless + no title for Article section only
 
-  if (isArticles) {
+  // Frameless sections (no outer card/header/tools)
+  const isFrameless = id === "articles" || id === "photo";
+  if (isFrameless) {
     return (
       <section id={id} className="scroll-mt-24 p-0 bg-transparent">
         {children}
@@ -119,6 +120,7 @@ function Section({
     );
   }
 
+  // Default (carded) sections
   return (
     <section
       id={id}
@@ -766,7 +768,7 @@ function EditContent({ id }: { id: string }) {
           />
         </div>
 
-        <div className="px-3 sm:px-4 lg:px-6 py-6 lg:ml-[17rem]">
+        <div className="px-3 sm:px-4 lg:px-6 py-6 lg:ml:[17rem] lg:ml-[17rem]">
           <div className="lg:hidden mb-4">
             <SidebarControls
               published={published}
@@ -1009,6 +1011,13 @@ function ListingForm({
     }
   }
 
+  // 🔔 Update: always request PhotoStory to save silently to avoid duplicate success alerts
+  const requestPhotoStorySave = useCallback(() => {
+    document.dispatchEvent(
+      new CustomEvent("photostory:save", { detail: { silent: true } })
+    );
+  }, []);
+
   const saveAll = useCallback(
     async (opts?: { silent?: boolean }) => {
       // Ensure the in-form value is normalized too, so user sees what will be saved
@@ -1022,9 +1031,13 @@ function ListingForm({
       });
       await saveCategoryJoins();
       await saveRegionJoins();
+
+      // ✅ Trigger PhotoStory save silently (manual & autosave)
+      requestPhotoStorySave();
+
       if (!opts?.silent) alert("Saved.");
     },
-    [form, onSave, selectedCatIds, selectedRegionIds]
+    [form, onSave, requestPhotoStorySave, selectedCatIds, selectedRegionIds]
   );
 
   useEffect(() => {
@@ -1360,7 +1373,7 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Photo Story */}
+      {/* Photo Story (frameless; PhotoStory owns its layout) */}
       {visibleSections.has("photo") && (
         <Section title="Photo Story" id="photo">
           <PhotoStory siteId={form.id} slug={form.slug} title={form.title} />

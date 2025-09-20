@@ -291,17 +291,15 @@ type ImageRow = {
   publicUrl?: string | null;
 };
 
-// What we actually render publicly now
 type PublicBiblioItem = {
   id: string;
-  csl: any; // CSL JSON object (normalized)
-  note?: string | null; // optional listing_bibliography.note to append
+  csl: any;
+  note?: string | null;
   sort_order: number;
 };
 
 /* ───────────── CSL helpers ───────────── */
 
-// Build a minimal CSL object if the source lacked one
 function buildFallbackCSL(src: any): any {
   const out: any = {
     id: src?.id,
@@ -309,7 +307,6 @@ function buildFallbackCSL(src: any): any {
     title: src?.title || "",
   };
   if (src?.authors) {
-    // crude parse if authors is a plain string
     out.author = String(src.authors)
       .split(";")
       .map((s) => s.trim())
@@ -330,7 +327,6 @@ function buildFallbackCSL(src: any): any {
   return out;
 }
 
-// Batch format array of CSL items into an array of entry HTML strings
 function batchFormatCSL(items: any[], styleId: string): string[] {
   if (!items.length) return [];
   const cite = new Cite(items);
@@ -339,7 +335,6 @@ function batchFormatCSL(items: any[], styleId: string): string[] {
     template: styleId,
     lang: "en-US",
   });
-  // extract .csl-entry nodes
   const container =
     typeof document !== "undefined" ? document.createElement("div") : null;
   if (!container) return [];
@@ -350,7 +345,6 @@ function batchFormatCSL(items: any[], styleId: string): string[] {
 
 /* ───────────── Data loaders ───────────── */
 
-// Load global citation style (same setting the admin page saves)
 async function loadGlobalCitationStyle(): Promise<string> {
   try {
     const { data, error } = await supabase
@@ -360,14 +354,12 @@ async function loadGlobalCitationStyle(): Promise<string> {
       .maybeSingle();
     if (!error && data?.value?.style) return data.value.style as string;
   } catch {}
-  return "apa"; // sensible default
+  return "apa";
 }
 
-// Build the public bibliography list with CSL in the same order as the join table
 async function loadBibliographyForPublic(
   siteId: string
 ): Promise<PublicBiblioItem[]> {
-  // Prefer the join table
   const { data: links, error: e1 } = await supabase
     .from("listing_bibliography")
     .select(
@@ -399,7 +391,6 @@ async function loadBibliographyForPublic(
     });
   }
 
-  // Legacy fallback: sources directly attached to site_id
   const { data: legacy } = await supabase
     .from("bibliography_sources")
     .select("*")
@@ -438,19 +429,24 @@ export default function HeritagePage() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // NEW: global citation style id (apa | mla | chicago-... etc.)
   const [styleId, setStyleId] = useState<string>("apa");
-
-  // research tools toggle
   const [researchEnabled, setResearchEnabled] = useState<boolean>(false);
 
-  // deep-link highlight
   const [highlight, setHighlight] = useState<{
     quote: string | null;
     section_id: string | null;
   }>({ quote: null, section_id: null });
 
   const contentRef = useRef<HTMLElement>(null);
+
+  // Parallax (image-only)
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const heroImgRef = useRef<HTMLImageElement | HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
     try {
@@ -469,10 +465,10 @@ export default function HeritagePage() {
           .from("sites")
           .select(
             `*,
-             history_layout_html,
-             architecture_layout_html,
-             climate_layout_html,
-             custom_sections_json`
+              history_layout_html,
+              architecture_layout_html,
+              climate_layout_html,
+              custom_sections_json`
           )
           .eq("slug", slug)
           .single();
@@ -483,7 +479,6 @@ export default function HeritagePage() {
         }
         setSite(s as Site);
 
-        // load global citation style FIRST (so preview renders right away)
         const style = await loadGlobalCitationStyle();
         setStyleId(style);
 
@@ -528,7 +523,6 @@ export default function HeritagePage() {
         );
         setGallery(withUrls);
 
-        // UPDATED: bibliography via join with CSL objects
         const b = await loadBibliographyForPublic(s.id);
         setBiblio(b);
 
@@ -558,13 +552,57 @@ export default function HeritagePage() {
     })();
   }, [slug, deepLinkNoteId]);
 
+  // UPDATED parallax logic
+  useEffect(() => {
+    const img = heroImgRef.current as HTMLElement | null;
+    const hero = heroRef.current;
+    if (!hero || !img) return;
+
+    const strength = reducedMotion ? 0 : 500; // px of max shift
+
+    const apply = () => {
+      rafRef.current = null;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop || 0;
+
+      // The effect is only needed while the hero is visible.
+      // This stops the calculation when it's off-screen.
+      if (scrollTop > window.innerHeight) return;
+
+      // Calculate progress as a value from 0 to 1.
+      const progress = scrollTop / window.innerHeight;
+
+      const y = progress * strength;
+      img.style.setProperty("--y", `${y}px`);
+    };
+
+    const onScroll = () => {
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(apply);
+    };
+    const onResize = () => {
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(apply);
+    };
+
+    // Prime once
+    apply();
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [loading, reducedMotion]);
+
   useEffect(() => {
     if (!highlight.section_id) return;
     const el = document.getElementById(highlight.section_id);
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const top =
-      window.scrollY +
+      (window.scrollY || 0) +
       rect.top -
       (parseFloat(
         getComputedStyle(document.documentElement).getPropertyValue(
@@ -597,7 +635,6 @@ export default function HeritagePage() {
     }
   }
 
-  // NEW: Memoized batch HTML entries for CSL bibliography
   const cslRenderedEntries = useMemo(() => {
     try {
       const items = biblio.map((b) => b.csl);
@@ -609,21 +646,35 @@ export default function HeritagePage() {
 
   return (
     <div className="min-h-screen bg-[#f4f4f4]">
-      {/* HERO */}
+      {/* HERO (image-only parallax) */}
       {loading || !site ? (
         <HeroSkeleton />
       ) : (
-        <div className="relative w-full h-screen">
+        <div
+          ref={heroRef}
+          className="relative w-full h-screen overflow-hidden"
+          aria-label="Hero"
+        >
+          {/* IMAGE layer (parallax) */}
           {site.cover_photo_url ? (
             <img
+              ref={heroImgRef as any}
               src={site.cover_photo_url}
               alt={site.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover parallax-img"
+              draggable={false}
             />
           ) : (
-            <div className="w-full h-full bg-gray-200" />
+            <div
+              ref={heroImgRef as any}
+              className="w-full h-full bg-gray-200 parallax-img"
+            />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+
+          {/* STATIC gradient veil */}
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+
+          {/* STATIC content overlay */}
           <div className="absolute inset-0 flex items-end">
             <div className="w-full pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 px-[54px] md:px-[82px] lg:px-[109px] max-w-screen-2xl mx-auto">
               <div className="text-white">
@@ -1032,7 +1083,6 @@ export default function HeritagePage() {
                 )}
               </Section>
 
-              {/* Snapshot sections */}
               {site.history_layout_html ? (
                 <Section
                   id="history"
@@ -1192,7 +1242,6 @@ export default function HeritagePage() {
                 </div>
               </Section>
 
-              {/* NEW: CSL-driven public bibliography */}
               <Section
                 id="bibliography"
                 title="Bibliography & Sources"
@@ -1204,12 +1253,10 @@ export default function HeritagePage() {
                       const entryHtml = cslRenderedEntries[i] || "";
                       return (
                         <li key={row.id}>
-                          {/* CSL-rendered entry */}
                           <span
                             className="csl-entry"
                             dangerouslySetInnerHTML={{ __html: entryHtml }}
                           />
-                          {/* Optional listing note, appended politely */}
                           {row.note ? (
                             <>
                               {" "}
@@ -1298,6 +1345,13 @@ export default function HeritagePage() {
           scroll-margin-top: var(--sticky-offset);
         }
 
+        /* PARALLAX: transform via CSS var to avoid React overrides */
+        .parallax-img {
+          transform: translate3d(0, var(--y, 0px), 0) scale(1.15);
+          transform-origin: center;
+          will-change: transform;
+        }
+
         /* Selection callout container (no background = no white box) */
         .research-bubble {
           background: transparent !important;
@@ -1307,7 +1361,6 @@ export default function HeritagePage() {
           animation: none !important;
         }
 
-        /* The visible callout (speech bubble with pointer) */
         .note-callout {
           position: relative;
           padding: 8px 10px;
@@ -1318,7 +1371,6 @@ export default function HeritagePage() {
             0 2px 6px rgba(0, 0, 0, 0.06);
           animation: note-fade 140ms ease-out;
         }
-        /* pointer tail */
         .note-callout::after {
           content: "";
           position: absolute;
@@ -1332,12 +1384,11 @@ export default function HeritagePage() {
           border-bottom: 1px solid var(--amber-border);
         }
 
-        /* Button inside the callout: keep it calm and text-first */
         .note-btn {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 2px 4px; /* minimal so callout carries the weight */
+          padding: 2px 4px;
           border: 0;
           background: transparent;
           color: var(--amber-ink);
@@ -1366,7 +1417,6 @@ export default function HeritagePage() {
           opacity: 0.85;
         }
 
-        /* Softer highlight for selected text */
         .note-highlight {
           --note-highlight-bg: #fff1d6;
           --note-highlight-fg: #7a4b00;
@@ -1377,7 +1427,6 @@ export default function HeritagePage() {
           box-shadow: inset 0 -0.1em 0 rgba(122, 75, 0, 0.15);
         }
 
-        /* Reader: keep selection styling and strip editor UI */
         .reading-article {
           user-select: text !important;
           -webkit-user-select: text !important;
@@ -1431,7 +1480,6 @@ export default function HeritagePage() {
           pointer-events: none !important;
         }
 
-        /* Persisted selection overlay */
         .sticky-sel-layer {
           position: fixed;
           inset: 0;
@@ -1445,13 +1493,18 @@ export default function HeritagePage() {
           border-radius: 2px;
         }
 
-        /* gentle appear; no translate to avoid “jump” */
         @keyframes note-fade {
           from {
             opacity: 0;
           }
           to {
             opacity: 1;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          [aria-label="Hero"] .parallax-img {
+            transform: none !important; /* accessibility */
           }
         }
       `}</style>
@@ -1939,6 +1992,7 @@ function GlobalResearchDebug({
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            // Allow click without losing selection overlay
           }}
         >
           <div className="note-callout">
