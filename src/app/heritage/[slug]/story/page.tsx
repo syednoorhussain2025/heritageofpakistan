@@ -1,12 +1,12 @@
 // src/app/heritage/[slug]/story/page.tsx
 "use client";
 
-// No changes needed to your imports or type definitions
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// No changes needed to your type definitions
 type Site = {
   id: string;
   slug: string;
@@ -29,8 +29,6 @@ type PhotoStoryItem = {
 };
 
 /* ───────────── Skeletons (No Changes Needed) ───────────── */
-// ... (Your skeleton components remain the same) ...
-
 function SkBar({ className = "" }: { className?: string }) {
   return (
     <div
@@ -97,7 +95,6 @@ function PageSkeleton() {
   );
 }
 
-// NEW: A simple, reusable Camera Icon component
 const CameraIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -124,27 +121,20 @@ export default function SitePhotoStoryPage() {
   const [story, setStory] = useState<PhotoStory | null>(null);
   const [items, setItems] = useState<PhotoStoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const heroImgRef = useRef<HTMLImageElement | null>(null);
-
-  // NEW: State to track scroll position for header background
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // NEW: Effect to handle header background visibility on scroll
+  // Shared ref to prevent scroll/keyboard handlers from firing simultaneously
+  const autoScrolling = useRef(false);
+
   useEffect(() => {
     const handleScroll = () => {
-      // Set state to true if user has scrolled more than 10px, otherwise false
       setIsScrolled(window.scrollY > 10);
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Clean up the event listener on component unmount
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-  // ... (All your other useEffect hooks for data fetching, parallax, etc. remain the same) ...
+  }, []);
 
   useEffect(() => {
     if (!slug) return;
@@ -176,36 +166,11 @@ export default function SitePhotoStoryPage() {
     })();
   }, [slug]);
 
-  /* ===== Stronger Parallax + entrance ===== */
-  useEffect(() => {
-    document.documentElement.classList.add("story-mounted");
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        const img = heroImgRef.current;
-        if (!img) return;
-        const parentRect = img.parentElement?.getBoundingClientRect();
-        if (!parentRect) return;
-        const viewportH = window.innerHeight;
-        const centerOffset =
-          parentRect.top + parentRect.height / 2 - viewportH / 2;
-        const translateY = -centerOffset * 0.32; // stronger parallax
-        img.style.transform = `translateY(${translateY}px) scale(1.14)`;
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-      document.documentElement.classList.remove("story-mounted");
-    };
-  }, [story?.hero_photo_url]);
-
   /* ===== IntersectionObserver for initial fade-ins ===== */
   useEffect(() => {
+    // Entrance animation for hero
+    document.documentElement.classList.add("story-mounted");
+
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach(
@@ -217,7 +182,11 @@ export default function SitePhotoStoryPage() {
       document.querySelectorAll<HTMLElement>(".js-animate")
     );
     els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+
+    return () => {
+      io.disconnect();
+      document.documentElement.classList.remove("story-mounted");
+    };
   }, [items.length, story?.hero_photo_url]);
 
   /* ===== Predictable auto-snap: IO with 10% rule, direction-aware, no self, hero excluded ===== */
@@ -247,14 +216,13 @@ export default function SitePhotoStoryPage() {
     const scrollToCenter = (el: HTMLElement) => {
       const rect = el.getBoundingClientRect();
       const target = window.scrollY + rect.top + rect.height / 2 - vh() / 2;
-      autoScrolling = true;
+      autoScrolling.current = true; // Use shared ref
       window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
       window.setTimeout(() => {
-        autoScrolling = false;
+        autoScrolling.current = false; // Use shared ref
         markCentered();
       }, 520);
     };
-    let autoScrolling = false;
     let lastY = window.scrollY;
     let lastDir: "down" | "up" = "down";
     let lastSnapIdx = -1;
@@ -270,7 +238,7 @@ export default function SitePhotoStoryPage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     const io = new IntersectionObserver(
       (entries) => {
-        if (autoScrolling) return;
+        if (autoScrolling.current) return; // Use shared ref
         const now = performance.now();
         let currentIdx = -1;
         const viewportCenter = window.innerHeight / 2;
@@ -325,6 +293,64 @@ export default function SitePhotoStoryPage() {
     };
   }, [items.length]);
 
+  /* ===== Keyboard Navigation (Up/Down Arrows) ===== */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key !== "ArrowUp" && e.key !== "ArrowDown") ||
+        autoScrolling.current
+      ) {
+        return;
+      }
+      e.preventDefault();
+
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>(".story-snap")
+      );
+      if (!sections.length) return;
+
+      const vh = window.innerHeight;
+
+      let currentIndex = -1;
+      let minDistance = Infinity;
+      sections.forEach((el, i) => {
+        const rect = el.getBoundingClientRect();
+        const distance = Math.abs(rect.top + rect.height / 2 - vh / 2);
+        if (distance < minDistance) {
+          minDistance = distance;
+          currentIndex = i;
+        }
+      });
+
+      if (currentIndex === -1) return;
+
+      const targetIndex =
+        e.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
+
+      if (targetIndex >= 0 && targetIndex < sections.length) {
+        const targetElement = sections[targetIndex];
+        const rect = targetElement.getBoundingClientRect();
+        const targetScrollY =
+          window.scrollY + rect.top + rect.height / 2 - vh / 2;
+
+        autoScrolling.current = true;
+        window.scrollTo({
+          top: Math.max(0, targetScrollY),
+          behavior: "smooth",
+        });
+
+        setTimeout(() => {
+          autoScrolling.current = false;
+        }, 520);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [items.length]);
+
   if (loading) return <PageSkeleton />;
   if (!site)
     return (
@@ -333,9 +359,7 @@ export default function SitePhotoStoryPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Page-scoped styles (no changes needed) */}
       <style jsx global>{`
-        /* Hide global site header */
         body > header,
         header.site-header,
         #__next > header,
@@ -378,7 +402,7 @@ export default function SitePhotoStoryPage() {
         }
       `}</style>
 
-      {/* ===== UPDATED HEADER ===== */}
+      {/* ===== HEADER (BEHAVIOR RESTORED) ===== */}
       <header
         className={`
           fixed top-0 z-50 w-full px-6 py-3
@@ -387,7 +411,6 @@ export default function SitePhotoStoryPage() {
         `}
       >
         <div className="flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
-          {/* Left Side: Title: Subtitle */}
           <div className="flex-shrink-0 min-w-0">
             <h1 className="text-base md:text-lg font-semibold truncate">
               {site.title}
@@ -398,8 +421,6 @@ export default function SitePhotoStoryPage() {
               )}
             </h1>
           </div>
-
-          {/* Right Side: Branding */}
           <div className="hidden sm:flex items-center gap-1 text-xs md:text-sm font-medium whitespace-nowrap opacity-90">
             <span>HERITAGE OF PAKISTAN</span>
             <CameraIcon />
@@ -408,46 +429,44 @@ export default function SitePhotoStoryPage() {
         </div>
       </header>
 
-      {/* ... (The rest of your page content, Hero, Items, etc. remains the same) ... */}
-
-      {/* Hero (excluded from auto-snap) */}
+      {/* ===== HERO (MODIFIED) ===== */}
       {story?.hero_photo_url ? (
-        <section className="relative mb-12 h-screen w-full overflow-hidden js-animate hero-wrap">
-          <img
-            ref={heroImgRef}
-            src={story.hero_photo_url}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover will-change-transform"
-            loading="eager"
-            decoding="async"
-            style={{ transform: "translateY(0px) scale(1.14)" }}
-          />
-          <div className="hero-gradient absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
-          <div className="relative z-10 h-full w-full flex items-center justify-center px-6 text-center">
-            <div className="max-w-5xl">
-              <div className="hero-title">
+        <section className="relative mb-12 h-screen w-full flex js-animate hero-wrap">
+          {/* Left Div: Black Background + Text */}
+          <div className="w-2/5 bg-black flex items-center justify-center p-6 sm:p-12 md:p-16 lg:p-24">
+            <div className="max-w-md w-full">
+              <div className="hero-title text-left">
                 <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
                   {site.title}
                 </h1>
-
                 {story?.subtitle ? (
                   <p className="mt-2 text-xl md:text-2xl font-light opacity-90">
                     {story.subtitle}
                   </p>
                 ) : null}
-
                 {site?.tagline ? (
-                  <p className="mt-6 text-lg md:text-xl font-medium italic opacity-80 max-w-2xl mx-auto">
+                  <p className="mt-6 text-lg md:text-xl font-medium italic opacity-80">
                     "{site.tagline}"
                   </p>
                 ) : null}
               </div>
             </div>
           </div>
+
+          {/* Right Div: Image */}
+          <div className="w-3/5 h-full overflow-hidden">
+            <img
+              src={story.hero_photo_url}
+              alt={site.title}
+              className="w-full h-full object-cover object-center"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
         </section>
       ) : null}
 
-      {/* Items: image fades on view; caption waits until centered (with delay) */}
+      {/* Items (No changes below this line) */}
       <div className="w-full">
         {items.length === 0 ? (
           <p className="text-center py-20">No photo story items added yet.</p>
@@ -467,7 +486,6 @@ export default function SitePhotoStoryPage() {
                         className="w-full h-full object-cover will-fade"
                         loading="lazy"
                       />
-                      {/* Bottom gradient for readability */}
                       <div className="will-fade pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                       {hasText ? (
                         <figcaption className="caption-fade absolute inset-x-0 bottom-0 z-10 p-6 md:p-10">
@@ -482,7 +500,6 @@ export default function SitePhotoStoryPage() {
               );
             }
 
-            // Text-only block: also wait for centering before showing
             return (
               <section key={it.id} className="mb-12 story-snap js-animate">
                 <div className="caption-fade max-w-3xl mx-auto px-6 text-center text-white text-base md:text-lg leading-relaxed">

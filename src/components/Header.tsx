@@ -59,9 +59,7 @@ function useDebounced<T>(value: T, delay = 250) {
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
-      if (!ref.current || ref.current.contains(event.target as Node)) {
-        return;
-      }
+      if (!ref.current || ref.current.contains(event.target as Node)) return;
       handler();
     };
     document.addEventListener("mousedown", listener);
@@ -73,12 +71,12 @@ const useClickOutside = (ref: any, handler: () => void) => {
   }, [ref, handler]);
 };
 
-// MODIFIED: User Menu Component
+/* -------------------------------- User Menu ------------------------------- */
 const UserMenu = ({ user }: { user: User }) => {
   const supabase = createClient();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | null>(null);
 
   const openWithDelay = () => {
@@ -99,7 +97,6 @@ const UserMenu = ({ user }: { user: User }) => {
   const name = user.user_metadata?.full_name || "User";
   const initial = name.charAt(0).toUpperCase();
 
-  // UPDATED: menuItems with new icon keys
   const menuItems = [
     { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
     { href: "/dashboard/mywishlists", icon: "list-ul", label: "My Wishlists" },
@@ -152,13 +149,11 @@ const UserMenu = ({ user }: { user: User }) => {
       </div>
 
       <div
-        className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2
-                    transition-all duration-200 ease-out
-                    ${
-                      isOpen
-                        ? "opacity-100 translate-y-0 pointer-events-auto"
-                        : "opacity-0 -translate-y-1 pointer-events-none"
-                    }`}
+        className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
+          isOpen
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 -translate-y-1 pointer-events-none"
+        }`}
       >
         {menuItems.map((item) => (
           <Link
@@ -167,10 +162,8 @@ const UserMenu = ({ user }: { user: User }) => {
             onClick={() => setIsOpen(false)}
             className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
           >
-            {/* UPDATED: Added container div for hover animation */}
             <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
               <Icon name={item.icon} size={16} className={iconStyles} />
-              {/* UPDATED: Applied variable font and color */}
               <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
                 {item.label}
               </span>
@@ -182,10 +175,8 @@ const UserMenu = ({ user }: { user: User }) => {
           onClick={handleLogout}
           className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
         >
-          {/* UPDATED: Added container div for hover animation */}
           <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
             <Icon name="logout" size={16} className={iconStyles} />
-            {/* UPDATED: Applied variable font and color */}
             <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
               Logout
             </span>
@@ -196,6 +187,7 @@ const UserMenu = ({ user }: { user: User }) => {
   );
 };
 
+/* ------------------------------- Header ----------------------------------- */
 export default function Header() {
   const router = useRouter();
   const supabase = createClient();
@@ -218,6 +210,7 @@ export default function Header() {
       );
     })();
   }, [supabase]);
+
   const nameToId = useMemo(
     () => ({
       region: (n: string) =>
@@ -232,7 +225,7 @@ export default function Header() {
   const dq = useDebounced(q, 250);
   const [suggestions, setSuggestions] = useState<Site[]>([]);
   const [openSuggest, setOpenSuggest] = useState(false);
-  const suggestRef = useRef<HTMLDivElement>(null);
+  const suggestRef = useRef<HTMLDivElement | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isSearchHovered, setIsSearchHovered] = useState(false);
@@ -320,24 +313,86 @@ export default function Header() {
     setCatsOpen(false);
   };
 
+  /* ---------- Transparent by default; solid after threshold ---------- */
+  const [solid, setSolid] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const HEADER_FALLBACK = 72; // px
+    const DEFAULT_THRESHOLD = 140; // px
+
+    const measureAndSetOffsetVar = () => {
+      const h = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
+      document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
+      return h;
+    };
+
+    const computeThreshold = () => {
+      const marker =
+        document.getElementById("white-header-trigger") ||
+        document.getElementById("header-threshold");
+      if (marker) {
+        const top = marker.getBoundingClientRect().top + window.scrollY;
+        const headerH = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
+        return Math.max(0, top - headerH);
+      }
+      return DEFAULT_THRESHOLD;
+    };
+
+    measureAndSetOffsetVar();
+    let threshold = computeThreshold();
+
+    const onScroll = () => setSolid(window.scrollY >= threshold);
+    const onResize = () => {
+      measureAndSetOffsetVar();
+      threshold = computeThreshold();
+      onScroll();
+    };
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && headerRef.current) {
+      ro = new ResizeObserver(() => onResize());
+      ro.observe(headerRef.current);
+    }
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (ro && headerRef.current) ro.disconnect();
+    };
+  }, []);
+
   return (
     <>
       <style>{`
-        /* Custom utility to hide scrollbars */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Custom divider for menu items */
         .menu-item-divider > button { position: relative; }
         .menu-item-divider > button:not(:last-child)::after {
           content: ''; position: absolute; bottom: 0; left: 15%; right: 15%;
           height: 1px; background-color: #f3f4f6;
         }
-        /* Animation for search results fading in */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-fadeIn { animation: fadeIn 0.3s ease-in-out forwards; }
       `}</style>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
-        <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
+
+      {/* Transparent by default. Turns white after threshold */}
+      <header
+        ref={headerRef as any}
+        data-solid={solid}
+        className={`sticky top-0 z-40 transition-colors duration-300 ${
+          solid
+            ? "bg-white/95 backdrop-blur shadow-sm"
+            : "!bg-transparent !shadow-none !backdrop-blur-0"
+        }`}
+        style={{
+          backgroundColor: solid ? "rgba(255,255,255,0.95)" : "transparent",
+        }}
+      >
+        <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 bg-transparent">
           {/* Brand */}
           <Link
             href="/"
@@ -349,7 +404,7 @@ export default function Header() {
           {/* Quick Search */}
           <div className="relative flex-1 max-w-2xl" ref={suggestRef}>
             <div
-              className={`flex items-center gap-2 rounded-full px-3 py-1.5 bg-gray-100 transition-all duration-200 ease-in-out ${
+              className={`flex items-center gap-2 rounded-full px-3 py-1.5 bg-transparent transition-all duration-200 ease-in-out ${
                 isSearchHovered || isSearchFocused
                   ? "ring-1 ring-[var(--brand-orange)]"
                   : "ring-1 ring-transparent"
@@ -357,7 +412,11 @@ export default function Header() {
               onMouseEnter={() => setIsSearchHovered(true)}
               onMouseLeave={() => setIsSearchHovered(false)}
             >
-              <Icon name="search" className="text-gray-400" size={16} />
+              <Icon
+                name="search"
+                size={16}
+                className={solid ? "text-gray-400" : "text-white"}
+              />
               <input
                 value={q}
                 onChange={(e) => {
@@ -370,12 +429,18 @@ export default function Header() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
                 placeholder="Search Heritage"
-                className="w-full bg-transparent outline-none text-sm"
+                className={`w-full bg-transparent outline-none text-sm ${
+                  solid
+                    ? "placeholder-gray-400 text-gray-800"
+                    : "placeholder-white text-white"
+                }`}
               />
               {isSearching && (
                 <Icon
                   name="spinner"
-                  className="animate-spin text-gray-500"
+                  className={`animate-spin ${
+                    solid ? "text-gray-500" : "text-white/80"
+                  }`}
                   size={16}
                 />
               )}
@@ -383,14 +448,13 @@ export default function Header() {
 
             {/* Suggestion dropdown */}
             <div
-              className={`absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg overflow-hidden
-                                  transition-all ease-out duration-300 ${
-                                    openSuggest &&
-                                    q.trim() !== "" &&
-                                    (isSearching || suggestions.length > 0)
-                                      ? "opacity-100 translate-y-0"
-                                      : "opacity-0 -translate-y-4 pointer-events-none"
-                                  }`}
+              className={`absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg overflow-hidden transition-all ease-out duration-300 ${
+                openSuggest &&
+                q.trim() !== "" &&
+                (isSearching || suggestions.length > 0)
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-4 pointer-events-none"
+              }`}
             >
               {isSearching ? (
                 <div>
@@ -467,13 +531,11 @@ export default function Header() {
                 </span>
               </button>
               <div
-                className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2
-                                    transition-all duration-200 ease-out
-                                    ${
-                                      regionsOpen
-                                        ? "opacity-100 translate-y-0 pointer-events-auto"
-                                        : "opacity-0 -translate-y-1 pointer-events-none"
-                                    }`}
+                className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
+                  regionsOpen
+                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                    : "opacity-0 -translate-y-1 pointer-events-none"
+                }`}
               >
                 <div className="menu-item-divider">
                   {PROVINCES.map((name) => (
@@ -510,13 +572,11 @@ export default function Header() {
                 </span>
               </button>
               <div
-                className={`absolute right-0 mt-2 w-72 max-h-[85vh] overflow-y-auto scrollbar-hide bg-white rounded-xl shadow-lg p-2
-                                    transition-all duration-200 ease-out
-                                    ${
-                                      catsOpen
-                                        ? "opacity-100 translate-y-0 pointer-events-auto"
-                                        : "opacity-0 -translate-y-1 pointer-events-none"
-                                    }`}
+                className={`absolute right-0 mt-2 w-72 max-h-[85vh] overflow-y-auto scrollbar-hide bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
+                  catsOpen
+                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                    : "opacity-0 -translate-y-1 pointer-events-none"
+                }`}
               >
                 <div className="menu-item-divider">
                   {QUICK_CATEGORIES.map((name) => (
@@ -576,7 +636,6 @@ export default function Header() {
               </span>
             </Link>
 
-            {/* UPDATED: Conditional rendering for user menu or sign-in link */}
             {user ? (
               <UserMenu user={user} />
             ) : (
