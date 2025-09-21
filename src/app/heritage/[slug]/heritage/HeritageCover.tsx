@@ -74,6 +74,33 @@ export default function HeritageCover({
 
   const filled = Math.max(0, Math.min(5, Math.round(site.avg_rating ?? 0)));
 
+  /**
+   * Returns an appropriate icon name based on the heritage type string.
+   * @param type The heritage type from the site data.
+   * @returns A string representing a Font Awesome icon name.
+   */
+  const getHeritageIcon = (type?: string | null): string => {
+    const lowerType = type?.toLowerCase() ?? "";
+
+    if (lowerType.includes("fort") || lowerType.includes("palace")) {
+      return "chess-rook"; // Represents a castle/fortress tower
+    }
+    if (lowerType.includes("mosque")) {
+      return "mosque";
+    }
+    if (lowerType.includes("temple")) {
+      return "place-of-worship"; // Generic for religious sites
+    }
+    if (lowerType.includes("archaeological")) {
+      return "archway";
+    }
+    if (lowerType.includes("tomb") || lowerType.includes("shrine")) {
+      return "landmark"; // Good for tombs, monuments
+    }
+
+    return "landmark"; // Default for everything else
+  };
+
   return (
     <section
       ref={heroRef}
@@ -171,25 +198,33 @@ export default function HeritageCover({
           </div>
 
           {/* Right: details block (shifted) */}
-          <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end translate-y-6 -translate-x-6">
+          <div className="text-white flex flex-col items-start gap-3 hero-right text-left justify-self-end translate-y-40 -translate-x-24">
             {site.heritage_type && (
               <div>
-                <div className="uppercase tracking-wide text-white/80 text-sm">
+                <div className="uppercase tracking-wide text-white/80 text-xs">
                   Heritage Type
                 </div>
-                <div className="font-semibold text-lg md:text-xl">
-                  {site.heritage_type}
+                <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                  <Icon
+                    name={getHeritageIcon(site.heritage_type)}
+                    className="text-white/60 text-base"
+                  />
+                  <span>{site.heritage_type}</span>
                 </div>
               </div>
             )}
 
             {site.location_free && (
               <div>
-                <div className="uppercase tracking-wide text-white/80 text-sm">
+                <div className="uppercase tracking-wide text-white/80 text-xs">
                   Location
                 </div>
-                <div className="font-semibold text-lg md:text-xl">
-                  {site.location_free}
+                <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                  <Icon
+                    name="map-marker-alt"
+                    className="text-white/60 text-base"
+                  />
+                  <span>{site.location_free}</span>
                 </div>
               </div>
             )}
