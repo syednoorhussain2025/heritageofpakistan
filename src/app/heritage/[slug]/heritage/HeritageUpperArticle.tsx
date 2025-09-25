@@ -13,23 +13,7 @@ export default function HeritageUpperArticle({
 }) {
   return (
     <>
-      <HeritageSection id="photostory" title="Photo Story" iconName="camera">
-        {hasPhotoStory ? (
-          <a
-            href={`/heritage/${site.slug}/story`}
-            className="inline-block px-4 py-2 rounded-lg bg-black text-white text-sm"
-          >
-            Open Photo Story
-          </a>
-        ) : (
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--muted-foreground, #5b6b84)" }}
-          >
-            No photo story yet.
-          </div>
-        )}
-      </HeritageSection>
+      {/* Removed the Photo Story section */}
 
       <HeritageSection
         id="categories"

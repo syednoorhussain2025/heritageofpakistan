@@ -2,12 +2,15 @@ import HeritageSection from "./HeritageSection";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
 
+/* ---- Key/value row: wider value column + visible overflow + 15px text ---- */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className="flex justify-between gap-4 py-2 border-b border-black/5 last:border-b-0">
-      <div className="text-[13px] font-semibold text-slate-900">{k}</div>
-      <div className="text-[13px] text-slate-700 text-right">{String(v)}</div>
+    <div className="grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2 border-b border-black/5 last:border-b-0 overflow-x-visible">
+      <div className="text-[15px] font-semibold text-slate-900">{k}</div>
+      <div className="text-[15px] text-slate-700 text-left break-words whitespace-pre-wrap overflow-x-visible">
+        {String(v)}
+      </div>
     </div>
   );
 }
@@ -64,7 +67,7 @@ export default function HeritageSidebar({
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             Location coordinates not available.
@@ -76,23 +79,23 @@ export default function HeritageSidebar({
             href={maps.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-sm"
+            className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-[15px]"
           >
             Open Location
           </a>
         )}
 
-        <div className="mt-3 grid grid-cols-2 gap-4">
-          <div className="text-[13px] font-semibold text-slate-900">
+        <div className="mt-3 grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 overflow-x-visible">
+          <div className="text-[15px] font-semibold text-slate-900">
             Latitude
           </div>
-          <div className="text-[13px] text-slate-700 text-right">
+          <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
             {site.latitude ?? "—"}
           </div>
-          <div className="text-[13px] font-semibold text-slate-900">
+          <div className="text-[15px] font-semibold text-slate-900">
             Longitude
           </div>
-          <div className="text-[13px] text-slate-700 text-right">
+          <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
             {site.longitude ?? "—"}
           </div>
         </div>
@@ -122,7 +125,7 @@ export default function HeritageSidebar({
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             No regions specified.
@@ -166,12 +169,12 @@ export default function HeritageSidebar({
           <div className="flex items-start gap-3">
             <div className="text-2xl">🏛️</div>
             <div>
-              <div className="font-medium text-[13px] text-slate-900">
+              <div className="font-medium text-[15px] text-slate-900">
                 {site.unesco_status}
               </div>
               {site.unesco_line && (
                 <div
-                  className="mt-1 text-[13px]"
+                  className="mt-1 text-[15px]"
                   style={{ color: "var(--muted-foreground, #5b6b84)" }}
                 >
                   {site.unesco_line}
@@ -181,7 +184,7 @@ export default function HeritageSidebar({
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             No UNESCO designation listed.
@@ -192,14 +195,14 @@ export default function HeritageSidebar({
       <HeritageSection title="Protected under" iconName="protected-under">
         {site.protected_under ? (
           <div
-            className="whitespace-pre-wrap text-[13px]"
+            className="whitespace-pre-wrap text-[15px] overflow-x-visible"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             {site.protected_under}
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             Not specified.
@@ -222,14 +225,14 @@ export default function HeritageSidebar({
       <HeritageSection title="Did you Know" iconName="did-you-know">
         {site.did_you_know ? (
           <div
-            className="whitespace-pre-wrap text-[13px]"
+            className="whitespace-pre-wrap text-[15px] overflow-x-visible"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             {site.did_you_know}
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             —
@@ -252,7 +255,7 @@ export default function HeritageSidebar({
             href={site.travel_full_guide_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-sm"
+            className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-[15px]"
           >
             Open Full Travel Guide
           </a>
@@ -262,14 +265,14 @@ export default function HeritageSidebar({
       <HeritageSection title="Best Time to Visit" iconName="best-time-to-visit">
         {site.best_time_option_key ? (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             {site.best_time_option_key}
           </div>
         ) : (
           <div
-            className="text-[13px]"
+            className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             —

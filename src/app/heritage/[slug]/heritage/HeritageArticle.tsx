@@ -1,8 +1,97 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import DOMPurify from "isomorphic-dompurify";
-import { createPortal } from "react-dom";
+import parse, { domToReact } from "html-react-parser";
 import CollectHeart from "@/components/CollectHeart";
+
+/* ---------- helpers ---------- */
+function mapAttribs(attribs: Record<string, any> | undefined) {
+  if (!attribs) return {};
+  const { class: classAttr, ...rest } = attribs as any;
+  return { ...rest, className: classAttr };
+}
+function pickFromSrcset(srcset?: string | null): string | null {
+  if (!srcset) return null;
+  const parts = srcset
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!parts.length) return null;
+  return parts[parts.length - 1].split(/\s+/)[0] || null;
+}
+function pickFromStyleBg(style?: string | null): string | null {
+  if (!style) return null;
+  const m = /background-image\s*:\s*url\((['"]?)(.*?)\1\)/i.exec(style);
+  return m?.[2] || null;
+}
+function getAttr(a: any, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = a?.[k];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return null;
+}
+function findChildByName(node: any, tag: string): any | null {
+  if (!node?.children) return null;
+  return (
+    node.children.find((c: any) => c.type === "tag" && c.name === tag) ?? null
+  );
+}
+function findImgDeep(node: any): any | null {
+  if (!node) return null;
+  if (node.type === "tag" && node.name === "img") return node;
+  if (!node.children) return null;
+  for (const c of node.children) {
+    const hit = findImgDeep(c);
+    if (hit) return hit;
+  }
+  return null;
+}
+function extractImageMetaFromFigure(node: any): {
+  src: string | null;
+  alt: string | null;
+} {
+  // <img>
+  const img = findImgDeep(node);
+  if (img?.attribs) {
+    const a = img.attribs;
+    const src =
+      getAttr(a, ["src", "data-src", "data-original", "data-lazy-src"]) ||
+      pickFromSrcset(a.srcset) ||
+      null;
+    const alt = getAttr(a, ["alt"]);
+    if (src) return { src, alt: alt ?? null };
+  }
+  // <picture><source>
+  const picture = findChildByName(node, "picture");
+  if (picture?.children) {
+    const sources = picture.children.filter(
+      (c: any) => c.type === "tag" && c.name === "source"
+    );
+    if (sources.length) {
+      const last = sources[sources.length - 1];
+      const src = pickFromSrcset(last.attribs?.srcset);
+      if (src) return { src, alt: null };
+    }
+  }
+  // CSS background-image
+  const stack: any[] = (node.children || []).slice();
+  while (stack.length) {
+    const cur = stack.shift();
+    if (cur?.type === "tag" && cur.attribs?.style) {
+      const bg = pickFromStyleBg(cur.attribs.style);
+      if (bg) return { src: bg, alt: null };
+    }
+    if (cur?.children) stack.push(...cur.children);
+  }
+  return { src: null, alt: null };
+}
+function textFromNode(node: any): string {
+  if (!node) return "";
+  if (node.type === "text") return node.data || "";
+  if (!node.children) return "";
+  return node.children.map(textFromNode).join("");
+}
 
 export default function HeritageArticle({
   html,
@@ -11,14 +100,14 @@ export default function HeritageArticle({
   highlightQuote,
 }: {
   html: string;
-  site: { id: string; slug: string; title: string };
+  site: { id: string | number; slug: string; title: string };
   section: { id: string; title: string };
   highlightQuote?: string | null;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
 
-  const clean = useMemo(() => {
+  /* ---------------- sanitize once ---------------- */
+  const safe = useMemo(() => {
     const allowed = DOMPurify.sanitize(html, {
       ALLOWED_TAGS: [
         "p",
@@ -45,9 +134,12 @@ export default function HeritageArticle({
         "div",
         "section",
         "mark",
+        "picture",
+        "source",
       ],
       ALLOWED_ATTR: [
         "src",
+        "srcset",
         "alt",
         "title",
         "style",
@@ -61,6 +153,9 @@ export default function HeritageArticle({
         "id",
         "draggable",
         "data-text-lock",
+        "data-src",
+        "data-original",
+        "data-lazy-src",
       ],
       ALLOWED_URI_REGEXP:
         /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
@@ -69,7 +164,6 @@ export default function HeritageArticle({
     const div = document.createElement("div");
     div.innerHTML = allowed;
 
-    // Strip editor/bubble UI and any fixed elements
     const KILL = [
       ".tiptap-bubble-menu",
       ".tiptap-floating-menu",
@@ -82,7 +176,6 @@ export default function HeritageArticle({
       "[role='toolbar']",
     ];
     KILL.forEach((sel) => div.querySelectorAll(sel).forEach((n) => n.remove()));
-
     div.querySelectorAll<HTMLElement>("*").forEach((el) => {
       const st = (el.getAttribute("style") || "").toLowerCase();
       if (st.includes("position:fixed")) el.remove();
@@ -91,18 +184,80 @@ export default function HeritageArticle({
     return div.innerHTML;
   }, [html]);
 
-  const [overlay, setOverlay] = useState<{
-    img: HTMLImageElement | null;
-    rect: DOMRect | null;
-    meta: {
-      imageUrl: string;
-      altText: string | null;
-      caption: string | null;
-    } | null;
-    visible: boolean;
-  }>({ img: null, rect: null, meta: null, visible: false });
+  /* ---------------- parse → React (figure-level) ---------------- */
+  const content = useMemo(() => {
+    return parse(safe, {
+      replace: (node: any) => {
+        if (node.type !== "tag") return;
 
-  /* ---------------- Image/figcaption fade-in on scroll ---------------- */
+        if (node.name === "figure") {
+          const attribs = mapAttribs(node.attribs);
+          const children = node.children || [];
+          const capNode = findChildByName(node, "figcaption");
+
+          const childrenWithoutCaption = children.filter(
+            (c: any) => !(c.type === "tag" && c.name === "figcaption")
+          );
+
+          const { src, alt } = extractImageMetaFromFigure(node);
+          const captionText = capNode
+            ? textFromNode(capNode).trim() || null
+            : null;
+
+          return (
+            <figure {...attribs}>
+              {domToReact(childrenWithoutCaption as any)}
+              {(src || captionText) && (
+                <figcaption className="positioned-caption-container">
+                  {src && (
+                    <CollectHeart
+                      variant="icon"
+                      size={22}
+                      siteId={String(site.id)}
+                      imageUrl={src}
+                      altText={alt}
+                      caption={captionText}
+                    />
+                  )}
+                  {captionText && <span>{captionText}</span>}
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
+
+        if (node.name === "img" && node.parent?.name !== "figure") {
+          const a = node.attribs || {};
+          const src =
+            getAttr(a, ["src", "data-src", "data-original", "data-lazy-src"]) ||
+            pickFromSrcset(a.srcset) ||
+            null;
+          const alt = getAttr(a, ["alt"]);
+          const imgProps = mapAttribs(a);
+          return (
+            <figure>
+              <img {...imgProps} />
+              {src && (
+                <figcaption className="positioned-caption-container">
+                  <CollectHeart
+                    variant="icon"
+                    size={22}
+                    siteId={String(site.id)}
+                    imageUrl={src}
+                    altText={alt}
+                    caption={null}
+                  />
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
+        return;
+      },
+    });
+  }, [safe, site.id]);
+
+  /* ---------------- fade-in on scroll (unchanged) ---------------- */
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -110,7 +265,6 @@ export default function HeritageArticle({
     const imgs = Array.from(host.querySelectorAll<HTMLImageElement>("img"));
     const caps = Array.from(host.querySelectorAll<HTMLElement>("figcaption"));
 
-    // Prepare initial state (no flash)
     host.classList.add("reveal-ready");
     imgs.forEach((el) => el.classList.add("reveal-img"));
     caps.forEach((el) => el.classList.add("reveal-cap"));
@@ -135,7 +289,6 @@ export default function HeritageArticle({
 
     [...imgs, ...caps].forEach((el) => io.observe(el));
 
-    // Arm transitions on next frame (prevents initial transition on mount)
     const arm = requestAnimationFrame(() =>
       requestAnimationFrame(() => host.classList.add("reveal-armed"))
     );
@@ -147,114 +300,9 @@ export default function HeritageArticle({
       imgs.forEach((el) => el.classList.remove("reveal-img", "in", "in-done"));
       caps.forEach((el) => el.classList.remove("reveal-cap", "in", "in-done"));
     };
-  }, [clean]);
+  }, [content]);
 
-  // Wire image hover listeners
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    host.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-      img.setAttribute("draggable", "false");
-      (img.style as any).WebkitUserDrag = "none";
-    });
-
-    const wired = new Set<HTMLImageElement>();
-
-    const onEnter = (e: Event) => {
-      const img = e.currentTarget as HTMLImageElement;
-      const rect = img.getBoundingClientRect();
-
-      const container =
-        (img.closest("figure") as HTMLElement | null) ||
-        (img.parentElement as HTMLElement | null);
-      const capNode = container?.querySelector("figcaption");
-      const caption = capNode
-        ? (capNode.textContent || "").trim() || null
-        : null;
-
-      setOverlay({
-        img,
-        rect,
-        meta: {
-          imageUrl: img.getAttribute("src") || "",
-          altText: img.getAttribute("alt") || null,
-          caption,
-        },
-        visible: true,
-      });
-    };
-
-    const onLeave = () =>
-      setOverlay({ img: null, rect: null, meta: null, visible: false });
-
-    const wire = (img: HTMLImageElement) => {
-      if (wired.has(img)) return;
-      wired.add(img);
-      img.addEventListener("mouseenter", onEnter);
-      img.addEventListener("mouseleave", onLeave);
-    };
-
-    host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
-
-    const mo = new MutationObserver(() => {
-      host.querySelectorAll<HTMLImageElement>("img").forEach(wire);
-    });
-    mo.observe(host, { childList: true, subtree: true });
-
-    return () => {
-      mo.disconnect();
-      wired.forEach((img) => {
-        img.removeEventListener("mouseenter", onEnter);
-        img.removeEventListener("mouseleave", onLeave);
-      });
-    };
-  }, [clean]);
-
-  // Keep overlay aligned to image while scrolling/resizing
-  useEffect(() => {
-    if (!overlay.visible || !overlay.img) return;
-
-    const update = () => {
-      if (!overlay.img) return;
-      const rect = overlay.img.getBoundingClientRect();
-      const offscreen = rect.bottom < 0 || rect.top > window.innerHeight;
-      if (offscreen) {
-        setOverlay({ img: null, rect: null, meta: null, visible: false });
-      } else {
-        setOverlay((o) => ({ ...o, rect }));
-      }
-    };
-
-    const onScroll = () => requestAnimationFrame(update);
-    const onResize = () => requestAnimationFrame(update);
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [overlay.visible, overlay.img]);
-
-  // Hide overlay when pointer leaves both host and overlay
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const handleMove = (e: MouseEvent) => {
-      const t = e.target as Node | null;
-      const insideOverlay =
-        overlayRef.current && t ? overlayRef.current.contains(t) : false;
-      const insideHost = t ? host.contains(t) : false;
-      if (!insideOverlay && !insideHost) {
-        setOverlay({ img: null, rect: null, meta: null, visible: false });
-      }
-    };
-    document.addEventListener("mousemove", handleMove);
-    return () => document.removeEventListener("mousemove", handleMove);
-  }, []);
-
-  // Deep-link text highlight
+  /* ---------------- deep-link text highlight (unchanged) ---------------- */
   useEffect(() => {
     if (!highlightQuote || !hostRef.current) return;
 
@@ -263,20 +311,18 @@ export default function HeritageArticle({
     const target = highlightQuote.trim();
     if (!target) return;
 
-    const findInNode = (node: Text, needle: string) => {
-      const hay = node.nodeValue || "";
-      const idx = hay.indexOf(needle);
-      if (idx >= 0) return { idx, node };
-      const idx2 = hay.toLowerCase().indexOf(needle.toLowerCase());
-      if (idx2 >= 0) return { idx: idx2, node };
-      return null;
-    };
-
     let found: { node: Text; idx: number } | null = null;
     while (walker.nextNode()) {
       const n = walker.currentNode as Text;
-      found = findInNode(n, target);
-      if (found) break;
+      const hay = n.nodeValue || "";
+      const idx =
+        hay.indexOf(target) >= 0
+          ? hay.indexOf(target)
+          : hay.toLowerCase().indexOf(target.toLowerCase());
+      if (idx >= 0) {
+        found = { node: n, idx };
+        break;
+      }
     }
     if (!found) return;
 
@@ -288,9 +334,7 @@ export default function HeritageArticle({
       mark.className = "note-highlight";
       range.surroundContents(mark);
       mark.scrollIntoView({ block: "center", behavior: "smooth" });
-    } catch {
-      // noop
-    }
+    } catch {}
   }, [highlightQuote]);
 
   return (
@@ -300,68 +344,35 @@ export default function HeritageArticle({
         className="prose max-w-none reading-article"
         data-section-id={section.id}
         data-section-title={section.title}
-        data-site-id={site.id}
+        data-site-id={String(site.id)}
         data-site-title={site.title}
         style={{ background: "transparent" }}
-        dangerouslySetInnerHTML={{ __html: clean }}
-      />
-
-      {overlay.visible && overlay.rect && overlay.meta
-        ? createPortal(
-            <div
-              ref={overlayRef}
-              style={{
-                position: "fixed",
-                top: Math.max(8, overlay.rect.top + 8),
-                left: overlay.rect.right - 8,
-                transform: "translateX(-100%)",
-                zIndex: 1000,
-                pointerEvents: "auto",
-              }}
-            >
-              <CollectHeart
-                variant="icon"
-                size={22}
-                siteId={site.id}
-                imageUrl={overlay.meta.imageUrl}
-                altText={overlay.meta.altText}
-                caption={overlay.meta.caption}
-              />
-            </div>,
-            document.body
-          )
-        : null}
+      >
+        {content}
+      </div>
 
       <style jsx global>{`
-        .reading-article {
-          user-select: text !important;
-          -webkit-user-select: text !important;
-          cursor: text;
-          min-height: 0;
-          background: transparent !important;
+        /* --- FINAL STRATEGY: ABSOLUTE POSITIONING --- */
+
+        .reading-article figure > figcaption.positioned-caption-container {
+          position: relative !important;
+          padding-left: 40px !important;
+          text-align: left !important;
+          margin-top: 0.5rem;
         }
-        .reading-article .hop-article,
-        .reading-article .hop-section,
-        .reading-article .hop-text,
-        .reading-article figure,
-        .reading-article .flx-img {
-          background: transparent !important;
+
+        .reading-article
+          figure
+          > figcaption.positioned-caption-container
+          > button {
+          position: absolute !important;
+          left: 0 !important;
+          top: 50% !important;
+          transform: translateY(-110%) !important;
+          margin: 0 !important;
         }
-        .reading-article img,
-        .hop-article img {
-          -webkit-user-drag: none;
-          user-select: none;
-        }
-        .reading-article ::selection,
-        .hop-article ::selection {
-          background: #f7e0ac;
-          color: #5a3e1b;
-        }
-        .reading-article ::-moz-selection,
-        .hop-article ::-moz-selection {
-          background: #f7e0ac;
-          color: #5a3e1b;
-        }
+
+        /* -------- Note popup + highlight (copied exactly) -------- */
         .note-callout {
           position: relative;
           padding: 8px 10px;
@@ -446,25 +457,16 @@ export default function HeritageArticle({
           }
         }
 
-        /* --------- Fade-in rules --------- */
-        .reading-article.reveal-ready .reveal-img,
-        .reading-article.reveal-ready .reveal-cap {
-          opacity: 0;
-          transform: translateY(8px);
-          will-change: opacity, transform;
-          transition: none;
+        /* -------- Text selection color (updated) -------- */
+        .reading-article ::selection,
+        .hop-article ::selection {
+          background: #f7e0ac; /* requested background */
+          color: #5a3e1b; /* requested text color */
         }
-        .reading-article.reveal-ready.reveal-armed .reveal-img:not(.in-done),
-        .reading-article.reveal-ready.reveal-armed .reveal-cap:not(.in-done) {
-          transition: opacity 600ms ease, transform 600ms ease;
-        }
-        .reading-article .reveal-img.in,
-        .reading-article .reveal-cap.in {
-          opacity: 1;
-          transform: translateY(0);
-        }
-        .reading-article .in.in-done {
-          will-change: auto;
+        .reading-article ::-moz-selection,
+        .hop-article ::-moz-selection {
+          background: #f7e0ac;
+          color: #5a3e1b;
         }
       `}</style>
     </>

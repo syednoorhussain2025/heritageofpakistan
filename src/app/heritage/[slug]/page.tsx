@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import StickyHeader from "@/components/StickyHeader";
+import StickyHeader from "./heritage/StickyHeader";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import ReviewsTab from "@/components/reviews/ReviewsTab";
@@ -10,6 +10,9 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
 import { createPortal } from "react-dom";
+
+// ✅ Provider for collect hearts
+import { CollectionsProvider } from "@/components/CollectionsProvider";
 
 // page-local imports from our new folder
 import { useHeritageData, Site } from "./heritage/heritagedata";
@@ -79,250 +82,280 @@ export default function HeritagePage() {
     }
   }
 
-  // Precompute rendered CSL entries once bibliography/style are ready (Bibliography also does its own formatting for independence; this is just a minor optimization)
-  const renderedCSL = useMemo(() => {
-    // leave to HeritageBibliography for independence
-    return null;
-  }, [bibliography, styleId]);
+  const renderedCSL = useMemo(() => null, [bibliography, styleId]);
 
   return (
-    <div className="min-h-screen bg-[#f4f4f4]">
-      {/* HERO */}
-      {loading || !site ? (
-        <HeroSkeleton />
-      ) : (
-        <HeritageCover site={site} hasPhotoStory={hasPhotoStory} />
-      )}
+    // ✅ Everything below is wrapped so Heart portals inherit context
+    <CollectionsProvider>
+      <div className="min-h-screen bg-[#f4f4f4]">
+        {/* HERO */}
+        {loading || !site ? (
+          <HeroSkeleton />
+        ) : (
+          <HeritageCover site={site} hasPhotoStory={hasPhotoStory} />
+        )}
 
-      {/* Sticky action bar */}
-      {!loading && site && (
-        <StickyHeader
-          site={{ id: site.id, slug: site.slug, title: site.title }}
-          isBookmarked={isBookmarked}
-          wishlisted={wishlisted}
-          inTrip={inTrip}
-          mapsLink={maps.link}
-          isLoaded={isLoaded}
-          toggleBookmark={(id: string) => toggleBookmark(id)}
-          setShowWishlistModal={(show: boolean) => setShowWishlistModal(show)}
-          setInTrip={setInTrip}
-          doShare={doShare}
-          setShowReviewModal={(show: boolean) => setShowReviewModal(show)}
-          researchMode={researchEnabled}
-          onChangeResearchMode={(v) => {
-            setResearchEnabled(v);
-            try {
-              localStorage.setItem("researchMode", v ? "1" : "0");
-            } catch {}
-          }}
-        />
-      )}
+        {/* Sticky action bar */}
+        {!loading && site && (
+          <StickyHeader
+            site={{ id: site.id, slug: site.slug, title: site.title }}
+            isBookmarked={isBookmarked}
+            wishlisted={wishlisted}
+            inTrip={inTrip}
+            mapsLink={maps.link}
+            isLoaded={isLoaded}
+            toggleBookmark={(id: string) => toggleBookmark(id)}
+            setShowWishlistModal={(show: boolean) => setShowWishlistModal(show)}
+            setInTrip={setInTrip}
+            doShare={doShare}
+            setShowReviewModal={(show: boolean) => setShowReviewModal(show)}
+            researchMode={researchEnabled}
+            onChangeResearchMode={(v) => {
+              setResearchEnabled(v);
+              try {
+                localStorage.setItem("researchMode", v ? "1" : "0");
+              } catch {}
+            }}
+          />
+        )}
 
-      {/* BODY */}
-      <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
-        {/* LEFT SIDEBAR */}
-        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
-          {loading || !site ? (
-            <>
-              <SidebarCardSkeleton lines={7} />
-              <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={12} />
-              <SidebarCardSkeleton lines={3} />
-              <SidebarCardSkeleton lines={4} />
-              <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={4} />
-            </>
-          ) : (
-            <HeritageSidebar
-              site={site}
-              provinceName={provinceName}
-              regions={regions}
-              maps={maps}
-            />
-          )}
-        </aside>
-
-        {/* RIGHT MAIN */}
-        <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
-          {loading || !site ? (
-            <>
-              <SidebarCardSkeleton lines={6} />
-              <SidebarCardSkeleton lines={6} />
-              <SidebarCardSkeleton lines={6} />
-              {GallerySkeleton({ count: 6 })}
-              <SidebarCardSkeleton lines={3} />
-              {BibliographySkeleton({ rows: 4 })}
-              {ReviewsSkeleton()}
-            </>
-          ) : (
-            <>
-              <HeritageUpperArticle
-                site={{ slug: site.slug }}
-                categories={categories}
-                hasPhotoStory={hasPhotoStory}
+        {/* BODY */}
+        <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+          {/* LEFT SIDEBAR */}
+          <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
+            {loading || !site ? (
+              <>
+                <SidebarCardSkeleton lines={7} />
+                <SidebarCardSkeleton lines={5} />
+                <SidebarCardSkeleton lines={12} />
+                <SidebarCardSkeleton lines={3} />
+                <SidebarCardSkeleton lines={4} />
+                <SidebarCardSkeleton lines={5} />
+                <SidebarCardSkeleton lines={4} />
+              </>
+            ) : (
+              <HeritageSidebar
+                site={site}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
               />
+            )}
+          </aside>
 
-              {site.history_layout_html && (
+          {/* RIGHT MAIN */}
+          <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
+            {loading || !site ? (
+              <>
+                <SidebarCardSkeleton lines={6} />
+                <SidebarCardSkeleton lines={6} />
+                <SidebarCardSkeleton lines={6} />
+                {GallerySkeleton({ count: 6 })}
+                <SidebarCardSkeleton lines={3} />
+                {BibliographySkeleton({ rows: 4 })}
+                {ReviewsSkeleton()}
+              </>
+            ) : (
+              <>
+                <HeritageUpperArticle
+                  site={{ slug: site.slug }}
+                  categories={categories}
+                  hasPhotoStory={hasPhotoStory}
+                />
+
+                {site.history_layout_html && (
+                  <HeritageSection
+                    id="history"
+                    title="History and Background"
+                    iconName="history-background"
+                  >
+                    <HeritageArticle
+                      key={`history-${site.history_layout_html.length}`}
+                      html={site.history_layout_html}
+                      site={{ id: site.id, slug: site.slug, title: site.title }}
+                      section={{
+                        id: "history",
+                        title: "History and Background",
+                      }}
+                      highlightQuote={
+                        highlight.section_id === "history"
+                          ? highlight.quote
+                          : null
+                      }
+                    />
+                  </HeritageSection>
+                )}
+
+                {site.architecture_layout_html && (
+                  <HeritageSection
+                    id="architecture"
+                    title="Architecture and Design"
+                    iconName="architecture-design"
+                  >
+                    <HeritageArticle
+                      key={`architecture-${site.architecture_layout_html.length}`}
+                      html={site.architecture_layout_html}
+                      site={{ id: site.id, slug: site.slug, title: site.title }}
+                      section={{
+                        id: "architecture",
+                        title: "Architecture and Design",
+                      }}
+                      highlightQuote={
+                        highlight.section_id === "architecture"
+                          ? highlight.quote
+                          : null
+                      }
+                    />
+                  </HeritageSection>
+                )}
+
+                {site.climate_layout_html && (
+                  <HeritageSection
+                    id="climate"
+                    title="Climate & Environment"
+                    iconName="climate-topography"
+                  >
+                    <HeritageArticle
+                      key={`climate-${site.climate_layout_html.length}`}
+                      html={site.climate_layout_html}
+                      site={{ id: site.id, slug: site.slug, title: site.title }}
+                      section={{
+                        id: "climate",
+                        title: "Climate & Environment",
+                      }}
+                      highlightQuote={
+                        highlight.section_id === "climate"
+                          ? highlight.quote
+                          : null
+                      }
+                    />
+                  </HeritageSection>
+                )}
+
+                {Array.isArray(site.custom_sections_json) &&
+                  site.custom_sections_json
+                    .filter(
+                      (cs) => !!cs.layout_html && cs.layout_html.trim() !== ""
+                    )
+                    .map((cs) => (
+                      <HeritageSection
+                        key={cs.id}
+                        id={cs.id}
+                        title={cs.title}
+                        iconName="history-background"
+                      >
+                        <HeritageArticle
+                          key={`custom-${cs.id}-${
+                            (cs.layout_html || "").length
+                          }`}
+                          html={cs.layout_html!}
+                          site={{
+                            id: site.id,
+                            slug: site.slug,
+                            title: site.title,
+                          }}
+                          section={{ id: cs.id, title: cs.title }}
+                          highlightQuote={
+                            highlight.section_id === cs.id
+                              ? highlight.quote
+                              : null
+                          }
+                        />
+                      </HeritageSection>
+                    ))}
+
+                <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
+
+                <HeritagePhotoRights />
+
+                <HeritageBibliography items={bibliography} styleId={styleId} />
+
                 <HeritageSection
-                  id="history"
-                  title="History and Background"
-                  iconName="history-background"
+                  id="reviews"
+                  title="Traveler Reviews"
+                  iconName="star"
                 >
-                  <HeritageArticle
-                    html={site.history_layout_html}
-                    site={{ id: site.id, slug: site.slug, title: site.title }}
-                    section={{ id: "history", title: "History and Background" }}
-                    highlightQuote={
-                      highlight.section_id === "history"
-                        ? highlight.quote
-                        : null
-                    }
-                  />
+                  <ReviewsTab siteId={site.id} />
                 </HeritageSection>
-              )}
 
-              {site.architecture_layout_html && (
-                <HeritageSection
-                  id="architecture"
-                  title="Architecture and Design"
-                  iconName="architecture-design"
-                >
-                  <HeritageArticle
-                    html={site.architecture_layout_html}
-                    site={{ id: site.id, slug: site.slug, title: site.title }}
-                    section={{
-                      id: "architecture",
-                      title: "Architecture and Design",
-                    }}
-                    highlightQuote={
-                      highlight.section_id === "architecture"
-                        ? highlight.quote
-                        : null
-                    }
-                  />
-                </HeritageSection>
-              )}
+                <HeritageNearby
+                  siteId={site.id}
+                  lat={site.latitude ? Number(site.latitude) : null}
+                  lng={site.longitude ? Number(site.longitude) : null}
+                />
+              </>
+            )}
+          </main>
+        </div>
 
-              {site.climate_layout_html && (
-                <HeritageSection
-                  id="climate"
-                  title="Climate & Environment"
-                  iconName="climate-topography"
-                >
-                  <HeritageArticle
-                    html={site.climate_layout_html}
-                    site={{ id: site.id, slug: site.slug, title: site.title }}
-                    section={{ id: "climate", title: "Climate & Environment" }}
-                    highlightQuote={
-                      highlight.section_id === "climate"
-                        ? highlight.quote
-                        : null
-                    }
-                  />
-                </HeritageSection>
-              )}
+        {/* Global selection bubble & persisted overlay */}
+        {site && (
+          <GlobalResearchDebug
+            enabled={researchEnabled}
+            siteId={site.id}
+            siteSlug={site.slug}
+            siteTitle={site.title}
+          />
+        )}
 
-              {Array.isArray(site.custom_sections_json) &&
-                site.custom_sections_json
-                  .filter(
-                    (cs) => !!cs.layout_html && cs.layout_html.trim() !== ""
-                  )
-                  .map((cs) => (
-                    <HeritageSection
-                      key={cs.id}
-                      id={cs.id}
-                      title={cs.title}
-                      iconName="history-background"
-                    >
-                      <HeritageArticle
-                        html={cs.layout_html!}
-                        site={{
-                          id: site.id,
-                          slug: site.slug,
-                          title: site.title,
-                        }}
-                        section={{ id: cs.id, title: cs.title }}
-                        highlightQuote={
-                          highlight.section_id === cs.id
-                            ? highlight.quote
-                            : null
-                        }
-                      />
-                    </HeritageSection>
-                  ))}
+        {/* Review Modal */}
+        {showReviewModal && site && (
+          <ReviewModal
+            open={showReviewModal}
+            onClose={() => setShowReviewModal(false)}
+            siteId={site.id}
+          />
+        )}
 
-              <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
+        {/* Wishlist modal */}
+        {showWishlistModal && site && (
+          <AddToWishlistModal
+            siteId={site.id}
+            onClose={() => setShowWishlistModal(false)}
+          />
+        )}
 
-              <HeritagePhotoRights />
+        {/* Global style bits (keep shared vars here) */}
+        <style jsx global>{`
+          :root {
+            --sticky-offset: 72px;
+            --amber-50: #fffaf2;
+            --amber-100: #fff4e3;
+            --amber-150: #ffe9c7;
+            --amber-200: #ffdca6;
+            --amber-300: #f9c979;
+            --amber-400: #f3b75a;
+            --amber-500: var(--brand-orange, #f78300);
+            --amber-border: #e2b56c;
+            --amber-ink: #4a3a20;
+          }
+          h2[id],
+          h3[id],
+          h4[id] {
+            scroll-margin-top: var(--sticky-offset);
+          }
 
-              <HeritageBibliography items={bibliography} styleId={styleId} />
-
-              <HeritageSection
-                id="reviews"
-                title="Traveler Reviews"
-                iconName="star"
-              >
-                <ReviewsTab siteId={site.id} />
-              </HeritageSection>
-
-              <HeritageNearby
-                siteId={site.id}
-                lat={site.latitude ? Number(site.latitude) : null}
-                lng={site.longitude ? Number(site.longitude) : null}
-              />
-            </>
-          )}
-        </main>
+          /* NEW: caption layout so the heart sits left of text and stays centered */
+          .reading-article figure > figcaption.cap-with-heart {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            width: 100%;
+            text-align: center;
+          }
+          .reading-article
+            figure
+            > figcaption.cap-with-heart
+            [data-heart-slot] {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 2px; /* tiny optical spacing */
+            transform: translateY(1px);
+          }
+        `}</style>
       </div>
-
-      {/* Global selection bubble & persisted overlay */}
-      {site && (
-        <GlobalResearchDebug
-          enabled={researchEnabled}
-          siteId={site.id}
-          siteSlug={site.slug}
-          siteTitle={site.title}
-        />
-      )}
-
-      {/* Review Modal */}
-      {showReviewModal && site && (
-        <ReviewModal
-          open={showReviewModal}
-          onClose={() => setShowReviewModal(false)}
-          siteId={site.id}
-        />
-      )}
-
-      {/* Wishlist modal */}
-      {showWishlistModal && site && (
-        <AddToWishlistModal
-          siteId={site.id}
-          onClose={() => setShowWishlistModal(false)}
-        />
-      )}
-
-      {/* Global style bits moved with hero/article for independence; keep only shared vars here */}
-      <style jsx global>{`
-        :root {
-          --sticky-offset: 72px;
-          --amber-50: #fffaf2;
-          --amber-100: #fff4e3;
-          --amber-150: #ffe9c7;
-          --amber-200: #ffdca6;
-          --amber-300: #f9c979;
-          --amber-400: #f3b75a;
-          --amber-500: var(--brand-orange, #f78300);
-          --amber-border: #e2b56c;
-          --amber-ink: #4a3a20;
-        }
-        h2[id],
-        h3[id],
-        h4[id] {
-          scroll-margin-top: var(--sticky-offset);
-        }
-      `}</style>
-    </div>
+    </CollectionsProvider>
   );
 }
 

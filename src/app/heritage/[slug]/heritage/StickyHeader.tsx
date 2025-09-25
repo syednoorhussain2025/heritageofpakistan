@@ -30,7 +30,8 @@ interface StickyHeaderProps {
 }
 
 const DEFAULT_STICKY_OFFSET = 72;
-const EDGE_WIDTH_PX = 30;
+/** Slim hotzone at far-left to open the sidebar */
+const EDGE_WIDTH_PX = 18;
 const CHEVRON_SIZE = 36;
 const RESEARCH_LS_KEY = "researchMode";
 
@@ -41,24 +42,25 @@ function ActionButton({
   onClick,
   href,
   ariaPressed,
+  target,
+  rel,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   href?: string;
   ariaPressed?: boolean;
+  target?: "_blank" | "_self" | "_parent" | "_top";
+  rel?: string;
 }) {
-  // `group` allows the icon badge to react to parent hover
   const base =
     "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium " +
-    "bg-white text-slate-800 cursor-pointer " +
-    "transition-colors whitespace-nowrap";
-  // Hover: text turns brand orange
+    "bg-white text-slate-800 cursor-pointer transition-colors whitespace-nowrap";
   const hoverClass = "hover:text-[var(--brand-orange,#F78300)]";
   const cls = `${base} ${hoverClass}`;
 
   if (href) {
     return (
-      <a href={href} className={cls}>
+      <a href={href} className={cls} target={target} rel={rel}>
         {children}
       </a>
     );
@@ -75,7 +77,6 @@ function ActionButton({
   );
 }
 
-// Circular icon badge used in each button
 function IconBadge({ name, size = 14 }: { name: string; size?: number }) {
   return (
     <span
@@ -95,7 +96,7 @@ function IconBadge({ name, size = 14 }: { name: string; size?: number }) {
   );
 }
 
-/* ───────────── Fixed Navigator Items ───────────── */
+/* ───────────── Sidebar items ───────────── */
 
 type TocItem = {
   id: string;
@@ -105,6 +106,7 @@ type TocItem = {
 };
 
 const FIXED_ITEMS: TocItem[] = [
+  { id: "overview", title: "Overview", level: 2, iconName: "home" },
   { id: "location", title: "Location", level: 2, iconName: "location" },
   {
     id: "general",
@@ -151,20 +153,29 @@ function useScrollSpy(items: TocItem[]) {
   useEffect(() => {
     if (!items.length) return;
     const stickyOffset = getStickyOffset();
+    const hasOverview = items.some((i) => i.id === "overview");
 
     const targets = items
+      .filter((i) => i.id !== "overview")
       .map((i) => document.getElementById(i.id))
       .filter(Boolean) as HTMLElement[];
-    if (!targets.length) return;
+    if (!targets.length && !hasOverview) return;
 
     const obs = new IntersectionObserver(
       (entries) => {
+        if (hasOverview) {
+          const topThreshold = stickyOffset + 8;
+          if (window.scrollY <= topThreshold) {
+            setActiveId("overview");
+            return;
+          }
+        }
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
         if (visible.length) {
           setActiveId(visible[0].target.id);
-        } else {
+        } else if (targets.length) {
           const tops = targets.map((h) => ({
             id: h.id,
             y: Math.abs(h.getBoundingClientRect().top - stickyOffset),
@@ -187,6 +198,10 @@ function useScrollSpy(items: TocItem[]) {
 }
 
 function scrollToId(id: string) {
+  if (id === "overview") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
   const el = document.getElementById(id);
   if (!el) return;
   const stickyOffset = getStickyOffset();
@@ -212,33 +227,26 @@ export default function StickyHeader({
   locationFree,
   categoryIconKey,
   mapsLink,
-
-  // NEW: Research tools
   researchMode,
   onChangeResearchMode,
 }: StickyHeaderProps) {
   const stickyRef = useRef<HTMLDivElement | null>(null);
   const [isStuck, setIsStuck] = useState(false);
 
-  // Measure header height → drives sidebar/hotzone offset and --sticky-offset
   const [headerHeight, setHeaderHeight] = useState<number>(
     DEFAULT_STICKY_OFFSET
   );
   useEffect(() => {
     if (!stickyRef.current) return;
     const el = stickyRef.current;
-
     const update = () => {
       const h = el.offsetHeight || DEFAULT_STICKY_OFFSET;
       setHeaderHeight(h);
       document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
     };
-
     update();
-
     const ro = new ResizeObserver(update);
     ro.observe(el);
-
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => {
@@ -261,7 +269,7 @@ export default function StickyHeader({
   const tocItems = FIXED_ITEMS;
   const activeId = useScrollSpy(tocItems);
 
-  // Sticky tracking (for identity/trigger fade-in only)
+  // Sticky tracking
   useEffect(() => {
     let ticking = false;
     const measure = () => {
@@ -288,10 +296,8 @@ export default function StickyHeader({
   // Open/close; mark openedOnce when first revealed
   useEffect(() => {
     const shouldOpen = hoverBtn || hoverEdge || hoverPanel;
-
     if (openTimer.current) window.clearTimeout(openTimer.current);
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
-
     if (shouldOpen) {
       openTimer.current = window.setTimeout(() => {
         setNavOpen(true);
@@ -302,49 +308,34 @@ export default function StickyHeader({
     }
   }, [hoverBtn, hoverEdge, hoverPanel, openedOnce]);
 
-  // ─── Research Tools (persisted to localStorage). Works controlled + uncontrolled.
+  /* ── Research Mode: default ON, persist if not set, reflect controlled prop ── */
   const [researchModeInternal, setResearchModeInternal] =
-    useState<boolean>(false);
+    useState<boolean>(true); // default ON
 
-  // Initialize from localStorage on mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RESEARCH_LS_KEY);
-      if (raw != null && researchMode === undefined) {
-        setResearchModeInternal(raw === "1" || raw === "true");
+      if (raw == null) {
+        localStorage.setItem(RESEARCH_LS_KEY, "1");
+        setResearchModeInternal(true);
+      } else {
+        setResearchModeInternal(raw === "1" || "true");
       }
     } catch {
       /* no-op */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If parent controls it, reflect in internal state (for icon/label immediate UI)
   useEffect(() => {
     if (typeof researchMode === "boolean") {
       setResearchModeInternal(researchMode);
     }
   }, [researchMode]);
 
-  const researchEnabled =
-    typeof researchMode === "boolean" ? researchMode : researchModeInternal;
-
-  const toggleResearch = () => {
-    const next = !researchEnabled;
-
-    // Notify parent if provided
-    onChangeResearchMode?.(next);
-
-    // Persist + update internal state
-    try {
-      localStorage.setItem(RESEARCH_LS_KEY, next ? "1" : "0");
-    } catch {
-      /* no-op */
-    }
-    if (researchMode === undefined) {
-      setResearchModeInternal(next);
-    }
-  };
+  useEffect(() => {
+    onChangeResearchMode?.(researchModeInternal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [researchModeInternal]);
 
   if (!site) return null;
 
@@ -407,16 +398,26 @@ export default function StickyHeader({
               </div>
             </div>
 
-            {/* equal spacers on both sides to keep the button cluster centered to page width */}
             <div className="flex-1" />
 
             {/* Centered actions */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin justify-center mx-auto">
+              {/* Bookmark button with persistent orange icon badge only */}
               <ActionButton
                 onClick={() => toggleBookmark(site.id)}
                 ariaPressed={isBookmarked}
               >
-                <IconBadge name="bookmark" />
+                <span
+                  className={[
+                    "inline-flex items-center justify-center rounded-full w-8 h-8 transition-colors",
+                    isBookmarked
+                      ? "bg-[var(--brand-orange,#F78300)] text-white"
+                      : "bg-slate-200 text-slate-700 group-hover:bg-[var(--brand-orange,#F78300)] group-hover:text-white",
+                  ].join(" ")}
+                  aria-hidden="true"
+                >
+                  <Icon name="bookmark" size={14} />
+                </span>
                 <span>
                   {isLoaded
                     ? isBookmarked
@@ -436,26 +437,29 @@ export default function StickyHeader({
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
               </ActionButton>
 
-              <ActionButton href={`/heritage/${site.slug}/gallery`}>
+              {/* Open in new tab */}
+              <ActionButton
+                href={`/heritage/${site.slug}/gallery`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <IconBadge name="gallery" />
                 <span>Gallery</span>
               </ActionButton>
 
-              {/* Keep "Share your experience" before Share */}
+              {/* Open in new tab */}
+              <ActionButton
+                href={`/heritage/${site.slug}/story`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconBadge name="play" />
+                <span>Photo Story</span>
+              </ActionButton>
+
               <ActionButton onClick={() => setShowReviewModal(true)}>
                 <IconBadge name="hike" />
                 <span>Share your experience</span>
-              </ActionButton>
-
-              {/* NEW: Research Tools toggle */}
-              <ActionButton
-                onClick={toggleResearch}
-                ariaPressed={researchEnabled}
-              >
-                <IconBadge name="book" />
-                <span>
-                  {researchEnabled ? "Research: ON" : "Research Tools"}
-                </span>
               </ActionButton>
             </div>
 
@@ -464,7 +468,7 @@ export default function StickyHeader({
         </div>
       </div>
 
-      {/* Left-edge hotzone */}
+      {/* Left-edge hotzone (slim) */}
       <div
         className="fixed left-0 z-[41] pointer-events-auto"
         style={{
@@ -495,26 +499,31 @@ export default function StickyHeader({
       {/* Sidebar */}
       <div
         className="fixed left-0 z-[42]"
-        style={{ top: `${headerHeight}px`, bottom: 0 }}
-        onMouseEnter={() => setHoverPanel(true)}
-        onMouseLeave={() => setHoverPanel(false)}
+        style={{
+          top: `${headerHeight}px`,
+          bottom: 0,
+          pointerEvents: navOpen ? "auto" : "none",
+          width: 340,
+        }}
         aria-hidden={!navOpen}
       >
         <div
           className={[
-            "pointer-events-none transition-all duration-200 ease-out h-full",
+            "transition-all duration-200 ease-out h-full",
             navOpen ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2",
           ].join(" ")}
         >
           <aside
             className={[
-              "pointer-events-auto h-full w-[340px] max-w-[88vw]",
+              "h-full w-[340px] max-w-[88vw]",
               "bg-gray-100 rounded-r-2xl shadow-xl border-r border-y border-slate-200",
               "py-3 pr-2 pl-6 md:pl-8 flex flex-col",
             ].join(" ")}
             role="navigation"
             aria-label="On this page"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+            onMouseEnter={() => setHoverPanel(true)}
+            onMouseLeave={() => setHoverPanel(false)}
           >
             {/* Chip header */}
             <div className="px-3 py-2 mb-2 rounded-xl bg-slate-200/60 border border-slate-300/50">
@@ -523,7 +532,7 @@ export default function StickyHeader({
               </div>
             </div>
 
-            {/* Dashed vertical connector aligned through badge centers */}
+            {/* Dashed vertical connector */}
             <div className="relative flex-1">
               <span
                 aria-hidden

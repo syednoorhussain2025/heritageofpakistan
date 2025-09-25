@@ -50,7 +50,9 @@ export default function CollectHeart({
 
   const isOn = isLoaded && collected.has(key);
 
-  const color = isOn ? "text-[var(--brand-orange)]" : "text-gray-300";
+  // MODIFIED: Conditionally choose icon name for filled or outline style
+  const iconName = isOn ? "heart" : "heart-outline";
+  const color = isOn ? "text-[var(--brand-orange)]" : "text-gray-700";
   const hover = isOn ? "" : "hover:text-[var(--brand-orange)]";
   const base =
     "cursor-pointer transition-transform duration-150 hover:scale-110 select-none";
@@ -88,7 +90,8 @@ export default function CollectHeart({
       animate={popping ? { scale: 1.4 } : { scale: 1 }}
       transition={{ duration: 0.15, ease: "easeOut" }}
     >
-      <Icon name="heart" size={size} className={`${color} ${hover}`} />
+      {/* MODIFIED: Use the dynamic iconName variable */}
+      <Icon name={iconName} size={size} className={`${color} ${hover}`} />
     </motion.button>
   );
 }

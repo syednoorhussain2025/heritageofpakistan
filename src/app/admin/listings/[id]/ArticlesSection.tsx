@@ -171,6 +171,7 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.removeAttribute("data-editing");
   });
 
+  // Keep hearts: nothing else to strip.
   return (node.innerHTML || "").trim();
 }
 
@@ -474,7 +475,7 @@ function PartComposer({
       lastInitRef.current = nextKey;
       setSections(initialSections || []);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-comments
   }, [JSON.stringify(initialSections || [])]);
 
   const previewRef = useRef<HTMLDivElement>(null);
@@ -860,6 +861,8 @@ function PartComposer({
                     showToolbar={false}
                     showControls={false}
                     debugFrames={false}
+                    /** Pass siteId so CollectHeart renders and snapshots */
+                    siteId={String(siteId)}
                   />
                 </div>
 

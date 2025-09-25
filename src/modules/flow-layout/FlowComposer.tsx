@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import DOMPurify from "isomorphic-dompurify";
+import CollectHeart from "@/components/CollectHeart"; // ← NEW
 
 /* ----------------------------- Tiptap ----------------------------- */
 import { EditorContent, useEditor, BubbleMenu } from "@tiptap/react";
@@ -64,6 +65,9 @@ export type FlowComposerProps = {
 
   /** When true, hides all editing affordances and disables editing. */
   readonly?: boolean;
+
+  /** Site id needed by CollectHeart (pass from parent when known). */
+  siteId?: string | number; // ← NEW
 };
 
 /* ---------------------------- Utilities ---------------------------- */
@@ -271,6 +275,7 @@ function Figure({
   onReset,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   slot: ImageSlot;
   sidePortraitLock?: boolean;
@@ -278,6 +283,7 @@ function Figure({
   onReset?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string | number; // ← NEW
 }) {
   const hasImg = !!slot.src;
   const lockedRatio = sidePortraitLock ? 3 / 4 : slot.aspectRatio;
@@ -359,11 +365,29 @@ function Figure({
           </div>
         )}
       </div>
-      {displayCaption ? (
-        <figcaption className="mt-2 text-sm text-gray-500 text-center">
-          {displayCaption}
-        </figcaption>
-      ) : null}
+
+      {/* --- Heart + Caption Row (published too) --- */}
+      {(hasImg || displayCaption) && (
+        <div className="mt-2 relative">
+          {hasImg && siteId && (
+            <div className="absolute left-1 top-1/2 -translate-y-1/2">
+              <CollectHeart
+                variant="icon"
+                size={22}
+                siteId={siteId}
+                imageUrl={slot.src || ""}
+                altText={slot.alt || null}
+                caption={displayCaption}
+              />
+            </div>
+          )}
+          {displayCaption ? (
+            <figcaption className="text-sm text-gray-500 text-center">
+              {displayCaption}
+            </figcaption>
+          ) : null}
+        </div>
+      )}
     </figure>
   );
 }
@@ -719,6 +743,7 @@ function ImageLeftTextRight({
   onResetImage,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
@@ -726,6 +751,7 @@ function ImageLeftTextRight({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string; // ← NEW
 }) {
   const img = (sec.images || [])[0] || { slotId: "left-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -744,6 +770,7 @@ function ImageLeftTextRight({
             onReset={onResetImage}
             onOpenCaption={onOpenCaption}
             readonly={readonly}
+            siteId={siteId}
           />
         </div>
         <div className="md:col-span-7">
@@ -784,6 +811,7 @@ function ImageRightTextLeft({
   onResetImage,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
@@ -791,6 +819,7 @@ function ImageRightTextLeft({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string; // ← NEW
 }) {
   const img = (sec.images || [])[0] || { slotId: "right-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -835,6 +864,7 @@ function ImageRightTextLeft({
             onReset={onResetImage}
             onOpenCaption={onOpenCaption}
             readonly={readonly}
+            siteId={siteId}
           />
         </div>
       </div>
@@ -848,12 +878,14 @@ function TwoImages({
   onResetImage,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string; // ← NEW
 }) {
   const imgs = (sec.images || []).slice(0, 2);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -870,6 +902,7 @@ function TwoImages({
               onReset={onResetImage}
               onOpenCaption={onOpenCaption}
               readonly={readonly}
+              siteId={siteId}
             />
           );
         })}
@@ -884,12 +917,14 @@ function ThreeImages({
   onResetImage,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string; // ← NEW
 }) {
   const imgs = (sec.images || []).slice(0, 3);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -906,6 +941,7 @@ function ThreeImages({
               onReset={onResetImage}
               onOpenCaption={onOpenCaption}
               readonly={readonly}
+              siteId={siteId}
             />
           );
         })}
@@ -920,12 +956,14 @@ function FullWidthImage({
   onResetImage,
   onOpenCaption,
   readonly,
+  siteId, // ← NEW
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
+  siteId?: string; // ← NEW
 }) {
   const img = (sec.images || [])[0] || { slotId: "fw-1" };
   return (
@@ -936,6 +974,7 @@ function FullWidthImage({
         onReset={onResetImage}
         onOpenCaption={onOpenCaption}
         readonly={readonly}
+        siteId={siteId}
       />
     </div>
   );
@@ -1026,6 +1065,7 @@ export default function FlowComposer({
   showToolbar = true,
   showControls = true,
   readonly = false,
+  siteId, // ← NEW
 }: FlowComposerProps) {
   const [captionEdit, setCaptionEdit] = React.useState<{
     slotId?: string;
@@ -1241,6 +1281,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1259,6 +1300,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1282,6 +1324,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1305,6 +1348,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1318,6 +1362,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
+                    siteId={siteId}
                   />
                 </div>
               );
