@@ -70,13 +70,11 @@ export type FlowComposerProps = {
 
 /* ---------------------------- Constants / Utils ---------------------------- */
 
-// Standard side image width used by your fixed two-column layout
-const SIDE_W_PX = 480; // desktop standard
+const SIDE_W_PX = 480;
 const SIZE_S_PX = 360;
-const SIZE_M_PX = 480; // match two-column
+const SIZE_M_PX = 480;
 const SIZE_L_PX = 520;
 
-// Tiny inline SVG placeholder (3:4) at SIDE_W_PX
 const ASIDE_PLACEHOLDER_DATA_URI =
   `data:image/svg+xml;utf8,` +
   encodeURIComponent(
@@ -102,7 +100,6 @@ function uid() {
   );
 }
 
-/** vertical padding inside a section (default: none) */
 function padY(cls?: Section["paddingY"]) {
   switch (cls) {
     case "sm":
@@ -123,7 +120,6 @@ function panel(bg?: Section["bg"]) {
     : "";
 }
 
-/** Combine base panel/padding with optional extra cssClass */
 function wrapClass(sec: Section) {
   return [padY(sec.paddingY), panel(sec.bg), sec.cssClass]
     .filter(Boolean)
@@ -221,31 +217,29 @@ function CaptionModal({
       className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
       data-edit-only
     >
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
-        <div className="px-4 py-3 border-b border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900">
-            Edit Image Caption
-          </h3>
+      <div className="w-full max-w-lg rounded-lg bg-neutral-900 text-white shadow-xl border border-neutral-700">
+        <div className="px-4 py-3 border-b border-neutral-800">
+          <h3 className="text-sm font-semibold">Edit Image Caption</h3>
         </div>
         <div className="p-4 space-y-3">
           <textarea
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 text-white px-3 py-2 text-sm"
             rows={4}
             placeholder="Add a caption (per-article override)…"
             value={value}
             onChange={(e) => setValue(e.target.value)}
           />
           {typeof galleryCaption === "string" && galleryCaption.trim() ? (
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-neutral-300">
               Gallery caption: <em>{galleryCaption}</em>
             </div>
           ) : null}
         </div>
-        <div className="px-4 py-3 border-t border-gray-200 flex items-center gap-2 justify-end">
+        <div className="px-4 py-3 border-t border-neutral-800 flex items-center gap-2 justify-end">
           {onRevert ? (
             <button
               type="button"
-              className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="px-3 py-1.5 text-xs rounded-md border border-neutral-700 text-white bg-neutral-900 hover:bg-neutral-800"
               onClick={() => onRevert()}
               title="Use gallery caption instead"
             >
@@ -254,14 +248,14 @@ function CaptionModal({
           ) : null}
           <button
             type="button"
-            className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+            className="px-3 py-1.5 text-xs rounded-md border border-neutral-700 text-white bg-neutral-900 hover:bg-neutral-800"
             onClick={() => onCancel()}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 text-xs rounded-md bg-black text-white hover:bg-gray-900"
+            className="px-3 py-1.5 text-xs rounded-md bg-white text-black hover:bg-gray-200"
             onClick={() => onSave(value.trim() ? value.trim() : null)}
           >
             Save
@@ -356,7 +350,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onPick?.(slot.slotId)}
-                className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg-black"
+                className="px-2.5 py-1.5 rounded-md bg-neutral-900/85 text-white text-xs border border-neutral-700 hover:bg-neutral-900"
               >
                 {hasImg ? "Change" : "Pick"}
               </button>
@@ -365,7 +359,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onReset?.(slot.slotId)}
-                className="px-2.5 py-1.5 rounded-md bg-white/85 text-gray-800 text-xs border hover:bg-white"
+                className="px-2.5 py-1.5 rounded-md bg-neutral-900/85 text-white text-xs border border-neutral-700 hover:bg-neutral-900"
               >
                 Reset
               </button>
@@ -374,7 +368,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onOpenCaption?.(slot)}
-                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg-white inline-flex items-center gap-1"
+                className="px-2 py-1.5 rounded-md bg-neutral-900/85 text-white text-xs border border-neutral-700 hover:bg-neutral-900 inline-flex items-center gap-1"
                 title="Edit caption"
               >
                 <PencilIcon className="w-3.5 h-3.5" />
@@ -385,7 +379,6 @@ function Figure({
         )}
       </div>
 
-      {/* --- figcaption contains both heart and centered caption (same as public page) --- */}
       {(hasImg || displayCaption) && (
         <figcaption className="mt-2 relative min-h-[1.5rem]">
           {hasImg && siteId && (
@@ -434,7 +427,7 @@ const LineHeight = Extension.create({
   },
 });
 
-/** Toolbar button helper */
+/** Dark toolbar button helper */
 function Btn({
   active,
   onClick,
@@ -451,10 +444,10 @@ function Btn({
       type="button"
       title={title}
       onClick={onClick}
-      className={`px-2 py-1 text-xs rounded-md border ${
+      className={`px-2 py-1 text-xs rounded-md border transition-colors ${
         active
-          ? "bg-black text-white border-black"
-          : "bg-white hover:bg-gray-50"
+          ? "bg-neutral-800 text-white border-neutral-600"
+          : "bg-neutral-900/80 text-white border-neutral-700 hover:bg-neutral-800"
       }`}
     >
       {children}
@@ -476,7 +469,7 @@ function Select({
   return (
     <select
       title={title}
-      className="px-2 py-1 text-xs rounded-md border bg-white"
+      className="px-2 py-1 text-xs rounded-md border bg-neutral-900 text-white border-neutral-700 focus:outline-none"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -641,13 +634,18 @@ function InlineTextBlock({
     >
       {editor?.isEditable && !readonly ? (
         <BubbleMenu
+          pluginKey="inline-text-bubble"
           editor={editor}
-          tippyOptions={{ duration: 150, placement: "top" }}
+          tippyOptions={{
+            duration: 150,
+            placement: "top",
+            appendTo: () => document.body,
+          }}
           shouldShow={({ editor }) =>
             editor.isFocused &&
             (editor.isActive("paragraph") || editor.isActive("heading"))
           }
-          className="flex items-center gap-1 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-1 z-50"
+          className="flex items-center gap-1 bg-neutral-900/95 text-white backdrop-blur border border-neutral-700 shadow-xl rounded-lg p-1 z-50"
           data-edit-only
         >
           <Select
@@ -738,10 +736,8 @@ function InlineTextBlock({
 
 /* --------------------------- Aside Rich Text (with image BubbleMenu) --------------------------- */
 
-/** Custom image node with width + alignment + caption that renders as a <figure> with <img> and optional <figcaption>. */
 const AsideImage = Image.extend({
   name: "asideImage",
-  /** Make sure our parser wins over the base Image extension */
   priority: 1001,
 
   addAttributes() {
@@ -757,18 +753,16 @@ const AsideImage = Image.extend({
         renderHTML: (attrs) => ({ "data-width": String(attrs.widthPx) }),
       },
       align: {
-        default: "left", // "left" | "right" | "center"
+        default: "left",
         parseHTML: (el) => el.getAttribute("data-align") || "left",
         renderHTML: (attrs) => ({ "data-align": attrs.align }),
       },
-      /** Per-article override caption (string) */
       caption: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-caption"),
         renderHTML: (attrs) =>
           attrs.caption ? { "data-caption": String(attrs.caption) } : {},
       },
-      /** Copied from gallery on insert (string) */
       galleryCaption: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-gallery-caption"),
@@ -781,7 +775,6 @@ const AsideImage = Image.extend({
     };
   },
 
-  /** Parse the whole figure so figcaption text doesn't leak into the paragraph */
   parseHTML() {
     return [
       {
@@ -797,7 +790,6 @@ const AsideImage = Image.extend({
           const widthPx =
             parseInt(img.getAttribute("data-width") || "", 10) || SIDE_W_PX;
 
-          // prefer data-align; otherwise infer from figure style
           let align = img.getAttribute("data-align") || "left";
           if (!img.getAttribute("data-align")) {
             const st = (fig.getAttribute("style") || "").toLowerCase();
@@ -825,7 +817,6 @@ const AsideImage = Image.extend({
           };
         },
       },
-      // Back-compat: also accept bare <img data-align>
       {
         tag: "img[data-align]",
         getAttrs: (el) => {
@@ -855,7 +846,6 @@ const AsideImage = Image.extend({
       (HTMLAttributes["data-gallery-caption"] as string) ||
       "";
 
-    // Float the FIGURE, not the <img>, so caption sits under the image.
     let figureStyle = `width:${width}px; max-width:40%;`;
     if (align === "left") {
       figureStyle += "float:left; margin:0 1rem .6rem 0;";
@@ -872,7 +862,6 @@ const AsideImage = Image.extend({
       style: figureStyle,
     };
 
-    // Keep data-* on IMG so TipTap can parse them back into node attrs
     const imgAttrs: any = {
       src: HTMLAttributes.src,
       alt: HTMLAttributes.alt || "",
@@ -929,11 +918,9 @@ function AsideRichTextEditor({
     content: value || "",
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // allow inline style, data-* attrs, and figure/figcaption wrapper
       const clean = DOMPurify.sanitize(html, {
         USE_PROFILES: { html: true },
         ALLOWED_TAGS: [
-          // text / structure
           "p",
           "a",
           "strong",
@@ -945,12 +932,10 @@ function AsideRichTextEditor({
           "blockquote",
           "br",
           "span",
-          // headings (to match other sections' toolbar)
           "h1",
           "h2",
           "h3",
           "h4",
-          // images with caption
           "img",
           "figure",
           "figcaption",
@@ -982,7 +967,6 @@ function AsideRichTextEditor({
     }
   }, [value, editor]);
 
-  // ----- Text bubble (same features as other sections) -----
   const setLH = (lh: string) => {
     if (!editor) return;
     const { $from } = editor.state.selection;
@@ -1026,13 +1010,16 @@ function AsideRichTextEditor({
     editor
       .chain()
       .focus()
-      .setNode("asideImage", {
-        src: picked.src,
-        alt: picked.alt || "",
-        widthPx: SIDE_W_PX,
-        align: "left",
-        caption: picked.caption || null,
-        galleryCaption: picked.galleryCaption || picked.caption || null,
+      .insertContent({
+        type: "asideImage",
+        attrs: {
+          src: picked.src,
+          alt: picked.alt || "",
+          widthPx: SIDE_W_PX,
+          align: "left",
+          caption: picked.caption || null,
+          galleryCaption: picked.galleryCaption || picked.caption || null,
+        },
       })
       .run();
   };
@@ -1079,7 +1066,9 @@ function AsideRichTextEditor({
 
   const removeImage = () => {
     if (!editor) return;
-    editor.chain().focus().deleteSelection().run();
+    try {
+      editor.chain().focus().deleteSelection().run();
+    } catch {}
   };
 
   const editCaption = () => {
@@ -1113,41 +1102,34 @@ function AsideRichTextEditor({
 
   return (
     <div>
+      {/* Right-aligned single action outside the content */}
       {!readonly && editor ? (
-        <div
-          className="mb-2 flex flex-wrap items-center gap-2 bg-white/95 border border-gray-200 shadow-sm rounded-lg p-1"
-          data-edit-only
-        >
-          <Btn
-            title="Bold"
-            active={editor.isActive("bold")}
-            onClick={() => editor.chain().focus().toggleBold().run()}
+        <div className="flex justify-end mb-2" data-edit-only>
+          <button
+            type="button"
+            onClick={pickAndInsertImage}
+            className="px-2.5 py-1.5 rounded-md border text-xs bg-neutral-900 text-white border-neutral-700 hover:bg-neutral-800"
           >
-            <span className="font-semibold">B</span>
-          </Btn>
-          <Btn
-            title="Italic"
-            active={editor.isActive("italic")}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-          >
-            <span className="italic">I</span>
-          </Btn>
-          <Btn title="Insert Image" onClick={pickAndInsertImage}>
-            Insert Image
-          </Btn>
+            Insert image
+          </button>
         </div>
       ) : null}
 
-      {/* Text BubbleMenu (Paragraph/Headings, bold/italic, line-height, link) */}
+      {/* Text BubbleMenu */}
       {!readonly && editor ? (
         <BubbleMenu
+          pluginKey="aside-text-bubble"
           editor={editor}
-          tippyOptions={{ duration: 150, placement: "top" }}
+          tippyOptions={{
+            duration: 150,
+            placement: "top",
+            appendTo: () => document.body,
+          }}
           shouldShow={({ editor }) =>
             editor.isFocused &&
             (editor.isActive("paragraph") || editor.isActive("heading"))
           }
-          className="flex items-center gap-1 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-1 z-50"
+          className="flex items-center gap-1 bg-neutral-900/95 text-white backdrop-blur border border-neutral-700 shadow-xl rounded-lg p-1 z-50"
           data-edit-only
         >
           <Select
@@ -1170,7 +1152,6 @@ function AsideRichTextEditor({
               { value: "h4", label: "H4" },
             ]}
           />
-
           <Btn
             title="Bold"
             active={editor.isActive("bold")}
@@ -1185,7 +1166,6 @@ function AsideRichTextEditor({
           >
             <span className="italic">I</span>
           </Btn>
-
           <Select
             title="Line height"
             value={"lh"}
@@ -1197,7 +1177,6 @@ function AsideRichTextEditor({
               { value: "2", label: "LH 2.0" },
             ]}
           />
-
           <Btn
             title="Add/Edit Link"
             onClick={() => {
@@ -1231,16 +1210,21 @@ function AsideRichTextEditor({
         </BubbleMenu>
       ) : null}
 
-      {/* Image BubbleMenu (only when image is selected) */}
+      {/* Image BubbleMenu */}
       {!readonly && editor ? (
         <BubbleMenu
+          pluginKey="aside-image-bubble"
           editor={editor}
-          tippyOptions={{ duration: 120, placement: "top" }}
+          tippyOptions={{
+            duration: 120,
+            placement: "top",
+            appendTo: () => document.body,
+          }}
           shouldShow={({ editor }) => editor.isActive("asideImage")}
-          className="flex flex-wrap items-center gap-2 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-2 z-50"
+          className="flex flex-wrap items-center gap-2 bg-neutral-900/95 text-white backdrop-blur border border-neutral-700 shadow-xl rounded-lg p-2 z-50"
           data-edit-only
         >
-          <span className="text-[11px] text-gray-600 mr-1">Align</span>
+          <span className="text-[11px] text-neutral-300 mr-1">Align</span>
           <Btn title="Left" onClick={() => setAlign("left")}>
             Left
           </Btn>
@@ -1251,9 +1235,9 @@ function AsideRichTextEditor({
             Center
           </Btn>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
 
-          <span className="text-[11px] text-gray-600 mr-1">Size</span>
+          <span className="text-[11px] text-neutral-300 mr-1">Size</span>
           <Btn title="Small" onClick={() => setSize(SIZE_S_PX)}>
             S
           </Btn>
@@ -1264,7 +1248,7 @@ function AsideRichTextEditor({
             L
           </Btn>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
 
           <Btn title="Edit" onClick={editCaption}>
             Edit
@@ -1273,7 +1257,7 @@ function AsideRichTextEditor({
             Revert
           </Btn>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
 
           <Btn title="Change" onClick={replaceImage}>
             Change
@@ -1593,10 +1577,13 @@ function Toolbar({
 }) {
   if (hidden) return null;
   const btn =
-    "px-2.5 py-1.5 rounded-md border text-xs hover:bg-gray-50 active:bg-gray-100";
+    "px-2.5 py-1.5 rounded-md border text-xs bg-neutral-900 text-white border-neutral-700 hover:bg-neutral-800 active:bg-neutral-800/90";
   return (
-    <div className="mb-2 flex flex-wrap gap-2" data-edit-only>
-      <span className="text-sm text-gray-600 self-center mr-1">Add:</span>
+    <div
+      className="mb-2 flex flex-wrap gap-2 items-center bg-neutral-950/50 border border-neutral-800 rounded-lg p-2"
+      data-edit-only
+    >
+      <span className="text-sm text-neutral-300 self-center mr-1">Add:</span>
       <button className={btn} onClick={() => onAdd("image-left-text-right")}>
         Image Left / Text Right
       </button>
@@ -1811,19 +1798,19 @@ export default function FlowComposer({
             readonly || !showControls ? null : (
               <div className="flex gap-2 mb-2" data-edit-only>
                 <button
-                  className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
+                  className="px-2.5 py-1 text-xs rounded-md border bg-neutral-900 text-white border-neutral-700 hover:bg-neutral-800"
                   onClick={() => moveSection(idx, -1)}
                 >
                   ↑ Move up
                 </button>
                 <button
-                  className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50"
+                  className="px-2.5 py-1 text-xs rounded-md border bg-neutral-900 text-white border-neutral-700 hover:bg-neutral-800"
                   onClick={() => moveSection(idx, +1)}
                 >
                   ↓ Move down
                 </button>
                 <button
-                  className="px-2 py-1 text-xs rounded-md border text-red-600 hover:bg-red-50"
+                  className="px-2.5 py-1 text-xs rounded-md border text-red-300 bg-neutral-900 border-red-700 hover:bg-red-900/40 hover:text-red-200"
                   onClick={() => removeSection(idx)}
                 >
                   Delete
@@ -2008,7 +1995,6 @@ export function makeSection(kind: SectionKind): Section {
       return {
         ...base,
         images: [{ slotId: "aside-1" }],
-        // default: placeholder image left with standard width so text wraps immediately
         text: {
           text:
             `<p>` +
