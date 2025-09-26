@@ -356,7 +356,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onPick?.(slot.slotId)}
-                className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg:black"
+                className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg-black"
               >
                 {hasImg ? "Change" : "Pick"}
               </button>
@@ -374,7 +374,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onOpenCaption?.(slot)}
-                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg:white inline-flex items-center gap-1"
+                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg-white inline-flex items-center gap-1"
                 title="Edit caption"
               >
                 <PencilIcon className="w-3.5 h-3.5" />
@@ -737,7 +737,7 @@ function InlineTextBlock({
 
 /* --------------------------- Aside Rich Text (with image BubbleMenu) --------------------------- */
 
-/** Custom image node with width + alignment that render as inline CSS (survives sanitizing). */
+/** Custom image node with width + alignment + caption that renders as a <figure> with <img> and optional <figcaption>. */
 const AsideImage = Image.extend({
   name: "asideImage",
 
@@ -758,6 +758,22 @@ const AsideImage = Image.extend({
         parseHTML: (el) => el.getAttribute("data-align") || "left",
         renderHTML: (attrs) => ({ "data-align": attrs.align }),
       },
+      /** Per-article override caption (string) */
+      caption: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-caption"),
+        renderHTML: (attrs) =>
+          attrs.caption ? { "data-caption": String(attrs.caption) } : {},
+      },
+      /** Copied from gallery on insert (string) */
+      galleryCaption: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-gallery-caption"),
+        renderHTML: (attrs) =>
+          attrs.galleryCaption
+            ? { "data-gallery-caption": String(attrs.galleryCaption) }
+            : {},
+      },
       class: { default: null },
     };
   },
@@ -765,17 +781,50 @@ const AsideImage = Image.extend({
   renderHTML({ HTMLAttributes }) {
     const width = Number(HTMLAttributes["data-width"]) || SIDE_W_PX;
     const align = (HTMLAttributes["data-align"] as string) || "left";
+    const cap =
+      (HTMLAttributes["data-caption"] as string) ||
+      (HTMLAttributes["data-gallery-caption"] as string) ||
+      "";
 
-    let style = `width:${width}px; max-width:40%; border-radius:10px; height:auto;`;
+    // Float the FIGURE, not the <img>, so caption sits under the image.
+    let figureStyle = `width:${width}px; max-width:40%;`;
     if (align === "left") {
-      style += "float:left; margin:0 1rem .6rem 0;";
+      figureStyle += "float:left; margin:0 1rem .6rem 0;";
     } else if (align === "right") {
-      style += "float:right; margin:0 0 .6rem 1rem;";
+      figureStyle += "float:right; margin:0 0 .6rem 1rem;";
     } else {
-      style = `display:block; margin:.75rem auto; width:${width}px; border-radius:10px; height:auto;`;
+      figureStyle = `display:block; margin:.75rem auto; width:${width}px;`;
     }
 
-    return ["img", { ...HTMLAttributes, style }];
+    const figAttrs: any = {
+      class: ["hop-inline-figure", HTMLAttributes.class]
+        .filter(Boolean)
+        .join(" "),
+      style: figureStyle,
+    };
+
+    // Keep data-* on IMG so TipTap can parse them back into node attrs
+    const imgAttrs: any = {
+      src: HTMLAttributes.src,
+      alt: HTMLAttributes.alt || "",
+      style: "display:block; width:100%; height:auto; border-radius:10px;",
+      "data-width": String(width),
+      "data-align": align,
+    };
+    if (HTMLAttributes["data-caption"])
+      imgAttrs["data-caption"] = HTMLAttributes["data-caption"];
+    if (HTMLAttributes["data-gallery-caption"])
+      imgAttrs["data-gallery-caption"] = HTMLAttributes["data-gallery-caption"];
+
+    const children: any[] = [["img", imgAttrs]];
+    if (cap && String(cap).trim().length) {
+      children.push([
+        "figcaption",
+        { class: "hop-caption text-sm text-gray-500 text-center" },
+        String(cap),
+      ]);
+    }
+    return ["figure", figAttrs, ...children];
   },
 });
 
@@ -811,9 +860,25 @@ function AsideRichTextEditor({
     content: value || "",
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // allow inline style & our data-* attrs (width/align)
+      // allow inline style, data-* attrs, and figure/figcaption wrapper
       const clean = DOMPurify.sanitize(html, {
         USE_PROFILES: { html: true },
+        ALLOWED_TAGS: [
+          "p",
+          "a",
+          "strong",
+          "em",
+          "u",
+          "ul",
+          "ol",
+          "li",
+          "blockquote",
+          "br",
+          "span",
+          "img",
+          "figure",
+          "figcaption",
+        ],
         ALLOWED_ATTR: [
           "href",
           "target",
@@ -824,6 +889,8 @@ function AsideRichTextEditor({
           "title",
           "data-width",
           "data-align",
+          "data-caption",
+          "data-gallery-caption",
           "class",
         ],
       });
@@ -841,23 +908,26 @@ function AsideRichTextEditor({
 
   const pickAndInsertImage = async () => {
     if (!editor) return;
-    let src = "";
+    let picked: ImageSlot | null = null;
     if (onPickImage) {
-      const picked = await onPickImage(`aside-inline-${Date.now()}`);
-      src = picked?.src || "";
+      picked = await onPickImage(`aside-inline-${Date.now()}`);
     } else {
-      src = window.prompt("Image URL") || "";
+      const src = window.prompt("Image URL") || "";
+      if (!src.trim()) return;
+      picked = { src, caption: null, galleryCaption: null };
     }
-    if (!src.trim()) return;
+    if (!picked?.src) return;
 
     editor
       .chain()
       .focus()
       .setNode("asideImage", {
-        src,
-        alt: "",
+        src: picked.src,
+        alt: picked.alt || "",
         widthPx: SIDE_W_PX,
         align: "left",
+        caption: picked.caption || null,
+        galleryCaption: picked.galleryCaption || picked.caption || null,
       })
       .run();
   };
@@ -879,20 +949,54 @@ function AsideRichTextEditor({
   const replaceImage = async () => {
     if (!editor) return;
     const attrs = editor.getAttributes("asideImage");
-    let src = "";
+    let picked: ImageSlot | null = null;
     if (onPickImage) {
-      const picked = await onPickImage(`aside-replace-${Date.now()}`);
-      src = picked?.src || "";
+      picked = await onPickImage(`aside-replace-${Date.now()}`);
     } else {
-      src = window.prompt("New image URL", attrs?.src || "") || "";
+      const src = window.prompt("New image URL", attrs?.src || "") || "";
+      if (!src.trim()) return;
+      picked = { src, caption: null, galleryCaption: null };
     }
-    if (!src.trim()) return;
-    editor.chain().focus().updateAttributes("asideImage", { src }).run();
+    if (!picked?.src) return;
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("asideImage", {
+        src: picked.src,
+        galleryCaption:
+          picked.galleryCaption ||
+          picked.caption ||
+          attrs?.galleryCaption ||
+          null,
+      })
+      .run();
   };
 
   const removeImage = () => {
     if (!editor) return;
     editor.chain().focus().deleteSelection().run();
+  };
+
+  const editCaption = () => {
+    if (!editor) return;
+    const attrs = editor.getAttributes("asideImage");
+    const initial = (attrs?.caption as string) || "";
+    const next = window.prompt(
+      "Edit caption (leave blank to clear and fall back to gallery):",
+      initial || ""
+    );
+    if (next === null) return;
+    const caption = next.trim() ? next.trim() : null;
+    editor.chain().focus().updateAttributes("asideImage", { caption }).run();
+  };
+
+  const revertCaption = () => {
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("asideImage", { caption: null })
+      .run();
   };
 
   const wrapperClass =
@@ -964,6 +1068,15 @@ function AsideRichTextEditor({
 
           <div className="w-px h-5 bg-gray-200 mx-1" />
 
+          <Btn title="Edit Caption" onClick={editCaption}>
+            Edit
+          </Btn>
+          <Btn title="Revert to Gallery Caption" onClick={revertCaption}>
+            Revert
+          </Btn>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
           <Btn title="Replace Image" onClick={replaceImage}>
             Replace
           </Btn>
@@ -1007,7 +1120,7 @@ function ImageLeftTextRight({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string;
+  siteId?: string | number;
 }) {
   const img = (sec.images || [])[0] || { slotId: "left-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -1075,7 +1188,7 @@ function ImageRightTextLeft({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string;
+  siteId?: string | number;
 }) {
   const img = (sec.images || [])[0] || { slotId: "right-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -1141,7 +1254,7 @@ function TwoImages({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string;
+  siteId?: string | number;
 }) {
   const imgs = (sec.images || []).slice(0, 2);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -1180,7 +1293,7 @@ function ThreeImages({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string;
+  siteId?: string | number;
 }) {
   const imgs = (sec.images || []).slice(0, 3);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -1219,7 +1332,7 @@ function FullWidthImage({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string;
+  siteId?: string | number;
 }) {
   const img = (sec.images || [])[0] || { slotId: "fw-1" };
   return (
@@ -1536,7 +1649,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId as string}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1555,7 +1668,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId as string}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1579,7 +1692,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId as string}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1603,7 +1716,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId as string}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1617,7 +1730,7 @@ export default function FlowComposer({
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId as string}
+                    siteId={siteId}
                   />
                 </div>
               );
@@ -1701,9 +1814,13 @@ export function makeSection(kind: SectionKind): Section {
         text: {
           text:
             `<p>` +
+            `<figure class="hop-inline-figure" ` +
+            `style="float:left; width:${SIDE_W_PX}px; max-width:40%; margin:0 1rem .6rem 0;">` +
             `<img src="${ASIDE_PLACEHOLDER_DATA_URI}" alt="" ` +
             `data-width="${SIDE_W_PX}" data-align="left" ` +
-            `style="float:left; width:${SIDE_W_PX}px; max-width:40%; margin:0 1rem .6rem 0; border-radius:10px; height:auto;" />` +
+            `style="display:block; width:100%; height:auto; border-radius:10px;" />` +
+            `<figcaption class="hop-caption text-sm text-gray-500 text-center"></figcaption>` +
+            `</figure>` +
             `Write your text here…</p>`,
         },
       };

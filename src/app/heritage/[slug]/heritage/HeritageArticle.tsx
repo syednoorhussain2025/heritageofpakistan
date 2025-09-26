@@ -1,3 +1,4 @@
+// src/modules/heritage/HeritageArticle.tsx
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
 import DOMPurify from "isomorphic-dompurify";
@@ -15,7 +16,6 @@ function styleStringToObject(s: string): React.CSSProperties {
       if (idx === -1) return;
       const rawKey = rule.slice(0, idx).trim();
       const val = rule.slice(idx + 1).trim();
-      // kebab-case → camelCase
       const key = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
       if (key) out[key] = val;
     });
@@ -75,7 +75,6 @@ function extractImageMetaFromFigure(node: any): {
   src: string | null;
   alt: string | null;
 } {
-  // <img>
   const img = findImgDeep(node);
   if (img?.attribs) {
     const a = img.attribs;
@@ -86,7 +85,6 @@ function extractImageMetaFromFigure(node: any): {
     const alt = getAttr(a, ["alt"]);
     if (src) return { src, alt: alt ?? null };
   }
-  // <picture><source>
   const picture = findChildByName(node, "picture");
   if (picture?.children) {
     const sources = picture.children.filter(
@@ -98,7 +96,6 @@ function extractImageMetaFromFigure(node: any): {
       if (src) return { src, alt: null };
     }
   }
-  // CSS background-image
   const stack: any[] = (node.children || []).slice();
   while (stack.length) {
     const cur = stack.shift();
@@ -180,6 +177,11 @@ export default function HeritageArticle({
         "data-src",
         "data-original",
         "data-lazy-src",
+        // keep inline-figure hints (safe to allow)
+        "data-width",
+        "data-align",
+        "data-caption",
+        "data-gallery-caption",
       ],
       ALLOWED_URI_REGEXP:
         /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
@@ -214,6 +216,7 @@ export default function HeritageArticle({
       replace: (node: any) => {
         if (node.type !== "tag") return;
 
+        // FIGURE (with or without its own figcaption)
         if (node.name === "figure") {
           const attribs = mapAttribs(node.attribs);
           const children = node.children || [];
@@ -232,24 +235,31 @@ export default function HeritageArticle({
             <figure {...attribs}>
               {domToReact(childrenWithoutCaption as any)}
               {(src || captionText) && (
-                <figcaption className="positioned-caption-container">
+                <div className="hop-capwrap">
                   {src && (
-                    <CollectHeart
-                      variant="icon"
-                      size={22}
-                      siteId={String(site.id)}
-                      imageUrl={src}
-                      altText={alt}
-                      caption={captionText}
-                    />
+                    <div className="hop-heart">
+                      <CollectHeart
+                        variant="icon"
+                        size={22}
+                        siteId={String(site.id)}
+                        imageUrl={src}
+                        altText={alt}
+                        caption={captionText}
+                      />
+                    </div>
                   )}
-                  {captionText && <span>{captionText}</span>}
-                </figcaption>
+                  {captionText && (
+                    <figcaption className="hop-caption">
+                      {captionText}
+                    </figcaption>
+                  )}
+                </div>
               )}
             </figure>
           );
         }
 
+        // Lone <img> → wrap in a <figure> with the heart under it
         if (node.name === "img" && node.parent?.name !== "figure") {
           const a = node.attribs || {};
           const src =
@@ -261,18 +271,21 @@ export default function HeritageArticle({
           return (
             <figure>
               <img {...imgProps} />
-              {src && (
-                <figcaption className="positioned-caption-container">
-                  <CollectHeart
-                    variant="icon"
-                    size={22}
-                    siteId={String(site.id)}
-                    imageUrl={src}
-                    altText={alt}
-                    caption={null}
-                  />
-                </figcaption>
-              )}
+              <div className="hop-capwrap">
+                {src && (
+                  <div className="hop-heart">
+                    <CollectHeart
+                      variant="icon"
+                      size={22}
+                      siteId={String(site.id)}
+                      imageUrl={src}
+                      altText={alt}
+                      caption={null}
+                    />
+                  </div>
+                )}
+                {/* no caption in this case */}
+              </div>
             </figure>
           );
         }
@@ -376,27 +389,31 @@ export default function HeritageArticle({
       </div>
 
       <style jsx global>{`
-        /* --- FINAL STRATEGY: ABSOLUTE POSITIONING --- */
-
-        .reading-article figure > figcaption.positioned-caption-container {
-          position: relative !important;
-          padding-left: 40px !important;
-          text-align: left !important;
+        /* ------- Match composer figure/caption layout ------- */
+        .reading-article figure .hop-capwrap {
+          position: relative;
           margin-top: 0.5rem;
+          min-height: 1.25rem; /* keeps space for heart even if no caption */
+        }
+        .reading-article figure .hop-heart {
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+        .reading-article figure .hop-caption {
+          display: block;
+          text-align: center !important;
+          font-size: 0.875rem; /* text-sm */
+          line-height: 1.25rem;
+          color: #6b7280; /* gray-500 */
+          margin: 0; /* override prose defaults */
         }
 
-        .reading-article
-          figure
-          > figcaption.positioned-caption-container
-          > button {
-          position: absolute !important;
-          left: 0 !important;
-          top: 50% !important;
-          transform: translateY(-110%) !important;
-          margin: 0 !important;
-        }
+        /* remove the previous left-padded figcaption rules */
+        /* (no longer used) */
 
-        /* -------- Note popup + highlight (copied exactly) -------- */
+        /* -------- Note popup + highlight (unchanged) -------- */
         .note-callout {
           position: relative;
           padding: 8px 10px;
@@ -481,11 +498,11 @@ export default function HeritageArticle({
           }
         }
 
-        /* -------- Text selection color (updated) -------- */
+        /* -------- Text selection colors (unchanged) -------- */
         .reading-article ::selection,
         .hop-article ::selection {
-          background: #f7e0ac; /* requested background */
-          color: #5a3e1b; /* requested text color */
+          background: #f7e0ac;
+          color: #5a3e1b;
         }
         .reading-article ::-moz-selection,
         .hop-article ::-moz-selection {
