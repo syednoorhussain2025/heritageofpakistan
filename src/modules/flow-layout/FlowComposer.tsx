@@ -385,7 +385,7 @@ function Figure({
         )}
       </div>
 
-      {/* --- NEW: figcaption is the container, heart is positioned inside --- */}
+      {/* --- figcaption contains both heart and centered caption (same as public page) --- */}
       {(hasImg || displayCaption) && (
         <figcaption className="mt-2 relative min-h-[1.5rem]">
           {hasImg && siteId && (
@@ -741,6 +741,8 @@ function InlineTextBlock({
 /** Custom image node with width + alignment + caption that renders as a <figure> with <img> and optional <figcaption>. */
 const AsideImage = Image.extend({
   name: "asideImage",
+  /** Make sure our parser wins over the base Image extension */
+  priority: 1001,
 
   addAttributes() {
     return {
@@ -777,6 +779,72 @@ const AsideImage = Image.extend({
       },
       class: { default: null },
     };
+  },
+
+  /** Parse the whole figure so figcaption text doesn't leak into the paragraph */
+  parseHTML() {
+    return [
+      {
+        tag: "figure.hop-inline-figure",
+        getAttrs: (node) => {
+          const fig = node as HTMLElement;
+          const img = fig.querySelector("img");
+          if (!img) return false;
+
+          const src = img.getAttribute("src");
+          if (!src) return false;
+
+          const widthPx =
+            parseInt(img.getAttribute("data-width") || "", 10) || SIDE_W_PX;
+
+          // prefer data-align; otherwise infer from figure style
+          let align = img.getAttribute("data-align") || "left";
+          if (!img.getAttribute("data-align")) {
+            const st = (fig.getAttribute("style") || "").toLowerCase();
+            if (st.includes("float:right")) align = "right";
+            else if (st.includes("margin:0 auto")) align = "center";
+          }
+
+          const figcap = fig.querySelector("figcaption");
+          const captionText =
+            (figcap?.textContent || "").trim() ||
+            img.getAttribute("data-caption") ||
+            null;
+
+          const galleryCaption =
+            img.getAttribute("data-gallery-caption") || null;
+
+          return {
+            src,
+            alt: img.getAttribute("alt") || "",
+            widthPx,
+            align,
+            caption: captionText,
+            galleryCaption,
+            class: fig.getAttribute("class") || null,
+          };
+        },
+      },
+      // Back-compat: also accept bare <img data-align>
+      {
+        tag: "img[data-align]",
+        getAttrs: (el) => {
+          const img = el as HTMLElement;
+          const src = img.getAttribute("src");
+          if (!src) return false;
+
+          return {
+            src,
+            alt: img.getAttribute("alt") || "",
+            widthPx:
+              parseInt(img.getAttribute("data-width") || "", 10) || SIDE_W_PX,
+            align: img.getAttribute("data-align") || "left",
+            caption: img.getAttribute("data-caption") || null,
+            galleryCaption: img.getAttribute("data-gallery-caption") || null,
+          };
+        },
+      },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -865,6 +933,7 @@ function AsideRichTextEditor({
       const clean = DOMPurify.sanitize(html, {
         USE_PROFILES: { html: true },
         ALLOWED_TAGS: [
+          // text / structure
           "p",
           "a",
           "strong",
@@ -876,6 +945,12 @@ function AsideRichTextEditor({
           "blockquote",
           "br",
           "span",
+          // headings (to match other sections' toolbar)
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          // images with caption
           "img",
           "figure",
           "figcaption",
@@ -906,6 +981,35 @@ function AsideRichTextEditor({
       editor.commands.setContent(value || "", false);
     }
   }, [value, editor]);
+
+  // ----- Text bubble (same features as other sections) -----
+  const setLH = (lh: string) => {
+    if (!editor) return;
+    const { $from } = editor.state.selection;
+    const parentName = $from.parent.type.name;
+    if (parentName === "heading") {
+      editor
+        .chain()
+        .focus()
+        .updateAttributes("heading", { lineHeight: lh })
+        .run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .updateAttributes("paragraph", { lineHeight: lh })
+        .run();
+    }
+  };
+
+  const currentBlock = React.useMemo(() => {
+    if (!editor) return "p";
+    if (editor.isActive("heading", { level: 1 })) return "h1";
+    if (editor.isActive("heading", { level: 2 })) return "h2";
+    if (editor.isActive("heading", { level: 3 })) return "h3";
+    if (editor.isActive("heading", { level: 4 })) return "h4";
+    return "p";
+  }, [editor, editor?.state?.selection?.from, editor?.state?.selection?.to]);
 
   const pickAndInsertImage = async () => {
     if (!editor) return;
@@ -1034,6 +1138,99 @@ function AsideRichTextEditor({
         </div>
       ) : null}
 
+      {/* Text BubbleMenu (Paragraph/Headings, bold/italic, line-height, link) */}
+      {!readonly && editor ? (
+        <BubbleMenu
+          editor={editor}
+          tippyOptions={{ duration: 150, placement: "top" }}
+          shouldShow={({ editor }) =>
+            editor.isFocused &&
+            (editor.isActive("paragraph") || editor.isActive("heading"))
+          }
+          className="flex items-center gap-1 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-1 z-50"
+          data-edit-only
+        >
+          <Select
+            title="Block type"
+            value={currentBlock}
+            onChange={(v) => {
+              const chain = editor.chain().focus();
+              if (v === "p") {
+                chain.setParagraph().run();
+              } else {
+                const level = Number(v.replace("h", "")) as 1 | 2 | 3 | 4;
+                chain.setHeading({ level }).run();
+              }
+            }}
+            items={[
+              { value: "p", label: "Paragraph" },
+              { value: "h1", label: "H1" },
+              { value: "h2", label: "H2" },
+              { value: "h3", label: "H3" },
+              { value: "h4", label: "H4" },
+            ]}
+          />
+
+          <Btn
+            title="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
+            <span className="font-semibold">B</span>
+          </Btn>
+          <Btn
+            title="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <span className="italic">I</span>
+          </Btn>
+
+          <Select
+            title="Line height"
+            value={"lh"}
+            onChange={(v) => setLH(v)}
+            items={[
+              { value: "1.2", label: "LH 1.2" },
+              { value: "1.5", label: "LH 1.5" },
+              { value: "1.75", label: "LH 1.75" },
+              { value: "2", label: "LH 2.0" },
+            ]}
+          />
+
+          <Btn
+            title="Add/Edit Link"
+            onClick={() => {
+              const previous = editor.getAttributes("link").href as
+                | string
+                | undefined;
+              const url = window.prompt("Enter URL", previous || "https://");
+              if (url === null) return;
+              if (url.trim() === "") {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              editor
+                .chain()
+                .focus()
+                .extendMarkRange("link")
+                .setLink({ href: url.trim() })
+                .run();
+            }}
+          >
+            Link
+          </Btn>
+          {editor.isActive("link") && (
+            <Btn
+              title="Remove Link"
+              onClick={() => editor.chain().focus().unsetLink().run()}
+            >
+              Unlink
+            </Btn>
+          )}
+        </BubbleMenu>
+      ) : null}
+
       {/* Image BubbleMenu (only when image is selected) */}
       {!readonly && editor ? (
         <BubbleMenu
@@ -1069,7 +1266,7 @@ function AsideRichTextEditor({
 
           <div className="w-px h-5 bg-gray-200 mx-1" />
 
-          <Btn title="Edit Caption" onClick={editCaption}>
+          <Btn title="Edit" onClick={editCaption}>
             Edit
           </Btn>
           <Btn title="Revert to Gallery Caption" onClick={revertCaption}>
@@ -1078,11 +1275,11 @@ function AsideRichTextEditor({
 
           <div className="w-px h-5 bg-gray-200 mx-1" />
 
-          <Btn title="Replace Image" onClick={replaceImage}>
-            Replace
+          <Btn title="Change" onClick={replaceImage}>
+            Change
           </Btn>
-          <Btn title="Remove Image" onClick={removeImage}>
-            Remove
+          <Btn title="Reset" onClick={removeImage}>
+            Reset
           </Btn>
         </BubbleMenu>
       ) : null}
