@@ -726,6 +726,51 @@ function InlineTextBlock({
               Unlink
             </Btn>
           )}
+
+          {/* ───── Insert image moved INTO the text BubbleMenu ───── */}
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
+          <Btn
+            title="Insert inline image"
+            onClick={async () => {
+              // Reuse the same helper used previously
+              const doInsert = async () => {
+                let picked: ImageSlot | null = null;
+                if ((editor as any).__onPickImage) {
+                  picked = await (editor as any).__onPickImage(
+                    `aside-inline-${Date.now()}`
+                  );
+                } else {
+                  const src = window.prompt("Image URL") || "";
+                  if (!src.trim()) return null;
+                  picked = { src, caption: null, galleryCaption: null };
+                }
+                return picked;
+              };
+
+              // Stash on the editor instance the onPickImage, if provided via closure.
+              const picked = await doInsert();
+              if (!picked?.src) return;
+
+              editor
+                .chain()
+                .focus()
+                .insertContent({
+                  type: "asideImage",
+                  attrs: {
+                    src: picked.src,
+                    alt: picked.alt || "",
+                    widthPx: SIDE_W_PX,
+                    align: "left",
+                    caption: picked.caption || null,
+                    galleryCaption:
+                      picked.galleryCaption || picked.caption || null,
+                  },
+                })
+                .run();
+            }}
+          >
+            Insert image
+          </Btn>
         </BubbleMenu>
       ) : null}
 
@@ -959,6 +1004,17 @@ function AsideRichTextEditor({
     },
   });
 
+  // Expose onPickImage to the BubbleMenu button via the editor instance
+  React.useEffect(() => {
+    if (!editor) return;
+    (editor as any).__onPickImage = onPickImage
+      ? (slotId: string) => onPickImage(slotId)
+      : undefined;
+    return () => {
+      if (editor) (editor as any).__onPickImage = undefined;
+    };
+  }, [editor, onPickImage]);
+
   React.useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
@@ -995,35 +1051,6 @@ function AsideRichTextEditor({
     return "p";
   }, [editor, editor?.state?.selection?.from, editor?.state?.selection?.to]);
 
-  const pickAndInsertImage = async () => {
-    if (!editor) return;
-    let picked: ImageSlot | null = null;
-    if (onPickImage) {
-      picked = await onPickImage(`aside-inline-${Date.now()}`);
-    } else {
-      const src = window.prompt("Image URL") || "";
-      if (!src.trim()) return;
-      picked = { src, caption: null, galleryCaption: null };
-    }
-    if (!picked?.src) return;
-
-    editor
-      .chain()
-      .focus()
-      .insertContent({
-        type: "asideImage",
-        attrs: {
-          src: picked.src,
-          alt: picked.alt || "",
-          widthPx: SIDE_W_PX,
-          align: "left",
-          caption: picked.caption || null,
-          galleryCaption: picked.galleryCaption || picked.caption || null,
-        },
-      })
-      .run();
-  };
-
   const setAlign = (align: "left" | "right" | "center") => {
     if (!editor) return;
     editor.chain().focus().updateAttributes("asideImage", { align }).run();
@@ -1042,8 +1069,10 @@ function AsideRichTextEditor({
     if (!editor) return;
     const attrs = editor.getAttributes("asideImage");
     let picked: ImageSlot | null = null;
-    if (onPickImage) {
-      picked = await onPickImage(`aside-replace-${Date.now()}`);
+    if ((editor as any).__onPickImage) {
+      picked = await (editor as any).__onPickImage(
+        `aside-replace-${Date.now()}`
+      );
     } else {
       const src = window.prompt("New image URL", attrs?.src || "") || "";
       if (!src.trim()) return;
@@ -1102,20 +1131,7 @@ function AsideRichTextEditor({
 
   return (
     <div>
-      {/* Right-aligned single action outside the content */}
-      {!readonly && editor ? (
-        <div className="flex justify-end mb-2" data-edit-only>
-          <button
-            type="button"
-            onClick={pickAndInsertImage}
-            className="px-2.5 py-1.5 rounded-md border text-xs bg-neutral-900 text-white border-neutral-700 hover:bg-neutral-800"
-          >
-            Insert image
-          </button>
-        </div>
-      ) : null}
-
-      {/* Text BubbleMenu */}
+      {/* Text BubbleMenu (now also hosts Insert Image) */}
       {!readonly && editor ? (
         <BubbleMenu
           pluginKey="aside-text-bubble"
@@ -1207,6 +1223,45 @@ function AsideRichTextEditor({
               Unlink
             </Btn>
           )}
+
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
+
+          {/* Insert image button now lives here */}
+          <Btn
+            title="Insert inline image"
+            onClick={async () => {
+              let picked: ImageSlot | null = null;
+              if ((editor as any).__onPickImage) {
+                picked = await (editor as any).__onPickImage(
+                  `aside-inline-${Date.now()}`
+                );
+              } else {
+                const src = window.prompt("Image URL") || "";
+                if (!src.trim()) return;
+                picked = { src, caption: null, galleryCaption: null };
+              }
+              if (!picked?.src) return;
+
+              editor
+                .chain()
+                .focus()
+                .insertContent({
+                  type: "asideImage",
+                  attrs: {
+                    src: picked.src,
+                    alt: picked.alt || "",
+                    widthPx: SIDE_W_PX,
+                    align: "left",
+                    caption: picked.caption || null,
+                    galleryCaption:
+                      picked.galleryCaption || picked.caption || null,
+                  },
+                })
+                .run();
+            }}
+          >
+            Insert image
+          </Btn>
         </BubbleMenu>
       ) : null}
 
