@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import DOMPurify from "isomorphic-dompurify";
-import CollectHeart from "@/components/CollectHeart"; // ← NEW
+import CollectHeart from "@/components/CollectHeart";
 
 /* ----------------------------- Tiptap ----------------------------- */
 import { EditorContent, useEditor, BubbleMenu } from "@tiptap/react";
@@ -11,6 +11,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Heading from "@tiptap/extension-heading";
 import TextStyle from "@tiptap/extension-text-style";
+import Image from "@tiptap/extension-image";
 import { Extension } from "@tiptap/core";
 
 /* ----------------------------- Types (UI) ----------------------------- */
@@ -21,21 +22,20 @@ export type SectionKind =
   | "image-right-text-left"
   | "two-images"
   | "three-images"
-  | "full-width-text";
+  | "full-width-text"
+  | "aside-figure";
 
 export type ImageSlot = {
   src?: string;
   alt?: string | null;
-  caption?: string | null; // per-article override
-  galleryCaption?: string | null; // inherited from gallery at pick time (fallback)
+  caption?: string | null;
+  galleryCaption?: string | null;
   href?: string | null;
-  aspectRatio?: number; // for galleries/full width; side images standardized to 3/4
-  /** composite slot key (optional for your picker) */
+  aspectRatio?: number;
   slotId?: string;
 };
 
 export type TextSlot = {
-  /** Stores sanitized HTML from Tiptap */
   text?: string;
 };
 
@@ -46,9 +46,11 @@ export type Section = {
   text?: TextSlot;
   paddingY?: "none" | "sm" | "md" | "lg";
   bg?: "none" | "muted";
-  /** optional extra classes / style */
   cssClass?: string;
   style?: React.CSSProperties;
+
+  /** legacy align (not used by inline aside anymore) */
+  align?: "left" | "right" | "center";
 };
 
 export type FlowComposerProps = {
@@ -58,19 +60,38 @@ export type FlowComposerProps = {
   onPickImage?: (slotId: string) => Promise<ImageSlot>;
   debugFrames?: boolean;
 
-  /** Hide add-toolbar in the canvas (we’ll show it in the sidebar instead). */
   showToolbar?: boolean;
-  /** Hide per-section move/delete controls in the canvas. */
   showControls?: boolean;
 
-  /** When true, hides all editing affordances and disables editing. */
   readonly?: boolean;
 
-  /** Site id needed by CollectHeart (pass from parent when known). */
-  siteId?: string | number; // ← NEW
+  siteId?: string | number;
 };
 
-/* ---------------------------- Utilities ---------------------------- */
+/* ---------------------------- Constants / Utils ---------------------------- */
+
+// Standard side image width used by your fixed two-column layout
+const SIDE_W_PX = 480; // desktop standard
+const SIZE_S_PX = 360;
+const SIZE_M_PX = 480; // match two-column
+const SIZE_L_PX = 520;
+
+// Tiny inline SVG placeholder (3:4) at SIDE_W_PX
+const ASIDE_PLACEHOLDER_DATA_URI =
+  `data:image/svg+xml;utf8,` +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${SIDE_W_PX}' height='${Math.round(
+      SIDE_W_PX * (4 / 3)
+    )}' viewBox='0 0 ${SIDE_W_PX} ${Math.round(
+      SIDE_W_PX * (4 / 3)
+    )}'><defs><style>@media(prefers-color-scheme:dark){.bg{fill:#2b2b2b}.fg{fill:#9aa0a6}}</style></defs><rect class='bg' width='100%' height='100%' fill='#f1f3f4'/><g class='fg' fill='#9aa0a6'><rect x='${Math.round(
+      SIDE_W_PX * 0.12
+    )}' y='${Math.round(SIDE_W_PX * 0.12)}' width='${Math.round(
+      SIDE_W_PX * 0.76
+    )}' height='12' rx='6'/><circle cx='${SIDE_W_PX / 2}' cy='${Math.round(
+      SIDE_W_PX * 0.72
+    )}' r='${Math.round(SIDE_W_PX * 0.12)}'/></g></svg>`
+  );
 
 function uid() {
   return (
@@ -128,7 +149,6 @@ function Placeholder({
 }
 
 /* ------------------------- Height lock (fallback) ------------------------- */
-/** Lock text column minHeight to the image column height on desktop/tablet. */
 function usePairHeightLock(
   imageWrapRef: React.RefObject<HTMLElement | null>,
   enabled = true
@@ -150,7 +170,7 @@ function usePairHeightLock(
         const h = imageWrapRef.current.getBoundingClientRect().height;
         setMinPx(Math.max(0, Math.round(h)));
       } else {
-        setMinPx(undefined); // unlock on mobile
+        setMinPx(undefined);
       }
     };
 
@@ -173,7 +193,6 @@ function usePairHeightLock(
 /* --------------------------- Shared helpers --------------------------- */
 
 function effectiveCaption(slot: ImageSlot): string | null {
-  // Prefer per-article override; otherwise fall back to gallery caption.
   const c = (slot.caption ?? "").trim();
   if (c) return c;
   const g = (slot.galleryCaption ?? "").trim();
@@ -275,7 +294,7 @@ function Figure({
   onReset,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   slot: ImageSlot;
   sidePortraitLock?: boolean;
@@ -283,7 +302,7 @@ function Figure({
   onReset?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string | number; // ← NEW
+  siteId?: string | number;
 }) {
   const hasImg = !!slot.src;
   const lockedRatio = sidePortraitLock ? 3 / 4 : slot.aspectRatio;
@@ -337,7 +356,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onPick?.(slot.slotId)}
-                className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg-black"
+                className="px-2.5 py-1.5 rounded-md bg-black/75 text-white text-xs backdrop-blur hover:bg:black"
               >
                 {hasImg ? "Change" : "Pick"}
               </button>
@@ -355,7 +374,7 @@ function Figure({
               <button
                 type="button"
                 onClick={() => onOpenCaption?.(slot)}
-                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg-white inline-flex items-center gap-1"
+                className="px-2 py-1.5 rounded-md bg-white/90 text-gray-800 text-xs border hover:bg:white inline-flex items-center gap-1"
                 title="Edit caption"
               >
                 <PencilIcon className="w-3.5 h-3.5" />
@@ -366,7 +385,6 @@ function Figure({
         )}
       </div>
 
-      {/* --- Heart + Caption Row (published too) --- */}
       {(hasImg || displayCaption) && (
         <div className="mt-2 relative">
           {hasImg && siteId && (
@@ -394,7 +412,6 @@ function Figure({
 
 /* --------------------------- Tiptap helpers --------------------------- */
 
-/** Support line-height on paragraph and heading nodes */
 const LineHeight = Extension.create({
   name: "lineHeight",
   addGlobalAttributes() {
@@ -458,7 +475,7 @@ function Select({
   return (
     <select
       title={title}
-      className="px-2 py-1 text-xs rounded-md border bg-white"
+      className="px-2 py-1 text-xs rounded-md border bg:white"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -478,10 +495,8 @@ function InlineTextBlock({
   setValue,
   maxHeightPx,
   readonly,
-  /** Optional soft character limit (disabled by default) */
   maxCharsSoft,
 }: {
-  /** HTML string (sanitized on save) */
   value: string;
   setValue: (v: string) => void;
   maxHeightPx?: number;
@@ -492,13 +507,10 @@ function InlineTextBlock({
   const prevHtmlRef = React.useRef<string>(value || "");
   const [overflowFlash, setOverflowFlash] = React.useState(false);
 
-  // initialize editor
   const editor = useEditor({
     editable: !readonly,
     extensions: [
-      StarterKit.configure({
-        heading: false, // controlled via Heading extension
-      }),
+      StarterKit.configure({ heading: false }),
       Heading.configure({ levels: [1, 2, 3, 4] }),
       TextStyle,
       LineHeight,
@@ -514,7 +526,6 @@ function InlineTextBlock({
     ],
     content: value || "",
     onUpdate: ({ editor }) => {
-      // (1) Soft character cap (optional)
       if (typeof maxCharsSoft === "number" && maxCharsSoft > 0) {
         const txt = editor.state.doc.textBetween(
           0,
@@ -528,12 +539,10 @@ function InlineTextBlock({
         }
       }
 
-      // (2) Sanitize and emit upstream
       const html = editor.getHTML();
       const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
       setValue(clean);
 
-      // (3) Height clamp: if overflow, undo and revert to previous good html
       if (typeof maxHeightPx === "number" && maxHeightPx > 0) {
         requestAnimationFrame(() => {
           const el = wrapRef.current;
@@ -556,7 +565,6 @@ function InlineTextBlock({
     },
   });
 
-  // keep editor in sync when external value changes
   React.useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
@@ -571,7 +579,6 @@ function InlineTextBlock({
     window.setTimeout(() => setOverflowFlash(false), 250);
   };
 
-  // line height setter
   const setLH = (lh: string) => {
     if (!editor) return;
     const { $from } = editor.state.selection;
@@ -642,7 +649,6 @@ function InlineTextBlock({
           className="flex items-center gap-1 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-1 z-50"
           data-edit-only
         >
-          {/* Block selector (fixed API) */}
           <Select
             title="Block type"
             value={currentBlock}
@@ -664,7 +670,6 @@ function InlineTextBlock({
             ]}
           />
 
-          {/* Bold / Italic */}
           <Btn
             title="Bold"
             active={editor.isActive("bold")}
@@ -680,7 +685,6 @@ function InlineTextBlock({
             <span className="italic">I</span>
           </Btn>
 
-          {/* Line height */}
           <Select
             title="Line height"
             value={"lh"}
@@ -693,7 +697,6 @@ function InlineTextBlock({
             ]}
           />
 
-          {/* Link controls */}
           <Btn
             title="Add/Edit Link"
             onClick={() => {
@@ -732,9 +735,262 @@ function InlineTextBlock({
   );
 }
 
+/* --------------------------- Aside Rich Text (with image BubbleMenu) --------------------------- */
+
+/** Custom image node with width + alignment that render as inline CSS (survives sanitizing). */
+const AsideImage = Image.extend({
+  name: "asideImage",
+
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: "" },
+      widthPx: {
+        default: SIDE_W_PX,
+        parseHTML: (el) => {
+          const v = el.getAttribute("data-width");
+          return v ? Number(v) : SIDE_W_PX;
+        },
+        renderHTML: (attrs) => ({ "data-width": String(attrs.widthPx) }),
+      },
+      align: {
+        default: "left", // "left" | "right" | "center"
+        parseHTML: (el) => el.getAttribute("data-align") || "left",
+        renderHTML: (attrs) => ({ "data-align": attrs.align }),
+      },
+      class: { default: null },
+    };
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const width = Number(HTMLAttributes["data-width"]) || SIDE_W_PX;
+    const align = (HTMLAttributes["data-align"] as string) || "left";
+
+    let style = `width:${width}px; max-width:40%; border-radius:10px; height:auto;`;
+    if (align === "left") {
+      style += "float:left; margin:0 1rem .6rem 0;";
+    } else if (align === "right") {
+      style += "float:right; margin:0 0 .6rem 1rem;";
+    } else {
+      style = `display:block; margin:.75rem auto; width:${width}px; border-radius:10px; height:auto;`;
+    }
+
+    return ["img", { ...HTMLAttributes, style }];
+  },
+});
+
+function AsideRichTextEditor({
+  value,
+  setValue,
+  onPickImage,
+  readonly,
+}: {
+  value: string;
+  setValue: (v: string) => void;
+  onPickImage?: (slotId: string) => Promise<ImageSlot>;
+  readonly?: boolean;
+}) {
+  const editor = useEditor({
+    editable: !readonly,
+    extensions: [
+      StarterKit.configure({ heading: false }),
+      Heading.configure({ levels: [1, 2, 3, 4] }),
+      TextStyle,
+      LineHeight,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        HTMLAttributes: {
+          rel: "noopener noreferrer nofollow",
+          target: "_blank",
+        },
+      }),
+      AsideImage,
+    ],
+    content: value || "",
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      // allow inline style & our data-* attrs (width/align)
+      const clean = DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+        ALLOWED_ATTR: [
+          "href",
+          "target",
+          "rel",
+          "style",
+          "src",
+          "alt",
+          "title",
+          "data-width",
+          "data-align",
+          "class",
+        ],
+      });
+      setValue(clean);
+    },
+  });
+
+  React.useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if ((value || "") !== (current || "")) {
+      editor.commands.setContent(value || "", false);
+    }
+  }, [value, editor]);
+
+  const pickAndInsertImage = async () => {
+    if (!editor) return;
+    let src = "";
+    if (onPickImage) {
+      const picked = await onPickImage(`aside-inline-${Date.now()}`);
+      src = picked?.src || "";
+    } else {
+      src = window.prompt("Image URL") || "";
+    }
+    if (!src.trim()) return;
+
+    editor
+      .chain()
+      .focus()
+      .setNode("asideImage", {
+        src,
+        alt: "",
+        widthPx: SIDE_W_PX,
+        align: "left",
+      })
+      .run();
+  };
+
+  const setAlign = (align: "left" | "right" | "center") => {
+    if (!editor) return;
+    editor.chain().focus().updateAttributes("asideImage", { align }).run();
+  };
+
+  const setSize = (px: number) => {
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("asideImage", { widthPx: px })
+      .run();
+  };
+
+  const replaceImage = async () => {
+    if (!editor) return;
+    const attrs = editor.getAttributes("asideImage");
+    let src = "";
+    if (onPickImage) {
+      const picked = await onPickImage(`aside-replace-${Date.now()}`);
+      src = picked?.src || "";
+    } else {
+      src = window.prompt("New image URL", attrs?.src || "") || "";
+    }
+    if (!src.trim()) return;
+    editor.chain().focus().updateAttributes("asideImage", { src }).run();
+  };
+
+  const removeImage = () => {
+    if (!editor) return;
+    editor.chain().focus().deleteSelection().run();
+  };
+
+  const wrapperClass =
+    "prose prose-gray max-w-none outline-none " +
+    (!readonly
+      ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg"
+      : "") +
+    " text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0";
+
+  return (
+    <div>
+      {!readonly && editor ? (
+        <div
+          className="mb-2 flex flex-wrap items-center gap-2 bg-white/95 border border-gray-200 shadow-sm rounded-lg p-1"
+          data-edit-only
+        >
+          <Btn
+            title="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
+            <span className="font-semibold">B</span>
+          </Btn>
+          <Btn
+            title="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <span className="italic">I</span>
+          </Btn>
+          <Btn title="Insert Image" onClick={pickAndInsertImage}>
+            Insert Image
+          </Btn>
+        </div>
+      ) : null}
+
+      {/* Image BubbleMenu (only when image is selected) */}
+      {!readonly && editor ? (
+        <BubbleMenu
+          editor={editor}
+          tippyOptions={{ duration: 120, placement: "top" }}
+          shouldShow={({ editor }) => editor.isActive("asideImage")}
+          className="flex flex-wrap items-center gap-2 bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-lg p-2 z-50"
+          data-edit-only
+        >
+          <span className="text-[11px] text-gray-600 mr-1">Align</span>
+          <Btn title="Left" onClick={() => setAlign("left")}>
+            Left
+          </Btn>
+          <Btn title="Right" onClick={() => setAlign("right")}>
+            Right
+          </Btn>
+          <Btn title="Center" onClick={() => setAlign("center")}>
+            Center
+          </Btn>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          <span className="text-[11px] text-gray-600 mr-1">Size</span>
+          <Btn title="Small" onClick={() => setSize(SIZE_S_PX)}>
+            S
+          </Btn>
+          <Btn title="Medium (std)" onClick={() => setSize(SIZE_M_PX)}>
+            M
+          </Btn>
+          <Btn title="Large" onClick={() => setSize(SIZE_L_PX)}>
+            L
+          </Btn>
+
+          <div className="w-px h-5 bg-gray-200 mx-1" />
+
+          <Btn title="Replace Image" onClick={replaceImage}>
+            Replace
+          </Btn>
+          <Btn title="Remove Image" onClick={removeImage}>
+            Remove
+          </Btn>
+        </BubbleMenu>
+      ) : null}
+
+      <div
+        className={wrapperClass}
+        style={{
+          padding: !readonly ? "0.5rem" : undefined,
+          textAlign: "justify",
+          textJustify: "inter-word",
+        }}
+        data-editing={!readonly || undefined}
+      >
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------- Two-column UI --------------------------- */
 
-const HANG_PX = 12; // text hangs slightly below image
+const HANG_PX = 12;
 
 function ImageLeftTextRight({
   sec,
@@ -743,7 +999,7 @@ function ImageLeftTextRight({
   onResetImage,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
@@ -751,7 +1007,7 @@ function ImageLeftTextRight({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string; // ← NEW
+  siteId?: string;
 }) {
   const img = (sec.images || [])[0] || { slotId: "left-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -811,7 +1067,7 @@ function ImageRightTextLeft({
   onResetImage,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   sec: Section;
   onChangeText: (text: string) => void;
@@ -819,7 +1075,7 @@ function ImageRightTextLeft({
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string; // ← NEW
+  siteId?: string;
 }) {
   const img = (sec.images || [])[0] || { slotId: "right-1" };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
@@ -878,14 +1134,14 @@ function TwoImages({
   onResetImage,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string; // ← NEW
+  siteId?: string;
 }) {
   const imgs = (sec.images || []).slice(0, 2);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -917,14 +1173,14 @@ function ThreeImages({
   onResetImage,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string; // ← NEW
+  siteId?: string;
 }) {
   const imgs = (sec.images || []).slice(0, 3);
   const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
@@ -956,14 +1212,14 @@ function FullWidthImage({
   onResetImage,
   onOpenCaption,
   readonly,
-  siteId, // ← NEW
+  siteId,
 }: {
   sec: Section;
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
   readonly?: boolean;
-  siteId?: string; // ← NEW
+  siteId?: string;
 }) {
   const img = (sec.images || [])[0] || { slotId: "fw-1" };
   return (
@@ -996,10 +1252,7 @@ function FullWidthText({
         html ? (
           <div
             className="prose prose-gray max-w-none text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0 prose-figure:my-0"
-            style={{
-              textAlign: "justify",
-              textJustify: "inter-word",
-            }}
+            style={{ textAlign: "justify", textJustify: "inter-word" }}
             dangerouslySetInnerHTML={{
               __html: DOMPurify.sanitize(html, {
                 USE_PROFILES: { html: true },
@@ -1051,6 +1304,9 @@ function Toolbar({
       <button className={btn} onClick={() => onAdd("three-images")}>
         Three Images
       </button>
+      <button className={btn} onClick={() => onAdd("aside-figure")}>
+        Aside (Rich Text + Inline Image)
+      </button>
     </div>
   );
 }
@@ -1065,7 +1321,7 @@ export default function FlowComposer({
   showToolbar = true,
   showControls = true,
   readonly = false,
-  siteId, // ← NEW
+  siteId,
 }: FlowComposerProps) {
   const [captionEdit, setCaptionEdit] = React.useState<{
     slotId?: string;
@@ -1099,7 +1355,6 @@ export default function FlowComposer({
     onChange(next);
   };
 
-  // Helper: update a specific image slot within a section
   const patchSlot = (
     secIdx: number,
     slotIdx: number,
@@ -1111,7 +1366,7 @@ export default function FlowComposer({
     updateSection(secIdx, { images: imgs });
   };
 
-  const pickForSlot = async (idx: number, slotIdx = 0) => {
+  const onPickImageForSec = async (idx: number, slotIdx = 0) => {
     if (!onPickImage || readonly) return;
     const sec = sections[idx];
     const slotId =
@@ -1277,11 +1532,11 @@ export default function FlowComposer({
                         text: { ...(sec.text || {}), text: v },
                       })
                     }
-                    onPickImage={() => pickForSlot(idx, 0)}
+                    onPickImage={() => onPickImageForSec(idx, 0)}
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId}
+                    siteId={siteId as string}
                   />
                 </div>
               );
@@ -1296,11 +1551,11 @@ export default function FlowComposer({
                         text: { ...(sec.text || {}), text: v },
                       })
                     }
-                    onPickImage={() => pickForSlot(idx, 0)}
+                    onPickImage={() => onPickImageForSec(idx, 0)}
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId}
+                    siteId={siteId as string}
                   />
                 </div>
               );
@@ -1311,7 +1566,7 @@ export default function FlowComposer({
                   <TwoImages
                     sec={sec}
                     onPickImage={(slotId) =>
-                      pickForSlot(
+                      onPickImageForSec(
                         idx,
                         Number((slotId as any)?.split("_")[1]) - 1 || 0
                       )
@@ -1324,7 +1579,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId}
+                    siteId={siteId as string}
                   />
                 </div>
               );
@@ -1335,7 +1590,7 @@ export default function FlowComposer({
                   <ThreeImages
                     sec={sec}
                     onPickImage={(slotId) =>
-                      pickForSlot(
+                      onPickImageForSec(
                         idx,
                         Number((slotId as any)?.split("_")[1]) - 1 || 0
                       )
@@ -1348,7 +1603,7 @@ export default function FlowComposer({
                     }
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId}
+                    siteId={siteId as string}
                   />
                 </div>
               );
@@ -1358,12 +1613,30 @@ export default function FlowComposer({
                   {controls}
                   <FullWidthImage
                     sec={sec}
-                    onPickImage={() => pickForSlot(idx, 0)}
+                    onPickImage={() => onPickImageForSec(idx, 0)}
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
-                    siteId={siteId}
+                    siteId={siteId as string}
                   />
+                </div>
+              );
+            case "aside-figure":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <div className={wrapClass(sec)} style={sec.style}>
+                    <AsideRichTextEditor
+                      value={sec.text?.text || ""}
+                      setValue={(html) =>
+                        updateSection(idx, {
+                          text: { ...(sec.text || {}), text: html },
+                        })
+                      }
+                      onPickImage={onPickImage}
+                      readonly={readonly}
+                    />
+                  </div>
                 </div>
               );
             case "full-width-text":
@@ -1419,6 +1692,20 @@ export function makeSection(kind: SectionKind): Section {
           { slotId: "slot_2" },
           { slotId: "slot_3" },
         ],
+      };
+    case "aside-figure":
+      return {
+        ...base,
+        images: [{ slotId: "aside-1" }],
+        // default: placeholder image left with standard width so text wraps immediately
+        text: {
+          text:
+            `<p>` +
+            `<img src="${ASIDE_PLACEHOLDER_DATA_URI}" alt="" ` +
+            `data-width="${SIDE_W_PX}" data-align="left" ` +
+            `style="float:left; width:${SIDE_W_PX}px; max-width:40%; margin:0 1rem .6rem 0; border-radius:10px; height:auto;" />` +
+            `Write your text here…</p>`,
+        },
       };
     case "full-width-text":
     default:

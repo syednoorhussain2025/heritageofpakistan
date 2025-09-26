@@ -4,6 +4,8 @@ import { LayoutInstance, FlowInput, ImageRef, Breakpoint } from "./types";
 import { computeLayout } from "./engine";
 import { useMeasurer } from "./Measurer";
 
+/* ---------- helpers & types ---------- */
+
 type ClassMaps = {
   sectionClassFor?: (args: {
     sectionTypeId: string;
@@ -26,12 +28,9 @@ type ClassMaps = {
 
 type Props = {
   input: FlowInput;
-  /** Map of images keyed by **composite slot key** `${sectionInstanceKey}:${imageSlotId}`.
-      For backward compatibility, plain `imageSlotId` keys are also accepted. */
   imagesBySlot?: Record<string, ImageRef | null>;
 } & ClassMaps;
 
-/** Provide sensible defaults for design tokens so height-lock can compute image height. */
 function withDefaultDesignTokens(input: FlowInput): FlowInput {
   const defaultSideW =
     input.breakpoint === "desktop"
@@ -58,7 +57,6 @@ function withDefaultDesignTokens(input: FlowInput): FlowInput {
   };
 }
 
-// selection-friendly styles (don’t rely only on CSS file)
 const SELECT_TEXT: React.CSSProperties = {
   userSelect: "text",
   WebkitUserSelect: "text",
@@ -75,6 +73,8 @@ const NO_SELECT_MEDIA: React.CSSProperties = {
   msUserSelect: "none",
 };
 
+/* ---------- component ---------- */
+
 export default function FlowRenderer({
   input,
   imagesBySlot = {},
@@ -86,41 +86,50 @@ export default function FlowRenderer({
   const inputWithTokens = withDefaultDesignTokens(input);
   const layout: LayoutInstance = computeLayout(inputWithTokens, measurer);
 
-  const parts: React.ReactNode[] = [];
-  let currentKey: string | null = null;
-  let currentType: string | null = null;
-  let sectionChildren: React.ReactNode[] = [];
-
-  const flushSection = () => {
-    if (!currentKey || !currentType) return;
-    const sectionCls =
-      sectionClassFor?.({
-        sectionTypeId: currentType,
-        sectionInstanceKey: currentKey,
-        breakpoint: input.breakpoint,
-      }) ?? "hop-section";
-    parts.push(
-      <section
-        key={`sec-${currentKey}-${parts.length}`}
-        className={sectionCls}
-        style={SELECT_AUTO} /* make sure sections don’t disable selection */
-      >
-        {sectionChildren}
-      </section>
-    );
-    sectionChildren = [];
+  // Helper: read aside-figure alignment from composer metadata
+  const getAsideAlign = (
+    sectionInstanceKey: string
+  ): "left" | "right" | "center" => {
+    const meta = (input as any)?.sectionMeta?.[sectionInstanceKey];
+    const a = meta?.align;
+    return a === "right" || a === "center" ? a : "left";
   };
 
+  // Group blocks by section so we can reorder inside a section when needed
+  const bySection = new Map<
+    string,
+    { type: string; items: typeof layout.flow }
+  >();
   for (const blk of layout.flow) {
-    if (blk.sectionInstanceKey !== currentKey) {
-      flushSection();
-      currentKey = blk.sectionInstanceKey;
-      currentType = blk.sectionTypeId;
+    const key = blk.sectionInstanceKey;
+    const entry = bySection.get(key);
+    if (entry) {
+      entry.items.push(blk);
+    } else {
+      bySection.set(key, { type: blk.sectionTypeId, items: [blk] });
     }
+  }
 
-    if (blk.type === "text") {
+  const sectionsOut: React.ReactNode[] = [];
+
+  for (const [sectionKey, { type: sectionTypeId, items }] of bySection) {
+    const baseSectionCls =
+      sectionClassFor?.({
+        sectionTypeId,
+        sectionInstanceKey: sectionKey,
+        breakpoint: input.breakpoint,
+      }) ?? "hop-section";
+
+    // Add semantic class; CSS ensures this is NOT grid/flex for aside-figure
+    const sectionClassName =
+      sectionTypeId === "aside-figure"
+        ? `${baseSectionCls} aside-figure`
+        : baseSectionCls;
+
+    // Render helpers
+    const renderText = (blk: any) => {
       const text = input.text.slice(blk.startChar, blk.endChar);
-      const cls =
+      const baseTextCls =
         textClassFor?.({
           sectionTypeId: blk.sectionTypeId,
           blockId: blk.blockId,
@@ -128,22 +137,25 @@ export default function FlowRenderer({
           breakpoint: input.breakpoint,
         }) ?? "hop-text";
 
-      const minPx = (blk as any).minHeightPx as number | undefined;
-      const dataAttr =
-        typeof minPx === "number" && minPx > 0
-          ? { "data-text-lock": "image" }
-          : undefined;
-      const style: React.CSSProperties =
-        typeof minPx === "number" && minPx > 0
-          ? { ...SELECT_TEXT, minHeight: `${minPx}px` }
-          : SELECT_TEXT;
+      const textCls =
+        blk.sectionTypeId === "aside-figure"
+          ? `${baseTextCls} aside-figure-body`
+          : baseTextCls;
 
-      sectionChildren.push(
+      const minPx = (blk as any).minHeightPx as number | undefined;
+      const lockText =
+        typeof minPx === "number" &&
+        minPx > 0 &&
+        blk.sectionTypeId !== "aside-figure";
+
+      return (
         <div
           key={`${blk.sectionInstanceKey}:${blk.blockId}:text`}
-          className={cls}
-          {...dataAttr}
-          style={style}
+          className={textCls}
+          {...(lockText ? { "data-text-lock": "image" } : {})}
+          style={
+            lockText ? { ...SELECT_TEXT, minHeight: `${minPx}px` } : SELECT_TEXT
+          }
         >
           {text.split(/\n{2,}/).map((p, i) => (
             <p key={i} className="hop-p" style={SELECT_TEXT}>
@@ -152,8 +164,13 @@ export default function FlowRenderer({
           ))}
         </div>
       );
-    } else if (blk.type === "image") {
-      const cls =
+    };
+
+    const renderImage = (
+      blk: any,
+      alignOverride?: "left" | "right" | "center"
+    ) => {
+      const baseImgCls =
         imageClassFor?.({
           sectionTypeId: blk.sectionTypeId,
           blockId: blk.blockId,
@@ -161,14 +178,26 @@ export default function FlowRenderer({
           breakpoint: input.breakpoint,
         }) ?? "hop-media";
 
+      let imgCls = baseImgCls;
+      if (blk.sectionTypeId === "aside-figure") {
+        const align = alignOverride ?? getAsideAlign(blk.sectionInstanceKey);
+        imgCls += ` ${
+          align === "right"
+            ? "img-right"
+            : align === "center"
+            ? "img-center"
+            : "img-left"
+        }`;
+      }
+
       const compositeKey = `${blk.sectionInstanceKey}:${blk.imageSlotId}`;
       const image =
         imagesBySlot[compositeKey] ?? imagesBySlot[blk.imageSlotId] ?? null;
 
-      sectionChildren.push(
+      return (
         <figure
           key={`${blk.sectionInstanceKey}:${blk.blockId}:img`}
-          className={cls}
+          className={imgCls}
           style={SELECT_AUTO}
         >
           {image ? (
@@ -194,21 +223,68 @@ export default function FlowRenderer({
           ) : null}
         </figure>
       );
-    } else {
-      sectionChildren.push(
-        <div
-          key={`${blk.sectionInstanceKey}:${blk.blockId}:other`}
-          className="hop-other"
+    };
+
+    // If not aside-figure: render as-is in given order
+    if (sectionTypeId !== "aside-figure") {
+      sectionsOut.push(
+        <section
+          key={`sec-${sectionKey}`}
+          className={sectionClassName}
           style={SELECT_AUTO}
-        />
+        >
+          {items.map((blk) =>
+            blk.type === "text" ? (
+              renderText(blk)
+            ) : blk.type === "image" ? (
+              renderImage(blk)
+            ) : (
+              <div
+                key={`${blk.sectionInstanceKey}:${blk.blockId}:other`}
+                className="hop-other"
+              />
+            )
+          )}
+        </section>
       );
+      continue;
     }
+
+    // For aside-figure: reorder => first image, then text, then remaining images
+    const firstImgIdx = items.findIndex((b) => b.type === "image");
+    const textBlocks = items.filter((b) => b.type === "text");
+    const imageBlocks = items.filter((b) => b.type === "image");
+
+    const sectionChildren: React.ReactNode[] = [];
+
+    if (firstImgIdx >= 0) {
+      // Put first image first so floats can wrap following text
+      sectionChildren.push(renderImage(items[firstImgIdx]));
+    }
+
+    // Then the text
+    for (const t of textBlocks) sectionChildren.push(renderText(t));
+
+    // Then any remaining images (optional)
+    imageBlocks.forEach((imgBlk, i) => {
+      if (i === 0) return; // already rendered first
+      sectionChildren.push(renderImage(imgBlk));
+    });
+
+    sectionsOut.push(
+      <section
+        key={`sec-${sectionKey}`}
+        className={sectionClassName}
+        style={SELECT_AUTO}
+      >
+        {sectionChildren}
+      </section>
+    );
   }
-  flushSection();
 
   return (
     <div className="hop-article" style={SELECT_AUTO}>
-      {parts}
+      {sectionsOut}
     </div>
   );
 }

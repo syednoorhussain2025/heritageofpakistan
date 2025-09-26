@@ -155,6 +155,15 @@ export type LayoutInstance = {
   leftoverText?: { startChar: number } | null;
 };
 
+/** NEW: Optional per-section-instance metadata carried alongside the flow.
+ *  Used e.g. by the Aside Figure block to control image alignment.
+ */
+export type SectionInstanceMeta = {
+  /** Alignment hint for figure in a wrapped-text section. */
+  align?: "left" | "right" | "center";
+  // (room for future per-instance controls)
+};
+
 export type FlowInput = {
   /** Master text to flow (plain text, already sanitized). */
   text: string;
@@ -172,6 +181,12 @@ export type FlowInput = {
     /** e.g., { "--side-img-w": 480 } */
     widthPx?: Record<string, number>;
   };
+
+  /**
+   * NEW: optional per-instance metadata keyed by sectionInstanceKey.
+   * Example: { "sec-123": { align: "right" } }
+   */
+  sectionMeta?: Record<string, SectionInstanceMeta>;
 };
 
 export type MeasurerAPI = {

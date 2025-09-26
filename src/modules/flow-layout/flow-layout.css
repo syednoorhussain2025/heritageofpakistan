@@ -1,7 +1,5 @@
 /* Design tokens */
 :root {
-  /* Standard side image width for L/R layouts (desktop/tablet).
-     Tune once; engine will also use this via designTokens.widthPx. */
   --side-img-w: clamp(360px, 35vw, 520px);
   --section-gutter: 1.25rem;
 }
@@ -30,6 +28,9 @@
 }
 
 /* Media defaults */
+.hop-media {
+  margin: 0;
+}
 .hop-media img {
   display: block;
   width: 100%;
@@ -50,27 +51,22 @@
 }
 
 /* ───────── NEW: utilities for default section primitives ───────── */
-
 .flx--two-col {
   display: grid;
-  grid-template-columns: auto 1fr; /* image column is sized by its contents */
+  grid-template-columns: auto 1fr;
   gap: var(--section-gutter);
   align-items: start;
 }
-
 .flx-img {
   width: var(--side-img-w);
   overflow: hidden;
   border-radius: 8px;
   background: #f4f4f5;
 }
-
-/* The text container may receive data-text-lock="image" with an inline min-height */
 .flx-text[data-text-lock="image"] {
-  /* min-height comes inline from the snapshot; nothing else needed here */
 }
 
-/* Mobile behavior: stack columns and release the min-height lock */
+/* Mobile behavior */
 @media (max-width: 1024px) {
   .flx--two-col {
     display: block;
@@ -83,9 +79,7 @@
   }
 }
 
-/* ───────── Section-specific classes matching presets (kept) ───────── */
-
-/* heroIntro */
+/* ───────── Section-specific classes ───────── */
 .sec-heroIntro {
   grid-template-columns: 1fr;
   grid-template-areas: "media" "text";
@@ -98,8 +92,6 @@
   grid-area: text;
 }
 
-/* mediaLeftTextRight
-   Note: our default primitives use .flx--two-col with token width; these classes are kept for compatibility. */
 .sec-mediaLeftTextRight {
   grid-template-columns: 40% 1fr;
   grid-template-areas: "media text";
@@ -118,15 +110,12 @@
   grid-area: text;
 }
 
-/* fullTextBand */
 .sec-fullTextBand {
   grid-template-columns: 1fr;
   grid-template-areas: "text";
 }
 
-/* ───────── Measurement signatures (used by Measurer) ─────────
-   These must mirror actual slot widths & typography and **must not contain ':'**.
-*/
+/* ───────── Measurement signatures ───────── */
 .hop-measure-base {
   font-family: var(--font-article, ui-serif);
   font-size: 16px;
@@ -134,8 +123,6 @@
   padding: 0 16px;
   width: 640px;
 }
-
-/* Example signatures for desktop (used in presets) */
 .sig-heroIntro__media__desktop {
   width: 960px;
 }
@@ -144,7 +131,7 @@
 }
 .sig-mediaLeftTextRight__media__desktop {
   width: 480px;
-} /* align with --side-img-w default */
+}
 .sig-mediaLeftTextRight__text__desktop {
   width: 680px;
 }
@@ -152,7 +139,6 @@
   width: 960px;
 }
 
-/* Tablet/mobile signatures (approximate; refine as needed) */
 @media (max-width: 900px) {
   .sig-heroIntro__media__tablet,
   .sig-heroIntro__intro__tablet,
@@ -172,25 +158,131 @@
   }
 }
 
-/* Utility classes binding areas (FlowRenderer may apply these) */
+/* Utility classes */
 .area-media {
 }
 .area-text {
 }
 
 /* ────────────────────────────────────────────────────────────── */
-/* 🧼 Text selection normalization for PUBLIC articles            */
-/* Ensures editor leftovers (select-none, inline user-select)     */
-/* don't force whole-block selection on the published page.       */
+/* Aside Figure (Wrapped Text) – snapshot/public                  */
 /* ────────────────────────────────────────────────────────────── */
 
+/* 🔑 Force aside sections out of grid/flex so floats can affect siblings */
+.hop-section.aside-figure {
+  display: flow-root !important;
+  grid-template-columns: none !important;
+  grid-template-areas: none !important;
+  gap: 0 !important;
+}
+
+/* Ensure the text container doesn’t establish a new BFC or clip floats */
+.hop-section.aside-figure .hop-text {
+  overflow: visible !important;
+  clear: none !important;
+}
+
+/* Floated figure variants */
+.aside-figure .img-left {
+  float: left;
+  width: var(--side-img-w, 480px);
+  max-width: 40%;
+  margin: 0 1rem 0.6rem 0;
+  shape-outside: inset(0 round 10px);
+  border-radius: 10px;
+  overflow: clip;
+}
+.aside-figure .img-right {
+  float: right;
+  width: var(--side-img-w, 480px);
+  max-width: 40%;
+  margin: 0 0 0.6rem 1rem;
+  shape-outside: inset(0 round 10px);
+  border-radius: 10px;
+  overflow: clip;
+}
+.aside-figure .img-center {
+  float: none;
+  display: block;
+  margin: 0.75rem auto;
+  width: min(100%, 28rem);
+  border-radius: 10px;
+  overflow: clip;
+}
+
+/* Optional body spacing */
+.aside-figure .aside-figure-body .hop-p + .hop-p {
+  margin-top: 0.85rem;
+}
+
+/* Caption alignment under floated figures */
+.aside-figure .hop-caption {
+  text-align: left;
+}
+
+/* Mobile: drop floats and go full width */
+@media (max-width: 1024px) {
+  .aside-figure .img-left,
+  .aside-figure .img-right,
+  .aside-figure .img-center {
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 0.6rem 0;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────── */
+/* Aside Figure (Wrapped Text) – FlowComposer editor              */
+/* ────────────────────────────────────────────────────────────── */
+.fl-aside {
+  display: flow-root;
+}
+.fl-aside-left {
+  float: left;
+  width: var(--side-img-w, 480px);
+  max-width: 40%;
+  margin: 0 1rem 0.6rem 0;
+  shape-outside: inset(0 round 10px);
+  border-radius: 10px;
+  overflow: clip;
+}
+.fl-aside-right {
+  float: right;
+  width: var(--side-img-w, 480px);
+  max-width: 40%;
+  margin: 0 0 0.6rem 1rem;
+  shape-outside: inset(0 round 10px);
+  border-radius: 10px;
+  overflow: clip;
+}
+.fl-aside-center {
+  float: none;
+  display: block;
+  margin: 0.75rem auto;
+  width: min(100%, 28rem);
+  border-radius: 10px;
+  overflow: clip;
+}
+@media (max-width: 1024px) {
+  .fl-aside-left,
+  .fl-aside-right,
+  .fl-aside-center {
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 0.6rem 0;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────── */
+/* 🧼 Text selection normalization                                */
+/* ────────────────────────────────────────────────────────────── */
 .hop-article,
 .hop-article * {
   -webkit-user-select: text;
   user-select: text;
 }
-
-/* Explicitly override common blockers from editor output */
 .hop-article .select-none,
 .hop-article [contenteditable],
 .hop-article [draggable],

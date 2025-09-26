@@ -125,10 +125,30 @@ function usePublicMainWidth() {
 function snapshotCleanHTML(root: HTMLElement): string {
   const node = root.cloneNode(true) as HTMLElement;
 
-  // Remove editor-only elements
+  // 1) Remove editor-only elements explicitly marked
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
 
-  // Strip editor decoration classes (borders/rings/padding)
+  // 2) Remove any Tiptap/ProseMirror menus & generic toolbars that might slip in
+  const KILL = [
+    ".tiptap-bubble-menu",
+    ".tiptap-floating-menu",
+    ".ProseMirror-menubar",
+    ".ProseMirror-menu",
+    ".ProseMirror-tooltip",
+    ".ProseMirror-prompt",
+    "[data-bubble-menu]",
+    "[data-floating-menu]",
+    "[role='toolbar']",
+  ];
+  KILL.forEach((sel) => node.querySelectorAll(sel).forEach((n) => n.remove()));
+
+  // 3) Nuke any fixed-position overlays that are editor UI
+  node.querySelectorAll<HTMLElement>("*").forEach((el) => {
+    const st = (el.getAttribute("style") || "").toLowerCase();
+    if (st.includes("position:fixed")) el.remove();
+  });
+
+  // 4) Strip editor decoration classes (borders/rings/padding)
   node.querySelectorAll<HTMLElement>(".flow-editor-decor").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -165,13 +185,21 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.setAttribute("class", classes.join(" "));
   });
 
-  // Remove contenteditable & data flags
+  // 5) Remove any legacy per-row vertical margins that caused double gaps
+  node.querySelectorAll<HTMLElement>(".my-6").forEach((el) => {
+    const classes = (el.getAttribute("class") || "")
+      .split(/\s+/)
+      .filter((c) => c && c !== "my-6");
+    el.setAttribute("class", classes.join(" "));
+  });
+
+  // 6) Remove contenteditable & data flags
   node.querySelectorAll("[contenteditable], [data-editing]").forEach((el) => {
     el.removeAttribute("contenteditable");
     el.removeAttribute("data-editing");
   });
 
-  // Keep hearts: nothing else to strip.
+  // Keep hearts & real content.
   return (node.innerHTML || "").trim();
 }
 
@@ -514,24 +542,35 @@ function PartComposer({
 
   const makeNewSection = (kind: SectionKind): FlowSection => {
     const base = { type: kind, paddingY: "none", bg: "none" } as FlowSection;
-    return kind === "full-width-image"
-      ? { ...base, images: [{ slotId: "fw-1" }] }
-      : kind === "two-images"
-      ? { ...base, images: [{ slotId: "slot_1" }, { slotId: "slot_2" }] }
-      : kind === "three-images"
-      ? {
+
+    switch (kind) {
+      case "full-width-image":
+        return { ...base, images: [{ slotId: "fw-1" }] };
+      case "two-images":
+        return {
+          ...base,
+          images: [{ slotId: "slot_1" }, { slotId: "slot_2" }],
+        };
+      case "three-images":
+        return {
           ...base,
           images: [
             { slotId: "slot_1" },
             { slotId: "slot_2" },
             { slotId: "slot_3" },
           ],
-        }
-      : kind === "image-left-text-right"
-      ? { ...base, images: [{ slotId: "left-1" }], text: { text: "" } }
-      : kind === "image-right-text-left"
-      ? { ...base, images: [{ slotId: "right-1" }], text: { text: "" } }
-      : { ...base, text: { text: "" } };
+        };
+      case "image-left-text-right":
+        return { ...base, images: [{ slotId: "left-1" }], text: { text: "" } };
+      case "image-right-text-left":
+        return { ...base, images: [{ slotId: "right-1" }], text: { text: "" } };
+      /* NEW: Aside Figure (Wrapped Text) */
+      case "aside-figure":
+        return { ...base, images: [{ slotId: "aside-1" }], text: { text: "" } };
+      case "full-width-text":
+      default:
+        return { ...base, text: { text: "" } };
+    }
   };
 
   const addSectionAt = (kind: SectionKind, index: number) => {
@@ -600,6 +639,14 @@ function PartComposer({
     iconRight?: string;
     tooltip: string;
   }[] = [
+    {
+      kind: "aside-figure",
+      label: "Aside Figure (Wrapped Text)",
+      iconLeft: "image",
+      iconRight: "align-center",
+      tooltip:
+        "Floated image with true text wrap. Ideal for small/medium images embedded within prose.",
+    },
     {
       kind: "image-left-text-right",
       label: "Image Left / Text Right",
@@ -772,113 +819,118 @@ function PartComposer({
       >
         <CardHeader title={title} iconKey={iconKey} />
 
-        <div ref={previewRef} className="relative">
-          {/* No sections: show first add affordance */}
-          {sections.length === 0 && (
-            <div
-              className="relative border border-dashed border-gray-300 rounded-xl p-10 text-center"
-              data-edit-only
-            >
-              <div className="text-gray-500 mb-3">No content yet</div>
-              <div className="inline-block relative">
-                <button
-                  type="button"
-                  className="grid place-items-center w-12 h-12 rounded-full bg-emerald-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-105 active:scale-100"
-                  onClick={() => setInsertAt(0)}
-                  title="Add first section"
-                >
-                  +
-                </button>
-                {insertAt === 0 && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setInsertAt(null)}
-                      data-edit-only
-                    />
-                    <div
-                      className="absolute z-50 mt-3 left-1/2 -translate-x-1/2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
-                      data-edit-only
-                    >
-                      <div className="text-xs text-gray-500 px-2 py-1">
-                        Add section
-                      </div>
-                      <div className="max-h-64 overflow-auto space-y-1">
-                        {sectionDefs.map((def) => (
-                          <button
-                            key={def.kind}
-                            className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
-                            title={def.tooltip}
-                            onClick={() => addSectionAt(def.kind, 0)}
-                          >
-                            {def.iconLeft && (
-                              <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                                <Icon
-                                  name={def.iconLeft as any}
-                                  className="w-3 h-3"
-                                />
+        {/* Outer relative container keeps absolute “+ / controls” positioning stable */}
+        <div className="relative">
+          {/* IMPORTANT: This wrapper is saved to snapshot and carries the spacing */}
+          <div ref={previewRef} className="article-flow space-y-6">
+            {/* No sections: show first add affordance */}
+            {sections.length === 0 && (
+              <div
+                className="relative border border-dashed border-gray-300 rounded-xl p-10 text-center"
+                data-edit-only
+              >
+                <div className="text-gray-500 mb-3">No content yet</div>
+                <div className="inline-block relative">
+                  <button
+                    type="button"
+                    className="grid place-items-center w-12 h-12 rounded-full bg-emerald-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-105 active:scale-100"
+                    onClick={() => setInsertAt(0)}
+                    title="Add first section"
+                  >
+                    +
+                  </button>
+                  {insertAt === 0 && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setInsertAt(null)}
+                        data-edit-only
+                      />
+                      <div
+                        className="absolute z-50 mt-3 left-1/2 -translate-x-1/2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
+                        data-edit-only
+                      >
+                        <div className="text-xs text-gray-500 px-2 py-1">
+                          Add section
+                        </div>
+                        <div className="max-h-64 overflow-auto space-y-1">
+                          {sectionDefs.map((def) => (
+                            <button
+                              key={def.kind}
+                              className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
+                              title={def.tooltip}
+                              onClick={() => addSectionAt(def.kind, 0)}
+                            >
+                              {def.iconLeft && (
+                                <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                                  <Icon
+                                    name={def.iconLeft as any}
+                                    className="w-3 h-3"
+                                  />
+                                </span>
+                              )}
+                              {def.iconRight && (
+                                <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
+                                  <Icon
+                                    name={def.iconRight as any}
+                                    className="w-3 h-3"
+                                  />
+                                </span>
+                              )}
+                              <span className="text-sm text-gray-800">
+                                {def.label}
                               </span>
-                            )}
-                            {def.iconRight && (
-                              <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                                <Icon
-                                  name={def.iconRight as any}
-                                  className="w-3 h-3"
-                                />
-                              </span>
-                            )}
-                            <span className="text-sm text-gray-800">
-                              {def.label}
-                            </span>
-                          </button>
-                        ))}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Sections list with junction “+” and per-section controls */}
-          {sections.map((s, i) => {
-            const isLast = i === sections.length - 1;
-            return (
-              <div key={i} className="relative my-6">
-                {/* Junction “+” (before each section, including the first) */}
-                <InsertionButton index={i} topOffset={-12} />
-
-                {/* The actual section content */}
-                <div className="flow-section-wrapper">
-                  <FlowComposer
-                    sections={[s]}
-                    onChange={(arr) => {
-                      if (Array.isArray(arr) && arr[0]) {
-                        updateOne(i, arr[0] as FlowSection);
-                      }
-                    }}
-                    onPickImage={(slot) => pickImage(slot)}
-                    showToolbar={false}
-                    showControls={false}
-                    debugFrames={false}
-                    /** Pass siteId so CollectHeart renders and snapshots */
-                    siteId={String(siteId)}
-                  />
+                    </>
+                  )}
                 </div>
-
-                {/* Controls on the right, outside the content */}
-                <SectionControls index={i} />
-
-                {/* Green “+” at the left bottom of the LAST section */}
-                {isLast && (
-                  <InsertionButton
-                    index={sections.length} // insert AFTER the last section
-                    top={"calc(100% - 12px)"} // bottom junction
-                  />
-                )}
               </div>
-            );
-          })}
+            )}
+
+            {/* Sections list with junction “+” and per-section controls */}
+            {sections.map((s, i) => {
+              const isLast = i === sections.length - 1;
+              return (
+                // CHANGED: removed my-6 – spacing now comes from parent .space-y-6
+                <div key={i} className="relative">
+                  {/* Junction “+” (before each section, including the first) */}
+                  <InsertionButton index={i} topOffset={-12} />
+
+                  {/* The actual section content */}
+                  <div className="flow-section-wrapper">
+                    <FlowComposer
+                      sections={[s]}
+                      onChange={(arr) => {
+                        if (Array.isArray(arr) && arr[0]) {
+                          updateOne(i, arr[0] as FlowSection);
+                        }
+                      }}
+                      onPickImage={(slot) => pickImage(slot)}
+                      showToolbar={false}
+                      showControls={false}
+                      debugFrames={false}
+                      /** Pass siteId so CollectHeart renders and snapshots */
+                      siteId={String(siteId)}
+                    />
+                  </div>
+
+                  {/* Controls on the right, outside the content */}
+                  <SectionControls index={i} />
+
+                  {/* Green “+” at the left bottom of the LAST section */}
+                  {isLast && (
+                    <InsertionButton
+                      index={sections.length} // insert AFTER the last section
+                      top={"calc(100% - 12px)"} // bottom junction
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

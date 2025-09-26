@@ -127,7 +127,8 @@ export default function SimplePreview({
           className={`spv-section ${sec.cssClass || ""}`}
           key={`${sec.sectionTypeId}_${i}`}
         >
-          {renderSection(sec.blocks, {
+          {renderSection({
+            section: sec,
             takeWords,
             imagesBySlot,
             pickImageFor,
@@ -209,6 +210,50 @@ export default function SimplePreview({
         .sec-three-images .col-img {
           grid-column: span 4;
         }
+
+        /* ───────── Aside Figure (Wrapped Text) preview ───────── */
+        .spv-aside-figure {
+          display: flow-root; /* isolate floats */
+        }
+        .spv-aside-figure figure {
+          margin: 0;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #f4f4f5;
+        }
+        .spv-aside-figure .img-left {
+          float: left;
+          width: min(40%, 18rem);
+          margin: 0 1rem 0.6rem 0;
+        }
+        .spv-aside-figure .img-right {
+          float: right;
+          width: min(40%, 18rem);
+          margin: 0 0 0.6rem 1rem;
+        }
+        .spv-aside-figure .img-center {
+          float: none;
+          display: block;
+          margin: 0.75rem auto;
+          max-width: min(90%, 28rem);
+        }
+        .spv-aside-figure .spv-caption {
+          font-size: 0.85rem;
+          color: #666;
+          margin-top: 0.35rem;
+          text-align: left;
+        }
+        @media (max-width: 768px) {
+          .spv-aside-figure .img-left,
+          .spv-aside-figure .img-right,
+          .spv-aside-figure .img-center {
+            float: none;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 0 0.6rem 0;
+          }
+        }
+
         @media (max-width: 768px) {
           .sec-img-left-text-right .spv-grid,
           .sec-img-right-text-left .spv-grid,
@@ -234,14 +279,46 @@ export default function SimplePreview({
 
 /* -------------------------- Render dispatcher -------------------------- */
 
-function renderSection(
-  blocks: Block[],
-  ctx: {
-    takeWords: (n?: number) => string;
-    imagesBySlot: Record<string, PickedImage>;
-    pickImageFor: (slot: string) => Promise<void>;
+function renderSection(ctx: {
+  section: SectionDef;
+  takeWords: (n?: number) => string;
+  imagesBySlot: Record<string, PickedImage>;
+  pickImageFor: (slot: string) => Promise<void>;
+}) {
+  const { section } = ctx;
+  const blocks = section.blocks;
+
+  // Special-case: Aside Figure (Wrapped Text) preview
+  if (section.sectionTypeId === "aside-figure") {
+    // Expect 1 image + 1 text block; default align=left for preview.
+    const img = blocks.find((b) => b.kind === "image") as
+      | Extract<Block, { kind: "image" }>
+      | undefined;
+    const txt = blocks.find((b) => b.kind === "text") as
+      | Extract<Block, { kind: "text" }>
+      | undefined;
+
+    const body = (
+      <div className="spv-text">
+        {ctx.takeWords(txt?.textPolicy?.targetWords)}
+      </div>
+    );
+
+    return (
+      <div className="spv-aside-figure">
+        {/* image first so float takes effect */}
+        {img ? (
+          <AsideFigurePreview
+            slot={img.imageSlotId}
+            align={deriveAlign(section.cssClass)}
+            ctx={ctx}
+          />
+        ) : null}
+        {body}
+      </div>
+    );
   }
-) {
+
   // Determine layout by the combination of blocks (simple heuristic)
   const hasTwoImages = blocks.filter((b) => b.kind === "image").length === 2;
   const hasThreeImages = blocks.filter((b) => b.kind === "image").length === 3;
@@ -333,6 +410,66 @@ function renderSection(
         )
       )}
     </div>
+  );
+}
+
+/* ------------------------- Aside Figure preview ------------------------- */
+
+function deriveAlign(cssClass?: string): "left" | "right" | "center" {
+  if (!cssClass) return "left";
+  if (/\balign-right\b/.test(cssClass)) return "right";
+  if (/\balign-center\b/.test(cssClass)) return "center";
+  return "left";
+}
+
+function AsideFigurePreview({
+  slot,
+  align,
+  ctx,
+}: {
+  slot: string;
+  align: "left" | "right" | "center";
+  ctx: {
+    imagesBySlot: Record<string, PickedImage>;
+    pickImageFor: (slot: string) => Promise<void>;
+  };
+}) {
+  const chosen = ctx.imagesBySlot[slot];
+  const figCls =
+    align === "right"
+      ? "img-right"
+      : align === "center"
+      ? "img-center"
+      : "img-left";
+  return (
+    <figure className={figCls}>
+      <div className="spv-imgbox" style={{ border: "none" }}>
+        {chosen ? (
+          <img src={chosen.storagePath} alt={chosen.alt || ""} />
+        ) : (
+          <div
+            style={{
+              height: 260,
+              display: "grid",
+              placeItems: "center",
+              color: "#6b7280",
+              fontSize: 14,
+              background: "#f8fafc",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            Empty slot: <code>{slot}</code>
+          </div>
+        )}
+        <button className="slot-btn" onClick={() => ctx.pickImageFor(slot)}>
+          Pick image
+        </button>
+      </div>
+      {chosen?.caption ? (
+        <figcaption className="spv-caption">{chosen.caption}</figcaption>
+      ) : null}
+    </figure>
   );
 }
 

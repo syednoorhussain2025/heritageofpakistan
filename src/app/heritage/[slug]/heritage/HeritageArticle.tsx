@@ -5,11 +5,35 @@ import parse, { domToReact } from "html-react-parser";
 import CollectHeart from "@/components/CollectHeart";
 
 /* ---------- helpers ---------- */
+function styleStringToObject(s: string): React.CSSProperties {
+  const out: Record<string, string> = {};
+  s.split(";")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .forEach((rule) => {
+      const idx = rule.indexOf(":");
+      if (idx === -1) return;
+      const rawKey = rule.slice(0, idx).trim();
+      const val = rule.slice(idx + 1).trim();
+      // kebab-case → camelCase
+      const key = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      if (key) out[key] = val;
+    });
+  return out as React.CSSProperties;
+}
+
 function mapAttribs(attribs: Record<string, any> | undefined) {
   if (!attribs) return {};
-  const { class: classAttr, ...rest } = attribs as any;
-  return { ...rest, className: classAttr };
+  const { class: classAttr, style, ...rest } = attribs as any;
+  const styleObj =
+    typeof style === "string" ? styleStringToObject(style) : style ?? undefined;
+  return {
+    ...rest,
+    className: classAttr,
+    ...(styleObj ? { style: styleObj } : {}),
+  };
 }
+
 function pickFromSrcset(srcset?: string | null): string | null {
   if (!srcset) return null;
   const parts = srcset
@@ -314,7 +338,7 @@ export default function HeritageArticle({
     let found: { node: Text; idx: number } | null = null;
     while (walker.nextNode()) {
       const n = walker.currentNode as Text;
-      const hay = n.nodeValue || "";
+      const hay = (n.nodeValue || "").toString();
       const idx =
         hay.indexOf(target) >= 0
           ? hay.indexOf(target)

@@ -21,15 +21,18 @@ export type TemplateRow = {
   version: number;
 };
 
+/** Include all built-in archetypes so seed/load stay in sync with default-sections. */
 const DEFAULT_META: Record<ArchetypeSlug, { name: string }> = {
   "full-width-image": { name: "Full-width Image" },
+  "full-width-text": { name: "Full-width Text" }, // NEW
   "image-left-text-right": { name: "Image Left + Text Right" },
   "image-right-text-left": { name: "Image Right + Text Left" },
   "two-images": { name: "Two Images Side-by-Side" },
   "three-images": { name: "Three Images Side-by-Side" },
+  "aside-figure": { name: "Aside Figure (Wrapped Text)" }, // NEW
 };
 
-/** Seed 5 default section_types (idempotent). config_json stores settings only. */
+/** Seed default section_types (idempotent). config_json stores settings only. */
 export async function seedDefaultSectionTypes(
   defaults: typeof DEFAULT_SETTINGS
 ) {
@@ -55,7 +58,7 @@ export async function seedDefaultSectionTypes(
   }
 }
 
-/** Read all 5 rows (after seed) */
+/** Read all default archetype rows (after seed) */
 export async function loadArchetypeRows(): Promise<SectionTypeRow[]> {
   const { data, error } = await supabase
     .from("section_types")

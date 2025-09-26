@@ -7,7 +7,8 @@ export type ArchetypeSlug =
   | "image-left-text-right"
   | "image-right-text-left"
   | "two-images"
-  | "three-images";
+  | "three-images"
+  | "aside-figure"; // NEW
 
 export type SectionSettings = {
   paddingY: number; // px
@@ -67,6 +68,14 @@ export const DEFAULT_SETTINGS: Record<ArchetypeSlug, SectionSettings> = {
     gutter: 12,
     background: "transparent",
   },
+  "aside-figure": {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 820,
+    gutter: 16,
+    background: "transparent",
+  }, // NEW
 };
 
 export const ARCHETYPES: {
@@ -104,6 +113,11 @@ export const ARCHETYPES: {
     name: "Three Images Side-by-Side",
     description: "3-up gallery row",
   },
+  {
+    slug: "aside-figure",
+    name: "Aside Figure (Wrapped Text)",
+    description: "Float an image left/right with true text wrap",
+  }, // NEW
 ];
 
 /* ------------------------------------------------------------------ */
@@ -434,6 +448,87 @@ export function ThreeImages({
           <FigureBox image={a} widthVar="--side-img-w" />
           <FigureBox image={b} widthVar="--side-img-w" />
           <FigureBox image={c} widthVar="--side-img-w" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Aside Figure (Wrapped Text)
+ * Floats an image left/right/center within a flow-root section so text wraps naturally.
+ * Compatible with flow-layout.css rules added earlier.
+ */
+export function AsideFigure({
+  image,
+  children,
+  settings,
+  align = "left",
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  align?: "left" | "right" | "center";
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, background } = settings;
+
+  // Figure wrapper uses semantic classes so your CSS controls float/width:
+  // section.aside-figure + figure.hop-media.img-left|img-right|img-center
+  const figClass =
+    align === "right"
+      ? "hop-media img-right"
+      : align === "center"
+      ? "hop-media img-center"
+      : "hop-media img-left";
+
+  const ar = image.aspectRatio ?? 4 / 5;
+
+  return (
+    <section
+      className="aside-figure"
+      style={{ margin: `${marginY}px 0`, background }}
+    >
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <figure className={figClass} style={{ margin: 0 }}>
+          <div
+            style={{
+              aspectRatio: `${ar}`,
+              overflow: "hidden",
+              borderRadius: 10,
+              background: "#f4f4f5",
+            }}
+          >
+            <img
+              src={image.src}
+              alt={image.alt || ""}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+          {(image.caption || image.credit) && (
+            <figcaption className="hop-caption">
+              {image.caption}
+              {image.credit
+                ? image.caption
+                  ? ` — ${image.credit}`
+                  : image.credit
+                : null}
+            </figcaption>
+          )}
+        </figure>
+
+        <div className="hop-text" style={{ fontSize: 18, lineHeight: 1.8 }}>
+          {children}
         </div>
       </div>
     </section>
