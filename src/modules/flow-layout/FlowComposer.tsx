@@ -385,10 +385,11 @@ function Figure({
         )}
       </div>
 
+      {/* --- NEW: figcaption is the container, heart is positioned inside --- */}
       {(hasImg || displayCaption) && (
-        <div className="mt-2 relative">
+        <figcaption className="mt-2 relative min-h-[1.5rem]">
           {hasImg && siteId && (
-            <div className="absolute left-1 top-1/2 -translate-y-1/2">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2">
               <CollectHeart
                 variant="icon"
                 size={22}
@@ -400,11 +401,11 @@ function Figure({
             </div>
           )}
           {displayCaption ? (
-            <figcaption className="text-sm text-gray-500 text-center">
+            <span className="block text-sm text-gray-500 text-center px-7">
               {displayCaption}
-            </figcaption>
+            </span>
           ) : null}
-        </div>
+        </figcaption>
       )}
     </figure>
   );
@@ -475,7 +476,7 @@ function Select({
   return (
     <select
       title={title}
-      className="px-2 py-1 text-xs rounded-md border bg:white"
+      className="px-2 py-1 text-xs rounded-md border bg-white"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
