@@ -55,21 +55,35 @@ export function renderSnapshotHTML({
   let asideFigure: string | null = null;
   let asideText: string[] = [];
 
+  // NEW: collectors for new section types
+  let quotationTextParts: string[] = [];
+  let carouselItems: string[] = [];
+
   const flush = () => {
     if (!currentSectionKey || !currentSectionType) return;
 
-    // Default class: for aside-figure we must NOT be a grid container.
-    const defaultSectionCls =
-      currentSectionType === "aside-figure" ? "aside-figure" : "hop-section";
+    // Default class handling
+    const isAside = currentSectionType === "aside-figure";
+    const isQuote = currentSectionType === "quotation";
+    const isCarousel = currentSectionType === "carousel";
 
-    // Allow override, but if someone mistakenly adds hop-section for aside, strip it.
+    const defaultSectionCls = isAside
+      ? "aside-figure"
+      : isQuote
+      ? "hop-section quotation"
+      : isCarousel
+      ? "hop-section carousel"
+      : "hop-section";
+
     let cls =
       sectionClass?.(
         currentSectionType,
         currentSectionKey,
         layout.breakpoint
       ) ?? defaultSectionCls;
-    if (currentSectionType === "aside-figure") {
+
+    // Ensure aside-figure is not a grid container
+    if (isAside) {
       cls = cls
         .replace(/\bhop-section\b/g, "")
         .replace(/\s+/g, " ")
@@ -77,20 +91,37 @@ export function renderSnapshotHTML({
       if (!/\baside-figure\b/.test(cls)) cls = (cls + " aside-figure").trim();
     }
 
-    // For aside-figure: render <figure> first, then text, then any extras.
-    const children =
-      currentSectionType === "aside-figure"
-        ? [asideFigure, ...asideText, ...sectionChildren]
-            .filter(Boolean)
-            .join("")
-        : sectionChildren.join("");
+    let children = "";
+
+    if (isAside) {
+      // figure first, then text, then any extras
+      children = [asideFigure, ...asideText, ...sectionChildren]
+        .filter(Boolean)
+        .join("");
+    } else if (isQuote) {
+      const quoteContent = quotationTextParts.join(" ").trim();
+      // Fallback to any regular children if no explicit text collected
+      const inner =
+        quoteContent.length > 0
+          ? `<div class="hop-quote">${esc(quoteContent)}</div>`
+          : sectionChildren.join("");
+      children = inner;
+    } else if (isCarousel) {
+      // Wrap all collected figures in a scroll container
+      const strip = `<div class="hop-carousel">${carouselItems.join("")}</div>`;
+      children = strip;
+    } else {
+      children = sectionChildren.join("");
+    }
 
     sectionsOut.push(`<section class="${esc(cls)}">${children}</section>`);
 
-    // reset
+    // reset collectors
     sectionChildren = [];
     asideFigure = null;
     asideText = [];
+    quotationTextParts = [];
+    carouselItems = [];
   };
 
   for (const blk of layout.flow) {
@@ -99,6 +130,10 @@ export function renderSnapshotHTML({
       currentSectionKey = blk.sectionInstanceKey;
       currentSectionType = blk.sectionTypeId;
     }
+
+    const isAside = currentSectionType === "aside-figure";
+    const isQuote = currentSectionType === "quotation";
+    const isCarousel = currentSectionType === "carousel";
 
     if (blk.type === "text") {
       const txt = masterText.slice(blk.startChar, blk.endChar);
@@ -109,7 +144,6 @@ export function renderSnapshotHTML({
           blk.sectionInstanceKey,
           layout.breakpoint
         ) ?? "hop-text";
-      const isAside = currentSectionType === "aside-figure";
 
       const minPx =
         typeof (blk as any).minHeightPx === "number"
@@ -139,6 +173,10 @@ export function renderSnapshotHTML({
 
       if (isAside) {
         asideText.push(html);
+      } else if (isQuote) {
+        // Collect plain text for the quotation block (strip HTML intent)
+        const plain = txt.replace(/\s+/g, " ").trim();
+        if (plain) quotationTextParts.push(plain);
       } else {
         sectionChildren.push(html);
       }
@@ -148,7 +186,6 @@ export function renderSnapshotHTML({
         imagesBySlot[blk.imageSlotId] ||
         null;
 
-      const isAside = currentSectionType === "aside-figure";
       const defaultImageCls = isAside ? "hop-media img-left" : "hop-media";
       const cls =
         imageClass?.(
@@ -158,33 +195,49 @@ export function renderSnapshotHTML({
           layout.breakpoint
         ) ?? defaultImageCls;
 
+      let figHtml: string;
       if (img) {
         const cap = img.caption
           ? `<figcaption class="hop-caption">${esc(img.caption)}</figcaption>`
           : "";
-        const fig = `<figure class="${esc(cls)}"><img src="${esc(
+        figHtml = `<figure class="${esc(cls)}"><img src="${esc(
           img.storagePath
         )}" alt="${esc(
           img.alt || ""
         )}" loading="lazy" decoding="async" draggable="false" />${cap}</figure>`;
-        if (isAside) {
-          asideFigure = fig; // figure must be first
-        } else {
-          sectionChildren.push(fig);
-        }
       } else {
-        const ph = `<figure class="${esc(
+        figHtml = `<figure class="${esc(
           cls
         )}"><div class="hop-media-placeholder">Image slot: ${esc(
           blk.imageSlotId
         )} <span style="opacity:.6">(${esc(
           blk.sectionInstanceKey
         )})</span></div></figure>`;
-        if (isAside) {
-          asideFigure = ph;
-        } else {
-          sectionChildren.push(ph);
-        }
+      }
+
+      if (isAside) {
+        // first image wins positioning
+        if (!asideFigure) asideFigure = figHtml;
+        else sectionChildren.push(figHtml);
+      } else if (isCarousel) {
+        // push into carousel strip
+        carouselItems.push(`<div class="hop-carousel-item">${figHtml}</div>`);
+      } else {
+        sectionChildren.push(figHtml);
+      }
+    } else if (blk.type === "heading" || blk.type === "callout") {
+      // Generic rendering for optional block kinds
+      const clsBase = blk.type === "heading" ? "hop-heading" : "hop-callout";
+      const content = (blk as any).content ? String((blk as any).content) : "";
+      if (isQuote) {
+        const plain = content.replace(/\s+/g, " ").trim();
+        if (plain) quotationTextParts.push(plain);
+      } else {
+        const html =
+          blk.type === "heading"
+            ? `<h2 class="${clsBase}">${esc(content)}</h2>`
+            : `<div class="${clsBase}">${esc(content)}</div>`;
+        sectionChildren.push(html);
       }
     } else {
       sectionChildren.push(`<div class="hop-other"></div>`);

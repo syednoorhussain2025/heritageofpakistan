@@ -39,11 +39,20 @@ function withDefaultDesignTokens(input: FlowInput): FlowInput {
       ? 420
       : undefined;
 
+  // NEW: default carousel card width per breakpoint
+  const defaultCarouselW =
+    input.breakpoint === "desktop"
+      ? 520
+      : input.breakpoint === "tablet"
+      ? 460
+      : 360;
+
   const existing = input.designTokens?.widthPx ?? {};
   const needSide =
     existing["--side-img-w"] == null && typeof defaultSideW === "number";
+  const needCarousel = existing["--carousel-card-w"] == null;
 
-  if (!needSide) return input;
+  if (!needSide && !needCarousel) return input;
 
   return {
     ...input,
@@ -52,6 +61,7 @@ function withDefaultDesignTokens(input: FlowInput): FlowInput {
       widthPx: {
         ...existing,
         ...(needSide ? { "--side-img-w": defaultSideW! } : null),
+        ...(needCarousel ? { "--carousel-card-w": defaultCarouselW } : null),
       },
     },
   };
@@ -106,11 +116,20 @@ export default function FlowRenderer({
     if (entry) {
       entry.items.push(blk);
     } else {
-      bySection.set(key, { type: blk.sectionTypeId, items: [blk] });
+      bySection.set(key, { type: (blk as any).sectionTypeId, items: [blk] });
     }
   }
 
   const sectionsOut: React.ReactNode[] = [];
+
+  // Shared image resolver that supports both plain image blocks and carousel slots
+  const resolveImage = (
+    sectionInstanceKey: string,
+    slotId: string
+  ): ImageRef | null => {
+    const compositeKey = `${sectionInstanceKey}:${slotId}`;
+    return imagesBySlot[compositeKey] ?? imagesBySlot[slotId] ?? null;
+  };
 
   for (const [sectionKey, { type: sectionTypeId, items }] of bySection) {
     const baseSectionCls =
@@ -120,13 +139,21 @@ export default function FlowRenderer({
         breakpoint: input.breakpoint,
       }) ?? "hop-section";
 
-    // Add semantic class; CSS ensures this is NOT grid/flex for aside-figure
-    const sectionClassName =
+    // Semantic section classes for special layouts
+    const semantic =
       sectionTypeId === "aside-figure"
-        ? `${baseSectionCls} aside-figure`
-        : baseSectionCls;
+        ? "aside-figure"
+        : sectionTypeId === "quotation"
+        ? "sec-quotation"
+        : sectionTypeId === "carousel"
+        ? "sec-carousel"
+        : "";
+    const sectionClassName = semantic
+      ? `${baseSectionCls} ${semantic}`.trim()
+      : baseSectionCls;
 
-    // Render helpers
+    // ───────── Renderers ─────────
+
     const renderText = (blk: any) => {
       const text = input.text.slice(blk.startChar, blk.endChar);
       const baseTextCls =
@@ -190,9 +217,7 @@ export default function FlowRenderer({
         }`;
       }
 
-      const compositeKey = `${blk.sectionInstanceKey}:${blk.imageSlotId}`;
-      const image =
-        imagesBySlot[compositeKey] ?? imagesBySlot[blk.imageSlotId] ?? null;
+      const image = resolveImage(blk.sectionInstanceKey, blk.imageSlotId);
 
       return (
         <figure
@@ -225,59 +250,131 @@ export default function FlowRenderer({
       );
     };
 
-    // If not aside-figure: render as-is in given order
-    if (sectionTypeId !== "aside-figure") {
+    // NEW: quotation renderer
+    const renderQuote = (blk: any) => {
+      const content: string = blk.content || "";
+      return (
+        <div
+          key={`${blk.sectionInstanceKey}:${blk.blockId}:quote`}
+          className="hop-quote"
+          style={SELECT_TEXT}
+        >
+          {content}
+        </div>
+      );
+    };
+
+    // NEW: carousel renderer
+    const renderCarousel = (blk: any) => {
+      const slotIds: string[] = Array.isArray(blk.imageSlotIds)
+        ? blk.imageSlotIds.slice(0, 10)
+        : [];
+      return (
+        <div
+          key={`${blk.sectionInstanceKey}:${blk.blockId}:carousel`}
+          className="hop-carousel"
+          style={SELECT_AUTO}
+        >
+          {slotIds.map((slotId, i) => {
+            const image = resolveImage(blk.sectionInstanceKey, slotId);
+            return (
+              <div
+                key={`${blk.sectionInstanceKey}:${slotId}:${i}`}
+                className="hop-carousel-item"
+                style={SELECT_AUTO}
+              >
+                <figure className="hop-media" style={SELECT_AUTO}>
+                  {image ? (
+                    <img
+                      src={image.storagePath}
+                      alt={image.alt || ""}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      style={NO_SELECT_MEDIA}
+                    />
+                  ) : (
+                    <div
+                      className="hop-media-placeholder"
+                      style={NO_SELECT_MEDIA}
+                    >
+                      Image slot: {slotId}{" "}
+                      <span className="opacity-60">
+                        ({blk.sectionInstanceKey})
+                      </span>
+                    </div>
+                  )}
+                  {image?.caption ? (
+                    <figcaption className="hop-caption" style={SELECT_TEXT}>
+                      {image.caption}
+                    </figcaption>
+                  ) : null}
+                </figure>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    // ───────── Section assembly ─────────
+
+    // Aside-figure keeps special ordering (img first, then text, then more images)
+    if (sectionTypeId === "aside-figure") {
+      const firstImgIdx = items.findIndex((b) => (b as any).type === "image");
+      const textBlocks = items.filter((b) => (b as any).type === "text");
+      const imageBlocks = items.filter((b) => (b as any).type === "image");
+
+      const sectionChildren: React.ReactNode[] = [];
+
+      if (firstImgIdx >= 0) {
+        sectionChildren.push(renderImage(items[firstImgIdx]));
+      }
+      for (const t of textBlocks) sectionChildren.push(renderText(t));
+      imageBlocks.forEach((imgBlk, i) => {
+        if (i === 0) return;
+        sectionChildren.push(renderImage(imgBlk));
+      });
+
       sectionsOut.push(
         <section
           key={`sec-${sectionKey}`}
           className={sectionClassName}
           style={SELECT_AUTO}
         >
-          {items.map((blk) =>
-            blk.type === "text" ? (
-              renderText(blk)
-            ) : blk.type === "image" ? (
-              renderImage(blk)
-            ) : (
-              <div
-                key={`${blk.sectionInstanceKey}:${blk.blockId}:other`}
-                className="hop-other"
-              />
-            )
-          )}
+          {sectionChildren}
         </section>
       );
       continue;
     }
 
-    // For aside-figure: reorder => first image, then text, then remaining images
-    const firstImgIdx = items.findIndex((b) => b.type === "image");
-    const textBlocks = items.filter((b) => b.type === "text");
-    const imageBlocks = items.filter((b) => b.type === "image");
-
-    const sectionChildren: React.ReactNode[] = [];
-
-    if (firstImgIdx >= 0) {
-      // Put first image first so floats can wrap following text
-      sectionChildren.push(renderImage(items[firstImgIdx]));
-    }
-
-    // Then the text
-    for (const t of textBlocks) sectionChildren.push(renderText(t));
-
-    // Then any remaining images (optional)
-    imageBlocks.forEach((imgBlk, i) => {
-      if (i === 0) return; // already rendered first
-      sectionChildren.push(renderImage(imgBlk));
-    });
-
+    // Other sections: render in flow order, now including quote + carousel
     sectionsOut.push(
       <section
         key={`sec-${sectionKey}`}
         className={sectionClassName}
         style={SELECT_AUTO}
       >
-        {sectionChildren}
+        {items.map((blk: any) => {
+          switch (blk.type) {
+            case "text":
+              return renderText(blk);
+            case "image":
+              return renderImage(blk);
+            case "quote":
+              return renderQuote(blk);
+            case "carousel":
+              return renderCarousel(blk);
+            default:
+              return (
+                <div
+                  key={`${blk.sectionInstanceKey}:${blk.blockId}:other`}
+                  className="hop-other"
+                />
+              );
+          }
+        })}
       </section>
     );
   }

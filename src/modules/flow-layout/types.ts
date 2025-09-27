@@ -1,6 +1,17 @@
 export type Breakpoint = "desktop" | "tablet" | "mobile";
 
-export type BlockKind = "text" | "image" | "heading" | "callout";
+/**
+ * Block kinds rendered inside a section.
+ * - "quote": emphasis/quotation text (single sentence, large type).
+ * - "carousel": horizontally scrollable multi-image block (up to 10 slides).
+ */
+export type BlockKind =
+  | "text"
+  | "image"
+  | "heading"
+  | "callout"
+  | "quote"
+  | "carousel";
 
 /** Lock the text column's minimum height to the height of a specific block (usually an image). */
 export type TextFlowLock = {
@@ -54,8 +65,13 @@ export type SectionBlockDef = {
   acceptsTextFlow?: boolean;
   /** Policy used for quota-based slicing + single fit-check. */
   textPolicy?: TextPolicy;
-  /** Slot id for images (used to attach/replace). */
+
+  /** Single image slot id (existing sections). */
   imageSlotId?: string;
+
+  /** NEW: multi-image slot ids (e.g., for carousels). First unused ids may be placeholders. */
+  imageSlotIds?: string[];
+
   /**
    * For image blocks: aspect ratio (e.g., 16/9 = 1.777…).
    * NOTE: retained for backward compatibility; prefer `sizing.aspectRatio` going forward.
@@ -66,6 +82,16 @@ export type SectionBlockDef = {
 
   /** NEW: standardized sizing (width token / explicit width / aspect) for side images. */
   sizing?: ImageSizing;
+
+  /** NEW: optional carousel rendering hints for "carousel" kind. */
+  carousel?: {
+    /** Maximum number of slides permitted (default 10). */
+    maxItems?: number;
+    /** Snap behavior hint for renderer. */
+    snap?: "mandatory" | "proximity";
+    /** Optional minimum cards visible at common breakpoints (purely a hint for UI). */
+    minVisible?: { desktop?: number; tablet?: number; mobile?: number };
+  };
 };
 
 export type SectionGeometry = {
@@ -138,6 +164,26 @@ export type BlockInstance =
       blockId: string;
       imageSlotId: string;
       image?: ImageRef | null; // null = placeholder
+    }
+  | {
+      /** NEW: large-format one-sentence emphasis. */
+      type: "quote";
+      sectionTypeId: string;
+      sectionInstanceKey: string;
+      blockId: string;
+      /** Raw HTML/text content (already sanitized upstream). */
+      content: string;
+    }
+  | {
+      /** NEW: multi-image horizontal carousel. */
+      type: "carousel";
+      sectionTypeId: string;
+      sectionInstanceKey: string;
+      blockId: string;
+      /** Up to 10 slots (e.g., ["slide_1",..., "slide_10"]). */
+      imageSlotIds: string[];
+      /** Optional concrete images resolved for snapshot/render. Unset entries are placeholders. */
+      images?: Array<ImageRef | null>;
     }
   | {
       type: "heading" | "callout";

@@ -11,7 +11,11 @@ type Block =
       acceptsTextFlow?: boolean;
       textPolicy?: TextPolicy;
     }
-  | { id: string; kind: "image"; imageSlotId: string };
+  | { id: string; kind: "image"; imageSlotId: string }
+  // NEW: quotation block (content provided by section/block config in preview)
+  | { id: string; kind: "quote"; content?: string }
+  // NEW: carousel block (list of up to 10 image slot ids)
+  | { id: string; kind: "carousel"; imageSlotIds: string[] };
 
 type SectionDef = {
   sectionTypeId: string; // we’ll use the slug here
@@ -272,6 +276,49 @@ export default function SimplePreview({
             min-height: 0 !important;
           }
         }
+
+        /* ─────────────────────────────────────────────── */
+        /* NEW: Quotation + Carousel preview styles        */
+        /* ─────────────────────────────────────────────── */
+        .sec-quotation .spv-quote {
+          font-weight: 600;
+          font-style: italic;
+          font-size: clamp(20px, 3.2vw, 32px);
+          line-height: 1.35;
+          text-align: center;
+          padding: 20px 16px;
+          border-radius: 14px;
+          background: #f8fafc;
+          border: 1px solid #e5e7eb;
+          color: #0f172a;
+        }
+
+        .sec-carousel .spv-carousel {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          padding-bottom: 6px;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+        }
+        .sec-carousel .spv-carousel::-webkit-scrollbar {
+          display: none;
+        }
+        .sec-carousel .spv-carousel-item {
+          flex: 0 0 auto;
+          min-width: 78%;
+          scroll-snap-align: start;
+        }
+        @media (min-width: 640px) {
+          .sec-carousel .spv-carousel-item {
+            min-width: 60%;
+          }
+        }
+        @media (min-width: 1024px) {
+          .sec-carousel .spv-carousel-item {
+            min-width: 520px;
+          }
+        }
       `}</style>
     </div>
   );
@@ -315,6 +362,46 @@ function renderSection(ctx: {
           />
         ) : null}
         {body}
+      </div>
+    );
+  }
+
+  // NEW: Quotation section (single quote block)
+  if (
+    section.sectionTypeId === "quotation" ||
+    (blocks.length === 1 && blocks[0].kind === "quote")
+  ) {
+    const q = blocks.find((b) => b.kind === "quote") as
+      | Extract<Block, { kind: "quote" }>
+      | undefined;
+    const content = q?.content || "Your highlighted line goes here.";
+    return (
+      <div className="spv-grid sec-quotation">
+        <div className="spv-quote">{content}</div>
+      </div>
+    );
+  }
+
+  // NEW: Carousel section (one carousel block with up to 10 images)
+  if (
+    section.sectionTypeId === "carousel" ||
+    (blocks.length === 1 && blocks[0].kind === "carousel")
+  ) {
+    const c = blocks.find((b) => b.kind === "carousel") as
+      | Extract<Block, { kind: "carousel" }>
+      | undefined;
+    const ids = (c?.imageSlotIds || []).slice(0, 10);
+    return (
+      <div className="spv-grid sec-carousel">
+        <div className="spv-carousel">
+          {ids.map((slotId, i) => (
+            <div className="spv-carousel-item" key={`${slotId}_${i}`}>
+              <div className="spv-imgbox">
+                <ImageSlot slot={slotId} ctx={ctx} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -403,9 +490,28 @@ function renderSection(ctx: {
           <p className="spv-text" key={b.id}>
             {ctx.takeWords(b.textPolicy?.targetWords)}
           </p>
-        ) : (
+        ) : b.kind === "image" ? (
           <div className="spv-imgbox" key={b.id}>
             <ImageSlot slot={b.imageSlotId} ctx={ctx} />
+          </div>
+        ) : b.kind === "quote" ? (
+          <div className="spv-grid sec-quotation" key={b.id}>
+            <div className="spv-quote">{b.content || "Quoted line…"}</div>
+          </div>
+        ) : (
+          // carousel in fallback (rare)
+          <div className="spv-grid sec-carousel" key={b.id}>
+            <div className="spv-carousel">
+              {(b.kind === "carousel" ? b.imageSlotIds : [])
+                .slice(0, 10)
+                .map((slotId, i) => (
+                  <div className="spv-carousel-item" key={`${slotId}_${i}`}>
+                    <div className="spv-imgbox">
+                      <ImageSlot slot={slotId} ctx={ctx} />
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
         )
       )}

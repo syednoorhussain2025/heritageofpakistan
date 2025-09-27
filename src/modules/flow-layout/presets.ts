@@ -158,23 +158,122 @@ export const FULL_TEXT_BAND: SectionDef = {
   ],
 };
 
+/* ────────────────────────────────────────────────────────────── */
+/* NEW: Quotation (emphasis block)                                */
+/* ────────────────────────────────────────────────────────────── */
+export const QUOTATION: SectionDef = {
+  sectionTypeId: "quotation", // matches renderer/CSS semantics
+  name: "Quotation",
+  version: 1,
+  textAcceptsFlow: false,
+  geometry: {
+    desktop: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["quote"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+    tablet: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["quote"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+    mobile: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["quote"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+  },
+  blocks: [
+    {
+      id: "quote",
+      kind: "quote",
+      area: "quote",
+      // content is supplied at instance-time via BlockInstance ("quote")
+    },
+  ],
+};
+
+/* ────────────────────────────────────────────────────────────── */
+/* NEW: Carousel Photos (multi-image)                              */
+/* ────────────────────────────────────────────────────────────── */
+export const CAROUSEL: SectionDef = {
+  sectionTypeId: "carousel", // matches renderer/CSS semantics
+  name: "Carousel Photos",
+  version: 1,
+  textAcceptsFlow: false,
+  geometry: {
+    desktop: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["carousel"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+    tablet: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["carousel"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+    mobile: {
+      gridTemplateColumns: "1fr",
+      gridTemplateAreas: ["carousel"],
+      gap: "0",
+      heightPolicy: { type: "auto" },
+    },
+  },
+  blocks: [
+    {
+      id: "carousel",
+      kind: "carousel",
+      area: "carousel",
+      imageSlotIds: [
+        "slide_1",
+        "slide_2",
+        "slide_3",
+        "slide_4",
+        "slide_5",
+        "slide_6",
+        "slide_7",
+        "slide_8",
+        "slide_9",
+        "slide_10",
+      ],
+      carousel: {
+        maxItems: 10,
+        snap: "mandatory",
+        minVisible: { desktop: 1, tablet: 1, mobile: 1 },
+      },
+    },
+  ],
+};
+
 export const SECTION_CATALOG = {
   [HERO_INTRO.sectionTypeId]: HERO_INTRO,
   [MEDIA_LEFT_TEXT_RIGHT.sectionTypeId]: MEDIA_LEFT_TEXT_RIGHT,
   [FULL_TEXT_BAND.sectionTypeId]: FULL_TEXT_BAND,
+  // NEW
+  [QUOTATION.sectionTypeId]: QUOTATION,
+  [CAROUSEL.sectionTypeId]: CAROUSEL,
 } as const;
 
 export const TEMPLATE_LONGFORM_A: TemplateDef = {
   templateId: "longformA",
   name: "Longform A",
-  version: 1,
+  version: 2, // bumped to include new sections
   truncateOnTextEnd: true,
   overflowStrategy: "continue",
   sections: [
     { sectionTypeId: "heroIntro", version: 1 },
-    { sectionTypeId: "mediaLeftTextRight", version: 2 }, // updated to v2
+    { sectionTypeId: "mediaLeftTextRight", version: 2 },
     { sectionTypeId: "fullTextBand", version: 1 },
-    { sectionTypeId: "mediaLeftTextRight", version: 2 }, // updated to v2
+    // NEW: drop a quote emphasis after the first body block
+    { sectionTypeId: "quotation", version: 1 },
+    { sectionTypeId: "mediaLeftTextRight", version: 2 },
     { sectionTypeId: "fullTextBand", version: 1 },
+    // NEW: finish with a carousel gallery
+    { sectionTypeId: "carousel", version: 1 },
   ],
 };

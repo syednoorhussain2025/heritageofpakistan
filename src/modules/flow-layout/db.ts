@@ -24,12 +24,15 @@ export type TemplateRow = {
 /** Include all built-in archetypes so seed/load stay in sync with default-sections. */
 const DEFAULT_META: Record<ArchetypeSlug, { name: string }> = {
   "full-width-image": { name: "Full-width Image" },
-  "full-width-text": { name: "Full-width Text" }, // NEW
+  "full-width-text": { name: "Full-width Text" },
   "image-left-text-right": { name: "Image Left + Text Right" },
   "image-right-text-left": { name: "Image Right + Text Left" },
   "two-images": { name: "Two Images Side-by-Side" },
   "three-images": { name: "Three Images Side-by-Side" },
-  "aside-figure": { name: "Aside Figure (Wrapped Text)" }, // NEW
+  "aside-figure": { name: "Aside Figure (Wrapped Text)" },
+  // NEW
+  quotation: { name: "Quotation" },
+  carousel: { name: "Carousel Photos" },
 };
 
 /** Seed default section_types (idempotent). config_json stores settings only. */

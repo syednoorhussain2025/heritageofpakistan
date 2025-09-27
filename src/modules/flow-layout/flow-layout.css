@@ -2,6 +2,9 @@
 :root {
   --side-img-w: clamp(360px, 35vw, 520px);
   --section-gutter: 1.25rem;
+
+  /* NEW: carousel card width token (used by utilities; component may override inline) */
+  --carousel-card-w: clamp(420px, 52vw, 640px);
 }
 
 /* Base article container */
@@ -289,4 +292,72 @@
 .hop-article [style*="user-select"] {
   -webkit-user-select: text !important;
   user-select: text !important;
+}
+
+/* ===================================================================== */
+/* ===================== NEW: Quotation & Carousel ===================== */
+/* ===================================================================== */
+
+/* Quotation (emphasis block)
+   Use with: <section class="hop-section sec-quotation"><div class="hop-quote">…</div></section>
+   Note: components also set inline styles from settings; these provide snapshot/public defaults. */
+.sec-quotation {
+  grid-template-columns: 1fr;
+  grid-template-areas: "quote";
+}
+.hop-quote {
+  grid-area: quote;
+  text-align: center;
+  font-weight: 600;
+  font-style: italic;
+  line-height: 1.35;
+  font-size: clamp(22px, 3.2vw, 34px);
+  /* If the section background is white, a soft card look works well: */
+  border-radius: 16px;
+}
+
+/* Carousel Photos
+   Structure:
+     <section class="hop-section sec-carousel">
+       <div class="hop-carousel">
+         <div class="hop-carousel-item"><figure class="flx-img">…</figure></div>
+         …
+       </div>
+     </section>
+*/
+.sec-carousel {
+  grid-template-columns: 1fr;
+  grid-template-areas: "carousel";
+}
+.hop-carousel {
+  grid-area: carousel;
+  display: flex;
+  gap: var(--section-gutter);
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.hop-carousel::-webkit-scrollbar {
+  display: none;
+}
+.hop-carousel-item {
+  flex: 0 0 auto;
+  min-width: 78%;
+  scroll-snap-align: start;
+}
+@media (min-width: 640px) {
+  .hop-carousel-item {
+    min-width: 60%;
+  }
+}
+@media (min-width: 1024px) {
+  .hop-carousel-item {
+    min-width: var(--carousel-card-w);
+  }
+}
+
+/* Optional: make images inside carousel items respect the carousel width token */
+.hop-carousel .flx-img {
+  width: var(--carousel-card-w);
 }

@@ -81,8 +81,7 @@ function useDebouncedEffect(
   }, deps);
 }
 
-/** Build an off-screen sizer that mirrors the public page container+grid.
- * We read the width of the RIGHT column (main content), so our preview matches. */
+/** Build an off-screen sizer that mirrors the public page container+grid. */
 function usePublicMainWidth() {
   const mainRef = useRef<HTMLDivElement | null>(null);
   const [px, setPx] = useState<number | null>(null);
@@ -103,7 +102,6 @@ function usePublicMainWidth() {
     return () => ro.disconnect();
   }, []);
 
-  // Render the offscreen sizer once
   return {
     px,
     Sizer: () => (
@@ -111,7 +109,6 @@ function usePublicMainWidth() {
         aria-hidden
         className="fixed -left-[99999px] -top-[99999px] pointer-events-none opacity-0"
       >
-        {/* container/gutters & grid copied from public page */}
         <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
           <aside />
           <main ref={mainRef} />
@@ -125,10 +122,8 @@ function usePublicMainWidth() {
 function snapshotCleanHTML(root: HTMLElement): string {
   const node = root.cloneNode(true) as HTMLElement;
 
-  // 1) Remove editor-only elements explicitly marked
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
 
-  // 2) Remove any Tiptap/ProseMirror menus & generic toolbars that might slip in
   const KILL = [
     ".tiptap-bubble-menu",
     ".tiptap-floating-menu",
@@ -142,13 +137,11 @@ function snapshotCleanHTML(root: HTMLElement): string {
   ];
   KILL.forEach((sel) => node.querySelectorAll(sel).forEach((n) => n.remove()));
 
-  // 3) Nuke any fixed-position overlays that are editor UI
   node.querySelectorAll<HTMLElement>("*").forEach((el) => {
     const st = (el.getAttribute("style") || "").toLowerCase();
     if (st.includes("position:fixed")) el.remove();
   });
 
-  // 4) Strip editor decoration classes (borders/rings/padding)
   node.querySelectorAll<HTMLElement>(".flow-editor-decor").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -185,7 +178,6 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.setAttribute("class", classes.join(" "));
   });
 
-  // 5) Remove any legacy per-row vertical margins that caused double gaps
   node.querySelectorAll<HTMLElement>(".my-6").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -193,18 +185,16 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.setAttribute("class", classes.join(" "));
   });
 
-  // 6) Remove contenteditable & data flags
   node.querySelectorAll("[contenteditable], [data-editing]").forEach((el) => {
     el.removeAttribute("contenteditable");
     el.removeAttribute("data-editing");
   });
 
-  // Keep hearts & real content.
   return (node.innerHTML || "").trim();
 }
 
 /* -------------------------------------------------------------- */
-/* Lightweight Toast                                              */
+/* Lightweight Toast                                               */
 /* -------------------------------------------------------------- */
 
 type Toast = { id: string; message: string };
@@ -269,7 +259,7 @@ function ToastViewport({
 }
 
 /* -------------------------------------------------------------- */
-/* Image Picker Modal (masonry + hover zoom + click-outside close) */
+/* Image Picker Modal                                              */
 /* -------------------------------------------------------------- */
 
 function GalleryBrowserModal({
@@ -438,7 +428,7 @@ function GalleryBrowserModal({
 }
 
 /* -------------------------------------------------------------- */
-/* Card Header                                                    */
+/* Card Header                                                     */
 /* -------------------------------------------------------------- */
 
 function CardHeader({
@@ -468,7 +458,7 @@ function CardHeader({
 }
 
 /* -------------------------------------------------------------- */
-/* PartComposer (manual builder + snapshot + inline controls)     */
+/* PartComposer (manual builder + snapshot + inline controls)      */
 /* -------------------------------------------------------------- */
 
 function PartComposer({
@@ -535,7 +525,7 @@ function PartComposer({
       };
     });
 
-  /* ---- insertion popover state ---- */
+  /* ---- insertion modal state: stores the index where to insert ---- */
   const [insertAt, setInsertAt] = useState<number | null>(null);
 
   /* ---- helpers ---- */
@@ -564,9 +554,21 @@ function PartComposer({
         return { ...base, images: [{ slotId: "left-1" }], text: { text: "" } };
       case "image-right-text-left":
         return { ...base, images: [{ slotId: "right-1" }], text: { text: "" } };
-      /* NEW: Aside Figure (Wrapped Text) */
       case "aside-figure":
         return { ...base, images: [{ slotId: "aside-1" }], text: { text: "" } };
+      case "quotation":
+        return { ...base, text: { text: "" } };
+      case "carousel":
+        return {
+          ...base,
+          images: [
+            { slotId: "slot_1" },
+            { slotId: "slot_2" },
+            { slotId: "slot_3" },
+            { slotId: "slot_4" },
+            { slotId: "slot_5" },
+          ],
+        };
       case "full-width-text":
       default:
         return { ...base, text: { text: "" } };
@@ -608,7 +610,7 @@ function PartComposer({
     onSectionsChange(arr);
   };
 
-  // Sync the snapshot; strip editor-only UI
+  // Sync snapshot
   useDebouncedEffect(
     () => {
       const root = previewRef.current;
@@ -620,7 +622,7 @@ function PartComposer({
     250
   );
 
-  // Close insertion popover on ESC
+  // Close modal on ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setInsertAt(null);
@@ -630,7 +632,7 @@ function PartComposer({
   }, []);
 
   // ------------------------------------------
-  // Section type options (formerly sidebar)
+  // Section options
   // ------------------------------------------
   const sectionDefs: {
     kind: SectionKind;
@@ -683,11 +685,115 @@ function PartComposer({
     {
       kind: "three-images",
       label: "Three Images",
-      iconLeft: "image",
-      iconRight: "image",
+      iconLeft: "image", // will render 3 image chips
       tooltip: "Three images in a row",
     },
+    {
+      kind: "quotation",
+      label: "Quotation",
+      tooltip:
+        "Emphasized single-sentence pull-quote with generous padding and larger type.",
+    },
+    {
+      kind: "carousel",
+      label: "Photo Carousel",
+      iconLeft: "image", // will render image > image
+      iconRight: "image",
+      tooltip: "Scrollable photo strip that users can swipe/scroll.",
+    },
   ];
+
+  /* ---------------- Central Section Picker Modal ---------------- */
+  function SectionPickerModal({
+    targetIndex,
+    onClose,
+  }: {
+    targetIndex: number;
+    onClose: () => void;
+  }) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        data-edit-only
+      >
+        <div
+          className="absolute inset-0 bg-black/60"
+          onClick={onClose}
+          aria-hidden
+        />
+        <div className="relative z-10 w-full max-w-[640px] rounded-2xl border border-neutral-800 bg-neutral-900 text-neutral-100 shadow-2xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-neutral-400 px-1">Add section</div>
+            <button
+              onClick={onClose}
+              className="px-2 py-1 rounded-md text-neutral-300 hover:bg-neutral-800"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {sectionDefs.map((def) => (
+              <button
+                key={def.kind}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-600/40 flex items-center gap-2 transition"
+                title={def.tooltip}
+                onClick={() => addSectionAt(def.kind, targetIndex)}
+              >
+                {/* Icon block(s) */}
+                {def.kind === "quotation" ? (
+                  <span className="inline-flex h-6 min-w-6 px-1 items-center justify-center rounded-md bg-neutral-800 border border-neutral-700 text-[11px] font-semibold text-neutral-200">
+                    Q
+                  </span>
+                ) : def.kind === "three-images" ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="inline-flex h-6 w-6 rounded-md bg-neutral-800 border border-neutral-700 grid place-items-center text-neutral-300"
+                      >
+                        <Icon name="image" className="w-3.5 h-3.5" />
+                      </span>
+                    ))}
+                  </span>
+                ) : def.kind === "carousel" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex h-6 w-6 rounded-md bg-neutral-800 border border-neutral-700 grid place-items-center text-neutral-300">
+                      <Icon name="image" className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-neutral-400">{">"}</span>
+                    <span className="inline-flex h-6 w-6 rounded-md bg-neutral-800 border border-neutral-700 grid place-items-center text-neutral-300">
+                      <Icon name="image" className="w-3.5 h-3.5" />
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    {def.iconLeft && (
+                      <span className="inline-flex h-6 w-6 rounded-md bg-neutral-800 border border-neutral-700 grid place-items-center text-neutral-300">
+                        <Icon
+                          name={def.iconLeft as any}
+                          className="w-3.5 h-3.5"
+                        />
+                      </span>
+                    )}
+                    {def.iconRight && (
+                      <span className="inline-flex h-6 w-6 rounded-md bg-neutral-800 border border-neutral-700 grid place-items-center text-neutral-300">
+                        <Icon
+                          name={def.iconRight as any}
+                          className="w-3.5 h-3.5"
+                        />
+                      </span>
+                    )}
+                  </>
+                )}
+                <span className="text-sm">{def.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ---------------- NEW: support top as number | string -------- */
   const InsertionButton = ({
@@ -708,53 +814,13 @@ function PartComposer({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setInsertAt((cur) => (cur === index ? null : index));
+          setInsertAt(index);
         }}
         title="Add section here"
         className="grid place-items-center w-7 h-7 rounded-full bg-emerald-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-105 active:scale-100"
       >
         +
       </button>
-
-      {/* Popover */}
-      {insertAt === index && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setInsertAt(null)}
-            data-edit-only
-          />
-          <div
-            className="absolute z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
-            style={{ left: 36 }}
-            data-edit-only
-          >
-            <div className="text-xs text-gray-500 px-2 py-1">Add section</div>
-            <div className="max-h-64 overflow-auto space-y-1">
-              {sectionDefs.map((def) => (
-                <button
-                  key={def.kind}
-                  className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
-                  title={def.tooltip}
-                  onClick={() => addSectionAt(def.kind, index)}
-                >
-                  {def.iconLeft && (
-                    <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                      <Icon name={def.iconLeft as any} className="w-3 h-3" />
-                    </span>
-                  )}
-                  {def.iconRight && (
-                    <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                      <Icon name={def.iconRight as any} className="w-3 h-3" />
-                    </span>
-                  )}
-                  <span className="text-sm text-gray-800">{def.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 
@@ -794,24 +860,29 @@ function PartComposer({
 
   // ------------------------------------------
 
-  // Right-side safe gutter so the card itself is narrower than the main column
-  const RIGHT_SAFE_GUTTER_PX = 96; // tweak to align with your red guide
+  const RIGHT_SAFE_GUTTER_PX = 96;
 
   return (
     <>
       <Sizer />
       <ToastViewport toasts={toasts} onClose={removeToast} />
 
-      {/* Single wide preview column (sidebar removed) */}
+      {/* Section type picker centered modal */}
+      {insertAt !== null && (
+        <SectionPickerModal
+          targetIndex={insertAt}
+          onClose={() => setInsertAt(null)}
+        />
+      )}
+
+      {/* Single wide preview column */}
       <div
         className="rounded-xl bg-white shadow-sm"
         style={{
           padding: 20,
-          // ↓ shrink actual width of the white container
           width: publicMainWidth
             ? Math.max(0, publicMainWidth - RIGHT_SAFE_GUTTER_PX)
             : undefined,
-          // ↓ keep left edge aligned; leave free space to the right
           marginLeft: 0,
           marginRight: RIGHT_SAFE_GUTTER_PX,
           maxWidth: "100%",
@@ -819,11 +890,9 @@ function PartComposer({
       >
         <CardHeader title={title} iconKey={iconKey} />
 
-        {/* Outer relative container keeps absolute “+ / controls” positioning stable */}
         <div className="relative">
-          {/* IMPORTANT: This wrapper is saved to snapshot and carries the spacing */}
           <div ref={previewRef} className="article-flow space-y-6">
-            {/* No sections: show first add affordance */}
+            {/* Empty state */}
             {sections.length === 0 && (
               <div
                 className="relative border border-dashed border-gray-300 rounded-xl p-10 text-center"
@@ -839,67 +908,17 @@ function PartComposer({
                   >
                     +
                   </button>
-                  {insertAt === 0 && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setInsertAt(null)}
-                        data-edit-only
-                      />
-                      <div
-                        className="absolute z-50 mt-3 left-1/2 -translate-x-1/2 w-64 rounded-lg border border-gray-200 bg-white shadow-xl p-2"
-                        data-edit-only
-                      >
-                        <div className="text-xs text-gray-500 px-2 py-1">
-                          Add section
-                        </div>
-                        <div className="max-h-64 overflow-auto space-y-1">
-                          {sectionDefs.map((def) => (
-                            <button
-                              key={def.kind}
-                              className="w-full text-left px-2 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-2"
-                              title={def.tooltip}
-                              onClick={() => addSectionAt(def.kind, 0)}
-                            >
-                              {def.iconLeft && (
-                                <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                                  <Icon
-                                    name={def.iconLeft as any}
-                                    className="w-3 h-3"
-                                  />
-                                </span>
-                              )}
-                              {def.iconRight && (
-                                <span className="inline-flex h-5 w-5 rounded bg-gray-100 border border-gray-200 grid place-items-center">
-                                  <Icon
-                                    name={def.iconRight as any}
-                                    className="w-3 h-3"
-                                  />
-                                </span>
-                              )}
-                              <span className="text-sm text-gray-800">
-                                {def.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             )}
 
-            {/* Sections list with junction “+” and per-section controls */}
+            {/* Sections list */}
             {sections.map((s, i) => {
               const isLast = i === sections.length - 1;
               return (
-                // CHANGED: removed my-6 – spacing now comes from parent .space-y-6
                 <div key={i} className="relative">
-                  {/* Junction “+” (before each section, including the first) */}
                   <InsertionButton index={i} topOffset={-12} />
 
-                  {/* The actual section content */}
                   <div className="flow-section-wrapper">
                     <FlowComposer
                       sections={[s]}
@@ -912,19 +931,16 @@ function PartComposer({
                       showToolbar={false}
                       showControls={false}
                       debugFrames={false}
-                      /** Pass siteId so CollectHeart renders and snapshots */
                       siteId={String(siteId)}
                     />
                   </div>
 
-                  {/* Controls on the right, outside the content */}
                   <SectionControls index={i} />
 
-                  {/* Green “+” at the left bottom of the LAST section */}
                   {isLast && (
                     <InsertionButton
-                      index={sections.length} // insert AFTER the last section
-                      top={"calc(100% - 12px)"} // bottom junction
+                      index={sections.length}
+                      top={"calc(100% - 12px)"}
                     />
                   )}
                 </div>
@@ -946,23 +962,18 @@ function PartComposer({
       />
     </>
   );
-}
 
-/* -------------------------------------------------------------- */
-/* Custom Sections helpers                                        */
-/* -------------------------------------------------------------- */
+  function updateCustom(index: number, patch: Partial<CustomSection>) {
+    const next = [...customSections];
+    next[index] = { ...next[index], ...patch };
+    onChange({ custom_sections_json: next });
+  }
 
-function newCustomSection(): CustomSection {
-  return {
-    id:
-      (typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? (crypto as any).randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`) ||
-      String(+new Date()),
-    title: "Untitled Section",
-    sections_json: [],
-    layout_html: null,
-  };
+  function removeCustom(index: number) {
+    const next = [...customSections];
+    next.splice(index, 1);
+    onChange({ custom_sections_json: next });
+  }
 }
 
 /* -------------------------------------------------------------- */
@@ -971,15 +982,12 @@ function newCustomSection(): CustomSection {
 
 export default function ArticlesSection({
   siteId,
-  /* manual builder data per default part (existing *_layout_json) */
   history_layout_json,
   architecture_layout_json,
   climate_layout_json,
-  /* snapshots (passed through) */
   history_layout_html,
   architecture_layout_html,
   climate_layout_html,
-  /* custom sections (manual) */
   custom_sections_json,
   onChange,
 }: ArticlesSectionProps) {
@@ -1051,7 +1059,6 @@ export default function ArticlesSection({
         ) : (
           customSections.map((cs, idx) => (
             <div key={cs.id} className="space-y-4">
-              {/* Reuse PartComposer with inline controls */}
               <PartComposer
                 siteId={siteId}
                 title={cs.title || "Untitled Section"}
@@ -1065,7 +1072,6 @@ export default function ArticlesSection({
                 }
               />
 
-              {/* Title input */}
               <div className="rounded-xl bg-white shadow-sm border border-gray-200 p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Section Title

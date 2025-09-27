@@ -3,12 +3,14 @@ import React from "react";
 
 export type ArchetypeSlug =
   | "full-width-image"
-  | "full-width-text" // NEW
+  | "full-width-text"
   | "image-left-text-right"
   | "image-right-text-left"
   | "two-images"
   | "three-images"
-  | "aside-figure"; // NEW
+  | "aside-figure"
+  | "quotation" // NEW
+  | "carousel"; // NEW
 
 export type SectionSettings = {
   paddingY: number; // px
@@ -35,7 +37,7 @@ export const DEFAULT_SETTINGS: Record<ArchetypeSlug, SectionSettings> = {
     maxWidth: 820,
     gutter: 20,
     background: "transparent",
-  }, // NEW
+  },
   "image-left-text-right": {
     paddingY: 32,
     paddingX: 20,
@@ -75,7 +77,25 @@ export const DEFAULT_SETTINGS: Record<ArchetypeSlug, SectionSettings> = {
     maxWidth: 820,
     gutter: 16,
     background: "transparent",
-  }, // NEW
+  },
+  // NEW
+  quotation: {
+    paddingY: 36,
+    paddingX: 24,
+    marginY: 28,
+    maxWidth: 900,
+    gutter: 16,
+    background: "#ffffff", // emphasized white panel by default
+  },
+  // NEW
+  carousel: {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1200,
+    gutter: 16,
+    background: "transparent",
+  },
 };
 
 export const ARCHETYPES: {
@@ -92,7 +112,7 @@ export const ARCHETYPES: {
     slug: "full-width-text",
     name: "Full-width Text",
     description: "Single prose block across the page",
-  }, // NEW
+  },
   {
     slug: "image-left-text-right",
     name: "Image Left + Text Right",
@@ -117,7 +137,19 @@ export const ARCHETYPES: {
     slug: "aside-figure",
     name: "Aside Figure (Wrapped Text)",
     description: "Float an image left/right with true text wrap",
-  }, // NEW
+  },
+  // NEW
+  {
+    slug: "quotation",
+    name: "Quotation",
+    description: "One-sentence emphasis with large type and generous padding",
+  },
+  // NEW
+  {
+    slug: "carousel",
+    name: "Carousel Photos",
+    description: "Scrollable horizontal photo carousel (up to 10 images)",
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -529,6 +561,101 @@ export function AsideFigure({
 
         <div className="hop-text" style={{ fontSize: 18, lineHeight: 1.8 }}>
           {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Quotation (emphasis block)
+ * Large, centered, single-sentence emphasis with generous padding.
+ */
+export function Quotation({
+  children,
+  settings,
+}: {
+  children?: React.ReactNode;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, background } = settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+          borderRadius: 16,
+        }}
+      >
+        <div
+          style={{
+            textAlign: "center",
+            fontWeight: 600,
+            fontStyle: "italic",
+            lineHeight: 1.35,
+            // Responsive clamp for prominence
+            fontSize: "clamp(22px, 3.2vw, 34px)",
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Carousel Photos
+ * Horizontal scroll-snap carousel (up to 10 images).
+ */
+export function CarouselPhotos({
+  images,
+  settings,
+  maxItems = 10,
+}: {
+  images: ImageData[];
+  settings: SectionSettings;
+  maxItems?: number; // upper bound enforcement (default 10)
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  const safe = images.slice(0, Math.max(1, Math.min(maxItems, 10)));
+
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: gutter,
+            overflowX: "auto",
+            paddingBottom: 8,
+            scrollSnapType: "x mandatory",
+          }}
+        >
+          {safe.map((img, i) => (
+            <div
+              key={i}
+              style={{
+                minWidth: "78%", // mobile
+                scrollSnapAlign: "start",
+              }}
+            >
+              <FigureBox
+                image={img}
+                widthVar="--carousel-card-w"
+                defaultWidthPx={520}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </section>

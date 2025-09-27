@@ -23,7 +23,9 @@ export type SectionKind =
   | "two-images"
   | "three-images"
   | "full-width-text"
-  | "aside-figure";
+  | "aside-figure"
+  | "quotation"
+  | "carousel";
 
 export type ImageSlot = {
   src?: string;
@@ -99,6 +101,34 @@ function uid() {
     String(+new Date())
   );
 }
+
+/* ---------- NEW: canonical slotId generator (stable & collision-proof) ---------- */
+function stableSlotId(sec: Section, slotIdx: number) {
+  const sid = sec.id || "sec";
+  return `${sid}::slot::${slotIdx}`;
+}
+/* -------------------------------------------------------------------- */
+
+/* ---------- Helper: robust index resolver from sid or fallback ---------- */
+function resolveSlotIndexFromSid(
+  sec: Section,
+  sid?: string,
+  fallback = 0
+): number {
+  if (!sec?.images || !sid) return fallback;
+  const idx = sec.images.findIndex((img, i) => {
+    const currentSid = img?.slotId || stableSlotId(sec, i);
+    return currentSid === sid;
+  });
+  if (idx >= 0) return idx;
+
+  // legacy: try to parse ::slot::<n>
+  const m = /::slot::(\d+)$/.exec(sid);
+  if (m) return Number(m[1]);
+
+  return fallback;
+}
+/* ---------------------------------------------------------------------- */
 
 function padY(cls?: Section["paddingY"]) {
   switch (cls) {
@@ -276,7 +306,7 @@ function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
       fill="currentColor"
       aria-hidden="true"
     >
-      <path d="M13.586 3.586a2 2 0 112.828 2.828l-9.193 9.193a2 2 0 01-.878.503l-3.12.78a.5.5 0 01-.606-.606l.78-3.12a2 2 0 01.503-.878l9.193-9.193zM12.172 5l2.828 2.828" />
+      <path d="M13.586 3.586a2 2 0 112.828 2.828l-9.193 9.193a2 2 0 01-.878.503l-3.12.78a.5 .5 0 01-.606-.606l.78-3.12a2 2 0 01.503-.878l9.193-9.193zM12.172 5l2.828 2.828" />
     </svg>
   );
 }
@@ -427,7 +457,6 @@ const LineHeight = Extension.create({
   },
 });
 
-/** Dark toolbar button helper */
 function Btn({
   active,
   onClick,
@@ -727,12 +756,10 @@ function InlineTextBlock({
             </Btn>
           )}
 
-          {/* ───── Insert image moved INTO the text BubbleMenu ───── */}
           <div className="w-px h-5 bg-neutral-700 mx-1" />
           <Btn
             title="Insert inline image"
             onClick={async () => {
-              // Reuse the same helper used previously
               const doInsert = async () => {
                 let picked: ImageSlot | null = null;
                 if ((editor as any).__onPickImage) {
@@ -747,7 +774,6 @@ function InlineTextBlock({
                 return picked;
               };
 
-              // Stash on the editor instance the onPickImage, if provided via closure.
               const picked = await doInsert();
               if (!picked?.src) return;
 
@@ -1004,7 +1030,6 @@ function AsideRichTextEditor({
     },
   });
 
-  // Expose onPickImage to the BubbleMenu button via the editor instance
   React.useEffect(() => {
     if (!editor) return;
     (editor as any).__onPickImage = onPickImage
@@ -1131,7 +1156,6 @@ function AsideRichTextEditor({
 
   return (
     <div>
-      {/* Text BubbleMenu (now also hosts Insert Image) */}
       {!readonly && editor ? (
         <BubbleMenu
           pluginKey="aside-text-bubble"
@@ -1226,7 +1250,6 @@ function AsideRichTextEditor({
 
           <div className="w-px h-5 bg-neutral-700 mx-1" />
 
-          {/* Insert image button now lives here */}
           <Btn
             title="Insert inline image"
             onClick={async () => {
@@ -1265,7 +1288,6 @@ function AsideRichTextEditor({
         </BubbleMenu>
       ) : null}
 
-      {/* Image BubbleMenu */}
       {!readonly && editor ? (
         <BubbleMenu
           pluginKey="aside-image-bubble"
@@ -1324,7 +1346,7 @@ function AsideRichTextEditor({
       ) : null}
 
       <div
-        className={wrapperClass}
+        className="prose prose-gray max-w-none outline-none text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0"
         style={{
           padding: !readonly ? "0.5rem" : undefined,
           textAlign: "justify",
@@ -1359,7 +1381,7 @@ function ImageLeftTextRight({
   readonly?: boolean;
   siteId?: string | number;
 }) {
-  const img = (sec.images || [])[0] || { slotId: "left-1" };
+  const img = (sec.images || [])[0] || { slotId: stableSlotId(sec, 0) };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
   const minPx = usePairHeightLock(imageColRef, true);
   const cap = typeof minPx === "number" ? minPx + HANG_PX : undefined;
@@ -1370,10 +1392,10 @@ function ImageLeftTextRight({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         <div ref={imageColRef} className="md:col-span-5">
           <Figure
-            slot={img}
+            slot={{ ...img, slotId: img.slotId || stableSlotId(sec, 0) }}
             sidePortraitLock
-            onPick={onPickImage}
-            onReset={onResetImage}
+            onPick={() => onPickImage?.(stableSlotId(sec, 0))}
+            onReset={() => onResetImage?.(stableSlotId(sec, 0))}
             onOpenCaption={onOpenCaption}
             readonly={readonly}
             siteId={siteId}
@@ -1427,7 +1449,7 @@ function ImageRightTextLeft({
   readonly?: boolean;
   siteId?: string | number;
 }) {
-  const img = (sec.images || [])[0] || { slotId: "right-1" };
+  const img = (sec.images || [])[0] || { slotId: stableSlotId(sec, 0) };
   const imageColRef = React.useRef<HTMLDivElement | null>(null);
   const minPx = usePairHeightLock(imageColRef, true);
   const cap = typeof minPx === "number" ? minPx + HANG_PX : undefined;
@@ -1464,10 +1486,10 @@ function ImageRightTextLeft({
         </div>
         <div ref={imageColRef} className="md:col-span-5 order-1 md:order-2">
           <Figure
-            slot={img}
+            slot={{ ...img, slotId: img.slotId || stableSlotId(sec, 0) }}
             sidePortraitLock
-            onPick={onPickImage}
-            onReset={onResetImage}
+            onPick={() => onPickImage?.(stableSlotId(sec, 0))}
+            onReset={() => onResetImage?.(stableSlotId(sec, 0))}
             onOpenCaption={onOpenCaption}
             readonly={readonly}
             siteId={siteId}
@@ -1493,19 +1515,19 @@ function TwoImages({
   readonly?: boolean;
   siteId?: string | number;
 }) {
-  const imgs = (sec.images || []).slice(0, 2);
-  const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
+  const imgs = sec.images || [];
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[0, 1].map((i) => {
-          const img = ensure(i);
+          const slot = imgs[i] || { slotId: stableSlotId(sec, i) };
+          const sid = slot.slotId || stableSlotId(sec, i);
           return (
             <Figure
-              key={i}
-              slot={img}
-              onPick={onPickImage}
-              onReset={onResetImage}
+              key={sid}
+              slot={{ ...slot, slotId: sid }}
+              onPick={() => onPickImage?.(sid)}
+              onReset={() => onResetImage?.(sid)}
               onOpenCaption={onOpenCaption}
               readonly={readonly}
               siteId={siteId}
@@ -1532,19 +1554,19 @@ function ThreeImages({
   readonly?: boolean;
   siteId?: string | number;
 }) {
-  const imgs = (sec.images || []).slice(0, 3);
-  const ensure = (i: number) => imgs[i] || { slotId: `slot_${i + 1}` };
+  const imgs = sec.images || [];
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => {
-          const img = ensure(i);
+          const slot = imgs[i] || { slotId: stableSlotId(sec, i) };
+          const sid = slot.slotId || stableSlotId(sec, i);
           return (
             <Figure
-              key={i}
-              slot={img}
-              onPick={onPickImage}
-              onReset={onResetImage}
+              key={sid}
+              slot={{ ...slot, slotId: sid }}
+              onPick={() => onPickImage?.(sid)}
+              onReset={() => onResetImage?.(sid)}
               onOpenCaption={onOpenCaption}
               readonly={readonly}
               siteId={siteId}
@@ -1571,13 +1593,14 @@ function FullWidthImage({
   readonly?: boolean;
   siteId?: string | number;
 }) {
-  const img = (sec.images || [])[0] || { slotId: "fw-1" };
+  const slot = (sec.images || [])[0] || { slotId: stableSlotId(sec, 0) };
+  const sid = slot.slotId || stableSlotId(sec, 0);
   return (
     <div className={wrapClass(sec)} style={sec.style}>
       <Figure
-        slot={img}
-        onPick={onPickImage}
-        onReset={onResetImage}
+        slot={{ ...slot, slotId: sid }}
+        onPick={() => onPickImage?.(sid)}
+        onReset={() => onResetImage?.(sid)}
         onOpenCaption={onOpenCaption}
         readonly={readonly}
         siteId={siteId}
@@ -1621,6 +1644,113 @@ function FullWidthText({
   );
 }
 
+/* --------------------------- NEW: Quotation UI --------------------------- */
+
+function QuotationBlock({
+  sec,
+  onChangeText,
+  readonly,
+}: {
+  sec: Section;
+  onChangeText: (text: string) => void;
+  readonly?: boolean;
+}) {
+  const html = sec.text?.text || "";
+  const commonPad = "px-6 py-10 sm:px-8 sm:py-12 md:px-12 md:py-16 rounded-2xl";
+  return (
+    <div
+      className={`${wrapClass(sec)} ${commonPad}`}
+      style={{ ...sec.style, background: "white" }}
+    >
+      {readonly ? (
+        html ? (
+          <blockquote
+            className="text-center italic"
+            style={{
+              fontSize: "3em",
+              lineHeight: 1.3,
+              fontWeight: 600,
+            }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(html, {
+                USE_PROFILES: { html: true },
+              }),
+            }}
+          />
+        ) : null
+      ) : (
+        <div className="max-w-4xl mx-auto">
+          <InlineTextBlock
+            value={html}
+            setValue={(v) => onChangeText(v)}
+            maxCharsSoft={260}
+            readonly={false}
+          />
+          <div className="mt-2 text-xs text-gray-500" data-edit-only>
+            Tip: keep it to one strong sentence.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------- NEW: Carousel UI --------------------------- */
+
+const MAX_CAROUSEL = 10;
+
+function CarouselBlock({
+  sec,
+  onPickImage,
+  onResetImage,
+  onOpenCaption,
+  readonly,
+  siteId,
+}: {
+  sec: Section;
+  onPickImage?: (slotId?: string) => void;
+  onResetImage?: (slotId?: string) => void;
+  onOpenCaption?: (slot: ImageSlot) => void;
+  readonly?: boolean;
+  siteId?: string | number;
+}) {
+  const imgs = sec.images || [];
+  const count = Math.min(Math.max(imgs.length || 0, 3), MAX_CAROUSEL);
+
+  return (
+    <div className={wrapClass(sec)} style={sec.style}>
+      <div className="relative">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4">
+          {Array.from({ length: count }).map((_, i) => {
+            const slot = imgs[i] || { slotId: stableSlotId(sec, i) };
+            const sid = slot.slotId || stableSlotId(sec, i);
+            return (
+              <div
+                key={sid}
+                className="min-w-[78%] sm:min-w-[58%] md:min-w-[46%] lg:min-w-[32%] snap-start"
+              >
+                <Figure
+                  slot={{ ...slot, slotId: sid }}
+                  onPick={() => onPickImage?.(sid)}
+                  onReset={() => onResetImage?.(sid)}
+                  onOpenCaption={onOpenCaption}
+                  readonly={readonly}
+                  siteId={siteId}
+                />
+              </div>
+            );
+          })}
+        </div>
+        {!readonly ? (
+          <div className="mt-2 text-xs text-gray-500" data-edit-only>
+            Up to {MAX_CAROUSEL} photos. Use “Pick/Change/Reset” on each slide.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------- Toolbar (optional) --------------------------- */
 
 function Toolbar({
@@ -1660,6 +1790,12 @@ function Toolbar({
       <button className={btn} onClick={() => onAdd("aside-figure")}>
         Aside (Rich Text + Inline Image)
       </button>
+      <button className={btn} onClick={() => onAdd("quotation")}>
+        Quotation
+      </button>
+      <button className={btn} onClick={() => onAdd("carousel")}>
+        Carousel Photos
+      </button>
     </div>
   );
 }
@@ -1681,6 +1817,18 @@ export default function FlowComposer({
     initial: string;
     gallery?: string | null;
   } | null>(null);
+
+  /* ---------- IMPORTANT: Backfill missing section IDs (prevents slot collisions) ---------- */
+  React.useEffect(() => {
+    if (!Array.isArray(sections)) return;
+    const needsIds = sections.some((s) => !s.id);
+    if (needsIds) {
+      const next = sections.map((s) => (s.id ? s : { ...s, id: uid() }));
+      onChange(next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections]);
+  /* --------------------------------------------------------------------------------------- */
 
   const addSection = (kind: SectionKind) => {
     const next = [...(sections || []), makeSection(kind)];
@@ -1708,49 +1856,64 @@ export default function FlowComposer({
     onChange(next);
   };
 
-  const patchSlot = (
-    secIdx: number,
-    slotIdx: number,
-    patch: Partial<ImageSlot>
-  ) => {
-    const sec = sections[secIdx];
-    const imgs = [...(sec.images || [])];
-    imgs[slotIdx] = { ...(imgs[slotIdx] || {}), ...patch };
-    updateSection(secIdx, { images: imgs });
+  /* ---------- compute/pad images with stable IDs (no regex, no guessing) ---------- */
+  const ensureImageAt = (sec: Section, slotIdx: number): ImageSlot[] => {
+    const images = [...(sec.images || [])];
+    for (let i = 0; i <= slotIdx; i++) {
+      if (!images[i]) images[i] = { slotId: stableSlotId(sec, i) };
+      else if (!images[i].slotId)
+        images[i] = { ...images[i], slotId: stableSlotId(sec, i) };
+    }
+    return images;
   };
 
-  const onPickImageForSec = async (idx: number, slotIdx = 0) => {
+  const onPickImageForSec = async (
+    idx: number,
+    slotIdxOrSid: number | string = 0
+  ) => {
     if (!onPickImage || readonly) return;
+
     const sec = sections[idx];
-    const slotId =
-      (sec.images?.[slotIdx]?.slotId as string) ||
-      `${sec.type}-${idx}-${slotIdx}`;
-    const picked = await onPickImage(slotId);
+    const slotIdx =
+      typeof slotIdxOrSid === "number"
+        ? slotIdxOrSid
+        : resolveSlotIndexFromSid(sec, slotIdxOrSid, 0);
+
+    const sid = stableSlotId(sec, slotIdx);
+    const picked = await onPickImage(sid);
     if (!picked) return;
 
     const galleryCaption =
       typeof picked.caption === "string" && picked.caption.trim().length > 0
-        ? picked.caption
+        ? picked.caption.trim()
         : null;
 
-    const images = [...(sec.images || [])];
+    const images = ensureImageAt(sec, slotIdx);
+    const prev = images[slotIdx] || { slotId: sid };
+
     images[slotIdx] = {
-      ...images[slotIdx],
+      ...prev,
       ...picked,
-      slotId,
+      slotId: sid,
       caption: galleryCaption,
       galleryCaption,
     };
+
     updateSection(idx, { images });
   };
 
-  const resetSlot = (idx: number, slotIdx = 0) => {
+  const resetSlot = (idx: number, slotIdxOrSid: number | string = 0) => {
     if (readonly) return;
     const sec = sections[idx];
-    const prev = (sec.images || [])[slotIdx];
-    const images = [...(sec.images || [])];
+    const slotIdx =
+      typeof slotIdxOrSid === "number"
+        ? slotIdxOrSid
+        : resolveSlotIndexFromSid(sec, slotIdxOrSid, 0);
+
+    const sid = stableSlotId(sec, slotIdx);
+    const images = ensureImageAt(sec, slotIdx);
     images[slotIdx] = {
-      slotId: prev?.slotId || undefined,
+      slotId: sid,
       src: undefined,
       alt: null,
       href: null,
@@ -1760,6 +1923,7 @@ export default function FlowComposer({
     };
     updateSection(idx, { images });
   };
+  /* ------------------------------------------------------------------------------------ */
 
   const setSlotCaptionById = (
     slotId: string | undefined,
@@ -1769,12 +1933,13 @@ export default function FlowComposer({
     const next = sections.map((sec) => {
       if (!sec.images?.length) return sec;
       let changed = false;
-      const imgs = sec.images.map((img) => {
-        if (img.slotId === slotId) {
+      const imgs = sec.images.map((img, i) => {
+        const sid = img.slotId || stableSlotId(sec, i);
+        if (sid === slotId) {
           changed = true;
-          return { ...img, caption };
+          return { ...img, slotId: sid, caption };
         }
-        return img;
+        return { ...img, slotId: sid };
       });
       return changed ? { ...sec, images: imgs } : sec;
     });
@@ -1786,12 +1951,13 @@ export default function FlowComposer({
     const next = sections.map((sec) => {
       if (!sec.images?.length) return sec;
       let changed = false;
-      const imgs = sec.images.map((img) => {
-        if (img.slotId === slotId) {
+      const imgs = sec.images.map((img, i) => {
+        const sid = img.slotId || stableSlotId(sec, i);
+        if (sid === slotId) {
           changed = true;
-          return { ...img, caption: null };
+          return { ...img, slotId: sid, caption: null };
         }
-        return img;
+        return { ...img, slotId: sid };
       });
       return changed ? { ...sec, images: imgs } : sec;
     });
@@ -1879,7 +2045,10 @@ export default function FlowComposer({
                 <div key={key} className={frame}>
                   {controls}
                   <ImageLeftTextRight
-                    sec={sec}
+                    sec={{
+                      ...sec,
+                      images: ensureImageAt(sec, 0),
+                    }}
                     onChangeText={(v) =>
                       updateSection(idx, {
                         text: { ...(sec.text || {}), text: v },
@@ -1898,7 +2067,10 @@ export default function FlowComposer({
                 <div key={key} className={frame}>
                   {controls}
                   <ImageRightTextLeft
-                    sec={sec}
+                    sec={{
+                      ...sec,
+                      images: ensureImageAt(sec, 0),
+                    }}
                     onChangeText={(v) =>
                       updateSection(idx, {
                         text: { ...(sec.text || {}), text: v },
@@ -1917,19 +2089,9 @@ export default function FlowComposer({
                 <div key={key} className={frame}>
                   {controls}
                   <TwoImages
-                    sec={sec}
-                    onPickImage={(slotId) =>
-                      onPickImageForSec(
-                        idx,
-                        Number((slotId as any)?.split("_")[1]) - 1 || 0
-                      )
-                    }
-                    onResetImage={(slotId) =>
-                      resetSlot(
-                        idx,
-                        Number((slotId as any)?.split("_")[1]) - 1 || 0
-                      )
-                    }
+                    sec={{ ...sec, images: ensureImageAt(sec, 1) }}
+                    onPickImage={(sid) => onPickImageForSec(idx, sid!)}
+                    onResetImage={(sid) => resetSlot(idx, sid!)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
                     siteId={siteId}
@@ -1941,19 +2103,9 @@ export default function FlowComposer({
                 <div key={key} className={frame}>
                   {controls}
                   <ThreeImages
-                    sec={sec}
-                    onPickImage={(slotId) =>
-                      onPickImageForSec(
-                        idx,
-                        Number((slotId as any)?.split("_")[1]) - 1 || 0
-                      )
-                    }
-                    onResetImage={(slotId) =>
-                      resetSlot(
-                        idx,
-                        Number((slotId as any)?.split("_")[1]) - 1 || 0
-                      )
-                    }
+                    sec={{ ...sec, images: ensureImageAt(sec, 2) }}
+                    onPickImage={(sid) => onPickImageForSec(idx, sid!)}
+                    onResetImage={(sid) => resetSlot(idx, sid!)}
                     onOpenCaption={openCaptionEditor}
                     readonly={readonly}
                     siteId={siteId}
@@ -1965,7 +2117,7 @@ export default function FlowComposer({
                 <div key={key} className={frame}>
                   {controls}
                   <FullWidthImage
-                    sec={sec}
+                    sec={{ ...sec, images: ensureImageAt(sec, 0) }}
                     onPickImage={() => onPickImageForSec(idx, 0)}
                     onResetImage={() => resetSlot(idx, 0)}
                     onOpenCaption={openCaptionEditor}
@@ -1990,6 +2142,41 @@ export default function FlowComposer({
                       readonly={readonly}
                     />
                   </div>
+                </div>
+              );
+            case "quotation":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <QuotationBlock
+                    sec={sec}
+                    onChangeText={(v) =>
+                      updateSection(idx, {
+                        text: { ...(sec.text || {}), text: v },
+                      })
+                    }
+                    readonly={readonly}
+                  />
+                </div>
+              );
+            case "carousel":
+              return (
+                <div key={key} className={frame}>
+                  {controls}
+                  <CarouselBlock
+                    sec={{
+                      ...sec,
+                      images: ensureImageAt(
+                        sec,
+                        Math.max((sec.images?.length || 0) - 1, 2)
+                      ),
+                    }}
+                    onPickImage={(sid) => onPickImageForSec(idx, sid!)}
+                    onResetImage={(sid) => resetSlot(idx, sid!)}
+                    onOpenCaption={openCaptionEditor}
+                    readonly={readonly}
+                    siteId={siteId}
+                  />
                 </div>
               );
             case "full-width-text":
@@ -2025,31 +2212,27 @@ export function makeSection(kind: SectionKind): Section {
     bg: "none",
   };
 
+  // helper to seed slots with stable IDs from day one
+  const seed = (count: number): ImageSlot[] =>
+    Array.from({ length: count }, (_, i) => ({
+      slotId: stableSlotId(base, i),
+    }));
+
   switch (kind) {
     case "image-left-text-right":
-      return { ...base, images: [{ slotId: "left-1" }], text: { text: "" } };
+      return { ...base, images: seed(1), text: { text: "" } };
     case "image-right-text-left":
-      return { ...base, images: [{ slotId: "right-1" }], text: { text: "" } };
+      return { ...base, images: seed(1), text: { text: "" } };
     case "full-width-image":
-      return { ...base, images: [{ slotId: "fw-1" }] };
+      return { ...base, images: seed(1) };
     case "two-images":
-      return {
-        ...base,
-        images: [{ slotId: "slot_1" }, { slotId: "slot_2" }],
-      };
+      return { ...base, images: seed(2) };
     case "three-images":
-      return {
-        ...base,
-        images: [
-          { slotId: "slot_1" },
-          { slotId: "slot_2" },
-          { slotId: "slot_3" },
-        ],
-      };
+      return { ...base, images: seed(3) };
     case "aside-figure":
       return {
         ...base,
-        images: [{ slotId: "aside-1" }],
+        images: seed(1),
         text: {
           text:
             `<p>` +
@@ -2062,6 +2245,20 @@ export function makeSection(kind: SectionKind): Section {
             `</figure>` +
             `Write your text here…</p>`,
         },
+      };
+    case "quotation":
+      return {
+        ...base,
+        paddingY: "lg",
+        bg: "muted",
+        cssClass: "sec-quotation",
+        text: { text: "" },
+      };
+    case "carousel":
+      return {
+        ...base,
+        cssClass: "sec-carousel",
+        images: seed(3), // start with 3, grows up to MAX_CAROUSEL
       };
     case "full-width-text":
     default:
