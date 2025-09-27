@@ -390,17 +390,6 @@ export default function HeritageArticle({
 
       <style jsx global>{`
         /* ------- Match composer figure/caption layout ------- */
-        .reading-article figure .hop-capwrap {
-          position: relative;
-          margin-top: 0.5rem;
-          min-height: 1.25rem; /* keeps space for heart even if no caption */
-        }
-        .reading-article figure .hop-heart {
-          position: absolute;
-          left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-        }
         .reading-article figure .hop-caption {
           display: block;
           text-align: center !important;
@@ -408,10 +397,28 @@ export default function HeritageArticle({
           line-height: 1.25rem;
           color: #6b7280; /* gray-500 */
           margin: 0; /* override prose defaults */
+          padding: 0 32px; /* ← makes room for the heart on small photos */
+          word-break: break-word; /* avoid long-word spillover */
+          overflow-wrap: anywhere;
         }
-
-        /* remove the previous left-padded figcaption rules */
-        /* (no longer used) */
+        .reading-article figure .hop-capwrap {
+          position: relative;
+          margin-top: 0.5rem;
+          min-height: 1.25rem; /* keeps row height even when no caption */
+        }
+        .reading-article figure .hop-heart {
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 24px; /* keep in sync with icon size */
+          height: 24px;
+        }
+        @media (max-width: 420px) {
+          .reading-article figure .hop-caption {
+            padding: 0 28px;
+          }
+        }
 
         /* -------- Note popup + highlight (unchanged) -------- */
         .note-callout {
