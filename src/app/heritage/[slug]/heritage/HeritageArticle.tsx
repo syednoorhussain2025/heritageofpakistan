@@ -177,7 +177,7 @@ export default function HeritageArticle({
         "data-src",
         "data-original",
         "data-lazy-src",
-        // keep inline-figure hints (safe to allow)
+        // inline-figure hints
         "data-width",
         "data-align",
         "data-caption",
@@ -216,7 +216,7 @@ export default function HeritageArticle({
       replace: (node: any) => {
         if (node.type !== "tag") return;
 
-        // FIGURE (with or without its own figcaption)
+        // FIGURE (with or without caption)
         if (node.name === "figure") {
           const attribs = mapAttribs(node.attribs);
           const children = node.children || [];
@@ -259,7 +259,7 @@ export default function HeritageArticle({
           );
         }
 
-        // Lone <img> → wrap in a <figure> with the heart under it
+        // Lone <img> → wrap in figure + heart (no caption)
         if (node.name === "img" && node.parent?.name !== "figure") {
           const a = node.attribs || {};
           const src =
@@ -284,7 +284,6 @@ export default function HeritageArticle({
                     />
                   </div>
                 )}
-                {/* no caption in this case */}
               </div>
             </figure>
           );
@@ -336,6 +335,96 @@ export default function HeritageArticle({
       host.classList.remove("reveal-ready", "reveal-armed");
       imgs.forEach((el) => el.classList.remove("reveal-img", "in", "in-done"));
       caps.forEach((el) => el.classList.remove("reveal-cap", "in", "in-done"));
+    };
+  }, [content]);
+
+  /* ---------------- enhance carousels on public page ----------------
+     - Hide scrollbar
+     - Add left/right buttons that move exactly one item
+  -------------------------------------------------------------------*/
+  useEffect(() => {
+    const root = hostRef.current;
+    if (!root) return;
+
+    // Find each saved carousel wrapper
+    const blocks = Array.from(
+      root.querySelectorAll<HTMLElement>(".sec-carousel")
+    );
+
+    const cleanups: Array<() => void> = [];
+
+    blocks.forEach((block) => {
+      // Avoid double-initialization
+      if ((block as any).__hopCarouselInit) return;
+      (block as any).__hopCarouselInit = true;
+
+      // Prefer the original "relative group" wrapper if present
+      const rel =
+        (block.querySelector<HTMLElement>(".group") as HTMLElement) || block;
+      if (getComputedStyle(rel).position === "static") {
+        rel.style.position = "relative";
+      }
+
+      // Find the horizontal strip (tailwind classes from composer snapshot)
+      const strip =
+        (block.querySelector<HTMLElement>(".snap-x") as HTMLElement) ||
+        (block.querySelector<HTMLElement>(".overflow-x-auto") as HTMLElement) ||
+        null;
+      if (!strip) return;
+
+      // Hide scrollbar via class
+      strip.classList.add("hop-carousel-strip");
+
+      // Helper to measure one step (one card + gap)
+      const calcStep = () => {
+        // first visible item
+        const children = Array.from(strip.children) as HTMLElement[];
+        const item =
+          children.find((c) => c.offsetWidth > 0) || (children[0] as any);
+        if (!item) return 0;
+        const gapPx = parseFloat(getComputedStyle(strip).columnGap || "0") || 0;
+        return item.offsetWidth + gapPx;
+      };
+
+      const step = () => Math.max(1, Math.round(calcStep()));
+
+      const scrollByOne = (dir: "left" | "right") => {
+        const delta = dir === "left" ? -step() : step();
+        strip.scrollBy({ left: delta, behavior: "smooth" });
+      };
+
+      // Build nav buttons
+      const makeBtn = (dir: "left" | "right") => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `hop-cnav ${
+          dir === "left" ? "hop-cnav-left" : "hop-cnav-right"
+        }`;
+        btn.setAttribute("aria-label", dir === "left" ? "Previous" : "Next");
+        btn.innerHTML =
+          dir === "left"
+            ? `<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z"/></svg>`
+            : `<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z"/></svg>`;
+        btn.addEventListener("click", () => scrollByOne(dir));
+        return btn;
+      };
+
+      const left = makeBtn("left");
+      const right = makeBtn("right");
+      rel.appendChild(left);
+      rel.appendChild(right);
+
+      // Cleanup for unmount/re-render
+      cleanups.push(() => {
+        left.remove();
+        right.remove();
+        strip.classList.remove("hop-carousel-strip");
+        (block as any).__hopCarouselInit = undefined;
+      });
+    });
+
+    return () => {
+      cleanups.forEach((fn) => fn());
     };
   }, [content]);
 
@@ -396,28 +485,70 @@ export default function HeritageArticle({
           font-size: 0.875rem; /* text-sm */
           line-height: 1.25rem;
           color: #6b7280; /* gray-500 */
-          margin: 0; /* override prose defaults */
-          padding: 0 32px; /* ← makes room for the heart on small photos */
-          word-break: break-word; /* avoid long-word spillover */
+          margin: 0;
+          padding: 0 32px; /* room for heart icon on small photos */
+          word-break: break-word;
           overflow-wrap: anywhere;
         }
         .reading-article figure .hop-capwrap {
           position: relative;
           margin-top: 0.5rem;
-          min-height: 1.25rem; /* keeps row height even when no caption */
+          min-height: 1.25rem;
         }
         .reading-article figure .hop-heart {
           position: absolute;
           left: 0;
           top: 50%;
           transform: translateY(-50%);
-          width: 24px; /* keep in sync with icon size */
+          width: 24px;
           height: 24px;
         }
         @media (max-width: 420px) {
           .reading-article figure .hop-caption {
             padding: 0 28px;
           }
+        }
+
+        /* -------- Carousel (public page) -------- */
+        /* Hide scrollbar */
+        .hop-carousel-strip::-webkit-scrollbar {
+          display: none;
+        }
+        .hop-carousel-strip {
+          -ms-overflow-style: none; /* IE & Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+
+        /* Nav buttons */
+        .hop-cnav {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 44px;
+          height: 44px;
+          display: grid;
+          place-items: center;
+          border-radius: 9999px;
+          border: 1px solid #e5e7eb; /* gray-200 */
+          background: rgba(255, 255, 255, 0.9);
+          color: #374151; /* gray-700 */
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+          cursor: pointer;
+          transition: background 120ms ease, transform 120ms ease;
+          z-index: 5;
+        }
+        .hop-cnav:hover {
+          background: #ffffff;
+          transform: translateY(-50%) scale(1.03);
+        }
+        .hop-cnav:active {
+          transform: translateY(-50%) scale(0.98);
+        }
+        .hop-cnav-left {
+          left: -14px;
+        }
+        .hop-cnav-right {
+          right: -14px;
         }
 
         /* -------- Note popup + highlight (unchanged) -------- */

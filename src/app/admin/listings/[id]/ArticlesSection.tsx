@@ -122,7 +122,9 @@ function usePublicMainWidth() {
 function snapshotCleanHTML(root: HTMLElement): string {
   const node = root.cloneNode(true) as HTMLElement;
 
+  // Remove editor-only chrome and all buttons/interactive controls
   node.querySelectorAll("[data-edit-only]").forEach((el) => el.remove());
+  node.querySelectorAll("button, [role='button']").forEach((el) => el.remove());
 
   const KILL = [
     ".tiptap-bubble-menu",
@@ -137,11 +139,13 @@ function snapshotCleanHTML(root: HTMLElement): string {
   ];
   KILL.forEach((sel) => node.querySelectorAll(sel).forEach((n) => n.remove()));
 
+  // Remove any fixed overlays
   node.querySelectorAll<HTMLElement>("*").forEach((el) => {
     const st = (el.getAttribute("style") || "").toLowerCase();
     if (st.includes("position:fixed")) el.remove();
   });
 
+  // Remove visual-only editor scaffolding classes
   node.querySelectorAll<HTMLElement>(".flow-editor-decor").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -178,6 +182,7 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.setAttribute("class", classes.join(" "));
   });
 
+  // Normalize margins that were for editor spacing only
   node.querySelectorAll<HTMLElement>(".my-6").forEach((el) => {
     const classes = (el.getAttribute("class") || "")
       .split(/\s+/)
@@ -185,9 +190,85 @@ function snapshotCleanHTML(root: HTMLElement): string {
     el.setAttribute("class", classes.join(" "));
   });
 
+  // Remove edit flags
   node.querySelectorAll("[contenteditable], [data-editing]").forEach((el) => {
     el.removeAttribute("contenteditable");
     el.removeAttribute("data-editing");
+  });
+
+  // Helper: does a subtree contain a usable image?
+  const hasUsableImage = (el: Element) => {
+    const img = el.querySelector("img");
+    const src =
+      img?.getAttribute("src") ||
+      img?.getAttribute("data-src") ||
+      img?.getAttribute("data-original") ||
+      img?.getAttribute("data-lazy-src") ||
+      "";
+    if (src.trim()) return true;
+
+    const srcset = el.querySelector("source")?.getAttribute("srcset") || "";
+    if (srcset.trim()) return true;
+
+    const withBg = el.querySelector<HTMLElement>("[style*='background-image']");
+    if (withBg) return true;
+
+    return false;
+  };
+
+  // Prune empty image placeholders generically (outside carousels too)
+  node
+    .querySelectorAll<HTMLElement>("figure, [data-slot], .slot, .image-slot")
+    .forEach((el) => {
+      // Remove <img> without a real src
+      el.querySelectorAll("img").forEach((img) => {
+        const src = (img.getAttribute("src") || "").trim();
+        if (!src) img.remove();
+      });
+      if (!hasUsableImage(el)) el.remove();
+    });
+
+  // Normalize/prune carousels
+  const carousels = node.querySelectorAll<HTMLElement>(
+    ".sec-carousel, .spv-carousel, [data-section='carousel']"
+  );
+
+  carousels.forEach((container) => {
+    // Prefer the inner strip if present; otherwise operate on the container
+    const inner =
+      (container.matches(".spv-carousel")
+        ? container
+        : (container.querySelector(".spv-carousel") as HTMLElement)) ||
+      container;
+
+    // Remove slot/placeholder UI within the carousel
+    inner
+      .querySelectorAll(
+        "[class*='slot'], [data-slot], [data-add], .add, .plus, .slot-btn, .add-slot"
+      )
+      .forEach((el) => el.remove());
+
+    // Drop items that don’t have a usable image
+    const figures = Array.from(inner.querySelectorAll("figure"));
+    if (figures.length) {
+      figures.forEach((fig) => {
+        if (!hasUsableImage(fig)) fig.remove();
+      });
+    } else {
+      const items = Array.from(inner.children);
+      items.forEach((it) => {
+        if (!hasUsableImage(it)) it.remove();
+      });
+    }
+
+    // If nothing left, remove the whole carousel
+    if (!inner.querySelector("img,source,[style*='background-image']")) {
+      const outer =
+        (container.closest(
+          ".sec-carousel, .spv-carousel, [data-section='carousel']"
+        ) as HTMLElement) || container;
+      outer.remove();
+    }
   });
 
   return (node.innerHTML || "").trim();
@@ -915,11 +996,15 @@ function PartComposer({
             {/* Sections list */}
             {sections.map((s, i) => {
               const isLast = i === sections.length - 1;
+              const sectionWrapperClass =
+                "flow-section-wrapper" +
+                (s.type === "carousel" ? " sec-carousel" : "");
               return (
                 <div key={i} className="relative">
                   <InsertionButton index={i} topOffset={-12} />
 
-                  <div className="flow-section-wrapper">
+                  {/* Mark the section type in DOM so the snapshot & reader can detect it */}
+                  <div className={sectionWrapperClass} data-section={s.type}>
                     <FlowComposer
                       sections={[s]}
                       onChange={(arr) => {

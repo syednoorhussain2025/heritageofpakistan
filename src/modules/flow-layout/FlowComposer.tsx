@@ -4,6 +4,7 @@
 import * as React from "react";
 import DOMPurify from "isomorphic-dompurify";
 import CollectHeart from "@/components/CollectHeart";
+import Icon from "@/components/Icon"; // Assuming Icon component is available
 
 /* ----------------------------- Tiptap ----------------------------- */
 import { EditorContent, useEditor, BubbleMenu } from "@tiptap/react";
@@ -76,6 +77,9 @@ const SIDE_W_PX = 480;
 const SIZE_S_PX = 360;
 const SIZE_M_PX = 480;
 const SIZE_L_PX = 520;
+const CAROUSEL_RATIO_H = 4 / 3;
+const CAROUSEL_RATIO_V = 3 / 4;
+const MAX_CAROUSEL = 10;
 
 const ASIDE_PLACEHOLDER_DATA_URI =
   `data:image/svg+xml;utf8,` +
@@ -102,14 +106,11 @@ function uid() {
   );
 }
 
-/* ---------- NEW: canonical slotId generator (stable & collision-proof) ---------- */
 function stableSlotId(sec: Section, slotIdx: number) {
   const sid = sec.id || "sec";
   return `${sid}::slot::${slotIdx}`;
 }
-/* -------------------------------------------------------------------- */
 
-/* ---------- Helper: robust index resolver from sid or fallback ---------- */
 function resolveSlotIndexFromSid(
   sec: Section,
   sid?: string,
@@ -122,13 +123,11 @@ function resolveSlotIndexFromSid(
   });
   if (idx >= 0) return idx;
 
-  // legacy: try to parse ::slot::<n>
   const m = /::slot::(\d+)$/.exec(sid);
   if (m) return Number(m[1]);
 
   return fallback;
 }
-/* ---------------------------------------------------------------------- */
 
 function padY(cls?: Section["paddingY"]) {
   switch (cls) {
@@ -174,7 +173,6 @@ function Placeholder({
   );
 }
 
-/* ------------------------- Height lock (fallback) ------------------------- */
 function usePairHeightLock(
   imageWrapRef: React.RefObject<HTMLElement | null>,
   enabled = true
@@ -216,16 +214,12 @@ function usePairHeightLock(
   return minPx;
 }
 
-/* --------------------------- Shared helpers --------------------------- */
-
 function effectiveCaption(slot: ImageSlot): string | null {
   const c = (slot.caption ?? "").trim();
   if (c) return c;
   const g = (slot.galleryCaption ?? "").trim();
   return g || null;
 }
-
-/* --------------------------- Caption Modal --------------------------- */
 
 function CaptionModal({
   initial,
@@ -296,8 +290,6 @@ function CaptionModal({
   );
 }
 
-/* --------------------------- Image Figure --------------------------- */
-
 function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg
@@ -306,7 +298,7 @@ function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
       fill="currentColor"
       aria-hidden="true"
     >
-      <path d="M13.586 3.586a2 2 0 112.828 2.828l-9.193 9.193a2 2 0 01-.878.503l-3.12.78a.5 .5 0 01-.606-.606l.78-3.12a2 2 0 01.503-.878l9.193-9.193zM12.172 5l2.828 2.828" />
+      <path d="M13.586 3.586a2 2 0 112.828 2.828l-9.193 9.193a2 2 0 01-.878.503l-3.12.78a.5.5 0 01-.606-.606l.78-3.12a2 2 0 01.503-.878l9.193-9.193zM12.172 5l2.828 2.828" />
     </svg>
   );
 }
@@ -317,6 +309,7 @@ function Figure({
   onPick,
   onReset,
   onOpenCaption,
+  onDeleteSlot, // NEW
   readonly,
   siteId,
 }: {
@@ -325,6 +318,7 @@ function Figure({
   onPick?: (slotId?: string) => void;
   onReset?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
+  onDeleteSlot?: (slotId?: string) => void; // NEW
   readonly?: boolean;
   siteId?: string | number;
 }) {
@@ -371,7 +365,7 @@ function Figure({
           <Placeholder minH={sidePortraitLock ? 280 : 240}>Image</Placeholder>
         )}
 
-        {!readonly && (onPick || onReset || onOpenCaption) && (
+        {!readonly && (onPick || onReset || onOpenCaption || onDeleteSlot) && (
           <div
             className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
             data-edit-only
@@ -405,6 +399,16 @@ function Figure({
                 Edit
               </button>
             )}
+            {onDeleteSlot && (
+              <button
+                type="button"
+                onClick={() => onDeleteSlot?.(slot.slotId)}
+                className="p-1.5 rounded-md bg-red-600/90 text-white text-xs border border-red-700 hover:bg-red-600 inline-flex items-center justify-center"
+                title="Remove slot"
+              >
+                <Icon name="trash" className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -433,8 +437,6 @@ function Figure({
     </figure>
   );
 }
-
-/* --------------------------- Tiptap helpers --------------------------- */
 
 const LineHeight = Extension.create({
   name: "lineHeight",
@@ -510,8 +512,6 @@ function Select({
     </select>
   );
 }
-
-/* --------------------------- Inline Text Block --------------------------- */
 
 function InlineTextBlock({
   value,
@@ -804,8 +804,6 @@ function InlineTextBlock({
     </div>
   );
 }
-
-/* --------------------------- Aside Rich Text (with image BubbleMenu) --------------------------- */
 
 const AsideImage = Image.extend({
   name: "asideImage",
@@ -1147,13 +1145,6 @@ function AsideRichTextEditor({
       .run();
   };
 
-  const wrapperClass =
-    "prose prose-gray max-w-none outline-none " +
-    (!readonly
-      ? "flow-editor-decor ring-1 ring-dashed ring-gray-300 rounded-lg"
-      : "") +
-    " text-justify prose-p:my-0 prose-headings:my-0 prose-ol:my-0 prose-ul:my-0 prose-li:my-0 prose-blockquote:my-0 prose-pre:my-0 prose-hr:my-0";
-
   return (
     <div>
       {!readonly && editor ? (
@@ -1359,8 +1350,6 @@ function AsideRichTextEditor({
     </div>
   );
 }
-
-/* --------------------------- Two-column UI --------------------------- */
 
 const HANG_PX = 12;
 
@@ -1644,8 +1633,6 @@ function FullWidthText({
   );
 }
 
-/* --------------------------- NEW: Quotation UI --------------------------- */
-
 function QuotationBlock({
   sec,
   onChangeText,
@@ -1695,15 +1682,15 @@ function QuotationBlock({
   );
 }
 
-/* --------------------------- NEW: Carousel UI --------------------------- */
-
-const MAX_CAROUSEL = 10;
+/* ---------------------- Carousel with external + and deletable slots ---------------------- */
 
 function CarouselBlock({
   sec,
   onPickImage,
   onResetImage,
   onOpenCaption,
+  onAddSlot,
+  onDeleteSlot, // NEW
   readonly,
   siteId,
 }: {
@@ -1711,29 +1698,84 @@ function CarouselBlock({
   onPickImage?: (slotId?: string) => void;
   onResetImage?: (slotId?: string) => void;
   onOpenCaption?: (slot: ImageSlot) => void;
+  onAddSlot?: () => void;
+  onDeleteSlot?: (slotId?: string) => void; // NEW
   readonly?: boolean;
   siteId?: string | number;
 }) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const imgs = sec.images || [];
-  const count = Math.min(Math.max(imgs.length || 0, 3), MAX_CAROUSEL);
+  const imagesToRender = readonly ? imgs.filter((img) => !!img.src) : imgs;
+
+  const handleScroll = (dir: "left" | "right") => {
+    if (scrollRef.current) {
+      const itemWidth =
+        scrollRef.current.querySelector("div")?.clientWidth || 0;
+      const scrollAmount = itemWidth + 16; // Item width + gap
+      scrollRef.current.scrollBy({
+        left: dir === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   return (
     <div className={wrapClass(sec)} style={sec.style}>
-      <div className="relative">
-        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4">
-          {Array.from({ length: count }).map((_, i) => {
-            const slot = imgs[i] || { slotId: stableSlotId(sec, i) };
+      <div className="relative group">
+        {/* Prev / Next arrows */}
+        <button
+          type="button"
+          onClick={() => handleScroll("left")}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-12 h-12 rounded-full bg-gray-100/80 text-gray-600 grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity hidden md:grid"
+          aria-label="Previous slide"
+        >
+          <Icon name="chevron-left" className="w-6 h-6" />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleScroll("right")}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-12 h-12 rounded-full bg-gray-100/80 text-gray-600 grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity hidden md:grid"
+          aria-label="Next slide"
+        >
+          <Icon name="chevron-right" className="w-6 h-6" />
+        </button>
+
+        {/* External add button (never occupies a slide) */}
+        {!readonly && imagesToRender.length < MAX_CAROUSEL && onAddSlot ? (
+          <button
+            type="button"
+            onClick={onAddSlot}
+            className="absolute top-2 -right-10 z-10 w-12 h-12 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 text-3xl font-light grid place-items-center shadow"
+            title="Add another photo"
+            data-edit-only
+          >
+            +
+          </button>
+        ) : null}
+
+        {/* Scroller */}
+        <div
+          ref={scrollRef}
+          className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 hide-scrollbar"
+        >
+          {imagesToRender.map((slot, i) => {
             const sid = slot.slotId || stableSlotId(sec, i);
+            const isLandscape = slot.aspectRatio && slot.aspectRatio > 1.05;
+            const fixedRatio = isLandscape
+              ? CAROUSEL_RATIO_H
+              : CAROUSEL_RATIO_V;
+
             return (
               <div
                 key={sid}
-                className="min-w-[78%] sm:min-w-[58%] md:min-w-[46%] lg:min-w-[32%] snap-start"
+                className="w-full flex-shrink-0 snap-center md:w-[48%] lg:w-[31%]"
               >
                 <Figure
-                  slot={{ ...slot, slotId: sid }}
+                  slot={{ ...slot, slotId: sid, aspectRatio: fixedRatio }}
                   onPick={() => onPickImage?.(sid)}
                   onReset={() => onResetImage?.(sid)}
                   onOpenCaption={onOpenCaption}
+                  onDeleteSlot={() => onDeleteSlot?.(sid)} // NEW
                   readonly={readonly}
                   siteId={siteId}
                 />
@@ -1741,17 +1783,10 @@ function CarouselBlock({
             );
           })}
         </div>
-        {!readonly ? (
-          <div className="mt-2 text-xs text-gray-500" data-edit-only>
-            Up to {MAX_CAROUSEL} photos. Use “Pick/Change/Reset” on each slide.
-          </div>
-        ) : null}
       </div>
     </div>
   );
 }
-
-/* --------------------------- Toolbar (optional) --------------------------- */
 
 function Toolbar({
   onAdd,
@@ -1800,8 +1835,6 @@ function Toolbar({
   );
 }
 
-/* ------------------------------ Root ------------------------------ */
-
 export default function FlowComposer({
   sections,
   onChange,
@@ -1818,7 +1851,6 @@ export default function FlowComposer({
     gallery?: string | null;
   } | null>(null);
 
-  /* ---------- IMPORTANT: Backfill missing section IDs (prevents slot collisions) ---------- */
   React.useEffect(() => {
     if (!Array.isArray(sections)) return;
     const needsIds = sections.some((s) => !s.id);
@@ -1826,9 +1858,7 @@ export default function FlowComposer({
       const next = sections.map((s) => (s.id ? s : { ...s, id: uid() }));
       onChange(next);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections]);
-  /* --------------------------------------------------------------------------------------- */
+  }, [sections, onChange]);
 
   const addSection = (kind: SectionKind) => {
     const next = [...(sections || []), makeSection(kind)];
@@ -1856,7 +1886,6 @@ export default function FlowComposer({
     onChange(next);
   };
 
-  /* ---------- compute/pad images with stable IDs (no regex, no guessing) ---------- */
   const ensureImageAt = (sec: Section, slotIdx: number): ImageSlot[] => {
     const images = [...(sec.images || [])];
     for (let i = 0; i <= slotIdx; i++) {
@@ -1923,7 +1952,29 @@ export default function FlowComposer({
     };
     updateSection(idx, { images });
   };
-  /* ------------------------------------------------------------------------------------ */
+
+  const deleteSlot = (secIdx: number, slotIdxOrSid: number | string = 0) => {
+    if (readonly) return;
+    const sec = sections[secIdx];
+    if (!sec?.images?.length) return;
+    const idx =
+      typeof slotIdxOrSid === "number"
+        ? slotIdxOrSid
+        : resolveSlotIndexFromSid(sec, slotIdxOrSid, 0);
+    const images = [...sec.images];
+    images.splice(idx, 1);
+    updateSection(secIdx, { images });
+  };
+
+  const handleAddCarouselSlot = (secIdx: number) => {
+    const sec = sections[secIdx];
+    if (!sec || (sec.images?.length || 0) >= MAX_CAROUSEL) return;
+
+    const newSlotIdx = sec.images?.length || 0;
+    const images = ensureImageAt(sec, newSlotIdx);
+
+    updateSection(secIdx, { images });
+  };
 
   const setSlotCaptionById = (
     slotId: string | undefined,
@@ -1981,6 +2032,15 @@ export default function FlowComposer({
 
   return (
     <>
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+      `}</style>
       {!readonly && captionEdit ? (
         <CaptionModal
           initial={captionEdit.initial}
@@ -2166,14 +2226,17 @@ export default function FlowComposer({
                   <CarouselBlock
                     sec={{
                       ...sec,
-                      images: ensureImageAt(
-                        sec,
-                        Math.max((sec.images?.length || 0) - 1, 2)
-                      ),
+                      // Ensure IDs for existing slots only (don’t create extra empties)
+                      images:
+                        (sec.images?.length || 0) > 0
+                          ? ensureImageAt(sec, sec.images!.length - 1)
+                          : [],
                     }}
                     onPickImage={(sid) => onPickImageForSec(idx, sid!)}
                     onResetImage={(sid) => resetSlot(idx, sid!)}
                     onOpenCaption={openCaptionEditor}
+                    onAddSlot={() => handleAddCarouselSlot(idx)}
+                    onDeleteSlot={(sid) => deleteSlot(idx, sid!)} // NEW
                     readonly={readonly}
                     siteId={siteId}
                   />
@@ -2202,8 +2265,6 @@ export default function FlowComposer({
   );
 }
 
-/* ------------------------------ Factory ------------------------------ */
-
 export function makeSection(kind: SectionKind): Section {
   const base: Section = {
     id: uid(),
@@ -2212,7 +2273,6 @@ export function makeSection(kind: SectionKind): Section {
     bg: "none",
   };
 
-  // helper to seed slots with stable IDs from day one
   const seed = (count: number): ImageSlot[] =>
     Array.from({ length: count }, (_, i) => ({
       slotId: stableSlotId(base, i),
@@ -2258,7 +2318,7 @@ export function makeSection(kind: SectionKind): Section {
       return {
         ...base,
         cssClass: "sec-carousel",
-        images: seed(3), // start with 3, grows up to MAX_CAROUSEL
+        images: seed(3),
       };
     case "full-width-text":
     default:
