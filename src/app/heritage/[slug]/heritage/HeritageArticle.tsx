@@ -403,8 +403,8 @@ export default function HeritageArticle({
         btn.setAttribute("aria-label", dir === "left" ? "Previous" : "Next");
         btn.innerHTML =
           dir === "left"
-            ? `<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z"/></svg>`
-            : `<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z"/></svg>`;
+            ? `<svg viewBox="0 0 20 20" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z"/></svg>`
+            : `<svg viewBox="0 0 20 20" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z"/></svg>`;
         btn.addEventListener("click", () => scrollByOne(dir));
         return btn;
       };
@@ -519,7 +519,7 @@ export default function HeritageArticle({
           scrollbar-width: none; /* Firefox */
         }
 
-        /* Nav buttons */
+        /* Nav buttons - light grey, semi-transparent, bigger icons */
         .hop-cnav {
           position: absolute;
           top: 50%;
@@ -529,17 +529,17 @@ export default function HeritageArticle({
           display: grid;
           place-items: center;
           border-radius: 9999px;
-          border: 1px solid #e5e7eb; /* gray-200 */
-          background: rgba(255, 255, 255, 0.9);
-          color: #374151; /* gray-700 */
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+          border: 1px solid rgba(107, 114, 128, 0.25); /* subtle gray-500 @ 25% */
+          background: rgba(229, 231, 235, 0.75); /* light gray-200 @ 75% */
+          color: #374151; /* gray-700 (icon) */
+          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08); /* softer shadow */
           cursor: pointer;
           transition: background 120ms ease, transform 120ms ease;
           z-index: 5;
         }
         .hop-cnav:hover {
-          background: #ffffff;
-          transform: translateY(-50%) scale(1.03);
+          background: rgba(229, 231, 235, 0.9);
+          transform: translateY(-50%) scale(1.02);
         }
         .hop-cnav:active {
           transform: translateY(-50%) scale(0.98);
