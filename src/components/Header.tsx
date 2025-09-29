@@ -3,10 +3,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -74,12 +74,19 @@ const useClickOutside = (ref: any, handler: () => void) => {
 /* ------------------------------- Header ----------------------------------- */
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
+
+  // Allow transparent-at-top ONLY for:
+  // 1) Home page: "/"
+  // 2) Listing pages: "/heritage/[slug]"
+  const allowTransparent =
+    pathname === "/" || /^\/heritage\/[^/]+\/?$/.test(pathname || "");
 
   const [user, setUser] = useState<User | null>(null);
 
-  /* ---------- Transparent by default; solid after threshold ---------- */
-  const [solid, setSolid] = useState(false);
+  // Initial render matches SSR: hero routes start transparent; others solid.
+  const [solid, setSolid] = useState<boolean>(!allowTransparent);
   const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -91,6 +98,15 @@ export default function Header() {
       document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
       return h;
     };
+
+    // Always set the CSS var once
+    measureAndSetOffsetVar();
+
+    if (!allowTransparent) {
+      // Force solid and skip listeners if page should always be white
+      setSolid(true);
+      return;
+    }
 
     const computeThreshold = () => {
       const marker =
@@ -104,7 +120,6 @@ export default function Header() {
       return DEFAULT_THRESHOLD;
     };
 
-    measureAndSetOffsetVar();
     let threshold = computeThreshold();
 
     const onScroll = () => setSolid(window.scrollY >= threshold);
@@ -128,7 +143,7 @@ export default function Header() {
       window.removeEventListener("resize", onResize);
       if (ro && headerRef.current) ro.disconnect();
     };
-  }, []);
+  }, [allowTransparent]);
 
   /* -------------------------------- User Menu ------------------------------- */
   const UserMenu = ({ user }: { user: User }) => {
@@ -410,7 +425,6 @@ export default function Header() {
 
       <header
         ref={headerRef as any}
-        data-solid={solid}
         className={`sticky top-0 z-40 transition-colors duration-300 ${
           solid
             ? "bg-white/95 backdrop-blur shadow-sm"
@@ -420,10 +434,11 @@ export default function Header() {
           backgroundColor: solid ? "rgba(255,255,255,0.95)" : "transparent",
         }}
       >
+        {/* Always render gradient to keep DOM identical; just fade it */}
         <div
           aria-hidden="true"
           className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
-            solid ? "opacity-0" : "opacity-100"
+            allowTransparent && !solid ? "opacity-100" : "opacity-0"
           }`}
         />
 

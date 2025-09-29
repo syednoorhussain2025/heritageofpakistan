@@ -55,14 +55,81 @@ function MainShell() {
   function registerSave(tab: TabKey, fn: () => Promise<void>) {
     saveHandlers.current[tab] = fn;
   }
-  async function saveActive() {
+
+  // ---- Toast state (self-contained) ----
+  const [toast, setToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: "",
+  });
+  const toastTimer = useRef<number | null>(null);
+
+  function showToast(message: string, durationMs = 2000) {
+    setToast({ visible: true, message });
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => {
+      setToast((t) => ({ ...t, visible: false }));
+      toastTimer.current = null;
+    }, durationMs);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  // Prevent overlapping saves (manual or autosave)
+  const savingRef = useRef(false);
+
+  async function saveActive({ isAuto = false }: { isAuto?: boolean } = {}) {
     const fn = saveHandlers.current[active];
     if (!fn) {
-      alert("Nothing to save on this tab.");
+      if (!isAuto) alert("Nothing to save on this tab.");
       return;
     }
-    await fn();
+    if (savingRef.current) return; // skip if a save is already running
+
+    savingRef.current = true;
+    try {
+      await fn();
+      showToast(isAuto ? "Saved (autosave)" : "Saved");
+    } catch (e: any) {
+      if (isAuto) {
+        // For autosave, keep it discreet
+        // eslint-disable-next-line no-console
+        console.error("Autosave failed:", e?.message ?? e);
+      } else {
+        alert(`Save failed: ${e?.message ?? e}`);
+      }
+    } finally {
+      savingRef.current = false;
+    }
   }
+
+  // -----------------------------
+  // AUTOSAVE: every 60s when a region/guide is loaded and tab has a save handler
+  // -----------------------------
+  useEffect(() => {
+    if (!selectedRegion || !guide) return;
+    let intervalId: number | null = null;
+
+    function canAutosave() {
+      return Boolean(saveHandlers.current[active]);
+    }
+
+    if (canAutosave()) {
+      intervalId = window.setInterval(() => {
+        // If the handler is still present, trigger autosave.
+        if (canAutosave()) {
+          void saveActive({ isAuto: true });
+        }
+      }, 20_000); // 1 minute
+    }
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [selectedRegion, guide, active]);
 
   // -----------------------------
   // Typeahead region search
@@ -352,7 +419,7 @@ function MainShell() {
             <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={saveActive}
+                  onClick={() => saveActive()}
                   className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-white text-sm font-semibold hover:bg-emerald-600"
                 >
                   Save
@@ -409,6 +476,21 @@ function MainShell() {
           </section>
         </div>
       </main>
+
+      {/* Toast (bottom-center) */}
+      <div
+        aria-live="polite"
+        className={`pointer-events-none fixed inset-x-0 bottom-6 z-[100] flex justify-center transition-opacity duration-200 ${
+          toast.visible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div className="pointer-events-auto rounded-full bg-slate-900 text-white px-4 py-2 shadow-lg border border-slate-800/60">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Icon name="check" size={16} />
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

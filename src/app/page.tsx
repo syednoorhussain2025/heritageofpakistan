@@ -417,7 +417,12 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative w-full h-screen bg-white">
+    <div
+      className="relative w-full h-screen bg-white"
+      // Pull hero up so it begins under the transparent sticky header.
+      // Fallback 72px matches Header's SSR fallback.
+      style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
+    >
       {/* White page overlay that dissolves away once the hero is ready */}
       <div
         className={`absolute inset-0 bg-white transition-opacity duration-600 ease-out ${
@@ -441,7 +446,7 @@ export default function HomePage() {
         <img
           src={heroUrl}
           alt="Heritage of Pakistan"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out ${
+          className={`absolute inset-0 w-full h-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
             heroReady ? "opacity-100" : "opacity-0"
           }`}
           draggable={false}

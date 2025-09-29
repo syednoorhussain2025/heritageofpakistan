@@ -217,8 +217,6 @@ export default function HeritageArticle({
         if (node.type !== "tag") return;
 
         // QUOTATION normalizer:
-        // If a section/div has class "quotation" or "sec-quotation",
-        // ensure it contains a real <blockquote class="hop-quote">.
         if (node.name === "section" || node.name === "div") {
           const cls = String(node.attribs?.class || "");
           if (/\b(quotation|sec-quotation)\b/.test(cls)) {
@@ -524,7 +522,6 @@ export default function HeritageArticle({
         }
 
         /* ==================== QUOTATION (PUBLIC PAGE) ==================== */
-        /* We style both snapshot HTML (.quotation) and flow HTML (.sec-quotation). */
         .reading-article .quotation .hop-quote,
         .reading-article .quotation blockquote,
         .reading-article .quotation .hop-text,
@@ -551,7 +548,6 @@ export default function HeritageArticle({
           text-align: var(--quote-align, center) !important;
           margin: 0 !important;
         }
-        /* Make inner tags inherit (beats Tailwind .prose rules) */
         .reading-article .quotation :is(p, span, em, strong, i, b),
         .reading-article .sec-quotation :is(p, span, em, strong, i, b) {
           font: inherit !important;
@@ -559,7 +555,6 @@ export default function HeritageArticle({
           line-height: inherit !important;
           letter-spacing: inherit !important;
         }
-        /* Neutralize prose side margins on blockquote, just in case */
         .reading-article .prose blockquote {
           margin-left: 0 !important;
           margin-right: 0 !important;
@@ -604,7 +599,7 @@ export default function HeritageArticle({
           right: -14px;
         }
 
-        /* -------- Note highlight (unchanged) -------- */
+        /* -------- Note highlight (same as other component) -------- */
         .note-highlight {
           --note-highlight-bg: #fff1d6;
           --note-highlight-fg: #7a4b00;
@@ -615,7 +610,7 @@ export default function HeritageArticle({
           box-shadow: inset 0 -0.1em 0 rgba(122, 75, 0, 0.15);
         }
 
-        /* Text selection (unchanged) */
+        /* -------- Selection colors (same) -------- */
         .reading-article ::selection,
         .hop-article ::selection {
           background: #f7e0ac;
@@ -627,17 +622,111 @@ export default function HeritageArticle({
           color: #5a3e1b;
         }
 
-        /* ===== Per-page knobs (change these without touching editor) ===== */
+        /* -------- Make text selectable & images non-draggable (same) -------- */
+        .reading-article {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+          cursor: text;
+          min-height: 0;
+          background: transparent !important;
+        }
+        .reading-article img,
+        .hop-article img {
+          -webkit-user-drag: none;
+          user-select: none;
+        }
+        .reading-article .hop-article,
+        .reading-article .hop-section,
+        .reading-article .hop-text,
+        .reading-article figure,
+        .reading-article .flx-img {
+          background: transparent !important;
+        }
+
+        /* -------- Note popup styles (copied) -------- */
+        .note-callout {
+          position: relative;
+          padding: 8px 10px;
+          background: var(--amber-100, #fff7e6);
+          border: 1px solid var(--amber-border, #f1d39c);
+          border-radius: 12px;
+          box-shadow: 0 8px 24px rgba(90, 62, 27, 0.12),
+            0 2px 6px rgba(0, 0, 0, 0.06);
+          animation: note-fade 140ms ease-out;
+        }
+        .note-callout::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -6px;
+          width: 12px;
+          height: 12px;
+          transform: translateX(-50%) rotate(45deg);
+          background: var(--amber-100, #fff7e6);
+          border-right: 1px solid var(--amber-border, #f1d39c);
+          border-bottom: 1px solid var(--amber-border, #f1d39c);
+        }
+        .note-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 2px 4px;
+          border: 0;
+          background: transparent;
+          color: var(--amber-ink, #7a4b00);
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.2;
+          border-radius: 8px;
+          transition: transform 140ms ease, opacity 140ms ease;
+        }
+        .note-btn:hover {
+          transform: translateY(-0.5px);
+          opacity: 0.92;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .note-btn:active {
+          transform: translateY(0);
+          opacity: 0.88;
+        }
+        .note-btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(226, 181, 108, 0.6);
+        }
+        .note-btn.saving {
+          cursor: default;
+          opacity: 0.85;
+        }
+
+        /* -------- Sticky selection overlay (copied) -------- */
+        .sticky-sel-layer {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          z-index: 1000;
+        }
+        .sticky-sel-box {
+          position: fixed;
+          background: rgba(247, 224, 172, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(90, 62, 27, 0.32);
+          border-radius: 2px;
+        }
+
+        @keyframes note-fade {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        /* ===== Per-page knobs ===== */
         .reading-article {
           --quote-size: clamp(2.2rem, 2.2vw + 1.2rem, 4rem);
           --quote-style: italic;
           --quote-align: center;
-          /* Optional:
-             --quote-weight: 600;
-             --quote-letter: 0.01em;
-             --quote-line: 1.35;
-             --quote-font: "Georgia", ui-serif, serif;
-          */
         }
       `}</style>
     </>

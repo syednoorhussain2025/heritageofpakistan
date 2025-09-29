@@ -389,6 +389,12 @@ export default function HeritageSidebar({
   );
 
   /* ---------------------------- UI ---------------------------- */
+  const unescoStatus = site.unesco_status
+    ? String(site.unesco_status).trim()
+    : "";
+  const showUNESCO =
+    unescoStatus.length > 0 && unescoStatus.toLowerCase() !== "none";
+
   return (
     <>
       <HeritageSection title="Where is it?" iconName="where-is-it">
@@ -501,8 +507,9 @@ export default function HeritageSidebar({
         <KeyVal k="Administered by" v={site.administered_by} />
       </HeritageSection>
 
-      <HeritageSection title="UNESCO" iconName="unesco">
-        {site.unesco_status && site.unesco_status !== "None" ? (
+      {/* UNESCO: render only when status exists and is not "None" */}
+      {showUNESCO ? (
+        <HeritageSection title="UNESCO" iconName="unesco">
           <div className="flex items-start gap-3">
             <div className="text-2xl">🏛️</div>
             <div>
@@ -519,15 +526,8 @@ export default function HeritageSidebar({
               )}
             </div>
           </div>
-        ) : (
-          <div
-            className="text-[15px]"
-            style={{ color: "var(--muted-foreground, #5b6b84)" }}
-          >
-            No UNESCO designation listed.
-          </div>
-        )}
-      </HeritageSection>
+        </HeritageSection>
+      ) : null}
 
       <HeritageSection title="Protected under" iconName="protected-under">
         {site.protected_under ? (
