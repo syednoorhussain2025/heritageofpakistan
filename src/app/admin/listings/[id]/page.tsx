@@ -18,6 +18,11 @@ import ArticlesSection from "./ArticlesSection";
 import TravelDetails from "./TravelDetails";
 import CategoriesRegionsSelector from "./CategoriesRegionsSelector";
 
+/* NEW: travel guide selector modal */
+import ConnectTravelGuideModal, {
+  SelectedGuide,
+} from "@/components/ConnectTravelGuideModal";
+
 /* Icon maps, tabs */
 const TAB_ICONS: Record<
   | "overview"
@@ -396,7 +401,6 @@ const TEMPLATE_HEADERS = [
 
 type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
 function normHeader(h: string): string {
-  // Strip any explanatory part in parentheses first, then canonicalize
   const base = h.replace(/\(.*/, "").trim();
   return base
     .toLowerCase()
@@ -571,6 +575,14 @@ function EditContent({ id }: { id: string }) {
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
 
+  // NEW: Guide linking UI state
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [linkedGuideMeta, setLinkedGuideMeta] = useState<{
+    id: string;
+    regionName: string;
+    status: "draft" | "published" | "archived";
+  } | null>(null);
+
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -586,6 +598,45 @@ function EditContent({ id }: { id: string }) {
       setPublished(!!data.is_published);
     })();
   }, [id]);
+
+  // When site is loaded or its region_travel_guide_id changes, fetch linked guide meta
+  useEffect(() => {
+    async function loadLinked() {
+      if (!site?.region_travel_guide_id) {
+        setLinkedGuideMeta(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("region_travel_guides")
+        .select("id,status, region_id, regions:region_id (id, name, slug)")
+        .eq("id", site.region_travel_guide_id)
+        .maybeSingle();
+      if (error) {
+        console.warn("Failed to fetch linked guide:", error.message);
+        setLinkedGuideMeta(null);
+        return;
+      }
+      if (!data) {
+        setLinkedGuideMeta(null);
+        return;
+      }
+      setLinkedGuideMeta({
+        id: data.id,
+        regionName: data.regions?.name || "Travel Guide",
+        status: data.status,
+      });
+    }
+    loadLinked();
+  }, [site?.region_travel_guide_id]);
+
+  // 🔗 LISTEN for TravelDetails' fallback event to open the modal
+  useEffect(() => {
+    const handler = () => setGuideModalOpen(true);
+    // Some TS setups need a generic EventListener; cast to any to avoid DOM lib mismatch.
+    document.addEventListener("connect-guide:open", handler as any);
+    return () =>
+      document.removeEventListener("connect-guide:open", handler as any);
+  }, []);
 
   // ---------- sanitize payload before saving ----------
   function sanitizeForSave(payload: any) {
@@ -705,6 +756,128 @@ function EditContent({ id }: { id: string }) {
     />
   );
 
+  /* -------- travel guide: helpers -------- */
+
+  // Transform region_travel_guide_summary → partial site fields
+  function mapSummaryToSiteFields(s: any): Partial<Record<string, any>> {
+    if (!s) return {};
+    const accessOptionsMap: Record<string, string> = {
+      by_road_only: "By Road Only",
+      by_trek_only: "By Trek Only",
+      by_jeep_and_trek_only: "By Jeep and Trek Only",
+      by_road_and_railway: "By Road and Railway",
+      by_road_and_airport: "By Road and Air",
+      by_road_railway_airport: "By Road, Air and Railway",
+    };
+    const bestTimeMap: Record<string, string> = {
+      year_long: "Year long",
+      winters: "Winters",
+      summers: "Summers",
+      spring: "Spring",
+      spring_and_summers: "Spring and Summers",
+      winter_and_spring: "Winter and Spring",
+    };
+
+    return {
+      // Climate / topo
+      landform: s.landform ?? null,
+      altitude: s.altitude ?? null,
+      mountain_range: s.mountain_range ?? null,
+      weather_type: s.climate_type ?? null,
+      avg_temp_winters: s.temp_winter ?? null,
+      avg_temp_summers: s.temp_summers ?? null,
+
+      // Travel summary
+      travel_location: s.location ?? null,
+      travel_how_to_reach: s.how_to_reach ?? null,
+      travel_nearest_major_city: s.nearest_major_city ?? null,
+      travel_airport_access: s.airport_access ? "Yes" : "No",
+      travel_access_options: s.access_options
+        ? accessOptionsMap[s.access_options] || ""
+        : "",
+      travel_road_type_condition: s.road_type_condition ?? "",
+      travel_best_time_free: s.best_time_to_visit
+        ? bestTimeMap[s.best_time_to_visit] || ""
+        : "",
+
+      // Stay
+      stay_hotels_available: s.hotels_available
+        ? titleCase(s.hotels_available.replace(/_/g, " "))
+        : null,
+      stay_spending_night_recommended: s.spending_night_recommended
+        ? titleCase(s.spending_night_recommended.replace(/_/g, " "))
+        : null,
+      stay_camping_possible: s.camping
+        ? titleCase(s.camping.replace(/_/g, " "))
+        : null,
+      stay_places_to_eat_available: s.places_to_eat
+        ? titleCase(s.places_to_eat.replace(/_/g, " "))
+        : null,
+    };
+  }
+  function titleCase(s: string) {
+    return s
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  async function attachGuide(g: SelectedGuide) {
+    // 1) persist on site
+    const { data, error } = await supabase
+      .from("sites")
+      .update({
+        region_travel_guide_id: g.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", site.id)
+      .select()
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setSite(data);
+    setLinkedGuideMeta({
+      id: g.id,
+      regionName: g.name,
+      status: g.status,
+    });
+
+    // 2) (preview) fetch summary → compute inherited mapping (we keep for next step UI)
+    const { data: s, error: sErr } = await supabase
+      .from("region_travel_guide_summary")
+      .select("*")
+      .eq("guide_id", g.id)
+      .maybeSingle();
+    if (!sErr && s) {
+      // Optionally prefill blanks from the summary:
+      // const mapped = mapSummaryToSiteFields(s);
+      // setForm((prev: any) => ({ ...mapped, ...prev }));
+    }
+  }
+
+  async function detachGuide() {
+    const { data, error } = await supabase
+      .from("sites")
+      .update({
+        region_travel_guide_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", site.id)
+      .select()
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setSite(data);
+    setLinkedGuideMeta(null);
+  }
+
   return (
     <div
       className="text-gray-900 min-h-screen"
@@ -805,6 +978,10 @@ function EditContent({ id }: { id: string }) {
                 applyCoverRef.current = applyCover;
                 applyDetailsRef.current = applyDetails;
               }}
+              /* NEW props for toolbar buttons */
+              onOpenGuideModal={() => setGuideModalOpen(true)}
+              linkedGuideMeta={linkedGuideMeta}
+              onUnlinkGuide={detachGuide}
             />
           </main>
         </div>
@@ -812,6 +989,17 @@ function EditContent({ id }: { id: string }) {
 
       {/* Bottom-right auto-save indicator */}
       <SavingToast visible={autoSaving} />
+
+      {/* Connect Guide Modal */}
+      <ConnectTravelGuideModal
+        isOpen={guideModalOpen}
+        onClose={() => setGuideModalOpen(false)}
+        onSelect={async (g) => {
+          await attachGuide(g);
+          setGuideModalOpen(false);
+        }}
+        includeDrafts={false}
+      />
     </div>
   );
 }
@@ -926,6 +1114,10 @@ function ListingForm({
   onTaxonomyChanged,
   uploadCache,
   onRegisterUploadAppliers,
+  // NEW:
+  onOpenGuideModal,
+  linkedGuideMeta,
+  onUnlinkGuide,
 }: {
   site: any;
   onSave: (n: any) => void;
@@ -946,6 +1138,11 @@ function ListingForm({
     applyCover: (p: CanonicalKV) => void,
     applyDetails: (p: CanonicalKV) => void
   ) => void;
+
+  // NEW props for travel guide linking controls in toolbar
+  onOpenGuideModal: () => void;
+  linkedGuideMeta: { id: string; regionName: string; status: string } | null;
+  onUnlinkGuide: () => Promise<void> | void;
 }) {
   const [form, setForm] = useState<any>(site);
   const [deletingCover, setDeletingCover] = useState(false);
@@ -1137,6 +1334,17 @@ function ListingForm({
     return new Set(tabCfg.sections);
   }, [listingTab]);
 
+  // Small chip for linked guide status
+  const linkedChip = linkedGuideMeta && (
+    <span className="inline-flex items-center gap-2 text-xs rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-1">
+      <Icon name="book" className="w-3.5 h-3.5 text-emerald-700" />
+      {linkedGuideMeta.regionName}
+      <span className="ml-1 rounded bg-white/70 px-1.5 py-[1px] border border-emerald-200">
+        {linkedGuideMeta.status}
+      </span>
+    </span>
+  );
+
   return (
     <div className="space-y-8">
       {/* Cover */}
@@ -1309,6 +1517,31 @@ function ListingForm({
           id="location"
           tools={
             <div className="flex items-center gap-2">
+              {/* NEW: connect / change guide */}
+              {linkedChip}
+              <Btn
+                onClick={onOpenGuideModal}
+                className="bg-[var(--brand-blue,#1e40af)] text-white hover:opacity-90"
+                title={
+                  linkedGuideMeta
+                    ? "Change Travel Guide"
+                    : "Connect Travel Guide"
+                }
+              >
+                {linkedGuideMeta
+                  ? "Change Travel Guide"
+                  : "Connect Travel Guide"}
+              </Btn>
+              {linkedGuideMeta && (
+                <Btn
+                  onClick={() => onUnlinkGuide()}
+                  className="bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+                >
+                  Remove Link
+                </Btn>
+              )}
+
+              {/* existing tools */}
               <Btn
                 onClick={() => uploadCache && applyDetails(uploadCache)}
                 disabled={!uploadCache}

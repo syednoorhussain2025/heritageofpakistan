@@ -210,11 +210,39 @@ export default function HeritageArticle({
     return div.innerHTML;
   }, [html]);
 
-  /* ---------------- parse → React (figure-level) ---------------- */
+  /* ---------------- parse → React (figures + normalize quotations) ---------------- */
   const content = useMemo(() => {
     return parse(safe, {
       replace: (node: any) => {
         if (node.type !== "tag") return;
+
+        // QUOTATION normalizer:
+        // If a section/div has class "quotation" or "sec-quotation",
+        // ensure it contains a real <blockquote class="hop-quote">.
+        if (node.name === "section" || node.name === "div") {
+          const cls = String(node.attribs?.class || "");
+          if (/\b(quotation|sec-quotation)\b/.test(cls)) {
+            const attribs = mapAttribs(node.attribs);
+            const kids = node.children || [];
+            const alreadyHasBQ = kids.some(
+              (c: any) => c.type === "tag" && c.name === "blockquote"
+            );
+            return (
+              <section
+                {...attribs}
+                className={`${attribs.className || ""} sec-quotation`.trim()}
+              >
+                {alreadyHasBQ ? (
+                  domToReact(kids as any)
+                ) : (
+                  <blockquote className="hop-quote">
+                    {domToReact(kids as any)}
+                  </blockquote>
+                )}
+              </section>
+            );
+          }
+        }
 
         // FIGURE (with or without caption)
         if (node.name === "figure") {
@@ -338,15 +366,11 @@ export default function HeritageArticle({
     };
   }, [content]);
 
-  /* ---------------- enhance carousels on public page ----------------
-     - Hide scrollbar
-     - Add left/right buttons that move exactly one item
-  -------------------------------------------------------------------*/
+  /* ---------------- enhance carousels on public page ---------------- */
   useEffect(() => {
     const root = hostRef.current;
     if (!root) return;
 
-    // Find each saved carousel wrapper
     const blocks = Array.from(
       root.querySelectorAll<HTMLElement>(".sec-carousel")
     );
@@ -354,30 +378,24 @@ export default function HeritageArticle({
     const cleanups: Array<() => void> = [];
 
     blocks.forEach((block) => {
-      // Avoid double-initialization
       if ((block as any).__hopCarouselInit) return;
       (block as any).__hopCarouselInit = true;
 
-      // Prefer the original "relative group" wrapper if present
       const rel =
         (block.querySelector<HTMLElement>(".group") as HTMLElement) || block;
       if (getComputedStyle(rel).position === "static") {
         rel.style.position = "relative";
       }
 
-      // Find the horizontal strip (tailwind classes from composer snapshot)
       const strip =
         (block.querySelector<HTMLElement>(".snap-x") as HTMLElement) ||
         (block.querySelector<HTMLElement>(".overflow-x-auto") as HTMLElement) ||
         null;
       if (!strip) return;
 
-      // Hide scrollbar via class
       strip.classList.add("hop-carousel-strip");
 
-      // Helper to measure one step (one card + gap)
       const calcStep = () => {
-        // first visible item
         const children = Array.from(strip.children) as HTMLElement[];
         const item =
           children.find((c) => c.offsetWidth > 0) || (children[0] as any);
@@ -385,15 +403,12 @@ export default function HeritageArticle({
         const gapPx = parseFloat(getComputedStyle(strip).columnGap || "0") || 0;
         return item.offsetWidth + gapPx;
       };
-
       const step = () => Math.max(1, Math.round(calcStep()));
-
       const scrollByOne = (dir: "left" | "right") => {
         const delta = dir === "left" ? -step() : step();
         strip.scrollBy({ left: delta, behavior: "smooth" });
       };
 
-      // Build nav buttons
       const makeBtn = (dir: "left" | "right") => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -414,7 +429,6 @@ export default function HeritageArticle({
       rel.appendChild(left);
       rel.appendChild(right);
 
-      // Cleanup for unmount/re-render
       cleanups.push(() => {
         left.remove();
         right.remove();
@@ -478,15 +492,15 @@ export default function HeritageArticle({
       </div>
 
       <style jsx global>{`
-        /* ------- Match composer figure/caption layout ------- */
+        /* ------- Figure / caption ------- */
         .reading-article figure .hop-caption {
           display: block;
           text-align: center !important;
-          font-size: 0.875rem; /* text-sm */
+          font-size: 0.875rem;
           line-height: 1.25rem;
-          color: #6b7280; /* gray-500 */
+          color: #6b7280;
           margin: 0;
-          padding: 0 32px; /* room for heart icon on small photos */
+          padding: 0 32px;
           word-break: break-word;
           overflow-wrap: anywhere;
         }
@@ -509,17 +523,56 @@ export default function HeritageArticle({
           }
         }
 
+        /* ==================== QUOTATION (PUBLIC PAGE) ==================== */
+        /* We style both snapshot HTML (.quotation) and flow HTML (.sec-quotation). */
+        .reading-article .quotation .hop-quote,
+        .reading-article .quotation blockquote,
+        .reading-article .quotation .hop-text,
+        .reading-article .sec-quotation .hop-quote,
+        .reading-article .sec-quotation blockquote,
+        .reading-article .sec-quotation .hop-text {
+          font-family: var(
+            --quote-font,
+            ui-serif,
+            Georgia,
+            Cambria,
+            "Times New Roman",
+            Times,
+            serif
+          ) !important;
+          font-size: var(
+            --quote-size,
+            clamp(2.2rem, 2.2vw + 1.2rem, 4rem)
+          ) !important;
+          line-height: var(--quote-line, 1.35) !important;
+          font-weight: var(--quote-weight, 600) !important;
+          letter-spacing: var(--quote-letter, 0) !important;
+          font-style: var(--quote-style, italic) !important;
+          text-align: var(--quote-align, center) !important;
+          margin: 0 !important;
+        }
+        /* Make inner tags inherit (beats Tailwind .prose rules) */
+        .reading-article .quotation :is(p, span, em, strong, i, b),
+        .reading-article .sec-quotation :is(p, span, em, strong, i, b) {
+          font: inherit !important;
+          font-size: inherit !important;
+          line-height: inherit !important;
+          letter-spacing: inherit !important;
+        }
+        /* Neutralize prose side margins on blockquote, just in case */
+        .reading-article .prose blockquote {
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+
         /* -------- Carousel (public page) -------- */
-        /* Hide scrollbar */
         .hop-carousel-strip::-webkit-scrollbar {
           display: none;
         }
         .hop-carousel-strip {
-          -ms-overflow-style: none; /* IE & Edge */
-          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
-
-        /* Nav buttons - light grey, semi-transparent, bigger icons */
         .hop-cnav {
           position: absolute;
           top: 50%;
@@ -529,10 +582,10 @@ export default function HeritageArticle({
           display: grid;
           place-items: center;
           border-radius: 9999px;
-          border: 1px solid rgba(107, 114, 128, 0.25); /* subtle gray-500 @ 25% */
-          background: rgba(229, 231, 235, 0.75); /* light gray-200 @ 75% */
-          color: #374151; /* gray-700 (icon) */
-          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08); /* softer shadow */
+          border: 1px solid rgba(107, 114, 128, 0.25);
+          background: rgba(229, 231, 235, 0.75);
+          color: #374151;
+          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
           cursor: pointer;
           transition: background 120ms ease, transform 120ms ease;
           z-index: 5;
@@ -551,61 +604,7 @@ export default function HeritageArticle({
           right: -14px;
         }
 
-        /* -------- Note popup + highlight (unchanged) -------- */
-        .note-callout {
-          position: relative;
-          padding: 8px 10px;
-          background: var(--amber-100);
-          border: 1px solid var(--amber-border);
-          border-radius: 12px;
-          box-shadow: 0 8px 24px rgba(90, 62, 27, 0.12),
-            0 2px 6px rgba(0, 0, 0, 0.06);
-          animation: note-fade 140ms ease-out;
-        }
-        .note-callout::after {
-          content: "";
-          position: absolute;
-          left: 50%;
-          bottom: -6px;
-          width: 12px;
-          height: 12px;
-          transform: translateX(-50%) rotate(45deg);
-          background: var(--amber-100);
-          border-right: 1px solid var(--amber-border);
-          border-bottom: 1px solid var(--amber-border);
-        }
-        .note-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 2px 4px;
-          border: 0;
-          background: transparent;
-          color: var(--amber-ink);
-          font-size: 13px;
-          font-weight: 600;
-          line-height: 1.2;
-          border-radius: 8px;
-          transition: transform 140ms ease, opacity 140ms ease;
-        }
-        .note-btn:hover {
-          transform: translateY(-0.5px);
-          opacity: 0.92;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-        .note-btn:active {
-          transform: translateY(0);
-          opacity: 0.88;
-        }
-        .note-btn:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 2px rgba(226, 181, 108, 0.6);
-        }
-        .note-btn.saving {
-          cursor: default;
-          opacity: 0.85;
-        }
+        /* -------- Note highlight (unchanged) -------- */
         .note-highlight {
           --note-highlight-bg: #fff1d6;
           --note-highlight-fg: #7a4b00;
@@ -615,28 +614,8 @@ export default function HeritageArticle({
           border-radius: 2px;
           box-shadow: inset 0 -0.1em 0 rgba(122, 75, 0, 0.15);
         }
-        .sticky-sel-layer {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          z-index: 1000;
-        }
-        .sticky-sel-box {
-          position: fixed;
-          background: rgba(247, 224, 172, 0.35);
-          box-shadow: inset 0 0 0 1px rgba(90, 62, 27, 0.32);
-          border-radius: 2px;
-        }
-        @keyframes note-fade {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
 
-        /* -------- Text selection colors (unchanged) -------- */
+        /* Text selection (unchanged) */
         .reading-article ::selection,
         .hop-article ::selection {
           background: #f7e0ac;
@@ -646,6 +625,19 @@ export default function HeritageArticle({
         .hop-article ::-moz-selection {
           background: #f7e0ac;
           color: #5a3e1b;
+        }
+
+        /* ===== Per-page knobs (change these without touching editor) ===== */
+        .reading-article {
+          --quote-size: clamp(2.2rem, 2.2vw + 1.2rem, 4rem);
+          --quote-style: italic;
+          --quote-align: center;
+          /* Optional:
+             --quote-weight: 600;
+             --quote-letter: 0.01em;
+             --quote-line: 1.35;
+             --quote-font: "Georgia", ui-serif, serif;
+          */
         }
       `}</style>
     </>

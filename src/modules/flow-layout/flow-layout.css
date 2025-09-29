@@ -5,6 +5,15 @@
 
   /* NEW: carousel card width token (used by utilities; component may override inline) */
   --carousel-card-w: clamp(420px, 52vw, 640px);
+
+  /* NEW: quotation tokens (override these per page/section as desired) */
+  --quote-font: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --quote-size: clamp(22px, 3.2vw, 34px);
+  --quote-line: 1.35;
+  --quote-weight: 600;
+  --quote-letter: 0;
+  --quote-style: italic;
+  --quote-align: center;
 }
 
 /* Base article container */
@@ -299,20 +308,41 @@
 /* ===================================================================== */
 
 /* Quotation (emphasis block)
-   Use with: <section class="hop-section sec-quotation"><div class="hop-quote">…</div></section>
-   Note: components also set inline styles from settings; these provide snapshot/public defaults. */
+   FlowRenderer now outputs:
+     <section class="hop-section quotation sec-quotation">
+       <blockquote class="hop-quote"><p>…</p></blockquote>
+     </section>
+   Tweak size/align/weight/etc by overriding the CSS variables above. */
 .sec-quotation {
   grid-template-columns: 1fr;
   grid-template-areas: "quote";
 }
-.hop-quote {
+.quotation .hop-quote,
+.sec-quotation .hop-quote,
+.hop-article blockquote.hop-quote {
   grid-area: quote;
-  text-align: center;
-  font-weight: 600;
-  font-style: italic;
-  line-height: 1.35;
-  font-size: clamp(22px, 3.2vw, 34px);
-  /* If the section background is white, a soft card look works well: */
+  text-align: var(--quote-align);
+  font-family: var(--quote-font);
+  font-size: var(--quote-size);
+  line-height: var(--quote-line);
+  font-weight: var(--quote-weight);
+  letter-spacing: var(--quote-letter);
+  font-style: var(--quote-style);
+  margin: 0;
+}
+/* Ensure inner paragraphs inherit (beats any global typography defaults) */
+.hop-quote > p,
+.hop-quote > p * {
+  font: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+}
+.hop-quote > p + p {
+  margin-top: 0.6em;
+}
+/* Optional soft card look if the section has a white/solid bg */
+.hop-quote {
   border-radius: 16px;
 }
 
@@ -337,6 +367,7 @@
   padding-bottom: 0.5rem;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 .hop-carousel::-webkit-scrollbar {
   display: none;
@@ -360,4 +391,27 @@
 /* Optional: make images inside carousel items respect the carousel width token */
 .hop-carousel .flx-img {
   width: var(--carousel-card-w);
+}
+
+/* Optional: nav buttons (if you add them in JS) */
+.hop-cnav {
+  position: relative; /* parent should place these; style here for reuse */
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(107, 114, 128, 0.25);
+  background: rgba(229, 231, 235, 0.75);
+  color: #374151;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.hop-cnav:hover {
+  background: rgba(229, 231, 235, 0.9);
+  transform: scale(1.02);
+}
+.hop-cnav:active {
+  transform: scale(0.98);
 }

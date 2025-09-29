@@ -1,3 +1,4 @@
+// src/app/admin/listings/[id]/TravelDetails.tsx
 "use client";
 
 import React, {
@@ -10,17 +11,18 @@ import React, {
   ChangeEvent,
 } from "react";
 import Icon from "@/components/Icon";
+import { supabase } from "@/lib/supabaseClient";
 
 /**
  * Travel & Details
  * 1) Coordinates + Admin location (province) + Map preview & picker (with search/drag)
  * 2) General Info
  * 3) UNESCO & Protection
- * 4) Climate & Topography
+ * 4) Climate & Topography  ← Connect Travel Guide + field overrides
  * 5) Did you know
- * 6) Travel Guide
- * 7) Best Time (preset key)
- * 8) Places to Stay
+ * 6) Travel Guide          ← Connect Travel Guide + field overrides
+ * 7) Best Time (preset)
+ * 8) Places to Stay        ← Connect Travel Guide + field overrides
  */
 
 /* ----------------------------- Icons/Enums ----------------------------- */
@@ -89,6 +91,79 @@ function parseMaybeFloat(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/* Map region_travel_guide_summary → site fields */
+function titleCase(s: string) {
+  return s
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function mapSummaryToSiteFields(s: any): Record<string, any> {
+  if (!s) return {};
+  const accessOptionsMap: Record<string, string> = {
+    by_road_only: "By Road Only",
+    by_trek_only: "By Trek Only",
+    by_jeep_and_trek_only: "By Jeep and Trek Only",
+    by_road_and_railway: "By Road and Railway",
+    by_road_and_airport: "By Road and Air",
+    by_road_railway_airport: "By Road, Air and Railway",
+  };
+  const bestTimeMap: Record<string, string> = {
+    year_long: "Year long",
+    winters: "Winters",
+    summers: "Summers",
+    spring: "Spring",
+    spring_and_summers: "Spring and Summers",
+    winter_and_spring: "Winter and Spring",
+  };
+
+  return {
+    // Climate / topo
+    landform: s.landform ?? "",
+    altitude: s.altitude ?? "",
+    mountain_range: s.mountain_range ?? "",
+    weather_type: s.climate_type ?? "",
+    avg_temp_winters: s.temp_winter ?? "",
+    avg_temp_summers: s.temp_summers ?? "",
+
+    // Travel summary
+    travel_location: s.location ?? "",
+    travel_how_to_reach: s.how_to_reach ?? "",
+    travel_nearest_major_city: s.nearest_major_city ?? "",
+    travel_airport_access: s.airport_access ? "Yes" : "No",
+    travel_international_airport:
+      s.international_airport == null
+        ? ""
+        : s.international_airport
+        ? "Yes"
+        : "No",
+    travel_access_options: s.access_options
+      ? accessOptionsMap[s.access_options] || ""
+      : "",
+    travel_road_type_condition: s.road_type_condition ?? "",
+    travel_best_time_free: s.best_time_to_visit
+      ? bestTimeMap[s.best_time_to_visit] || ""
+      : "",
+    /** NEW: long free text */
+    travel_best_time_long: s.best_time_to_visit_long ?? "",
+
+    // Stay
+    stay_hotels_available: s.hotels_available
+      ? titleCase(String(s.hotels_available).replace(/_/g, " "))
+      : "",
+    stay_spending_night_recommended: s.spending_night_recommended
+      ? titleCase(String(s.spending_night_recommended).replace(/_/g, " "))
+      : "",
+    stay_camping_possible: s.camping
+      ? titleCase(String(s.camping).replace(/_/g, " "))
+      : "",
+    stay_places_to_eat_available: s.places_to_eat
+      ? titleCase(String(s.places_to_eat).replace(/_/g, " "))
+      : "",
+  };
+}
+
 /* ----------------------------- Auto-resizing Textarea ----------------------------- */
 
 type AutoGrowProps = {
@@ -117,7 +192,7 @@ function AutoGrow({
   inputMode,
 }: AutoGrowProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
-  const lineHeightRef = useRef<number>(20); // fallback
+  const lineHeightRef = useRef<number>(20);
 
   const resize = useCallback(() => {
     const el = ref.current;
@@ -125,7 +200,7 @@ function AutoGrow({
     const lh = parseFloat(getComputedStyle(el).lineHeight || "20");
     lineHeightRef.current = Number.isFinite(lh) ? lh : lineHeightRef.current;
 
-    const maxH = lineHeightRef.current * maxRows + 2; // borders
+    const maxH = lineHeightRef.current * maxRows + 2;
     el.style.height = "auto";
     el.style.overflowY = "hidden";
     const needed = el.scrollHeight;
@@ -292,6 +367,10 @@ function PickableMap({
       });
       autocomplete.bindTo("bounds", map);
       autocomplete.addListener("place_changed", () => {
+        thePlaceChanged();
+      });
+
+      function thePlaceChanged() {
         const place = autocomplete.getPlace();
         const loc = place?.geometry?.location;
         if (!loc) return;
@@ -304,7 +383,7 @@ function PickableMap({
         }
         marker.setPosition(p);
         onPick(p.lat, p.lng);
-      });
+      }
     }
 
     mapRef.current = map;
@@ -366,15 +445,109 @@ export default function TravelDetails({
   provinces,
   inputStyles,
   readOnlyInputStyles,
+  // NEW: linking & overrides (all optional to preserve BC)
+  linkedGuide,
+  inherited,
+  overrides,
+  onConnectClick,
+  onRemoveLink,
+  onToggleOverride,
 }: {
-  form: any;
+  form: any; // expects form.overrides?: Record<string, boolean>
   setField: <K extends string>(key: K, value: any) => void;
   provinces: Array<{ id: string | number; name: string }>;
   inputStyles: string;
   readOnlyInputStyles: string;
+  linkedGuide?: { id: string; name: string } | null;
+  inherited?: Record<string, any>;
+  overrides?: Record<string, boolean>;
+  onConnectClick?: (section: "climate" | "travel" | "stay") => void;
+  onRemoveLink?: () => void;
+  onToggleOverride?: (fieldKey: string, next: boolean) => void;
 }) {
   const [mapOpen, setMapOpen] = useState(false);
   const [visibleKey, setVisibleKey] = useState<number>(0);
+
+  /* --- self-fetch when parent didn't pass linked/inherited --- */
+  const [autoLinked, setAutoLinked] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [autoInherited, setAutoInherited] = useState<Record<string, any>>({});
+  const guideId = linkedGuide?.id ?? form?.region_travel_guide_id ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!guideId || linkedGuide) return;
+      const { data: meta } = await supabase
+        .from("region_travel_guides")
+        .select("id, region_id, regions:region_id (name)")
+        .eq("id", guideId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (meta) {
+        setAutoLinked({
+          id: meta.id,
+          name: meta.regions?.name || "Travel Guide",
+        });
+      } else {
+        setAutoLinked(null);
+      }
+
+      const { data: summary } = await supabase
+        .from("region_travel_guide_summary")
+        .select("*")
+        .eq("guide_id", guideId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setAutoInherited(mapSummaryToSiteFields(summary));
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideId]);
+
+  const effectiveLinked = linkedGuide ?? autoLinked;
+  const effectiveInherited = useMemo(
+    () => ({ ...(inherited || {}), ...(autoInherited || {}) }),
+    [inherited, autoInherited]
+  );
+
+  /* ---------------- OVERRIDES (single source of truth = form.overrides) ---------------- */
+  const effOverrides = useMemo<Record<string, boolean>>(() => {
+    // priority: form.overrides (live edits) → prop overrides → empty
+    return {
+      ...(overrides || {}),
+      ...(form?.overrides || {}),
+    };
+  }, [form?.overrides, overrides]);
+
+  const setOverride = useCallback(
+    (key: string, next: boolean) => {
+      // Update form.overrides so it's saved with the rest of the form
+      const nextMap = { ...(effOverrides || {}), [key]: next };
+      setField("overrides" as any, nextMap);
+      onToggleOverride?.(key, next);
+
+      if (next) {
+        // enabling override — if site value empty, seed with inherited so it sticks
+        const current = (form as any)?.[key];
+        if (!current || String(current).trim() === "") {
+          const inheritVal = (effectiveInherited as any)?.[key] ?? "";
+          setField(key as any, inheritVal);
+        }
+      } else {
+        // disabling override — clear to fall back to inherited
+        setField(key as any, "");
+      }
+    },
+    [effOverrides, setField, onToggleOverride, form, effectiveInherited]
+  );
 
   const latNum = parseMaybeFloat(form.latitude);
   const lngNum = parseMaybeFloat(form.longitude);
@@ -395,6 +568,84 @@ export default function TravelDetails({
     setField("district", "");
     setField("province_id", null);
   }, [setField]);
+
+  // Helpers for override state
+  const hasGuide = !!effectiveLinked?.id;
+  const isOverridden = useCallback(
+    (key: string) => !!effOverrides?.[key],
+    [effOverrides]
+  );
+  const isLocked = useCallback(
+    (key: string) => hasGuide && !isOverridden(key),
+    [hasGuide, isOverridden]
+  );
+  const displayValue = useCallback(
+    (key: string, fallback: any) =>
+      isLocked(key) ? effectiveInherited?.[key] ?? "" : fallback ?? "",
+    [isLocked, effectiveInherited]
+  );
+  const readOnlyClass = useCallback(
+    (key: string) => (isLocked(key) ? readOnlyInputStyles : inputStyles),
+    [isLocked, inputStyles, readOnlyInputStyles]
+  );
+
+  const OverrideLabel = ({
+    label,
+    fieldKey,
+  }: {
+    label: string;
+    fieldKey: string;
+  }) => {
+    const locked = isLocked(fieldKey);
+    const overridden = isOverridden(fieldKey);
+    return (
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-sm font-semibold text-gray-800">{label}</div>
+        {hasGuide && (
+          <div className="flex items-center gap-2">
+            {locked && (
+              <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-[2px] text-[11px]">
+                Inherited
+              </span>
+            )}
+            {overridden && (
+              <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-[2px] text-[11px]">
+                Overridden
+              </span>
+            )}
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-slate-300 hover:bg-slate-50 h-7 w-7"
+              title={locked ? "Override this field" : "Reset to inherit"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOverride(
+                  fieldKey,
+                  locked /* enable if locked; else disable */
+                );
+              }}
+            >
+              {locked ? (
+                <Icon name="edit" className="w-3.5 h-3.5 text-slate-700" />
+              ) : (
+                <Icon name="reset" className="w-3.5 h-3.5 text-slate-700" />
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /* Derived — current effective "Airport Access" value ("Yes"/"No"/"") */
+  const effectiveAirportAccess = useMemo(
+    () =>
+      String(
+        displayValue("travel_airport_access", form.travel_airport_access) || ""
+      ),
+    [displayValue, form.travel_airport_access]
+  );
 
   return (
     <div className="space-y-0">
@@ -779,62 +1030,106 @@ export default function TravelDetails({
       </SectionBlock>
 
       {/* 4) Climate & Topography */}
-      <SectionBlock title="Climate & Topography">
+      <SectionBlock
+        title="Climate & Topography"
+        rightActions={
+          <ConnectGuideActions
+            hasGuide={hasGuide}
+            guideName={effectiveLinked?.name}
+            onConnect={() =>
+              onConnectClick
+                ? onConnectClick("climate")
+                : document.dispatchEvent(new CustomEvent("connect-guide:open"))
+            }
+            onRemove={
+              onRemoveLink ??
+              (() => {
+                alert(
+                  "Use the “Remove Link” button in the section toolbar to unlink."
+                );
+              })
+            }
+          />
+        }
+      >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Labeled label="Landform">
+          <label className="block">
+            <OverrideLabel label="Landform" fieldKey="landform" />
             <AutoGrow
-              className={inputStyles}
-              value={form.landform || ""}
+              className={readOnlyClass("landform")}
+              value={displayValue("landform", form.landform)}
               onChange={(e) => setField("landform", e.target.value)}
+              readOnly={isLocked("landform")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="Altitude">
+          </label>
+
+          <label className="block">
+            <OverrideLabel label="Altitude" fieldKey="altitude" />
             <AutoGrow
-              className={inputStyles}
-              value={form.altitude || ""}
+              className={readOnlyClass("altitude")}
+              value={displayValue("altitude", form.altitude)}
               onChange={(e) => setField("altitude", e.target.value)}
+              readOnly={isLocked("altitude")}
               minRows={1}
               maxRows={3}
             />
-          </Labeled>
-          <Labeled label="Mountain Range">
+          </label>
+
+          <label className="block">
+            <OverrideLabel label="Mountain Range" fieldKey="mountain_range" />
             <AutoGrow
-              className={inputStyles}
-              value={form.mountain_range || ""}
+              className={readOnlyClass("mountain_range")}
+              value={displayValue("mountain_range", form.mountain_range)}
               onChange={(e) => setField("mountain_range", e.target.value)}
+              readOnly={isLocked("mountain_range")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="Weather Type">
+          </label>
+
+          <label className="block">
+            <OverrideLabel label="Weather Type" fieldKey="weather_type" />
             <AutoGrow
-              className={inputStyles}
-              value={form.weather_type || ""}
+              className={readOnlyClass("weather_type")}
+              value={displayValue("weather_type", form.weather_type)}
               onChange={(e) => setField("weather_type", e.target.value)}
+              readOnly={isLocked("weather_type")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="Average Temp in Summers">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Average Temp in Summers"
+              fieldKey="avg_temp_summers"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.avg_temp_summers || ""}
+              className={readOnlyClass("avg_temp_summers")}
+              value={displayValue("avg_temp_summers", form.avg_temp_summers)}
               onChange={(e) => setField("avg_temp_summers", e.target.value)}
+              readOnly={isLocked("avg_temp_summers")}
               minRows={1}
               maxRows={3}
             />
-          </Labeled>
-          <Labeled label="Average Temp in Winters">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Average Temp in Winters"
+              fieldKey="avg_temp_winters"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.avg_temp_winters || ""}
+              className={readOnlyClass("avg_temp_winters")}
+              value={displayValue("avg_temp_winters", form.avg_temp_winters)}
               onChange={(e) => setField("avg_temp_winters", e.target.value)}
+              readOnly={isLocked("avg_temp_winters")}
               minRows={1}
               maxRows={3}
             />
-          </Labeled>
+          </label>
         </div>
       </SectionBlock>
 
@@ -852,116 +1147,241 @@ export default function TravelDetails({
       </SectionBlock>
 
       {/* 6) Travel Guide */}
-      <SectionBlock title="Travel Guide">
+      <SectionBlock
+        title="Travel Guide"
+        rightActions={
+          <ConnectGuideActions
+            hasGuide={hasGuide}
+            guideName={effectiveLinked?.name}
+            onConnect={() =>
+              onConnectClick
+                ? onConnectClick("travel")
+                : document.dispatchEvent(new CustomEvent("connect-guide:open"))
+            }
+            onRemove={
+              onRemoveLink ??
+              (() => alert("Use the “Remove Link” in the toolbar above."))
+            }
+          />
+        }
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Labeled label="Location (Travel Guide)">
+          <label className="block">
+            <OverrideLabel
+              label="Location (Travel Guide)"
+              fieldKey="travel_location"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.travel_location || ""}
+              className={readOnlyClass("travel_location")}
+              value={displayValue("travel_location", form.travel_location)}
               onChange={(e) => setField("travel_location", e.target.value)}
+              readOnly={isLocked("travel_location")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="How to Reach">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="How to Reach"
+              fieldKey="travel_how_to_reach"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.travel_how_to_reach || ""}
+              className={readOnlyClass("travel_how_to_reach")}
+              value={displayValue(
+                "travel_how_to_reach",
+                form.travel_how_to_reach
+              )}
               onChange={(e) => setField("travel_how_to_reach", e.target.value)}
+              readOnly={isLocked("travel_how_to_reach")}
               minRows={1}
               maxRows={6}
             />
-          </Labeled>
-          <Labeled label="Nearest Major City">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Nearest Major City"
+              fieldKey="travel_nearest_major_city"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.travel_nearest_major_city || ""}
+              className={readOnlyClass("travel_nearest_major_city")}
+              value={displayValue(
+                "travel_nearest_major_city",
+                form.travel_nearest_major_city
+              )}
               onChange={(e) =>
                 setField("travel_nearest_major_city", e.target.value)
               }
+              readOnly={isLocked("travel_nearest_major_city")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="Airport Access">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Airport Access"
+              fieldKey="travel_airport_access"
+            />
             <select
-              className={inputStyles}
-              value={form.travel_airport_access || ""}
+              className={readOnlyClass("travel_airport_access")}
+              value={displayValue(
+                "travel_airport_access",
+                form.travel_airport_access
+              )}
+              onChange={(e) => {
+                const v = e.target.value;
+                setField("travel_airport_access", v);
+                if (v !== "Yes") setField("travel_international_airport", "No");
+              }}
+              disabled={isLocked("travel_airport_access")}
+            >
+              <option value="">— Select —</option>
+              <option>Yes</option>
+              <option>No</option>
+            </select>
+          </label>
+
+          {/* International Airport (Yes/No) */}
+          <label className="block">
+            <OverrideLabel
+              label="International Airport"
+              fieldKey="travel_international_airport"
+            />
+            <select
+              className={readOnlyClass("travel_international_airport")}
+              value={displayValue(
+                "travel_international_airport",
+                form.travel_international_airport
+              )}
               onChange={(e) =>
-                setField("travel_airport_access", e.target.value)
+                setField("travel_international_airport", e.target.value)
+              }
+              disabled={
+                isLocked("travel_international_airport") ||
+                effectiveAirportAccess !== "Yes"
+              }
+              title={
+                effectiveAirportAccess !== "Yes"
+                  ? "Enable Airport Access to set this"
+                  : undefined
               }
             >
               <option value="">— Select —</option>
               <option>Yes</option>
               <option>No</option>
             </select>
-          </Labeled>
-          <Labeled label="International Flight">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Access Options"
+              fieldKey="travel_access_options"
+            />
             <select
-              className={inputStyles}
-              value={form.travel_international_flight || ""}
-              onChange={(e) =>
-                setField("travel_international_flight", e.target.value)
-              }
-            >
-              <option value="">— Select —</option>
-              <option>Yes</option>
-              <option>Domestic Only</option>
-            </select>
-          </Labeled>
-          <Labeled label="Access Options">
-            <select
-              className={inputStyles}
-              value={form.travel_access_options || ""}
+              className={readOnlyClass("travel_access_options")}
+              value={displayValue(
+                "travel_access_options",
+                form.travel_access_options
+              )}
               onChange={(e) =>
                 setField("travel_access_options", e.target.value)
               }
+              disabled={isLocked("travel_access_options")}
             >
               <option value="">— Select —</option>
               <option>By Road Only</option>
               <option>By Road and Air</option>
               <option>By Road, Air and Railway</option>
             </select>
-          </Labeled>
-          <Labeled label="Road Type & Condition">
-            <select
-              className={inputStyles}
-              value={form.travel_road_type_condition || ""}
+          </label>
+
+          {/* Road Type & Condition */}
+          <label className="block">
+            <OverrideLabel
+              label="Road Type & Condition"
+              fieldKey="travel_road_type_condition"
+            />
+            <AutoGrow
+              className={readOnlyClass("travel_road_type_condition")}
+              value={displayValue(
+                "travel_road_type_condition",
+                form.travel_road_type_condition
+              )}
               onChange={(e) =>
                 setField("travel_road_type_condition", e.target.value)
               }
-            >
-              <option value="">— Select —</option>
-              <option>Metalled</option>
-              <option>Dirt</option>
-              <option>Mixed</option>
-            </select>
-          </Labeled>
-          <Labeled label="Best Time to Visit (short free text)">
-            <AutoGrow
-              className={inputStyles}
-              value={form.travel_best_time_free || ""}
-              onChange={(e) =>
-                setField("travel_best_time_free", e.target.value)
-              }
+              readOnly={isLocked("travel_road_type_condition")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
-          <Labeled label="Full Travel Guide URL (optional button)">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Best Time to Visit (short free text)"
+              fieldKey="travel_best_time_free"
+            />
             <AutoGrow
-              className={inputStyles}
-              value={form.travel_full_guide_url || ""}
+              className={readOnlyClass("travel_best_time_free")}
+              value={displayValue(
+                "travel_best_time_free",
+                form.travel_best_time_free
+              )}
+              onChange={(e) =>
+                setField("travel_best_time_free", e.target.value)
+              }
+              readOnly={isLocked("travel_best_time_free")}
+              minRows={1}
+              maxRows={4}
+            />
+          </label>
+
+          {/* NEW: Best Time to Visit (Long) */}
+          <label className="block lg:col-span-2">
+            <OverrideLabel
+              label="Best Time to Visit (Long)"
+              fieldKey="travel_best_time_long"
+            />
+            <AutoGrow
+              className={readOnlyClass("travel_best_time_long")}
+              value={displayValue(
+                "travel_best_time_long",
+                form.travel_best_time_long
+              )}
+              onChange={(e) =>
+                setField("travel_best_time_long", e.target.value)
+              }
+              readOnly={isLocked("travel_best_time_long")}
+              minRows={4}
+              maxRows={12}
+              placeholder="Describe seasonal details, monsoon windows, monthly road conditions, closures, festivals, etc."
+            />
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Full Travel Guide URL (optional button)"
+              fieldKey="travel_full_guide_url"
+            />
+            <AutoGrow
+              className={readOnlyClass("travel_full_guide_url")}
+              value={displayValue(
+                "travel_full_guide_url",
+                form.travel_full_guide_url
+              )}
               onChange={(e) =>
                 setField("travel_full_guide_url", e.target.value)
               }
               onBlur={(e) =>
                 setField("travel_full_guide_url", nullIfEmpty(e.target.value))
               }
+              readOnly={isLocked("travel_full_guide_url")}
               minRows={1}
               maxRows={4}
             />
-          </Labeled>
+          </label>
         </div>
       </SectionBlock>
 
@@ -982,42 +1402,85 @@ export default function TravelDetails({
       </SectionBlock>
 
       {/* 8) Places to Stay */}
-      <SectionBlock title="Places to Stay">
+      <SectionBlock
+        title="Places to Stay"
+        rightActions={
+          <ConnectGuideActions
+            hasGuide={hasGuide}
+            guideName={effectiveLinked?.name}
+            onConnect={() =>
+              onConnectClick
+                ? onConnectClick("stay")
+                : document.dispatchEvent(new CustomEvent("connect-guide:open"))
+            }
+            onRemove={
+              onRemoveLink ??
+              (() => alert("Use the “Remove Link” in the toolbar above."))
+            }
+          />
+        }
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Labeled label="Hotels Available">
+          <label className="block">
+            <OverrideLabel
+              label="Hotels Available"
+              fieldKey="stay_hotels_available"
+            />
             <select
-              className={inputStyles}
-              value={form.stay_hotels_available || ""}
+              className={readOnlyClass("stay_hotels_available")}
+              value={displayValue(
+                "stay_hotels_available",
+                form.stay_hotels_available
+              )}
               onChange={(e) =>
                 setField("stay_hotels_available", e.target.value)
               }
+              disabled={isLocked("stay_hotels_available")}
             >
               <option value="">— Select —</option>
               <option>Yes</option>
               <option>No</option>
               <option>Limited Options</option>
             </select>
-          </Labeled>
-          <Labeled label="Spending Night Recommended">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Spending Night Recommended"
+              fieldKey="stay_spending_night_recommended"
+            />
             <select
-              className={inputStyles}
-              value={form.stay_spending_night_recommended || ""}
+              className={readOnlyClass("stay_spending_night_recommended")}
+              value={displayValue(
+                "stay_spending_night_recommended",
+                form.stay_spending_night_recommended
+              )}
               onChange={(e) =>
                 setField("stay_spending_night_recommended", e.target.value)
               }
+              disabled={isLocked("stay_spending_night_recommended")}
             >
               <option value="">— Select —</option>
               <option>Yes</option>
               <option>No</option>
             </select>
-          </Labeled>
-          <Labeled label="Camping Possible">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Camping Possible"
+              fieldKey="stay_camping_possible"
+            />
             <select
-              className={inputStyles}
-              value={form.stay_camping_possible || ""}
+              className={readOnlyClass("stay_camping_possible")}
+              value={displayValue(
+                "stay_camping_possible",
+                form.stay_camping_possible
+              )}
               onChange={(e) =>
                 setField("stay_camping_possible", e.target.value)
               }
+              disabled={isLocked("stay_camping_possible")}
             >
               <option value="">— Select —</option>
               <option>Yes</option>
@@ -1025,20 +1488,29 @@ export default function TravelDetails({
               <option>Not Recommended</option>
               <option>Not Suitable</option>
             </select>
-          </Labeled>
-          <Labeled label="Places to Eat Available">
+          </label>
+
+          <label className="block">
+            <OverrideLabel
+              label="Places to Eat Available"
+              fieldKey="stay_places_to_eat_available"
+            />
             <select
-              className={inputStyles}
-              value={form.stay_places_to_eat_available || ""}
+              className={readOnlyClass("stay_places_to_eat_available")}
+              value={displayValue(
+                "stay_places_to_eat_available",
+                form.stay_places_to_eat_available
+              )}
               onChange={(e) =>
                 setField("stay_places_to_eat_available", e.target.value)
               }
+              disabled={isLocked("stay_places_to_eat_available")}
             >
               <option value="">— Select —</option>
               <option>Yes</option>
               <option>No</option>
             </select>
-          </Labeled>
+          </label>
         </div>
       </SectionBlock>
 
@@ -1100,25 +1572,30 @@ export default function TravelDetails({
 function SectionBlock({
   title,
   children,
+  rightActions,
 }: {
   title: string;
   children: React.ReactNode;
+  rightActions?: React.ReactNode;
 }) {
   const iconName = TITLE_ICON_MAP[title];
 
   return (
     <div className="mx-4 sm:mx-6 md:mx-10 lg:mx-14 xl:mx-20 2xl:mx-28 my-12 md:my-16 lg:my-20">
       <div className="bg-gray-50 border border-gray-200 rounded-xl px-8 md:px-10 py-6 md:py-7 shadow-sm">
-        <h3 className="flex items-center gap-2 text-lg md:text-xl font-semibold mb-4 text-[var(--brand-blue)]">
-          {iconName ? (
-            <Icon
-              name={iconName}
-              className="w-6 h-6 md:w-7 md:h-7 text-[var(--brand-orange)]"
-              aria-hidden="true"
-            />
-          ) : null}
-          {title}
-        </h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg md:text-xl font-semibold text-[var(--brand-blue)]">
+            {iconName ? (
+              <Icon
+                name={iconName}
+                className="w-6 h-6 md:w-7 md:h-7 text-[var(--brand-orange)]"
+                aria-hidden="true"
+              />
+            ) : null}
+            {title}
+          </h3>
+          {rightActions ?? null}
+        </div>
         {children}
       </div>
     </div>
@@ -1137,5 +1614,54 @@ function Labeled({
       <div className="text-sm font-semibold mb-1.5 text-gray-800">{label}</div>
       {children}
     </label>
+  );
+}
+
+function ConnectGuideActions({
+  hasGuide,
+  guideName,
+  onConnect,
+  onRemove,
+}: {
+  hasGuide?: boolean;
+  guideName?: string;
+  onConnect?: () => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {hasGuide ? (
+        <>
+          <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-[2px] text-xs">
+            Linked: {guideName || "Travel Guide"}
+          </span>
+          <button
+            type="button"
+            onClick={onConnect}
+            className="text-xs px-3 py-1 rounded-md border border-slate-300 bg-white hover:bg-slate-50"
+            title="Change Travel Guide"
+          >
+            Change
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs px-3 py-1 rounded-md border border-red-300 text-red-600 hover:bg-red-50"
+            title="Remove link"
+          >
+            Remove
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={onConnect}
+          className="text-xs px-3 py-1 rounded-md border border-slate-300 bg-white hover:bg-slate-50"
+          title="Connect Travel Guide"
+        >
+          Connect Travel Guide
+        </button>
+      )}
+    </div>
   );
 }

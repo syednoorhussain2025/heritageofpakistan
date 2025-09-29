@@ -1,8 +1,135 @@
+import { useEffect, useState } from "react";
 import HeritageSection from "./HeritageSection";
 import { Site, Taxonomy } from "./heritagedata";
+import { supabase } from "@/lib/supabaseClient";
 import Icon from "@/components/Icon";
 
-/* ---- Key/value row: wider value column + visible overflow + 15px text ---- */
+/** Minimal shape for the guide summary we may receive from server */
+type TravelGuideSummary = {
+  location?: string | null;
+  how_to_reach?: string | null;
+  nearest_major_city?: string | null;
+
+  airport_access?: boolean | null;
+  access_options?:
+    | "by_road_only"
+    | "by_trek_only"
+    | "by_jeep_and_trek_only"
+    | "by_road_and_railway"
+    | "by_road_and_airport"
+    | "by_road_railway_airport"
+    | null;
+
+  road_type_condition?: string | null;
+
+  best_time_to_visit?:
+    | "year_long"
+    | "winters"
+    | "summers"
+    | "spring"
+    | "spring_and_summers"
+    | "winter_and_spring"
+    | null;
+
+  /** NEW: free text long description */
+  best_time_to_visit_long?: string | null;
+
+  hotels_available?: "yes" | "no" | "limited_options" | null;
+  spending_night_recommended?:
+    | "yes"
+    | "not_recommended"
+    | "not_suitable"
+    | null;
+  camping?: "possible" | "not_suitable" | "with_caution" | null;
+  places_to_eat?: "yes" | "no" | "limited_options" | null;
+
+  altitude?: string | null;
+  landform?:
+    | "mountains"
+    | "plains"
+    | "river"
+    | "plateau"
+    | "mountain_peak"
+    | "valley"
+    | "desert"
+    | "coastal"
+    | "wetlands"
+    | "forest"
+    | "canyon_gorge"
+    | "glacier"
+    | "lake_basin"
+    | "steppe"
+    | null;
+
+  mountain_range?: string | null;
+  climate_type?: string | null;
+  temp_winter?: string | null;
+  temp_summers?: string | null;
+};
+
+/* ---- Maps for enum → label ---- */
+const ACCESS_OPTIONS_MAP: Record<
+  NonNullable<TravelGuideSummary["access_options"]>,
+  string
+> = {
+  by_road_only: "By Road Only",
+  by_trek_only: "By Trek Only",
+  by_jeep_and_trek_only: "By Jeep and Trek Only",
+  by_road_and_railway: "By Road and Railway",
+  by_road_and_airport: "By Road and Airport",
+  by_road_railway_airport: "By Road, Railway & Airport",
+};
+const BEST_TIME_MAP: Record<
+  NonNullable<TravelGuideSummary["best_time_to_visit"]>,
+  string
+> = {
+  year_long: "Year long",
+  winters: "Winters",
+  summers: "Summers",
+  spring: "Spring",
+  spring_and_summers: "Spring and Summers",
+  winter_and_spring: "Winter and Spring",
+};
+const YES_NO_LIMITED_MAP: Record<"yes" | "no" | "limited_options", string> = {
+  yes: "Yes",
+  no: "No",
+  limited_options: "Limited Options",
+};
+const YES_RECS_MAP: Record<"yes" | "not_recommended" | "not_suitable", string> =
+  {
+    yes: "Yes",
+    not_recommended: "Not Recommended",
+    not_suitable: "Not Suitable",
+  };
+const CAMPING_MAP: Record<
+  "possible" | "not_suitable" | "with_caution",
+  string
+> = {
+  possible: "Possible",
+  not_suitable: "Not Suitable",
+  with_caution: "With Caution",
+};
+const LANDFORM_MAP: Record<
+  NonNullable<TravelGuideSummary["landform"]>,
+  string
+> = {
+  mountains: "Mountains",
+  plains: "Plains",
+  river: "River",
+  plateau: "Plateau",
+  mountain_peak: "Mountain Peak",
+  valley: "Valley",
+  desert: "Desert",
+  coastal: "Coastal",
+  wetlands: "Wetlands",
+  forest: "Forest",
+  canyon_gorge: "Canyon / Gorge",
+  glacier: "Glacier",
+  lake_basin: "Lake Basin",
+  steppe: "Steppe",
+};
+
+/* ---- Key/value row ---- */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
   if (v === null || v === undefined || v === "") return null;
   return (
@@ -41,17 +168,227 @@ function IconChip({
   );
 }
 
+/** If a field is overridden, prefer the SITE value first;
+ * otherwise prefer GUIDE value first (legacy behavior). */
+function pick(
+  field: string,
+  guideVal: any,
+  siteVal: any,
+  overrides?: Record<string, boolean> | null
+) {
+  const ov = overrides ?? {};
+  const has = (v: any) =>
+    v !== undefined && v !== null && String(v).trim() !== "";
+  if (ov[field]) {
+    return has(siteVal) ? siteVal : has(guideVal) ? guideVal : null;
+  }
+  return has(guideVal) ? guideVal : has(siteVal) ? siteVal : null;
+}
+
 export default function HeritageSidebar({
   site,
   provinceName,
   regions,
   maps,
+  travelGuideSummary, // optional pre-fetched
 }: {
-  site: Site;
+  site: Site & {
+    overrides?: Record<string, boolean> | null;
+    travel_best_time_long?: string | null;
+  };
   provinceName: string | null;
   regions: Taxonomy[];
   maps: { embed: string | null; link: string | null };
+  travelGuideSummary?: TravelGuideSummary | null;
 }) {
+  // Dynamically fetch summary if not provided, only for published guides
+  const [tgs, setTgs] = useState<TravelGuideSummary | null>(
+    travelGuideSummary ?? null
+  );
+
+  useEffect(() => {
+    let alive = true;
+
+    async function fetchIfPublished(guideId: string) {
+      const { data: g } = await supabase
+        .from("region_travel_guides")
+        .select("status")
+        .eq("id", guideId)
+        .maybeSingle();
+
+      if (!alive) return;
+      if (!g || g.status !== "published") {
+        setTgs(null);
+        return;
+      }
+
+      const { data: s } = await supabase
+        .from("region_travel_guide_summary")
+        .select(
+          `location, how_to_reach, nearest_major_city,
+           airport_access, access_options,
+           road_type_condition, best_time_to_visit, best_time_to_visit_long,
+           hotels_available, spending_night_recommended, camping, places_to_eat,
+           altitude, landform, mountain_range, climate_type, temp_winter, temp_summers`
+        )
+        .eq("guide_id", guideId)
+        .maybeSingle();
+
+      if (!alive) return;
+      setTgs((s || null) as any);
+    }
+
+    if (travelGuideSummary !== undefined) {
+      setTgs(travelGuideSummary ?? null);
+    } else if ((site as any).region_travel_guide_id) {
+      fetchIfPublished((site as any).region_travel_guide_id as string);
+    } else {
+      setTgs(null);
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [site, travelGuideSummary]);
+
+  /* ---------- Merge (respect overrides) ---------- */
+  const ov = (site as any).overrides || {};
+
+  const guideLandform = tgs?.landform ? LANDFORM_MAP[tgs.landform] : null;
+  const mergedLandform = pick("landform", guideLandform, site.landform, ov);
+  const mergedAltitude = pick(
+    "altitude",
+    tgs?.altitude ?? null,
+    site.altitude,
+    ov
+  );
+  const mergedMountainRange = pick(
+    "mountain_range",
+    tgs?.mountain_range ?? null,
+    site.mountain_range,
+    ov
+  );
+  const mergedWeatherType = pick(
+    "weather_type",
+    tgs?.climate_type ?? null,
+    site.weather_type,
+    ov
+  );
+  const mergedAvgSummer = pick(
+    "avg_temp_summers",
+    tgs?.temp_summers ?? null,
+    site.avg_temp_summers,
+    ov
+  );
+  const mergedAvgWinter = pick(
+    "avg_temp_winters",
+    tgs?.temp_winter ?? null,
+    site.avg_temp_winters,
+    ov
+  );
+
+  const mergedTravelLocation = pick(
+    "travel_location",
+    tgs?.location ?? null,
+    site.travel_location,
+    ov
+  );
+  const mergedHowToReach = pick(
+    "travel_how_to_reach",
+    tgs?.how_to_reach ?? null,
+    site.travel_how_to_reach,
+    ov
+  );
+  const mergedNearestCity = pick(
+    "travel_nearest_major_city",
+    tgs?.nearest_major_city ?? null,
+    site.travel_nearest_major_city,
+    ov
+  );
+
+  const guideAirportAccess =
+    tgs?.airport_access == null ? null : tgs.airport_access ? "Yes" : "No";
+  const mergedAirportAccess = pick(
+    "travel_airport_access",
+    guideAirportAccess,
+    site.travel_airport_access,
+    ov
+  );
+
+  const guideAccessOptions = tgs?.access_options
+    ? ACCESS_OPTIONS_MAP[tgs.access_options]
+    : null;
+  const mergedAccessOptions = pick(
+    "travel_access_options",
+    guideAccessOptions,
+    site.travel_access_options,
+    ov
+  );
+
+  const mergedRoadType = pick(
+    "travel_road_type_condition",
+    tgs?.road_type_condition ?? null,
+    site.travel_road_type_condition,
+    ov
+  );
+
+  const guideBestTime = tgs?.best_time_to_visit
+    ? BEST_TIME_MAP[tgs.best_time_to_visit]
+    : null;
+  const mergedBestTimeFree = pick(
+    "travel_best_time_free",
+    guideBestTime,
+    site.travel_best_time_free,
+    ov
+  );
+
+  // NEW: Long best time (free text) with override-aware merge
+  const mergedBestTimeLong = pick(
+    "travel_best_time_long",
+    tgs?.best_time_to_visit_long ?? null,
+    (site as any).travel_best_time_long,
+    ov
+  );
+
+  const guideHotels = tgs?.hotels_available
+    ? YES_NO_LIMITED_MAP[tgs.hotels_available]
+    : null;
+  const mergedHotelsAvailable = pick(
+    "stay_hotels_available",
+    guideHotels,
+    site.stay_hotels_available,
+    ov
+  );
+
+  const guideSpending = tgs?.spending_night_recommended
+    ? YES_RECS_MAP[tgs.spending_night_recommended]
+    : null;
+  const mergedSpendingNight = pick(
+    "stay_spending_night_recommended",
+    guideSpending,
+    site.stay_spending_night_recommended,
+    ov
+  );
+
+  const guideCamping = tgs?.camping ? CAMPING_MAP[tgs.camping] : null;
+  const mergedCamping = pick(
+    "stay_camping_possible",
+    guideCamping,
+    site.stay_camping_possible,
+    ov
+  );
+
+  const guideEat = tgs?.places_to_eat
+    ? YES_NO_LIMITED_MAP[tgs.places_to_eat]
+    : null;
+  const mergedPlacesToEat = pick(
+    "stay_places_to_eat_available",
+    guideEat,
+    site.stay_places_to_eat_available,
+    ov
+  );
+
+  /* ---------------------------- UI ---------------------------- */
   return (
     <>
       <HeritageSection title="Where is it?" iconName="where-is-it">
@@ -214,12 +551,12 @@ export default function HeritageSidebar({
         title="Climate & Topography"
         iconName="climate-topography"
       >
-        <KeyVal k="Landform" v={site.landform} />
-        <KeyVal k="Altitude" v={site.altitude} />
-        <KeyVal k="Mountain Range" v={site.mountain_range} />
-        <KeyVal k="Weather Type" v={site.weather_type} />
-        <KeyVal k="Avg Temp (Summers)" v={site.avg_temp_summers} />
-        <KeyVal k="Avg Temp (Winters)" v={site.avg_temp_winters} />
+        <KeyVal k="Landform" v={mergedLandform} />
+        <KeyVal k="Altitude" v={mergedAltitude} />
+        <KeyVal k="Mountain Range" v={mergedMountainRange} />
+        <KeyVal k="Weather Type" v={mergedWeatherType} />
+        <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} />
+        <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} />
       </HeritageSection>
 
       <HeritageSection title="Did you Know" iconName="did-you-know">
@@ -242,14 +579,14 @@ export default function HeritageSidebar({
 
       <HeritageSection id="travel" title="Travel Guide" iconName="travel-guide">
         <KeyVal k="Heritage Site" v={site.title} />
-        <KeyVal k="Location" v={site.travel_location} />
-        <KeyVal k="How to Reach" v={site.travel_how_to_reach} />
-        <KeyVal k="Nearest Major City" v={site.travel_nearest_major_city} />
-        <KeyVal k="Airport Access" v={site.travel_airport_access} />
+        <KeyVal k="Location" v={mergedTravelLocation} />
+        <KeyVal k="How to Reach" v={mergedHowToReach} />
+        <KeyVal k="Nearest Major City" v={mergedNearestCity} />
+        <KeyVal k="Airport Access" v={mergedAirportAccess} />
         <KeyVal k="International Flight" v={site.travel_international_flight} />
-        <KeyVal k="Access Options" v={site.travel_access_options} />
-        <KeyVal k="Road Type & Condition" v={site.travel_road_type_condition} />
-        <KeyVal k="Best Time to Visit" v={site.travel_best_time_free} />
+        <KeyVal k="Access Options" v={mergedAccessOptions} />
+        <KeyVal k="Road Type & Condition" v={mergedRoadType} />
+        <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} />
         {site.travel_full_guide_url && (
           <a
             href={site.travel_full_guide_url}
@@ -262,8 +599,16 @@ export default function HeritageSidebar({
         )}
       </HeritageSection>
 
+      {/* NEW: Long best time card */}
       <HeritageSection title="Best Time to Visit" iconName="best-time-to-visit">
-        {site.best_time_option_key ? (
+        {mergedBestTimeLong ? (
+          <div
+            className="whitespace-pre-wrap text-[15px] overflow-x-visible"
+            style={{ color: "var(--muted-foreground, #5b6b84)" }}
+          >
+            {mergedBestTimeLong}
+          </div>
+        ) : site.best_time_option_key ? (
           <div
             className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
@@ -281,16 +626,10 @@ export default function HeritageSidebar({
       </HeritageSection>
 
       <HeritageSection title="Places to Stay" iconName="places-to-stay">
-        <KeyVal k="Hotels Available" v={site.stay_hotels_available} />
-        <KeyVal
-          k="Spending Night Recommended"
-          v={site.stay_spending_night_recommended}
-        />
-        <KeyVal k="Camping Possible" v={site.stay_camping_possible} />
-        <KeyVal
-          k="Places to Eat Available"
-          v={site.stay_places_to_eat_available}
-        />
+        <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
+        <KeyVal k="Spending Night Recommended" v={mergedSpendingNight} />
+        <KeyVal k="Camping Possible" v={mergedCamping} />
+        <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
       </HeritageSection>
     </>
   );

@@ -111,6 +111,13 @@ export default function AdminHome() {
       desc: "Sort regions.",
       icon: "regiontax",
     },
+    // NEW: Travel Guide Manager
+    {
+      href: "/admin/travel-guides",
+      title: "Travel Guide Manager",
+      desc: "Create & edit region guides.",
+      icon: "adminmap",
+    },
     {
       href: "/admin/home",
       title: "Home Editor",

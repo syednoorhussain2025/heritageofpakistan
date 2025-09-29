@@ -71,128 +71,188 @@ const useClickOutside = (ref: any, handler: () => void) => {
   }, [ref, handler]);
 };
 
-/* -------------------------------- User Menu ------------------------------- */
-const UserMenu = ({ user }: { user: User }) => {
-  const supabase = createClient();
-  const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const openWithDelay = () => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setIsOpen(true), 120);
-  };
-  const closeWithDelay = () => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setIsOpen(false), 180);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-    setIsOpen(false);
-  };
-
-  const name = user.user_metadata?.full_name || "User";
-  const initial = name.charAt(0).toUpperCase();
-
-  const menuItems = [
-    { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
-    { href: "/dashboard/mywishlists", icon: "list-ul", label: "My Wishlists" },
-    { href: "/dashboard/mytrips", icon: "route", label: "My Trips" },
-    { href: "/dashboard/bookmarks", icon: "heart", label: "Bookmarks" },
-    {
-      href: "/dashboard/mycollections",
-      icon: "retro",
-      label: "My Collections",
-    },
-    {
-      href: "/dashboard/placesvisited",
-      icon: "map-marker-alt",
-      label: "Places Visited",
-    },
-    {
-      href: "/dashboard/recommendations",
-      icon: "lightbulb",
-      label: "Recommendations",
-    },
-    { href: "/dashboard/myreviews", icon: "star", label: "My Reviews" },
-    {
-      href: "/dashboard/account-details",
-      icon: "user",
-      label: "Account Details",
-    },
-  ];
-
-  return (
-    <div
-      className="relative"
-      ref={menuRef}
-      onMouseEnter={openWithDelay}
-      onMouseLeave={closeWithDelay}
-    >
-      <div className="flex items-center gap-2 cursor-pointer">
-        <div className="w-8 h-8 rounded-full bg-[var(--brand-blue)] flex items-center justify-center text-white font-semibold">
-          {initial}
-        </div>
-        <span className="hidden sm:inline text-sm font-medium text-gray-700">
-          {name}
-        </span>
-        <Icon
-          name="chevron-down"
-          size={14}
-          className={`text-gray-500 transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </div>
-
-      <div
-        className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
-          isOpen
-            ? "opacity-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 -translate-y-1 pointer-events-none"
-        }`}
-      >
-        {menuItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setIsOpen(false)}
-            className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
-          >
-            <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
-              <Icon name={item.icon} size={16} className={iconStyles} />
-              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
-                {item.label}
-              </span>
-            </div>
-          </Link>
-        ))}
-        <div className="h-px bg-gray-200 my-1" />
-        <button
-          onClick={handleLogout}
-          className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
-        >
-          <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
-            <Icon name="logout" size={16} className={iconStyles} />
-            <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
-              Logout
-            </span>
-          </div>
-        </button>
-      </div>
-    </div>
-  );
-};
-
 /* ------------------------------- Header ----------------------------------- */
 export default function Header() {
   const router = useRouter();
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
+
+  /* ---------- Transparent by default; solid after threshold ---------- */
+  const [solid, setSolid] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const HEADER_FALLBACK = 72; // px
+    const DEFAULT_THRESHOLD = 140; // px
+
+    const measureAndSetOffsetVar = () => {
+      const h = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
+      document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
+      return h;
+    };
+
+    const computeThreshold = () => {
+      const marker =
+        document.getElementById("white-header-trigger") ||
+        document.getElementById("header-threshold");
+      if (marker) {
+        const top = marker.getBoundingClientRect().top + window.scrollY;
+        const headerH = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
+        return Math.max(0, top - headerH);
+      }
+      return DEFAULT_THRESHOLD;
+    };
+
+    measureAndSetOffsetVar();
+    let threshold = computeThreshold();
+
+    const onScroll = () => setSolid(window.scrollY >= threshold);
+    const onResize = () => {
+      measureAndSetOffsetVar();
+      threshold = computeThreshold();
+      onScroll();
+    };
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && headerRef.current) {
+      ro = new ResizeObserver(() => onResize());
+      ro.observe(headerRef.current);
+    }
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (ro && headerRef.current) ro.disconnect();
+    };
+  }, []);
+
+  /* -------------------------------- User Menu ------------------------------- */
+  const UserMenu = ({ user }: { user: User }) => {
+    const supabase = createClient();
+    const router = useRouter();
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const timerRef = useRef<number | null>(null);
+
+    const openWithDelay = () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => setIsOpen(true), 120);
+    };
+    const closeWithDelay = () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => setIsOpen(false), 180);
+    };
+
+    const handleLogout = async () => {
+      await supabase.auth.signOut();
+      router.push("/");
+      setIsOpen(false);
+    };
+
+    const name = user.user_metadata?.full_name || "User";
+    const initial = name.charAt(0).toUpperCase();
+
+    const menuItems = [
+      { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+      {
+        href: "/dashboard/mywishlists",
+        icon: "list-ul",
+        label: "My Wishlists",
+      },
+      { href: "/dashboard/mytrips", icon: "route", label: "My Trips" },
+      { href: "/dashboard/bookmarks", icon: "heart", label: "Bookmarks" },
+      {
+        href: "/dashboard/mycollections",
+        icon: "retro",
+        label: "My Collections",
+      },
+      {
+        href: "/dashboard/placesvisited",
+        icon: "map-marker-alt",
+        label: "Places Visited",
+      },
+      {
+        href: "/dashboard/recommendations",
+        icon: "lightbulb",
+        label: "Recommendations",
+      },
+      { href: "/dashboard/myreviews", icon: "star", label: "My Reviews" },
+      {
+        href: "/dashboard/account-details",
+        icon: "user",
+        label: "Account Details",
+      },
+    ];
+
+    return (
+      <div
+        className="relative"
+        ref={menuRef}
+        onMouseEnter={openWithDelay}
+        onMouseLeave={closeWithDelay}
+      >
+        <div className="flex items-center gap-2 cursor-pointer">
+          <div className="w-8 h-8 rounded-full bg-[var(--brand-blue)] flex items-center justify-center text-white font-semibold">
+            {initial}
+          </div>
+          <span
+            className={`hidden sm:inline text-sm font-medium transition-colors ${
+              solid ? "text-gray-700" : "text-white"
+            }`}
+          >
+            {name}
+          </span>
+          <Icon
+            name="chevron-down"
+            size={14}
+            className={`transition-transform ${isOpen ? "rotate-180" : ""} ${
+              solid ? "text-gray-500" : "text-white"
+            }`}
+          />
+        </div>
+
+        <div
+          className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
+            isOpen
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 -translate-y-1 pointer-events-none"
+          }`}
+        >
+          {menuItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
+            >
+              <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
+                <Icon name={item.icon} size={16} className={iconStyles} />
+                <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
+                  {item.label}
+                </span>
+              </div>
+            </Link>
+          ))}
+          <div className="h-px bg-gray-200 my-1" />
+          <button
+            onClick={handleLogout}
+            className="group w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 hover:bg-gray-50 text-gray-700 transition-colors duration-200"
+          >
+            <div className="flex items-center gap-3 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
+              <Icon name="logout" size={16} className={iconStyles} />
+              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [color:var(--brand-grey)]">
+                Logout
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const [regions, setRegions] = useState<Simple[]>([]);
   const [categories, setCategories] = useState<Simple[]>([]);
@@ -313,73 +373,41 @@ export default function Header() {
     setCatsOpen(false);
   };
 
-  /* ---------- Transparent by default; solid after threshold ---------- */
-  const [solid, setSolid] = useState(false);
-  const headerRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const HEADER_FALLBACK = 72; // px
-    const DEFAULT_THRESHOLD = 140; // px
-
-    const measureAndSetOffsetVar = () => {
-      const h = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
-      document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
-      return h;
-    };
-
-    const computeThreshold = () => {
-      const marker =
-        document.getElementById("white-header-trigger") ||
-        document.getElementById("header-threshold");
-      if (marker) {
-        const top = marker.getBoundingClientRect().top + window.scrollY;
-        const headerH = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
-        return Math.max(0, top - headerH);
-      }
-      return DEFAULT_THRESHOLD;
-    };
-
-    measureAndSetOffsetVar();
-    let threshold = computeThreshold();
-
-    const onScroll = () => setSolid(window.scrollY >= threshold);
-    const onResize = () => {
-      measureAndSetOffsetVar();
-      threshold = computeThreshold();
-      onScroll();
-    };
-
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined" && headerRef.current) {
-      ro = new ResizeObserver(() => onResize());
-      ro.observe(headerRef.current);
-    }
-
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-      if (ro && headerRef.current) ro.disconnect();
-    };
-  }, []);
-
   return (
     <>
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .menu-item-divider > button { position: relative; }
-        .menu-item-divider > button:not(:last-child)::after {
-          content: ''; position: absolute; bottom: 0; left: 15%; right: 15%;
-          height: 1px; background-color: #f3f4f6;
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-in-out forwards; }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .menu-item-divider > button {
+          position: relative;
+        }
+        .menu-item-divider > button:not(:last-child)::after {
+          content: "";
+          position: absolute;
+          bottom: 0;
+          left: 15%;
+          right: 15%;
+          height: 1px;
+          background-color: #f3f4f6;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-in-out forwards;
+        }
       `}</style>
 
-      {/* Transparent by default. Turns white after threshold */}
       <header
         ref={headerRef as any}
         data-solid={solid}
@@ -392,8 +420,14 @@ export default function Header() {
           backgroundColor: solid ? "rgba(255,255,255,0.95)" : "transparent",
         }}
       >
-        <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 bg-transparent">
-          {/* Brand */}
+        <div
+          aria-hidden="true"
+          className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
+            solid ? "opacity-0" : "opacity-100"
+          }`}
+        />
+
+        <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
           <Link
             href="/"
             className="whitespace-nowrap tracking-wide mr-auto [font:var(--font-headerlogo-shorthand)] [color:var(--font-headerlogo-font-color)]"
@@ -401,7 +435,6 @@ export default function Header() {
             HERITAGE OF PAKISTAN
           </Link>
 
-          {/* Quick Search */}
           <div className="relative flex-1 max-w-2xl" ref={suggestRef}>
             <div
               className={`flex items-center gap-2 rounded-full px-3 py-1.5 bg-transparent transition-all duration-200 ease-in-out ${
@@ -446,7 +479,6 @@ export default function Header() {
               )}
             </div>
 
-            {/* Suggestion dropdown */}
             <div
               className={`absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg overflow-hidden transition-all ease-out duration-300 ${
                 openSuggest &&
@@ -503,19 +535,21 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Right nav */}
           <nav className="hidden md:flex items-center gap-4 text-[15px]">
             <Link
               href="/"
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
             >
               <Icon name="home" className={iconStyles} />
-              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+              <span
+                className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                }`}
+              >
                 Home
               </span>
             </Link>
 
-            {/* Regions menu */}
             <div
               className="relative"
               onMouseEnter={() => openWithDelay("regions")}
@@ -523,10 +557,18 @@ export default function Header() {
             >
               <button className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden">
                 <Icon name="map-marker-alt" className={iconStyles} />
-                <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+                <span
+                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                    solid ? "[color:var(--brand-grey)]" : "text-white"
+                  }`}
+                >
                   Regions
                 </span>
-                <span className="ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
+                <span
+                  className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
+                    solid ? "text-[color:var(--brand-grey)]" : "text-white"
+                  }`}
+                >
                   ▾
                 </span>
               </button>
@@ -556,7 +598,6 @@ export default function Header() {
               </div>
             </div>
 
-            {/* Heritage menu */}
             <div
               className="relative"
               onMouseEnter={() => openWithDelay("cats")}
@@ -564,10 +605,18 @@ export default function Header() {
             >
               <button className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden">
                 <Icon name="landmark" className={iconStyles} />
-                <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+                <span
+                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                    solid ? "[color:var(--brand-grey)]" : "text-white"
+                  }`}
+                >
                   Heritage
                 </span>
-                <span className="ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
+                <span
+                  className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
+                    solid ? "text-[color:var(--brand-grey)]" : "text-white"
+                  }`}
+                >
                   ▾
                 </span>
               </button>
@@ -611,7 +660,11 @@ export default function Header() {
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
             >
               <Icon name="search" className={iconStyles} />
-              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+              <span
+                className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                }`}
+              >
                 Explore
               </span>
             </Link>
@@ -621,7 +674,11 @@ export default function Header() {
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
             >
               <Icon name="map" className={iconStyles} />
-              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+              <span
+                className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                }`}
+              >
                 Map
               </span>
             </Link>
@@ -631,7 +688,11 @@ export default function Header() {
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
             >
               <Icon name="route" className={iconStyles} />
-              <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+              <span
+                className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                }`}
+              >
                 Trip Builder
               </span>
             </Link>
@@ -644,7 +705,11 @@ export default function Header() {
                 className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
               >
                 <Icon name="user" className={iconStyles} />
-                <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
+                <span
+                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+                    solid ? "[color:var(--brand-grey)]" : "text-white"
+                  }`}
+                >
                   Sign in
                 </span>
               </Link>

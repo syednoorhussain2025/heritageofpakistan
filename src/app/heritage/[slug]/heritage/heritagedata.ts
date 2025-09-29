@@ -1,6 +1,66 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+// ---- Public page needs this to merge with site fields ----
+export type TravelGuideSummary = {
+  location?: string | null;
+  how_to_reach?: string | null;
+  nearest_major_city?: string | null;
+
+  airport_access?: boolean | null;
+  access_options?:
+    | "by_road_only"
+    | "by_trek_only"
+    | "by_jeep_and_trek_only"
+    | "by_road_and_railway"
+    | "by_road_and_airport"
+    | "by_road_railway_airport"
+    | null;
+
+  road_type_condition?: string | null;
+
+  best_time_to_visit?:
+    | "year_long"
+    | "winters"
+    | "summers"
+    | "spring"
+    | "spring_and_summers"
+    | "winter_and_spring"
+    | null;
+
+  hotels_available?: "yes" | "no" | "limited_options" | null;
+  spending_night_recommended?:
+    | "yes"
+    | "not_recommended"
+    | "not_suitable"
+    | null;
+  camping?: "possible" | "not_suitable" | "with_caution" | null;
+  places_to_eat?: "yes" | "no" | "limited_options" | null;
+
+  altitude?: string | null;
+  landform?:
+    | "mountains"
+    | "plains"
+    | "river"
+    | "plateau"
+    | "mountain_peak"
+    | "valley"
+    | "desert"
+    | "coastal"
+    | "wetlands"
+    | "forest"
+    | "canyon_gorge"
+    | "glacier"
+    | "lake_basin"
+    | "steppe"
+    | null;
+
+  mountain_range?: string | null;
+  climate_type?: string | null;
+  temp_winter?: string | null;
+  temp_summers?: string | null;
+};
+
 // Types kept here to avoid a separate file
 export type Site = {
   id: string;
@@ -18,6 +78,9 @@ export type Site = {
   tehsil?: string | null;
   district?: string | null;
   province_id?: number | null;
+
+  // NEW: link to region guide
+  region_travel_guide_id?: string | null;
 
   architectural_style?: string | null;
   construction_materials?: string | null;
@@ -204,6 +267,10 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     section_id: string | null;
   }>({ quote: null, section_id: null });
 
+  // NEW: travel guide summary for the linked (published) guide
+  const [travelGuideSummary, setTravelGuideSummary] =
+    useState<TravelGuideSummary | null>(null);
+
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -220,6 +287,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
         if (!s) {
           setSite(null);
+          setTravelGuideSummary(null);
           return;
         }
         const siteData = s as Site;
@@ -282,6 +350,37 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .maybeSingle();
         setHasPhotoStory(!!ps);
 
+        // -------- NEW: fetch linked published travel guide summary --------
+        if (siteData.region_travel_guide_id) {
+          const { data: tgs } = await supabase
+            .from("region_travel_guide_summary")
+            .select(
+              `
+              location, how_to_reach, nearest_major_city,
+              airport_access, access_options,
+              road_type_condition, best_time_to_visit,
+              hotels_available, spending_night_recommended, camping, places_to_eat,
+              altitude, landform, mountain_range, climate_type, temp_winter, temp_summers,
+              region_travel_guides!inner ( status )
+            `
+            )
+            .eq("guide_id", siteData.region_travel_guide_id)
+            .eq("region_travel_guides.status", "published")
+            .maybeSingle();
+
+          if (tgs) {
+            // Strip the joined object; keep only summary fields
+            const { region_travel_guides: _joined, ...summary } =
+              (tgs as any) || {};
+            setTravelGuideSummary(summary as TravelGuideSummary);
+          } else {
+            setTravelGuideSummary(null);
+          }
+        } else {
+          setTravelGuideSummary(null);
+        }
+        // -------------------------------------------------------------------
+
         if (deepLinkNoteId) {
           const { data: rn } = await supabase
             .from("research_notes")
@@ -328,5 +427,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     highlight,
     setHighlight,
     maps,
+    // NEW: expose to HeritageSidebar
+    travelGuideSummary,
   };
 }

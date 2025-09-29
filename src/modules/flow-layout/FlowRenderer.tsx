@@ -144,7 +144,7 @@ export default function FlowRenderer({
       sectionTypeId === "aside-figure"
         ? "aside-figure"
         : sectionTypeId === "quotation"
-        ? "sec-quotation"
+        ? "quotation sec-quotation" // add both for styling flexibility
         : sectionTypeId === "carousel"
         ? "sec-carousel"
         : "";
@@ -250,17 +250,20 @@ export default function FlowRenderer({
       );
     };
 
-    // NEW: quotation renderer
+    // UPDATED: quotation renderer -> semantic <blockquote> with paragraphs
     const renderQuote = (blk: any) => {
       const content: string = blk.content || "";
+      const parts = content.split(/\n{2,}/);
       return (
-        <div
+        <blockquote
           key={`${blk.sectionInstanceKey}:${blk.blockId}:quote`}
           className="hop-quote"
           style={SELECT_TEXT}
         >
-          {content}
-        </div>
+          {parts.map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
+        </blockquote>
       );
     };
 
