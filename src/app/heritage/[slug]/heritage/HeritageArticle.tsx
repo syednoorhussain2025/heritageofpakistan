@@ -163,11 +163,11 @@ export default function HeritageArticle({
         "srcset",
         "alt",
         "title",
-        "style",
+        "style", // keep inline style from FlowComposer
         "href",
         "target",
         "rel",
-        "class",
+        "class", // keep classes from FlowComposer
         "width",
         "height",
         "loading",
@@ -210,33 +210,26 @@ export default function HeritageArticle({
     return div.innerHTML;
   }, [html]);
 
-  /* ---------------- parse → React (figures + normalize quotations) ---------------- */
+  /* ---------------- parse → React (figures only; quotes untouched) ---------------- */
   const content = useMemo(() => {
     return parse(safe, {
       replace: (node: any) => {
         if (node.type !== "tag") return;
 
-        // QUOTATION normalizer:
+        // Allow quotation sections to pass through unchanged (inherit composer styles)
         if (node.name === "section" || node.name === "div") {
           const cls = String(node.attribs?.class || "");
           if (/\b(quotation|sec-quotation)\b/.test(cls)) {
+            // Only ensure the container carries sec-quotation for layout hooks if you want.
             const attribs = mapAttribs(node.attribs);
-            const kids = node.children || [];
-            const alreadyHasBQ = kids.some(
-              (c: any) => c.type === "tag" && c.name === "blockquote"
-            );
             return (
               <section
                 {...attribs}
-                className={`${attribs.className || ""} sec-quotation`.trim()}
+                className={[attribs.className, "sec-quotation"]
+                  .filter(Boolean)
+                  .join(" ")}
               >
-                {alreadyHasBQ ? (
-                  domToReact(kids as any)
-                ) : (
-                  <blockquote className="hop-quote">
-                    {domToReact(kids as any)}
-                  </blockquote>
-                )}
+                {domToReact((node.children || []) as any)}
               </section>
             );
           }
@@ -364,7 +357,7 @@ export default function HeritageArticle({
     };
   }, [content]);
 
-  /* ---------------- enhance carousels on public page ---------------- */
+  /* ---------------- enhance carousels on public page (unchanged) ---------------- */
   useEffect(() => {
     const root = hostRef.current;
     if (!root) return;
@@ -521,43 +514,10 @@ export default function HeritageArticle({
           }
         }
 
-        /* ==================== QUOTATION (PUBLIC PAGE) ==================== */
-        .reading-article .quotation .hop-quote,
-        .reading-article .quotation blockquote,
-        .reading-article .quotation .hop-text,
-        .reading-article .sec-quotation .hop-quote,
-        .reading-article .sec-quotation blockquote,
-        .reading-article .sec-quotation .hop-text {
-          font-family: var(
-            --quote-font,
-            ui-serif,
-            Georgia,
-            Cambria,
-            "Times New Roman",
-            Times,
-            serif
-          ) !important;
-          font-size: var(
-            --quote-size,
-            clamp(2.2rem, 2.2vw + 1.2rem, 4rem)
-          ) !important;
-          line-height: var(--quote-line, 1.35) !important;
-          font-weight: var(--quote-weight, 600) !important;
-          letter-spacing: var(--quote-letter, 0) !important;
-          font-style: var(--quote-style, italic) !important;
-          text-align: var(--quote-align, center) !important;
-          margin: 0 !important;
-        }
-        .reading-article .quotation :is(p, span, em, strong, i, b),
-        .reading-article .sec-quotation :is(p, span, em, strong, i, b) {
-          font: inherit !important;
-          font-size: inherit !important;
-          line-height: inherit !important;
-          letter-spacing: inherit !important;
-        }
-        .reading-article .prose blockquote {
-          margin-left: 0 !important;
-          margin-right: 0 !important;
+        /* Keep a light layout hook only; no typography overrides */
+        .reading-article .sec-quotation {
+          display: grid;
+          grid-template-columns: 1fr;
         }
 
         /* -------- Carousel (public page) -------- */
@@ -599,7 +559,7 @@ export default function HeritageArticle({
           right: -14px;
         }
 
-        /* -------- Note highlight (same as other component) -------- */
+        /* -------- Note highlight -------- */
         .note-highlight {
           --note-highlight-bg: #fff1d6;
           --note-highlight-fg: #7a4b00;
@@ -610,7 +570,7 @@ export default function HeritageArticle({
           box-shadow: inset 0 -0.1em 0 rgba(122, 75, 0, 0.15);
         }
 
-        /* -------- Selection colors (same) -------- */
+        /* -------- Selection colors -------- */
         .reading-article ::selection,
         .hop-article ::selection {
           background: #f7e0ac;
@@ -622,7 +582,7 @@ export default function HeritageArticle({
           color: #5a3e1b;
         }
 
-        /* -------- Make text selectable & images non-draggable (same) -------- */
+        /* -------- Make text selectable & images non-draggable -------- */
         .reading-article {
           user-select: text !important;
           -webkit-user-select: text !important;
@@ -643,7 +603,7 @@ export default function HeritageArticle({
           background: transparent !important;
         }
 
-        /* -------- Note popup styles (copied) -------- */
+        /* -------- Note popup styles -------- */
         .note-callout {
           position: relative;
           padding: 8px 10px;
@@ -699,7 +659,6 @@ export default function HeritageArticle({
           opacity: 0.85;
         }
 
-        /* -------- Sticky selection overlay (copied) -------- */
         .sticky-sel-layer {
           position: fixed;
           inset: 0;
@@ -720,13 +679,6 @@ export default function HeritageArticle({
           to {
             opacity: 1;
           }
-        }
-
-        /* ===== Per-page knobs ===== */
-        .reading-article {
-          --quote-size: clamp(2.2rem, 2.2vw + 1.2rem, 4rem);
-          --quote-style: italic;
-          --quote-align: center;
         }
       `}</style>
     </>

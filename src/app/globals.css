@@ -32,8 +32,8 @@ body {
   --font-headerlogo-font-color: #00b78b;
 
   /* --- General Font Definitions --- */
-  --font-body: "Lato", sans-serif;
-  --font-heading: "FuturaCyrillicHeavy", sans-serif;
+  --font-body: "Lato-regular", sans-serif;
+  --font-heading: "FuturaCyrillicBold", sans-serif;
   --font-headerhelvetica: "HelveticaNeueMedium", sans-serif;
 
   /* Retaining your existing Geist fonts */
@@ -41,7 +41,7 @@ body {
   --font-geist-mono: var(--font-geist-mono);
 
   /* Other design tokens */
-  --color-text: #111827;
+  --color-text: #545454;
   --color-background: #f4f4f4;
 
   /* --- Component Font Definitions --- */
@@ -66,16 +66,16 @@ body {
 
   /* Sidebar */
   --font-sidebar-key: 0.875rem "Lato-Bold"; /* 14px */
-  --color-sidebar-key: #4b5563; /* gray-600 */
+  --color-sidebar-key: #6e6e6e; /* gray-600 */
   --font-sidebar-value: 500 0.875rem "Lato-Regular"; /* 14px */
   --color-sidebar-value: var(--color-text);
   --font-sidebar-text: 0.875rem var(--font-body); /* 14px */
-  --color-sidebar-text: #374151; /* gray-700 */
-  --color-sidebar-muted-text: #4b5563; /* gray-600 */
+  --color-sidebar-text: #838383; /* gray-700 */
+  --color-sidebar-muted-text: #9b9b9b; /* gray-600 */
 
   /* Main Content Articles */
-  --font-article-text: 1rem/1.5 var(--font-body); /* 16px */
-  --color-article-text: var(--color-text);
+  --font-article-text: 1.15rem/1.6 "lato-regular" !important; /* 16px */
+  --color-article-text: #3e3e3e;
   --font-article-heading: 600 1rem var(--font-heading);
   --color-article-heading: var(--color-text);
 

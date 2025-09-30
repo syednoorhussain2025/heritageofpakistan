@@ -996,9 +996,13 @@ function PartComposer({
             {/* Sections list */}
             {sections.map((s, i) => {
               const isLast = i === sections.length - 1;
-              const sectionWrapperClass =
-                "flow-section-wrapper" +
-                (s.type === "carousel" ? " sec-carousel" : "");
+              const sectionWrapperClass = [
+                "flow-section-wrapper",
+                s.type === "carousel" && "sec-carousel",
+                s.type === "quotation" && "quotation",
+              ]
+                .filter(Boolean)
+                .join(" ");
               return (
                 <div key={i} className="relative">
                   <InsertionButton index={i} topOffset={-12} />

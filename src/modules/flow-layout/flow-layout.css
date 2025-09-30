@@ -14,6 +14,10 @@
   --quote-letter: 0;
   --quote-style: italic;
   --quote-align: center;
+
+  /* Quote marks */
+  --quote-marks-scale: 1.15;
+  --quote-marks-opacity: 0.7;
 }
 
 /* Base article container */
@@ -250,23 +254,21 @@
 .fl-aside {
   display: flow-root;
 }
-.fl-aside-left {
-  float: left;
+.fl-aside-left,
+.fl-aside-right {
   width: var(--side-img-w, 480px);
   max-width: 40%;
-  margin: 0 1rem 0.6rem 0;
   shape-outside: inset(0 round 10px);
   border-radius: 10px;
   overflow: clip;
 }
+.fl-aside-left {
+  float: left;
+  margin: 0 1rem 0.6rem 0;
+}
 .fl-aside-right {
   float: right;
-  width: var(--side-img-w, 480px);
-  max-width: 40%;
   margin: 0 0 0.6rem 1rem;
-  shape-outside: inset(0 round 10px);
-  border-radius: 10px;
-  overflow: clip;
 }
 .fl-aside-center {
   float: none;
@@ -308,18 +310,25 @@
 /* ===================================================================== */
 
 /* Quotation (emphasis block)
-   FlowRenderer now outputs:
+   FlowComposer now renders:
      <section class="hop-section quotation sec-quotation">
-       <blockquote class="hop-quote"><p>…</p></blockquote>
+       <blockquote class="flow-quote" data-size="xl" data-weight="semibold" data-lh="1.3">
+         <span class="flow-quote-open">“</span>
+         <span class="flow-quote-text">…</span>
+         <span class="flow-quote-close">”</span>
+       </blockquote>
      </section>
-   Tweak size/align/weight/etc by overriding the CSS variables above. */
+   Tune visuals by overriding the CSS variables above or the data-* attributes.
+*/
 .sec-quotation {
   grid-template-columns: 1fr;
   grid-template-areas: "quote";
 }
-.quotation .hop-quote,
-.sec-quotation .hop-quote,
-.hop-article blockquote.hop-quote {
+
+/* Base quote visuals via tokens */
+.quotation .flow-quote,
+.sec-quotation .flow-quote,
+.hop-article blockquote.flow-quote {
   grid-area: quote;
   text-align: var(--quote-align);
   font-family: var(--quote-font);
@@ -330,35 +339,113 @@
   font-style: var(--quote-style);
   margin: 0;
 }
-/* Ensure inner paragraphs inherit (beats any global typography defaults) */
-.hop-quote > p,
-.hop-quote > p * {
-  font: inherit !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
-  letter-spacing: inherit !important;
+
+/* Data attribute knobs (optional presets) */
+.flow-quote[data-size="sm"] {
+  --quote-size: clamp(18px, 2.4vw, 22px);
 }
-.hop-quote > p + p {
-  margin-top: 0.6em;
+.flow-quote[data-size="md"] {
+  --quote-size: clamp(20px, 2.8vw, 28px);
 }
-/* Optional soft card look if the section has a white/solid bg */
-.hop-quote {
+.flow-quote[data-size="lg"] {
+  --quote-size: clamp(22px, 3vw, 32px);
+}
+.flow-quote[data-size="xl"] {
+  --quote-size: clamp(24px, 3.4vw, 36px);
+}
+.flow-quote[data-weight="normal"] {
+  --quote-weight: 400;
+}
+.flow-quote[data-weight="medium"] {
+  --quote-weight: 500;
+}
+.flow-quote[data-weight="semibold"] {
+  --quote-weight: 600;
+}
+.flow-quote[data-weight="bold"] {
+  --quote-weight: 700;
+}
+.flow-quote[data-lh="1.2"] {
+  --quote-line: 1.2;
+}
+.flow-quote[data-lh="1.3"] {
+  --quote-line: 1.3;
+}
+.flow-quote[data-lh="1.5"] {
+  --quote-line: 1.5;
+}
+
+/* Quote marks */
+.flow-quote-open,
+.flow-quote-close {
+  opacity: var(--quote-marks-opacity);
+  display: inline-block;
+  transform: scale(var(--quote-marks-scale));
+  line-height: 0;
+  vertical-align: baseline;
+}
+.flow-quote-open {
+  margin-right: 0.08em;
+}
+.flow-quote-close {
+  margin-left: 0.08em;
+}
+
+/* Make inner text inherit, even if global prose styles exist */
+.flow-quote,
+.flow-quote * {
+  font-family: "none";
+  font-size: 1.8rem;
+  line-height: inherit;
+  font-weight: 500;
+  letter-spacing: inherit;
+  font-style: inherit;
+}
+.flow-quote-text {
+  display: inline;
+}
+
+/* Optional soft card look if parent gives a solid background */
+.flow-quote {
+  border-radius: 16px;
+}
+
+/* Back-compat: map old .hop-quote to new semantics */
+.quotation .hop-quote,
+.sec-quotation .hop-quote,
+.hop-article blockquote.hop-quote {
+  all: unset;
+  display: block;
+  grid-area: quote;
+  text-align: var(--quote-align);
+  font-family: var(--quote-font);
+  font-size: var(--quote-size);
+  line-height: var(--quote-line);
+  font-weight: var(--quote-weight);
+  letter-spacing: var(--quote-letter);
+  font-style: var(--quote-style);
+  margin: 0;
   border-radius: 16px;
 }
 
 /* Carousel Photos
-   Structure:
-     <section class="hop-section sec-carousel">
-       <div class="hop-carousel">
-         <div class="hop-carousel-item"><figure class="flx-img">…</figure></div>
-         …
-       </div>
-     </section>
+   Structure in FlowComposer is a flex scroller inside .sec-carousel.
 */
 .sec-carousel {
   grid-template-columns: 1fr;
   grid-template-areas: "carousel";
 }
+
+/* Generic scrollbar hider (used by the component) */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Optional helper if you wrap your scroller with a specific class */
 .hop-carousel {
   grid-area: carousel;
   display: flex;
@@ -372,10 +459,11 @@
 .hop-carousel::-webkit-scrollbar {
   display: none;
 }
+
 .hop-carousel-item {
   flex: 0 0 auto;
   min-width: 78%;
-  scroll-snap-align: start;
+  scroll-snap-align: center;
 }
 @media (min-width: 640px) {
   .hop-carousel-item {
@@ -388,14 +476,14 @@
   }
 }
 
-/* Optional: make images inside carousel items respect the carousel width token */
+/* Make images inside carousel items respect the card width token */
 .hop-carousel .flx-img {
   width: var(--carousel-card-w);
 }
 
-/* Optional: nav buttons (if you add them in JS) */
+/* Optional: nav button look (you position these in your markup/JS) */
 .hop-cnav {
-  position: relative; /* parent should place these; style here for reuse */
+  position: relative;
   width: 44px;
   height: 44px;
   display: grid;
@@ -414,4 +502,11 @@
 }
 .hop-cnav:active {
   transform: scale(0.98);
+}
+
+/* Motion-respect */
+@media (prefers-reduced-motion: reduce) {
+  .hop-carousel {
+    scroll-behavior: auto;
+  }
 }

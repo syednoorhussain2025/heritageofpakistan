@@ -87,7 +87,7 @@ export default function HeritagePage() {
   return (
     // ✅ Everything below is wrapped so Heart portals inherit context
     <CollectionsProvider>
-      <div className="min-h-screen bg-[#f4f4f4]">
+      <div className="min-h-screen bg-[#f8f8f8]">
         {/* HERO */}
         {loading || !site ? (
           <HeroSkeleton />

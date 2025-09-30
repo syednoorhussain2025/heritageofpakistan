@@ -290,6 +290,61 @@ function CaptionModal({
   );
 }
 
+/* ----------------------------- NEW: Quote Modal (plaintext) ----------------------------- */
+function QuoteModal({
+  initial = "",
+  onSave,
+  onCancel,
+}: {
+  initial?: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = React.useState<string>(initial);
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      data-edit-only
+    >
+      <div className="w-full max-w-md rounded-lg bg-neutral-900 text-white shadow-xl border border-neutral-700">
+        <div className="px-4 py-3 border-b border-neutral-800">
+          <h3 className="text-sm font-semibold">Add Quote</h3>
+        </div>
+        <div className="p-4 space-y-3">
+          <textarea
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 text-white px-3 py-2 text-sm"
+            rows={3}
+            placeholder="Paste or type the quote…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            maxLength={320}
+          />
+          <div className="text-[11px] text-neutral-400">
+            Tip: keep it short and punchy (≤ 320 characters).
+          </div>
+        </div>
+        <div className="px-4 py-3 border-t border-neutral-800 flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs rounded-md border border-neutral-700 text-white bg-neutral-900 hover:bg-neutral-800"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs rounded-md bg-white text-black hover:bg-gray-200"
+            onClick={() => onSave(value.trim())}
+            disabled={!value.trim()}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PencilIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg
@@ -1633,6 +1688,7 @@ function FullWidthText({
   );
 }
 
+/* ----------------------------- UPDATED: QuotationBlock (CSS-driven, no inline font styles) ----------------------------- */
 function QuotationBlock({
   sec,
   onChangeText,
@@ -1642,42 +1698,82 @@ function QuotationBlock({
   onChangeText: (text: string) => void;
   readonly?: boolean;
 }) {
-  const html = sec.text?.text || "";
+  // Plain text stored in sec.text?.text
+  const quote = (sec.text?.text || "").trim();
+
+  // Local modal state
+  const [open, setOpen] = React.useState(false);
+
+  // Editor-only controls
+  const Controls = !readonly ? (
+    <div
+      className="absolute top-2 -right-10"
+      data-edit-only
+      style={{ right: "calc(min(2.5rem, 10px))" }}
+    >
+      <button
+        type="button"
+        className="px-3 py-1.5 rounded-md bg-neutral-900 text-white border border-neutral-700 text-xs hover:bg-neutral-800 shadow"
+        onClick={() => setOpen(true)}
+        title={quote ? "Edit Quote" : "Add Quote"}
+      >
+        {quote ? "Edit Quote" : "Add Quote"}
+      </button>
+    </div>
+  ) : null;
+
   const commonPad = "px-6 py-10 sm:px-8 sm:py-12 md:px-12 md:py-16 rounded-2xl";
+
+  const renderQuote = (q: string) => {
+    if (!q) return null;
+    return (
+      <blockquote
+        className="flow-quote text-center italic"
+        // Expose simple knobs for public CSS to hook into
+        data-size="xl"
+        data-weight="semibold"
+        data-lh="1.3"
+      >
+        <span className="flow-quote-open" aria-hidden="true">
+          “
+        </span>
+        <span className="flow-quote-text">{q}</span>
+        <span className="flow-quote-close" aria-hidden="true">
+          ”
+        </span>
+      </blockquote>
+    );
+  };
+
   return (
     <div
-      className={`${wrapClass(sec)} ${commonPad}`}
-      style={{ ...sec.style, background: "white" }}
+      className={`${wrapClass(sec)} ${commonPad} relative`}
+      /* NOTE: no hardwired background/typography here; public CSS controls it */
+      style={sec.style}
     >
-      {readonly ? (
-        html ? (
-          <blockquote
-            className="text-center italic"
-            style={{
-              fontSize: "3em",
-              lineHeight: 1.3,
-              fontWeight: 600,
-            }}
-            dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(html, {
-                USE_PROFILES: { html: true },
-              }),
-            }}
-          />
-        ) : null
-      ) : (
-        <div className="max-w-4xl mx-auto">
-          <InlineTextBlock
-            value={html}
-            setValue={(v) => onChangeText(v)}
-            maxCharsSoft={260}
-            readonly={false}
-          />
-          <div className="mt-2 text-xs text-gray-500" data-edit-only>
-            Tip: keep it to one strong sentence.
-          </div>
+      {Controls}
+      {quote ? (
+        renderQuote(quote)
+      ) : readonly ? null : (
+        <div
+          className="text-center text-sm text-gray-500"
+          data-edit-only
+          style={{ minHeight: 48 }}
+        >
+          Click <em>Add Quote</em> to insert a quotation.
         </div>
       )}
+
+      {open && !readonly ? (
+        <QuoteModal
+          initial={quote}
+          onCancel={() => setOpen(false)}
+          onSave={(val) => {
+            onChangeText(val);
+            setOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -2312,7 +2408,7 @@ export function makeSection(kind: SectionKind): Section {
         paddingY: "lg",
         bg: "muted",
         cssClass: "sec-quotation",
-        text: { text: "" },
+        text: { text: "" }, // plain text quote will be stored here
       };
     case "carousel":
       return {
