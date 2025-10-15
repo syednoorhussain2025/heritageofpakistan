@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@citation-js/plugin-csl": "^0.7.18",
+    "@formkit/auto-animate": "^0.9.0",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@react-google-maps/api": "^2.20.7",
     "@supabase/auth-helpers-nextjs": "^0.10.0",

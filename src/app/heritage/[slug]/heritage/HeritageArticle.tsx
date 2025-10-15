@@ -210,17 +210,16 @@ export default function HeritageArticle({
     return div.innerHTML;
   }, [html]);
 
-  /* ---------------- parse → React (figures only; quotes untouched) ---------------- */
+  /* ---------------- parse → React ---------------- */
   const content = useMemo(() => {
     return parse(safe, {
       replace: (node: any) => {
         if (node.type !== "tag") return;
 
-        // Allow quotation sections to pass through unchanged (inherit composer styles)
+        // Pass-through quotation containers; ensure sec-quotation hook exists.
         if (node.name === "section" || node.name === "div") {
           const cls = String(node.attribs?.class || "");
           if (/\b(quotation|sec-quotation)\b/.test(cls)) {
-            // Only ensure the container carries sec-quotation for layout hooks if you want.
             const attribs = mapAttribs(node.attribs);
             return (
               <section
@@ -312,18 +311,41 @@ export default function HeritageArticle({
     });
   }, [safe, site.id]);
 
-  /* ---------------- fade-in on scroll (unchanged) ---------------- */
+  /* ---------------- scroll reveal (images, captions, quotes, text) ---------------- */
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
+    // Targets
     const imgs = Array.from(host.querySelectorAll<HTMLImageElement>("img"));
     const caps = Array.from(host.querySelectorAll<HTMLElement>("figcaption"));
+    const quotes = Array.from(
+      host.querySelectorAll<HTMLElement>(".sec-quotation, blockquote")
+    );
+    // Typical text blocks (composer & prose)
+    const texts = Array.from(
+      host.querySelectorAll<HTMLElement>(
+        "p, li, h1, h2, h3, h4, h5, h6, .hop-text, .flx-text"
+      )
+    );
 
+    // Tag classes for initial state
     host.classList.add("reveal-ready");
     imgs.forEach((el) => el.classList.add("reveal-img"));
     caps.forEach((el) => el.classList.add("reveal-cap"));
+    quotes.forEach((el) => el.classList.add("reveal-quote"));
+    texts.forEach((el) => el.classList.add("reveal-text"));
 
+    // Apply small per-element delays for richness (without JS reflow storms)
+    // Images/quotes get a tad more delay than text.
+    const setDelay = (el: HTMLElement, baseMs: number) =>
+      el.style.setProperty("--reveal-delay", `${baseMs}ms`);
+    imgs.forEach((el) => setDelay(el, 140));
+    caps.forEach((el) => setDelay(el, 160));
+    quotes.forEach((el) => setDelay(el, 160));
+    texts.forEach((el) => setDelay(el, 90));
+
+    // Observer fires when ~20% visible; elements must enter a bit before triggering.
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -339,11 +361,12 @@ export default function HeritageArticle({
           }
         }
       },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.01 }
+      { rootMargin: "0px 0px -12% 0px", threshold: 0.2 }
     );
 
-    [...imgs, ...caps].forEach((el) => io.observe(el));
+    [...imgs, ...caps, ...quotes, ...texts].forEach((el) => io.observe(el));
 
+    // Arm after paint to avoid initial flash
     const arm = requestAnimationFrame(() =>
       requestAnimationFrame(() => host.classList.add("reveal-armed"))
     );
@@ -352,12 +375,22 @@ export default function HeritageArticle({
       io.disconnect();
       cancelAnimationFrame(arm);
       host.classList.remove("reveal-ready", "reveal-armed");
-      imgs.forEach((el) => el.classList.remove("reveal-img", "in", "in-done"));
-      caps.forEach((el) => el.classList.remove("reveal-cap", "in", "in-done"));
+      const all = [...imgs, ...caps, ...quotes, ...texts];
+      all.forEach((el) => {
+        el.classList.remove(
+          "reveal-img",
+          "reveal-cap",
+          "reveal-quote",
+          "reveal-text",
+          "in",
+          "in-done"
+        );
+        el.style.removeProperty("--reveal-delay");
+      });
     };
   }, [content]);
 
-  /* ---------------- enhance carousels on public page (unchanged) ---------------- */
+  /* ---------------- enhance carousels (pronounced sequential entrance) ---------------- */
   useEffect(() => {
     const root = hostRef.current;
     if (!root) return;
@@ -386,8 +419,48 @@ export default function HeritageArticle({
 
       strip.classList.add("hop-carousel-strip");
 
+      // --- PRONOUNCED SEQUENTIAL ENTRANCE ---
+      const items = Array.from(strip.children).filter(
+        (n): n is HTMLElement => n instanceof HTMLElement
+      );
+      const baseStart = 160; // ms (noticeable initial pause)
+      const perItemStep = 300; // ms (clear stagger, great for 2–3 items)
+      const maxDelay = 1100; // cap to avoid excessive totals
+
+      items.forEach((el, i) => {
+        el.classList.add("hop-seq-item");
+        const delay = Math.min(baseStart + i * perItemStep, maxDelay);
+        el.style.setProperty("--seq-delay", `${delay}ms`);
+        const micro = i % 2 === 0 ? 0 : 20; // tiny irregularity
+        el.style.setProperty("--seq-micro", `${micro}ms`);
+      });
+
+      // Observe carousel visibility; then arm the sequence exactly once
+      const seqIO = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              // Defer one frame so initial styles apply before toggling class
+              requestAnimationFrame(() => {
+                strip.classList.add("hop-seq-in");
+              });
+              seqIO.unobserve(strip);
+              break;
+            }
+          }
+        },
+        { rootMargin: "0px 0px -10% 0px", threshold: 0.25 }
+      );
+
+      // Prepare initial state before observing
+      strip.classList.add("hop-seq-ready");
+      seqIO.observe(strip);
+
+      // --- NAV ---
       const calcStep = () => {
-        const children = Array.from(strip.children) as HTMLElement[];
+        const children = Array.from(strip.children).filter(
+          (n): n is HTMLElement => n instanceof HTMLElement
+        );
         const item =
           children.find((c) => c.offsetWidth > 0) || (children[0] as any);
         if (!item) return 0;
@@ -423,8 +496,18 @@ export default function HeritageArticle({
       cleanups.push(() => {
         left.remove();
         right.remove();
-        strip.classList.remove("hop-carousel-strip");
+        items.forEach((el) => {
+          el.classList.remove("hop-seq-item");
+          el.style.removeProperty("--seq-delay");
+          el.style.removeProperty("--seq-micro");
+        });
+        strip.classList.remove(
+          "hop-carousel-strip",
+          "hop-seq-ready",
+          "hop-seq-in"
+        );
         (block as any).__hopCarouselInit = undefined;
+        seqIO.disconnect();
       });
     });
 
@@ -678,6 +761,71 @@ export default function HeritageArticle({
           }
           to {
             opacity: 1;
+          }
+        }
+
+        /* ========= Scroll reveal (images, captions, quotes, text) ========= */
+        @media (prefers-reduced-motion: no-preference) {
+          .reading-article.reveal-ready .reveal-img,
+          .reading-article.reveal-ready .reveal-cap,
+          .reading-article.reveal-ready .reveal-quote,
+          .reading-article.reveal-ready .reveal-text {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+
+          /* Quotes and photos lift slightly more for emphasis */
+          .reading-article.reveal-ready .reveal-quote,
+          .reading-article.reveal-ready .reveal-img {
+            transform: translateY(14px);
+          }
+
+          .reading-article.reveal-armed .reveal-img,
+          .reading-article.reveal-armed .reveal-cap,
+          .reading-article.reveal-armed .reveal-quote,
+          .reading-article.reveal-armed .reveal-text {
+            will-change: opacity, transform;
+            transition: opacity 460ms cubic-bezier(0.2, 0.7, 0.2, 1)
+                var(--reveal-delay, 60ms),
+              transform 560ms cubic-bezier(0.2, 0.7, 0.2, 1)
+                var(--reveal-delay, 60ms);
+          }
+
+          .reading-article .reveal-img.in,
+          .reading-article .reveal-cap.in,
+          .reading-article .reveal-quote.in,
+          .reading-article .reveal-text.in {
+            opacity: 1;
+            transform: none;
+          }
+
+          .reading-article .reveal-img.in-done,
+          .reading-article .reveal-cap.in-done,
+          .reading-article .reveal-quote.in-done,
+          .reading-article .reveal-text.in-done {
+            will-change: auto;
+          }
+        }
+
+        /* ========= Carousel pronounced sequential entrance ========= */
+        @media (prefers-reduced-motion: no-preference) {
+          .hop-seq-ready .hop-seq-item {
+            opacity: 0;
+            transform: translateY(24px) scale(0.985);
+            /* Uncomment for a soft-focus arrival:
+               filter: blur(2px); */
+          }
+          .hop-seq-in .hop-seq-item {
+            will-change: opacity, transform, filter;
+            transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1)
+                calc(var(--seq-delay, 120ms) + var(--seq-micro, 0ms)),
+              transform 640ms cubic-bezier(0.22, 1, 0.36, 1)
+                calc(var(--seq-delay, 120ms) + var(--seq-micro, 0ms)),
+              filter 640ms cubic-bezier(0.22, 1, 0.36, 1)
+                calc(var(--seq-delay, 120ms) + var(--seq-micro, 0ms));
+            opacity: 1;
+            transform: none;
+            /* filter: none; */
           }
         }
       `}</style>

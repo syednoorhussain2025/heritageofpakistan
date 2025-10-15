@@ -1,6 +1,7 @@
 // src/components/StickyHeader.tsx
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
+import AddToTripModal from "@/components/AddToTripModal"; // <-- added
 
 type Site = { id: string; slug: string; title: string };
 
@@ -337,6 +338,9 @@ export default function StickyHeader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [researchModeInternal]);
 
+  // ── Add to Trip modal state ──
+  const [showTripModal, setShowTripModal] = useState(false);
+
   if (!site) return null;
 
   return (
@@ -402,7 +406,7 @@ export default function StickyHeader({
 
             {/* Centered actions */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin justify-center mx-auto">
-              {/* Bookmark button with persistent orange icon badge only */}
+              {/* Bookmark */}
               <ActionButton
                 onClick={() => toggleBookmark(site.id)}
                 ariaPressed={isBookmarked}
@@ -427,11 +431,13 @@ export default function StickyHeader({
                 </span>
               </ActionButton>
 
-              <ActionButton onClick={() => setInTrip((t) => !t)}>
+              {/* Add to Trip → open Trip modal */}
+              <ActionButton onClick={() => setShowTripModal(true)}>
                 <IconBadge name="route" />
                 <span>{inTrip ? "Added to Trip" : "Add to Trip"}</span>
               </ActionButton>
 
+              {/* Wishlist */}
               <ActionButton onClick={() => setShowWishlistModal(true)}>
                 <IconBadge name="list-ul" />
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
@@ -546,7 +552,7 @@ export default function StickyHeader({
                   "pt-3 pb-5",
                 ].join(" ")}
               >
-                {tocItems.map((item) => {
+                {FIXED_ITEMS.map((item) => {
                   const textIndent =
                     item.level === 4
                       ? "pl-20"
@@ -612,6 +618,18 @@ export default function StickyHeader({
           </aside>
         </div>
       </div>
+
+      {/* Add to Trip Modal */}
+      {showTripModal && site && (
+        <AddToTripModal
+          siteId={site.id}
+          onClose={() => {
+            setShowTripModal(false);
+            // Optional: mark as added once user interacts with modal
+            // setInTrip(true);
+          }}
+        />
+      )}
 
       <style jsx global>{`
         .scrollbar-thin {

@@ -7,6 +7,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
+import AddToTripModal from "@/components/AddToTripModal"; // <-- added
 
 type Site = {
   id: string;
@@ -76,6 +77,7 @@ export default function SitePreviewCard({
   const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
+  const [showTripModal, setShowTripModal] = useState(false); // <-- added
 
   // Image source with robust fallbacks:
   // 1) try transformed URL (800x533 @ q=85)
@@ -183,6 +185,11 @@ export default function SitePreviewCard({
             <button
               title="Quick view"
               className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // hook up your quick-view here if needed
+              }}
             >
               <Icon
                 name="search-plus"
@@ -193,7 +200,11 @@ export default function SitePreviewCard({
 
             <button
               title="Bookmark"
-              onClick={() => toggleBookmark(site.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleBookmark(site.id);
+              }}
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                 isBookmarked
                   ? "bg-[var(--brand-orange)] hover:brightness-90"
@@ -211,7 +222,7 @@ export default function SitePreviewCard({
             </button>
 
             <button
-              title="Add to list"
+              title="Add to Wishlist"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -228,6 +239,11 @@ export default function SitePreviewCard({
 
             <button
               title="Add to Trip"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowTripModal(true); // <-- opens Trip modal
+              }}
               className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               <Icon
@@ -245,6 +261,15 @@ export default function SitePreviewCard({
           <AddToWishlistModal
             siteId={site.id}
             onClose={() => setShowWishlistModal(false)}
+          />
+        </Portal>
+      )}
+
+      {showTripModal && (
+        <Portal>
+          <AddToTripModal
+            siteId={site.id}
+            onClose={() => setShowTripModal(false)}
           />
         </Portal>
       )}
