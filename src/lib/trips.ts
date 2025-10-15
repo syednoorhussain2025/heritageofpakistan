@@ -33,6 +33,41 @@ export type SiteLite = {
   cover_photo_url: string | null;
 };
 
+/* ── Travel (new) ── */
+export type TravelMode = "airplane" | "bus" | "car" | "walk";
+
+export type TravelLeg = {
+  id: string;
+  trip_id: string;
+  order_index: number;
+  from_region_id: string | null;
+  to_region_id: string | null;
+  mode: TravelMode;
+  duration_minutes: number | null;
+  distance_km: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // denormalized names for UI
+  from_region_name?: string | null;
+  to_region_name?: string | null;
+};
+
+export type TimelineItem =
+  | ({
+      kind: "site";
+      id: string;
+      trip_id: string;
+      order_index: number;
+      site_id: string;
+      date_in: string | null;
+      date_out: string | null;
+      notes: string | null;
+      created_at: string;
+      updated_at: string;
+    } & Record<string, any>)
+  | (TravelLeg & { kind: "travel" });
+
 /* ───────────────────── Helpers ───────────────────── */
 
 function slugify(input: string) {
@@ -50,11 +85,6 @@ async function ensureUniqueTripSlug(userId: string, baseName: string) {
   let candidate = base;
   let n = 1;
 
-  // try base, then base-2, base-3, ...
-  // uses count from Supabase (with head:true) which is fast
-  // and doesn't return row data.
-  // In supabase-js v2, { data: null, count: number }
-  // is expected for head:true.
   /* eslint-disable no-constant-condition */
   while (true) {
     const { count, error } = await supabase
@@ -64,7 +94,7 @@ async function ensureUniqueTripSlug(userId: string, baseName: string) {
       .eq("slug", candidate);
 
     if (error) throw error;
-    if (!count) return candidate; // 0 or undefined → available
+    if (!count) return candidate;
 
     n += 1;
     candidate = `${base}-${n}`;
@@ -72,7 +102,10 @@ async function ensureUniqueTripSlug(userId: string, baseName: string) {
   /* eslint-enable no-constant-condition */
 }
 
-/* ───────────────────── Queries ───────────────────── */
+const safeNum = (v: any): number | null =>
+  v === null || v === undefined || v === "" ? null : Number(v);
+
+/* ───────────────────── Queries (Trips & Sites) ───────────────────── */
 
 export async function getUserTrips() {
   const { data, error } = await supabase
@@ -173,6 +206,9 @@ export async function getTripUrlById(id: string): Promise<string | null> {
   return `/${p.username}/trip/${t.slug}`;
 }
 
+/**
+ * Existing helper that returns trip + site items with denormalized info.
+ */
 export async function getTripWithItems(tripId: string) {
   const { data: trip, error: tripErr } = await supabase
     .from("trips")
@@ -236,15 +272,18 @@ export async function getTripWithItems(tripId: string) {
 
   return {
     trip,
-    items: (items ?? []).map((it) => ({
-      ...it,
-      site: sitesById[it.site_id] || null,
-      provinceName:
-        (sitesById[it.site_id]?.province_id &&
-          provinceById[sitesById[it.site_id]!.province_id!]) ||
-        null,
-      experience: categoriesBySite[it.site_id] || [],
-    })),
+    items: (items ?? []).map(
+      (it) =>
+        ({
+          ...it,
+          site: sitesById[it.site_id] || null,
+          provinceName:
+            (sitesById[it.site_id]?.province_id &&
+              provinceById[sitesById[it.site_id]!.province_id!]) ||
+            null,
+          experience: categoriesBySite[it.site_id] || [],
+        } as any)
+    ),
   };
 }
 
@@ -280,4 +319,256 @@ export async function updateTripItemsBatch(
 export async function deleteTripItem(id: string) {
   const { error } = await supabase.from("trip_items").delete().eq("id", id);
   if (error) throw error;
+}
+
+/* ───────────────────── Travel (new) ───────────────────── */
+
+/** Next order index across BOTH site items and travel legs */
+export async function getNextOrderIndex(trip_id: string): Promise<number> {
+  const [ti, tt] = await Promise.all([
+    supabase
+      .from("trip_items")
+      .select("order_index")
+      .eq("trip_id", trip_id)
+      .order("order_index", { ascending: false })
+      .limit(1),
+    supabase
+      .from("trip_travel")
+      .select("order_index")
+      .eq("trip_id", trip_id)
+      .order("order_index", { ascending: false })
+      .limit(1),
+  ]);
+
+  const maxA = (ti.data?.[0]?.order_index ?? 0) as number;
+  const maxB = (tt.data?.[0]?.order_index ?? 0) as number;
+  return Math.max(maxA, maxB) + 1;
+}
+
+/** Create a new travel leg */
+export async function addTravelLeg(params: {
+  trip_id: string;
+  from_region_id?: string | null;
+  to_region_id?: string | null;
+  mode?: TravelMode;
+  duration_minutes?: number | null;
+  distance_km?: number | null;
+  notes?: string | null;
+}) {
+  const order_index = await getNextOrderIndex(params.trip_id);
+  const payload = {
+    trip_id: params.trip_id,
+    order_index,
+    from_region_id: params.from_region_id ?? null,
+    to_region_id: params.to_region_id ?? null,
+    mode: (params.mode ?? "car") as TravelMode,
+    duration_minutes: params.duration_minutes ?? null,
+    distance_km: safeNum(params.distance_km),
+    notes: params.notes ?? null,
+  };
+  const { data, error } = await supabase
+    .from("trip_travel")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  const out: TravelLeg = {
+    ...(data as any),
+    distance_km: safeNum((data as any)?.distance_km),
+  };
+  return out;
+}
+
+/** Update a travel leg (partial) */
+export async function updateTravelLeg(
+  id: string,
+  patch: Partial<
+    Pick<
+      TravelLeg,
+      | "from_region_id"
+      | "to_region_id"
+      | "mode"
+      | "duration_minutes"
+      | "distance_km"
+      | "notes"
+      | "order_index"
+    >
+  >
+) {
+  const fixed: any = { ...patch };
+  if (fixed.distance_km !== undefined)
+    fixed.distance_km = safeNum(fixed.distance_km);
+
+  const { data, error } = await supabase
+    .from("trip_travel")
+    .update(fixed)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  const out: TravelLeg = {
+    ...(data as any),
+    distance_km: safeNum((data as any)?.distance_km),
+  };
+  return out;
+}
+
+/** Delete a travel leg */
+export async function deleteTravelLeg(id: string) {
+  const { error } = await supabase.from("trip_travel").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Bulk reorder both kinds without RPCs */
+export async function updateTimelineOrder(
+  items: Array<{ kind: "site" | "travel"; id: string; order_index: number }>
+) {
+  const siteUpdates = items
+    .filter((x) => x.kind === "site")
+    .map((x) => ({ id: x.id, order_index: x.order_index }));
+  const travelUpdates = items
+    .filter((x) => x.kind === "travel")
+    .map((x) => ({ id: x.id, order_index: x.order_index }));
+
+  if (siteUpdates.length) {
+    await updateTripItemsBatch(siteUpdates);
+  }
+
+  if (travelUpdates.length) {
+    await Promise.all(
+      travelUpdates.map((t) =>
+        supabase
+          .from("trip_travel")
+          .update({ order_index: t.order_index })
+          .eq("id", t.id)
+      )
+    );
+  }
+}
+
+/** Regions search for location picker */
+export async function searchRegions(query: string) {
+  const q = (query || "").trim();
+  if (!q) return [];
+  const { data, error } = await supabase
+    .from("regions")
+    .select("id,name,slug,parent_id,icon_key")
+    .ilike("name", `%${q}%`)
+    .order("sort_order", { ascending: true })
+    .limit(20);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/* Helper: hydrate region names for travel rows */
+async function hydrateRegionNames<
+  T extends TravelLeg | (TravelLeg & { kind: "travel" })
+>(rows: T[]): Promise<T[]> {
+  const ids = Array.from(
+    new Set(
+      rows
+        .flatMap((t) => [t.from_region_id, t.to_region_id])
+        .filter(Boolean) as string[]
+    )
+  );
+  if (!ids.length) return rows;
+
+  const { data, error } = await supabase
+    .from("regions")
+    .select("id,name")
+    .in("id", ids);
+  if (error) throw error;
+
+  const byId = Object.fromEntries(
+    (data ?? []).map((r) => [r.id, r.name as string])
+  );
+
+  return rows.map((t) => ({
+    ...t,
+    from_region_name: t.from_region_id ? byId[t.from_region_id] ?? null : null,
+    to_region_name: t.to_region_id ? byId[t.to_region_id] ?? null : null,
+  }));
+}
+
+/** Unified timeline (sites + travel) ordered by order_index
+ *  1) Tries the `trip_timeline` view (if created).
+ *  2) Falls back to merging `trip_items` + `trip_travel` client-side.
+ *  Always returns travel rows with `from_region_name` / `to_region_name`.
+ */
+export async function getTripTimeline(
+  trip_id: string
+): Promise<TimelineItem[]> {
+  // Attempt to read from view
+  const viewTry = await supabase
+    .from("trip_timeline")
+    .select("*")
+    .eq("trip_id", trip_id)
+    .order("order_index", { ascending: true });
+
+  if (!viewTry.error && Array.isArray(viewTry.data)) {
+    const arr = (viewTry.data as any[]).map((row) => {
+      if (row.kind === "travel") {
+        return {
+          ...row,
+          distance_km: safeNum(row.distance_km),
+        } as TimelineItem;
+      }
+      return row as TimelineItem;
+    });
+
+    // If the view didn't include names, hydrate them.
+    const travels = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
+      kind: "travel";
+    })[];
+    const needHydration = travels.some(
+      (t) => !("from_region_name" in t) || !("to_region_name" in t)
+    );
+    if (travels.length && needHydration) {
+      const hydratedTravels = await hydrateRegionNames(travels);
+      const byId = new Map(hydratedTravels.map((t) => [t.id, t]));
+      return arr.map((x) =>
+        x.kind === "travel" ? (byId.get(x.id) as any) : x
+      );
+    }
+    return arr;
+  }
+
+  // Fallback: manual merge + hydrate names
+  const [sitesRes, travelRes] = await Promise.all([
+    supabase
+      .from("trip_items")
+      .select(
+        "id, trip_id, site_id, order_index, date_in, date_out, notes, created_at, updated_at"
+      )
+      .eq("trip_id", trip_id),
+    supabase
+      .from("trip_travel")
+      .select(
+        "id, trip_id, order_index, from_region_id, to_region_id, mode, duration_minutes, distance_km, notes, created_at, updated_at"
+      )
+      .eq("trip_id", trip_id),
+  ]);
+
+  if (sitesRes.error) throw sitesRes.error;
+  if (travelRes.error) throw travelRes.error;
+
+  const sites: TimelineItem[] =
+    (sitesRes.data ?? []).map((s: any) => ({ kind: "site", ...s })) ?? [];
+
+  let travel: (TravelLeg & { kind: "travel" })[] =
+    (travelRes.data ?? []).map((t: any) => ({
+      kind: "travel",
+      ...t,
+      distance_km: safeNum(t.distance_km),
+    })) ?? [];
+
+  // Hydrate region names
+  travel = await hydrateRegionNames(travel);
+
+  const merged = [...sites, ...travel].sort(
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+  );
+  return merged;
 }
