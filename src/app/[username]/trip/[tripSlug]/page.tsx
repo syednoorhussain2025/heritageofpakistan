@@ -1,7 +1,7 @@
 // app/[username]/trip/[tripSlug]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,13 +29,15 @@ type BuilderSiteItem = Extract<TimelineItem, { kind: "site" }> & {
 type BuilderTravelItem = Extract<TimelineItem, { kind: "travel" }> & {
   from_region_name?: string | null;
   to_region_name?: string | null;
+  travel_start_at?: string | null;
+  travel_end_at?: string | null;
 };
 type BuilderItem = BuilderSiteItem | BuilderTravelItem;
 
-/* Grid for the list */
+/* 7-col grid; keep children aligned */
 const GRID =
   "grid items-center gap-3 " +
-  "grid-cols-[36px_minmax(200px,1.6fr)_minmax(140px,1.1fr)_minmax(120px,auto)_minmax(140px,1fr)_minmax(160px,1.1fr)_84px]";
+  "grid-cols-[36px_minmax(240px,2.2fr)_minmax(140px,1fr)_minmax(120px,0.9fr)_minmax(140px,1fr)_minmax(160px,1.1fr)_84px]";
 
 function KIcon({
   name,
@@ -49,12 +51,28 @@ function KIcon({
     | "hike"
     | "info"
     | "edit"
-    | "plus";
+    | "plus"
+    | "best-time-to-visit" // airplane
+    | "travel-guide" // bus
+    | "car"
+    | "train";
   size?: number;
   className?: string;
 }) {
   return <Icon name={name} size={size} className={className} />;
 }
+
+/** icon+label for modes (UI also exposes "train") */
+const MODE_META: Record<
+  TravelMode | "train",
+  { label: string; icon: Parameters<typeof KIcon>[0]["name"] }
+> = {
+  airplane: { label: "Airplane", icon: "best-time-to-visit" },
+  bus: { label: "Bus", icon: "travel-guide" },
+  car: { label: "Car", icon: "car" },
+  walk: { label: "Walk/Trek", icon: "hike" },
+  train: { label: "Train", icon: "train" },
+};
 
 export default function TripBuilderPage() {
   const { username, tripSlug } = useParams<{
@@ -90,14 +108,14 @@ export default function TripBuilderPage() {
   });
   const rowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
-  // Date popover
+  // Date popover (sites)
   const [openDateFor, setOpenDateFor] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState<{
     in?: string | null;
     out?: string | null;
   }>({});
 
-  // Notes modal (site only, still limited to 50 chars)
+  // Notes modal (sites)
   const [openNotesFor, setOpenNotesFor] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>("");
 
@@ -114,9 +132,12 @@ export default function TripBuilderPage() {
     from_region_name: string | null;
     to_region_id: string | null;
     to_region_name: string | null;
-    mode: TravelMode;
-    duration_minutes: number | null;
+    mode: TravelMode | "train";
+    duration_hours: number | null;
+    duration_mins: number | null;
     distance_km: number | null;
+    travel_start_at: string | null;
+    travel_end_at: string | null;
   } | null>(null);
 
   /* ---------- load ---------- */
@@ -131,10 +152,7 @@ export default function TripBuilderPage() {
         setTripId(trip.id);
         setTripName(trip.name);
 
-        // 1) unified timeline (basic site rows + travel rows)
         const timeline = await getTripTimeline(trip.id);
-
-        // 2) hydrate site rows with site/province/experience
         const { items: siteEnriched } = await getTripWithItems(trip.id);
         const siteById: Record<string, BuilderSiteItem> = Object.fromEntries(
           (siteEnriched as BuilderSiteItem[]).map((s) => [
@@ -143,22 +161,17 @@ export default function TripBuilderPage() {
           ])
         );
 
-        const merged: BuilderItem[] = timeline.map((row) => {
-          if (row.kind === "site") {
-            const full = siteById[row.id];
-            return (
-              full ??
+        const merged: BuilderItem[] = timeline.map((row) =>
+          row.kind === "site"
+            ? siteById[row.id] ??
               ({
                 ...row,
                 site: null,
                 provinceName: null,
                 experience: [],
               } as BuilderSiteItem)
-            );
-          }
-          // travel row
-          return row as BuilderTravelItem;
-        });
+            : (row as BuilderTravelItem)
+        );
 
         if (!mounted) return;
         setItems(merged);
@@ -219,12 +232,12 @@ export default function TripBuilderPage() {
         if (from === -1 || to === -1 || from === to) return prev;
         const [moved] = arr.splice(from, 1);
         arr.splice(to, 0, moved);
-        const renumbered = arr.map((x, idx) => ({
+        const ren = arr.map((x, idx) => ({
           ...x,
           order_index: idx + 1,
-        }));
+        })) as BuilderItem[];
         setDirtyOrder(true);
-        return renumbered as BuilderItem[];
+        return ren;
       });
     };
   const clearDrag = () => {
@@ -333,8 +346,31 @@ export default function TripBuilderPage() {
     return "Set dates";
   };
 
+  const fmtDateTimeShort = (iso?: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const durationLabel = (mins: number | null | undefined) => {
+    if (mins == null) return "—";
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h && m) return `${h}h ${m}m`;
+    if (h) return `${h}h`;
+    return `${m}m`;
+  };
+
   /* ---------- travel editor ---------- */
   const startEditTravel = (row: BuilderTravelItem) => {
+    const mins = row.duration_minutes ?? null;
+    const h = mins != null ? Math.floor(mins / 60) : null;
+    const m = mins != null ? mins % 60 : null;
     setEditingTravel(row);
     setTravelDraft({
       from_region_id: row.from_region_id ?? null,
@@ -342,8 +378,11 @@ export default function TripBuilderPage() {
       to_region_id: row.to_region_id ?? null,
       to_region_name: (row as any).to_region_name ?? null,
       mode: row.mode,
-      duration_minutes: row.duration_minutes,
-      distance_km: row.distance_km,
+      duration_hours: h,
+      duration_mins: m,
+      distance_km: row.distance_km ?? null,
+      travel_start_at: (row as any).travel_start_at ?? null,
+      travel_end_at: (row as any).travel_end_at ?? null,
     });
     setTravelFromQuery("");
     setTravelToQuery("");
@@ -351,7 +390,7 @@ export default function TripBuilderPage() {
     setTravelToOpts([]);
   };
 
-  // quick search (debounced lightly via onChange usage)
+  // region search
   useEffect(() => {
     let live = true;
     (async () => {
@@ -380,13 +419,45 @@ export default function TripBuilderPage() {
   const saveTravel = async () => {
     if (!editingTravel || !travelDraft) return;
     try {
-      const patched = await updateTravelLeg(editingTravel.id, {
+      const totalMinutes =
+        (travelDraft.duration_hours ?? 0) * 60 +
+        (travelDraft.duration_mins ?? 0);
+
+      // If 'train' isn't supported by backend enum yet, map to 'bus'
+      const modeToSave =
+        (travelDraft.mode as any) === "train"
+          ? ("bus" as TravelMode)
+          : (travelDraft.mode as TravelMode);
+
+      const basePatch: any = {
         from_region_id: travelDraft.from_region_id,
         to_region_id: travelDraft.to_region_id,
-        mode: travelDraft.mode,
-        duration_minutes: travelDraft.duration_minutes,
+        mode: modeToSave,
+        duration_minutes: Number.isFinite(totalMinutes) ? totalMinutes : null,
         distance_km: travelDraft.distance_km,
-      });
+      };
+
+      const withDatesPatch = {
+        ...basePatch,
+        travel_start_at: travelDraft.travel_start_at || null,
+        travel_end_at: travelDraft.travel_end_at || null,
+      };
+
+      let patched: any;
+      try {
+        patched = await updateTravelLeg(editingTravel.id, withDatesPatch);
+      } catch (err: any) {
+        // Fallback if backend doesn't support the travel_* columns
+        const msg = err?.message || "";
+        if (msg.includes("travel_start_at") || msg.includes("travel_end_at")) {
+          setErrorMsg(
+            "Saved, but start/end time isn’t supported yet on this trip."
+          );
+          patched = await updateTravelLeg(editingTravel.id, basePatch);
+        } else {
+          throw err;
+        }
+      }
 
       setItems((prev) =>
         prev.map((it) =>
@@ -402,6 +473,14 @@ export default function TripBuilderPage() {
                   travelDraft.to_region_name ??
                   (it as any).to_region_name ??
                   null,
+                travel_start_at:
+                  travelDraft.travel_start_at ??
+                  (it as any).travel_start_at ??
+                  null,
+                travel_end_at:
+                  travelDraft.travel_end_at ??
+                  (it as any).travel_end_at ??
+                  null,
               }
             : it
         )
@@ -416,14 +495,12 @@ export default function TripBuilderPage() {
     if (!tripId) return;
     try {
       const row = await addTravelLeg({ trip_id: tripId, mode: "car" });
-      // put at end in local state
       setItems((prev) => {
         const arr = [...prev, { ...row, kind: "travel" } as BuilderTravelItem];
-        const ren = arr.map((x, i) => ({
+        return arr.map((x, i) => ({
           ...x,
           order_index: i + 1,
         })) as BuilderItem[];
-        return ren;
       });
       setDirtyOrder(true);
     } catch (e: any) {
@@ -452,14 +529,9 @@ export default function TripBuilderPage() {
     }
   };
 
-  /* ---------- render helpers ---------- */
-  const siteNumber = (rowIndex: number) => {
-    // numbering ONLY sites (by visual order)
-    const siteIndex = items
-      .slice(0, rowIndex + 1)
-      .filter((x) => x.kind === "site").length;
-    return siteIndex;
-  };
+  /* ---------- helpers ---------- */
+  const siteNumber = (rowIndex: number) =>
+    items.slice(0, rowIndex + 1).filter((x) => x.kind === "site").length;
 
   /* ---------- Cards ---------- */
 
@@ -477,7 +549,7 @@ export default function TripBuilderPage() {
     return (
       <div className={"px-4 py-3 " + (isGhost ? "pointer-events-none" : "")}>
         <div className={GRID}>
-          {/* Number circle (sites only) */}
+          {/* Number circle */}
           <div className="flex items-center justify-center">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow-sm">
               {num}
@@ -669,20 +741,12 @@ export default function TripBuilderPage() {
   }) {
     const interactive = !isGhost;
 
-    const fromName = it.from_region_name ?? "From...";
-    const toName = it.to_region_name ?? "To...";
-    const modeTitle =
-      it.mode === "airplane"
-        ? "Airplane"
-        : it.mode === "bus"
-        ? "Bus"
-        : it.mode === "car"
-        ? "Car"
-        : "Walk/Trek";
-    const label = `${fromName} — ${modeTitle} — ${toName}`;
-    const dur =
-      it.duration_minutes != null ? `${it.duration_minutes} min` : "— min";
-    const dist = it.distance_km != null ? `${it.distance_km} km` : "— km";
+    const fromName = it.from_region_name ?? "From…";
+    const toName = it.to_region_name ?? "To…";
+    const modeMeta = MODE_META[it.mode] || MODE_META.car;
+
+    const startShort = fmtDateTimeShort((it as any).travel_start_at);
+    const endShort = fmtDateTimeShort((it as any).travel_end_at);
 
     return (
       <div className={"px-4 py-3 " + (isGhost ? "pointer-events-none" : "")}>
@@ -690,32 +754,77 @@ export default function TripBuilderPage() {
           {/* NO number for travel */}
           <div />
 
-          {/* Centered travel info (span across site/region columns) */}
-          <div className="col-span-4 flex items-center justify-center">
+          {/* Main travel content spans 5 cols so delete stays inline */}
+          <div className="col-span-5">
             <button
               type="button"
-              className="text-[17px] font-medium text-[#0A1B4D] underline-offset-2 hover:underline"
+              className="w-full"
               onClick={() => interactive && startEditTravel(it)}
               data-no-drag
               title="Edit travel"
             >
-              {label}
+              <div className="flex items-center justify-center gap-3 w-full text-[#0A1B4D]">
+                {/* From (with pin + start date below) */}
+                <div className="flex flex-col items-start min-w-0">
+                  <div className="flex items-center gap-2">
+                    <KIcon
+                      name="map-marker-alt"
+                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="truncate font-medium">{fromName}</span>
+                  </div>
+                  {startShort && (
+                    <div className="ml-6 text-xs text-slate-600">
+                      {startShort}
+                    </div>
+                  )}
+                </div>
+
+                {/* Line */}
+                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
+
+                {/* Mode (with duration/distance below) */}
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <KIcon
+                      name={modeMeta.icon}
+                      className="text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="font-semibold">{modeMeta.label}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    {durationLabel(it.duration_minutes)}{" "}
+                    <span className="mx-1">•</span>
+                    {it.distance_km != null ? `${it.distance_km} km` : "— km"}
+                  </div>
+                </div>
+
+                {/* Line */}
+                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
+
+                {/* To (with pin + end date below) */}
+                <div className="flex flex-col items-start min-w-0">
+                  <div className="flex items-center gap-2">
+                    <KIcon
+                      name="map-marker-alt"
+                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="truncate font-medium">{toName}</span>
+                  </div>
+                  {endShort && (
+                    <div className="ml-6 text-xs text-slate-600">
+                      {endShort}
+                    </div>
+                  )}
+                </div>
+              </div>
             </button>
           </div>
 
-          {/* duration / distance small pill */}
-          <div className="flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => interactive && startEditTravel(it)}
-              className="rounded-md border px-3 py-1 text-sm text-[#0A1B4D] hover:bg-gray-50"
-              data-no-drag
-            >
-              {dur} / {dist}
-            </button>
-          </div>
+          {/* Notes column (travel has none) */}
+          <div className="text-center text-slate-400 text-sm">—</div>
 
-          {/* Actions */}
+          {/* Actions (right side) */}
           <div className="flex min-w-0 items-center justify-end">
             <button
               onClick={() => handleDelete(it)}
@@ -945,7 +1054,7 @@ export default function TripBuilderPage() {
         </div>
       )}
 
-      {/* Travel Editor (single popup) */}
+      {/* Travel Editor */}
       {editingTravel && travelDraft && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4"
@@ -960,130 +1069,164 @@ export default function TripBuilderPage() {
               Edit travel
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {/* From */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  From
-                </label>
-                <input
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  placeholder="Search region…"
-                  value={travelFromQuery}
-                  onChange={(e) => setTravelFromQuery(e.target.value)}
-                />
-                {travelFromOpts.length > 0 && (
-                  <div className="mt-1 max-h-40 overflow-auto rounded-md border">
-                    {travelFromOpts.map((r) => (
-                      <button
-                        key={r.id}
-                        className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                        onClick={() =>
-                          setTravelDraft(
-                            (d) =>
-                              d && {
-                                ...d,
-                                from_region_id: r.id,
-                                from_region_name: r.name,
-                              }
-                          )
-                        }
-                      >
-                        {r.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!!travelDraft.from_region_name && (
-                  <div className="mt-1 text-xs text-slate-600">
-                    Selected: {travelDraft.from_region_name}
-                  </div>
-                )}
+            <div className="grid grid-cols-1 gap-4">
+              {/* From / To */}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">
+                    From
+                  </label>
+                  <input
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    placeholder="Search region…"
+                    value={travelFromQuery}
+                    onChange={(e) => setTravelFromQuery(e.target.value)}
+                  />
+                  {travelFromOpts.length > 0 && (
+                    <div className="mt-1 max-h-40 overflow-auto rounded-md border">
+                      {travelFromOpts.map((r) => (
+                        <button
+                          key={r.id}
+                          className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
+                          onClick={() =>
+                            setTravelDraft(
+                              (d) =>
+                                d && {
+                                  ...d,
+                                  from_region_id: r.id,
+                                  from_region_name: r.name,
+                                }
+                            )
+                          }
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!!travelDraft.from_region_name && (
+                    <div className="mt-1 text-xs text-slate-600">
+                      Selected: {travelDraft.from_region_name}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">
+                    To
+                  </label>
+                  <input
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    placeholder="Search region…"
+                    value={travelToQuery}
+                    onChange={(e) => setTravelToQuery(e.target.value)}
+                  />
+                  {travelToOpts.length > 0 && (
+                    <div className="mt-1 max-h-40 overflow-auto rounded-md border">
+                      {travelToOpts.map((r) => (
+                        <button
+                          key={r.id}
+                          className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
+                          onClick={() =>
+                            setTravelDraft(
+                              (d) =>
+                                d && {
+                                  ...d,
+                                  to_region_id: r.id,
+                                  to_region_name: r.name,
+                                }
+                            )
+                          }
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!!travelDraft.to_region_name && (
+                    <div className="mt-1 text-xs text-slate-600">
+                      Selected: {travelDraft.to_region_name}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* To */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  To
-                </label>
-                <input
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  placeholder="Search region…"
-                  value={travelToQuery}
-                  onChange={(e) => setTravelToQuery(e.target.value)}
-                />
-                {travelToOpts.length > 0 && (
-                  <div className="mt-1 max-h-40 overflow-auto rounded-md border">
-                    {travelToOpts.map((r) => (
-                      <button
-                        key={r.id}
-                        className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                        onClick={() =>
-                          setTravelDraft(
-                            (d) =>
-                              d && {
-                                ...d,
-                                to_region_id: r.id,
-                                to_region_name: r.name,
-                              }
-                          )
-                        }
-                      >
-                        {r.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!!travelDraft.to_region_name && (
-                  <div className="mt-1 text-xs text-slate-600">
-                    Selected: {travelDraft.to_region_name}
-                  </div>
-                )}
-              </div>
-
-              {/* Mode */}
+              {/* Mode buttons (includes Train) */}
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">
                   Mode
                 </label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={travelDraft.mode}
-                  onChange={(e) =>
-                    setTravelDraft(
-                      (d) => d && { ...d, mode: e.target.value as TravelMode }
-                    )
-                  }
-                >
-                  <option value="airplane">Airplane</option>
-                  <option value="bus">Bus</option>
-                  <option value="car">Car</option>
-                  <option value="walk">Walk/Trekking</option>
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    ["airplane", "bus", "car", "walk", "train"] as (
+                      | TravelMode
+                      | "train"
+                    )[]
+                  ).map((m) => {
+                    const meta = MODE_META[m];
+                    const active = travelDraft.mode === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        className={
+                          "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
+                          (active
+                            ? "border-blue-600 text-blue-700 bg-blue-50"
+                            : "border-gray-300 hover:bg-gray-50")
+                        }
+                        onClick={() =>
+                          setTravelDraft((d) => d && { ...d, mode: m })
+                        }
+                      >
+                        <KIcon name={meta.icon} />
+                        <span>{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Duration / Distance */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Duration + Distance */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Duration (min)
+                    Hours
                   </label>
                   <input
                     type="number"
+                    min={0}
                     className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.duration_minutes ?? ""}
+                    value={travelDraft.duration_hours ?? ""}
                     onChange={(e) =>
                       setTravelDraft(
                         (d) =>
                           d && {
                             ...d,
-                            duration_minutes: e.target.value
+                            duration_hours: e.target.value
                               ? Number(e.target.value)
                               : null,
                           }
                       )
                     }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">
+                    Minutes
+                  </label>
+                  <input
+                    type="number"
                     min={0}
+                    max={59}
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    value={travelDraft.duration_mins ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value
+                        ? Math.min(Number(e.target.value), 59)
+                        : null;
+                      setTravelDraft((d) => d && { ...d, duration_mins: v });
+                    }}
                   />
                 </div>
                 <div>
@@ -1092,6 +1235,8 @@ export default function TripBuilderPage() {
                   </label>
                   <input
                     type="number"
+                    step="0.1"
+                    min={0}
                     className="w-full rounded-md border px-3 py-2 text-sm"
                     value={travelDraft.distance_km ?? ""}
                     onChange={(e) =>
@@ -1105,8 +1250,42 @@ export default function TripBuilderPage() {
                           }
                       )
                     }
-                    step="0.1"
-                    min={0}
+                  />
+                </div>
+              </div>
+
+              {/* Travel Start / End */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">
+                    Travel Start
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    value={travelDraft.travel_start_at ?? ""}
+                    onChange={(e) =>
+                      setTravelDraft(
+                        (d) =>
+                          d && { ...d, travel_start_at: e.target.value || null }
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">
+                    Travel End
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    value={travelDraft.travel_end_at ?? ""}
+                    onChange={(e) =>
+                      setTravelDraft(
+                        (d) =>
+                          d && { ...d, travel_end_at: e.target.value || null }
+                      )
+                    }
                   />
                 </div>
               </div>

@@ -33,8 +33,8 @@ export type SiteLite = {
   cover_photo_url: string | null;
 };
 
-/* ── Travel (new) ── */
-export type TravelMode = "airplane" | "bus" | "car" | "walk";
+/* ── Travel ── */
+export type TravelMode = "airplane" | "bus" | "car" | "walk" | "train";
 
 export type TravelLeg = {
   id: string;
@@ -46,6 +46,8 @@ export type TravelLeg = {
   duration_minutes: number | null;
   distance_km: number | null;
   notes: string | null;
+  travel_start_at?: string | null; // preferred
+  travel_end_at?: string | null; // preferred
   created_at: string;
   updated_at: string;
   // denormalized names for UI
@@ -116,9 +118,7 @@ export async function getUserTrips() {
   return data as Trip[];
 }
 
-/**
- * Create a trip with a unique per-user slug so we can route via /[username]/trip/[tripSlug]
- */
+/** Create a trip with a unique per-user slug so we can route via /[username]/trip/[tripSlug] */
 export async function createTrip(name: string, isPublic?: boolean) {
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth?.user?.id;
@@ -154,10 +154,7 @@ export async function addSiteToTrip({
   return data as TripItem;
 }
 
-/**
- * Resolve a trip by human-readable path: /[username]/trip/[tripSlug]
- * Returns the Trip row (throws if not found).
- */
+/** Resolve a trip by human-readable path: /[username]/trip/[tripSlug] */
 export async function getTripByUsernameSlug(
   username: string,
   tripSlug: string
@@ -182,10 +179,7 @@ export async function getTripByUsernameSlug(
   return trip as Trip;
 }
 
-/**
- * Build the pretty URL for a trip id (or return null if we can't).
- * -> "/[username]/trip/[tripSlug]"
- */
+/** Build the pretty URL for a trip id (or return null if we can't). -> "/[username]/trip/[tripSlug]" */
 export async function getTripUrlById(id: string): Promise<string | null> {
   const { data: t, error: tErr } = await supabase
     .from("trips")
@@ -206,9 +200,7 @@ export async function getTripUrlById(id: string): Promise<string | null> {
   return `/${p.username}/trip/${t.slug}`;
 }
 
-/**
- * Existing helper that returns trip + site items with denormalized info.
- */
+/** Existing helper that returns trip + site items with denormalized info. */
 export async function getTripWithItems(tripId: string) {
   const { data: trip, error: tripErr } = await supabase
     .from("trips")
@@ -321,7 +313,7 @@ export async function deleteTripItem(id: string) {
   if (error) throw error;
 }
 
-/* ───────────────────── Travel (new) ───────────────────── */
+/* ───────────────────── Travel ───────────────────── */
 
 /** Next order index across BOTH site items and travel legs */
 export async function getNextOrderIndex(trip_id: string): Promise<number> {
@@ -354,6 +346,8 @@ export async function addTravelLeg(params: {
   duration_minutes?: number | null;
   distance_km?: number | null;
   notes?: string | null;
+  travel_start_at?: string | null;
+  travel_end_at?: string | null;
 }) {
   const order_index = await getNextOrderIndex(params.trip_id);
   const payload = {
@@ -365,6 +359,8 @@ export async function addTravelLeg(params: {
     duration_minutes: params.duration_minutes ?? null,
     distance_km: safeNum(params.distance_km),
     notes: params.notes ?? null,
+    travel_start_at: params.travel_start_at ?? null,
+    travel_end_at: params.travel_end_at ?? null,
   };
   const { data, error } = await supabase
     .from("trip_travel")
@@ -393,6 +389,8 @@ export async function updateTravelLeg(
       | "distance_km"
       | "notes"
       | "order_index"
+      | "travel_start_at"
+      | "travel_end_at"
     >
   >
 ) {
@@ -492,50 +490,95 @@ async function hydrateRegionNames<
   }));
 }
 
-/** Unified timeline (sites + travel) ordered by order_index
- *  1) Tries the `trip_timeline` view (if created).
- *  2) Falls back to merging `trip_items` + `trip_travel` client-side.
- *  Always returns travel rows with `from_region_name` / `to_region_name`.
+/** Unified timeline (sites + travel) ordered by order_index.
+ * Robust to older trip_timeline views that don't project travel_start_at/travel_end_at.
+ * We always fetch canonical times from trip_travel and merge them (with legacy fallbacks).
  */
 export async function getTripTimeline(
   trip_id: string
 ): Promise<TimelineItem[]> {
-  // Attempt to read from view
+  // Try the view first (if present)
   const viewTry = await supabase
     .from("trip_timeline")
     .select("*")
     .eq("trip_id", trip_id)
     .order("order_index", { ascending: true });
 
+  // Helper to ensure region names exist
+  const ensureNames = async (rows: (TravelLeg & { kind: "travel" })[]) => {
+    const hydrated = await hydrateRegionNames(rows);
+    return new Map(hydrated.map((t) => [t.id, t]));
+  };
+
   if (!viewTry.error && Array.isArray(viewTry.data)) {
-    const arr = (viewTry.data as any[]).map((row) => {
+    // Normalize + coerce
+    let arr = (viewTry.data as any[]).map((row) => {
       if (row.kind === "travel") {
+        const travel_start_at = row.travel_start_at ?? row.start_at ?? null; // legacy alias support
+        const travel_end_at = row.travel_end_at ?? row.end_at ?? null; // legacy alias support
         return {
           ...row,
+          kind: "travel",
           distance_km: safeNum(row.distance_km),
+          travel_start_at,
+          travel_end_at,
         } as TimelineItem;
       }
       return row as TimelineItem;
     });
 
-    // If the view didn't include names, hydrate them.
-    const travels = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
+    const travelRows = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
       kind: "travel";
     })[];
-    const needHydration = travels.some(
-      (t) => !("from_region_name" in t) || !("to_region_name" in t)
-    );
-    if (travels.length && needHydration) {
-      const hydratedTravels = await hydrateRegionNames(travels);
-      const byId = new Map(hydratedTravels.map((t) => [t.id, t]));
-      return arr.map((x) =>
-        x.kind === "travel" ? (byId.get(x.id) as any) : x
+
+    // Always ensure names exist (view may not include them)
+    if (travelRows.length) {
+      const namesById = await ensureNames(travelRows);
+      arr = arr.map((x) =>
+        x.kind === "travel" ? ({ ...namesById.get(x.id), ...x } as any) : x
       );
     }
+
+    // Regardless of what the view returned, fetch canonical times and merge
+    if (travelRows.length) {
+      const ids = travelRows.map((t) => t.id);
+      const { data: tt, error } = await supabase
+        .from("trip_travel")
+        .select("id, travel_start_at, travel_end_at, start_at, end_at")
+        .in("id", ids);
+
+      if (!error && Array.isArray(tt)) {
+        const byId = new Map(
+          tt.map((r: any) => [
+            r.id,
+            {
+              travel_start_at: r.travel_start_at ?? r.start_at ?? null,
+              travel_end_at: r.travel_end_at ?? r.end_at ?? null,
+            },
+          ])
+        );
+        arr = arr.map((x) =>
+          x.kind === "travel"
+            ? ({
+                ...x,
+                travel_start_at:
+                  (x as any).travel_start_at ??
+                  byId.get(x.id)?.travel_start_at ??
+                  null,
+                travel_end_at:
+                  (x as any).travel_end_at ??
+                  byId.get(x.id)?.travel_end_at ??
+                  null,
+              } as any)
+            : x
+        );
+      }
+    }
+
     return arr;
   }
 
-  // Fallback: manual merge + hydrate names
+  // Fallback: direct tables (include new fields + legacy aliases just in case)
   const [sitesRes, travelRes] = await Promise.all([
     supabase
       .from("trip_items")
@@ -546,7 +589,7 @@ export async function getTripTimeline(
     supabase
       .from("trip_travel")
       .select(
-        "id, trip_id, order_index, from_region_id, to_region_id, mode, duration_minutes, distance_km, notes, created_at, updated_at"
+        "id, trip_id, order_index, from_region_id, to_region_id, mode, duration_minutes, distance_km, notes, travel_start_at, travel_end_at, start_at, end_at, created_at, updated_at"
       )
       .eq("trip_id", trip_id),
   ]);
@@ -561,14 +604,16 @@ export async function getTripTimeline(
     (travelRes.data ?? []).map((t: any) => ({
       kind: "travel",
       ...t,
+      // normalize any legacy column names
+      travel_start_at: t.travel_start_at ?? t.start_at ?? null,
+      travel_end_at: t.travel_end_at ?? t.end_at ?? null,
       distance_km: safeNum(t.distance_km),
     })) ?? [];
 
   // Hydrate region names
   travel = await hydrateRegionNames(travel);
 
-  const merged = [...sites, ...travel].sort(
+  return [...sites, ...travel].sort(
     (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
   );
-  return merged;
 }
