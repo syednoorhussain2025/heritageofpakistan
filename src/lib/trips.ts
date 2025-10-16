@@ -18,6 +18,7 @@ export type TripItem = {
   trip_id: string;
   site_id: string;
   order_index: number;
+  day_id: string | null; // ← NEW: grouping under a Day
   date_in: string | null;
   date_out: string | null;
   notes: string | null;
@@ -33,6 +34,17 @@ export type SiteLite = {
   cover_photo_url: string | null;
 };
 
+/* ── Day ── */
+export type TripDay = {
+  id: string;
+  trip_id: string;
+  order_index: number;
+  title: string | null;
+  the_date: string | null; // 'YYYY-MM-DD'
+  created_at: string;
+  updated_at: string;
+};
+
 /* ── Travel ── */
 export type TravelMode = "airplane" | "bus" | "car" | "walk" | "train";
 
@@ -40,6 +52,7 @@ export type TravelLeg = {
   id: string;
   trip_id: string;
   order_index: number;
+  day_id: string | null; // ← NEW: grouping under a Day
   from_region_id: string | null;
   to_region_id: string | null;
   mode: TravelMode;
@@ -56,11 +69,13 @@ export type TravelLeg = {
 };
 
 export type TimelineItem =
+  | (TripDay & { kind: "day" })
   | ({
       kind: "site";
       id: string;
       trip_id: string;
       order_index: number;
+      day_id: string | null; // ← NEW
       site_id: string;
       date_in: string | null;
       date_out: string | null;
@@ -140,14 +155,23 @@ export async function addSiteToTrip({
   tripId,
   siteId,
   orderIndex,
+  dayId = null,
 }: {
   tripId: string;
   siteId: string;
   orderIndex: number;
+  dayId?: string | null;
 }) {
   const { data, error } = await supabase
     .from("trip_items")
-    .insert([{ trip_id: tripId, site_id: siteId, order_index: orderIndex }])
+    .insert([
+      {
+        trip_id: tripId,
+        site_id: siteId,
+        order_index: orderIndex,
+        day_id: dayId,
+      },
+    ])
     .select("*")
     .single();
   if (error) throw error;
@@ -286,6 +310,7 @@ export async function updateTripItemsBatch(
     date_in?: string | null;
     date_out?: string | null;
     notes?: string | null;
+    day_id?: string | null; // ← NEW: allow day reassignment
   }>
 ) {
   const updates = items.map(async (it) => {
@@ -294,6 +319,7 @@ export async function updateTripItemsBatch(
     if ("date_in" in it) patch.date_in = it.date_in;
     if ("date_out" in it) patch.date_out = it.date_out;
     if ("notes" in it) patch.notes = it.notes;
+    if ("day_id" in it) patch.day_id = it.day_id;
 
     if (Object.keys(patch).length === 0) return null;
 
@@ -313,11 +339,10 @@ export async function deleteTripItem(id: string) {
   if (error) throw error;
 }
 
-/* ───────────────────── Travel ───────────────────── */
+/* ───────────────────── Day APIs ───────────────────── */
 
-/** Next order index across BOTH site items and travel legs */
 export async function getNextOrderIndex(trip_id: string): Promise<number> {
-  const [ti, tt] = await Promise.all([
+  const [ti, tt, td] = await Promise.all([
     supabase
       .from("trip_items")
       .select("order_index")
@@ -330,16 +355,114 @@ export async function getNextOrderIndex(trip_id: string): Promise<number> {
       .eq("trip_id", trip_id)
       .order("order_index", { ascending: false })
       .limit(1),
+    supabase
+      .from("trip_days")
+      .select("order_index")
+      .eq("trip_id", trip_id)
+      .order("order_index", { ascending: false })
+      .limit(1),
   ]);
 
   const maxA = (ti.data?.[0]?.order_index ?? 0) as number;
   const maxB = (tt.data?.[0]?.order_index ?? 0) as number;
-  return Math.max(maxA, maxB) + 1;
+  const maxC = (td.data?.[0]?.order_index ?? 0) as number;
+  return Math.max(maxA, maxB, maxC) + 1;
 }
+
+export async function addTripDay(params: {
+  trip_id: string;
+  title?: string | null;
+  the_date?: string | null;
+}) {
+  const order_index = await getNextOrderIndex(params.trip_id);
+  const payload = {
+    trip_id: params.trip_id,
+    order_index,
+    title: params.title ?? null,
+    the_date: params.the_date ?? null,
+  };
+  const { data, error } = await supabase
+    .from("trip_days")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as TripDay;
+}
+
+export async function updateTripDay(
+  id: string,
+  patch: Partial<Pick<TripDay, "title" | "the_date" | "order_index">>
+) {
+  const { data, error } = await supabase
+    .from("trip_days")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as TripDay;
+}
+
+export async function deleteTripDay(id: string) {
+  // FK is ON DELETE SET NULL for children; so this simply un-groups items.
+  const { error } = await supabase.from("trip_days").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Attach items (sites and/or travel) to a day. Pass null dayId to ungroup. */
+export async function attachItemsToDay(params: {
+  dayId: string | null;
+  itemIds?: string[];
+  travelIds?: string[];
+}) {
+  const tasks: Promise<any>[] = [];
+  if (params.itemIds?.length) {
+    tasks.push(
+      supabase
+        .from("trip_items")
+        .update({ day_id: params.dayId })
+        .in("id", params.itemIds)
+    );
+  }
+  if (params.travelIds?.length) {
+    tasks.push(
+      supabase
+        .from("trip_travel")
+        .update({ day_id: params.dayId })
+        .in("id", params.travelIds)
+    );
+  }
+  const res = await Promise.all(tasks);
+  const err = res.find((r) => r.error)?.error;
+  if (err) throw err;
+}
+
+/** Set a Day's date and propagate the same date to all *site* items in that Day. */
+export async function setDayDateAndPropagate(day_id: string, dateISO: string) {
+  // 1) update day
+  const upDay = await supabase
+    .from("trip_days")
+    .update({ the_date: dateISO })
+    .eq("id", day_id);
+
+  if (upDay.error) throw upDay.error;
+
+  // 2) propagate to sites (date_in/date_out)
+  const upItems = await supabase
+    .from("trip_items")
+    .update({ date_in: dateISO, date_out: dateISO })
+    .eq("day_id", day_id);
+
+  if (upItems.error) throw upItems.error;
+}
+
+/* ───────────────────── Travel ───────────────────── */
 
 /** Create a new travel leg */
 export async function addTravelLeg(params: {
   trip_id: string;
+  day_id?: string | null; // ← NEW (optional)
   from_region_id?: string | null;
   to_region_id?: string | null;
   mode?: TravelMode;
@@ -353,6 +476,7 @@ export async function addTravelLeg(params: {
   const payload = {
     trip_id: params.trip_id,
     order_index,
+    day_id: params.day_id ?? null,
     from_region_id: params.from_region_id ?? null,
     to_region_id: params.to_region_id ?? null,
     mode: (params.mode ?? "car") as TravelMode,
@@ -391,6 +515,7 @@ export async function updateTravelLeg(
       | "order_index"
       | "travel_start_at"
       | "travel_end_at"
+      | "day_id" // ← NEW
     >
   >
 ) {
@@ -419,16 +544,36 @@ export async function deleteTravelLeg(id: string) {
   if (error) throw error;
 }
 
-/** Bulk reorder both kinds without RPCs */
+/** Bulk reorder across day/site/travel without RPCs */
 export async function updateTimelineOrder(
-  items: Array<{ kind: "site" | "travel"; id: string; order_index: number }>
+  items: Array<{
+    kind: "day" | "site" | "travel";
+    id: string;
+    order_index: number;
+  }>
 ) {
+  const dayUpdates = items
+    .filter((x) => x.kind === "day")
+    .map((x) => ({ id: x.id, order_index: x.order_index }));
+
   const siteUpdates = items
     .filter((x) => x.kind === "site")
     .map((x) => ({ id: x.id, order_index: x.order_index }));
+
   const travelUpdates = items
     .filter((x) => x.kind === "travel")
     .map((x) => ({ id: x.id, order_index: x.order_index }));
+
+  if (dayUpdates.length) {
+    await Promise.all(
+      dayUpdates.map((d) =>
+        supabase
+          .from("trip_days")
+          .update({ order_index: d.order_index })
+          .eq("id", d.id)
+      )
+    );
+  }
 
   if (siteUpdates.length) {
     await updateTripItemsBatch(siteUpdates);
@@ -490,9 +635,9 @@ async function hydrateRegionNames<
   }));
 }
 
-/** Unified timeline (sites + travel) ordered by order_index.
- * Robust to older trip_timeline views that don't project travel_start_at/travel_end_at.
- * We always fetch canonical times from trip_travel and merge them (with legacy fallbacks).
+/** Unified timeline (day + sites + travel) ordered by order_index.
+ * Robust to older trip_timeline views; if the view exists but lacks "day",
+ * we fetch days separately and merge.
  */
 export async function getTripTimeline(
   trip_id: string
@@ -504,18 +649,17 @@ export async function getTripTimeline(
     .eq("trip_id", trip_id)
     .order("order_index", { ascending: true });
 
-  // Helper to ensure region names exist
+  // helper to ensure region names exist
   const ensureNames = async (rows: (TravelLeg & { kind: "travel" })[]) => {
     const hydrated = await hydrateRegionNames(rows);
     return new Map(hydrated.map((t) => [t.id, t]));
   };
 
   if (!viewTry.error && Array.isArray(viewTry.data)) {
-    // Normalize + coerce
     let arr = (viewTry.data as any[]).map((row) => {
       if (row.kind === "travel") {
-        const travel_start_at = row.travel_start_at ?? row.start_at ?? null; // legacy alias support
-        const travel_end_at = row.travel_end_at ?? row.end_at ?? null; // legacy alias support
+        const travel_start_at = row.travel_start_at ?? row.start_at ?? null;
+        const travel_end_at = row.travel_end_at ?? row.end_at ?? null;
         return {
           ...row,
           kind: "travel",
@@ -524,23 +668,44 @@ export async function getTripTimeline(
           travel_end_at,
         } as TimelineItem;
       }
+      if (row.kind === "site") {
+        // ensure day_id exists in type
+        return { ...row } as TimelineItem;
+      }
+      if (row.kind === "day") {
+        return { ...row } as TimelineItem;
+      }
       return row as TimelineItem;
     });
 
+    // If the view didn't include days, fetch days separately and merge.
+    const viewHasDay = (arr as TimelineItem[]).some((x) => x.kind === "day");
+    if (!viewHasDay) {
+      const { data: days, error: daysErr } = await supabase
+        .from("trip_days")
+        .select("*")
+        .eq("trip_id", trip_id);
+      if (daysErr) throw daysErr;
+
+      arr = [
+        ...arr,
+        ...(days ?? []).map(
+          (d) => ({ kind: "day", ...(d as any) } as TimelineItem)
+        ),
+      ];
+    }
+
+    // travel: add names and canonical times from trip_travel
     const travelRows = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
       kind: "travel";
     })[];
 
-    // Always ensure names exist (view may not include them)
     if (travelRows.length) {
       const namesById = await ensureNames(travelRows);
       arr = arr.map((x) =>
         x.kind === "travel" ? ({ ...namesById.get(x.id), ...x } as any) : x
       );
-    }
 
-    // Regardless of what the view returned, fetch canonical times and merge
-    if (travelRows.length) {
       const ids = travelRows.map((t) => t.id);
       const { data: tt, error } = await supabase
         .from("trip_travel")
@@ -575,27 +740,34 @@ export async function getTripTimeline(
       }
     }
 
-    return arr;
+    return (arr as TimelineItem[]).sort(
+      (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+    );
   }
 
-  // Fallback: direct tables (include new fields + legacy aliases just in case)
-  const [sitesRes, travelRes] = await Promise.all([
+  // Fallback: direct tables (include days)
+  const [daysRes, sitesRes, travelRes] = await Promise.all([
+    supabase.from("trip_days").select("*").eq("trip_id", trip_id),
     supabase
       .from("trip_items")
       .select(
-        "id, trip_id, site_id, order_index, date_in, date_out, notes, created_at, updated_at"
+        "id, trip_id, site_id, order_index, day_id, date_in, date_out, notes, created_at, updated_at"
       )
       .eq("trip_id", trip_id),
     supabase
       .from("trip_travel")
       .select(
-        "id, trip_id, order_index, from_region_id, to_region_id, mode, duration_minutes, distance_km, notes, travel_start_at, travel_end_at, start_at, end_at, created_at, updated_at"
+        "id, trip_id, order_index, day_id, from_region_id, to_region_id, mode, duration_minutes, distance_km, notes, travel_start_at, travel_end_at, start_at, end_at, created_at, updated_at"
       )
       .eq("trip_id", trip_id),
   ]);
 
+  if (daysRes.error) throw daysRes.error;
   if (sitesRes.error) throw sitesRes.error;
   if (travelRes.error) throw travelRes.error;
+
+  const days: TimelineItem[] =
+    (daysRes.data ?? []).map((d: any) => ({ kind: "day", ...d })) ?? [];
 
   const sites: TimelineItem[] =
     (sitesRes.data ?? []).map((s: any) => ({ kind: "site", ...s })) ?? [];
@@ -604,7 +776,6 @@ export async function getTripTimeline(
     (travelRes.data ?? []).map((t: any) => ({
       kind: "travel",
       ...t,
-      // normalize any legacy column names
       travel_start_at: t.travel_start_at ?? t.start_at ?? null,
       travel_end_at: t.travel_end_at ?? t.end_at ?? null,
       distance_km: safeNum(t.distance_km),
@@ -613,7 +784,7 @@ export async function getTripTimeline(
   // Hydrate region names
   travel = await hydrateRegionNames(travel);
 
-  return [...sites, ...travel].sort(
+  return [...days, ...sites, ...travel].sort(
     (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
   );
 }

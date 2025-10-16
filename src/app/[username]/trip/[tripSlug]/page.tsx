@@ -1,7 +1,7 @@
 // app/[username]/trip/[tripSlug]/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,25 +14,61 @@ import {
   updateTravelLeg,
   deleteTravelLeg,
   searchRegions,
+  attachItemsToDay,
+  addTripDay,
+  updateTripDay,
+  deleteTripDay,
+  setDayDateAndPropagate,
   type TravelMode,
   type TimelineItem,
   type SiteLite,
+  type TripDay,
 } from "@/lib/trips";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import Icon from "@/components/Icon";
+
+/* dnd-kit */
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+  MouseSensor,
+  TouchSensor,
+  DragStartEvent,
+  DragEndEvent,
+  DragCancelEvent,
+  DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+/* ───────────────────────────── Types ───────────────────────────── */
+
+type BuilderDayItem = Extract<TimelineItem, { kind: "day" }>;
 
 type BuilderSiteItem = Extract<TimelineItem, { kind: "site" }> & {
   site?: SiteLite | null;
   provinceName?: string | null;
   experience?: string[];
+  day_id?: string | null;
 };
 type BuilderTravelItem = Extract<TimelineItem, { kind: "travel" }> & {
   from_region_name?: string | null;
   to_region_name?: string | null;
   travel_start_at?: string | null;
   travel_end_at?: string | null;
+  day_id?: string | null;
 };
 type BuilderItem = BuilderSiteItem | BuilderTravelItem;
+
+const UNGROUPED = "ungrouped";
 
 /* 7-col grid; keep children aligned */
 const GRID =
@@ -52,10 +88,11 @@ function KIcon({
     | "info"
     | "edit"
     | "plus"
-    | "best-time-to-visit" // airplane
-    | "travel-guide" // bus
+    | "best-time-to-visit"
+    | "travel-guide"
     | "car"
-    | "train";
+    | "train"
+    | "trash";
   size?: number;
   className?: string;
 }) {
@@ -74,6 +111,129 @@ const MODE_META: Record<
   train: { label: "Train", icon: "train" },
 };
 
+/* ---------- Reusable fade modal ---------- */
+function FadeModal({
+  isOpen,
+  onClose,
+  maxWidthClass = "max-w-md",
+  children,
+  z = 70,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  maxWidthClass?: string;
+  children: React.ReactNode;
+  z?: number;
+}) {
+  const [mounted, setMounted] = useState(isOpen);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      const id = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(id);
+    } else {
+      setVisible(false);
+      const t = setTimeout(() => setMounted(false), 200);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  if (!mounted) return null;
+
+  return (
+    <div
+      className={`fixed inset-0 z-[${z}] flex items-center justify-center p-4 transition-colors duration-200 ${
+        visible ? "bg-black/30" : "bg-black/0"
+      }`}
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`w-full ${maxWidthClass} transform rounded-2xl border bg-white shadow-2xl transition-all duration-200 ${
+          visible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────────── DnD helpers ───────────────────────────── */
+
+function DroppableContainer({
+  id,
+  isActive,
+  children,
+}: {
+  id: string;
+  isActive: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={
+        "rounded-[14px] p-3 md:p-4 border-dashed transition-colors " +
+        (isActive
+          ? "border-[3px] border-[#00b78b] bg-[#00b78b]/5"
+          : "border-[3px] border-gray-300 bg-gray-50")
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function SortableItem({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={
+        "group rounded-[14px] border overflow-visible select-none " +
+        (isDragging
+          ? "border-dashed border-2 border-[#00b78b] bg-[#00b78b]/5"
+          : "border-gray-300 bg-white hover:bg-gray-100 cursor-grab active:cursor-grabbing shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)]")
+      }
+      title="Drag to move"
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ───────────────────────────── Component ───────────────────────────── */
+
 export default function TripBuilderPage() {
   const { username, tripSlug } = useParams<{
     username: string;
@@ -85,6 +245,7 @@ export default function TripBuilderPage() {
   const [tripName, setTripName] = useState<string>("");
   const [yourName, setYourName] = useState<string>("");
 
+  const [days, setDays] = useState<TripDay[]>([]);
   const [items, setItems] = useState<BuilderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,51 +255,16 @@ export default function TripBuilderPage() {
 
   const [listParent] = useAutoAnimate({ duration: 220, easing: "ease-in-out" });
 
-  // Drag state
-  const dragIdRef = useRef<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragXY, setDragXY] = useState<{ x: number; y: number } | null>(null);
-  const [dragSize, setDragSize] = useState<{ w: number; h: number }>({
-    w: 0,
-    h: 0,
-  });
-  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number }>({
-    dx: 0,
-    dy: 0,
-  });
-  const rowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  // dnd state (simplified: highlight container only)
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overContainer, setOverContainer] = useState<string | null>(null);
 
-  // Date popover (sites)
-  const [openDateFor, setOpenDateFor] = useState<string | null>(null);
-  const [dateDraft, setDateDraft] = useState<{
-    in?: string | null;
-    out?: string | null;
-  }>({});
-
-  // Notes modal (sites)
-  const [openNotesFor, setOpenNotesFor] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState<string>("");
-
-  // Travel editor modal
-  const [editingTravel, setEditingTravel] = useState<BuilderTravelItem | null>(
-    null
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 120, tolerance: 6 },
+    })
   );
-  const [travelFromQuery, setTravelFromQuery] = useState("");
-  const [travelToQuery, setTravelToQuery] = useState("");
-  const [travelFromOpts, setTravelFromOpts] = useState<any[]>([]);
-  const [travelToOpts, setTravelToOpts] = useState<any[]>([]);
-  const [travelDraft, setTravelDraft] = useState<{
-    from_region_id: string | null;
-    from_region_name: string | null;
-    to_region_id: string | null;
-    to_region_name: string | null;
-    mode: TravelMode | "train";
-    duration_hours: number | null;
-    duration_mins: number | null;
-    distance_km: number | null;
-    travel_start_at: string | null;
-    travel_end_at: string | null;
-  } | null>(null);
 
   /* ---------- load ---------- */
   useEffect(() => {
@@ -152,8 +278,11 @@ export default function TripBuilderPage() {
         setTripId(trip.id);
         setTripName(trip.name);
 
-        const timeline = await getTripTimeline(trip.id);
-        const { items: siteEnriched } = await getTripWithItems(trip.id);
+        const [timeline, { items: siteEnriched }] = await Promise.all([
+          getTripTimeline(trip.id),
+          getTripWithItems(trip.id),
+        ]);
+
         const siteById: Record<string, BuilderSiteItem> = Object.fromEntries(
           (siteEnriched as BuilderSiteItem[]).map((s) => [
             s.id,
@@ -161,20 +290,32 @@ export default function TripBuilderPage() {
           ])
         );
 
-        const merged: BuilderItem[] = timeline.map((row) =>
-          row.kind === "site"
-            ? siteById[row.id] ??
-              ({
-                ...row,
-                site: null,
-                provinceName: null,
-                experience: [],
-              } as BuilderSiteItem)
-            : (row as BuilderTravelItem)
-        );
+        const dayRows = (
+          timeline.filter((r) => r.kind === "day") as BuilderDayItem[]
+        ).map((d) => ({
+          id: d.id,
+          title: d.title ?? "",
+          the_date: (d as any).the_date ?? null,
+        })) as TripDay[];
+
+        const merged: BuilderItem[] = timeline
+          .filter((r) => r.kind !== "day")
+          .map((row) =>
+            row.kind === "site"
+              ? siteById[row.id] ??
+                ({
+                  ...row,
+                  kind: "site",
+                  site: null,
+                  provinceName: null,
+                  experience: [],
+                } as BuilderSiteItem)
+              : (row as BuilderTravelItem)
+          );
 
         if (!mounted) return;
         setItems(merged);
+        setDays(dayRows);
       } catch (e: any) {
         if (!mounted) return;
         setErrorMsg(e?.message || "Failed to load trip.");
@@ -187,72 +328,192 @@ export default function TripBuilderPage() {
     };
   }, [username, tripSlug]);
 
-  /* ---------- drag & drop ---------- */
-  const handleDragStart =
-    (id: string) => (e: React.DragEvent<HTMLDivElement>) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("textarea,input,button,a,[data-no-drag]")) {
-        e.preventDefault();
-        return;
-      }
-      dragIdRef.current = id;
-      setDraggingId(id);
-      e.dataTransfer.effectAllowed = "move";
-      const img = new Image();
-      img.src =
-        "data:image/svg+xml;charset=utf-8," +
-        encodeURIComponent(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
-        );
-      e.dataTransfer.setDragImage(img, 0, 0);
-      const el = rowRefs.current.get(id);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        setDragSize({ w: rect.width, h: rect.height });
-        setDragOffset({ dx: e.clientX - rect.left, dy: e.clientY - rect.top });
-        setDragXY({ x: rect.left, y: rect.top });
-      }
-    };
-  const handleDrag = () => (e: React.DragEvent<HTMLDivElement>) => {
-    if (!draggingId) return;
-    if (e.clientX === 0 && e.clientY === 0) return;
-    setDragXY({ x: e.clientX - dragOffset.dx, y: e.clientY - dragOffset.dy });
-  };
-  const handleDragOver =
-    (overId: string) => (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const draggedId = dragIdRef.current;
-      if (!draggedId || draggedId === overId) return;
+  /* ---------- derived: items grouped by day ---------- */
+  const itemsByDay = useMemo(() => {
+    const map = new Map<string | null, BuilderItem[]>();
+    for (const it of items) {
+      const key = (it as any).day_id ?? null;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(it);
+    }
+    return map;
+  }, [items]);
 
-      setItems((prev) => {
-        const arr = [...prev];
-        const from = arr.findIndex((x) => x.id === draggedId);
-        const to = arr.findIndex((x) => x.id === overId);
-        if (from === -1 || to === -1 || from === to) return prev;
-        const [moved] = arr.splice(from, 1);
-        arr.splice(to, 0, moved);
-        const ren = arr.map((x, idx) => ({
-          ...x,
-          order_index: idx + 1,
-        })) as BuilderItem[];
-        setDirtyOrder(true);
-        return ren;
-      });
-    };
-  const clearDrag = () => {
-    dragIdRef.current = null;
-    setDraggingId(null);
-    setDragXY(null);
+  const containerIds = useMemo(
+    () => [UNGROUPED, ...days.map((d) => d.id)],
+    [days]
+  );
+
+  const idsInContainer = (containerId: string) => {
+    if (containerId === UNGROUPED)
+      return (itemsByDay.get(null) ?? []).map((i) => i.id);
+    return (itemsByDay.get(containerId) ?? []).map((i) => i.id);
   };
-  const handleDrop = () => (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    clearDrag();
+
+  const findContainerOf = (id: string | null): string | null => {
+    if (!id) return null;
+    if (containerIds.includes(id)) return id;
+    for (const c of containerIds) {
+      if (idsInContainer(c).includes(id)) return c;
+    }
+    return null;
   };
-  const handleDragEnd = () => () => clearDrag();
+
+  /* ---------- DnD handlers ---------- */
+  const onDragStart = (e: DragStartEvent) => {
+    setActiveId(String(e.active.id));
+    setOverContainer(findContainerOf(String(e.active.id)));
+  };
+
+  const onDragOver = (e: DragOverEvent) => {
+    const overId = e.over?.id ? String(e.over.id) : null;
+    setOverContainer(findContainerOf(overId));
+  };
+
+  const onDragCancel = (_e: DragCancelEvent) => {
+    setActiveId(null);
+    setOverContainer(null);
+  };
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const aId = e.active?.id ? String(e.active.id) : null;
+    const oId = e.over?.id ? String(e.over.id) : null;
+
+    setActiveId(null);
+    setOverContainer(null);
+
+    if (!aId || !oId || aId === oId) return;
+
+    const fromCid = findContainerOf(aId);
+    const maybeContainer = containerIds.includes(oId) ? oId : null;
+    const toCid = findContainerOf(oId) ?? maybeContainer;
+    if (!fromCid || !toCid) return;
+
+    // Robust local move using per-container arrays
+    setItems((prev) => {
+      const groups = new Map<string | null, BuilderItem[]>();
+      for (const it of prev) {
+        const key = (it as any).day_id ?? null;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(it);
+      }
+      for (const d of days) if (!groups.has(d.id)) groups.set(d.id, []);
+      if (!groups.has(null)) groups.set(null, []);
+
+      const fKey = fromCid === UNGROUPED ? null : fromCid;
+      const tKey = toCid === UNGROUPED ? null : toCid;
+
+      const fromArr = groups.get(fKey) ?? [];
+      const toArr = groups.get(tKey) ?? [];
+
+      const fromIdx = fromArr.findIndex((x) => x.id === aId);
+      if (fromIdx < 0) return prev;
+
+      // Compute OVER index BEFORE removing the item
+      const overIdxPre = maybeContainer
+        ? -1
+        : toArr.findIndex((x) => x.id === oId);
+
+      // Remove first
+      const [moved] = fromArr.splice(fromIdx, 1);
+      if (!moved) return prev;
+
+      let insertIdx: number;
+      if (maybeContainer) {
+        // Dropped on the container → append
+        insertIdx = toArr.length;
+      } else if (fromCid === toCid) {
+        insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
+      } else {
+        // Cross-list: insert BEFORE hovered (or append if not found)
+        insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
+      }
+
+      const movedWithDay = { ...moved, day_id: tKey } as any;
+      toArr.splice(
+        Math.max(0, Math.min(insertIdx, toArr.length)),
+        0,
+        movedWithDay
+      );
+
+      groups.set(fKey, fromArr);
+      groups.set(tKey, toArr);
+
+      const knownDayIds = days.map((d) => d.id);
+      const unknownKeys = Array.from(groups.keys()).filter(
+        (k) => k !== null && !knownDayIds.includes(k as string)
+      ) as string[];
+
+      const orderedKeys: (string | null)[] = [
+        ...knownDayIds,
+        ...unknownKeys,
+        null,
+      ];
+
+      const flat: BuilderItem[] = orderedKeys.flatMap(
+        (k) => groups.get(k as any) ?? []
+      );
+
+      return flat.map((x, i) => ({
+        ...x,
+        order_index: i + 1,
+      })) as BuilderItem[];
+    });
+
+    // ── PERSIST: write day_id for sites and travel correctly ────────────
+    if (fromCid !== toCid) {
+      try {
+        const dayId = toCid === UNGROUPED ? null : toCid;
+        const item = items.find((it) => it.id === aId);
+        if (!item) return;
+
+        if (item.kind === "site") {
+          if (dayId) {
+            await attachItemsToDay({ dayId, itemIds: [item.id] });
+            const meta = days.find((d) => d.id === dayId);
+            if (meta?.the_date) {
+              setItems((prev) =>
+                prev.map((x: any) =>
+                  x.id === aId
+                    ? { ...x, date_in: meta.the_date, date_out: meta.the_date }
+                    : x
+                )
+              );
+            }
+          } else {
+            await updateTripItemsBatch([{ id: item.id, day_id: null } as any]);
+          }
+        } else {
+          // TRAVEL FIX: persist day_id directly via updateTravelLeg
+          await updateTravelLeg(item.id, { day_id: dayId } as any);
+        }
+      } catch (err: any) {
+        setErrorMsg(err?.message || "Failed to move item.");
+        // revert local day_id on failure
+        setItems((prev) =>
+          prev.map((x: any) =>
+            x.id === aId
+              ? {
+                  ...x,
+                  day_id: fromCid === UNGROUPED ? null : fromCid,
+                }
+              : x
+          )
+        );
+      }
+    }
+
+    setDirtyOrder(true);
+  };
 
   /* ---------- site dates / notes ---------- */
-  const handleOpenDatePopover = (
+  const [openDateFor, setOpenDateFor] = useState<string | null>(null);
+  const [dateDraft, setDateDraft] = useState<{
+    in?: string | null;
+    out?: string | null;
+  }>({});
+
+  const handleOpenDateModal = (
     itemId: string,
     currIn: string | null,
     currOut: string | null
@@ -286,6 +547,8 @@ export default function TripBuilderPage() {
     }
   };
 
+  const [openNotesFor, setOpenNotesFor] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState<string>("");
   const openNotesEditor = (itemId: string, current: string | null) => {
     setOpenNotesFor(itemId);
     setNoteDraft((current ?? "").slice(0, 50));
@@ -306,23 +569,49 @@ export default function TripBuilderPage() {
     }
   };
 
-  /* ---------- save order (sites + travel) ---------- */
+  /* ---------- delete handlers ---------- */
+  const handleDelete = async (it: BuilderItem) => {
+    const ok = confirm("Delete this item?");
+    if (!ok) return;
+    try {
+      if (it.kind === "site") await deleteTripItem(it.id);
+      else await deleteTravelLeg(it.id);
+      setItems((prev) => prev.filter((x) => x.id !== it.id));
+      setDirtyOrder(true);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to delete item.");
+    }
+  };
+
+  /* ---------- save order (+ persist day_id for ALL) ---------- */
   const handleSaveOrder = async () => {
     setSaving(true);
     setErrorMsg(null);
     try {
       const siteUpdates = items
         .filter((x): x is BuilderSiteItem => x.kind === "site")
-        .map((x) => ({ id: x.id, order_index: x.order_index }));
+        .map((x: any) => ({
+          id: x.id,
+          order_index: x.order_index,
+          day_id: x.day_id ?? null,
+        }));
+
       const travelUpdates = items
         .filter((x): x is BuilderTravelItem => x.kind === "travel")
-        .map((x) => ({ id: x.id, order_index: x.order_index }));
+        .map((x: any) => ({
+          id: x.id,
+          order_index: x.order_index,
+          day_id: x.day_id ?? null,
+        }));
 
       if (siteUpdates.length) await updateTripItemsBatch(siteUpdates);
       if (travelUpdates.length) {
         await Promise.all(
           travelUpdates.map((t) =>
-            updateTravelLeg(t.id, { order_index: t.order_index })
+            updateTravelLeg(t.id, {
+              order_index: t.order_index,
+              day_id: t.day_id ?? null,
+            } as any)
           )
         );
       }
@@ -334,6 +623,7 @@ export default function TripBuilderPage() {
     }
   };
 
+  /* ---------- formatting helpers ---------- */
   const fmtRange = (a?: string | null, b?: string | null) => {
     const opt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" };
     const f = (d?: string | null) =>
@@ -345,7 +635,6 @@ export default function TripBuilderPage() {
     if (B) return B;
     return "Set dates";
   };
-
   const fmtDateTimeShort = (iso?: string | null) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -356,7 +645,6 @@ export default function TripBuilderPage() {
       minute: "2-digit",
     });
   };
-
   const durationLabel = (mins: number | null | undefined) => {
     if (mins == null) return "—";
     const h = Math.floor(mins / 60);
@@ -366,7 +654,237 @@ export default function TripBuilderPage() {
     return `${m}m`;
   };
 
-  /* ---------- travel editor ---------- */
+  /* ---------- Cards ---------- */
+  function SiteRow({ it }: { it: BuilderSiteItem }) {
+    const idx = items.findIndex((x) => x.id === it.id);
+    const siteNumber = items
+      .slice(0, idx + 1)
+      .filter((x) => x.kind === "site").length;
+
+    return (
+      <div className="px-4 py-3">
+        <div className={GRID}>
+          <div className="flex items-center justify-center">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow-sm">
+              {siteNumber}
+            </span>
+          </div>
+
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200">
+              {it.site?.cover_photo_url ? (
+                <img
+                  src={it.site.cover_photo_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-[17px] text-[#0A1B4D]">
+                {it.site ? (
+                  <Link
+                    href={`/site/${it.site.slug}`}
+                    className="hover:underline"
+                    data-no-drag
+                  >
+                    {it.site.title}
+                  </Link>
+                ) : (
+                  <span className="text-gray-500">Unknown site</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-0 truncate text-[15px] text-gray-700">
+            {it.provinceName || "—"}
+          </div>
+
+          <div className="relative min-w-0">
+            <button
+              onClick={() =>
+                handleOpenDateModal(it.id, it.date_in, it.date_out)
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 text-[12px] text-gray-700 whitespace-nowrap hover:bg-gray-100"
+              data-no-drag
+              type="button"
+            >
+              <KIcon
+                name="calendar-check"
+                size={14}
+                className="text-[var(--brand-orange,#f59e0b)]"
+              />
+              <span>{fmtRange(it.date_in, it.date_out)}</span>
+            </button>
+          </div>
+
+          <div className="min-w-0 flex flex-wrap gap-2">
+            {it.experience && it.experience.length > 0 ? (
+              it.experience.map((e, idx) => (
+                <span
+                  key={idx}
+                  className="rounded-full bg-gray-100 px-2 py-[3px] text-[12px] text-gray-700 whitespace-nowrap"
+                >
+                  {e}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-gray-500">—</span>
+            )}
+          </div>
+
+          <div className="relative min-w-0 pt-4 pr-7">
+            <button
+              type="button"
+              className="absolute right-0 -top-2 p-1 text-gray-500 hover:text-[var(--brand-orange,#f59e0b)]"
+              onClick={() => openNotesEditor(it.id, (it as any).notes ?? "")}
+              data-no-drag
+              aria-label="Edit note"
+              title="Edit note"
+            >
+              <KIcon name="edit" size={16} />
+            </button>
+            <div
+              className={
+                "text-[14px] break-words whitespace-pre-wrap " +
+                ((it as any).notes && (it as any).notes.trim().length > 0
+                  ? "text-gray-800"
+                  : "text-gray-500 italic")
+              }
+            >
+              {(it as any).notes && (it as any).notes.trim().length > 0
+                ? (it as any).notes
+                : "Add note"}
+            </div>
+          </div>
+
+          <div className="flex min-w-0 items-center justify-end">
+            <button
+              onClick={() => handleDelete(it)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--brand-orange,#f59e0b)]/10 text-[var(--brand-orange,#f59e0b)] hover:bg-[var(--brand-orange,#f59e0b)]/15"
+              title="Delete"
+              data-no-drag
+              type="button"
+            >
+              ✖
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function TravelRow({ it }: { it: BuilderTravelItem }) {
+    const fromName = it.from_region_name ?? "From…";
+    const toName = it.to_region_name ?? "To…";
+    const modeMeta = MODE_META[it.mode] || MODE_META.car;
+
+    const startShort = fmtDateTimeShort((it as any).travel_start_at);
+    const endShort = fmtDateTimeShort((it as any).travel_end_at);
+
+    return (
+      <div className="px-4 py-3">
+        <div className={GRID}>
+          <div />
+          <div className="col-span-5">
+            <button
+              type="button"
+              className="w-full"
+              onClick={() => startEditTravel(it)}
+              data-no-drag
+              title="Edit travel"
+            >
+              <div className="flex items-center justify-center gap-3 w-full text-[#0A1B4D]">
+                <div className="flex flex-col items-start min-w-0">
+                  <div className="flex items-center gap-2">
+                    <KIcon
+                      name="map-marker-alt"
+                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="truncate font-medium">{fromName}</span>
+                  </div>
+                  {startShort && (
+                    <div className="ml-6 text-xs text-slate-600">
+                      {startShort}
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
+
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <KIcon
+                      name={modeMeta.icon}
+                      className="text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="font-semibold">{modeMeta.label}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    {durationLabel(it.duration_minutes)}{" "}
+                    <span className="mx-1">•</span>
+                    {it.distance_km != null ? `${it.distance_km} km` : "— km"}
+                  </div>
+                </div>
+
+                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
+
+                <div className="flex flex-col items-start min-w-0">
+                  <div className="flex items-center gap-2">
+                    <KIcon
+                      name="map-marker-alt"
+                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
+                    />
+                    <span className="truncate font-medium">{toName}</span>
+                  </div>
+                  {endShort && (
+                    <div className="ml-6 text-xs text-slate-600">
+                      {endShort}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex min-w-0 items-center justify-end">
+            <button
+              onClick={() => handleDelete(it)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--brand-orange,#f59e0b)]/10 text-[var(--brand-orange,#f59e0b)] hover:bg-[var(--brand-orange,#f59e0b)]/15"
+              title="Delete"
+              data-no-drag
+              type="button"
+            >
+              ✖
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- Travel editor state & helpers ---------- */
+  const [editingTravel, setEditingTravel] = useState<BuilderTravelItem | null>(
+    null
+  );
+  const [travelFromQuery, setTravelFromQuery] = useState("");
+  const [travelToQuery, setTravelToQuery] = useState("");
+  const [travelFromOpts, setTravelFromOpts] = useState<any[]>([]);
+  const [travelToOpts, setTravelToOpts] = useState<any[]>([]);
+  const [travelDraft, setTravelDraft] = useState<{
+    from_region_id: string | null;
+    from_region_name: string | null;
+    to_region_id: string | null;
+    to_region_name: string | null;
+    mode: TravelMode | "train";
+    duration_hours: number | null;
+    duration_mins: number | null;
+    distance_km: number | null;
+    travel_start_at: string | null;
+    travel_end_at: string | null;
+  } | null>(null);
+
   const startEditTravel = (row: BuilderTravelItem) => {
     const mins = row.duration_minutes ?? null;
     const h = mins != null ? Math.floor(mins / 60) : null;
@@ -390,7 +908,6 @@ export default function TripBuilderPage() {
     setTravelToOpts([]);
   };
 
-  // region search
   useEffect(() => {
     let live = true;
     (async () => {
@@ -403,6 +920,7 @@ export default function TripBuilderPage() {
       live = false;
     };
   }, [travelFromQuery]);
+
   useEffect(() => {
     let live = true;
     (async () => {
@@ -423,7 +941,6 @@ export default function TripBuilderPage() {
         (travelDraft.duration_hours ?? 0) * 60 +
         (travelDraft.duration_mins ?? 0);
 
-      // If 'train' isn't supported by backend enum yet, map to 'bus'
       const modeToSave =
         (travelDraft.mode as any) === "train"
           ? ("bus" as TravelMode)
@@ -447,7 +964,6 @@ export default function TripBuilderPage() {
       try {
         patched = await updateTravelLeg(editingTravel.id, withDatesPatch);
       } catch (err: any) {
-        // Fallback if backend doesn't support the travel_* columns
         const msg = err?.message || "";
         if (msg.includes("travel_start_at") || msg.includes("travel_end_at")) {
           setErrorMsg(
@@ -508,540 +1024,420 @@ export default function TripBuilderPage() {
     }
   };
 
-  /* ---------- delete (site or travel) ---------- */
-  const handleDelete = async (it: BuilderItem) => {
-    const ok = confirm("Remove this entry?");
-    if (!ok) return;
+  /* ---------- Day CRUD ---------- */
+  const handleAddDay = async () => {
+    if (!tripId) return;
     try {
-      if (it.kind === "site") {
-        await deleteTripItem(it.id);
-      } else {
-        await deleteTravelLeg(it.id);
-      }
-      setItems((prev) =>
-        prev
-          .filter((x) => x.id !== it.id)
-          .map((x, idx) => ({ ...x, order_index: idx + 1 }))
-      );
-      setDirtyOrder(true);
+      const created = await addTripDay({ trip_id: tripId, title: "" } as any);
+      setDays((prev) => [{ ...created }, ...prev]);
+      setShowAddMenu(false);
     } catch (e: any) {
-      setErrorMsg(e.message || "Failed to delete item.");
+      setErrorMsg(e?.message || "Failed to add day.");
     }
   };
 
-  /* ---------- helpers ---------- */
-  const siteNumber = (rowIndex: number) =>
-    items.slice(0, rowIndex + 1).filter((x) => x.kind === "site").length;
+  const handleUpdateDayTitle = async (day: TripDay, title: string) => {
+    setDays((prev) => prev.map((d) => (d.id === day.id ? { ...d, title } : d)));
+    try {
+      await updateTripDay(day.id, { title: title ?? "" });
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to update day.");
+    }
+  };
 
-  /* ---------- Cards ---------- */
-
-  function SiteRow({
-    it,
-    isGhost = false,
-  }: {
-    it: BuilderSiteItem;
-    isGhost?: boolean;
-  }) {
-    const interactive = !isGhost;
-    const idx = items.findIndex((x) => x.id === it.id);
-    const num = siteNumber(idx);
-
-    return (
-      <div className={"px-4 py-3 " + (isGhost ? "pointer-events-none" : "")}>
-        <div className={GRID}>
-          {/* Number circle */}
-          <div className="flex items-center justify-center">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow-sm">
-              {num}
-            </span>
-          </div>
-
-          {/* Site */}
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200">
-              {it.site?.cover_photo_url ? (
-                <img
-                  src={it.site.cover_photo_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : null}
-            </div>
-            <div className="min-w-0">
-              <div className="truncate font-semibold text-[17px] text-[#0A1B4D]">
-                {it.site ? (
-                  interactive ? (
-                    <Link
-                      href={`/site/${it.site.slug}`}
-                      className="hover:underline"
-                      data-no-drag
-                    >
-                      {it.site.title}
-                    </Link>
-                  ) : (
-                    it.site.title
-                  )
-                ) : (
-                  <span className="text-gray-500">Unknown site</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Region */}
-          <div className="min-w-0 truncate text-[15px] text-gray-700">
-            {it.provinceName || "—"}
-          </div>
-
-          {/* Dates */}
-          <div className="relative min-w-0">
-            <button
-              onClick={
-                interactive
-                  ? () => handleOpenDatePopover(it.id, it.date_in, it.date_out)
-                  : undefined
-              }
-              className={
-                "inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-[14px] text-gray-700 whitespace-nowrap " +
-                (interactive ? "hover:bg-gray-100" : "opacity-60")
-              }
-              data-no-drag
-              type="button"
-            >
-              <KIcon name="calendar-check" size={16} className="text-current" />
-              <span>{fmtRange(it.date_in, it.date_out)}</span>
-            </button>
-
-            {interactive && openDateFor === it.id && (
-              <div className="absolute z-40 mt-2 w-72 rounded-lg border bg-white p-3 shadow-[0_10px_28px_-10px_rgba(0,0,0,0.22)]">
-                <div className="mb-2 text-xs font-semibold text-gray-600">
-                  Select in &amp; out dates
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="w-16 shrink-0 text-xs text-gray-500">
-                      In
-                    </label>
-                    <input
-                      type="date"
-                      value={dateDraft.in ?? ""}
-                      onChange={(e) =>
-                        setDateDraft((d) => ({
-                          ...d,
-                          in: e.target.value || "",
-                        }))
-                      }
-                      className="w-full rounded-md border px-2 py-1 text-sm"
-                      data-no-drag
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="w-16 shrink-0 text-xs text-gray-500">
-                      Out
-                    </label>
-                    <input
-                      type="date"
-                      value={dateDraft.out ?? ""}
-                      onChange={(e) =>
-                        setDateDraft((d) => ({
-                          ...d,
-                          out: e.target.value || "",
-                        }))
-                      }
-                      className="w-full rounded-md border px-2 py-1 text-sm"
-                      data-no-drag
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setOpenDateFor(null)}
-                      className="rounded-md border px-3 py-1 text-xs hover:bg-gray-50"
-                      data-no-drag
-                      type="button"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => applyDates(it.id)}
-                      className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1 text-xs font-semibold text-white hover:brightness-95"
-                      data-no-drag
-                      type="button"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Experience */}
-          <div className="min-w-0 flex flex-wrap gap-2">
-            {it.experience && it.experience.length > 0 ? (
-              it.experience.map((e, idx) => (
-                <span
-                  key={idx}
-                  className="rounded-full bg-gray-100 px-2 py-[3px] text-[12px] text-gray-700 whitespace-nowrap"
-                >
-                  {e}
-                </span>
-              ))
-            ) : (
-              <span className="text-sm text-gray-500">—</span>
-            )}
-          </div>
-
-          {/* Notes + edit icon */}
-          <div className="relative min-w-0 pt-4 pr-7">
-            <button
-              type="button"
-              className="absolute right-0 -top-2 p-1 text-gray-500 hover:text-[var(--brand-orange,#f59e0b)]"
-              onClick={() => openNotesEditor(it.id, it.notes ?? "")}
-              data-no-drag
-              aria-label="Edit note"
-              title="Edit note"
-            >
-              <KIcon name="edit" size={16} />
-            </button>
-            <div
-              className={
-                "text-[14px] break-words whitespace-pre-wrap " +
-                (it.notes && it.notes.trim().length > 0
-                  ? "text-gray-800"
-                  : "text-gray-500 italic")
-              }
-            >
-              {it.notes && it.notes.trim().length > 0 ? it.notes : "Add note"}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex min-w-0 items-center justify-end">
-            <button
-              onClick={() => handleDelete(it)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--brand-orange,#f59e0b)]/10 text-[var(--brand-orange,#f59e0b)] hover:bg-[var(--brand-orange,#f59e0b)]/15"
-              title="Delete"
-              data-no-drag
-              type="button"
-            >
-              ✖
-            </button>
-          </div>
-        </div>
-      </div>
+  const handleUpdateDayDate = async (day: TripDay, dateStr: string) => {
+    const the_date = dateStr || null;
+    setDays((prev) =>
+      prev.map((d) => (d.id === day.id ? { ...d, the_date } : d))
     );
-  }
+    try {
+      if (the_date) {
+        await setDayDateAndPropagate(day.id, the_date);
+        setItems((prev) =>
+          prev.map((it: any) =>
+            it.day_id === day.id
+              ? { ...it, date_in: the_date, date_out: the_date }
+              : it
+          )
+        );
+      } else {
+        await updateTripDay(day.id, { the_date: null });
+      }
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to update day date.");
+    }
+  };
 
-  function TravelRow({
-    it,
-    isGhost = false,
-  }: {
-    it: BuilderTravelItem;
-    isGhost?: boolean;
-  }) {
-    const interactive = !isGhost;
-
-    const fromName = it.from_region_name ?? "From…";
-    const toName = it.to_region_name ?? "To…";
-    const modeMeta = MODE_META[it.mode] || MODE_META.car;
-
-    const startShort = fmtDateTimeShort((it as any).travel_start_at);
-    const endShort = fmtDateTimeShort((it as any).travel_end_at);
-
-    return (
-      <div className={"px-4 py-3 " + (isGhost ? "pointer-events-none" : "")}>
-        <div className={GRID}>
-          {/* NO number for travel */}
-          <div />
-
-          {/* Main travel content spans 5 cols so delete stays inline */}
-          <div className="col-span-5">
-            <button
-              type="button"
-              className="w-full"
-              onClick={() => interactive && startEditTravel(it)}
-              data-no-drag
-              title="Edit travel"
-            >
-              <div className="flex items-center justify-center gap-3 w-full text-[#0A1B4D]">
-                {/* From (with pin + start date below) */}
-                <div className="flex flex-col items-start min-w-0">
-                  <div className="flex items-center gap-2">
-                    <KIcon
-                      name="map-marker-alt"
-                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
-                    />
-                    <span className="truncate font-medium">{fromName}</span>
-                  </div>
-                  {startShort && (
-                    <div className="ml-6 text-xs text-slate-600">
-                      {startShort}
-                    </div>
-                  )}
-                </div>
-
-                {/* Line */}
-                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
-
-                {/* Mode (with duration/distance below) */}
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <KIcon
-                      name={modeMeta.icon}
-                      className="text-[var(--brand-orange,#f59e0b)]"
-                    />
-                    <span className="font-semibold">{modeMeta.label}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {durationLabel(it.duration_minutes)}{" "}
-                    <span className="mx-1">•</span>
-                    {it.distance_km != null ? `${it.distance_km} km` : "— km"}
-                  </div>
-                </div>
-
-                {/* Line */}
-                <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
-
-                {/* To (with pin + end date below) */}
-                <div className="flex flex-col items-start min-w-0">
-                  <div className="flex items-center gap-2">
-                    <KIcon
-                      name="map-marker-alt"
-                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
-                    />
-                    <span className="truncate font-medium">{toName}</span>
-                  </div>
-                  {endShort && (
-                    <div className="ml-6 text-xs text-slate-600">
-                      {endShort}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </button>
-          </div>
-
-          {/* Notes column (travel has none) */}
-          <div className="text-center text-slate-400 text-sm">—</div>
-
-          {/* Actions (right side) */}
-          <div className="flex min-w-0 items-center justify-end">
-            <button
-              onClick={() => handleDelete(it)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--brand-orange,#f59e0b)]/10 text-[var(--brand-orange,#f59e0b)] hover:bg-[var(--brand-orange,#f59e0b)]/15"
-              title="Delete"
-              data-no-drag
-              type="button"
-            >
-              ✖
-            </button>
-          </div>
-        </div>
-      </div>
+  const handleDeleteDay = async (day: TripDay) => {
+    const ok = confirm("Delete this day? Items will be ungrouped.");
+    if (!ok) return;
+    setItems((prev) =>
+      prev.map((it: any) =>
+        it.day_id === day.id ? { ...it, day_id: null } : it
+      )
     );
-  }
+    setDays((prev) => prev.filter((d) => d.id !== day.id));
+    try {
+      const scoped = items.filter((it: any) => it.day_id === day.id);
+      if (scoped.length) {
+        await updateTripItemsBatch(
+          scoped.map((it) => ({ id: it.id, day_id: null } as any))
+        );
+      }
+      await deleteTripDay(day.id);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to delete day.");
+    }
+  };
 
   /* ---------- UI ---------- */
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="mb-3 text-xs text-gray-500">
-        <Link href={`/${username}`} className="hover:underline">
-          @{username}
-        </Link>{" "}
-        / <span className="text-gray-700">{tripSlug}</span>
-      </div>
-
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-5xl font-black leading-tight text-[#0A1B4D]">
-          Trip Builder
-        </h1>
-
-        <div className="flex items-center gap-3">
-          {dirtyOrder && (
-            <button
-              onClick={handleSaveOrder}
-              disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              type="button"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          )}
-          <button
-            onClick={() => router.back()}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-            type="button"
-          >
-            Back
-          </button>
+    <main className="bg-slate-100 min-h-screen py-6">
+      <div className="mx-auto max-w-6xl rounded-2xl bg-white shadow-sm px-5 md:px-8 lg:px-10 py-6">
+        {/* Breadcrumb */}
+        <div className="mb-3 text-xs text-gray-500">
+          <Link href={`/${username}`} className="hover:underline">
+            @{username}
+          </Link>{" "}
+          / <span className="text-gray-700">{tripSlug}</span>
         </div>
-      </div>
 
-      {/* Name row */}
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <div className="mb-1 text-sm font-semibold text-gray-700">
-            Name Your Trip
-          </div>
-          <input
-            value={tripName}
-            onChange={(e) => setTripName(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
-            placeholder="My trip…"
-          />
-        </div>
-        <div>
-          <div className="mb-1 text-sm font-semibold text-gray-700">
-            Your Name
-          </div>
-          <input
-            value={yourName}
-            onChange={(e) => setYourName(e.target.value)}
-            placeholder="Your name"
-            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
-          />
-        </div>
-      </div>
+        <div className="mb-5 flex items-center justify-between">
+          <h1 className="text-5xl font-black leading-tight text-[#0A1B4D]">
+            Trip Builder
+          </h1>
 
-      {errorMsg && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {errorMsg}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-sm text-gray-500">Loading itinerary…</div>
-      ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-gray-600">
-          This trip has no items yet.
-        </div>
-      ) : (
-        <>
-          {/* Header */}
-          <div className="rounded-[10px] bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-white shadow-sm">
-            <div className={GRID}>
-              <div className="text-[15px] font-semibold whitespace-nowrap">
-                Order
-              </div>
-              <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
-                <KIcon name="unesco" className="text-white" />
-                <span>Item</span>
-              </div>
-              <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
-                <KIcon name="map-marker-alt" className="text-white" />
-                <span>Details</span>
-              </div>
-              <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
-                <KIcon name="calendar-check" className="text-white" />
-                <span>Dates / Time</span>
-              </div>
-              <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
-                <KIcon name="hike" className="text-white" />
-                <span>Extra</span>
-              </div>
-              <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
-                <KIcon name="info" className="text-white" />
-                <span>Notes</span>
-              </div>
-              <div className="text-right text-[15px] font-semibold whitespace-nowrap">
-                Actions
-              </div>
-            </div>
-          </div>
-
-          {/* Rows */}
-          <div ref={listParent} className="mt-4 space-y-3">
-            {items.map((it) => {
-              const isDragging = draggingId === it.id;
-              return (
-                <div
-                  key={it.id}
-                  ref={(el) => rowRefs.current.set(it.id, el)}
-                  className={
-                    "group rounded-[14px] border overflow-visible " +
-                    (isDragging
-                      ? "border-dashed border-2 border-gray-300 bg-gray-100"
-                      : "border-gray-300 bg-white hover:bg-gray-100 cursor-grab active:cursor-grabbing shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)]")
-                  }
-                  title="Drag to reorder"
-                  style={isDragging ? { height: dragSize.h } : undefined}
-                  draggable
-                  onDragStart={handleDragStart(it.id)}
-                  onDrag={handleDrag()}
-                  onDragOver={handleDragOver(it.id)}
-                  onDrop={handleDrop()}
-                  onDragEnd={handleDragEnd()}
-                >
-                  {it.kind === "site" ? (
-                    <SiteRow it={it} />
-                  ) : (
-                    <TravelRow it={it} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Drag Ghost */}
-      {draggingId && dragXY && (
-        <div
-          className="pointer-events-none fixed z-50 rounded-[14px] border border-gray-300 bg-white shadow-[0_10px_28px_-10px_rgba(0,0,0,0.22)]"
-          style={{
-            left: `${dragXY.x}px`,
-            top: `${dragXY.y}px`,
-            width: `${dragSize.w}px`,
-            height: `${dragSize.h}px`,
-            transform: "scale(0.985) rotate(-0.25deg)",
-            transition: "transform 80ms ease-out",
-          }}
-        >
-          {(() => {
-            const row = items.find((x) => x.id === draggingId)!;
-            return row.kind === "site" ? (
-              <SiteRow it={row} isGhost />
-            ) : (
-              <TravelRow it={row} isGhost />
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Notes Modal (sites) */}
-      {openNotesFor && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpenNotesFor(null);
-          }}
-        >
-          <div className="w-full max-w-md rounded-xl border bg-white p-4 shadow-xl">
-            <div className="mb-2 text-sm font-semibold text-gray-700">
-              Edit note
-            </div>
-            <textarea
-              value={noteDraft}
-              onChange={(e) => handleNoteDraftChange(e.target.value)}
-              rows={5}
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
-              placeholder="Type note (max 50 characters)…"
-              autoFocus
-            />
-            <div className="mt-1 text-xs text-gray-500">
-              {noteDraft.length}/50 characters
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
+          <div className="flex items-center gap-3">
+            {dirtyOrder && (
               <button
-                onClick={() => setOpenNotesFor(null)}
-                className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
+                onClick={handleSaveOrder}
+                disabled={saving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                 type="button"
               >
-                Cancel
+                {saving ? "Saving…" : "Save"}
               </button>
+            )}
+            <button
+              onClick={() => router.back()}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+              type="button"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+
+        {/* Name row */}
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <div className="mb-1 text-sm font-semibold text-gray-700">
+              Name Your Trip
+            </div>
+            <input
+              value={tripName}
+              onChange={(e) => setTripName(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
+              placeholder="My trip…"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-sm font-semibold text-gray-700">
+              Your Name
+            </div>
+            <input
+              value={yourName}
+              onChange={(e) => setYourName(e.target.value)}
+              placeholder="Your name"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
+            />
+          </div>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {errorMsg}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-sm text-gray-500">Loading itinerary…</div>
+        ) : (
+          <>
+            {/* Orange labels row ABOVE the days */}
+            <div className="rounded-[10px] bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-white shadow-sm mb-6">
+              <div className={GRID}>
+                <div className="text-[15px] font-semibold whitespace-nowrap">
+                  No
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
+                  <KIcon name="unesco" className="text-white" />
+                  <span>Site</span>
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
+                  <KIcon name="map-marker-alt" className="text-white" />
+                  <span>Location</span>
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
+                  <KIcon name="calendar-check" className="text-white" />
+                  <span>Visit Date</span>
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
+                  <KIcon name="hike" className="text-white" />
+                  <span>Experience</span>
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-semibold whitespace-nowrap text-white">
+                  <KIcon name="info" className="text-white" />
+                  <span>Notes</span>
+                </div>
+                <div className="text-right text-[15px] font-semibold whitespace-nowrap">
+                  Remove
+                </div>
+              </div>
+            </div>
+
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragCancel={onDragCancel}
+              onDragEnd={onDragEnd}
+            >
+              {/* Days (header INSIDE the dashed container) */}
+              <div className="space-y-14 mb-6">
+                {days.map((day, i) => {
+                  const scoped = itemsByDay.get(day.id) ?? [];
+                  const isActive = overContainer === day.id && !!activeId;
+
+                  return (
+                    <DroppableContainer
+                      key={day.id}
+                      id={day.id}
+                      isActive={isActive}
+                    >
+                      {/* Day header */}
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="inline-flex items-center rounded-full bg-[#0b1a55] px-14 py-2 text-white text-sm font-bold">
+                          {`Day ${i + 1}`}
+                        </span>
+
+                        <input
+                          className="flex-1 rounded-lg px-3 py-2 text-sm
+             bg-white border border-gray-200
+             focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
+                          placeholder="Add Title"
+                          value={day.title ?? ""}
+                          onChange={(e) =>
+                            handleUpdateDayTitle(day, e.target.value)
+                          }
+                        />
+
+                        <input
+                          type="date"
+                          className="rounded-lg px-3 py-2 text-sm
+             bg-white border border-gray-200
+             focus:outline-none focus:border-[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
+                          value={(day as any).the_date ?? ""}
+                          onChange={(e) =>
+                            handleUpdateDayDate(day, e.target.value)
+                          }
+                        />
+
+                        <button
+                          type="button"
+                          className="p-2"
+                          title="Delete day"
+                          onClick={() => handleDeleteDay(day)}
+                        >
+                          <KIcon
+                            name="trash"
+                            className="text-[var(--brand-orange,#f59e0b)]"
+                          />
+                        </button>
+                      </div>
+
+                      {/* Sortable list */}
+                      <SortableContext
+                        items={scoped.map((x) => x.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {scoped.length ? (
+                          <div className="space-y-3">
+                            {scoped.map((it) => (
+                              <SortableItem key={it.id} id={it.id}>
+                                {it.kind === "site" ? (
+                                  <SiteRow it={it as BuilderSiteItem} />
+                                ) : (
+                                  <TravelRow it={it as BuilderTravelItem} />
+                                )}
+                              </SortableItem>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed px-4 py-2 text-center text-sm text-gray-400 bg-white">
+                            Drag items here
+                          </div>
+                        )}
+                      </SortableContext>
+                    </DroppableContainer>
+                  );
+                })}
+              </div>
+
+              {/* Ungrouped header */}
+              <div className="mt-2 mb-2 text-sm font-semibold text-slate-700">
+                Ungrouped items
+              </div>
+
+              {/* Ungrouped container */}
+              <DroppableContainer
+                id={UNGROUPED}
+                isActive={overContainer === UNGROUPED && !!activeId}
+              >
+                <SortableContext
+                  items={(itemsByDay.get(null) ?? []).map((x) => x.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div ref={listParent} className="space-y-3">
+                    {(itemsByDay.get(null) ?? []).length ? (
+                      (itemsByDay.get(null) ?? []).map((it) => (
+                        <SortableItem key={it.id} id={it.id}>
+                          {it.kind === "site" ? (
+                            <SiteRow it={it as BuilderSiteItem} />
+                          ) : (
+                            <TravelRow it={it as BuilderTravelItem} />
+                          )}
+                        </SortableItem>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed px-4 py-2 text-center text-sm text-gray-400 bg-white">
+                        Drag items here to ungroup
+                      </div>
+                    )}
+                  </div>
+                </SortableContext>
+              </DroppableContainer>
+
+              {/* Drag overlay (nice ghost) */}
+              <DragOverlay>
+                {activeId
+                  ? (() => {
+                      const row = items.find((x) => x.id === activeId)!;
+                      return row.kind === "site" ? (
+                        <div className="rounded-[14px] border border-gray-300 bg-white shadow-[0_10px_28px_-10px_rgba(0,0,0,0.22)]">
+                          <SiteRow it={row as BuilderSiteItem} />
+                        </div>
+                      ) : (
+                        <div className="rounded-[14px] border border-gray-300 bg-white shadow-[0_10px_28px_-10px_rgba(0,0,0,0.22)]">
+                          <TravelRow it={row as BuilderTravelItem} />
+                        </div>
+                      );
+                    })()
+                  : null}
+              </DragOverlay>
+            </DndContext>
+          </>
+        )}
+
+        {/* Floating green + FAB */}
+        <button
+          type="button"
+          aria-label="Add"
+          className="fixed bottom-6 right-6 z-[65] inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#00b78b] text-white shadow-xl transition-transform duration-150 hover:scale-105 active:scale-95"
+          onClick={() => setShowAddMenu(true)}
+        >
+          <KIcon name="plus" size={28} />
+        </button>
+      </div>
+
+      {/* Modals (outside the white card so overlay covers full viewport) */}
+      <FadeModal
+        isOpen={!!openDateFor}
+        onClose={() => setOpenDateFor(null)}
+        maxWidthClass="max-w-lg"
+        z={75}
+      >
+        <div className="p-5">
+          <div className="mb-3 text-lg font-semibold text-slate-800">
+            Select dates
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="w-20 shrink-0 text-xs font-semibold text-slate-600">
+                Check-in
+              </label>
+              <input
+                type="date"
+                value={dateDraft.in ?? ""}
+                onChange={(e) =>
+                  setDateDraft((d) => ({ ...d, in: e.target.value || "" }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                data-no-drag
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <label className="w-20 shrink-0 text-xs font-semibold text-slate-600">
+                Check-out
+              </label>
+              <input
+                type="date"
+                value={dateDraft.out ?? ""}
+                onChange={(e) =>
+                  setDateDraft((d) => ({ ...d, out: e.target.value || "" }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                data-no-drag
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              onClick={() => setOpenDateFor(null)}
+              className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
+              type="button"
+            >
+              Cancel
+            </button>
+            {openDateFor && (
+              <button
+                onClick={() => applyDates(openDateFor)}
+                className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
+                type="button"
+              >
+                Apply
+              </button>
+            )}
+          </div>
+        </div>
+      </FadeModal>
+
+      <FadeModal isOpen={!!openNotesFor} onClose={() => setOpenNotesFor(null)}>
+        <div className="p-4">
+          <div className="mb-2 text-sm font-semibold text-gray-700">
+            Edit note
+          </div>
+          <textarea
+            value={noteDraft}
+            onChange={(e) => handleNoteDraftChange(e.target.value)}
+            rows={5}
+            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
+            placeholder="Type note (max 50 characters)…"
+            autoFocus
+          />
+          <div className="mt-1 text-xs text-gray-500">
+            {noteDraft.length}/50 characters
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              onClick={() => setOpenNotesFor(null)}
+              className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
+              type="button"
+            >
+              Cancel
+            </button>
+            {openNotesFor && (
               <button
                 onClick={() => applyNotes(openNotesFor)}
                 className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
@@ -1049,22 +1445,19 @@ export default function TripBuilderPage() {
               >
                 Save
               </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </FadeModal>
 
       {/* Travel Editor */}
-      {editingTravel && travelDraft && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setEditingTravel(null);
-          }}
-        >
-          <div className="w-full max-w-lg rounded-2xl border bg-white p-5 shadow-2xl">
+      <FadeModal
+        isOpen={!!editingTravel && !!travelDraft}
+        onClose={() => setEditingTravel(null)}
+        maxWidthClass="max-w-lg"
+      >
+        {editingTravel && travelDraft && (
+          <div className="p-5">
             <div className="mb-3 text-lg font-semibold text-slate-800">
               Edit travel
             </div>
@@ -1151,7 +1544,7 @@ export default function TripBuilderPage() {
                 </div>
               </div>
 
-              {/* Mode buttons (includes Train) */}
+              {/* Mode buttons */}
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">
                   Mode
@@ -1306,72 +1699,59 @@ export default function TripBuilderPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </FadeModal>
 
-      {/* FAB */}
-      <button
-        type="button"
-        aria-label="Add"
-        className="fixed bottom-6 right-6 z-[65] inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#00b78b] text-white shadow-xl transition-transform duration-150 hover:scale-105 active:scale-95"
-        onClick={() => setShowAddMenu(true)}
+      {/* Add menu */}
+      <FadeModal
+        isOpen={showAddMenu}
+        onClose={() => setShowAddMenu(false)}
+        maxWidthClass="max-w-sm"
+        z={70}
       >
-        <KIcon name="plus" size={28} />
-      </button>
-
-      {showAddMenu && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowAddMenu(false);
-          }}
-        >
-          <div className="w-full max-w-sm rounded-2xl border bg-white p-5 shadow-2xl">
-            <div className="mb-3 text-lg font-semibold text-slate-800">
-              Add to Trip
-            </div>
-            <div className="grid gap-2">
-              <button
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-                onClick={() => setShowAddMenu(false)}
-              >
-                Add Day
-              </button>
-              <button
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-                onClick={() => setShowAddMenu(false)}
-              >
-                Add Activity
-              </button>
-              <button
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-                onClick={async () => {
-                  setShowAddMenu(false);
-                  await addTravel();
-                }}
-              >
-                Add Travel
-              </button>
-              <button
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-                onClick={() => setShowAddMenu(false)}
-              >
-                Add Site
-              </button>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
-                onClick={() => setShowAddMenu(false)}
-              >
-                Close
-              </button>
-            </div>
+        <div className="p-5">
+          <div className="mb-3 text-lg font-semibold text-slate-800">
+            Add to Trip
           </div>
         </div>
-      )}
+        <div className="px-5 pb-5 grid gap-2">
+          <button
+            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
+            onClick={handleAddDay}
+          >
+            Add Day
+          </button>
+          <button
+            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
+            onClick={() => setShowAddMenu(false)}
+          >
+            Add Activity
+          </button>
+          <button
+            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
+            onClick={async () => {
+              setShowAddMenu(false);
+              await addTravel();
+            }}
+          >
+            Add Travel
+          </button>
+          <button
+            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
+            onClick={() => setShowAddMenu(false)}
+          >
+            Add Site
+          </button>
+        </div>
+        <div className="px-5 pb-5 flex justify-end">
+          <button
+            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+            onClick={() => setShowAddMenu(false)}
+          >
+            Close
+          </button>
+        </div>
+      </FadeModal>
     </main>
   );
 }
