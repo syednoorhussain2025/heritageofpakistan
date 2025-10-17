@@ -1,7 +1,7 @@
 // app/[username]/trip/[tripSlug]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +19,8 @@ import {
   updateTripDay,
   deleteTripDay,
   setDayDateAndPropagate,
+  getNextOrderIndex,
+  addSiteToTrip,
   type TravelMode,
   type TimelineItem,
   type SiteLite,
@@ -26,6 +28,10 @@ import {
 } from "@/lib/trips";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import Icon from "@/components/Icon";
+
+/* bring in the search modal component you created */
+import TripBuilderSearch from "./TripBuilderSearch";
+import Builderaddbutton from "./Builderaddbutton";
 
 /* dnd-kit */
 import {
@@ -254,7 +260,23 @@ export default function TripBuilderPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dirtyOrder, setDirtyOrder] = useState(false);
   const [justSaved, setJustSaved] = useState<null | "ok" | "err">(null);
-  const [showAddMenu, setShowAddMenu] = useState(false);
+
+  /* NEW: show Trip Builder Search modal */
+  const [showSiteSearch, setShowSiteSearch] = useState(false);
+
+  /* Global toast (so child can surface) */
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMsg(null);
+      toastTimerRef.current = null;
+    }, 2000);
+  };
 
   const [listParent] = useAutoAnimate({ duration: 220, easing: "ease-in-out" });
 
@@ -988,21 +1010,13 @@ export default function TripBuilderPage() {
                 ...it,
                 ...patched,
                 from_region_name:
-                  travelDraft.from_region_name ??
-                  (it as any).from_region_name ??
-                  null,
+                  travelDraft.from_region_name ?? (it as any).from_region_name,
                 to_region_name:
-                  travelDraft.to_region_name ??
-                  (it as any).to_region_name ??
-                  null,
+                  travelDraft.to_region_name ?? (it as any).to_region_name,
                 travel_start_at:
-                  travelDraft.travel_start_at ??
-                  (it as any).travel_start_at ??
-                  null,
+                  travelDraft.travel_start_at ?? (it as any).travel_start_at,
                 travel_end_at:
-                  travelDraft.travel_end_at ??
-                  (it as any).travel_end_at ??
-                  null,
+                  travelDraft.travel_end_at ?? (it as any).travel_end_at,
               }
             : it
         )
@@ -1036,13 +1050,57 @@ export default function TripBuilderPage() {
     }
   };
 
+  /* ---------- Add Site from Search ---------- */
+  const handleAddSiteFromSearch = async (site: SiteLite) => {
+    if (!tripId) return;
+    try {
+      // get a proper order_index that’s globally correct across days/sites/travel
+      const orderIndex = await getNextOrderIndex(tripId);
+      const created = await addSiteToTrip({
+        tripId,
+        siteId: site.id,
+        orderIndex,
+        dayId: null,
+      });
+
+      // create a UI row (optimistic + enriched with site preview)
+      const newRow: BuilderSiteItem = {
+        kind: "site",
+        id: created.id,
+        trip_id: created.trip_id,
+        site_id: created.site_id,
+        order_index: created.order_index,
+        day_id: created.day_id ?? null,
+        date_in: created.date_in ?? null,
+        date_out: created.date_out ?? null,
+        notes: created.notes ?? null,
+        created_at: created.created_at,
+        updated_at: created.updated_at,
+        site, // preview info
+        provinceName: null,
+        experience: [],
+      } as any;
+
+      const next = [...items, newRow].sort(
+        (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+      );
+
+      setItems(next);
+      // ✅ Do NOT close the modal; let the user add multiple items
+      showToast(`Added to ${tripName || "trip"}`);
+      setJustSaved("ok");
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to add site to trip.");
+      setJustSaved("err");
+    }
+  };
+
   /* ---------- Day CRUD ---------- */
   const handleAddDay = async () => {
     if (!tripId) return;
     try {
       const created = await addTripDay({ trip_id: tripId, title: "" } as any);
       setDays((prev) => [{ ...created }, ...prev]);
-      setShowAddMenu(false);
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to add day.");
     }
@@ -1105,6 +1163,13 @@ export default function TripBuilderPage() {
   /* ---------- UI ---------- */
   return (
     <main className="bg-slate-100 min-h-screen py-6">
+      {/* Global toast */}
+      {toastMsg && (
+        <div className="fixed left-1/2 top-4 z-[95] -translate-x-1/2 rounded-md bg-black/85 px-3 py-2 text-sm text-white shadow">
+          {toastMsg}
+        </div>
+      )}
+
       <div className="mx-auto max-w-6xl rounded-2xl bg-white shadow-sm px-5 md:px-8 lg:px-10 py-6">
         {/* Breadcrumb */}
         <div className="mb-3 text-xs text-gray-500">
@@ -1357,15 +1422,13 @@ export default function TripBuilderPage() {
           </>
         )}
 
-        {/* Floating green + FAB */}
-        <button
-          type="button"
-          aria-label="Add"
-          className="fixed bottom-6 right-6 z-[65] inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#00b78b] text-white shadow-xl transition-transform duration-150 hover:scale-105 active:scale-95"
-          onClick={() => setShowAddMenu(true)}
-        >
-          <KIcon name="plus" size={28} />
-        </button>
+        {/* Floating Add button (separate component) */}
+        <Builderaddbutton
+          onAddDay={handleAddDay}
+          onAddTravel={addTravel}
+          onAddSite={() => setShowSiteSearch(true)}
+          // onAddActivity can be wired when implemented
+        />
       </div>
 
       {/* Modals */}
@@ -1719,55 +1782,25 @@ export default function TripBuilderPage() {
         )}
       </FadeModal>
 
-      {/* Add menu */}
+      {/* Trip Builder Search popup (central) */}
       <FadeModal
-        isOpen={showAddMenu}
-        onClose={() => setShowAddMenu(false)}
-        maxWidthClass="max-w-sm"
-        z={70}
+        isOpen={showSiteSearch}
+        onClose={() => setShowSiteSearch(false)}
+        maxWidthClass="max-w-6xl"
+        z={80}
       >
-        <div className="p-5">
-          <div className="mb-3 text-lg font-semibold text-slate-800">
-            Add to Trip
-          </div>
-        </div>
-        <div className="px-5 pb-5 grid gap-2">
-          <button
-            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-            onClick={handleAddDay}
-          >
-            Add Day
-          </button>
-          <button
-            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-            onClick={() => setShowAddMenu(false)}
-          >
-            Add Activity
-          </button>
-          <button
-            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-            onClick={async () => {
-              setShowAddMenu(false);
-              await addTravel();
-            }}
-          >
-            Add Travel
-          </button>
-          <button
-            className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50"
-            onClick={() => setShowAddMenu(false)}
-          >
-            Add Site
-          </button>
-        </div>
-        <div className="px-5 pb-5 flex justify-end">
-          <button
-            className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
-            onClick={() => setShowAddMenu(false)}
-          >
-            Close
-          </button>
-        </div>
+        {tripId && (
+          <TripBuilderSearch
+            tripId={tripId}
+            existingSiteIds={items
+              .filter((x): x is BuilderSiteItem => x.kind === "site")
+              .map((x) => x.site_id)}
+            onAdd={handleAddSiteFromSearch}
+            onClose={() => setShowSiteSearch(false)}
+            tripName={tripName}
+            onToast={showToast} // ✅ surface toast globally
+          />
+        )}
       </FadeModal>
     </main>
   );
