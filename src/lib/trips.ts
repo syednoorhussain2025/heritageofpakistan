@@ -18,7 +18,7 @@ export type TripItem = {
   trip_id: string;
   site_id: string;
   order_index: number;
-  day_id: string | null; // ← NEW: grouping under a Day
+  day_id: string | null; // grouping under a Day
   date_in: string | null;
   date_out: string | null;
   notes: string | null;
@@ -52,18 +52,18 @@ export type TravelLeg = {
   id: string;
   trip_id: string;
   order_index: number;
-  day_id: string | null; // ← NEW: grouping under a Day
+  day_id: string | null; // grouping under a Day
   from_region_id: string | null;
   to_region_id: string | null;
   mode: TravelMode;
   duration_minutes: number | null;
   distance_km: number | null;
   notes: string | null;
-  travel_start_at?: string | null; // preferred
-  travel_end_at?: string | null; // preferred
+  travel_start_at?: string | null;
+  travel_end_at?: string | null;
   created_at: string;
   updated_at: string;
-  // denormalized names for UI
+  // denormalized for UI
   from_region_name?: string | null;
   to_region_name?: string | null;
 };
@@ -75,7 +75,7 @@ export type TimelineItem =
       id: string;
       trip_id: string;
       order_index: number;
-      day_id: string | null; // ← NEW
+      day_id: string | null;
       site_id: string;
       date_in: string | null;
       date_out: string | null;
@@ -310,7 +310,7 @@ export async function updateTripItemsBatch(
     date_in?: string | null;
     date_out?: string | null;
     notes?: string | null;
-    day_id?: string | null; // ← NEW: allow day reassignment
+    day_id?: string | null; // allow day reassignment
   }>
 ) {
   const updates = items.map(async (it) => {
@@ -445,7 +445,6 @@ export async function setDayDateAndPropagate(day_id: string, dateISO: string) {
     .from("trip_days")
     .update({ the_date: dateISO })
     .eq("id", day_id);
-
   if (upDay.error) throw upDay.error;
 
   // 2) propagate to sites (date_in/date_out)
@@ -453,16 +452,14 @@ export async function setDayDateAndPropagate(day_id: string, dateISO: string) {
     .from("trip_items")
     .update({ date_in: dateISO, date_out: dateISO })
     .eq("day_id", day_id);
-
   if (upItems.error) throw upItems.error;
 }
 
 /* ───────────────────── Travel ───────────────────── */
 
-/** Create a new travel leg */
 export async function addTravelLeg(params: {
   trip_id: string;
-  day_id?: string | null; // ← NEW (optional)
+  day_id?: string | null;
   from_region_id?: string | null;
   to_region_id?: string | null;
   mode?: TravelMode;
@@ -515,7 +512,7 @@ export async function updateTravelLeg(
       | "order_index"
       | "travel_start_at"
       | "travel_end_at"
-      | "day_id" // ← NEW
+      | "day_id"
     >
   >
 ) {
@@ -555,11 +552,9 @@ export async function updateTimelineOrder(
   const dayUpdates = items
     .filter((x) => x.kind === "day")
     .map((x) => ({ id: x.id, order_index: x.order_index }));
-
   const siteUpdates = items
     .filter((x) => x.kind === "site")
     .map((x) => ({ id: x.id, order_index: x.order_index }));
-
   const travelUpdates = items
     .filter((x) => x.kind === "travel")
     .map((x) => ({ id: x.id, order_index: x.order_index }));
@@ -574,11 +569,9 @@ export async function updateTimelineOrder(
       )
     );
   }
-
   if (siteUpdates.length) {
     await updateTripItemsBatch(siteUpdates);
   }
-
   if (travelUpdates.length) {
     await Promise.all(
       travelUpdates.map((t) =>
@@ -636,8 +629,7 @@ async function hydrateRegionNames<
 }
 
 /** Unified timeline (day + sites + travel) ordered by order_index.
- * Robust to older trip_timeline views; if the view exists but lacks "day",
- * we fetch days separately and merge.
+ * If the trip_timeline view lacks some travel fields, we hydrate from trip_travel.
  */
 export async function getTripTimeline(
   trip_id: string
@@ -668,13 +660,8 @@ export async function getTripTimeline(
           travel_end_at,
         } as TimelineItem;
       }
-      if (row.kind === "site") {
-        // ensure day_id exists in type
-        return { ...row } as TimelineItem;
-      }
-      if (row.kind === "day") {
-        return { ...row } as TimelineItem;
-      }
+      if (row.kind === "site") return { ...row } as TimelineItem;
+      if (row.kind === "day") return { ...row } as TimelineItem;
       return row as TimelineItem;
     });
 
@@ -686,7 +673,6 @@ export async function getTripTimeline(
         .select("*")
         .eq("trip_id", trip_id);
       if (daysErr) throw daysErr;
-
       arr = [
         ...arr,
         ...(days ?? []).map(
@@ -695,7 +681,7 @@ export async function getTripTimeline(
       ];
     }
 
-    // travel: add names and canonical times from trip_travel
+    // ── FIX: hydrate travel fields (day_id + canonical start/end) from trip_travel
     const travelRows = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
       kind: "travel";
     })[];
@@ -709,7 +695,7 @@ export async function getTripTimeline(
       const ids = travelRows.map((t) => t.id);
       const { data: tt, error } = await supabase
         .from("trip_travel")
-        .select("id, travel_start_at, travel_end_at, start_at, end_at")
+        .select("id, day_id, travel_start_at, travel_end_at, start_at, end_at")
         .in("id", ids);
 
       if (!error && Array.isArray(tt)) {
@@ -717,15 +703,18 @@ export async function getTripTimeline(
           tt.map((r: any) => [
             r.id,
             {
+              day_id: r.day_id ?? null,
               travel_start_at: r.travel_start_at ?? r.start_at ?? null,
               travel_end_at: r.travel_end_at ?? r.end_at ?? null,
             },
           ])
         );
+
         arr = arr.map((x) =>
           x.kind === "travel"
             ? ({
                 ...x,
+                day_id: (x as any).day_id ?? byId.get(x.id)?.day_id ?? null,
                 travel_start_at:
                   (x as any).travel_start_at ??
                   byId.get(x.id)?.travel_start_at ??
@@ -768,7 +757,6 @@ export async function getTripTimeline(
 
   const days: TimelineItem[] =
     (daysRes.data ?? []).map((d: any) => ({ kind: "day", ...d })) ?? [];
-
   const sites: TimelineItem[] =
     (sitesRes.data ?? []).map((s: any) => ({ kind: "site", ...s })) ?? [];
 

@@ -58,6 +58,7 @@ type BuilderSiteItem = Extract<TimelineItem, { kind: "site" }> & {
   provinceName?: string | null;
   experience?: string[];
   day_id?: string | null;
+  order_index?: number;
 };
 type BuilderTravelItem = Extract<TimelineItem, { kind: "travel" }> & {
   from_region_name?: string | null;
@@ -65,6 +66,7 @@ type BuilderTravelItem = Extract<TimelineItem, { kind: "travel" }> & {
   travel_start_at?: string | null;
   travel_end_at?: string | null;
   day_id?: string | null;
+  order_index?: number;
 };
 type BuilderItem = BuilderSiteItem | BuilderTravelItem;
 
@@ -251,6 +253,7 @@ export default function TripBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dirtyOrder, setDirtyOrder] = useState(false);
+  const [justSaved, setJustSaved] = useState<null | "ok" | "err">(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const [listParent] = useAutoAnimate({ duration: 220, easing: "ease-in-out" });
@@ -359,10 +362,46 @@ export default function TripBuilderPage() {
     return null;
   };
 
+  /* ---------- persistence helpers ---------- */
+  async function persistFullOrder(next: BuilderItem[]) {
+    // Build updates for *all* items so server order matches UI exactly
+    const siteUpdates = next
+      .filter((x): x is BuilderSiteItem => x.kind === "site")
+      .map((x: any) => ({
+        id: x.id,
+        order_index: x.order_index,
+        day_id: x.day_id ?? null,
+      }));
+
+    const travelUpdates = next
+      .filter((x): x is BuilderTravelItem => x.kind === "travel")
+      .map((x: any) => ({
+        id: x.id,
+        order_index: x.order_index,
+        day_id: x.day_id ?? null,
+      }));
+
+    // Persist
+    if (siteUpdates.length) {
+      await updateTripItemsBatch(siteUpdates);
+    }
+    if (travelUpdates.length) {
+      await Promise.all(
+        travelUpdates.map((t) =>
+          updateTravelLeg(t.id, {
+            order_index: t.order_index,
+            day_id: t.day_id ?? null,
+          } as any)
+        )
+      );
+    }
+  }
+
   /* ---------- DnD handlers ---------- */
   const onDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
     setOverContainer(findContainerOf(String(e.active.id)));
+    setJustSaved(null);
   };
 
   const onDragOver = (e: DragOverEvent) => {
@@ -378,7 +417,6 @@ export default function TripBuilderPage() {
   const onDragEnd = async (e: DragEndEvent) => {
     const aId = e.active?.id ? String(e.active.id) : null;
     const oId = e.over?.id ? String(e.over.id) : null;
-
     setActiveId(null);
     setOverContainer(null);
 
@@ -389,121 +427,98 @@ export default function TripBuilderPage() {
     const toCid = findContainerOf(oId) ?? maybeContainer;
     if (!fromCid || !toCid) return;
 
-    // Robust local move using per-container arrays
-    setItems((prev) => {
-      const groups = new Map<string | null, BuilderItem[]>();
-      for (const it of prev) {
-        const key = (it as any).day_id ?? null;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(it);
-      }
-      for (const d of days) if (!groups.has(d.id)) groups.set(d.id, []);
-      if (!groups.has(null)) groups.set(null, []);
-
-      const fKey = fromCid === UNGROUPED ? null : fromCid;
-      const tKey = toCid === UNGROUPED ? null : toCid;
-
-      const fromArr = groups.get(fKey) ?? [];
-      const toArr = groups.get(tKey) ?? [];
-
-      const fromIdx = fromArr.findIndex((x) => x.id === aId);
-      if (fromIdx < 0) return prev;
-
-      // Compute OVER index BEFORE removing the item
-      const overIdxPre = maybeContainer
-        ? -1
-        : toArr.findIndex((x) => x.id === oId);
-
-      // Remove first
-      const [moved] = fromArr.splice(fromIdx, 1);
-      if (!moved) return prev;
-
-      let insertIdx: number;
-      if (maybeContainer) {
-        // Dropped on the container → append
-        insertIdx = toArr.length;
-      } else if (fromCid === toCid) {
-        insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
-      } else {
-        // Cross-list: insert BEFORE hovered (or append if not found)
-        insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
-      }
-
-      const movedWithDay = { ...moved, day_id: tKey } as any;
-      toArr.splice(
-        Math.max(0, Math.min(insertIdx, toArr.length)),
-        0,
-        movedWithDay
-      );
-
-      groups.set(fKey, fromArr);
-      groups.set(tKey, toArr);
-
-      const knownDayIds = days.map((d) => d.id);
-      const unknownKeys = Array.from(groups.keys()).filter(
-        (k) => k !== null && !knownDayIds.includes(k as string)
-      ) as string[];
-
-      const orderedKeys: (string | null)[] = [
-        ...knownDayIds,
-        ...unknownKeys,
-        null,
-      ];
-
-      const flat: BuilderItem[] = orderedKeys.flatMap(
-        (k) => groups.get(k as any) ?? []
-      );
-
-      return flat.map((x, i) => ({
-        ...x,
-        order_index: i + 1,
-      })) as BuilderItem[];
-    });
-
-    // ── PERSIST: write day_id for sites and travel correctly ────────────
-    if (fromCid !== toCid) {
-      try {
-        const dayId = toCid === UNGROUPED ? null : toCid;
-        const item = items.find((it) => it.id === aId);
-        if (!item) return;
-
-        if (item.kind === "site") {
-          if (dayId) {
-            await attachItemsToDay({ dayId, itemIds: [item.id] });
-            const meta = days.find((d) => d.id === dayId);
-            if (meta?.the_date) {
-              setItems((prev) =>
-                prev.map((x: any) =>
-                  x.id === aId
-                    ? { ...x, date_in: meta.the_date, date_out: meta.the_date }
-                    : x
-                )
-              );
-            }
-          } else {
-            await updateTripItemsBatch([{ id: item.id, day_id: null } as any]);
-          }
-        } else {
-          // TRAVEL FIX: persist day_id directly via updateTravelLeg
-          await updateTravelLeg(item.id, { day_id: dayId } as any);
-        }
-      } catch (err: any) {
-        setErrorMsg(err?.message || "Failed to move item.");
-        // revert local day_id on failure
-        setItems((prev) =>
-          prev.map((x: any) =>
-            x.id === aId
-              ? {
-                  ...x,
-                  day_id: fromCid === UNGROUPED ? null : fromCid,
-                }
-              : x
-          )
-        );
-      }
+    // ---- Compute next items array deterministically from current 'items'
+    const groups = new Map<string | null, BuilderItem[]>();
+    for (const it of items) {
+      const key = (it as any).day_id ?? null;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(it);
     }
+    for (const d of days) if (!groups.has(d.id)) groups.set(d.id, []);
+    if (!groups.has(null)) groups.set(null, []);
 
+    const fKey = fromCid === UNGROUPED ? null : fromCid;
+    const tKey = toCid === UNGROUPED ? null : toCid;
+
+    const fromArr = groups.get(fKey) ?? [];
+    const toArr = groups.get(tKey) ?? [];
+
+    const fromIdx = fromArr.findIndex((x) => x.id === aId);
+    if (fromIdx < 0) return;
+
+    // Target index before removal if dropping over an item
+    const overIdxPre = maybeContainer
+      ? -1
+      : toArr.findIndex((x) => x.id === oId);
+
+    const [moved] = fromArr.splice(fromIdx, 1);
+    if (!moved) return;
+
+    let insertIdx: number;
+    if (maybeContainer) insertIdx = toArr.length;
+    else if (fromCid === toCid)
+      insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
+    else insertIdx = overIdxPre === -1 ? toArr.length : overIdxPre;
+
+    const movedWithDay = { ...moved, day_id: tKey } as any;
+    toArr.splice(
+      Math.max(0, Math.min(insertIdx, toArr.length)),
+      0,
+      movedWithDay
+    );
+
+    groups.set(fKey, fromArr);
+    groups.set(tKey, toArr);
+
+    const knownDayIds = days.map((d) => d.id);
+    const unknownKeys = Array.from(groups.keys()).filter(
+      (k) => k !== null && !knownDayIds.includes(k as string)
+    ) as string[];
+
+    const orderedKeys: (string | null)[] = [
+      ...knownDayIds,
+      ...unknownKeys,
+      null,
+    ];
+    const flat: BuilderItem[] = orderedKeys.flatMap(
+      (k) => groups.get(k as any) ?? []
+    );
+    const next = flat.map((x, i) => ({
+      ...x,
+      order_index: i + 1,
+    })) as BuilderItem[];
+
+    // optimistic UI
+    setItems(next);
     setDirtyOrder(true);
+    setJustSaved(null);
+
+    // Persist both grouping and full order so it survives refresh.
+    try {
+      // For sites, if day changed we prefer server helper (side-effects), but we still persist full order below.
+      const prevDayId = fromCid === UNGROUPED ? null : fromCid;
+      const newDayId = tKey;
+      const movedNow = next.find((x) => x.id === aId)!;
+
+      if (movedNow.kind === "site" && prevDayId !== newDayId) {
+        if (newDayId) {
+          await attachItemsToDay({ dayId: newDayId, itemIds: [movedNow.id] });
+        } else {
+          await updateTripItemsBatch([
+            { id: movedNow.id, day_id: null } as any,
+          ]);
+        }
+      }
+      // Persist the entire order & day_id snapshot for consistency
+      await persistFullOrder(next);
+
+      setDirtyOrder(false);
+      setJustSaved("ok");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to persist item position.");
+      setJustSaved("err");
+      // (Optional) you could reload here, but we leave optimistic order in place so the user can try again.
+    }
   };
 
   /* ---------- site dates / notes ---------- */
@@ -577,47 +592,40 @@ export default function TripBuilderPage() {
       if (it.kind === "site") await deleteTripItem(it.id);
       else await deleteTravelLeg(it.id);
       setItems((prev) => prev.filter((x) => x.id !== it.id));
-      setDirtyOrder(true);
+      setJustSaved(null);
+      // After delete, persist full order so positions stay stable.
+      const next = (prevItems: BuilderItem[]) =>
+        prevItems.map((x, i) => ({
+          ...x,
+          order_index: i + 1,
+        })) as BuilderItem[];
+      const computed = next(items.filter((x) => x.id !== it.id));
+      await persistFullOrder(computed);
+      setItems(computed);
+      setJustSaved("ok");
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to delete item.");
+      setJustSaved("err");
     }
   };
 
-  /* ---------- save order (+ persist day_id for ALL) ---------- */
+  /* ---------- manual "Save Order" (kept visible) ---------- */
   const handleSaveOrder = async () => {
     setSaving(true);
     setErrorMsg(null);
+    setJustSaved(null);
     try {
-      const siteUpdates = items
-        .filter((x): x is BuilderSiteItem => x.kind === "site")
-        .map((x: any) => ({
-          id: x.id,
-          order_index: x.order_index,
-          day_id: x.day_id ?? null,
-        }));
-
-      const travelUpdates = items
-        .filter((x): x is BuilderTravelItem => x.kind === "travel")
-        .map((x: any) => ({
-          id: x.id,
-          order_index: x.order_index,
-          day_id: x.day_id ?? null,
-        }));
-
-      if (siteUpdates.length) await updateTripItemsBatch(siteUpdates);
-      if (travelUpdates.length) {
-        await Promise.all(
-          travelUpdates.map((t) =>
-            updateTravelLeg(t.id, {
-              order_index: t.order_index,
-              day_id: t.day_id ?? null,
-            } as any)
-          )
-        );
-      }
+      const next = items.map((x, i) => ({
+        ...x,
+        order_index: i + 1,
+      })) as BuilderItem[];
+      await persistFullOrder(next);
+      setItems(next);
       setDirtyOrder(false);
+      setJustSaved("ok");
     } catch (e: any) {
       setErrorMsg(e.message || "Failed to save order.");
+      setJustSaved("err");
     } finally {
       setSaving(false);
     }
@@ -940,7 +948,6 @@ export default function TripBuilderPage() {
       const totalMinutes =
         (travelDraft.duration_hours ?? 0) * 60 +
         (travelDraft.duration_mins ?? 0);
-
       const modeToSave =
         (travelDraft.mode as any) === "train"
           ? ("bus" as TravelMode)
@@ -953,7 +960,6 @@ export default function TripBuilderPage() {
         duration_minutes: Number.isFinite(totalMinutes) ? totalMinutes : null,
         distance_km: travelDraft.distance_km,
       };
-
       const withDatesPatch = {
         ...basePatch,
         travel_start_at: travelDraft.travel_start_at || null,
@@ -1011,16 +1017,22 @@ export default function TripBuilderPage() {
     if (!tripId) return;
     try {
       const row = await addTravelLeg({ trip_id: tripId, mode: "car" });
-      setItems((prev) => {
-        const arr = [...prev, { ...row, kind: "travel" } as BuilderTravelItem];
-        return arr.map((x, i) => ({
-          ...x,
-          order_index: i + 1,
-        })) as BuilderItem[];
-      });
+      const appended = [
+        ...items,
+        { ...row, kind: "travel" } as BuilderTravelItem,
+      ].map((x, i) => ({
+        ...x,
+        order_index: i + 1,
+      })) as BuilderItem[];
+      setItems(appended);
       setDirtyOrder(true);
+      setJustSaved(null);
+      await persistFullOrder(appended);
+      setDirtyOrder(false);
+      setJustSaved("ok");
     } catch (e: any) {
       setErrorMsg(e.message || "Failed to add travel.");
+      setJustSaved("err");
     }
   };
 
@@ -1108,15 +1120,24 @@ export default function TripBuilderPage() {
           </h1>
 
           <div className="flex items-center gap-3">
-            {dirtyOrder && (
-              <button
-                onClick={handleSaveOrder}
-                disabled={saving}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                type="button"
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
+            <button
+              onClick={handleSaveOrder}
+              disabled={saving || !dirtyOrder}
+              className={
+                "rounded-lg px-4 py-2 text-sm font-semibold text-white " +
+                (saving || !dirtyOrder
+                  ? "bg-blue-400/60 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700")
+              }
+              type="button"
+            >
+              {saving ? "Saving…" : "Save Order"}
+            </button>
+            {justSaved === "ok" && (
+              <span className="text-xs text-green-700">All changes saved</span>
+            )}
+            {justSaved === "err" && (
+              <span className="text-xs text-red-600">Save failed</span>
             )}
             <button
               onClick={() => router.back()}
@@ -1204,7 +1225,7 @@ export default function TripBuilderPage() {
               onDragCancel={onDragCancel}
               onDragEnd={onDragEnd}
             >
-              {/* Days (header INSIDE the dashed container) */}
+              {/* Days */}
               <div className="space-y-14 mb-6">
                 {days.map((day, i) => {
                   const scoped = itemsByDay.get(day.id) ?? [];
@@ -1223,9 +1244,7 @@ export default function TripBuilderPage() {
                         </span>
 
                         <input
-                          className="flex-1 rounded-lg px-3 py-2 text-sm
-             bg-white border border-gray-200
-             focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
+                          className="flex-1 rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
                           placeholder="Add Title"
                           value={day.title ?? ""}
                           onChange={(e) =>
@@ -1235,9 +1254,7 @@ export default function TripBuilderPage() {
 
                         <input
                           type="date"
-                          className="rounded-lg px-3 py-2 text-sm
-             bg-white border border-gray-200
-             focus:outline-none focus:border-[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
+                          className="rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
                           value={(day as any).the_date ?? ""}
                           onChange={(e) =>
                             handleUpdateDayDate(day, e.target.value)
@@ -1319,7 +1336,7 @@ export default function TripBuilderPage() {
                 </SortableContext>
               </DroppableContainer>
 
-              {/* Drag overlay (nice ghost) */}
+              {/* Drag overlay */}
               <DragOverlay>
                 {activeId
                   ? (() => {
@@ -1351,7 +1368,7 @@ export default function TripBuilderPage() {
         </button>
       </div>
 
-      {/* Modals (outside the white card so overlay covers full viewport) */}
+      {/* Modals */}
       <FadeModal
         isOpen={!!openDateFor}
         onClose={() => setOpenDateFor(null)}
