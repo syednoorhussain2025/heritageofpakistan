@@ -27,6 +27,8 @@ type Site = {
   review_count?: number | null;
 };
 
+const PAGE_SIZE = 30;
+
 export default function TripBuilderSearch({
   tripId,
   existingSiteIds,
@@ -35,6 +37,7 @@ export default function TripBuilderSearch({
   tripName,
   onToast,
 }: TripBuilderSearchProps) {
+  /* ───────────────────────── UI state ───────────────────────── */
   const [filters, setFilters] = useState<Filters>({
     name: "",
     categoryIds: [],
@@ -48,6 +51,25 @@ export default function TripBuilderSearch({
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null); // prevent duplicate clicks
+
+  // Pagination
+  const [page, setPage] = useState(1); // 1-indexed
+  const [total, setTotal] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Popup enter/exit animation for the panel
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const handleCloseWithFade = () => {
+    setVisible(false);
+    window.setTimeout(() => {
+      onClose(); // allow fade-out to complete before unmount
+    }, 180);
+  };
 
   // Fallback local toast if parent doesn't provide one
   const [localToast, setLocalToast] = useState<string | null>(null);
@@ -66,35 +88,42 @@ export default function TripBuilderSearch({
     setAddedIds(new Set(existingSiteIds || []));
   }, [existingSiteIds]);
 
-  // Load ALL sites on mount by default
+  // Load on mount
   useEffect(() => {
     void fetchSites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-apply filters
-  // - Debounced search when name changes
-  // - Immediate search when categoryIds/regionIds/orderBy change
+  // Debounced search on name
   const nameDebounceRef = useRef<number | null>(null);
   useEffect(() => {
     if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
     nameDebounceRef.current = window.setTimeout(() => {
-      void fetchSites();
+      setPage(1); // reset to first page on search text change
+      void fetchSites(1);
     }, 250);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.name]);
 
+  // Immediate search when other filters change
   useEffect(() => {
-    void fetchSites();
+    setPage(1);
+    void fetchSites(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.categoryIds, filters.regionIds, filters.orderBy]);
 
+  // Re-fetch when page changes
+  useEffect(() => {
+    void fetchSites(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  /* ───────────────────────── Query helpers ───────────────────────── */
   const buildSelect = (opts: {
     needCatInner: boolean;
     needRegInner: boolean;
   }) => {
     const { needCatInner, needRegInner } = opts;
-    // Relations: make the ones we are filtering on INNER to enforce the filter.
     const sr = needRegInner
       ? "site_regions!inner(regions(id,name),region_id)"
       : "site_regions(regions(id,name))";
@@ -116,7 +145,11 @@ export default function TripBuilderSearch({
     ].join(",");
   };
 
-  const fetchSites = async () => {
+  const fetchSites = async (pageArg?: number) => {
+    const pageToLoad = pageArg ?? page;
+    const from = (pageToLoad - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     setLoading(true);
     setErrMsg(null);
 
@@ -130,14 +163,14 @@ export default function TripBuilderSearch({
           buildSelect({
             needCatInner: hasCatFilter,
             needRegInner: hasRegFilter,
-          })
+          }),
+          { count: "exact" }
         )
-        .limit(100);
+        .range(from, to);
 
       // Name search (title OR slug)
       const term = (filters.name || "").trim();
       if (term) {
-        // PostgREST .or() expects column filters separated by commas
         q = q.or(`title.ilike.%${term}%,slug.ilike.%${term}%`);
       }
 
@@ -151,7 +184,7 @@ export default function TripBuilderSearch({
         q = q.in("site_regions.region_id", filters.regionIds as any[]);
       }
 
-      // Ordering (existing columns on sites)
+      // Ordering
       if (filters.orderBy === "az") {
         q = q.order("title", { ascending: true });
       } else if (filters.orderBy === "latest") {
@@ -162,7 +195,7 @@ export default function TripBuilderSearch({
           .order("review_count", { ascending: false, nullsFirst: false });
       }
 
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
 
       const mapped: Site[] =
@@ -185,37 +218,32 @@ export default function TripBuilderSearch({
         }) ?? [];
 
       setResults(mapped);
+      setTotal(count ?? 0);
     } catch (err: any) {
       console.error("Search error:", err);
       setErrMsg(err?.message || "Search failed.");
       setResults([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
   };
 
-  // Still expose explicit Search button from SearchFilters
+  // Explicit search button from SearchFilters
   const handleSearch = () => {
-    void fetchSites();
+    setPage(1);
+    void fetchSites(1);
   };
 
   const handleAdd = async (site: Site) => {
-    // Prevent duplicates (client-side guard)
     if (addedIds.has(site.id) || addingId === site.id) return;
 
     try {
       setAddingId(site.id);
-
-      // Parent persists the row (server may have a unique constraint on (trip_id, site_id))
       await Promise.resolve(onAdd(site));
-
-      // Mark as added locally (defensive in case parent doesn't immediately refresh)
       setAddedIds((prev) => new Set(prev).add(site.id));
-
-      // Toast only; DO NOT close the popup so the user can keep adding
       showToast(`Added to ${tripName ? tripName : "trip"}`);
     } catch (e: any) {
-      // Handle duplicate unique constraint gracefully (keep modal open)
       const msg: string =
         e?.message ||
         e?.details ||
@@ -226,7 +254,7 @@ export default function TripBuilderSearch({
         msg.includes("unique")
       ) {
         showToast("This site is already in the trip.");
-        setAddedIds((prev) => new Set(prev).add(site.id)); // reflect true state
+        setAddedIds((prev) => new Set(prev).add(site.id));
         return;
       }
       setErrMsg(msg);
@@ -240,25 +268,27 @@ export default function TripBuilderSearch({
     [addedIds, addingId]
   );
 
-  /** Build a sharp src/srcset for card images to avoid aliasing on HiDPI.
-   *  - We render the image at ~600px wide; also provide a 2x (1200px) candidate.
-   */
+  /** Build a sharp src/srcset for card images to avoid aliasing on HiDPI. */
   const buildImageProps = (baseUrl: string) => {
     const w1 = 600;
     const w2 = 1200;
     const src = `${baseUrl}?width=${w1}`;
     const srcSet = `${baseUrl}?width=${w1} ${w1}w, ${baseUrl}?width=${w2} ${w2}w`;
-    // Card occupies ~50vw on small screens and ~33vw on lg; cap to 640px.
     const sizes = "(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw";
     return { src, srcSet, sizes };
   };
 
+  /* ───────────────────────── Render ───────────────────────── */
   return (
-    <div className="relative bg-white w-full h-[80vh] rounded-2xl shadow-lg flex overflow-hidden">
-      {/* Close Button */}
+    <div
+      className={`relative bg-white w-full h-[80vh] rounded-2xl shadow-lg flex overflow-hidden transition-all duration-200 ease-out ${
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+      }`}
+    >
+      {/* Close Button (fade-aware) */}
       <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center"
+        onClick={handleCloseWithFade}
+        className="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition"
         aria-label="Close"
       >
         <Icon name="times" size={16} />
@@ -290,81 +320,136 @@ export default function TripBuilderSearch({
           </div>
         )}
 
+        {/* Skeletons while loading */}
         {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Searching...
-          </div>
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm animate-pulse"
+                >
+                  <div className="h-40 w-full bg-gray-200" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  </div>
+                  <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-gray-200" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 h-10 w-64 bg-gray-200/70 rounded animate-pulse" />
+          </>
         ) : results.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-lg">
             No results found.
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
-            {results.map((site) => {
-              const disabled = isDisabled(site.id);
-              const regionLabel =
-                site.region_names && site.region_names.length
-                  ? site.region_names.join(", ")
-                  : null;
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+              {results.map((site) => {
+                const disabled = isDisabled(site.id);
+                const regionLabel =
+                  site.region_names && site.region_names.length
+                    ? site.region_names.join(", ")
+                    : null;
 
-              return (
-                <div
-                  key={site.id}
-                  className="relative bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden border border-gray-200"
-                >
-                  {site.cover_photo_url ? (
-                    // HIGHER-QUALITY PREVIEW (sharp on retina)
-                    <img
-                      {...buildImageProps(site.cover_photo_url)}
-                      alt={site.title}
-                      width={600}
-                      height={160}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-40 object-cover select-none"
-                      style={{
-                        imageRendering: "auto",
-                        transform: "translateZ(0)", // hint GPU for smoother scaling
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-40 bg-gray-200 flex items-center justify-center text-gray-500">
-                      No image
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-1">
-                      {site.title}
-                    </h3>
-                    {regionLabel && (
-                      <p className="text-sm text-gray-500">{regionLabel}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => !disabled && handleAdd(site)}
-                    disabled={disabled}
-                    className={`absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                      disabled
-                        ? "bg-green-600/70 text-white cursor-not-allowed"
-                        : "bg-green-500 hover:bg-green-600 text-white"
-                    }`}
-                    title={
-                      addedIds.has(site.id)
-                        ? "Already added"
-                        : disabled
-                        ? "Adding…"
-                        : "Add to trip"
-                    }
+                return (
+                  <div
+                    key={site.id}
+                    className="relative bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden border border-gray-200"
                   >
-                    <Icon
-                      name={addedIds.has(site.id) ? "check" : "plus"}
-                      size={18}
-                    />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                    {site.cover_photo_url ? (
+                      <img
+                        {...buildImageProps(site.cover_photo_url)}
+                        alt={site.title}
+                        width={600}
+                        height={160}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-40 object-cover select-none"
+                        style={{
+                          imageRendering: "auto",
+                          transform: "translateZ(0)",
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-40 bg-gray-200 flex items-center justify-center text-gray-500">
+                        No image
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-1">
+                        {site.title}
+                      </h3>
+                      {regionLabel && (
+                        <p className="text-sm text-gray-500">{regionLabel}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => !disabled && handleAdd(site)}
+                      disabled={disabled}
+                      className={`absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                        disabled
+                          ? "bg-green-600/70 text-white cursor-not-allowed"
+                          : "bg-green-500 hover:bg-green-600 text-white"
+                      }`}
+                      title={
+                        addedIds.has(site.id)
+                          ? "Already added"
+                          : disabled
+                          ? "Adding…"
+                          : "Add to trip"
+                      }
+                    >
+                      <Icon
+                        name={addedIds.has(site.id) ? "check" : "plus"}
+                        size={18}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                {total > 0 && (
+                  <span className="ml-2 text-gray-500">
+                    ({total.toLocaleString()} results)
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm ${
+                    page <= 1
+                      ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <Icon name="chevron-left" size={16} />
+                  Prev
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm ${
+                    page >= totalPages
+                      ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Next
+                  <Icon name="chevron-right" size={16} />
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

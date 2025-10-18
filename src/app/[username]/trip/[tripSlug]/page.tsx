@@ -13,7 +13,6 @@ import {
   addTravelLeg,
   updateTravelLeg,
   deleteTravelLeg,
-  searchRegions,
   attachItemsToDay,
   addTripDay,
   updateTripDay,
@@ -32,6 +31,7 @@ import Icon from "@/components/Icon";
 /* bring in the search modal component you created */
 import TripBuilderSearch from "./TripBuilderSearch";
 import Builderaddbutton from "./Builderaddbutton";
+import Buildertraveldetails from "./Buildertraveldetails";
 
 /* dnd-kit */
 import {
@@ -119,7 +119,7 @@ const MODE_META: Record<
   train: { label: "Train", icon: "train" },
 };
 
-/* ---------- Reusable fade modal ---------- */
+/* ---------- Reusable fade modal (still used for Notes and Travel) ---------- */
 function FadeModal({
   isOpen,
   onClose,
@@ -261,17 +261,15 @@ export default function TripBuilderPage() {
   const [dirtyOrder, setDirtyOrder] = useState(false);
   const [justSaved, setJustSaved] = useState<null | "ok" | "err">(null);
 
-  /* NEW: show Trip Builder Search modal */
+  /* Search modal */
   const [showSiteSearch, setShowSiteSearch] = useState(false);
 
-  /* Global toast (so child can surface) */
+  /* Global toast */
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    if (toastTimerRef.current) {
-      window.clearTimeout(toastTimerRef.current);
-    }
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => {
       setToastMsg(null);
       toastTimerRef.current = null;
@@ -280,7 +278,7 @@ export default function TripBuilderPage() {
 
   const [listParent] = useAutoAnimate({ duration: 220, easing: "ease-in-out" });
 
-  // dnd state (simplified: highlight container only)
+  // dnd state
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overContainer, setOverContainer] = useState<string | null>(null);
 
@@ -386,7 +384,6 @@ export default function TripBuilderPage() {
 
   /* ---------- persistence helpers ---------- */
   async function persistFullOrder(next: BuilderItem[]) {
-    // Build updates for *all* items so server order matches UI exactly
     const siteUpdates = next
       .filter((x): x is BuilderSiteItem => x.kind === "site")
       .map((x: any) => ({
@@ -403,10 +400,7 @@ export default function TripBuilderPage() {
         day_id: x.day_id ?? null,
       }));
 
-    // Persist
-    if (siteUpdates.length) {
-      await updateTripItemsBatch(siteUpdates);
-    }
+    if (siteUpdates.length) await updateTripItemsBatch(siteUpdates);
     if (travelUpdates.length) {
       await Promise.all(
         travelUpdates.map((t) =>
@@ -425,23 +419,19 @@ export default function TripBuilderPage() {
     setOverContainer(findContainerOf(String(e.active.id)));
     setJustSaved(null);
   };
-
   const onDragOver = (e: DragOverEvent) => {
     const overId = e.over?.id ? String(e.over.id) : null;
     setOverContainer(findContainerOf(overId));
   };
-
-  const onDragCancel = (_e: DragCancelEvent) => {
+  const onDragCancel = () => {
     setActiveId(null);
     setOverContainer(null);
   };
-
   const onDragEnd = async (e: DragEndEvent) => {
     const aId = e.active?.id ? String(e.active.id) : null;
     const oId = e.over?.id ? String(e.over.id) : null;
     setActiveId(null);
     setOverContainer(null);
-
     if (!aId || !oId || aId === oId) return;
 
     const fromCid = findContainerOf(aId);
@@ -449,7 +439,6 @@ export default function TripBuilderPage() {
     const toCid = findContainerOf(oId) ?? maybeContainer;
     if (!fromCid || !toCid) return;
 
-    // ---- Compute next items array deterministically from current 'items'
     const groups = new Map<string | null, BuilderItem[]>();
     for (const it of items) {
       const key = (it as any).day_id ?? null;
@@ -468,7 +457,6 @@ export default function TripBuilderPage() {
     const fromIdx = fromArr.findIndex((x) => x.id === aId);
     if (fromIdx < 0) return;
 
-    // Target index before removal if dropping over an item
     const overIdxPre = maybeContainer
       ? -1
       : toArr.findIndex((x) => x.id === oId);
@@ -510,14 +498,11 @@ export default function TripBuilderPage() {
       order_index: i + 1,
     })) as BuilderItem[];
 
-    // optimistic UI
     setItems(next);
     setDirtyOrder(true);
     setJustSaved(null);
 
-    // Persist both grouping and full order so it survives refresh.
     try {
-      // For sites, if day changed we prefer server helper (side-effects), but we still persist full order below.
       const prevDayId = fromCid === UNGROUPED ? null : fromCid;
       const newDayId = tKey;
       const movedNow = next.find((x) => x.id === aId)!;
@@ -531,7 +516,6 @@ export default function TripBuilderPage() {
           ]);
         }
       }
-      // Persist the entire order & day_id snapshot for consistency
       await persistFullOrder(next);
 
       setDirtyOrder(false);
@@ -539,48 +523,30 @@ export default function TripBuilderPage() {
     } catch (err: any) {
       setErrorMsg(err?.message || "Failed to persist item position.");
       setJustSaved("err");
-      // (Optional) you could reload here, but we leave optimistic order in place so the user can try again.
     }
   };
 
-  /* ---------- site dates / notes ---------- */
-  const [openDateFor, setOpenDateFor] = useState<string | null>(null);
-  const [dateDraft, setDateDraft] = useState<{
-    in?: string | null;
-    out?: string | null;
-  }>({});
+  /* ---------- site visit date (INLINE trigger with formatted label) / notes ---------- */
 
-  const handleOpenDateModal = (
-    itemId: string,
-    currIn: string | null,
-    currOut: string | null
-  ) => {
-    setOpenDateFor(itemId);
-    setDateDraft({ in: currIn ?? "", out: currOut ?? "" });
-  };
-  const applyDates = async (itemId: string) => {
+  // set single-day visit by syncing both date_in & date_out
+  const handleUpdateSiteVisitDate = async (itemId: string, dateStr: string) => {
+    const v = dateStr || null;
+
+    // optimistic UI
     setItems((prev) =>
       prev.map((it) =>
         it.id === itemId && it.kind === "site"
-          ? {
-              ...it,
-              date_in: dateDraft.in || null,
-              date_out: dateDraft.out || null,
-            }
+          ? { ...it, date_in: v, date_out: v }
           : it
       )
     );
-    setOpenDateFor(null);
+
     try {
-      await updateTripItemsBatch([
-        {
-          id: itemId,
-          date_in: dateDraft.in || null,
-          date_out: dateDraft.out || null,
-        },
-      ]);
-    } catch {
-      setErrorMsg("Failed to save dates.");
+      await updateTripItemsBatch([{ id: itemId, date_in: v, date_out: v }]);
+      setJustSaved("ok");
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to save visit date.");
+      setJustSaved("err");
     }
   };
 
@@ -615,7 +581,6 @@ export default function TripBuilderPage() {
       else await deleteTravelLeg(it.id);
       setItems((prev) => prev.filter((x) => x.id !== it.id));
       setJustSaved(null);
-      // After delete, persist full order so positions stay stable.
       const next = (prevItems: BuilderItem[]) =>
         prevItems.map((x, i) => ({
           ...x,
@@ -631,7 +596,7 @@ export default function TripBuilderPage() {
     }
   };
 
-  /* ---------- manual "Save Order" (kept visible) ---------- */
+  /* ---------- manual "Save Order" ---------- */
   const handleSaveOrder = async () => {
     setSaving(true);
     setErrorMsg(null);
@@ -654,17 +619,6 @@ export default function TripBuilderPage() {
   };
 
   /* ---------- formatting helpers ---------- */
-  const fmtRange = (a?: string | null, b?: string | null) => {
-    const opt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" };
-    const f = (d?: string | null) =>
-      d ? new Date(d).toLocaleDateString(undefined, opt) : "";
-    const A = f(a);
-    const B = f(b);
-    if (A && B) return `${A} – ${B}`;
-    if (A) return A;
-    if (B) return B;
-    return "Set dates";
-  };
   const fmtDateTimeShort = (iso?: string | null) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -674,6 +628,14 @@ export default function TripBuilderPage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+  const formatVisitLabel = (dateStr?: string | null) => {
+    if (!dateStr) return "Set date";
+    const d = new Date(dateStr);
+    const dd = d.toLocaleString("en-GB", { day: "2-digit" }); // 11
+    const mon = d.toLocaleString("en-GB", { month: "short" }); // Oct
+    const yyyy = d.getFullYear();
+    return `${dd} ${mon}, ${yyyy}`; // "11 Oct, 2025"
   };
   const durationLabel = (mins: number | null | undefined) => {
     if (mins == null) return "—";
@@ -690,6 +652,21 @@ export default function TripBuilderPage() {
     const siteNumber = items
       .slice(0, idx + 1)
       .filter((x) => x.kind === "site").length;
+
+    const currentVisit = it.date_in ?? it.date_out ?? "";
+    const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+    const openNativePicker = () => {
+      const el = dateInputRef.current;
+      if (!el) return;
+      try {
+        // @ts-ignore: showPicker is not in TS lib yet for all targets
+        if (typeof el.showPicker === "function") (el as any).showPicker();
+        else el.focus();
+      } catch {
+        el.focus();
+      }
+    };
 
     return (
       <div className="px-4 py-3">
@@ -731,22 +708,35 @@ export default function TripBuilderPage() {
             {it.provinceName || "—"}
           </div>
 
-          <div className="relative min-w-0">
+          {/* FORMATTED label that opens native datepicker on click */}
+          <div className="min-w-0">
             <button
-              onClick={() =>
-                handleOpenDateModal(it.id, it.date_in, it.date_out)
-              }
+              type="button"
+              onClick={openNativePicker}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 text-[12px] text-gray-700 whitespace-nowrap hover:bg-gray-100"
               data-no-drag
-              type="button"
+              aria-label="Pick visit date"
+              title="Pick visit date"
             >
               <KIcon
                 name="calendar-check"
                 size={14}
                 className="text-[var(--brand-orange,#f59e0b)]"
               />
-              <span>{fmtRange(it.date_in, it.date_out)}</span>
+              <span>{formatVisitLabel(currentVisit)}</span>
             </button>
+
+            {/* Visually hidden native input that actually drives the value */}
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={currentVisit}
+              onChange={(e) => handleUpdateSiteVisitDate(it.id, e.target.value)}
+              className="sr-only"
+              data-no-drag
+              aria-hidden="true"
+              tabIndex={-1}
+            />
           </div>
 
           <div className="min-w-0 flex flex-wrap gap-2">
@@ -894,138 +884,11 @@ export default function TripBuilderPage() {
     );
   }
 
-  /* ---------- Travel editor state & helpers ---------- */
+  /* ---------- Travel editor state & helpers (external UI) ---------- */
   const [editingTravel, setEditingTravel] = useState<BuilderTravelItem | null>(
     null
   );
-  const [travelFromQuery, setTravelFromQuery] = useState("");
-  const [travelToQuery, setTravelToQuery] = useState("");
-  const [travelFromOpts, setTravelFromOpts] = useState<any[]>([]);
-  const [travelToOpts, setTravelToOpts] = useState<any[]>([]);
-  const [travelDraft, setTravelDraft] = useState<{
-    from_region_id: string | null;
-    from_region_name: string | null;
-    to_region_id: string | null;
-    to_region_name: string | null;
-    mode: TravelMode | "train";
-    duration_hours: number | null;
-    duration_mins: number | null;
-    distance_km: number | null;
-    travel_start_at: string | null;
-    travel_end_at: string | null;
-  } | null>(null);
-
-  const startEditTravel = (row: BuilderTravelItem) => {
-    const mins = row.duration_minutes ?? null;
-    const h = mins != null ? Math.floor(mins / 60) : null;
-    const m = mins != null ? mins % 60 : null;
-    setEditingTravel(row);
-    setTravelDraft({
-      from_region_id: row.from_region_id ?? null,
-      from_region_name: (row as any).from_region_name ?? null,
-      to_region_id: row.to_region_id ?? null,
-      to_region_name: (row as any).to_region_name ?? null,
-      mode: row.mode,
-      duration_hours: h,
-      duration_mins: m,
-      distance_km: row.distance_km ?? null,
-      travel_start_at: (row as any).travel_start_at ?? null,
-      travel_end_at: (row as any).travel_end_at ?? null,
-    });
-    setTravelFromQuery("");
-    setTravelToQuery("");
-    setTravelFromOpts([]);
-    setTravelToOpts([]);
-  };
-
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      if (travelFromQuery.trim().length < 2) return setTravelFromOpts([]);
-      const res = await searchRegions(travelFromQuery.trim());
-      if (!live) return;
-      setTravelFromOpts(res);
-    })();
-    return () => {
-      live = false;
-    };
-  }, [travelFromQuery]);
-
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      if (travelToQuery.trim().length < 2) return setTravelToOpts([]);
-      const res = await searchRegions(travelToQuery.trim());
-      if (!live) return;
-      setTravelToOpts(res);
-    })();
-    return () => {
-      live = false;
-    };
-  }, [travelToQuery]);
-
-  const saveTravel = async () => {
-    if (!editingTravel || !travelDraft) return;
-    try {
-      const totalMinutes =
-        (travelDraft.duration_hours ?? 0) * 60 +
-        (travelDraft.duration_mins ?? 0);
-      const modeToSave =
-        (travelDraft.mode as any) === "train"
-          ? ("bus" as TravelMode)
-          : (travelDraft.mode as TravelMode);
-
-      const basePatch: any = {
-        from_region_id: travelDraft.from_region_id,
-        to_region_id: travelDraft.to_region_id,
-        mode: modeToSave,
-        duration_minutes: Number.isFinite(totalMinutes) ? totalMinutes : null,
-        distance_km: travelDraft.distance_km,
-      };
-      const withDatesPatch = {
-        ...basePatch,
-        travel_start_at: travelDraft.travel_start_at || null,
-        travel_end_at: travelDraft.travel_end_at || null,
-      };
-
-      let patched: any;
-      try {
-        patched = await updateTravelLeg(editingTravel.id, withDatesPatch);
-      } catch (err: any) {
-        const msg = err?.message || "";
-        if (msg.includes("travel_start_at") || msg.includes("travel_end_at")) {
-          setErrorMsg(
-            "Saved, but start/end time isn’t supported yet on this trip."
-          );
-          patched = await updateTravelLeg(editingTravel.id, basePatch);
-        } else {
-          throw err;
-        }
-      }
-
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === editingTravel.id && it.kind === "travel"
-            ? {
-                ...it,
-                ...patched,
-                from_region_name:
-                  travelDraft.from_region_name ?? (it as any).from_region_name,
-                to_region_name:
-                  travelDraft.to_region_name ?? (it as any).to_region_name,
-                travel_start_at:
-                  travelDraft.travel_start_at ?? (it as any).travel_start_at,
-                travel_end_at:
-                  travelDraft.travel_end_at ?? (it as any).travel_end_at,
-              }
-            : it
-        )
-      );
-      setEditingTravel(null);
-    } catch (e: any) {
-      setErrorMsg(e.message || "Failed to save travel.");
-    }
-  };
+  const startEditTravel = (row: BuilderTravelItem) => setEditingTravel(row);
 
   const addTravel = async () => {
     if (!tripId) return;
@@ -1034,10 +897,7 @@ export default function TripBuilderPage() {
       const appended = [
         ...items,
         { ...row, kind: "travel" } as BuilderTravelItem,
-      ].map((x, i) => ({
-        ...x,
-        order_index: i + 1,
-      })) as BuilderItem[];
+      ].map((x, i) => ({ ...x, order_index: i + 1 })) as BuilderItem[];
       setItems(appended);
       setDirtyOrder(true);
       setJustSaved(null);
@@ -1054,7 +914,6 @@ export default function TripBuilderPage() {
   const handleAddSiteFromSearch = async (site: SiteLite) => {
     if (!tripId) return;
     try {
-      // get a proper order_index that’s globally correct across days/sites/travel
       const orderIndex = await getNextOrderIndex(tripId);
       const created = await addSiteToTrip({
         tripId,
@@ -1063,7 +922,6 @@ export default function TripBuilderPage() {
         dayId: null,
       });
 
-      // create a UI row (optimistic + enriched with site preview)
       const newRow: BuilderSiteItem = {
         kind: "site",
         id: created.id,
@@ -1076,7 +934,7 @@ export default function TripBuilderPage() {
         notes: created.notes ?? null,
         created_at: created.created_at,
         updated_at: created.updated_at,
-        site, // preview info
+        site,
         provinceName: null,
         experience: [],
       } as any;
@@ -1086,7 +944,6 @@ export default function TripBuilderPage() {
       );
 
       setItems(next);
-      // ✅ Do NOT close the modal; let the user add multiple items
       showToast(`Added to ${tripName || "trip"}`);
       setJustSaved("ok");
     } catch (e: any) {
@@ -1319,7 +1176,7 @@ export default function TripBuilderPage() {
 
                         <input
                           type="date"
-                          className="rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
+                          className="rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border=[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
                           value={(day as any).the_date ?? ""}
                           onChange={(e) =>
                             handleUpdateDayDate(day, e.target.value)
@@ -1422,77 +1279,15 @@ export default function TripBuilderPage() {
           </>
         )}
 
-        {/* Floating Add button (separate component) */}
+        {/* Floating Add button */}
         <Builderaddbutton
           onAddDay={handleAddDay}
           onAddTravel={addTravel}
           onAddSite={() => setShowSiteSearch(true)}
-          // onAddActivity can be wired when implemented
         />
       </div>
 
-      {/* Modals */}
-      <FadeModal
-        isOpen={!!openDateFor}
-        onClose={() => setOpenDateFor(null)}
-        maxWidthClass="max-w-lg"
-        z={75}
-      >
-        <div className="p-5">
-          <div className="mb-3 text-lg font-semibold text-slate-800">
-            Select dates
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <label className="w-20 shrink-0 text-xs font-semibold text-slate-600">
-                Check-in
-              </label>
-              <input
-                type="date"
-                value={dateDraft.in ?? ""}
-                onChange={(e) =>
-                  setDateDraft((d) => ({ ...d, in: e.target.value || "" }))
-                }
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                data-no-drag
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <label className="w-20 shrink-0 text-xs font-semibold text-slate-600">
-                Check-out
-              </label>
-              <input
-                type="date"
-                value={dateDraft.out ?? ""}
-                onChange={(e) =>
-                  setDateDraft((d) => ({ ...d, out: e.target.value || "" }))
-                }
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                data-no-drag
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <button
-              onClick={() => setOpenDateFor(null)}
-              className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
-              type="button"
-            >
-              Cancel
-            </button>
-            {openDateFor && (
-              <button
-                onClick={() => applyDates(openDateFor)}
-                className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
-                type="button"
-              >
-                Apply
-              </button>
-            )}
-          </div>
-        </div>
-      </FadeModal>
-
+      {/* Notes modal remains */}
       <FadeModal isOpen={!!openNotesFor} onClose={() => setOpenNotesFor(null)}>
         <div className="p-4">
           <div className="mb-2 text-sm font-semibold text-gray-700">
@@ -1530,257 +1325,87 @@ export default function TripBuilderPage() {
         </div>
       </FadeModal>
 
-      {/* Travel Editor */}
-      <FadeModal
-        isOpen={!!editingTravel && !!travelDraft}
+      {/* Travel Editor (separate component) */}
+      <Buildertraveldetails
+        isOpen={!!editingTravel}
         onClose={() => setEditingTravel(null)}
-        maxWidthClass="max-w-lg"
-      >
-        {editingTravel && travelDraft && (
-          <div className="p-5">
-            <div className="mb-3 text-lg font-semibold text-slate-800">
-              Edit travel
-            </div>
+        row={
+          editingTravel && {
+            id: editingTravel.id,
+            from_region_id: editingTravel.from_region_id ?? null,
+            to_region_id: editingTravel.to_region_id ?? null,
+            mode: editingTravel.mode,
+            duration_minutes: editingTravel.duration_minutes ?? null,
+            distance_km: editingTravel.distance_km ?? null,
+            from_region_name: (editingTravel as any).from_region_name ?? null,
+            to_region_name: (editingTravel as any).to_region_name ?? null,
+            travel_start_at: (editingTravel as any).travel_start_at ?? null,
+            travel_end_at: (editingTravel as any).travel_end_at ?? null,
+          }
+        }
+        onSave={async (payload) => {
+          const modeToSave =
+            (payload.mode as any) === "train"
+              ? ("bus" as TravelMode)
+              : (payload.mode as TravelMode);
 
-            <div className="grid grid-cols-1 gap-4">
-              {/* From / To */}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    From
-                  </label>
-                  <input
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    placeholder="Search region…"
-                    value={travelFromQuery}
-                    onChange={(e) => setTravelFromQuery(e.target.value)}
-                  />
-                  {travelFromOpts.length > 0 && (
-                    <div className="mt-1 max-h-40 overflow-auto rounded-md border">
-                      {travelFromOpts.map((r) => (
-                        <button
-                          key={r.id}
-                          className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                          onClick={() =>
-                            setTravelDraft(
-                              (d) =>
-                                d && {
-                                  ...d,
-                                  from_region_id: r.id,
-                                  from_region_name: r.name,
-                                }
-                            )
-                          }
-                        >
-                          {r.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {!!travelDraft.from_region_name && (
-                    <div className="mt-1 text-xs text-slate-600">
-                      Selected: {travelDraft.from_region_name}
-                    </div>
-                  )}
-                </div>
+          const basePatch: any = {
+            from_region_id: payload.from_region_id,
+            to_region_id: payload.to_region_id,
+            mode: modeToSave,
+            duration_minutes: payload.duration_minutes,
+            distance_km: payload.distance_km,
+          };
+          const withDatesPatch = {
+            ...basePatch,
+            travel_start_at: payload.travel_start_at || null,
+            travel_end_at: payload.travel_end_at || null,
+          };
 
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    To
-                  </label>
-                  <input
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    placeholder="Search region…"
-                    value={travelToQuery}
-                    onChange={(e) => setTravelToQuery(e.target.value)}
-                  />
-                  {travelToOpts.length > 0 && (
-                    <div className="mt-1 max-h-40 overflow-auto rounded-md border">
-                      {travelToOpts.map((r) => (
-                        <button
-                          key={r.id}
-                          className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                          onClick={() =>
-                            setTravelDraft(
-                              (d) =>
-                                d && {
-                                  ...d,
-                                  to_region_id: r.id,
-                                  to_region_name: r.name,
-                                }
-                            )
-                          }
-                        >
-                          {r.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {!!travelDraft.to_region_name && (
-                    <div className="mt-1 text-xs text-slate-600">
-                      Selected: {travelDraft.to_region_name}
-                    </div>
-                  )}
-                </div>
-              </div>
+          try {
+            let patched: any;
+            try {
+              patched = await updateTravelLeg(payload.id, withDatesPatch);
+            } catch (err: any) {
+              const msg = err?.message || "";
+              if (
+                msg.includes("travel_start_at") ||
+                msg.includes("travel_end_at")
+              ) {
+                setErrorMsg(
+                  "Saved, but start/end time isn’t supported yet on this trip."
+                );
+                patched = await updateTravelLeg(payload.id, basePatch);
+              } else {
+                throw err;
+              }
+            }
 
-              {/* Mode buttons */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Mode
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    ["airplane", "bus", "car", "walk", "train"] as (
-                      | TravelMode
-                      | "train"
-                    )[]
-                  ).map((m) => {
-                    const meta = MODE_META[m];
-                    const active = travelDraft.mode === m;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        className={
-                          "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
-                          (active
-                            ? "border-blue-600 text-blue-700 bg-blue-50"
-                            : "border-gray-300 hover:bg-gray-50")
-                        }
-                        onClick={() =>
-                          setTravelDraft((d) => d && { ...d, mode: m })
-                        }
-                      >
-                        <KIcon name={meta.icon} />
-                        <span>{meta.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Duration + Distance */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Hours
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.duration_hours ?? ""}
-                    onChange={(e) =>
-                      setTravelDraft(
-                        (d) =>
-                          d && {
-                            ...d,
-                            duration_hours: e.target.value
-                              ? Number(e.target.value)
-                              : null,
-                          }
-                      )
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === payload.id && it.kind === "travel"
+                  ? {
+                      ...it,
+                      ...patched,
+                      from_region_name:
+                        payload.from_region_name ??
+                        (it as any).from_region_name,
+                      to_region_name:
+                        payload.to_region_name ?? (it as any).to_region_name,
+                      travel_start_at:
+                        payload.travel_start_at ?? (it as any).travel_start_at,
+                      travel_end_at:
+                        payload.travel_end_at ?? (it as any).travel_end_at,
                     }
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Minutes
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.duration_mins ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value
-                        ? Math.min(Number(e.target.value), 59)
-                        : null;
-                      setTravelDraft((d) => d && { ...d, duration_mins: v });
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Distance (km)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.distance_km ?? ""}
-                    onChange={(e) =>
-                      setTravelDraft(
-                        (d) =>
-                          d && {
-                            ...d,
-                            distance_km: e.target.value
-                              ? Number(e.target.value)
-                              : null,
-                          }
-                      )
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Travel Start / End */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Travel Start
-                  </label>
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.travel_start_at ?? ""}
-                    onChange={(e) =>
-                      setTravelDraft(
-                        (d) =>
-                          d && { ...d, travel_start_at: e.target.value || null }
-                      )
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Travel End
-                  </label>
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={travelDraft.travel_end_at ?? ""}
-                    onChange={(e) =>
-                      setTravelDraft(
-                        (d) =>
-                          d && { ...d, travel_end_at: e.target.value || null }
-                      )
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
-                onClick={() => setEditingTravel(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-sm font-semibold text-white hover:brightness-95"
-                onClick={saveTravel}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        )}
-      </FadeModal>
+                  : it
+              )
+            );
+          } catch (e: any) {
+            setErrorMsg(e.message || "Failed to save travel.");
+            throw e;
+          }
+        }}
+      />
 
       {/* Trip Builder Search popup (central) */}
       <FadeModal
@@ -1798,7 +1423,7 @@ export default function TripBuilderPage() {
             onAdd={handleAddSiteFromSearch}
             onClose={() => setShowSiteSearch(false)}
             tripName={tripName}
-            onToast={showToast} // ✅ surface toast globally
+            onToast={showToast}
           />
         )}
       </FadeModal>

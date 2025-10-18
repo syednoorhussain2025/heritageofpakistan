@@ -5,18 +5,15 @@ import Icon from "@/components/Icon";
 
 type Props = {
   onAddDay: () => void;
-  onAddActivity?: () => void;
   onAddTravel: () => Promise<void> | void;
   onAddSite: () => void;
   disabled?: boolean;
-  /** Layering knobs to avoid clashes with other modals/overlays */
   zFab?: number;
   zMenu?: number;
 };
 
 export default function Builderaddbutton({
   onAddDay,
-  onAddActivity,
   onAddTravel,
   onAddSite,
   disabled = false,
@@ -26,17 +23,13 @@ export default function Builderaddbutton({
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Close on ESC
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Simple focus management when the panel opens
   useEffect(() => {
     if (!open) return;
     const firstButton = panelRef.current?.querySelector(
@@ -46,18 +39,17 @@ export default function Builderaddbutton({
   }, [open]);
 
   const doAction = useCallback(
-    (kind: "day" | "activity" | "travel" | "site") => async () => {
+    (kind: "day" | "travel" | "site") => async () => {
       if (disabled) return;
       try {
         if (kind === "day") onAddDay();
-        else if (kind === "activity" && onAddActivity) onAddActivity();
         else if (kind === "travel") await onAddTravel();
         else if (kind === "site") onAddSite();
       } finally {
         setOpen(false);
       }
     },
-    [disabled, onAddDay, onAddActivity, onAddTravel, onAddSite]
+    [disabled, onAddDay, onAddTravel, onAddSite]
   );
 
   return (
@@ -72,10 +64,10 @@ export default function Builderaddbutton({
         style={{ zIndex: zFab }}
         onClick={() => setOpen(true)}
       >
-        <Icon name="plus" size={28} />
+        <Icon name="plus" size={30} />
       </button>
 
-      {/* Lightweight menu overlay */}
+      {/* Popup Menu */}
       {open && (
         <div
           className="fixed inset-0 flex items-end sm:items-center sm:justify-center p-4 bg-black/30"
@@ -97,42 +89,58 @@ export default function Builderaddbutton({
             </div>
 
             <div className="px-5 pb-5 grid gap-2">
+              {/* Add Day */}
               <button
                 data-menu-item
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full inline-flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left hover:bg-slate-50 outline-none focus:outline-none"
                 onClick={doAction("day")}
               >
-                Add Day
+                <Icon
+                  name="day"
+                  size={22}
+                  className="text-[var(--brand-orange,#f59e0b)]"
+                />
+                <span className="text-[15px] font-medium text-slate-800">
+                  Add Day
+                </span>
               </button>
+
+              {/* Add Travel */}
               <button
                 data-menu-item
-                className={`w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !onAddActivity ? "opacity-60 cursor-not-allowed" : ""
-                }`}
-                onClick={onAddActivity ? doAction("activity") : undefined}
-                disabled={!onAddActivity}
-              >
-                Add Activity
-              </button>
-              <button
-                data-menu-item
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full inline-flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left hover:bg-slate-50 outline-none focus:outline-none"
                 onClick={doAction("travel")}
               >
-                Add Travel
+                <Icon
+                  name="route"
+                  size={22}
+                  className="text-[var(--brand-orange,#f59e0b)]"
+                />
+                <span className="text-[15px] font-medium text-slate-800">
+                  Add Travel
+                </span>
               </button>
+
+              {/* Add Site */}
               <button
                 data-menu-item
-                className="w-full rounded-lg border px-4 py-2 text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full inline-flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left hover:bg-slate-50 outline-none focus:outline-none"
                 onClick={doAction("site")}
               >
-                Add Site
+                <Icon
+                  name="architecture-design"
+                  size={22}
+                  className="text-[var(--brand-orange,#f59e0b)]"
+                />
+                <span className="text-[15px] font-medium text-slate-800">
+                  Add Site
+                </span>
               </button>
             </div>
 
             <div className="px-5 pb-5 flex justify-end">
               <button
-                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 outline-none focus:outline-none"
                 onClick={() => setOpen(false)}
               >
                 Close
