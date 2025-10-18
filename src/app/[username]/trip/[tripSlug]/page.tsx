@@ -957,7 +957,7 @@ export default function TripBuilderPage() {
     if (!tripId) return;
     try {
       const created = await addTripDay({ trip_id: tripId, title: "" } as any);
-      setDays((prev) => [{ ...created }, ...prev]);
+      setDays((prev) => [...prev, created]); // append instead of prepend
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to add day.");
     }
