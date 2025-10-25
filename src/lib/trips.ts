@@ -13,12 +13,16 @@ export type Trip = {
   updated_at: string;
 };
 
+export type TripWithCover = Trip & {
+  cover_photo_url?: string | null;
+};
+
 export type TripItem = {
   id: string;
   trip_id: string;
   site_id: string;
   order_index: number;
-  day_id: string | null; // grouping under a Day
+  day_id: string | null;
   date_in: string | null;
   date_out: string | null;
   notes: string | null;
@@ -34,7 +38,6 @@ export type SiteLite = {
   cover_photo_url: string | null;
 };
 
-/* ── Day ── */
 export type TripDay = {
   id: string;
   trip_id: string;
@@ -45,14 +48,13 @@ export type TripDay = {
   updated_at: string;
 };
 
-/* ── Travel ── */
 export type TravelMode = "airplane" | "bus" | "car" | "walk" | "train";
 
 export type TravelLeg = {
   id: string;
   trip_id: string;
   order_index: number;
-  day_id: string | null; // grouping under a Day
+  day_id: string | null;
   from_region_id: string | null;
   to_region_id: string | null;
   mode: TravelMode;
@@ -63,26 +65,13 @@ export type TravelLeg = {
   travel_end_at?: string | null;
   created_at: string;
   updated_at: string;
-  // denormalized for UI
   from_region_name?: string | null;
   to_region_name?: string | null;
 };
 
 export type TimelineItem =
   | (TripDay & { kind: "day" })
-  | ({
-      kind: "site";
-      id: string;
-      trip_id: string;
-      order_index: number;
-      day_id: string | null;
-      site_id: string;
-      date_in: string | null;
-      date_out: string | null;
-      notes: string | null;
-      created_at: string;
-      updated_at: string;
-    } & Record<string, any>)
+  | (TripItem & { kind: "site" })
   | (TravelLeg & { kind: "travel" });
 
 /* ───────────────────── Helpers ───────────────────── */
@@ -101,8 +90,7 @@ async function ensureUniqueTripSlug(userId: string, baseName: string) {
   const base = slugify(baseName);
   let candidate = base;
   let n = 1;
-
-  /* eslint-disable no-constant-condition */
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { count, error } = await supabase
       .from("trips")
@@ -116,11 +104,110 @@ async function ensureUniqueTripSlug(userId: string, baseName: string) {
     n += 1;
     candidate = `${base}-${n}`;
   }
-  /* eslint-enable no-constant-condition */
 }
 
 const safeNum = (v: any): number | null =>
   v === null || v === undefined || v === "" ? null : Number(v);
+
+/* ───────────────────── Trips (Gallery helpers) ───────────────────── */
+
+/** For each trip, choose the first site with a cover (by order_index) via a single join. */
+async function deriveTripCoversFromFirstSite(
+  tripIds: string[]
+): Promise<Record<string, string | null>> {
+  if (tripIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("trip_items")
+    .select("trip_id, order_index, sites:site_id(cover_photo_url)")
+    .in("trip_id", tripIds)
+    .order("trip_id", { ascending: true })
+    .order("order_index", { ascending: true });
+
+  if (error) throw error;
+
+  const coverByTripId: Record<string, string | null> = Object.fromEntries(
+    tripIds.map((id) => [id, null])
+  );
+
+  for (const row of data ?? []) {
+    const tripId = row.trip_id as string;
+    if (coverByTripId[tripId]) continue;
+    const cover = (row as any)?.sites?.cover_photo_url as
+      | string
+      | null
+      | undefined;
+    if (cover) coverByTripId[tripId] = cover;
+  }
+
+  return coverByTripId;
+}
+
+/** List trips – resolves username first, but gracefully falls back to the current auth user if unreadable/missing. */
+export async function listTripsByUsername(
+  username: string
+): Promise<TripWithCover[]> {
+  // Try to read the profile by username (RLS may block this)
+  const { data: prof, error: profErr } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .maybeSingle();
+
+  // Decide the user_id to query trips for
+  let userId: string | null = prof?.id ?? null;
+
+  if (!userId) {
+    // Fallback to the currently signed-in user
+    const { data: auth } = await supabase.auth.getUser();
+    userId = auth?.user?.id ?? null;
+  }
+
+  // If still no user, return empty list instead of throwing (prevents "Profile not found" banner)
+  if (!userId) return [];
+
+  // Now fetch trips for that user (RLS typically allows auth.uid() read)
+  const { data: tripsData, error: tripsErr } = await supabase
+    .from("trips")
+    .select("id, user_id, name, slug, is_public, created_at, updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (tripsErr) throw tripsErr;
+
+  const trips = (tripsData ?? []) as Trip[];
+  if (trips.length === 0) return [];
+
+  const coverByTripId = await deriveTripCoversFromFirstSite(
+    trips.map((t) => t.id)
+  );
+
+  return trips.map((t) => ({
+    ...t,
+    cover_photo_url: coverByTripId[t.id] ?? null,
+  }));
+}
+
+/** Per-trip counts for UI badges. */
+export async function countTripItems(tripId: string) {
+  const [{ count: sites }, { count: travels }] = await Promise.all([
+    supabase
+      .from("trip_items")
+      .select("id", { count: "exact", head: true })
+      .eq("trip_id", tripId),
+    supabase
+      .from("trip_travel")
+      .select("id", { count: "exact", head: true })
+      .eq("trip_id", tripId),
+  ]);
+  return { sites: sites ?? 0, travels: travels ?? 0 };
+}
+
+/** Delete an entire trip (ensure RLS and FK cascades/cleanup are configured). */
+export async function deleteTrip(tripId: string) {
+  const { error } = await supabase.from("trips").delete().eq("id", tripId);
+  if (error) throw error;
+}
 
 /* ───────────────────── Queries (Trips & Sites) ───────────────────── */
 
@@ -187,7 +274,7 @@ export async function getTripByUsernameSlug(
     .from("profiles")
     .select("id")
     .eq("username", username)
-    .single();
+    .maybeSingle();
   if (pErr) throw pErr;
   if (!prof?.id) throw new Error("Profile not found");
 
@@ -196,7 +283,7 @@ export async function getTripByUsernameSlug(
     .select("*")
     .eq("user_id", prof.id)
     .eq("slug", tripSlug)
-    .single();
+    .maybeSingle();
   if (tErr) throw tErr;
   if (!trip) throw new Error("Trip not found");
 
@@ -209,7 +296,7 @@ export async function getTripUrlById(id: string): Promise<string | null> {
     .from("trips")
     .select("slug, user_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
   if (tErr) throw tErr;
   if (!t?.slug || !t?.user_id) return null;
 
@@ -217,7 +304,7 @@ export async function getTripUrlById(id: string): Promise<string | null> {
     .from("profiles")
     .select("username")
     .eq("id", t.user_id)
-    .single();
+    .maybeSingle();
   if (pErr) throw pErr;
   if (!p?.username) return null;
 
@@ -230,8 +317,9 @@ export async function getTripWithItems(tripId: string) {
     .from("trips")
     .select("*")
     .eq("id", tripId)
-    .single();
+    .maybeSingle();
   if (tripErr) throw tripErr;
+  if (!trip) throw new Error("Trip not found");
 
   const { data: items, error: itemsErr } = await supabase
     .from("trip_items")
@@ -440,14 +528,12 @@ export async function attachItemsToDay(params: {
 
 /** Set a Day's date and propagate the same date to all *site* items in that Day. */
 export async function setDayDateAndPropagate(day_id: string, dateISO: string) {
-  // 1) update day
   const upDay = await supabase
     .from("trip_days")
     .update({ the_date: dateISO })
     .eq("id", day_id);
   if (upDay.error) throw upDay.error;
 
-  // 2) propagate to sites (date_in/date_out)
   const upItems = await supabase
     .from("trip_items")
     .update({ date_in: dateISO, date_out: dateISO })
@@ -634,14 +720,12 @@ async function hydrateRegionNames<
 export async function getTripTimeline(
   trip_id: string
 ): Promise<TimelineItem[]> {
-  // Try the view first (if present)
   const viewTry = await supabase
     .from("trip_timeline")
     .select("*")
     .eq("trip_id", trip_id)
     .order("order_index", { ascending: true });
 
-  // helper to ensure region names exist
   const ensureNames = async (rows: (TravelLeg & { kind: "travel" })[]) => {
     const hydrated = await hydrateRegionNames(rows);
     return new Map(hydrated.map((t) => [t.id, t]));
@@ -665,7 +749,6 @@ export async function getTripTimeline(
       return row as TimelineItem;
     });
 
-    // If the view didn't include days, fetch days separately and merge.
     const viewHasDay = (arr as TimelineItem[]).some((x) => x.kind === "day");
     if (!viewHasDay) {
       const { data: days, error: daysErr } = await supabase
@@ -681,7 +764,6 @@ export async function getTripTimeline(
       ];
     }
 
-    // ── FIX: hydrate travel fields (day_id + canonical start/end) from trip_travel
     const travelRows = arr.filter((x) => x.kind === "travel") as (TravelLeg & {
       kind: "travel";
     })[];
@@ -769,7 +851,6 @@ export async function getTripTimeline(
       distance_km: safeNum(t.distance_km),
     })) ?? [];
 
-  // Hydrate region names
   travel = await hydrateRegionNames(travel);
 
   return [...days, ...sites, ...travel].sort(

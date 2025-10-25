@@ -698,8 +698,18 @@ export default function Header() {
               </span>
             </Link>
 
-            <Link
-              href="/trip-builder"
+            <button
+              onClick={() => {
+                if (user?.user_metadata?.username) {
+                  router.push(`/${user.user_metadata.username}/mytrips`);
+                } else if (user?.email) {
+                  // fallback if username isn't stored, use email slug
+                  const safeSlug = user.email.split("@")[0];
+                  router.push(`/${safeSlug}/mytrips`);
+                } else {
+                  router.push("/auth/sign-in");
+                }
+              }}
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
             >
               <Icon name="route" className={iconStyles} />
@@ -710,7 +720,7 @@ export default function Header() {
               >
                 Trip Builder
               </span>
-            </Link>
+            </button>
 
             {user ? (
               <UserMenu user={user} />
