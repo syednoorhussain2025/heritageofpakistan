@@ -9,11 +9,13 @@ export default function UserTripsPage() {
   if (!username) return null;
 
   return (
-    <MyTripsGrid
-      username={username}
-      variant="page" // full-page container + breadcrumb + title
-      title="Your Trips"
-      allowDelete={true}
-    />
+    <div className="pt-8 min-h-screen bg-[url('https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png')] bg-repeat bg-[length:500px] bg-fixed">
+      <MyTripsGrid
+        username={username}
+        variant="page" // full-page container + breadcrumb + title
+        title="Your Trips"
+        allowDelete={true}
+      />
+    </div>
   );
 }

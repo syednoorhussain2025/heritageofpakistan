@@ -148,7 +148,7 @@ export async function listTripsByUsername(
   username: string
 ): Promise<TripWithCover[]> {
   // Try to read the profile by username (RLS may block this)
-  const { data: prof, error: profErr } = await supabase
+  const { data: prof } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
@@ -163,10 +163,10 @@ export async function listTripsByUsername(
     userId = auth?.user?.id ?? null;
   }
 
-  // If still no user, return empty list instead of throwing (prevents "Profile not found" banner)
+  // If still no user, return empty list instead of throwing
   if (!userId) return [];
 
-  // Now fetch trips for that user (RLS typically allows auth.uid() read)
+  // Now fetch trips for that user
   const { data: tripsData, error: tripsErr } = await supabase
     .from("trips")
     .select("id, user_id, name, slug, is_public, created_at, updated_at")
@@ -265,28 +265,41 @@ export async function addSiteToTrip({
   return data as TripItem;
 }
 
-/** Resolve a trip by human-readable path: /[username]/trip/[tripSlug] */
+/** Resolve a trip by human-readable path: /[username]/trip/[tripSlug]
+ *  Tolerant: if the profile row for username is missing/unreadable, fall back to resolving by slug.
+ */
 export async function getTripByUsernameSlug(
   username: string,
   tripSlug: string
 ) {
+  // Try to resolve profile; don't fail the whole call if it doesn't exist
   const { data: prof, error: pErr } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
     .maybeSingle();
   if (pErr) throw pErr;
-  if (!prof?.id) throw new Error("Profile not found");
 
+  if (prof?.id) {
+    const { data: trip, error: tErr } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("user_id", prof.id)
+      .eq("slug", tripSlug)
+      .maybeSingle();
+    if (tErr) throw tErr;
+    if (!trip) throw new Error("Trip not found");
+    return trip as Trip;
+  }
+
+  // Fallback: resolve by slug only (RLS still protects access)
   const { data: trip, error: tErr } = await supabase
     .from("trips")
     .select("*")
-    .eq("user_id", prof.id)
     .eq("slug", tripSlug)
     .maybeSingle();
   if (tErr) throw tErr;
   if (!trip) throw new Error("Trip not found");
-
   return trip as Trip;
 }
 

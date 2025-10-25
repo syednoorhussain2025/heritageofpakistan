@@ -660,7 +660,7 @@ export default function TripBuilderPage() {
       const el = dateInputRef.current;
       if (!el) return;
       try {
-        // @ts-ignore: showPicker is not in TS lib yet for all targets
+        // @ts-ignore: showPicker may not be in lib types
         if (typeof el.showPicker === "function") (el as any).showPicker();
         else el.focus();
       } catch {
@@ -1019,7 +1019,16 @@ export default function TripBuilderPage() {
 
   /* ---------- UI ---------- */
   return (
-    <main className="bg-slate-100 min-h-screen py-6">
+    <main
+      className="min-h-screen py-6 bg-slate-100"
+      style={{
+        backgroundImage:
+          'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "600px",
+        backgroundPosition: "top left",
+      }}
+    >
       {/* Global toast */}
       {toastMsg && (
         <div className="fixed left-1/2 top-4 z-[95] -translate-x-1/2 rounded-md bg-black/85 px-3 py-2 text-sm text-white shadow">

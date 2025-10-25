@@ -12,7 +12,6 @@ export default function DashboardShellClient({
 }) {
   const pathname = usePathname();
 
-  // Sidebar nav (kept exactly as you had it)
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/dashboard/profile", label: "Profile", icon: "user" },
@@ -27,11 +26,7 @@ export default function DashboardShellClient({
       icon: "map-marker-alt",
     },
     { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-    {
-      href: "/dashboard/portfolio",
-      label: "My Portfolio",
-      icon: "image",
-    },
+    { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
     {
       href: "/dashboard/account-details",
       label: "Account Details",
@@ -39,18 +34,26 @@ export default function DashboardShellClient({
     },
   ];
 
-  // Routes that should render without the inner card container
   const fullBleed =
     typeof pathname === "string" && pathname.startsWith("/dashboard/notebook");
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full">
-        <div className="p-6">
+    <div
+      className="min-h-screen flex p-6 gap-6 items-start"
+      style={{
+        backgroundImage:
+          'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
+        backgroundRepeat: "repeat",
+        backgroundSize: "500px",
+        backgroundPosition: "top left",
+      }}
+    >
+      {/* Fixed Sidebar */}
+      <aside className="fixed w-64 bg-white border border-gray-200 rounded-2xl shadow-md flex flex-col h-[calc(100vh-3rem)]">
+        <div className="p-6 border-b border-gray-100">
           <h2 className="text-2xl font-bold text-gray-800">My Dashboard</h2>
         </div>
-        <nav className="flex-1 px-4 py-2 space-y-2">
+        <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
           {nav.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -76,13 +79,16 @@ export default function DashboardShellClient({
         </nav>
       </aside>
 
-      {/* Content area */}
-      <main className={`flex-1 ml-64 ${fullBleed ? "p-0" : "p-8"}`}>
-        {fullBleed ? (
-          <>{children}</>
-        ) : (
-          <div className="bg-white p-6 rounded-lg shadow-sm">{children}</div>
-        )}
+      {/* Spacer to prevent overlap with fixed sidebar */}
+      <div className="w-64" />
+
+      {/* Main Content */}
+      <main
+        className={`flex-1 ${
+          fullBleed ? "p-0" : "p-8"
+        } bg-white rounded-2xl border border-gray-200 shadow-sm`}
+      >
+        {children}
       </main>
     </div>
   );
