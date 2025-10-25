@@ -20,6 +20,7 @@ import {
   setDayDateAndPropagate,
   getNextOrderIndex,
   addSiteToTrip,
+  // NOTE: updateTrip removed
   type TravelMode,
   type TimelineItem,
   type SiteLite,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/trips";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import Icon from "@/components/Icon";
+import { supabase } from "@/lib/supabaseClient";
 
 /* bring in the search modal component you created */
 import TripBuilderSearch from "./TripBuilderSearch";
@@ -259,6 +261,7 @@ export default function TripBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dirtyOrder, setDirtyOrder] = useState(false);
+  const [dirtyMeta, setDirtyMeta] = useState(false);
   const [justSaved, setJustSaved] = useState<null | "ok" | "err">(null);
 
   /* Search modal */
@@ -299,7 +302,8 @@ export default function TripBuilderPage() {
         const trip = await getTripByUsernameSlug(username, tripSlug);
         if (!mounted) return;
         setTripId(trip.id);
-        setTripName(trip.name);
+        setTripName(trip.name ?? "");
+        setYourName((trip as any)?.creator_name ?? "");
 
         const [timeline, { items: siteEnriched }] = await Promise.all([
           getTripTimeline(trip.id),
@@ -413,6 +417,61 @@ export default function TripBuilderPage() {
     }
   }
 
+  /** ⬇️ NEW: Save trip meta (name + creator_name) using Supabase */
+  async function updateTripMeta(
+    id: string,
+    patch: { name?: string; creator_name?: string }
+  ) {
+    const { error } = await supabase
+      .from("trips")
+      .update({
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.creator_name !== undefined
+          ? { creator_name: patch.creator_name }
+          : {}),
+      })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  /** Unified Save handler */
+  const handleSaveAll = async ({
+    skipOrder = false,
+    reason,
+  }: { skipOrder?: boolean; reason?: "manual" | "auto" } = {}) => {
+    if (!tripId) return;
+    setSaving(true);
+    setErrorMsg(null);
+    setJustSaved(null);
+    try {
+      // Save meta always (manual can save anytime; auto keeps it current)
+      await updateTripMeta(tripId, {
+        name: tripName ?? "",
+        creator_name: yourName ?? "",
+      });
+
+      // Save order if needed
+      if (dirtyOrder && !skipOrder) {
+        const next = items.map((x, i) => ({
+          ...x,
+          order_index: i + 1,
+        })) as BuilderItem[];
+        await persistFullOrder(next);
+        setItems(next);
+        setDirtyOrder(false);
+      }
+
+      setDirtyMeta(false);
+      setJustSaved("ok");
+      if (reason === "manual") showToast("Saved");
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Failed to save.");
+      setJustSaved("err");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   /* ---------- DnD handlers ---------- */
   const onDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -517,9 +576,11 @@ export default function TripBuilderPage() {
         }
       }
       await persistFullOrder(next);
-
       setDirtyOrder(false);
       setJustSaved("ok");
+
+      // Auto “press” Save (meta only; order already persisted here)
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (err: any) {
       setErrorMsg(err?.message || "Failed to persist item position.");
       setJustSaved("err");
@@ -579,43 +640,27 @@ export default function TripBuilderPage() {
     try {
       if (it.kind === "site") await deleteTripItem(it.id);
       else await deleteTravelLeg(it.id);
-      setItems((prev) => prev.filter((x) => x.id !== it.id));
+      const filtered = items.filter((x) => x.id !== it.id);
+      const recomputed = filtered.map((x, i) => ({
+        ...x,
+        order_index: i + 1,
+      })) as BuilderItem[];
+      setItems(recomputed);
       setJustSaved(null);
-      const next = (prevItems: BuilderItem[]) =>
-        prevItems.map((x, i) => ({
-          ...x,
-          order_index: i + 1,
-        })) as BuilderItem[];
-      const computed = next(items.filter((x) => x.id !== it.id));
-      await persistFullOrder(computed);
-      setItems(computed);
+      await persistFullOrder(recomputed);
       setJustSaved("ok");
+
+      // Auto Save (meta only)
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to delete item.");
       setJustSaved("err");
     }
   };
 
-  /* ---------- manual "Save Order" ---------- */
-  const handleSaveOrder = async () => {
-    setSaving(true);
-    setErrorMsg(null);
-    setJustSaved(null);
-    try {
-      const next = items.map((x, i) => ({
-        ...x,
-        order_index: i + 1,
-      })) as BuilderItem[];
-      await persistFullOrder(next);
-      setItems(next);
-      setDirtyOrder(false);
-      setJustSaved("ok");
-    } catch (e: any) {
-      setErrorMsg(e.message || "Failed to save order.");
-      setJustSaved("err");
-    } finally {
-      setSaving(false);
-    }
+  /* ---------- manual Save (replaces old 'Save Order') ---------- */
+  const handleManualSave = async () => {
+    await handleSaveAll({ skipOrder: false, reason: "manual" });
   };
 
   /* ---------- formatting helpers ---------- */
@@ -632,10 +677,10 @@ export default function TripBuilderPage() {
   const formatVisitLabel = (dateStr?: string | null) => {
     if (!dateStr) return "Set date";
     const d = new Date(dateStr);
-    const dd = d.toLocaleString("en-GB", { day: "2-digit" }); // 11
-    const mon = d.toLocaleString("en-GB", { month: "short" }); // Oct
+    const dd = d.toLocaleString("en-GB", { day: "2-digit" });
+    const mon = d.toLocaleString("en-GB", { month: "short" });
     const yyyy = d.getFullYear();
-    return `${dd} ${mon}, ${yyyy}`; // "11 Oct, 2025"
+    return `${dd} ${mon}, ${yyyy}`;
   };
   const durationLabel = (mins: number | null | undefined) => {
     if (mins == null) return "—";
@@ -904,6 +949,9 @@ export default function TripBuilderPage() {
       await persistFullOrder(appended);
       setDirtyOrder(false);
       setJustSaved("ok");
+
+      // Auto Save (meta only)
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (e: any) {
       setErrorMsg(e.message || "Failed to add travel.");
       setJustSaved("err");
@@ -946,6 +994,9 @@ export default function TripBuilderPage() {
       setItems(next);
       showToast(`Added to ${tripName || "trip"}`);
       setJustSaved("ok");
+
+      // Auto Save (meta only)
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to add site to trip.");
       setJustSaved("err");
@@ -958,6 +1009,8 @@ export default function TripBuilderPage() {
     try {
       const created = await addTripDay({ trip_id: tripId, title: "" } as any);
       setDays((prev) => [...prev, created]); // append instead of prepend
+      // Auto Save meta
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to add day.");
     }
@@ -1012,6 +1065,9 @@ export default function TripBuilderPage() {
         );
       }
       await deleteTripDay(day.id);
+
+      // Auto Save meta
+      await handleSaveAll({ skipOrder: true, reason: "auto" });
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to delete day.");
     }
@@ -1051,25 +1107,41 @@ export default function TripBuilderPage() {
           </h1>
 
           <div className="flex items-center gap-3">
+            {/* Finalize Trip */}
             <button
-              onClick={handleSaveOrder}
-              disabled={saving || !dirtyOrder}
+              onClick={() =>
+                router.push(`/${username}/trip/${tripSlug}/finalize`)
+              }
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+              type="button"
+              title="Finalize Trip"
+            >
+              Finalize Trip
+            </button>
+
+            {/* Save (manual) */}
+            <button
+              onClick={handleManualSave}
+              disabled={saving}
               className={
                 "rounded-lg px-4 py-2 text-sm font-semibold text-white " +
-                (saving || !dirtyOrder
+                (saving
                   ? "bg-blue-400/60 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700")
               }
               type="button"
+              title="Save trip name, your name, and any pending ordering changes"
             >
-              {saving ? "Saving…" : "Save Order"}
+              {saving ? "Saving…" : "Save"}
             </button>
+
             {justSaved === "ok" && (
               <span className="text-xs text-green-700">All changes saved</span>
             )}
             {justSaved === "err" && (
               <span className="text-xs text-red-600">Save failed</span>
             )}
+
             <button
               onClick={() => router.back()}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
@@ -1088,7 +1160,10 @@ export default function TripBuilderPage() {
             </div>
             <input
               value={tripName}
-              onChange={(e) => setTripName(e.target.value)}
+              onChange={(e) => {
+                setTripName(e.target.value);
+                setDirtyMeta(true);
+              }}
               className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
               placeholder="My trip…"
             />
@@ -1099,7 +1174,10 @@ export default function TripBuilderPage() {
             </div>
             <input
               value={yourName}
-              onChange={(e) => setYourName(e.target.value)}
+              onChange={(e) => {
+                setYourName(e.target.value);
+                setDirtyMeta(true);
+              }}
               placeholder="Your name"
               className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/40"
             />
@@ -1409,6 +1487,9 @@ export default function TripBuilderPage() {
                   : it
               )
             );
+
+            // Auto Save (meta only)
+            await handleSaveAll({ skipOrder: true, reason: "auto" });
           } catch (e: any) {
             setErrorMsg(e.message || "Failed to save travel.");
             throw e;
