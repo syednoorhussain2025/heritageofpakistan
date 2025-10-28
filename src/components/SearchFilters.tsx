@@ -31,6 +31,52 @@ const andJoin = (arr: string[]) =>
     : `${arr.slice(0, -1).join(" & ")} & ${arr.slice(-1)[0]}`;
 const km = (n?: number | null) => (n == null ? "" : `${Number(n)} km Radius`);
 
+/** Robust square thumbnail URL builder for Supabase (public, signed, or raw key). */
+function thumbUrl(input?: string | null, size = 48) {
+  if (!input) return "";
+
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  let absolute = input;
+
+  // If not an absolute URL, assume it's a storage key under object/public
+  if (!/^https?:\/\//i.test(input)) {
+    if (!SUPA_URL) return "";
+    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
+      /^\/+/,
+      ""
+    )}`;
+  }
+
+  // If it's not our Supabase project's URL, return as-is (external URL)
+  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
+  if (!isSameProject) return absolute;
+
+  // Convert object endpoint → render endpoint (supports public and sign)
+  const PUBLIC_MARK = "/storage/v1/object/public/";
+  const SIGN_MARK = "/storage/v1/object/sign/";
+
+  let renderBase = "";
+  let tail = "";
+
+  if (absolute.includes(PUBLIC_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
+    tail = absolute.split(PUBLIC_MARK)[1];
+  } else if (absolute.includes(SIGN_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
+    tail = absolute.split(SIGN_MARK)[1];
+  } else {
+    // Not an object URL we recognize (maybe already a render URL, etc.) → return as-is
+    return absolute;
+  }
+
+  const u = new URL(renderBase + tail);
+  u.searchParams.set("width", String(size));
+  u.searchParams.set("height", String(size));
+  u.searchParams.set("resize", "cover");
+  u.searchParams.set("quality", "75");
+  return u.toString();
+}
+
 /* ───────────────────────────── Click Outside Hook ───────────────────────────── */
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
@@ -213,10 +259,6 @@ const MultiSelectDropdown = ({
 };
 
 /* ───────────────────────────── Helpers for Region Selection ───────────────────────────── */
-/** New behavior:
- * - Toggling a SUBREGION adds/removes ONLY that subregion (never removes/forces the parent).
- * - Toggling a TOP region simply adds/removes that region (does not clear its subs).
- */
 function applyRegionToggle(
   currentIds: string[],
   toggleId: string,
@@ -228,12 +270,10 @@ function applyRegionToggle(
   const set = new Set(currentIds);
 
   if (isTop) {
-    // toggle the top region independently
     set.has(toggleId) ? set.delete(toggleId) : set.add(toggleId);
     return Array.from(set);
   }
 
-  // subregion: toggle only this id; leave parent as-is
   set.has(toggleId) ? set.delete(toggleId) : set.add(toggleId);
   return Array.from(set);
 }
@@ -678,6 +718,8 @@ function LocationRadiusFilter({
       title: string;
       latitude: number | null;
       longitude: number | null;
+      cover_photo_url?: string | null;
+      location_free?: string | null;
     }[]
   >([]);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -693,14 +735,15 @@ function LocationRadiusFilter({
       setLoading(true);
       const { data, error } = await supabase
         .from("sites")
-        .select("id,title,latitude,longitude")
+        .select("id,title,latitude,longitude,cover_photo_url,location_free")
         .ilike("title", `%${query.trim()}%`)
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .order("title")
         .limit(12);
+
       if (active) {
-        if (!error) setResults((data || []) as any);
+        if (!error) setResults(((data || []) as any) ?? []);
         setLoading(false);
       }
     })();
@@ -793,16 +836,79 @@ function LocationRadiusFilter({
                 No sites found
               </div>
             ) : (
-              <ul className="max-h-64 overflow-auto py-2">
-                {results.map((r) => (
-                  <li
-                    key={r.id}
-                    onClick={() => choose(r)}
-                    className="px-4 py-2 cursor-pointer hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
-                  >
-                    {r.title}
-                  </li>
-                ))}
+              <ul className="max-h-64 overflow-auto py-2 divide-y divide-[var(--taupe-grey)]/20">
+                {results.map((r) => {
+                  const raw = r.cover_photo_url || "";
+                  const thumb = thumbUrl(raw, 40);
+                  const SUPA_URL =
+                    process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+                  const absoluteFallback = /^https?:\/\//i.test(raw)
+                    ? raw
+                    : SUPA_URL
+                    ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
+                        /^\/+/,
+                        ""
+                      )}`
+                    : "";
+
+                  return (
+                    <li
+                      key={r.id}
+                      onClick={() => choose(r)}
+                      className="px-4 py-2 cursor-pointer hover:bg-[var(--ivory-cream)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Thumbnail with robust fallback */}
+                        <div className="relative w-10 h-10 flex-shrink-0">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt=""
+                              aria-hidden="true"
+                              className="w-10 h-10 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                const t = e.currentTarget as HTMLImageElement;
+                                // First fallback: try absolute object URL
+                                if (
+                                  absoluteFallback &&
+                                  t.src !== absoluteFallback
+                                ) {
+                                  t.src = absoluteFallback;
+                                  return;
+                                }
+                                // Final fallback: hide the image and reveal placeholder
+                                t.style.display = "none";
+                                const ph =
+                                  t.nextElementSibling as HTMLElement | null;
+                                if (ph) ph.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          {/* Hidden placeholder to reveal if image fails */}
+                          <div
+                            style={{ display: thumb ? "none" : "flex" }}
+                            className="absolute inset-0 w-10 h-10 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                          >
+                            <Icon name="image" size={14} />
+                          </div>
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="text-[var(--dark-grey)] font-medium truncate">
+                            {r.title}
+                          </div>
+                          {r.location_free && (
+                            <div className="text-xs text-[var(--espresso-brown)]/70 truncate">
+                              {r.location_free}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -1071,7 +1177,6 @@ export default function SearchFilters({
 
   // Toggle with updated rule (parent persists when sub toggled)
   const onToggleWithRule = async (id: string) => {
-    // If radius is active and user selects a region, reset radius mode first (keep behavior)
     if (hasRadius(filters)) {
       onFilterChange({
         name: "",
