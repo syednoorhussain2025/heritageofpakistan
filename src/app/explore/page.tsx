@@ -30,6 +30,8 @@ type Site = {
   avg_rating?: number | null;
   review_count?: number | null;
   distance_km?: number | null;
+  // may or may not exist in your schema; used when present
+  category_id?: string | null;
 };
 
 type NamedRow = { id: string; name: string };
@@ -75,6 +77,7 @@ function titleForRegions(regions: string[]) {
   return humanJoin(regions);
 }
 
+/** Headline builder — includes categories when radius mode is active. */
 function buildHeadline({
   query,
   categoryNames,
@@ -94,11 +97,11 @@ function buildHeadline({
 
   if (radiusActive) {
     const siteLabel = centerSiteTitle || "Selected Site";
-    const radiusLabel =
-      typeof radiusKm === "number" ? `${radiusKm}km` : "Radius";
-    return q
-      ? `Sites around ${siteLabel} within ${radiusLabel} matching “${q}”`
-      : `Sites around ${siteLabel} within ${radiusLabel} Radius`;
+    const kmLabel = typeof radiusKm === "number" ? `${radiusKm}km` : "Radius";
+    const cats = categoryNames.length ? humanJoin(categoryNames) : "Sites";
+    return `${cats} around ${siteLabel} within ${kmLabel}${
+      q ? ` matching “${q}”` : ""
+    }`;
   }
 
   const hasCats = categoryNames.length > 0;
@@ -204,6 +207,7 @@ function ExplorePageContent() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
+  /* Load name maps once */
   useEffect(() => {
     (async () => {
       const [{ data: cats }, { data: regs }] = await Promise.all([
@@ -229,7 +233,8 @@ function ExplorePageContent() {
     })();
   }, []);
 
-  const executeSearch = useCallback(() => {
+  /* Stable URL key for router sync (FIXES deps-size error) */
+  const urlKey = useMemo(() => {
     const params = new URLSearchParams();
     if (filters.name) params.set("q", filters.name);
     if (filters.categoryIds.length > 0)
@@ -246,41 +251,33 @@ function ExplorePageContent() {
         params.set("rkm", String(filters.radiusKm));
     }
     params.set("page", String(page || 1));
-    router.push(`/explore?${params.toString()}`);
-  }, [filters, page, router]);
-
-  // Push URL on filter change (reset to page 1)
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    const params = new URLSearchParams();
-    if (filters.name) params.set("q", filters.name);
-    if (filters.categoryIds.length > 0)
-      params.set("cats", filters.categoryIds.join(","));
-    if (filters.regionIds.length > 0)
-      params.set("regs", filters.regionIds.join(","));
-    if (hasRadius(filters)) {
-      if (filters.centerSiteId) params.set("center", filters.centerSiteId);
-      if (typeof filters.centerLat === "number")
-        params.set("clat", String(filters.centerLat));
-      if (typeof filters.centerLng === "number")
-        params.set("clng", String(filters.centerLng));
-      if (typeof filters.radiusKm === "number")
-        params.set("rkm", String(filters.radiusKm));
-    }
-    params.set("page", "1");
-    router.push(`/explore?${params.toString()}`);
+    return params.toString();
   }, [
     filters.name,
-    filters.categoryIds,
-    filters.regionIds,
+    filters.categoryIds.join(","), // stable
+    filters.regionIds.join(","), // stable
     filters.centerSiteId,
     filters.centerLat,
     filters.centerLng,
     filters.radiusKm,
-    router,
+    page,
   ]);
 
-  // Read URL → fetch data + center preview/banner info
+  /* Execute search button → push urlKey */
+  const executeSearch = useCallback(() => {
+    router.push(`/explore?${urlKey}`);
+  }, [router, urlKey]);
+
+  /* Push URL whenever filters change (skip first mount & avoid infinite loop) */
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    const current = searchParams.toString();
+    if (current !== urlKey) {
+      router.push(`/explore?${urlKey}`);
+    }
+  }, [urlKey, router, searchParams]);
+
+  /* Read URL → fetch data + banner info */
   useEffect(() => {
     setLoading(true);
 
@@ -351,17 +348,36 @@ function ExplorePageContent() {
 
         /* ───── Radius mode ───── */
         if (hasRadius(nextFilters)) {
+          // 1) Get ALL nearby site ids with distances
           const radiusRows = await fetchSitesByFilters(nextFilters);
-          const sorted = [...radiusRows].sort(
+          // Optional: order by distance ascending
+          let distanceOrdered = [...radiusRows].sort(
             (a: any, b: any) =>
               (a.distance_km ?? Number.POSITIVE_INFINITY) -
               (b.distance_km ?? Number.POSITIVE_INFINITY)
           );
 
-          const total = sorted.length;
+          const allIds = distanceOrdered.map((r: any) => r.id);
+
+          // 2) If category "type" filters are active, filter via the join table public.site_categories
+          if (allIds.length && nextFilters.categoryIds?.length) {
+            const { data: pairs, error: joinErr } = await supabase
+              .from("site_categories")
+              .select("site_id,category_id")
+              .in("site_id", allIds)
+              .in("category_id", nextFilters.categoryIds as string[]);
+            if (joinErr) throw joinErr;
+            const allowed = new Set((pairs || []).map((p: any) => p.site_id));
+            distanceOrdered = distanceOrdered.filter((r: any) =>
+              allowed.has(r.id)
+            );
+          }
+
+          // 3) Now paginate AFTER any filtering
+          const total = distanceOrdered.length;
           const start = (currentPage - 1) * PAGE_SIZE;
           const end = start + PAGE_SIZE;
-          const pageRows = sorted.slice(start, end);
+          const pageRows = distanceOrdered.slice(start, end);
 
           const ids = pageRows.map((r: any) => r.id);
           if (!ids.length) {
@@ -369,17 +385,33 @@ function ExplorePageContent() {
             return;
           }
 
-          const { data: details, error: detailsErr } = await supabase
-            .from("sites")
-            .select(
-              "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
-            )
-            .in("id", ids);
-
-          if (detailsErr) throw detailsErr;
+          // 4) Fetch display fields and merge the distance back
+          //    (keep fallback that retries without category_id if schema lacks it)
+          let details: any[] = [];
+          let detailsErr: any = null;
+          {
+            const { data, error } = await supabase
+              .from("sites")
+              .select(
+                "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count,category_id"
+              )
+              .in("id", ids);
+            details = (data || []) as any[];
+            detailsErr = error;
+          }
+          if (detailsErr) {
+            const { data, error } = await supabase
+              .from("sites")
+              .select(
+                "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
+              )
+              .in("id", ids);
+            if (error) throw error;
+            details = (data || []) as any[];
+          }
 
           const byId = new Map<string, Site>(
-            (details || []).map((d) => [d.id, d as Site])
+            details.map((d) => [d.id, d as Site])
           );
           const distanceById = new Map<string, number | null>(
             pageRows.map((r: any) => [r.id, r.distance_km ?? null])
@@ -389,10 +421,7 @@ function ExplorePageContent() {
             .map((id) => {
               const base = byId.get(id);
               if (!base) return null;
-              return {
-                ...base,
-                distance_km: distanceById.get(id) ?? null,
-              } as Site;
+              return { ...base, distance_km: distanceById.get(id) ?? null };
             })
             .filter(Boolean) as Site[];
 
@@ -587,26 +616,7 @@ function ExplorePageContent() {
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
-                onSearch={() => {
-                  const params = new URLSearchParams();
-                  if (filters.name) params.set("q", filters.name);
-                  if (filters.categoryIds.length > 0)
-                    params.set("cats", filters.categoryIds.join(","));
-                  if (filters.regionIds.length > 0)
-                    params.set("regs", filters.regionIds.join(","));
-                  if (hasRadius(filters)) {
-                    if (filters.centerSiteId)
-                      params.set("center", filters.centerSiteId);
-                    if (typeof filters.centerLat === "number")
-                      params.set("clat", String(filters.centerLat));
-                    if (typeof filters.centerLng === "number")
-                      params.set("clng", String(filters.centerLng));
-                    if (typeof filters.radiusKm === "number")
-                      params.set("rkm", String(filters.radiusKm));
-                  }
-                  params.set("page", "1");
-                  router.push(`/explore?${params.toString()}`);
-                }}
+                onSearch={executeSearch}
               />
             </div>
           </aside>
