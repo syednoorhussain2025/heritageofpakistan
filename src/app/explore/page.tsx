@@ -29,7 +29,6 @@ type Site = {
   heritage_type?: string | null;
   avg_rating?: number | null;
   review_count?: number | null;
-  /** Present when using radius search; used by SitePreviewCard badge */
   distance_km?: number | null;
 };
 
@@ -71,7 +70,6 @@ function humanJoin(list: string[]) {
   return `${list.slice(0, -1).join(", ")} & ${list[list.length - 1]}`;
 }
 
-// no “Province/Provinces”
 function titleForRegions(regions: string[]) {
   if (!regions.length) return "Pakistan";
   return humanJoin(regions);
@@ -107,19 +105,16 @@ function buildHeadline({
   const hasRegs = regionNames.length > 0;
 
   if (q && !hasCats && !hasRegs) return `Search for “${q}”`;
-
   if (hasCats && !hasRegs) {
     const cats = humanJoin(categoryNames);
     return q ? `${cats} in Pakistan matching “${q}”` : `${cats} in Pakistan`;
   }
-
   if (!hasCats && hasRegs) {
     const regionTitle = titleForRegions(regionNames);
     return q
       ? `Sites in ${regionTitle} matching “${q}”`
       : `Sites in ${regionTitle}`;
   }
-
   if (hasCats && hasRegs) {
     const cats = humanJoin(categoryNames);
     const regionTitle = titleForRegions(regionNames);
@@ -127,8 +122,45 @@ function buildHeadline({
       ? `${cats} in ${regionTitle} matching “${q}”`
       : `${cats} in ${regionTitle}`;
   }
-
   return "All Heritage Sites in Pakistan";
+}
+
+/** Build a square-ish thumbnail URL for Supabase images (public/sign). */
+function thumbUrl(input?: string | null, size = 160) {
+  if (!input) return "";
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  let absolute = input;
+  if (!/^https?:\/\//i.test(input)) {
+    if (!SUPA_URL) return "";
+    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
+      /^\/+/,
+      ""
+    )}`;
+  }
+  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
+  if (!isSameProject) return absolute;
+
+  const PUBLIC_MARK = "/storage/v1/object/public/";
+  const SIGN_MARK = "/storage/v1/object/sign/";
+  let renderBase = "";
+  let tail = "";
+
+  if (absolute.includes(PUBLIC_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
+    tail = absolute.split(PUBLIC_MARK)[1];
+  } else if (absolute.includes(SIGN_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
+    tail = absolute.split(SIGN_MARK)[1];
+  } else {
+    return absolute;
+  }
+
+  const u = new URL(renderBase + tail);
+  u.searchParams.set("width", String(size));
+  u.searchParams.set("height", String(size));
+  u.searchParams.set("resize", "cover");
+  u.searchParams.set("quality", "80");
+  return u.toString();
 }
 
 function ExplorePageContent() {
@@ -157,7 +189,16 @@ function ExplorePageContent() {
 
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
+
+  // For headline
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
+  // For the banner
+  const [centerSitePreview, setCenterSitePreview] = useState<{
+    id: string;
+    title: string;
+    subtitle?: string | null;
+    cover?: string | null;
+  } | null>(null);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -208,6 +249,7 @@ function ExplorePageContent() {
     router.push(`/explore?${params.toString()}`);
   }, [filters, page, router]);
 
+  // Push URL on filter change (reset to page 1)
   useEffect(() => {
     if (isInitialMount.current) return;
     const params = new URLSearchParams();
@@ -238,6 +280,7 @@ function ExplorePageContent() {
     router,
   ]);
 
+  // Read URL → fetch data + center preview/banner info
   useEffect(() => {
     setLoading(true);
 
@@ -281,23 +324,34 @@ function ExplorePageContent() {
     (async () => {
       setError(null);
       try {
-        // Look up center site title (for headline) if needed
+        // For headline and banner
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
           const { data: row, error: err } = await supabase
             .from("sites")
-            .select("title")
+            .select("id,title,cover_photo_url,location_free")
             .eq("id", nextFilters.centerSiteId)
             .maybeSingle();
-          if (!err) setCenterSiteTitle(row?.title ?? null);
-          else setCenterSiteTitle(null);
+
+          if (!err && row) {
+            setCenterSiteTitle(row.title ?? null);
+            setCenterSitePreview({
+              id: row.id,
+              title: row.title,
+              subtitle: row.location_free ?? null,
+              cover: row.cover_photo_url ?? null,
+            });
+          } else {
+            setCenterSiteTitle(null);
+            setCenterSitePreview(null);
+          }
         } else {
           setCenterSiteTitle(null);
+          setCenterSitePreview(null);
         }
 
-        /* ───── Radius mode: sort by distance and carry distance_km to cards ───── */
+        /* ───── Radius mode ───── */
         if (hasRadius(nextFilters)) {
           const radiusRows = await fetchSitesByFilters(nextFilters);
-          // Ensure ascending order by distance
           const sorted = [...radiusRows].sort(
             (a: any, b: any) =>
               (a.distance_km ?? Number.POSITIVE_INFINITY) -
@@ -307,7 +361,7 @@ function ExplorePageContent() {
           const total = sorted.length;
           const start = (currentPage - 1) * PAGE_SIZE;
           const end = start + PAGE_SIZE;
-          const pageRows = sorted.slice(start, end); // retains order & distance
+          const pageRows = sorted.slice(start, end);
 
           const ids = pageRows.map((r: any) => r.id);
           if (!ids.length) {
@@ -315,7 +369,6 @@ function ExplorePageContent() {
             return;
           }
 
-          // Fetch display fields and merge distance_km back in the same order
           const { data: details, error: detailsErr } = await supabase
             .from("sites")
             .select(
@@ -347,7 +400,7 @@ function ExplorePageContent() {
           return;
         }
 
-        /* ───── Non-radius mode: use RPC w/ pagination on DB side ───── */
+        /* ───── Non-radius mode ───── */
         const orderQuery = "latest";
         const { data, error: rpcError } = await supabase.rpc("search_sites", {
           p_name_query: nameQuery.trim() || null,
@@ -412,6 +465,74 @@ function ExplorePageContent() {
       centerSiteTitle,
     ]
   );
+
+  /* ───────── Locked Radius Banner (with KM pill) ───────── */
+  const CenterBanner = () =>
+    hasRadius(filters) && centerSitePreview ? (
+      <div
+        className="hidden xl:flex items-center gap-3 absolute right-2 top-1"
+        aria-label="Locked radius location"
+      >
+        <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 flex items-center max-w-[360px]">
+          {/* Circular thumbnail */}
+          <div className="relative w-14 h-14 flex-shrink-0">
+            {(() => {
+              const raw = centerSitePreview.cover || "";
+              const t = thumbUrl(raw, 112);
+              const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(
+                /\/+$/,
+                ""
+              );
+              const absoluteFallback = /^https?:\/\//i.test(raw)
+                ? raw
+                : SUPA_URL
+                ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
+                    /^\/+/,
+                    ""
+                  )}`
+                : "";
+              return t ? (
+                <img
+                  src={t}
+                  className="w-14 h-14 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                  alt=""
+                  decoding="async"
+                  loading="lazy"
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (absoluteFallback && img.src !== absoluteFallback) {
+                      img.src = absoluteFallback;
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />
+              );
+            })()}
+          </div>
+
+          {/* Text with KM pill */}
+          <div className="min-w-0 pl-2">
+            <div className="text-[11px] uppercase tracking-wider text-[var(--espresso-brown)]/70 flex items-center gap-1">
+              <span>Sites within</span>
+              <span className="px-2 py-0.5 rounded-full bg-[var(--olive-green)]/10 text-[var(--olive-green)] font-semibold ring-1 ring-[var(--olive-green)]/30 leading-none">
+                {typeof filters.radiusKm === "number"
+                  ? `${filters.radiusKm} km`
+                  : "Radius"}
+              </span>
+            </div>
+            <div className="text-base font-semibold text-[var(--dark-grey)] truncate">
+              {centerSitePreview.title}
+            </div>
+            {centerSitePreview.subtitle && (
+              <div className="text-xs text-[var(--espresso-brown)]/80 truncate">
+                {centerSitePreview.subtitle}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
@@ -491,7 +612,8 @@ function ExplorePageContent() {
           </aside>
 
           <main className="lg:ml-[380px] p-4 w-full">
-            <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-0 mb-10 sm:mb-4">
+            {/* Right padding so H1 never collides with banner */}
+            <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-0 mb-10 sm:mb-4 relative xl:pr-[260px]">
               <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
                 {headline}
               </h1>
@@ -500,6 +622,8 @@ function ExplorePageContent() {
                 <strong>{loading ? 0 : results.total}</strong> results
               </div>
               <div className="mt-2 h-[3px] w-20 bg-[var(--mustard-accent)] rounded" />
+
+              <CenterBanner />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
