@@ -44,6 +44,16 @@ function parseMulti(value: string | null): string[] {
     .filter(Boolean);
 }
 
+/** Read "type" selections from Filters in a tolerant way. */
+function getSelectedTypes(f: Filters): string[] {
+  const anyF = f as unknown as Record<string, unknown>;
+  const arr =
+    (anyF["heritageTypes"] as string[] | undefined) ??
+    (anyF["types"] as string[] | undefined) ??
+    [];
+  return Array.isArray(arr) ? arr.filter(Boolean) : [];
+}
+
 /* ───────────────────────────── UI Skeleton ───────────────────────────── */
 const PreviewCardSkeleton = () => (
   <div className="block rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-[var(--taupe-grey)]/60 animate-pulse">
@@ -195,7 +205,7 @@ function ExplorePageContent() {
 
   // For headline
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
-  // For the banner
+  // For the banner (top-right card)
   const [centerSitePreview, setCenterSitePreview] = useState<{
     id: string;
     title: string;
@@ -321,7 +331,7 @@ function ExplorePageContent() {
     (async () => {
       setError(null);
       try {
-        // For headline and banner
+        // For headline and banner (top-right)
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
           const { data: row, error: err } = await supabase
             .from("sites")
@@ -334,7 +344,7 @@ function ExplorePageContent() {
             setCenterSitePreview({
               id: row.id,
               title: row.title,
-              subtitle: row.location_free ?? null,
+              subtitle: row.location_free ?? null, // ← location_free kept
               cover: row.cover_photo_url ?? null,
             });
           } else {
@@ -350,7 +360,6 @@ function ExplorePageContent() {
         if (hasRadius(nextFilters)) {
           // 1) Get ALL nearby site ids with distances
           const radiusRows = await fetchSitesByFilters(nextFilters);
-          // Optional: order by distance ascending
           let distanceOrdered = [...radiusRows].sort(
             (a: any, b: any) =>
               (a.distance_km ?? Number.POSITIVE_INFINITY) -
@@ -359,7 +368,7 @@ function ExplorePageContent() {
 
           const allIds = distanceOrdered.map((r: any) => r.id);
 
-          // 2) If category "type" filters are active, filter via the join table public.site_categories
+          // 2) Category *type* filter via the join table (public.site_categories)
           if (allIds.length && nextFilters.categoryIds?.length) {
             const { data: pairs, error: joinErr } = await supabase
               .from("site_categories")
@@ -373,7 +382,23 @@ function ExplorePageContent() {
             );
           }
 
-          // 3) Now paginate AFTER any filtering
+          // 3) Heritage Type filter (if provided in Filters)
+          const selectedTypes = new Set(getSelectedTypes(nextFilters));
+          if (allIds.length && selectedTypes.size > 0) {
+            const { data: attrs } = await supabase
+              .from("sites")
+              .select("id,heritage_type")
+              .in("id", allIds);
+            const typeById = new Map(
+              (attrs || []).map((s: any) => [s.id, s.heritage_type ?? null])
+            );
+            distanceOrdered = distanceOrdered.filter((r: any) => {
+              const ht = typeById.get(r.id);
+              return ht && selectedTypes.has(ht);
+            });
+          }
+
+          // 4) Paginate AFTER all filtering
           const total = distanceOrdered.length;
           const start = (currentPage - 1) * PAGE_SIZE;
           const end = start + PAGE_SIZE;
@@ -385,8 +410,7 @@ function ExplorePageContent() {
             return;
           }
 
-          // 4) Fetch display fields and merge the distance back
-          //    (keep fallback that retries without category_id if schema lacks it)
+          // 5) Fetch display fields and merge the distance back
           let details: any[] = [];
           let detailsErr: any = null;
           {
@@ -618,6 +642,12 @@ function ExplorePageContent() {
                 onFilterChange={handleFilterChange}
                 onSearch={executeSearch}
               />
+              {/* Show the selected site's location under the site name in the left card */}
+              {hasRadius(filters) && centerSitePreview?.subtitle ? (
+                <div className="px-4 pb-3 pt-1 text-xs text-[var(--espresso-brown)]/80 border-t border-[var(--taupe-grey)]/30">
+                  {centerSitePreview.subtitle}
+                </div>
+              ) : null}
             </div>
           </aside>
 
