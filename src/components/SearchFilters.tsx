@@ -722,8 +722,51 @@ function LocationRadiusFilter({
       location_free?: string | null;
     }[]
   >([]);
+
+  // Local preview of the selected site for showing avatar + subtitle
+  const [selectedPreview, setSelectedPreview] = useState<{
+    id: string;
+    title: string;
+    subtitle?: string | null;
+    cover?: string | null;
+  } | null>(null);
+
   const boxRef = useRef<HTMLDivElement | null>(null);
   useClickOutside(boxRef, () => setOpen(false));
+
+  // Rehydrate preview when centerSiteId exists initially or changes externally
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!value.centerSiteId) {
+        setSelectedPreview(null);
+        return;
+      }
+      // If we already have a matching preview, keep it
+      if (selectedPreview?.id === value.centerSiteId) return;
+
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id,title,cover_photo_url,location_free,latitude,longitude")
+        .eq("id", value.centerSiteId)
+        .maybeSingle();
+
+      if (!active) return;
+      if (!error && data) {
+        setSelectedPreview({
+          id: data.id,
+          title: data.title,
+          subtitle: data.location_free ?? null,
+          cover: data.cover_photo_url ?? null,
+        });
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.centerSiteId]);
 
   useEffect(() => {
     let active = true;
@@ -757,8 +800,12 @@ function LocationRadiusFilter({
     title: string;
     latitude: number | null;
     longitude: number | null;
+    cover_photo_url?: string | null;
+    location_free?: string | null;
   }) => {
     if (row.latitude == null || row.longitude == null) return;
+
+    // Persist filter state
     onChange({
       centerSiteId: row.id,
       centerLat: Number(row.latitude),
@@ -766,7 +813,17 @@ function LocationRadiusFilter({
       radiusKm: value.radiusKm ?? 25,
     });
     onSitePicked?.({ id: row.id, title: row.title });
-    setQuery(row.title);
+
+    // Store local preview for the selected box (image + subtitle)
+    setSelectedPreview({
+      id: row.id,
+      title: row.title,
+      subtitle: row.location_free ?? null,
+      cover: row.cover_photo_url ?? null,
+    });
+
+    // Clear query and close dropdown
+    setQuery("");
     setOpen(false);
   };
 
@@ -778,6 +835,7 @@ function LocationRadiusFilter({
       radiusKm: null,
     });
     onSitePicked?.(null);
+    setSelectedPreview(null);
     setQuery("");
   };
 
@@ -785,23 +843,69 @@ function LocationRadiusFilter({
     <div className="space-y-3">
       <div ref={boxRef}>
         <div className="relative rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] hover:ring-[var(--mustard-accent)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
-          <div className="flex items-center">
-            <Icon
-              name="map-marker-alt"
-              size={16}
-              className="ml-3 mr-2 text-[var(--taupe-grey)]"
-            />
-            <input
-              className="w-full px-2 py-3 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60"
-              placeholder="Search Around a Site"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setOpen(true);
-              }}
-              onFocus={() => setOpen(true)}
-            />
-            {(value.centerSiteId || query) && (
+          {/* Selected site box (thumbnail + title + subtitle) */}
+          {selectedPreview ? (
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              {/* Thumbnail with robust fallback */}
+              {(() => {
+                const raw = selectedPreview.cover || "";
+                const thumb = thumbUrl(raw, 40);
+                const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(
+                  /\/+$/,
+                  ""
+                );
+                const absoluteFallback = /^https?:\/\//i.test(raw)
+                  ? raw
+                  : SUPA_URL
+                  ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
+                      /^\/+/,
+                      ""
+                    )}`
+                  : "";
+
+                return (
+                  <div className="relative w-10 h-10 flex-shrink-0">
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt=""
+                        aria-hidden="true"
+                        className="w-10 h-10 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          const t = e.currentTarget as HTMLImageElement;
+                          if (absoluteFallback && t.src !== absoluteFallback) {
+                            t.src = absoluteFallback;
+                            return;
+                          }
+                          t.style.display = "none";
+                          const ph = t.nextElementSibling as HTMLElement | null;
+                          if (ph) ph.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      style={{ display: thumb ? "none" : "flex" }}
+                      className="absolute inset-0 w-10 h-10 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                    >
+                      <Icon name="image" size={14} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[var(--dark-grey)] font-medium truncate">
+                  {selectedPreview.title}
+                </div>
+                {selectedPreview.subtitle && (
+                  <div className="text-xs text-[var(--espresso-brown)]/70 truncate">
+                    {selectedPreview.subtitle}
+                  </div>
+                )}
+              </div>
+
               <div
                 role="button"
                 tabIndex={0}
@@ -812,14 +916,51 @@ function LocationRadiusFilter({
                     clearSelection();
                   }
                 }}
-                className="mr-3 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                className="mr-1 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                 title="Clear"
               >
                 <Icon name="times" size={10} />
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            // Search input (when nothing selected)
+            <div className="flex items-center">
+              <Icon
+                name="map-marker-alt"
+                size={16}
+                className="ml-3 mr-2 text-[var(--taupe-grey)]"
+              />
+              <input
+                className="w-full px-2 py-3 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60"
+                placeholder="Search Around a Site"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setOpen(true);
+                }}
+                onFocus={() => setOpen(true)}
+              />
+              {query && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setQuery("")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setQuery("");
+                    }
+                  }}
+                  className="mr-3 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                  title="Clear"
+                >
+                  <Icon name="times" size={10} />
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* Dropdown */}
           <div
             className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-150 ${
               open
