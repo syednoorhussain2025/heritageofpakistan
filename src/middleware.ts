@@ -4,13 +4,16 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
+  // Keep the same response reference throughout
   const res = NextResponse.next();
-  const pathname = req.nextUrl.pathname;
+  const { pathname, search } = req.nextUrl;
 
-  if (pathname.startsWith("/_next")) {
+  // Ignore framework & static assets
+  if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     return res;
   }
 
+  // Initialize Supabase with cookie passthrough
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,49 +30,81 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // --- ADMIN ROUTE PROTECTION ---
+  // Helper: redirect to sign-in
+  const redirectToSignIn = () => {
+    const url = new URL("/auth/sign-in", req.url);
+    url.searchParams.set("redirectTo", pathname + search);
+    return NextResponse.redirect(url);
+  };
+
+  // ─────────────── ADMIN ROUTES ───────────────
   if (pathname.startsWith("/admin")) {
-    const homeUrl = new URL("/", req.url); // <-- CHANGED
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        return NextResponse.redirect(homeUrl); // <-- CHANGED
-      }
+    if (!user) return redirectToSignIn();
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
 
-      if (!profile?.is_admin) {
-        return NextResponse.redirect(homeUrl); // <-- CHANGED
-      }
-    } catch (e) {
-      console.error("Error in admin middleware:", e);
-      return NextResponse.redirect(homeUrl); // <-- CHANGED
+    if (!profile?.is_admin) {
+      const homeUrl = new URL("/", req.url);
+      return NextResponse.redirect(homeUrl);
     }
     return res;
   }
 
-  // --- DASHBOARD ROUTE PROTECTION ---
+  // ─────────────── DASHBOARD ROUTES ───────────────
   if (pathname.startsWith("/dashboard")) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) {
-      const signInUrl = new URL("/auth/sign-in", req.url);
-      signInUrl.searchParams.set("redirectTo", pathname);
-      return NextResponse.redirect(signInUrl);
-    }
+
+    if (!user) return redirectToSignIn();
+    return res;
+  }
+
+  // ─────────────── USER/TRIP ROUTES ───────────────
+  // /:username/mytrips
+  const isMyTrips = /^\/[^/]+\/mytrips(\/.*)?$/.test(pathname);
+
+  // /:username/trip/:tripSlug/finalize
+  const isTripFinalize = /^\/[^/]+\/trip\/[^/]+\/finalize(\/.*)?$/.test(
+    pathname
+  );
+
+  // /:username/trip/:tripSlug  (the Trip Builder page itself)
+  // Exact match on the builder root (optional trailing slash), excluding subpaths like /public or /finalize
+  const isTripBuilder = /^\/[^/]+\/trip\/[^/]+\/?$/.test(pathname);
+
+  // Public page should remain open:
+  // /:username/trip/:tripSlug/public
+  const isTripPublic = /^\/[^/]+\/trip\/[^/]+\/public(\/.*)?$/.test(pathname);
+
+  if ((isMyTrips || isTripFinalize || isTripBuilder) && !isTripPublic) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return redirectToSignIn();
+    return res;
   }
 
   return res;
 }
 
+// Ensure middleware runs on all relevant routes
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/dashboard/:path*",
+    "/:username/mytrips/:path*",
+    // Match all trip pages (builder root, finalize, public, etc.); logic above decides which require auth
+    "/:username/trip/:tripSlug/:path*",
+    // Also match the builder root without extra segments
+    "/:username/trip/:tripSlug",
+  ],
 };

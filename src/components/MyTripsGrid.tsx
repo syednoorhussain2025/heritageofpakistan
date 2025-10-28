@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import { createClient } from "@/lib/supabaseClient";
 import {
   listTripsByUsername,
   deleteTrip,
@@ -23,22 +22,20 @@ type TripRow = {
 };
 
 export default function MyTripsGrid({
-  username: propUsername,
+  username, // ← required; server page guarantees correctness
   context = "default",
   title = "Your Trips",
   allowDelete = true,
   containerClassName = "",
 }: {
-  username?: string;
+  username: string; // ← made required
   context?: "default" | "dashboard" | "tripbuilder";
   title?: string;
   allowDelete?: boolean;
   containerClassName?: string;
 }) {
   const router = useRouter();
-  const supabase = createClient();
 
-  const [username, setUsername] = useState<string | undefined>(propUsername);
   const [trips, setTrips] = useState<TripRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -48,56 +45,46 @@ export default function MyTripsGrid({
     Record<string, { sites: number; travels: number }>
   >({});
 
-  // Resolve username if not provided (e.g., dashboard)
-  useEffect(() => {
-    let cancelled = false;
-    if (propUsername) {
-      setUsername(propUsername);
-      return;
-    }
-    (async () => {
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        const uid = auth?.user?.id;
-        if (!uid) return;
-        const { data: prof, error } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", uid)
-          .maybeSingle();
-        if (error) throw error;
-        if (!cancelled) setUsername(prof?.username ?? undefined);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [propUsername, supabase]);
-
-  // Fetch trips once we have a username
+  // Fetch trips for the provided username
   useEffect(() => {
     let mounted = true;
-    if (!username) return;
     (async () => {
       try {
         setLoading(true);
         setErrMsg(null);
         const data = await listTripsByUsername(username);
         if (!mounted) return;
-        setTrips(data);
+        setTrips(data ?? []);
 
-        // fetch counts in parallel
-        Promise.all(
-          data.map(async (t) => [t.id, await countTripItems(t.id)] as const)
-        ).then((pairs) => {
+        // Fetch counts in a fail-safe way (no UI error spam)
+        Promise.allSettled(
+          (data ?? []).map(
+            async (t) => [t.id, await countTripItems(t.id)] as const
+          )
+        ).then((results) => {
           if (!mounted) return;
-          setStats(Object.fromEntries(pairs));
+          const ok = results
+            .filter(
+              (
+                r
+              ): r is PromiseFulfilledResult<
+                readonly [string, { sites: number; travels: number }]
+              > => r.status === "fulfilled"
+            )
+            .map((r) => r.value);
+          setStats(Object.fromEntries(ok));
         });
       } catch (e: any) {
+        // Suppress auth/RLS noise in the UI; show empty state instead
+        console.error("[MyTripsGrid] load error:", e);
         if (!mounted) return;
-        setErrMsg(e?.message || "Failed to load trips.");
+        setTrips([]);
+        const msg = (e?.message || "").toLowerCase();
+        if (msg.includes("not authenticated") || msg.includes("permission")) {
+          setErrMsg(null);
+        } else {
+          setErrMsg(e?.message || "Failed to load trips.");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -147,7 +134,7 @@ export default function MyTripsGrid({
   };
 
   const handleCreateDefaultTrip = async () => {
-    if (!username || creating) return;
+    if (creating) return;
     try {
       setCreating(true);
       const trip = await createTrip("Default Trip");
@@ -162,7 +149,6 @@ export default function MyTripsGrid({
   };
 
   const toTrip = (slug: string) => {
-    if (!username) return;
     router.push(`/${username}/trip/${slug}`);
   };
 
@@ -173,7 +159,6 @@ export default function MyTripsGrid({
 
   return (
     <section className="w-full">
-      {/* smaller min-height to avoid scrollbar flash */}
       <div className={`${wrapperClasses} min-h-[360px]`}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
@@ -198,13 +183,14 @@ export default function MyTripsGrid({
           </div>
         </div>
 
+        {/* Keep generic errors only (no auth banner) */}
         {errMsg && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             {errMsg}
           </div>
         )}
 
-        {loading || !username ? (
+        {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
@@ -214,7 +200,7 @@ export default function MyTripsGrid({
                 <div className="relative h-36 w-full bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 w-3/4 bg-gray-200 rounded" />
-                  <div className="h-3 w-1/2 bg-gray-200 rounded" />
+                  <div className="h-3 w-1/2 bg-gray-2 00 rounded" />
                   <div className="h-3 w-2/3 bg-gray-200 rounded" />
                 </div>
               </div>

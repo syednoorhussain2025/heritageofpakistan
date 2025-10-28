@@ -8,6 +8,7 @@ export type Trip = {
   user_id: string;
   name: string;
   slug?: string | null;
+  creator_name?: string | null; // ⬅️ new column
   is_public: boolean | null;
   created_at: string;
   updated_at: string;
@@ -36,6 +37,7 @@ export type SiteLite = {
   title: string;
   province_id: number | null;
   cover_photo_url: string | null;
+  tagline: string | null; // ⬅️ ensure we fetch this
 };
 
 export type TripDay = {
@@ -143,37 +145,30 @@ async function deriveTripCoversFromFirstSite(
   return coverByTripId;
 }
 
-/** List trips – resolves username first, but gracefully falls back to the current auth user if unreadable/missing. */
+/**
+ * List trips for the **current session** (RLS-enforced).
+ * We intentionally ignore the `username` filter on the client:
+ * - RLS `user_id = auth.uid()` already scopes rows to the signed-in user.
+ * - This avoids cross-table lookups that can be blocked by RLS and cause “Not authenticated”.
+ */
 export async function listTripsByUsername(
-  username: string
+  _username: string
 ): Promise<TripWithCover[]> {
-  // Try to read the profile by username (RLS may block this)
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("username", username)
-    .maybeSingle();
-
-  // Decide the user_id to query trips for
-  let userId: string | null = prof?.id ?? null;
-
-  if (!userId) {
-    // Fallback to the currently signed-in user
-    const { data: auth } = await supabase.auth.getUser();
-    userId = auth?.user?.id ?? null;
-  }
-
-  // If still no user, return empty list instead of throwing
-  if (!userId) return [];
-
-  // Now fetch trips for that user
-  const { data: tripsData, error: tripsErr } = await supabase
+  const { data: tripsData, error } = await supabase
     .from("trips")
-    .select("id, user_id, name, slug, is_public, created_at, updated_at")
-    .eq("user_id", userId)
+    .select(
+      "id, user_id, name, slug, creator_name, is_public, created_at, updated_at"
+    )
     .order("updated_at", { ascending: false });
 
-  if (tripsErr) throw tripsErr;
+  if (error) {
+    const msg = (error.message || "").toLowerCase();
+    // Treat RLS/no-session as empty result for a clean UI
+    if (msg.includes("not authenticated") || msg.includes("permission")) {
+      return [];
+    }
+    throw error;
+  }
 
   const trips = (tripsData ?? []) as Trip[];
   if (trips.length === 0) return [];
@@ -234,6 +229,21 @@ export async function createTrip(name: string, isPublic?: boolean) {
     .select("*")
     .single();
 
+  if (error) throw error;
+  return data as Trip;
+}
+
+/** Update trip core fields (used by finalize/builder page) */
+export async function updateTrip(
+  tripId: string,
+  patch: { name?: string; creator_name?: string | null }
+) {
+  const { data, error } = await supabase
+    .from("trips")
+    .update(patch)
+    .eq("id", tripId)
+    .select("*")
+    .single();
   if (error) throw error;
   return data as Trip;
 }
@@ -349,7 +359,7 @@ export async function getTripWithItems(tripId: string) {
   if (siteIds.length > 0) {
     const { data: sites, error: sitesErr } = await supabase
       .from("sites")
-      .select("id, slug, title, province_id, cover_photo_url")
+      .select("id, slug, title, province_id, cover_photo_url, tagline") // ⬅️ include tagline
       .in("id", siteIds);
     if (sitesErr) throw sitesErr;
     sitesById = Object.fromEntries(

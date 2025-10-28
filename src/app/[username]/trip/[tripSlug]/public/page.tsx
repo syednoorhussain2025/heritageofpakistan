@@ -1,8 +1,8 @@
-// app/[username]/trip/[tripSlug]/finalize/page.tsx
+// app/[username]/trip/[tripSlug]/public/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   getTripByUsernameSlug,
@@ -13,7 +13,6 @@ import {
   type SiteLite,
   type TripDay,
 } from "@/lib/trips";
-import { supabase } from "@/lib/supabaseClient";
 import Icon from "@/components/Icon";
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -21,7 +20,7 @@ import Icon from "@/components/Icon";
 type BuilderDayItem = Extract<TimelineItem, { kind: "day" }>;
 
 type BuilderSiteItem = Extract<TimelineItem, { kind: "site" }> & {
-  site?: SiteLite | (SiteLite & { tagline?: string | null }) | null;
+  site?: (SiteLite & { tagline?: string | null }) | null;
   provinceName?: string | null;
   experience?: string[];
   day_id?: string | null;
@@ -78,14 +77,12 @@ const MODE_META: Record<
 
 /* ───────────────────────────── Component ───────────────────────────── */
 
-export default function FinalizedTripPage() {
+export default function PublicTripPage() {
   const { username, tripSlug } = useParams<{
     username: string;
     tripSlug: string;
   }>();
-  const router = useRouter();
 
-  const [origin, setOrigin] = useState<string>("");
   const [tripId, setTripId] = useState<string | null>(null);
   const [tripName, setTripName] = useState<string>("");
   const [creatorName, setCreatorName] = useState<string>("");
@@ -95,15 +92,6 @@ export default function FinalizedTripPage() {
   const [items, setItems] = useState<BuilderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [sharing, setSharing] = useState<boolean>(false);
-  const [shareToast, setShareToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    // capture window origin for building the share URL
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
-  }, []);
 
   /* ---------- load ---------- */
   useEffect(() => {
@@ -120,6 +108,7 @@ export default function FinalizedTripPage() {
         setCreatorName((trip as any)?.creator_name ?? "");
         setIsPublic(!!trip.is_public);
 
+        // If not public, still stop after setting header info
         const [timeline, { items: siteEnriched }] = await Promise.all([
           getTripTimeline(trip.id),
           getTripWithItems(trip.id),
@@ -160,7 +149,7 @@ export default function FinalizedTripPage() {
         setDays(dayRows);
       } catch (e: any) {
         if (!mounted) return;
-        setErrorMsg(e?.message || "Failed to load trip.");
+        setErrorMsg(e?.message || "Failed to load itinerary.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -207,64 +196,6 @@ export default function FinalizedTripPage() {
     const m = mins % 60;
     return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
   };
-
-  /* ---------- share/public URL ---------- */
-  const publicUrl = useMemo(() => {
-    if (!origin) return "";
-    return `${origin}/${username}/trip/${tripSlug}/public`;
-  }, [origin, username, tripSlug]);
-
-  async function ensureTripIsPublic() {
-    if (!tripId || isPublic) return;
-    const { error } = await supabase
-      .from("trips")
-      .update({ is_public: true })
-      .eq("id", tripId);
-    if (error) throw error;
-    setIsPublic(true);
-  }
-
-  // COPY-ONLY behavior (no new window/share sheet)
-  async function handleShare() {
-    if (!publicUrl) return;
-    try {
-      setSharing(true);
-
-      // ensure it's public before copying
-      await ensureTripIsPublic();
-
-      // Clipboard API first
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(publicUrl);
-        setShareToast("Public link copied to clipboard");
-      } else {
-        // Fallback: hidden textarea + execCommand
-        const ta = document.createElement("textarea");
-        ta.value = publicUrl;
-        ta.setAttribute("readonly", "");
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-          document.execCommand("copy");
-          setShareToast("Public link copied to clipboard");
-        } catch {
-          // Last-resort: prompt (still no new tab/window)
-          window.prompt("Copy this public link:", publicUrl);
-          setShareToast("Public link ready to copy");
-        } finally {
-          document.body.removeChild(ta);
-        }
-      }
-    } catch (e: any) {
-      console.error(e);
-      setShareToast("Couldn't copy the link. Please try again.");
-    } finally {
-      setSharing(false);
-      setTimeout(() => setShareToast(null), 2200);
-    }
-  }
 
   /* ---------- Rows ---------- */
   function SiteRow({ it }: { it: BuilderSiteItem }) {
@@ -418,7 +349,7 @@ export default function FinalizedTripPage() {
   /* ---------- UI ---------- */
   return (
     <main
-      className="min-h-screen py-6 relative"
+      className="min-h-screen py-6"
       style={{
         backgroundImage:
           'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
@@ -439,16 +370,10 @@ export default function FinalizedTripPage() {
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
         }
-        @media print {
-          body {
-            background: white !important;
-          }
-        }
       `}</style>
 
-      {/* Container with decorative motif */}
       <div className="relative mx-auto max-w-6xl rounded-2xl bg-[var(--ivory-cream)] shadow-sm border border-[var(--terracotta-red)] px-5 md:px-8 lg:px-10 py-6">
-        {/* Motif images */}
+        {/* Decorative motifs */}
         <img
           src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
           alt=""
@@ -473,67 +398,13 @@ export default function FinalizedTripPage() {
             <span className="font-medium">Trip Created by:</span>{" "}
             {creatorName || "—"}
           </div>
+
+          {!isPublic && !loading && (
+            <div className="mt-3 text-sm text-red-700 bg-red-50 inline-block px-3 py-1 rounded">
+              This itinerary isn’t public. Ask the owner to share it.
+            </div>
+          )}
         </header>
-
-        <div className="mb-6 flex flex-wrap items-center justify-end gap-3 z-10 relative">
-          <button
-            onClick={() => router.push(`/${username}/trip/${tripSlug}`)}
-            className="rounded-lg border border-[var(--taupe-grey)] px-4 py-2 text-sm text-[var(--navy-deep)] hover:bg-white"
-            type="button"
-            title="Back to Builder"
-          >
-            Back to Builder
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="rounded-lg border border-[var(--taupe-grey)] px-4 py-2 text-sm text-[var(--navy-deep)] hover:bg-white"
-            type="button"
-            title="Print itinerary"
-          >
-            Print
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleShare}
-              disabled={sharing || !origin}
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--terracotta-red)] bg-[var(--terracotta-red)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
-              type="button"
-              title={isPublic ? "Copy public link" : "Make public & copy link"}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-[18px] w-[18px]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.8}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.684 13.342A2.5 2.5 0 0 0 8.5 14.5v.5a2.5 2.5 0 1 0 1.5-2.297m4.316-2.045A2.5 2.5 0 1 0 15.5 6h-.5a2.5 2.5 0 1 0-1.5 2.297"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.5 14.5l7-5"
-                />
-              </svg>
-              {sharing
-                ? "Copying…"
-                : isPublic
-                ? "Copy Public Link"
-                : "Publish & Copy"}
-            </button>
-            {isPublic && (
-              <span className="rounded-md border border-[var(--taupe-grey)] bg-white px-2 py-1 text-xs text-[var(--navy-deep)]">
-                Public
-              </span>
-            )}
-          </div>
-        </div>
 
         {errorMsg && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -544,6 +415,10 @@ export default function FinalizedTripPage() {
         {loading ? (
           <div className="text-sm text-[var(--espresso-brown)]/70">
             Loading itinerary…
+          </div>
+        ) : !isPublic ? (
+          <div className="text-center text-[var(--espresso-brown)]/80">
+            Nothing to show yet.
           </div>
         ) : (
           <div className="space-y-10 mb-6">
@@ -595,31 +470,10 @@ export default function FinalizedTripPage() {
         )}
       </div>
 
-      {/* Bottom-right toast popup */}
-      {shareToast && (
-        <div
-          className="fixed bottom-6 right-6 z-[100] kb-toast"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="rounded-md bg-[var(--navy-deep)] text-white text-sm px-4 py-2 shadow-lg">
-            {shareToast}
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .kb-toast {
-          animation: kb-fade-in 220ms ease-out;
-        }
-        @keyframes kb-fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
           }
         }
       `}</style>

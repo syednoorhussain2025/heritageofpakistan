@@ -18,6 +18,8 @@ type Site = {
   heritage_type?: string | null;
   avg_rating?: number | null;
   review_count?: number | null;
+  /** Present when using radius search */
+  distance_km?: number | null; // <-- NEW
 };
 
 /** Simple SVG fallback (brand-ish gradient), sized to 3:2 */
@@ -35,18 +37,23 @@ const FALLBACK_SVG =
     </svg>`
   );
 
+/** Format distance: 1 decimal if <10km, else integer */
+function fmtKm(v?: number | null) {
+  if (v == null || Number.isNaN(v)) return "";
+  return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
+}
+
 /**
  * Build a Supabase transform URL sized safely for sharp preview cards.
- * Now using a slightly shorter **3:2** aspect (800×533 by default) at quality=85.
- * Uses resize=cover to keep a consistent crop within the card.
+ * 3:2 aspect (800×533) at quality=85.
  */
 function transformedUrl(url?: string | null, w = 800, q = 85) {
   if (!url) return "";
   const marker = "/storage/v1/object/public/";
-  if (!url.includes(marker)) return url; // Already a non-storage URL
+  if (!url.includes(marker)) return url;
   const [origin] = url.split(marker);
   const tail = url.split(marker)[1];
-  const h = Math.round(w * (2 / 3)); // 3:2 aspect
+  const h = Math.round(w * (2 / 3));
   const u = new URL(`${origin}/storage/v1/render/image/public/${tail}`);
   u.searchParams.set("width", String(w));
   u.searchParams.set("height", String(h));
@@ -77,19 +84,15 @@ export default function SitePreviewCard({
   const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
-  const [showTripModal, setShowTripModal] = useState(false); // <-- added
+  const [showTripModal, setShowTripModal] = useState(false);
 
-  // Image source with robust fallbacks:
-  // 1) try transformed URL (800x533 @ q=85)
-  // 2) fall back to original public URL
-  // 3) final fallback to gradient SVG
+  // Image source with fallbacks
   const original = site.cover_photo_url || "";
   const transformed = transformedUrl(original);
-
   const [imgSrc, setImgSrc] = useState<string>(
     () => transformed || original || FALLBACK_SVG
   );
-  const triedOriginalRef = useRef(false); // track if we've already tried original
+  const triedOriginalRef = useRef(false);
 
   useEffect(() => {
     const orig = site.cover_photo_url || "";
@@ -107,6 +110,10 @@ export default function SitePreviewCard({
     setImgSrc(FALLBACK_SVG);
   };
 
+  const hasDistance =
+    site.distance_km != null && !Number.isNaN(site.distance_km);
+  const distanceLabel = fmtKm(site.distance_km ?? null);
+
   return (
     <div className="w-full max-w-sm rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
@@ -121,7 +128,7 @@ export default function SitePreviewCard({
 
       <Link href={`/heritage/${site.slug}`} className="group block">
         <div className="relative">
-          {/* Slightly shorter rectangle: aspect-[3/2] */}
+          {/* Image */}
           <img
             src={imgSrc}
             alt={site.title}
@@ -133,12 +140,14 @@ export default function SitePreviewCard({
             onError={handleImgError}
           />
 
+          {/* Heritage type chip */}
           {site.heritage_type && (
             <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#F78300]/90 text-white text-xs font-semibold shadow">
               {site.heritage_type}
             </div>
           )}
 
+          {/* Reviews & rating */}
           <div className="absolute top-3 right-3 flex items-center gap-2">
             {site.review_count != null && (
               <span className="px-2 py-1 rounded-full bg-white/90 text-gray-800 text-xs font-medium shadow">
@@ -152,6 +161,18 @@ export default function SitePreviewCard({
             )}
           </div>
 
+          {/* Distance badge (shows only when radius search used) */}
+          {hasDistance && (
+            <div
+              className="absolute bottom-3 right-3 w-12 h-12 rounded-full bg-[#00b87b] text-white shadow-xl flex items-center justify-center font-extrabold text-xs z-20"
+              title={distanceLabel}
+              aria-label={distanceLabel}
+            >
+              <span className="leading-tight text-center">{distanceLabel}</span>
+            </div>
+          )}
+
+          {/* Title & location gradient */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/70 to-transparent rounded-b-xl -m-3 p-3 pt-10">
               <h3 className="text-white text-xl font-extrabold drop-shadow">
@@ -166,6 +187,7 @@ export default function SitePreviewCard({
           </div>
         </div>
 
+        {/* Footer actions */}
         <div
           className="flex items-center justify-between px-4 py-3"
           onClick={(e) => e.preventDefault()}
@@ -242,7 +264,7 @@ export default function SitePreviewCard({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setShowTripModal(true); // <-- opens Trip modal
+                setShowTripModal(true);
               }}
               className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
             >

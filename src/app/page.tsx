@@ -77,12 +77,14 @@ const SearchableSelect = ({
     <div className="relative" ref={ref}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full py-2 bg-transparent cursor-pointer group"
+        className="relative w-full cursor-pointer group"
       >
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
           <span
             className={`truncate ${
-              selectedOption ? "text-gray-800" : "text-gray-700"
+              selectedOption
+                ? "text-[var(--dark-grey)]"
+                : "text-[var(--espresso-brown)]/70"
             }`}
           >
             {selectedOption?.name || placeholder}
@@ -92,7 +94,7 @@ const SearchableSelect = ({
               <svg
                 onClick={handleReset}
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2 text-gray-500 hover:text-black"
+                className="mr-2 h-4 w-4 text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -106,7 +108,7 @@ const SearchableSelect = ({
               </svg>
             )}
             <svg
-              className={`w-4 h-4 transition-transform text-gray-500 ${
+              className={`h-4 w-4 transition-transform text-[var(--taupe-grey)] ${
                 isOpen ? "rotate-180" : ""
               }`}
               fill="none"
@@ -122,40 +124,35 @@ const SearchableSelect = ({
             </svg>
           </div>
         </div>
-        <div
-          className={`absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-hover:bg-[#f78300] transition-all duration-300 ${
-            isOpen ? "bg-[#f78300]" : ""
-          }`}
-        />
-      </div>
 
-      <div
-        className={`absolute z-20 w-full mt-1 bg-white rounded-lg shadow-2xl max-h-60 overflow-y-auto transition-all duration-300 ease-in-out transform ${
-          isOpen
-            ? "opacity-100 scale-100"
-            : "opacity-0 scale-95 pointer-events-none"
-        }`}
-      >
-        <div className="p-2">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full bg-gray-100 rounded-md px-3 py-2 outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div
+          className={`absolute left-0 top-[calc(100%+2px)] w-full rounded-lg bg-white shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-200 ease-out ${
+            isOpen
+              ? "opacity-100 translate-y-0"
+              : "pointer-events-none opacity-0 -translate-y-1"
+          }`}
+        >
+          <div className="p-2">
+            <input
+              type="text"
+              placeholder="Search…"
+              className="w-full rounded-md bg-[var(--ivory-cream)] px-3 py-2 text-[var(--dark-grey)] outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <ul className="max-h-60 overflow-y-auto">
+            {filteredOptions.map((opt) => (
+              <li
+                key={opt.id}
+                onClick={() => handleSelect(opt.id)}
+                className="cursor-pointer px-4 py-2 text-[var(--dark-grey)] hover:bg-[var(--ivory-cream)]"
+              >
+                {opt.name}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul>
-          {filteredOptions.map((opt) => (
-            <li
-              key={opt.id}
-              onClick={() => handleSelect(opt.id)}
-              className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors"
-            >
-              {opt.name}
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );
@@ -225,12 +222,14 @@ const RegionSelect = ({
     <div className="relative" ref={ref}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full py-2 bg-transparent cursor-pointer group"
+        className="relative w-full cursor-pointer group"
       >
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
           <span
             className={`truncate ${
-              selectedRegion ? "text-gray-800" : "text-gray-700"
+              selectedRegion
+                ? "text-[var(--dark-grey)]"
+                : "text-[var(--espresso-brown)]/70"
             }`}
           >
             {getDisplayText()}
@@ -240,7 +239,7 @@ const RegionSelect = ({
               <svg
                 onClick={handleReset}
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2 text-gray-500 hover:text-black"
+                className="mr-2 h-4 w-4 text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -254,7 +253,7 @@ const RegionSelect = ({
               </svg>
             )}
             <svg
-              className={`w-4 h-4 transition-transform text-gray-500 ${
+              className={`h-4 w-4 transition-transform text-[var(--taupe-grey)] ${
                 isOpen ? "rotate-180" : ""
               }`}
               fill="none"
@@ -270,63 +269,56 @@ const RegionSelect = ({
             </svg>
           </div>
         </div>
-        <div
-          className={`absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-hover:bg-[#f78300] transition-all duration-300 ${
-            isOpen ? "bg-[#f78300]" : ""
-          }`}
-        />
-      </div>
 
-      <div
-        className={`absolute z-20 w-full mt-1 bg-white rounded-lg shadow-2xl max-h-60 overflow-y-auto transition-all duration-300 ease-in-out transform ${
-          isOpen
-            ? "opacity-100 scale-100"
-            : "opacity-0 scale-95 pointer-events-none"
-        }`}
-      >
-        {activeParent && (
-          <li
-            onClick={() => handleSubRegionSelect(activeParent.id)}
-            className="px-4 py-2 cursor-pointer hover:bg-gray-100 font-semibold list-none"
-          >
-            All in "{activeParent.name}"
-          </li>
-        )}
-        <ul>
-          {currentOptions.map((opt) => (
+        <div
+          className={`absolute left-0 top-[calc(100%+2px)] w-full rounded-lg bg-white shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-200 ease-out ${
+            isOpen
+              ? "opacity-100 translate-y-0"
+              : "pointer-events-none opacity-0 -translate-y-1"
+          }`}
+        >
+          {activeParent && (
             <li
-              key={opt.id}
-              onClick={() =>
-                activeParent
-                  ? handleSubRegionSelect(opt.id)
-                  : handleParentSelect(opt)
-              }
-              className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors"
+              onClick={() => handleSubRegionSelect(activeParent.id)}
+              className="list-none cursor-pointer px-4 py-2 font-semibold text-[var(--navy-deep)] hover:bg-[var(--ivory-cream)]"
             >
-              {opt.name}
+              All in "{activeParent.name}"
             </li>
-          ))}
-        </ul>
+          )}
+          <ul className="max-h-60 overflow-y-auto">
+            {currentOptions.map((opt) => (
+              <li
+                key={opt.id}
+                onClick={() =>
+                  activeParent
+                    ? handleSubRegionSelect(opt.id)
+                    : handleParentSelect(opt)
+                }
+                className="cursor-pointer px-4 py-2 text-[var(--dark-grey)] hover:bg-[var(--ivory-cream)]"
+              >
+                {opt.name}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
 };
 
 /* =========================
-   Main Page
+   Main Page (split layout)
 ========================= */
 export default function HomePage() {
   const router = useRouter();
 
-  // data & ui state
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
-  const [heroReady, setHeroReady] = useState<boolean>(false); // becomes true once image fully loads
+  const [heroReady, setHeroReady] = useState<boolean>(false);
 
   const [parentRegions, setParentRegions] = useState<Region[]>([]);
   const [subRegions, setSubRegions] = useState<SubRegionsMap>({});
   const [categories, setCategories] = useState<Option[]>([]);
 
-  // search state
   const [regionId, setRegionId] = useState<string>("");
   const [activeParentRegion, setActiveParentRegion] = useState<Region | null>(
     null
@@ -334,40 +326,33 @@ export default function HomePage() {
   const [categoryId, setCategoryId] = useState<string>("");
   const [q, setQ] = useState<string>("");
 
-  // staged entrance AFTER hero is ready
   const [textVisible, setTextVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
 
-  // Load data + preload hero image
   useEffect(() => {
     (async () => {
       try {
-        // Fetch hero image URL first
+        // Fetch (kept for parity with your flow), but we will use the fixed hero below.
         const { data: gs } = await supabase
           .from("global_settings")
           .select("hero_image_url")
           .limit(1)
           .maybeSingle();
 
-        const nextHero = gs?.hero_image_url ?? null;
-        setHeroUrl(nextHero);
+        // Force the hero to your provided image URL (without removing any of your existing logic)
+        const fixedHero =
+          "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/mughalminiature.jfif";
+        setHeroUrl(fixedHero);
 
-        // Preload the hero image, then mark ready
-        if (nextHero) {
-          const img = new Image();
-          img.src = nextHero;
-          if (img.complete) {
-            setHeroReady(true);
-          } else {
-            img.onload = () => setHeroReady(true);
-            img.onerror = () => setHeroReady(false);
-          }
-        } else {
-          // no hero image—instantly "ready" so content can show
-          setHeroReady(true);
+        // Preload the fixed hero and then mark ready
+        const img = new Image();
+        img.src = fixedHero;
+        if (img.complete) setHeroReady(true);
+        else {
+          img.onload = () => setHeroReady(true);
+          img.onerror = () => setHeroReady(false);
         }
 
-        // Fetch filters in parallel (doesn't block hero dissolve)
         const [{ data: regData }, { data: catData }] = await Promise.all([
           supabase
             .from("regions")
@@ -397,7 +382,6 @@ export default function HomePage() {
     })();
   }, []);
 
-  // Stagger text & search AFTER hero is ready
   useEffect(() => {
     if (!heroReady) return;
     const t1 = setTimeout(() => setTextVisible(true), 150);
@@ -417,126 +401,164 @@ export default function HomePage() {
   }
 
   return (
-    <div
-      className="relative w-full h-screen bg-white"
-      // Pull hero up so it begins under the transparent sticky header.
-      // Fallback 72px matches Header's SSR fallback.
-      style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
-    >
-      {/* White page overlay that dissolves away once the hero is ready */}
+    <main className="w-full">
+      {/* Global palette */}
+      <style jsx global>{`
+        :root {
+          --navy-deep: #1c1f4c;
+          --sand-gold: #c7a76b;
+          --espresso-brown: #4b2e05;
+          --ivory-cream: #faf7f2;
+          --taupe-grey: #d8cfc4;
+          --terracotta-red: #a9502a;
+          --mustard-accent: #e2b65c;
+          --olive-green: #7b6e3f;
+          --dark-grey: #2b2b2b;
+          --sticky-offset: 72px; /* used to pull the grid under your sticky header */
+        }
+        button,
+        input {
+          outline: none !important;
+        }
+      `}</style>
+
+      {/* Split layout pulled up under sticky header to remove top gap */}
       <div
-        className={`absolute inset-0 bg-white transition-opacity duration-600 ease-out ${
-          heroReady ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
-        aria-hidden
-      />
-
-      {/* Subtle background gradients (visible under the hero during fade) */}
-      <div
-        className="absolute inset-0"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(1200px 600px at 20% 20%, rgba(247,131,0,0.18), transparent 60%), radial-gradient(1200px 600px at 80% 80%, rgba(0,0,0,0.18), transparent 55%)",
-        }}
-      />
-
-      {/* Hero image fades in only after fully loaded */}
-      {heroUrl && (
-        <img
-          src={heroUrl}
-          alt="Heritage of Pakistan"
-          className={`absolute inset-0 w-full h-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
-            heroReady ? "opacity-100" : "opacity-0"
-          }`}
-          draggable={false}
-        />
-      )}
-
-      {/* Bottom gradient for legibility */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/50 to-transparent" />
-
-      {/* Content */}
-      <div className="relative z-10 h-full w-full flex flex-col items-center justify-center px-4">
-        {/* Title + Subtitle (fade in after hero) */}
-        <div className="w-full max-w-5xl flex flex-col items-center">
-          <h1
-            className={`text-white text-4xl md:text-6xl font-extrabold text-center drop-shadow-lg transition-all duration-700 ease-out ${
-              textVisible
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-3"
-            }`}
-          >
-            Heritage of Pakistan
-          </h1>
-          <p
-            className={`mt-4 text-white/95 text-lg md:text-2xl text-center drop-shadow-md transition-all duration-700 ease-out ${
-              textVisible
-                ? "opacity-100 translate-y-0 delay-100"
-                : "opacity-0 translate-y-3"
-            }`}
-          >
-            Discover, Explore, Preserve
-          </p>
+        className="grid min-h-screen w-full grid-cols-1 md:grid-cols-2"
+        style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
+      >
+        {/* LEFT: Hero image (flush to top) */}
+        <div className="relative hidden md:block">
+          {heroUrl && (
+            <img
+              src={heroUrl}
+              alt="Heritage of Pakistan"
+              className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
+                heroReady ? "opacity-100" : "opacity-0"
+              }`}
+              draggable={false}
+            />
+          )}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(169,80,42,0.28) 0%, rgba(250,247,242,0) 55%)",
+            }}
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
         </div>
 
-        {/* Search Bar (fade in after title/subtitle) */}
-        <div
-          className={`mt-12 w-full max-w-5xl transition-all duration-700 ease-out ${
-            searchVisible
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-2"
-          }`}
-        >
-          <div className="bg-white/95 backdrop-blur-sm rounded-md shadow-2xl p-4">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-4 items-center">
-              <div className="md:col-span-3">
-                <RegionSelect
-                  parentRegions={parentRegions}
-                  subRegions={subRegions}
-                  value={regionId}
-                  onChange={setRegionId}
-                  activeParent={activeParentRegion}
-                  setActiveParent={setActiveParentRegion}
-                />
-              </div>
+        {/* RIGHT: Ivory panel */}
+        <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
+          {/* Optional decorative motifs */}
+          <img
+            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
+            alt=""
+            className="pointer-events-none absolute -top-6 -left-4 w-40 select-none opacity-15 md:w-56"
+            style={{ transform: "rotate(-6deg)" }}
+          />
+          <img
+            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(2).png"
+            alt=""
+            className="pointer-events-none absolute -top-8 -right-4 w-40 select-none opacity-15 md:w-56"
+            style={{ transform: "rotate(6deg)" }}
+          />
 
-              <div className="md:col-span-3">
-                <SearchableSelect
-                  options={categories}
-                  value={categoryId}
-                  onChange={setCategoryId}
-                  placeholder="Heritage Type"
-                />
-              </div>
+          <div className="relative z-10 w-full max-w-3xl">
+            {/* Title */}
+            <header
+              className={`mb-6 text-center md:text-left transition-all duration-700 ease-out ${
+                textVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-2"
+              }`}
+            >
+              <h1 className="text-4xl font-black leading-tight text-[var(--dark-grey)] md:text-5xl">
+                Heritage of Pakistan
+              </h1>
+              <p className="mt-1 text-base text-[var(--espresso-brown)]/85 md:text-lg">
+                Discover, Explore, Preserve
+              </p>
+              <div className="mt-3 h-[3px] w-16 rounded bg-[var(--sand-gold)]" />
+            </header>
 
-              <div className="md:col-span-4">
-                <div className="relative w-full group">
-                  <input
-                    type="text"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                    placeholder="Search Heritage"
-                    className="w-full py-2 bg-transparent text-gray-800 outline-none placeholder-gray-700"
+            {/* Search card */}
+            <section
+              className={`transition-all duration-700 ease-out ${
+                searchVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-1"
+              }`}
+            >
+              <div className="rounded-md bg-white p-4 shadow-2xl ring-1 ring-[var(--taupe-grey)]">
+                {/* ROW 1: Search input + Button (inline) */}
+                <div className="mb-4 grid grid-cols-1 items-center gap-3 md:grid-cols-12">
+                  <div className="md:col-span-10">
+                    <input
+                      type="text"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && onSearch()}
+                      placeholder="Search Heritage"
+                      className="w-full rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[var(--dark-grey)] outline-none placeholder-[var(--espresso-brown)]/60 transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <button
+                      onClick={onSearch}
+                      className="w-full transform rounded-lg bg-[var(--terracotta-red)] px-6 py-3 font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+
+                {/* ROW 2: Region, Category */}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <RegionSelect
+                    parentRegions={parentRegions}
+                    subRegions={subRegions}
+                    value={regionId}
+                    onChange={setRegionId}
+                    activeParent={activeParentRegion}
+                    setActiveParent={setActiveParentRegion}
                   />
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-300 group-focus-within:bg-[#f78300] transition-all duration-300" />
+                  <SearchableSelect
+                    options={categories}
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    placeholder="Heritage Type"
+                  />
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <button
-                  onClick={onSearch}
-                  className="w-full px-6 py-3 rounded-lg bg-[#f78300] hover:bg-[#e07500] text-white font-semibold transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              <p className="mt-3 text-xs text-[var(--espresso-brown)]/70">
+                Tip: Choose a region and heritage type, or search directly by
+                name.
+              </p>
+
+              {/* Auth actions moved slightly down; Sign in as button */}
+              <div className="mt-8 flex items-center gap-3 text-sm">
+                <a
+                  href="http://localhost:3000/auth/sign-in"
+                  className="inline-flex items-center rounded-lg bg-[var(--terracotta-red)] px-5 py-2.5 font-semibold text-white shadow-lg transition hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
+                  aria-label="Sign in"
                 >
-                  Search
-                </button>
+                  Sign in
+                </a>
+                <span className="text-[var(--espresso-brown)]/60">or</span>
+                <a
+                  href="http://localhost:3000/auth/sign-up"
+                  className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
+                >
+                  Create an account
+                </a>
               </div>
-            </div>
+            </section>
           </div>
         </div>
-        {/* End search */}
       </div>
-    </div>
+    </main>
   );
 }
