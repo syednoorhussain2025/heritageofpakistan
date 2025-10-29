@@ -4,6 +4,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Icon from "./Icon";
+import {
+  clearPlacesNearby,
+  isPlacesNearbyActive,
+  type NearbyParams,
+} from "@/lib/placesNearby";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 export type FilterOptions = {
@@ -322,7 +327,7 @@ const TopLevelRegionSelect = ({
         return;
       }
       setSearching(true);
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("regions")
         .select("id,name,icon_key,parent_id")
         .ilike("name", `%${q}%`)
@@ -330,16 +335,14 @@ const TopLevelRegionSelect = ({
         .limit(40);
       if (!active) return;
       setSearching(false);
-      if (!error) {
-        setResults(
-          ((data || []) as any[]).map((r) => ({
-            id: r.id,
-            name: r.name,
-            icon_key: r.icon_key,
-            parent_id: r.parent_id,
-          }))
-        );
-      }
+      setResults(
+        ((data || []) as any[]).map((r) => ({
+          id: r.id,
+          name: r.name,
+          icon_key: r.icon_key,
+          parent_id: r.parent_id,
+        }))
+      );
     })();
     return () => {
       active = false;
@@ -828,12 +831,7 @@ function LocationRadiusFilter({
   };
 
   const clearSelection = () => {
-    onChange({
-      centerSiteId: null,
-      centerLat: null,
-      centerLng: null,
-      radiusKm: null,
-    });
+    onChange(clearPlacesNearby());
     onSitePicked?.(null);
     setSelectedPreview(null);
     setQuery("");
@@ -1139,12 +1137,14 @@ async function fetchSitesWithinRadius({
 
 /* ───────────────────────────── Exported helpers ───────────────────────────── */
 export function hasRadius(f: Filters) {
-  return Boolean(
-    f.centerLat != null &&
-      f.centerLng != null &&
-      f.radiusKm != null &&
-      f.radiusKm > 0
-  );
+  // Keep the same named export for callers, but delegate to unified helper
+  const p: NearbyParams = {
+    centerSiteId: f.centerSiteId ?? null,
+    centerLat: f.centerLat ?? null,
+    centerLng: f.centerLng ?? null,
+    radiusKm: f.radiusKm ?? null,
+  };
+  return isPlacesNearbyActive(p);
 }
 
 export async function fetchSitesByFilters(filters: Filters) {
@@ -1324,10 +1324,7 @@ export default function SearchFilters({
         categoryIds: [],
         regionIds: [],
         orderBy: "latest",
-        centerSiteId: null,
-        centerLat: null,
-        centerLng: null,
-        radiusKm: null,
+        ...clearPlacesNearby(),
       });
       setCenterSiteTitle(null);
     }
@@ -1373,10 +1370,7 @@ export default function SearchFilters({
       categoryIds: [],
       regionIds: [],
       orderBy: "latest",
-      centerSiteId: null,
-      centerLat: null,
-      centerLng: null,
-      radiusKm: null,
+      ...clearPlacesNearby(),
     });
     setActiveParentId(null);
     setExpandedParentId(null);

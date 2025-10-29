@@ -8,6 +8,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useLayoutEffect,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
@@ -175,6 +176,94 @@ function thumbUrl(input?: string | null, size = 160) {
   return u.toString();
 }
 
+/* ───────────────────────────── Stable banner image ───────────────────────────── */
+/** Guards against src thrashing + one-shot fallback. */
+function StableBannerImage({
+  rawCover,
+  size = 112,
+  alt = "",
+  className = "",
+}: {
+  rawCover?: string | null;
+  size?: number;
+  alt?: string;
+  className?: string;
+}) {
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+
+  const computed = useMemo(() => {
+    const t = thumbUrl(rawCover || "", size);
+    const absoluteFallback =
+      rawCover && /^https?:\/\//i.test(rawCover)
+        ? rawCover
+        : rawCover && SUPA_URL
+        ? `${SUPA_URL}/storage/v1/object/public/${rawCover.replace(/^\/+/, "")}`
+        : "";
+
+    return {
+      primary: t || absoluteFallback || "",
+      fallback: absoluteFallback || "",
+    };
+  }, [rawCover, size, SUPA_URL]);
+
+  const [src, setSrc] = useState(computed.primary);
+  const usedFallback = useRef(false);
+
+  // Keep src stable; only update when the computed key actually changes
+  useEffect(() => {
+    if (src !== computed.primary && !usedFallback.current) {
+      setSrc(computed.primary);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computed.primary]);
+
+  const onError = useCallback(() => {
+    if (
+      !usedFallback.current &&
+      computed.fallback &&
+      src !== computed.fallback
+    ) {
+      usedFallback.current = true;
+      setSrc(computed.fallback);
+    }
+  }, [computed.fallback, src]);
+
+  // small fade-in
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  useLayoutEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    const done = () => el.classList.add("opacity-100");
+    el.classList.remove("opacity-100");
+    el.classList.add("opacity-0", "transition-opacity", "duration-500");
+    if (el.complete) {
+      // cached
+      requestAnimationFrame(done);
+    } else {
+      el.addEventListener("load", done, { once: true });
+      return () => el.removeEventListener("load", done);
+    }
+  }, [src]);
+
+  if (!src) {
+    return (
+      <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />
+    );
+  }
+
+  return (
+    <img
+      ref={imgRef}
+      src={src}
+      alt={alt}
+      decoding="async"
+      loading="lazy"
+      className={`w-14 h-14 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40 ${className}`}
+      onError={onError}
+    />
+  );
+}
+
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -236,13 +325,15 @@ function ExplorePageContent() {
         radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 25,
       }));
 
-      // rewrite to canonical format
+      // rewrite to canonical format (avoid duplicate replace)
       const canonical = new URLSearchParams();
       canonical.set("center", centerSiteId);
       canonical.set("clat", String(parsedLat));
       canonical.set("clng", String(parsedLng));
       canonical.set("rkm", String(parsedRkm));
-      router.replace(`/explore?${canonical.toString()}`);
+      if (searchParams.toString() !== canonical.toString()) {
+        router.replace(`/explore?${canonical.toString()}`);
+      }
     }
   }, [searchParams, router]);
 
@@ -548,6 +639,34 @@ function ExplorePageContent() {
     ]
   );
 
+  /* ───────── Fade-in for preview card images (event delegation) ───────── */
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = cardsRef.current;
+    if (!root) return;
+
+    const imgs = Array.from(root.querySelectorAll("img"));
+    for (const img of imgs) {
+      // initialize hidden state (only once)
+      img.classList.add("opacity-0");
+      img.classList.add("transition-opacity", "duration-500");
+      const reveal = () => img.classList.add("opacity-100");
+      if ((img as HTMLImageElement).complete) {
+        // cached image
+        requestAnimationFrame(reveal);
+      } else {
+        img.addEventListener("load", reveal, { once: true });
+      }
+    }
+
+    // Cleanup listeners on re-render (safe since we used { once: true })
+    return () => {
+      for (const img of imgs) {
+        img.classList.remove("transition-opacity", "duration-500", "opacity-0");
+      }
+    };
+  }, [results.sites]); // rerun when the list of cards changes
+
   /* ───────── Locked Radius Banner (with KM pill) ───────── */
   const CenterBanner = () =>
     hasRadius(filters) && centerSitePreview ? (
@@ -556,41 +675,13 @@ function ExplorePageContent() {
         aria-label="Locked radius location"
       >
         <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 flex items-center max-w-[360px]">
-          {/* Circular thumbnail */}
+          {/* Circular thumbnail (stable) */}
           <div className="relative w-14 h-14 flex-shrink-0">
-            {(() => {
-              const raw = centerSitePreview.cover || "";
-              const t = thumbUrl(raw, 112);
-              const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(
-                /\/+$/,
-                ""
-              );
-              const absoluteFallback = /^https?:\/\//i.test(raw)
-                ? raw
-                : SUPA_URL
-                ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
-                    /^\/+/,
-                    ""
-                  )}`
-                : "";
-              return t ? (
-                <img
-                  src={t}
-                  className="w-14 h-14 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
-                  alt=""
-                  decoding="async"
-                  loading="lazy"
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (absoluteFallback && img.src !== absoluteFallback) {
-                      img.src = absoluteFallback;
-                    }
-                  }}
-                />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />
-              );
-            })()}
+            <StableBannerImage
+              rawCover={centerSitePreview.cover}
+              size={112}
+              alt=""
+            />
           </div>
 
           {/* Text with KM pill */}
@@ -695,7 +786,10 @@ function ExplorePageContent() {
               <CenterBanner />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div
+              ref={cardsRef}
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+            >
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <PreviewCardSkeleton key={i} />

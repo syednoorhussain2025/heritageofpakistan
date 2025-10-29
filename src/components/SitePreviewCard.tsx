@@ -9,7 +9,8 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
-import { supabase } from "@/lib/supabaseClient"; // ← added for lat/lng fallback
+import { supabase } from "@/lib/supabaseClient"; // ← kept for lat/lng fallback
+import { buildPlacesNearbyURL } from "@/lib/placesNearby"; // ← NEW: centralized helper
 
 type Site = {
   id: string;
@@ -113,7 +114,7 @@ export default function SitePreviewCard({
     site.distance_km != null && !Number.isNaN(site.distance_km);
   const distanceLabel = fmtKm(site.distance_km ?? null);
 
-  /* ---------- New: Places Nearby Action ---------- */
+  /* ---------- Places Nearby Action (centralized via helper) ---------- */
   const handlePlacesNearby = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -121,7 +122,7 @@ export default function SitePreviewCard({
     let lat = site.latitude;
     let lng = site.longitude;
 
-    // 1) If lat/lng not on the card data, fetch once from Supabase
+    // If lat/lng not provided on card, fetch once from Supabase
     if ((lat == null || lng == null) && site.id) {
       try {
         const { data, error } = await supabase
@@ -134,7 +135,7 @@ export default function SitePreviewCard({
           lng = data.longitude ?? null;
         }
       } catch {
-        // ignore, fallback will handle it
+        /* ignore */
       }
     }
 
@@ -145,22 +146,19 @@ export default function SitePreviewCard({
       return;
     }
 
-    // 2) Build a relative URL the Next.js router likes
-    const qs = new URLSearchParams();
-    qs.set("centerSiteId", site.id);
-    qs.set("centerLat", String(lat));
-    qs.set("centerLng", String(lng));
-    qs.set("radiusKm", "25"); // default radius
-
-    const href = `/explore?${qs.toString()}`;
+    // Build the canonical URL with correct param keys: center, clat, clng, rkm
+    const href = buildPlacesNearbyURL({
+      siteId: site.id,
+      lat,
+      lng,
+      radiusKm: 25,
+      basePath: "/explore",
+    });
 
     try {
       router.push(href);
-    } catch (err) {
-      // 3) Hard fallback to full reload if client router ever fails
-      if (typeof window !== "undefined") {
-        window.location.assign(href);
-      }
+    } catch {
+      if (typeof window !== "undefined") window.location.assign(href);
     }
   };
 
