@@ -30,7 +30,6 @@ type Site = {
   avg_rating?: number | null;
   review_count?: number | null;
   distance_km?: number | null;
-  // may or may not exist in your schema; used when present
   category_id?: string | null;
 };
 
@@ -217,6 +216,36 @@ function ExplorePageContent() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
+  /* ───────── Detect Places Nearby deep-link ───────── */
+  useEffect(() => {
+    const centerSiteId = searchParams.get("centerSiteId");
+    const lat = searchParams.get("centerLat");
+    const lng = searchParams.get("centerLng");
+    const rkm = searchParams.get("radiusKm");
+
+    if (centerSiteId && lat && lng && rkm) {
+      const parsedLat = Number(lat);
+      const parsedLng = Number(lng);
+      const parsedRkm = Number(rkm);
+
+      setFilters((prev) => ({
+        ...prev,
+        centerSiteId,
+        centerLat: !Number.isNaN(parsedLat) ? parsedLat : null,
+        centerLng: !Number.isNaN(parsedLng) ? parsedLng : null,
+        radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 25,
+      }));
+
+      // rewrite to canonical format
+      const canonical = new URLSearchParams();
+      canonical.set("center", centerSiteId);
+      canonical.set("clat", String(parsedLat));
+      canonical.set("clng", String(parsedLng));
+      canonical.set("rkm", String(parsedRkm));
+      router.replace(`/explore?${canonical.toString()}`);
+    }
+  }, [searchParams, router]);
+
   /* Load name maps once */
   useEffect(() => {
     (async () => {
@@ -344,7 +373,7 @@ function ExplorePageContent() {
             setCenterSitePreview({
               id: row.id,
               title: row.title,
-              subtitle: row.location_free ?? null, // ← location_free kept
+              subtitle: row.location_free ?? null,
               cover: row.cover_photo_url ?? null,
             });
           } else {

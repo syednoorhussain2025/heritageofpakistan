@@ -4,10 +4,12 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
-import AddToTripModal from "@/components/AddToTripModal"; // <-- added
+import AddToTripModal from "@/components/AddToTripModal";
+import { supabase } from "@/lib/supabaseClient"; // ← added for lat/lng fallback
 
 type Site = {
   id: string;
@@ -18,11 +20,12 @@ type Site = {
   heritage_type?: string | null;
   avg_rating?: number | null;
   review_count?: number | null;
-  /** Present when using radius search */
-  distance_km?: number | null; // <-- NEW
+  distance_km?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
-/** Simple SVG fallback (brand-ish gradient), sized to 3:2 */
+/* ---------- Helpers ---------- */
 const FALLBACK_SVG =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -37,16 +40,11 @@ const FALLBACK_SVG =
     </svg>`
   );
 
-/** Format distance: 1 decimal if <10km, else integer */
 function fmtKm(v?: number | null) {
   if (v == null || Number.isNaN(v)) return "";
   return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
 }
 
-/**
- * Build a Supabase transform URL sized safely for sharp preview cards.
- * 3:2 aspect (800×533) at quality=85.
- */
 function transformedUrl(url?: string | null, w = 800, q = 85) {
   if (!url) return "";
   const marker = "/storage/v1/object/public/";
@@ -62,7 +60,6 @@ function transformedUrl(url?: string | null, w = 800, q = 85) {
   return u.toString();
 }
 
-/** Render children into document.body so the modal isn't clipped by the card */
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -73,6 +70,7 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
+/* ---------- Component ---------- */
 export default function SitePreviewCard({
   site,
   onClose,
@@ -80,13 +78,14 @@ export default function SitePreviewCard({
   site: Site;
   onClose?: () => void;
 }) {
+  const router = useRouter();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
 
-  // Image source with fallbacks
+  // Image setup
   const original = site.cover_photo_url || "";
   const transformed = transformedUrl(original);
   const [imgSrc, setImgSrc] = useState<string>(
@@ -114,6 +113,58 @@ export default function SitePreviewCard({
     site.distance_km != null && !Number.isNaN(site.distance_km);
   const distanceLabel = fmtKm(site.distance_km ?? null);
 
+  /* ---------- New: Places Nearby Action ---------- */
+  const handlePlacesNearby = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    let lat = site.latitude;
+    let lng = site.longitude;
+
+    // 1) If lat/lng not on the card data, fetch once from Supabase
+    if ((lat == null || lng == null) && site.id) {
+      try {
+        const { data, error } = await supabase
+          .from("sites")
+          .select("latitude, longitude")
+          .eq("id", site.id)
+          .maybeSingle();
+        if (!error && data) {
+          lat = data.latitude ?? null;
+          lng = data.longitude ?? null;
+        }
+      } catch {
+        // ignore, fallback will handle it
+      }
+    }
+
+    if (lat == null || lng == null) {
+      console.warn(
+        "Site missing latitude/longitude, cannot open nearby search"
+      );
+      return;
+    }
+
+    // 2) Build a relative URL the Next.js router likes
+    const qs = new URLSearchParams();
+    qs.set("centerSiteId", site.id);
+    qs.set("centerLat", String(lat));
+    qs.set("centerLng", String(lng));
+    qs.set("radiusKm", "25"); // default radius
+
+    const href = `/explore?${qs.toString()}`;
+
+    try {
+      router.push(href);
+    } catch (err) {
+      // 3) Hard fallback to full reload if client router ever fails
+      if (typeof window !== "undefined") {
+        window.location.assign(href);
+      }
+    }
+  };
+
+  /* ---------- Render ---------- */
   return (
     <div className="w-full max-w-sm rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
@@ -161,7 +212,7 @@ export default function SitePreviewCard({
             )}
           </div>
 
-          {/* Distance badge (shows only when radius search used) */}
+          {/* Distance badge */}
           {hasDistance && (
             <div
               className="absolute bottom-3 right-3 w-12 h-12 rounded-full bg-[#00b87b] text-white shadow-xl flex items-center justify-center font-extrabold text-xs z-20"
@@ -204,23 +255,23 @@ export default function SitePreviewCard({
           </div>
 
           <div className="flex items-center gap-3 text-gray-700">
+            {/* Places Nearby */}
             <button
-              title="Quick view"
+              type="button"
+              title="Places Nearby"
+              onClick={handlePlacesNearby}
               className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // hook up your quick-view here if needed
-              }}
             >
               <Icon
-                name="search-plus"
+                name="nearby"
                 size={14}
                 className="text-[var(--brand-orange)]"
               />
             </button>
 
+            {/* Bookmark */}
             <button
+              type="button"
               title="Bookmark"
               onClick={(e) => {
                 e.preventDefault();
@@ -243,7 +294,9 @@ export default function SitePreviewCard({
               />
             </button>
 
+            {/* Wishlist */}
             <button
+              type="button"
               title="Add to Wishlist"
               onClick={(e) => {
                 e.preventDefault();
@@ -259,7 +312,9 @@ export default function SitePreviewCard({
               />
             </button>
 
+            {/* Trip */}
             <button
+              type="button"
               title="Add to Trip"
               onClick={(e) => {
                 e.preventDefault();

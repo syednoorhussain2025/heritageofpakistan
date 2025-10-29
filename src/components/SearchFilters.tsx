@@ -1359,6 +1359,14 @@ export default function SearchFilters({
     setExpandedParentId(null);
   };
 
+  // Remove a parent region and any of its selected subregions
+  const clearRegionParent = (parentId: string) => {
+    const next = (filters.regionIds || []).filter(
+      (id) => id !== parentId && (regionParents[id] ?? id) !== parentId
+    );
+    onFilterChange({ regionIds: next });
+  };
+
   const handleReset = () => {
     onFilterChange({
       name: "",
@@ -1556,7 +1564,7 @@ export default function SearchFilters({
           </div>
         )}
 
-        {/* Regions Tab */}
+        {/* Regions Tab (no nested buttons) */}
         {activeTab === "regs" && (
           <div className="h-full flex flex-col">
             <input
@@ -1602,88 +1610,165 @@ export default function SearchFilters({
                 )}
               </div>
             ) : (
-              <div className="space-y-1 overflow-y-auto scrollbar-hide">
-                {topRegions.map((top) => {
-                  const expanded = expandedParentId === top.id;
-                  const subs = subsByParent[top.id] || [];
-                  return (
-                    <div
-                      key={top.id}
-                      className="rounded-lg border border-[var(--taupe-grey)]"
-                    >
-                      <div className="flex items-center justify-between px-3 py-2">
-                        <button
-                          onClick={() => onToggleWithRule(top.id)}
-                          className={`flex items-center gap-2 text-left ${
-                            filters.regionIds.includes(top.id)
-                              ? "text-[var(--terracotta-red)] font-semibold"
-                              : "text-[var(--dark-grey)]"
-                          }`}
-                          title={`Select ${top.name}`}
+              <>
+                {!expandedParentId ? (
+                  <div className="space-y-2 overflow-y-auto scrollbar-hide">
+                    {topRegions.map((top) => {
+                      const parentSelected = filters.regionIds.includes(top.id);
+                      return (
+                        <div
+                          key={top.id}
+                          className="rounded-lg border border-[var(--taupe-grey)] bg-white"
                         >
-                          <Icon
-                            name={top.icon_key || "map"}
-                            size={16}
-                            className="text-[var(--taupe-grey)]"
-                          />
-                          <span className="font-explore-tab-item">
-                            {top.name}
-                          </span>
-                        </button>
+                          {/* Entire row accessible clickable container (NOT a button) */}
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) =>
+                              onKeyActivate(e, async () => {
+                                if (!parentSelected) {
+                                  await onToggleWithRule(top.id);
+                                } else {
+                                  await loadSubregions(top.id);
+                                }
+                                setExpandedParentId(top.id);
+                              })
+                            }
+                            onClick={async () => {
+                              if (!parentSelected) {
+                                await onToggleWithRule(top.id);
+                              } else {
+                                await loadSubregions(top.id);
+                              }
+                              setExpandedParentId(top.id);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition cursor-pointer ${
+                              parentSelected
+                                ? "bg-[var(--terracotta-red)]/10"
+                                : "hover:bg-[var(--ivory-cream)]"
+                            }`}
+                            title={`Open ${top.name}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon
+                                name={top.icon_key || "map"}
+                                size={16}
+                                className="text-[var(--taupe-grey)]"
+                              />
+                              <span
+                                className={`font-explore-tab-item ${
+                                  parentSelected
+                                    ? "text-[var(--terracotta-red)] font-semibold"
+                                    : "text-[var(--dark-grey)]"
+                                }`}
+                              >
+                                {top.name}
+                              </span>
+                            </div>
 
+                            {/* Right-side control: × when selected, chevron otherwise */}
+                            {parentSelected ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  clearRegionParent(top.id);
+                                }}
+                                className="ml-2 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                                title="Clear this region"
+                              >
+                                <Icon name="times" size={10} />
+                              </button>
+                            ) : (
+                              <Icon
+                                name="chevron-right"
+                                size={16}
+                                className="text-[var(--taupe-grey)]"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Expanded panel for a parent
+                  <div className="overflow-y-auto scrollbar-hide">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={async () => {
-                            const newId = expanded ? null : top.id;
-                            setExpandedParentId(newId);
-                            if (!expanded) await loadSubregions(top.id);
-                          }}
-                          className="p-1 rounded hover:bg-[var(--ivory-cream)]"
-                          title={expanded ? "Back" : "Show subregions"}
+                          onClick={() => setExpandedParentId(null)}
+                          className="px-2 py-1 text-sm rounded ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
                         >
-                          <Icon
-                            name={expanded ? "chevron-down" : "chevron-right"}
-                            size={16}
-                            className="text-[var(--taupe-grey)]"
-                          />
+                          ← Back
                         </button>
+                        <div className="text-sm text-[var(--dark-grey)] font-semibold">
+                          {regionNames[expandedParentId] || "Region"}
+                        </div>
                       </div>
 
-                      {expanded && (
-                        <div className="border-t border-[var(--taupe-grey)]/40 px-2 py-2">
-                          <div className="flex items-center mb-2">
-                            <button
-                              onClick={() => setExpandedParentId(null)}
-                              className="px-2 py-1 text-sm rounded ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
-                            >
-                              ← Back
-                            </button>
-                          </div>
+                      <button
+                        onClick={() => clearRegionParent(expandedParentId!)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-sm rounded bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] hover:bg-white"
+                        title="Clear this region & subregions"
+                      >
+                        <Icon name="times" size={10} />
+                        Clear
+                      </button>
+                    </div>
 
-                          {subs.length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
-                              No subregions
-                            </div>
-                          ) : (
-                            subs.map((s) => (
-                              <button
+                    <div className="rounded-lg border border-[var(--taupe-grey)]/60">
+                      <div className="px-3 py-2 border-b border-[var(--taupe-grey)]/40 text-xs text-[var(--espresso-brown)]/70">
+                        Choose subregions under “
+                        {regionNames[expandedParentId!] || "Region"}”.
+                      </div>
+
+                      <div className="p-2 space-y-1">
+                        {(() => {
+                          const subs = subsByParent[expandedParentId!] || [];
+                          if (!subs.length)
+                            return (
+                              <div className="px-2 py-2 text-sm text-[var(--taupe-grey)]">
+                                No subregions
+                              </div>
+                            );
+
+                          return subs.map((s) => {
+                            const active = filters.regionIds.includes(s.id);
+                            return (
+                              <div
                                 key={s.id}
-                                onClick={() => onToggleWithRule(s.id)}
-                                className={`block w-full text-left rounded px-3 py-2 text-sm ${
-                                  filters.regionIds.includes(s.id)
+                                className={`flex items-center justify-between rounded px-3 py-2 text-sm ${
+                                  active
                                     ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
                                     : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
                                 }`}
                               >
-                                {s.name}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
+                                <button
+                                  className="text-left flex-1"
+                                  onClick={() => onToggleWithRule(s.id)}
+                                  title={`Toggle ${s.name}`}
+                                >
+                                  {s.name}
+                                </button>
+
+                                {active && (
+                                  <button
+                                    onClick={() => onToggleWithRule(s.id)}
+                                    className="ml-2 w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-current"
+                                    title="Remove"
+                                  >
+                                    <Icon name="times" size={10} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
