@@ -13,29 +13,11 @@ import {
 import { Lightbox } from "@/components/ui/Lightbox";
 import {
   generateAltAndCaptionsAction,
-  getCaptionEngineInfo, // ⬅️ fetch active model from the server (respects RLS)
+  getCaptionEngineInfo,
 } from "./gallery-actions";
 import type { CaptionAltOut } from "./gallery-actions";
 
-/* -------------------- URL Helpers -------------------- */
-async function publicUrl(
-  bucket: string,
-  key: string,
-  opts?: { width?: number; quality?: number; resize?: "contain" | "cover" }
-) {
-  const { data } = supabase.storage.from(bucket).getPublicUrl(key, {
-    transform: opts?.width
-      ? {
-          width: opts.width,
-          quality: opts.quality ?? 75,
-          resize: opts.resize ?? "contain",
-        }
-      : undefined,
-  });
-  const url = new URL(data.publicUrl);
-  url.searchParams.set("t", String(Date.now()));
-  return url.toString();
-}
+/* -------------------- URL + Reachability Helpers -------------------- */
 
 function encodeRFC3986(seg: string) {
   return encodeURIComponent(seg).replace(
@@ -44,88 +26,113 @@ function encodeRFC3986(seg: string) {
   );
 }
 
-function rawUrlFromStoragePath(key: string): string {
+function safeURL(input?: string | null): URL | null {
+  try {
+    return input ? new URL(input) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rawUrlFromStoragePath(bucket: string, key: string): string {
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
   const encodedKey = key
     .split("/")
     .map((seg) => encodeRFC3986(seg.trim()))
     .join("/");
   const url = new URL(
-    `${base}/storage/v1/object/public/site-images/${encodedKey}`
+    `${base}/storage/v1/object/public/${bucket}/${encodedKey}`
   );
   url.searchParams.set("t", String(Date.now()));
   return url.toString();
-}
-
-async function signedUrlForAI(
-  key: string,
-  expiresInSec = 900
-): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from("site-images")
-      .createSignedUrl(key, expiresInSec, {
-        transform: { width: 1600, quality: 72, resize: "contain" },
-      });
-    if (error || !data?.signedUrl) return null;
-    const url = new URL(data.signedUrl);
-    url.searchParams.set("ai", "1");
-    url.searchParams.set("t", String(Date.now()));
-    return url.toString();
-  } catch {
-    return null;
-  }
 }
 
 async function urlReachable(
   url: string,
   timeoutMs = 6500
 ): Promise<{ ok: boolean; status?: number; contentType?: string }> {
-  const attempt = async (method: "HEAD" | "GET") => {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), timeoutMs);
-    try {
-      const init: RequestInit = {
-        method,
-        cache: "no-store",
-        signal: ctl.signal,
-        headers: method === "GET" ? { Range: "bytes=0-0" } : undefined,
-      };
-      const res = await fetch(url, init);
-      const ct = res.headers.get("content-type") || "";
-      return {
-        ok: res.ok && ct.startsWith("image/"),
-        status: res.status,
-        contentType: ct,
-      };
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-  const head = await attempt("HEAD");
-  if (head.ok) return head;
-  return attempt("GET");
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: ctl.signal,
+    });
+    const ct = res.headers.get("content-type") || "";
+    return {
+      ok: res.ok && ct.startsWith("image/"),
+      status: res.status,
+      contentType: ct,
+    };
+  } catch {
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function bestUrlForAI(
-  key: string
-): Promise<{ url: string; variant: "signed" | "public+transform" | "raw" }> {
-  const signed = await signedUrlForAI(key);
-  if (signed) {
-    const chk = await urlReachable(signed);
-    if (chk.ok) return { url: signed, variant: "signed" };
+/**
+ * Get a best-effort display URL that works for BOTH private and public buckets.
+ * 1) try signed + transform
+ * 2) try publicUrl + transform
+ * 3) fall back to raw public object path
+ */
+async function displayUrl(
+  bucket: string,
+  key: string,
+  opts?: { width?: number; quality?: number; resize?: "contain" | "cover" }
+): Promise<string | null> {
+  // 1) signed (works for private buckets)
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(key, 900, {
+        transform: opts?.width
+          ? {
+              width: opts.width,
+              quality: opts.quality ?? 75,
+              resize: opts.resize ?? "contain",
+            }
+          : undefined,
+      });
+    if (!error && data?.signedUrl) {
+      const u = safeURL(data.signedUrl);
+      if (u) {
+        u.searchParams.set("t", String(Date.now()));
+        const chk = await urlReachable(u.toString());
+        if (chk.ok) return u.toString();
+      }
+    }
+  } catch {
+    // ignore and fallthrough
   }
-  const pubTrans = await publicUrl("site-images", key, {
-    width: 1600,
-    quality: 72,
-    resize: "contain",
-  });
-  const chk2 = await urlReachable(pubTrans);
-  if (chk2.ok) return { url: pubTrans, variant: "public+transform" };
-  const raw = rawUrlFromStoragePath(key);
-  const chk3 = await urlReachable(raw);
-  if (chk3.ok) return { url: raw, variant: "raw" };
-  return { url: raw, variant: "raw" };
+
+  // 2) public URL (works only if bucket is public)
+  try {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(key, {
+      transform: opts?.width
+        ? {
+            width: opts.width,
+            quality: opts.quality ?? 75,
+            resize: opts.resize ?? "contain",
+          }
+        : undefined,
+    });
+    const u = safeURL(data?.publicUrl);
+    if (u) {
+      u.searchParams.set("t", String(Date.now()));
+      const chk = await urlReachable(u.toString());
+      if (chk.ok) return u.toString();
+    }
+  } catch {
+    // ignore and fallthrough
+  }
+
+  // 3) raw public path (only works if bucket is public)
+  const raw = rawUrlFromStoragePath(bucket, key);
+  const chk = await urlReachable(raw);
+  return chk.ok ? raw : null;
 }
 
 /* ------------------------- Types ------------------------- */
@@ -187,7 +194,6 @@ function AutoGrowTextarea(
 
   useEffect(() => {
     sync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rest.value]);
 
   return (
@@ -235,7 +241,7 @@ export default function GalleryUploader({
   const [genTotal, setGenTotal] = useState(0);
   const [genDone, setGenDone] = useState(0);
 
-  // diagnostics: unreachable/skipped images
+  // diagnostics
   const [skipped, setSkipped] = useState<
     {
       id: string;
@@ -247,7 +253,7 @@ export default function GalleryUploader({
     }[]
   >([]);
 
-  // live run details (model + tokens + cost)
+  // live run details
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [tokIn, setTokIn] = useState(0);
   const [tokOut, setTokOut] = useState(0);
@@ -256,7 +262,6 @@ export default function GalleryUploader({
   const [chunksDone, setChunksDone] = useState(0);
   const [chunksTotal, setChunksTotal] = useState(0);
 
-  // file input ref
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Delete-all modal
@@ -293,7 +298,6 @@ export default function GalleryUploader({
     })();
   }, [siteId]);
 
-  /** Fetch active model from the server (respects RLS) */
   async function fetchActiveModelLabel() {
     try {
       const info = await getCaptionEngineInfo();
@@ -312,21 +316,22 @@ export default function GalleryUploader({
       .order("sort_order", { ascending: true });
 
     if (error) {
+      console.error("site_images load error:", error);
       alert(error.message);
       setLoading(false);
       return;
     }
 
     const withUrls: Row[] = await Promise.all(
-      (data || []).map(async (r: any) => ({
-        ...r,
-        publicUrl: r.storage_path
-          ? await publicUrl("site-images", r.storage_path, {
+      (data || []).map(async (r: any) => {
+        const url = r.storage_path
+          ? await displayUrl("site-images", r.storage_path, {
               width: 800,
               quality: 72,
             })
-          : null,
-      }))
+          : null;
+        return { ...r, publicUrl: url };
+      })
     );
 
     setRows(withUrls);
@@ -371,7 +376,9 @@ export default function GalleryUploader({
       try {
         const { error } = await supabase.storage
           .from("site-images")
-          .upload(thisKey, file, { upsert: false });
+          .upload(thisKey, file, {
+            upsert: false,
+          });
         if (error) {
           alert(error.message);
           setUploads((prev) =>
@@ -437,13 +444,18 @@ export default function GalleryUploader({
         img.onerror = () => resolve({});
         img.src = r.publicUrl!;
       });
-      const resp = await fetch(r.publicUrl, {
-        method: "HEAD",
-        cache: "no-store",
-      });
-      const len = resp.headers.get("content-length");
-      const kb = len ? Math.round(parseInt(len, 10) / 1024) : undefined;
-      return { ...dims, kb };
+      // HEAD might be blocked on some CDNs; swallow errors
+      try {
+        const resp = await fetch(r.publicUrl, {
+          method: "HEAD",
+          cache: "no-store",
+        });
+        const len = resp.headers.get("content-length");
+        const kb = len ? Math.round(parseInt(len, 10) / 1024) : undefined;
+        return { ...dims, kb };
+      } catch {
+        return { ...dims };
+      }
     } catch {
       return {};
     }
@@ -595,12 +607,9 @@ export default function GalleryUploader({
         });
       }
     }
-    // Clear applied suggestions for selected items
     setSuggestions((prev) => {
       const next = { ...prev };
-      for (const id of Array.from(selectedIds)) {
-        delete next[id];
-      }
+      for (const id of Array.from(selectedIds)) delete next[id];
       return next;
     });
   }
@@ -608,9 +617,7 @@ export default function GalleryUploader({
   function discardSuggestionsForSelected() {
     setSuggestions((prev) => {
       const next = { ...prev };
-      for (const id of Array.from(selectedIds)) {
-        delete next[id];
-      }
+      for (const id of Array.from(selectedIds)) delete next[id];
       return next;
     });
   }
@@ -656,14 +663,16 @@ export default function GalleryUploader({
     return a.length === 0 || c.length === 0;
   }
 
-  function extractActionPayload(res: ActionReturn): {
+  type GenExtract = {
     items: CaptionAltOut[];
     modelId?: string | null;
     usageIn?: number;
     usageOut?: number;
     usageTotal?: number;
     usdEstimate?: number | null;
-  } {
+  };
+
+  function extractActionPayload(res: ActionReturn): GenExtract {
     if (Array.isArray(res)) return { items: res };
     const items = (res.items ?? res.data) as CaptionAltOut[] | undefined;
     const usage = (res.meta?.usage ?? res.usage) as UsageShape | undefined;
@@ -681,18 +690,29 @@ export default function GalleryUploader({
     };
   }
 
+  async function bestUrlForAI(
+    key: string
+  ): Promise<{ url: string; variant: string }> {
+    // prefer signed + transform, but any reachable URL is fine
+    const signed = await displayUrl("site-images", key, {
+      width: 1600,
+      quality: 72,
+      resize: "contain",
+    });
+    if (signed) return { url: signed, variant: "signed-or-public" };
+    // last resort raw
+    return { url: rawUrlFromStoragePath("site-images", key), variant: "raw" };
+  }
+
   async function generateFor(list: Row[]) {
-    // Reset live counters
     setTokIn(0);
     setTokOut(0);
     setTokTotal(0);
     setUsd(null);
     setChunksDone(0);
 
-    // Display the model that the server will actually use
     await fetchActiveModelLabel();
 
-    // Resolve AI-ready URLs
     const resolved = await Promise.all(
       list.map(async (r) => {
         const best = await bestUrlForAI(r.storage_path);
@@ -706,12 +726,8 @@ export default function GalleryUploader({
       })
     );
 
-    // Preflight and diagnostics
     const checks = await Promise.all(
-      resolved.map(async (x) => {
-        const ch = await urlReachable(x.aiUrl);
-        return { x, ch };
-      })
+      resolved.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) }))
     );
     const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
     const bad = checks
@@ -747,7 +763,6 @@ export default function GalleryUploader({
         siteName: siteTitle,
       })) as ActionReturn;
 
-      // Extract items + usage and merge
       const { items, modelId, usageIn, usageOut, usageTotal, usdEstimate } =
         extractActionPayload(res);
 
@@ -758,7 +773,6 @@ export default function GalleryUploader({
       if (typeof usdEstimate === "number")
         setUsd((p) => (p ?? 0) + usdEstimate);
 
-      // Merge suggestions
       setSuggestions((prev) => {
         const next = { ...prev };
         for (const c of items) next[c.id] = { alt: c.alt, caption: c.caption };
@@ -1042,7 +1056,6 @@ export default function GalleryUploader({
                   </div>
                 )}
 
-                {/* Open in Lightbox (lighter + less distracting) */}
                 {img.publicUrl && (
                   <button
                     onClick={(e) => {
@@ -1056,7 +1069,6 @@ export default function GalleryUploader({
                   </button>
                 )}
 
-                {/* Delete single (lighter) */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1078,7 +1090,6 @@ export default function GalleryUploader({
               </div>
 
               <div className="p-2 space-y-1.5">
-                {/* Alt text (auto-grow) + copy-from-caption icon on hover */}
                 <div className="relative group/tbx">
                   <AutoGrowTextarea
                     minRows={2}
@@ -1102,7 +1113,6 @@ export default function GalleryUploader({
                   </button>
                 </div>
 
-                {/* Caption (auto-grow) + copy-from-alt icon on hover */}
                 <div className="relative group/tbx">
                   <AutoGrowTextarea
                     minRows={2}
@@ -1205,7 +1215,7 @@ export default function GalleryUploader({
         </div>
       )}
 
-      {/* Bottom bulk toolbar (progress + apply/discard for selected) */}
+      {/* Bottom bulk toolbar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t border-gray-200 shadow-lg">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2">
@@ -1241,7 +1251,6 @@ export default function GalleryUploader({
                 Add context
               </button>
 
-              {/* Apply/Discard for selected items only */}
               <div className="ml-auto flex items-center gap-2">
                 <button
                   type="button"
@@ -1274,7 +1283,6 @@ export default function GalleryUploader({
               </div>
             </div>
 
-            {/* Compact progress + model info in bottom bar */}
             {(genLoading || genTotal > 0 || tokTotal > 0 || activeModel) && (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between text-[12px] text-gray-700">
@@ -1321,7 +1329,7 @@ export default function GalleryUploader({
         </div>
       )}
 
-      {/* Context popup (small) */}
+      {/* Context popup */}
       {showContextModal && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div

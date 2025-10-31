@@ -266,6 +266,15 @@ export default function HeritagePage() {
 
                 <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
 
+                {/* ⬇️ Moved Places Nearby ABOVE Photography & Content */}
+                <HeritageNearby
+                  siteId={site.id}
+                  siteTitle={site.title} // ✅ pass the title for dynamic section heading
+                  lat={site.latitude ? Number(site.latitude) : null}
+                  lng={site.longitude ? Number(site.longitude) : null}
+                />
+
+                {/* Photography & Content */}
                 <HeritagePhotoRights />
 
                 <HeritageBibliography items={bibliography} styleId={styleId} />
@@ -277,12 +286,6 @@ export default function HeritagePage() {
                 >
                   <ReviewsTab siteId={site.id} />
                 </HeritageSection>
-
-                <HeritageNearby
-                  siteId={site.id}
-                  lat={site.latitude ? Number(site.latitude) : null}
-                  lng={site.longitude ? Number(site.longitude) : null}
-                />
               </>
             )}
           </main>

@@ -810,7 +810,6 @@ export default function Bibliography({ siteId }: { siteId: string | number }) {
     const type = csl.type && supported.has(csl.type) ? csl.type : "book";
     const title = csl.title || "";
     const container = (csl["container-title"] as string) || "";
-    the; // (intentionally left as a harmless no-op in original fix? remove if unwanted)
     const publisher = csl.publisher || "";
     const year =
       (Array.isArray(csl.issued?.["date-parts"]) &&
