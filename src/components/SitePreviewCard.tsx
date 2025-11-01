@@ -1,3 +1,4 @@
+// src/components/SitePreviewCard.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -14,11 +15,8 @@ import { buildPlacesNearbyURL } from "@/lib/placesNearby"; // ← centralized he
 type Site = {
   id: string;
   slug: string;
-  /** Primary key we want for province-aware route */
+  /** NEW: province slug for province-aware route */
   province_slug?: string | null;
-  /** Some datasets may expose region as 'region_slug' or a string 'province' */
-  region_slug?: string | null; // optional, if present in your rows
-  province?: string | null; // optional, if present in your rows
   title: string;
   cover_photo_url?: string | null;
   location_free?: string | null;
@@ -75,23 +73,6 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-/** Resolve the best available province/region slug field from the card data. */
-function resolveProvinceSlug(site: Site): string | null {
-  // Preferred field
-  if (site.province_slug && site.province_slug.trim().length > 0) {
-    return site.province_slug.trim();
-  }
-  // Alternate common naming
-  if (site.region_slug && site.region_slug.trim().length > 0) {
-    return site.region_slug.trim();
-  }
-  // Sometimes datasets carry a plain string 'province' that is already slugified
-  if (site.province && site.province.trim().length > 0) {
-    return site.province.trim();
-  }
-  return null;
-}
-
 /* ---------- Component ---------- */
 export default function SitePreviewCard({
   site,
@@ -108,10 +89,10 @@ export default function SitePreviewCard({
   const [showTripModal, setShowTripModal] = useState(false);
 
   // Build province-aware detail href with safe fallback to legacy
-  const regionSlug = resolveProvinceSlug(site);
-  const detailHref = regionSlug
-    ? `/heritage/${regionSlug}/${site.slug}`
-    : `/heritage/${site.slug}`;
+  const detailHref =
+    site.province_slug && site.province_slug.length > 0
+      ? `/heritage/${site.province_slug}/${site.slug}`
+      : `/heritage/${site.slug}`;
 
   // Image setup
   const original = site.cover_photo_url || "";
