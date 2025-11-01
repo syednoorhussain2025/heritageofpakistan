@@ -1,9 +1,15 @@
 // src/components/StickyHeader.tsx
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
-import AddToTripModal from "@/components/AddToTripModal"; // <-- added
+import AddToTripModal from "@/components/AddToTripModal";
 
-type Site = { id: string; slug: string; title: string };
+type Site = {
+  id: string;
+  slug: string;
+  title: string;
+  /** Prefer passing this from the page; header will still derive it if missing */
+  province_slug?: string;
+};
 
 interface StickyHeaderProps {
   site: Site | null;
@@ -22,21 +28,18 @@ interface StickyHeaderProps {
   locationFree?: string | null;
   categoryIconKey?: string | null;
 
-  /** Optional map link (passed from page) */
   mapsLink?: string | null;
 
-  /** Research Tools controlled props (optional) */
   researchMode?: boolean;
   onChangeResearchMode?: (enabled: boolean) => void;
 }
 
 const DEFAULT_STICKY_OFFSET = 72;
-/** Slim hotzone at far-left to open the sidebar */
 const EDGE_WIDTH_PX = 18;
 const CHEVRON_SIZE = 36;
 const RESEARCH_LS_KEY = "researchMode";
 
-/* ───────────── Small UI helper ───────────── */
+/* ---------------- small UI helpers ---------------- */
 
 function ActionButton({
   children,
@@ -97,7 +100,7 @@ function IconBadge({ name, size = 14 }: { name: string; size?: number }) {
   );
 }
 
-/* ───────────── Sidebar items ───────────── */
+/* ---------------- sidebar items ---------------- */
 
 type TocItem = {
   id: string;
@@ -175,7 +178,7 @@ function useScrollSpy(items: TocItem[]) {
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
         if (visible.length) {
-          setActiveId(visible[0].target.id);
+          setActiveId((visible[0].target as HTMLElement).id);
         } else if (targets.length) {
           const tops = targets.map((h) => ({
             id: h.id,
@@ -212,7 +215,27 @@ function scrollToId(id: string) {
   window.scrollTo({ top: target, behavior: "smooth" });
 }
 
-/* ───────────── Main Component ───────────── */
+/* ---------------- helpers for routes ---------------- */
+
+/** Derive province slug from props or current path: /heritage/<region>/<slug>(/...) */
+function deriveProvinceSlug(site: Site): string | null {
+  if (site.province_slug) return site.province_slug;
+  if (typeof window !== "undefined") {
+    const parts = window.location.pathname.split("/").filter(Boolean); // ["heritage","punjab","chauburji", ...]
+    const idx = parts.indexOf("heritage");
+    if (idx >= 0 && parts.length > idx + 1) return parts[idx + 1] || null;
+  }
+  return null;
+}
+
+/** Fallback: build relative link from current page if region is unknown */
+function buildFallbackPath(suffix: "gallery" | "photo-story") {
+  if (typeof window === "undefined") return "#";
+  const base = window.location.pathname.replace(/\/(gallery|photo-story)$/, "");
+  return `${base}/${suffix}`;
+}
+
+/* ---------------- main component ---------------- */
 
 export default function StickyHeader({
   site,
@@ -257,7 +280,6 @@ export default function StickyHeader({
     };
   }, []);
 
-  // Hover zones
   const [hoverBtn, setHoverBtn] = useState(false);
   const [hoverEdge, setHoverEdge] = useState(false);
   const [hoverPanel, setHoverPanel] = useState(false);
@@ -270,7 +292,6 @@ export default function StickyHeader({
   const tocItems = FIXED_ITEMS;
   const activeId = useScrollSpy(tocItems);
 
-  // Sticky tracking
   useEffect(() => {
     let ticking = false;
     const measure = () => {
@@ -294,7 +315,6 @@ export default function StickyHeader({
     };
   }, []);
 
-  // Open/close; mark openedOnce when first revealed
   useEffect(() => {
     const shouldOpen = hoverBtn || hoverEdge || hoverPanel;
     if (openTimer.current) window.clearTimeout(openTimer.current);
@@ -309,10 +329,8 @@ export default function StickyHeader({
     }
   }, [hoverBtn, hoverEdge, hoverPanel, openedOnce]);
 
-  /* ── Research Mode: default ON, persist if not set, reflect controlled prop ── */
   const [researchModeInternal, setResearchModeInternal] =
-    useState<boolean>(true); // default ON
-
+    useState<boolean>(true);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RESEARCH_LS_KEY);
@@ -322,26 +340,29 @@ export default function StickyHeader({
       } else {
         setResearchModeInternal(raw === "1" || "true");
       }
-    } catch {
-      /* no-op */
-    }
+    } catch {}
   }, []);
-
   useEffect(() => {
-    if (typeof researchMode === "boolean") {
+    if (typeof researchMode === "boolean")
       setResearchModeInternal(researchMode);
-    }
   }, [researchMode]);
-
   useEffect(() => {
     onChangeResearchMode?.(researchModeInternal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [researchModeInternal]);
 
-  // ── Add to Trip modal state ──
   const [showTripModal, setShowTripModal] = useState(false);
 
   if (!site) return null;
+
+  // Robust route building
+  const provinceSlug = deriveProvinceSlug(site);
+  const galleryHref = provinceSlug
+    ? `/heritage/${provinceSlug}/${site.slug}/gallery`
+    : buildFallbackPath("gallery");
+  const storyHref = provinceSlug
+    ? `/heritage/${provinceSlug}/${site.slug}/photo-story`
+    : buildFallbackPath("photo-story");
 
   return (
     <div
@@ -350,7 +371,6 @@ export default function StickyHeader({
       aria-label="Sticky site header"
     >
       <div className="relative">
-        {/* Leftmost trigger (shows when stuck) */}
         <div
           className={[
             "absolute left-2 top-1/2 -translate-y-1/2",
@@ -371,10 +391,8 @@ export default function StickyHeader({
           </button>
         </div>
 
-        {/* Main header content */}
         <div className="w-full max-w-[calc(100%-200px)] mx-auto px-4 py-1">
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Site identity (visible when stuck) */}
             <div
               className={`flex items-center gap-3 min-w-0 transition-all duration-300 ease-out ${
                 isStuck
@@ -404,9 +422,7 @@ export default function StickyHeader({
 
             <div className="flex-1" />
 
-            {/* Centered actions */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin justify-center mx-auto">
-              {/* Bookmark */}
               <ActionButton
                 onClick={() => toggleBookmark(site.id)}
                 ariaPressed={isBookmarked}
@@ -431,21 +447,19 @@ export default function StickyHeader({
                 </span>
               </ActionButton>
 
-              {/* Add to Trip → open Trip modal */}
               <ActionButton onClick={() => setShowTripModal(true)}>
                 <IconBadge name="route" />
                 <span>{inTrip ? "Added to Trip" : "Add to Trip"}</span>
               </ActionButton>
 
-              {/* Wishlist */}
               <ActionButton onClick={() => setShowWishlistModal(true)}>
                 <IconBadge name="list-ul" />
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
               </ActionButton>
 
-              {/* Open in new tab */}
+              {/* Gallery (uses provinceSlug or falls back to current path) */}
               <ActionButton
-                href={`/heritage/${site.slug}/gallery`}
+                href={galleryHref}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -453,9 +467,9 @@ export default function StickyHeader({
                 <span>Gallery</span>
               </ActionButton>
 
-              {/* Open in new tab */}
+              {/* Photo Story */}
               <ActionButton
-                href={`/heritage/${site.slug}/story`}
+                href={storyHref}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -531,21 +545,17 @@ export default function StickyHeader({
             onMouseEnter={() => setHoverPanel(true)}
             onMouseLeave={() => setHoverPanel(false)}
           >
-            {/* Chip header */}
             <div className="px-3 py-2 mb-2 rounded-xl bg-slate-200/60 border border-slate-300/50">
               <div className="text-[13px] font-semibold text-slate-700">
                 On this page
               </div>
             </div>
 
-            {/* Dashed vertical connector */}
             <div className="relative flex-1">
               <span
                 aria-hidden
                 className="absolute left-[1.75rem] top-0 bottom-0 border-l-[3px] border-dashed border-slate-300/80"
               />
-
-              {/* Navigation */}
               <nav
                 className={[
                   "relative z-[1] pr-1 h-full no-scrollbar overflow-auto",
@@ -560,7 +570,6 @@ export default function StickyHeader({
                       ? "pl-18"
                       : "pl-16";
                   const isActive = activeId === item.id;
-
                   return (
                     <button
                       key={item.id}
@@ -577,7 +586,6 @@ export default function StickyHeader({
                       aria-current={isActive ? "location" : undefined}
                       style={{ willChange: "transform" }}
                     >
-                      {/* Badge */}
                       <span
                         className={[
                           "absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-full transition-colors",
@@ -598,8 +606,6 @@ export default function StickyHeader({
                           ].join(" ")}
                         />
                       </span>
-
-                      {/* Label */}
                       <span
                         className={[
                           "truncate transition-colors",
@@ -619,14 +625,11 @@ export default function StickyHeader({
         </div>
       </div>
 
-      {/* Add to Trip Modal */}
       {showTripModal && site && (
         <AddToTripModal
           siteId={site.id}
           onClose={() => {
             setShowTripModal(false);
-            // Optional: mark as added once user interacts with modal
-            // setInTrip(true);
           }}
         />
       )}

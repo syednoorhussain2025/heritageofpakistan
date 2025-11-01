@@ -21,9 +21,15 @@ import SitePreviewCard from "@/components/SitePreviewCard";
 
 const PAGE_SIZE = 12;
 
+/* ───────────────────────────── Types ───────────────────────────── */
 type Site = {
   id: string;
   slug: string;
+  // Province-aware routing (computed in this page)
+  province_slug?: string | null;
+  // Real DB field
+  province_id?: number | null;
+
   title: string;
   cover_photo_url?: string | null;
   location_free?: string | null;
@@ -31,6 +37,7 @@ type Site = {
   avg_rating?: number | null;
   review_count?: number | null;
   distance_km?: number | null;
+  // kept optional; not selected in queries because it doesn't exist on sites
   category_id?: string | null;
 };
 
@@ -177,7 +184,6 @@ function thumbUrl(input?: string | null, size = 160) {
 }
 
 /* ───────────────────────────── Stable banner image ───────────────────────────── */
-/** Guards against src thrashing + one-shot fallback. */
 function StableBannerImage({
   rawCover,
   size = 112,
@@ -209,7 +215,6 @@ function StableBannerImage({
   const [src, setSrc] = useState(computed.primary);
   const usedFallback = useRef(false);
 
-  // Keep src stable; only update when the computed key actually changes
   useEffect(() => {
     if (src !== computed.primary && !usedFallback.current) {
       setSrc(computed.primary);
@@ -228,7 +233,6 @@ function StableBannerImage({
     }
   }, [computed.fallback, src]);
 
-  // small fade-in
   const imgRef = useRef<HTMLImageElement | null>(null);
   useLayoutEffect(() => {
     const el = imgRef.current;
@@ -237,7 +241,6 @@ function StableBannerImage({
     el.classList.remove("opacity-100");
     el.classList.add("opacity-0", "transition-opacity", "duration-500");
     if (el.complete) {
-      // cached
       requestAnimationFrame(done);
     } else {
       el.addEventListener("load", done, { once: true });
@@ -264,6 +267,75 @@ function StableBannerImage({
   );
 }
 
+/* ───────────────── Province slug patch (schema-correct) ───────────────── */
+/**
+ * Given a list of **site IDs**, fetch their province_id, then fetch the province slugs,
+ * and return a map: { siteId -> province_slug | null }.
+ */
+async function buildProvinceSlugMapForSites(siteIds: string[]) {
+  const out = new Map<string, string | null>();
+  if (!siteIds.length) return out;
+
+  // 1) Get sites → province_id
+  const { data: siteRows, error: siteErr } = await supabase
+    .from("sites")
+    .select("id, province_id")
+    .in("id", siteIds);
+
+  if (siteErr || !siteRows?.length) return out;
+
+  const bySiteId = new Map<string, number | null>();
+  const provinceIds = new Set<number>();
+  for (const r of siteRows as { id: string; province_id: number | null }[]) {
+    bySiteId.set(r.id, r.province_id ?? null);
+    if (r.province_id != null) provinceIds.add(r.province_id);
+  }
+
+  // 2) Get province slug for those province_ids
+  let slugByProvinceId = new Map<number, string>();
+  if (provinceIds.size > 0) {
+    const { data: provs } = await supabase
+      .from("provinces")
+      .select("id, slug")
+      .in("id", Array.from(provinceIds));
+    slugByProvinceId = new Map(
+      (provs || []).map((p: any) => [
+        p.id as number,
+        String(p.slug ?? "").trim(),
+      ])
+    );
+  }
+
+  // 3) Build final map
+  for (const id of siteIds) {
+    const pid = bySiteId.get(id);
+    const slug = pid != null ? slugByProvinceId.get(pid) ?? null : null;
+    out.set(id, slug && slug.length > 0 ? slug : null);
+  }
+  return out;
+}
+
+/**
+ * Ensure each site object has a province_slug (computed from province_id → provinces.slug).
+ * This mutates the input array for convenience.
+ */
+async function ensureProvinceSlugOnSites(sites: Site[]) {
+  const missing = sites.filter(
+    (s) => !s.province_slug || s.province_slug.trim() === ""
+  );
+  if (missing.length === 0) return;
+
+  const ids = missing.map((s) => s.id);
+  const slugMap = await buildProvinceSlugMapForSites(ids);
+
+  for (const s of sites) {
+    if (!s.province_slug || s.province_slug.trim() === "") {
+      s.province_slug = slugMap.get(s.id) ?? null;
+    }
+  }
+}
+
+/* ───────────────────────────── Page ───────────────────────────── */
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -325,7 +397,6 @@ function ExplorePageContent() {
         radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 25,
       }));
 
-      // rewrite to canonical format (avoid duplicate replace)
       const canonical = new URLSearchParams();
       canonical.set("center", centerSiteId);
       canonical.set("clat", String(parsedLat));
@@ -363,7 +434,7 @@ function ExplorePageContent() {
     })();
   }, []);
 
-  /* Stable URL key for router sync (FIXES deps-size error) */
+  /* Stable URL key for router sync */
   const urlKey = useMemo(() => {
     const params = new URLSearchParams();
     if (filters.name) params.set("q", filters.name);
@@ -384,8 +455,8 @@ function ExplorePageContent() {
     return params.toString();
   }, [
     filters.name,
-    filters.categoryIds.join(","), // stable
-    filters.regionIds.join(","), // stable
+    filters.categoryIds.join(","),
+    filters.regionIds.join(","),
     filters.centerSiteId,
     filters.centerLat,
     filters.centerLng,
@@ -393,12 +464,10 @@ function ExplorePageContent() {
     page,
   ]);
 
-  /* Execute search button → push urlKey */
   const executeSearch = useCallback(() => {
     router.push(`/explore?${urlKey}`);
   }, [router, urlKey]);
 
-  /* Push URL whenever filters change (skip first mount & avoid infinite loop) */
   useEffect(() => {
     if (isInitialMount.current) return;
     const current = searchParams.toString();
@@ -451,7 +520,7 @@ function ExplorePageContent() {
     (async () => {
       setError(null);
       try {
-        // For headline and banner (top-right)
+        // Headline & banner in radius mode
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
           const { data: row, error: err } = await supabase
             .from("sites")
@@ -478,7 +547,6 @@ function ExplorePageContent() {
 
         /* ───── Radius mode ───── */
         if (hasRadius(nextFilters)) {
-          // 1) Get ALL nearby site ids with distances
           const radiusRows = await fetchSitesByFilters(nextFilters);
           let distanceOrdered = [...radiusRows].sort(
             (a: any, b: any) =>
@@ -488,7 +556,7 @@ function ExplorePageContent() {
 
           const allIds = distanceOrdered.map((r: any) => r.id);
 
-          // 2) Category *type* filter via the join table (public.site_categories)
+          // Category filter via join table
           if (allIds.length && nextFilters.categoryIds?.length) {
             const { data: pairs, error: joinErr } = await supabase
               .from("site_categories")
@@ -502,7 +570,7 @@ function ExplorePageContent() {
             );
           }
 
-          // 3) Heritage Type filter (if provided in Filters)
+          // Heritage type filter
           const selectedTypes = new Set(getSelectedTypes(nextFilters));
           if (allIds.length && selectedTypes.size > 0) {
             const { data: attrs } = await supabase
@@ -518,7 +586,7 @@ function ExplorePageContent() {
             });
           }
 
-          // 4) Paginate AFTER all filtering
+          // Paginate AFTER all filtering
           const total = distanceOrdered.length;
           const start = (currentPage - 1) * PAGE_SIZE;
           const end = start + PAGE_SIZE;
@@ -530,35 +598,24 @@ function ExplorePageContent() {
             return;
           }
 
-          // 5) Fetch display fields and merge the distance back
-          let details: any[] = [];
-          let detailsErr: any = null;
-          {
-            const { data, error } = await supabase
-              .from("sites")
-              .select(
-                "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count,category_id"
-              )
-              .in("id", ids);
-            details = (data || []) as any[];
-            detailsErr = error;
-          }
-          if (detailsErr) {
-            const { data, error } = await supabase
-              .from("sites")
-              .select(
-                "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
-              )
-              .in("id", ids);
-            if (error) throw error;
-            details = (data || []) as any[];
-          }
+          // Fetch display fields — include province_id (NOT category_id)
+          const { data: details, error: detailsErr } = await supabase
+            .from("sites")
+            .select(
+              "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
+            )
+            .in("id", ids);
+          if (detailsErr) throw detailsErr;
 
-          const byId = new Map<string, Site>(
-            details.map((d) => [d.id, d as Site])
-          );
+          // Compute province_slug for this page
+          await ensureProvinceSlugOnSites(details as Site[]);
+
           const distanceById = new Map<string, number | null>(
             pageRows.map((r: any) => [r.id, r.distance_km ?? null])
+          );
+
+          const byId = new Map<string, Site>(
+            (details as Site[]).map((d) => [d.id, d])
           );
 
           const ordered: Site[] = ids
@@ -585,8 +642,12 @@ function ExplorePageContent() {
         });
         if (rpcError) throw rpcError;
 
-        const sites = (data as Site[]) || [];
-        const total = data?.[0]?.total_count || 0;
+        const sites = ((data as any[]) || []) as Site[];
+        const total = (data as any[])?.[0]?.total_count || 0;
+
+        // Ensure province_slug is present for all sites shown on this page.
+        await ensureProvinceSlugOnSites(sites);
+
         setResults({ sites, total });
       } catch (e: any) {
         setError(e?.message || "Failed to load results");
@@ -647,25 +708,21 @@ function ExplorePageContent() {
 
     const imgs = Array.from(root.querySelectorAll("img"));
     for (const img of imgs) {
-      // initialize hidden state (only once)
       img.classList.add("opacity-0");
       img.classList.add("transition-opacity", "duration-500");
       const reveal = () => img.classList.add("opacity-100");
       if ((img as HTMLImageElement).complete) {
-        // cached image
         requestAnimationFrame(reveal);
       } else {
         img.addEventListener("load", reveal, { once: true });
       }
     }
-
-    // Cleanup listeners on re-render (safe since we used { once: true })
     return () => {
       for (const img of imgs) {
         img.classList.remove("transition-opacity", "duration-500", "opacity-0");
       }
     };
-  }, [results.sites]); // rerun when the list of cards changes
+  }, [results.sites]);
 
   /* ───────── Locked Radius Banner (with KM pill) ───────── */
   const CenterBanner = () =>
@@ -675,7 +732,6 @@ function ExplorePageContent() {
         aria-label="Locked radius location"
       >
         <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 flex items-center max-w-[360px]">
-          {/* Circular thumbnail (stable) */}
           <div className="relative w-14 h-14 flex-shrink-0">
             <StableBannerImage
               rawCover={centerSitePreview.cover}
@@ -683,8 +739,6 @@ function ExplorePageContent() {
               alt=""
             />
           </div>
-
-          {/* Text with KM pill */}
           <div className="min-w-0 pl-2">
             <div className="text-[11px] uppercase tracking-wider text-[var(--espresso-brown)]/70 flex items-center gap-1">
               <span>Sites within</span>
@@ -724,34 +778,6 @@ function ExplorePageContent() {
         }
       `}</style>
 
-      {/* Decorative motifs */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none">
-        <img
-          src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(2).png"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className="absolute top-1 left-1/2 -translate-x-20 transform w-[420px] md:w-[300px] opacity-30"
-          style={{ transform: "translateX(150%) rotate(-6deg)" }}
-        />
-        <img
-          src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
-          alt=""
-          aria-hidden={true}
-          draggable={false}
-          className="absolute top-120 -right-20 w-[360px] md:w-[250px] opacity-30"
-          style={{ transform: "rotate(8deg)" }}
-        />
-        <img
-          src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(3).png"
-          alt=""
-          aria-hidden={true}
-          draggable={false}
-          className="absolute bottom-10 left-50 w-[380px] md:w-[300px] opacity-25"
-          style={{ transform: "rotate(-4deg)" }}
-        />
-      </div>
-
       {/* Content */}
       <div className="relative z-10">
         <div className="lg:flex">
@@ -762,7 +788,6 @@ function ExplorePageContent() {
                 onFilterChange={handleFilterChange}
                 onSearch={executeSearch}
               />
-              {/* Show the selected site's location under the site name in the left card */}
               {hasRadius(filters) && centerSitePreview?.subtitle ? (
                 <div className="px-4 pb-3 pt-1 text-xs text-[var(--espresso-brown)]/80 border-t border-[var(--taupe-grey)]/30">
                   {centerSitePreview.subtitle}
@@ -772,7 +797,6 @@ function ExplorePageContent() {
           </aside>
 
           <main className="lg:ml-[380px] p-4 w-full">
-            {/* Right padding so H1 never collides with banner */}
             <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-0 mb-10 sm:mb-4 relative xl:pr-[260px]">
               <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
                 {headline}

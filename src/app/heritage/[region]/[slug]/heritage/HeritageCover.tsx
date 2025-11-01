@@ -1,4 +1,4 @@
-// src/app/heritage/[slug]/heritage/HeritageCover.tsx
+// src/app/heritage/[region]/[slug]/heritage/HeritageCover.tsx
 "use client";
 
 import Image from "next/image";
@@ -14,6 +14,7 @@ export default function HeritageCover({
   site: {
     id: string;
     slug: string;
+    province_slug: string; // ✅ required for new URL structure
     title: string;
     tagline?: string | null;
     cover_photo_url?: string | null;
@@ -183,7 +184,7 @@ export default function HeritageCover({
 
             {hasPhotoStory && (
               <a
-                href={`/heritage/${site.slug}/story`}
+                href={`/heritage/${site.province_slug}/${site.slug}/photo-story`} // ✅ new route
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-lg transition-colors self-start"

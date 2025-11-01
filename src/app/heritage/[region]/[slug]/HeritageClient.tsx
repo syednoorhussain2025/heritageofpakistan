@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import StickyHeader from "./heritage/StickyHeader";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
@@ -14,8 +14,8 @@ import { createPortal } from "react-dom";
 // ✅ Provider for collect hearts
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 
-// page-local imports from our new folder
-import { useHeritageData, Site } from "./heritage/heritagedata";
+// page-local imports from our heritage folder (RELATIVE paths)
+import { useHeritageData } from "./heritage/heritagedata";
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageSidebar from "./heritage/HeritageSidebar";
 import HeritageUpperArticle from "./heritage/HeritageUpperArticle";
@@ -34,9 +34,10 @@ import {
 import HeritageSection from "./heritage/HeritageSection";
 
 export default function HeritagePage() {
-  const params = useParams();
+  const params = useParams() as { region?: string; slug?: string };
   const searchParams = useSearchParams();
-  const slug = (params.slug as string) ?? "";
+  const region = params.region ?? ""; // available if you later need it
+  const slug = params.slug ?? "";
   const deepLinkNoteId = searchParams?.get("note") || null;
 
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
@@ -81,8 +82,6 @@ export default function HeritagePage() {
       alert("Link copied!");
     }
   }
-
-  const renderedCSL = useMemo(() => null, [bibliography, styleId]);
 
   return (
     // ✅ Everything below is wrapped so Heart portals inherit context
@@ -266,10 +265,10 @@ export default function HeritagePage() {
 
                 <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
 
-                {/* ⬇️ Moved Places Nearby ABOVE Photography & Content */}
+                {/* ⬇️ Places Nearby ABOVE Photography & Content */}
                 <HeritageNearby
                   siteId={site.id}
-                  siteTitle={site.title} // ✅ pass the title for dynamic section heading
+                  siteTitle={site.title}
                   lat={site.latitude ? Number(site.latitude) : null}
                   lng={site.longitude ? Number(site.longitude) : null}
                 />
@@ -318,7 +317,7 @@ export default function HeritagePage() {
           />
         )}
 
-        {/* Global style bits (keep shared vars here) */}
+        {/* Global style bits */}
         <style jsx global>{`
           :root {
             --sticky-offset: 72px;
@@ -337,8 +336,6 @@ export default function HeritagePage() {
           h4[id] {
             scroll-margin-top: var(--sticky-offset);
           }
-
-          /* NEW: caption layout so the heart sits left of text and stays centered */
           .reading-article figure > figcaption.cap-with-heart {
             display: inline-flex;
             align-items: center;
@@ -353,7 +350,7 @@ export default function HeritagePage() {
             [data-heart-slot] {
             display: inline-flex;
             align-items: center;
-            margin-right: 2px; /* tiny optical spacing */
+            margin-right: 2px;
             transform: translateY(1px);
           }
         `}</style>

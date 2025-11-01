@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/gallery/page.tsx
 "use client";
 
 import {
@@ -10,19 +11,19 @@ import {
 } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import Icon from "../../../../components/Icon";
-import { createClient } from "../../../../lib/supabaseClient";
+import Icon from "@/components/Icon";
+import { createClient } from "@/lib/supabaseClient";
 
 // Collections
-import { useCollections } from "../../../../components/CollectionsProvider";
-import CollectHeart from "../../../../components/CollectHeart";
-import AddToCollectionModal from "../../../../components/AddToCollectionModal";
+import { useCollections } from "@/components/CollectionsProvider";
+import CollectHeart from "@/components/CollectHeart";
+import AddToCollectionModal from "@/components/AddToCollectionModal";
 
 // Universal Lightbox
-import { Lightbox } from "../../../../components/ui/Lightbox";
-import type { LightboxPhoto } from "../../../../types/lightbox";
-import { getSiteGalleryPhotosForLightbox } from "../../../../lib/db/lightbox";
-import { useAuthUserId } from "../../../../hooks/useAuthUserId";
+import { Lightbox } from "@/components/ui/Lightbox";
+import type { LightboxPhoto } from "@/types/lightbox";
+import { getSiteGalleryPhotosForLightbox } from "@/lib/db/lightbox";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 /* ---------- Types ---------- */
 
@@ -70,18 +71,13 @@ function useNaturalRatio(
     }
 
     const img = new window.Image();
-    // Lower priority helps network contention in large grids
     (img as any).fetchPriority = "low";
     img.decoding = "async";
     img.onload = () => {
       if (cancelled) return;
       const w = img.naturalWidth || 0;
       const h = img.naturalHeight || 0;
-      if (w > 0 && h > 0) {
-        setRatio(w / h);
-      } else {
-        setRatio(undefined);
-      }
+      setRatio(w > 0 && h > 0 ? w / h : undefined);
       setReady(true);
     };
     img.onerror = () => {
@@ -156,7 +152,7 @@ function MasonryTile({
   const [visible, setVisible] = useState(false);
   const imgReadyRef = useRef(false);
 
-  // IntersectionObserver to only fade in when scrolled into view (optional but smooth)
+  // Fade-in only when in view and decoded
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -164,10 +160,7 @@ function MasonryTile({
       (entries) => {
         entries.forEach((e) => {
           if (e.isIntersecting) {
-            // Only show when both ratio is ready & image decoded
-            if (ratioReady && imgReadyRef.current) {
-              setVisible(true);
-            }
+            if (ratioReady && imgReadyRef.current) setVisible(true);
           }
         });
       },
@@ -193,7 +186,6 @@ function MasonryTile({
         onClick={onOpen}
         title="Open"
       >
-        {/* Lightweight skeleton stays until fade-in */}
         {!visible && (
           <div className="absolute inset-0 bg-gray-100 animate-pulse" />
         )}
@@ -206,16 +198,12 @@ function MasonryTile({
           className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
           loading="lazy"
           fetchPriority="low"
-          // Progressive placeholder if you store a tiny preview; safe fallback otherwise
           placeholder={(photo as any).blurDataURL ? "blur" : "empty"}
           blurDataURL={(photo as any).blurDataURL || undefined}
           onLoad={async (e) => {
-            // Ensure bitmap is decoded before we reveal
             try {
               const el = e.currentTarget as HTMLImageElement;
-              if ("decode" in el) {
-                await (el as any).decode?.();
-              }
+              if ("decode" in el) await (el as any).decode?.();
             } catch {
               /* ignore */
             } finally {
@@ -246,7 +234,6 @@ function MasonryTile({
 
 /* ---------- Skeletons ---------- */
 
-/** Compact header skeleton with wider tagline loader */
 function HeaderSkeleton() {
   return (
     <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
@@ -258,7 +245,6 @@ function HeaderSkeleton() {
             <div className="h-6 w-16 rounded-full bg-gray-200" />
           </div>
           <div className="mt-2 h-4 w-220 max-w-full rounded bg-gray-200" />
-          {/* Tagline: widened to better match real content */}
           <div className="mt-2 h-3 w-220 max-w-full rounded bg-gray-200" />
           <div className="mt-3 flex flex-wrap gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -271,7 +257,6 @@ function HeaderSkeleton() {
   );
 }
 
-/** Simple, uniform grid skeleton for photos (no masonry imitation) */
 function GridSkeleton() {
   const placeholders = Array.from({ length: 15 });
   return (
@@ -295,7 +280,8 @@ function GridSkeleton() {
 /* ---------- Page ---------- */
 
 export default function SiteGalleryPage() {
-  const params = useParams();
+  const params = useParams() as { region?: string; slug?: string };
+  // region param exists in the new route but we only need slug to load the site
   const slug = (params.slug as string) ?? "";
   const { userId: viewerId } = useAuthUserId();
   const { toggleCollect } = useCollections();
@@ -384,7 +370,7 @@ export default function SiteGalleryPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header: skeleton while loading, content when ready */}
+      {/* Header */}
       {loading ? (
         <HeaderSkeleton />
       ) : site ? (
@@ -397,9 +383,7 @@ export default function SiteGalleryPage() {
                 fill
                 className="object-cover"
                 sizes="112px"
-                // Above-the-fold avatar: prioritize for better LCP
                 priority
-                // Optional progressive placeholder if stored
                 placeholder={(site as any).cover_blurDataURL ? "blur" : "empty"}
                 blurDataURL={(site as any).cover_blurDataURL || undefined}
               />
@@ -451,7 +435,7 @@ export default function SiteGalleryPage() {
         </section>
       )}
 
-      {/* Photos grid: SIMPLE grid skeleton while loading; masonry when ready */}
+      {/* Photos grid */}
       {loading ? (
         <GridSkeleton />
       ) : (

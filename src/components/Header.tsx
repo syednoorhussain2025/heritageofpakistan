@@ -44,6 +44,8 @@ type Site = {
   slug: string;
   title: string;
   cover_photo_url?: string | null;
+  /** NEW: used to build /heritage/<province>/<slug> links */
+  province_slug?: string | null;
 };
 
 /* ---------- Utils ---------- */
@@ -77,11 +79,12 @@ export default function Header() {
   const pathname = usePathname();
   const supabase = createClient();
 
-  // Allow transparent-at-top ONLY for:
+  // Transparent-at-top allowed for:
   // 1) Home page: "/"
-  // 2) Listing pages: "/heritage/[slug]"
+  // 2) Heritage detail page (exact): /heritage/<province>/<slug>
+  const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
-    pathname === "/" || /^\/heritage\/[^/]+\/?$/.test(pathname || "");
+    pathname === "/" || heritageDetailRe.test(pathname || "");
 
   const [user, setUser] = useState<User | null>(null);
 
@@ -315,7 +318,7 @@ export default function Header() {
       setIsSearching(true);
       const { data } = await supabase
         .from("sites")
-        .select("id,slug,title,cover_photo_url")
+        .select("id,slug,title,cover_photo_url,province_slug") // ← include province_slug
         .ilike("title", `%${dq.trim()}%`)
         .order("created_at", { ascending: false })
         .limit(8);
@@ -520,7 +523,7 @@ export default function Header() {
                   {suggestions.map((s) => (
                     <Link
                       key={s.id}
-                      href={`/heritage/${s.slug}`}
+                      href={`/heritage/${s.province_slug ?? ""}/${s.slug}`}
                       className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
                       onClick={() => {
                         setOpenSuggest(false);
@@ -703,7 +706,6 @@ export default function Header() {
                 if (user?.user_metadata?.username) {
                   router.push(`/${user.user_metadata.username}/mytrips`);
                 } else if (user?.email) {
-                  // fallback if username isn't stored, use email slug
                   const safeSlug = user.email.split("@")[0];
                   router.push(`/${safeSlug}/mytrips`);
                 } else {

@@ -79,6 +79,9 @@ export type Site = {
   district?: string | null;
   province_id?: number | null;
 
+  // NEW for routing
+  province_slug?: string | null;
+
   // NEW: link to region guide
   region_travel_guide_id?: string | null;
 
@@ -277,35 +280,47 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
       try {
         setLoading(true);
 
-        const { data: s } = await supabase
+        // Pull site + province in one round-trip so we get province_slug for routing.
+        const { data: s, error: siteErr } = await supabase
           .from("sites")
           .select(
-            `*, history_layout_html, architecture_layout_html, climate_layout_html, custom_sections_json`
+            `
+            *,
+            history_layout_html,
+            architecture_layout_html,
+            climate_layout_html,
+            custom_sections_json,
+            province:provinces!sites_province_id_fkey ( name, slug )
+          `
           )
           .eq("slug", slug)
-          .single();
+          .maybeSingle();
 
+        if (siteErr) {
+          setSite(null);
+          setTravelGuideSummary(null);
+          setProvinceName(null);
+          return;
+        }
         if (!s) {
           setSite(null);
           setTravelGuideSummary(null);
+          setProvinceName(null);
           return;
         }
-        const siteData = s as Site;
+
+        // Normalize: attach province_slug on the site object for URL building.
+        const siteData: Site = {
+          ...(s as any),
+          province_slug: (s as any)?.province?.slug ?? null,
+        };
         setSite(siteData);
+
+        // Province name for sidebar/breadcrumbs
+        setProvinceName((s as any)?.province?.name ?? null);
 
         const style = await loadGlobalCitationStyle();
         setStyleId(style);
-
-        if (siteData.province_id) {
-          const { data: p } = await supabase
-            .from("provinces")
-            .select("name")
-            .eq("id", siteData.province_id)
-            .maybeSingle();
-          setProvinceName(p?.name ?? null);
-        } else {
-          setProvinceName(null);
-        }
 
         const { data: sc } = await supabase
           .from("site_categories")
@@ -369,7 +384,6 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
             .maybeSingle();
 
           if (tgs) {
-            // Strip the joined object; keep only summary fields
             const { region_travel_guides: _joined, ...summary } =
               (tgs as any) || {};
             setTravelGuideSummary(summary as TravelGuideSummary);
@@ -416,8 +430,8 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
   return {
     loading,
-    site,
-    provinceName,
+    site, // now includes site.province_slug
+    provinceName, // still exposed for UI
     categories,
     regions,
     gallery,

@@ -4,12 +4,14 @@ import Icon from "@/components/Icon";
 import React from "react";
 
 export default function HeritageGalleryLink({
+  provinceSlug, // NEW: pass province/region slug when you have it
   siteSlug,
   gallery,
   hasPhotoStory = true,
   /** Optional explicit cover for Photo Story; falls back to first gallery image */
   storyCoverUrl,
 }: {
+  provinceSlug?: string | null;
   siteSlug: string;
   gallery: ImageRow[];
   hasPhotoStory?: boolean;
@@ -18,6 +20,26 @@ export default function HeritageGalleryLink({
   const galleryHasImages = gallery && gallery.length > 0;
   const storyCover =
     storyCoverUrl ?? (galleryHasImages ? gallery[0]?.publicUrl ?? null : null);
+
+  // Fallback: derive province slug from current URL if not passed
+  const derivedProvince = React.useMemo(() => {
+    if (provinceSlug) return provinceSlug;
+    if (typeof window === "undefined") return null;
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    // expect: /heritage/<province>/<slug>(/…)
+    const idx = parts.indexOf("heritage");
+    if (idx >= 0 && parts.length > idx + 1) return parts[idx + 1] || null;
+    return null;
+  }, [provinceSlug]);
+
+  // Build routes safely
+  const galleryHref = derivedProvince
+    ? `/heritage/${derivedProvince}/${siteSlug}/gallery`
+    : `/heritage/${siteSlug}/gallery`; // last-resort fallback
+
+  const storyHref = derivedProvince
+    ? `/heritage/${derivedProvince}/${siteSlug}/photo-story`
+    : `/heritage/${siteSlug}/photo-story`; // last-resort fallback
 
   // mount flag to avoid SSR mismatch and to trigger entrance animation
   const [mounted, setMounted] = React.useState(false);
@@ -121,7 +143,7 @@ export default function HeritageGalleryLink({
 
             <div className="mt-4">
               <a
-                href={`/heritage/${siteSlug}/gallery`}
+                href={galleryHref}
                 className={[
                   "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
                   galleryHasImages
@@ -185,7 +207,7 @@ export default function HeritageGalleryLink({
 
             <div className="mt-4">
               <a
-                href={`/heritage/${siteSlug}/story`}
+                href={storyHref}
                 className={[
                   "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
                   hasPhotoStory
