@@ -303,6 +303,35 @@ export default function AdminListingsPage() {
 
   const sourceRows = tab === "active" ? rowsActive : rowsDeleted;
 
+  /* --------------------------------------------------------------------- */
+  /* Pagination helper to avoid 1000-row truncation with PostgREST         */
+  /* --------------------------------------------------------------------- */
+  async function fetchAllRowsPaged<T>(
+    table: string,
+    selectCols: string,
+    filterCol: string,
+    filterIds: string[],
+    pageSize = 1000
+  ): Promise<T[]> {
+    let from = 0;
+    const out: T[] = [];
+    for (;;) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(selectCols)
+        .in(filterCol, filterIds)
+        .order(filterCol, { ascending: true }) // stable chunks
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+      const chunk = (data as T[]) || [];
+      out.push(...chunk);
+      if (chunk.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  }
+
   // Aggregate fetch for indicators (no DB changes)
   useEffect(() => {
     const abort = new AbortController();
@@ -316,30 +345,29 @@ export default function AdminListingsPage() {
       try {
         const ids = sourceRows.map((r) => r.id);
 
-        // 1) Gallery rows from site_images
-        const { data: gData, error: gErr } = await supabase
-          .from(TABLES.gallery)
-          .select(
-            `${COLS.gallery.siteId}, ${COLS.gallery.alt}, ${COLS.gallery.caption}`
-          )
-          .in(COLS.gallery.siteId, ids);
-        if (gErr) throw gErr;
+        // 1) Gallery rows from site_images (paged)
+        const gData = await fetchAllRowsPaged<any>(
+          TABLES.gallery,
+          `${COLS.gallery.siteId}, ${COLS.gallery.alt}, ${COLS.gallery.caption}`,
+          COLS.gallery.siteId,
+          ids
+        );
 
-        // 2) Photo story items
-        const { data: sItems, error: sErr } = await supabase
-          .from(TABLES.photoStoryItems)
-          .select(
-            `${COLS.storyItems.siteId}, ${COLS.storyItems.image}, ${COLS.storyItems.text}`
-          )
-          .in(COLS.storyItems.siteId, ids);
-        if (sErr) throw sErr;
+        // 2) Photo story items (paged)
+        const sItems = await fetchAllRowsPaged<any>(
+          TABLES.photoStoryItems,
+          `${COLS.storyItems.siteId}, ${COLS.storyItems.image}, ${COLS.storyItems.text}`,
+          COLS.storyItems.siteId,
+          ids
+        );
 
-        // 3) Bibliography links count
-        const { data: bData, error: bErr } = await supabase
-          .from(TABLES.bibliographyLink)
-          .select(`${COLS.biblio.listingId}`)
-          .in(COLS.biblio.listingId, ids);
-        if (bErr) throw bErr;
+        // 3) Bibliography links (paged)
+        const bData = await fetchAllRowsPaged<any>(
+          TABLES.bibliographyLink,
+          `${COLS.biblio.listingId}`,
+          COLS.biblio.listingId,
+          ids
+        );
 
         // Group to maps
         const galleryBySite = new Map<
