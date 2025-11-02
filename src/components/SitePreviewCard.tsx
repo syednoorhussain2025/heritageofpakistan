@@ -4,18 +4,18 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
-import { supabase } from "@/lib/supabaseClient"; // ← kept for lat/lng fallback
-import { buildPlacesNearbyURL } from "@/lib/placesNearby"; // ← centralized helper
+import { supabase } from "@/lib/supabaseClient";
+import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 
 type Site = {
   id: string;
   slug: string;
-  /** NEW: province slug for province-aware route */
   province_slug?: string | null;
   title: string;
   cover_photo_url?: string | null;
@@ -48,19 +48,10 @@ function fmtKm(v?: number | null) {
   return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
 }
 
-function transformedUrl(url?: string | null, w = 800, q = 85) {
-  if (!url) return "";
-  const marker = "/storage/v1/object/public/";
-  if (!url.includes(marker)) return url;
-  const [origin] = url.split(marker);
-  const tail = url.split(marker)[1];
-  const h = Math.round(w * (2 / 3));
-  const u = new URL(`${origin}/storage/v1/render/image/public/${tail}`);
-  u.searchParams.set("width", String(w));
-  u.searchParams.set("height", String(h));
-  u.searchParams.set("resize", "cover");
-  u.searchParams.set("quality", String(q));
-  return u.toString();
+/** Round to a step to avoid tiny resizes that cause shimmer. */
+function roundToStep(n: number, step = 40, min = 280, max = 800) {
+  const clamped = Math.max(min, Math.min(max, n));
+  return Math.round(clamped / step) * step;
 }
 
 function Portal({ children }: { children: React.ReactNode }) {
@@ -88,41 +79,43 @@ export default function SitePreviewCard({
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
 
-  // Build province-aware detail href with safe fallback to legacy
   const detailHref =
-    site.province_slug && site.province_slug.length > 0
+    site.province_slug && site.province_slug?.length
       ? `/heritage/${site.province_slug}/${site.slug}`
       : `/heritage/${site.slug}`;
 
-  // Image setup
-  const original = site.cover_photo_url || "";
-  const transformed = transformedUrl(original);
-  const [imgSrc, setImgSrc] = useState<string>(
-    () => transformed || original || FALLBACK_SVG
-  );
-  const triedOriginalRef = useRef(false);
+  /* ---------- Image sizing for accurate 'sizes' ---------- */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerW, setContainerW] = useState<number>(384);
 
   useEffect(() => {
-    const orig = site.cover_photo_url || "";
-    const trans = transformedUrl(orig);
-    triedOriginalRef.current = false;
-    setImgSrc(trans || orig || FALLBACK_SVG);
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0) setContainerW(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const baseW = roundToStep(containerW, 40, 280, 800);
+
+  // We keep a tiny placeholder to avoid layout thrash on slow networks
+  const [src, setSrc] = useState<string>(site.cover_photo_url || FALLBACK_SVG);
+  useEffect(() => {
+    setSrc(site.cover_photo_url || FALLBACK_SVG);
   }, [site.cover_photo_url]);
 
-  const handleImgError = () => {
-    if (!triedOriginalRef.current && original && imgSrc !== original) {
-      triedOriginalRef.current = true;
-      setImgSrc(original);
-      return;
-    }
-    setImgSrc(FALLBACK_SVG);
-  };
+  const [broken, setBroken] = useState(false);
 
   const hasDistance =
     site.distance_km != null && !Number.isNaN(site.distance_km);
   const distanceLabel = fmtKm(site.distance_km ?? null);
 
-  /* ---------- Places Nearby Action (centralized via helper) ---------- */
+  /* ---------- Places Nearby ---------- */
   const handlePlacesNearby = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -130,7 +123,6 @@ export default function SitePreviewCard({
     let lat = site.latitude;
     let lng = site.longitude;
 
-    // If lat/lng not provided on card, fetch once from Supabase
     if ((lat == null || lng == null) && site.id) {
       try {
         const { data, error } = await supabase
@@ -154,7 +146,6 @@ export default function SitePreviewCard({
       return;
     }
 
-    // Build the canonical URL with correct param keys: center, clat, clng, rkm
     const href = buildPlacesNearbyURL({
       siteId: site.id,
       lat,
@@ -184,18 +175,22 @@ export default function SitePreviewCard({
       )}
 
       <Link href={detailHref} className="group block" prefetch={false}>
-        <div className="relative">
-          {/* Image */}
-          <img
-            src={imgSrc}
-            alt={site.title}
-            width={800}
-            height={533}
-            className="block w-full aspect-[3/2] object-cover"
-            loading="lazy"
-            decoding="async"
-            onError={handleImgError}
-          />
+        <div className="relative" ref={containerRef}>
+          {/* Image (Next/Image picks the closest width & DPR to kill aliasing) */}
+          <div className="relative aspect-[3/2] w-full">
+            <Image
+              src={broken ? FALLBACK_SVG : src}
+              alt={site.title}
+              fill
+              // Tell Next the real render width so it chooses the right file
+              sizes={`${baseW}px`}
+              className="object-cover"
+              onError={() => setBroken(true)}
+              priority={false}
+              // These hints often reduce blur on Chrome without harming Safari/Firefox
+              style={{ imageRendering: "auto" }}
+            />
+          </div>
 
           {/* Heritage type chip */}
           {site.heritage_type && (

@@ -1616,7 +1616,7 @@ function ListingForm({
   );
 }
 
-/* CoverUploader */
+/* CoverUploader: opens a modal to choose/upload/delete covers (covers/<siteId>) */
 function CoverUploader({
   value,
   onChange,
@@ -1628,32 +1628,287 @@ function CoverUploader({
   siteId: string | number;
   showPreview?: boolean;
 }) {
-  async function handle(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const key = `covers/${siteId}/${Date.now()}-${f.name}`;
-    const { error } = await supabase.storage
-      .from("site-images")
-      .upload(key, f, { upsert: false });
-    if (error) return alert(error.message);
-    const url = await publicUrl("site-images", key);
-    onChange(url);
-  }
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="flex items-center gap-4">
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handle}
-        className="text-sm text-gray-700 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500"
+    <>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
+        >
+          Choose File
+        </button>
+        {showPreview && value ? (
+          <img
+            src={value}
+            className="h-14 w-14 object-cover rounded-xl"
+            alt="Cover preview"
+          />
+        ) : null}
+      </div>
+
+      <CoverLibraryModal
+        siteId={String(siteId)}
+        open={open}
+        currentUrl={value ?? null}
+        onClose={() => setOpen(false)}
+        onPick={(img) => {
+          onChange(img.url);
+          setOpen(false);
+        }}
       />
-      {showPreview && value ? (
-        <img
-          src={value}
-          className="h-14 w-14 object-cover rounded-xl"
-          alt="Cover preview"
-        />
-      ) : null}
+    </>
+  );
+}
+
+/* -------- Cover library modal (outside click closes) -------- */
+
+type LibraryImage = {
+  key: string; // storage key
+  url: string; // public URL
+  name: string;
+  size?: number | null;
+  created_at?: string | null;
+};
+
+function CoverLibraryModal({
+  siteId,
+  open,
+  currentUrl,
+  onClose,
+  onPick,
+}: {
+  siteId: string;
+  open: boolean;
+  currentUrl: string | null;
+  onClose: () => void;
+  onPick: (img: LibraryImage) => void;
+}) {
+  const BUCKET = "site-images";
+  const PATH = `covers/${siteId}`;
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!open) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .list(PATH, { limit: 1000, offset: 0 });
+      if (error) throw error;
+
+      const rows = data ?? [];
+      const mapped: LibraryImage[] = await Promise.all(
+        rows
+          .filter((r) => !r.name.endsWith("/"))
+          .map(async (r) => {
+            const key = `${PATH}/${r.name}`;
+            const url = await publicUrl(BUCKET, key);
+            return {
+              key,
+              url,
+              name: r.name,
+              size: (r as any).metadata?.size ?? null,
+              created_at: (r as any).created_at ?? null,
+            };
+          })
+      );
+
+      mapped.sort(
+        (a, b) =>
+          (b.created_at || "").localeCompare(a.created_at || "") ||
+          b.name.localeCompare(a.name)
+      );
+      setImages(mapped);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load cover images.");
+    } finally {
+      setLoading(false);
+    }
+  }, [BUCKET, PATH, open]);
+
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+
+  async function onUpload(files?: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const queue = Array.from(files).filter((f) =>
+        f.type.startsWith("image/")
+      );
+      for (const f of queue) {
+        const key = `${PATH}/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}-${f.name.replace(/\s+/g, "-")}`;
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(key, f, { upsert: false, cacheControl: "3600" });
+        if (error) throw error;
+      }
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert("Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteOne(key: string) {
+    if (!confirm("Delete this image permanently?")) return;
+    try {
+      const { error } = await supabase.storage.from(BUCKET).remove([key]);
+      if (error) throw error;
+      setImages((prev) => prev.filter((x) => x.key !== key));
+    } catch (e) {
+      console.error(e);
+      alert("Delete failed.");
+    }
+  }
+
+  async function deleteAll() {
+    if (!images.length) return;
+    if (
+      !confirm(
+        `Delete ALL ${images.length} cover images for this site permanently? This cannot be undone.`
+      )
+    )
+      return;
+    try {
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .remove(images.map((x) => x.key));
+      if (error) throw error;
+      setImages([]);
+    } catch (e) {
+      console.error(e);
+      alert("Bulk delete failed.");
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white w-full max-w-5xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="font-semibold text-gray-900">Cover Photos</div>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => onUpload(e.currentTarget.files)}
+                className="hidden"
+                id="cover-upload-input"
+              />
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
+                onClick={() =>
+                  document.getElementById("cover-upload-input")?.click()
+                }
+                disabled={uploading}
+              >
+                {uploading ? "Uploading…" : "Upload images"}
+              </button>
+            </label>
+
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              onClick={deleteAll}
+              disabled={!images.length}
+            >
+              Delete all
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="text-sm text-gray-600">Loading covers…</div>
+          ) : images.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              No cover photos yet. Use “Upload images” to add some.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-start gap-3">
+              {images.map((img) => {
+                const isCurrent = currentUrl && img.url === currentUrl;
+                return (
+                  <div
+                    key={img.key}
+                    className={`relative rounded-lg border ${
+                      isCurrent ? "border-indigo-500" : "border-gray-200"
+                    } bg-white overflow-hidden`}
+                    onClick={() => {
+                      if (!isCurrent) onPick(img);
+                    }}
+                    role="button"
+                    aria-disabled={isCurrent}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.name}
+                      className={`h-44 w-auto object-cover block ${
+                        isCurrent
+                          ? "opacity-90"
+                          : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition"
+                      }`}
+                      draggable={false}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
+                      <div className="truncate">{img.name}</div>
+                    </div>
+                    {isCurrent ? (
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-600 text-white">
+                        Current cover
+                      </div>
+                    ) : null}
+                    <div className="absolute top-2 right-2">
+                      <button
+                        className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteOne(img.key);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -34,6 +34,14 @@ type PhotoStoryItemRow = {
   updated_at?: string | null;
 };
 
+type LibraryImage = {
+  key: string; // storage key
+  url: string; // public URL
+  name: string;
+  size?: number | null;
+  created_at?: string | null;
+};
+
 /* ------------------------------------------------------------------ */
 /* Small UI helpers                                                    */
 /* ------------------------------------------------------------------ */
@@ -252,6 +260,567 @@ function buildCsvTemplate(): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Shared: staged progress helper                                      */
+/* ------------------------------------------------------------------ */
+
+function useRafProgress(active: boolean) {
+  const [p, setP] = useState(0);
+  const rafRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!active) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      setP(0);
+      return;
+    }
+    let val = 0;
+    const tick = () => {
+      val = Math.min(95, val + 0.8 + Math.random() * 0.6);
+      setP(val);
+      rafRef.current = requestAnimationFrame(tick as any);
+    };
+    rafRef.current = requestAnimationFrame(tick as any);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      setP(0);
+    };
+  }, [active]);
+  return [p, setP] as const;
+}
+
+/* ------------------------------------------------------------------ */
+/* Photo Library (story/<site>)                                       */
+/* ------------------------------------------------------------------ */
+
+function PhotoLibraryModal({
+  siteId,
+  open,
+  onClose,
+  onPick,
+  usedUrls,
+}: {
+  siteId: UUID;
+  open: boolean;
+  onClose: () => void;
+  onPick: (img: LibraryImage) => void;
+  usedUrls: string[];
+}) {
+  const PATH = `story/${siteId}`;
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useRafProgress(uploading);
+
+  const usedSet = useMemo(() => new Set(usedUrls.filter(Boolean)), [usedUrls]);
+
+  const refresh = useCallback(async () => {
+    if (!open) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("photo-story")
+        .list(PATH, { limit: 1000, offset: 0 });
+      if (error) throw error;
+      const rows = data ?? [];
+      const mapped: LibraryImage[] = await Promise.all(
+        rows
+          .filter((r) => !r.name.endsWith("/"))
+          .map(async (r) => {
+            const key = `${PATH}/${r.name}`;
+            const url = await publicUrl("photo-story", key);
+            return {
+              key,
+              url,
+              name: r.name,
+              size: (r as any).metadata?.size ?? null,
+              created_at: (r as any).created_at ?? null,
+            };
+          })
+      );
+      mapped.sort(
+        (a, b) =>
+          (b.created_at || "").localeCompare(a.created_at || "") ||
+          b.name.localeCompare(a.name)
+      );
+      setImages(mapped);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load photo library.");
+    } finally {
+      setLoading(false);
+    }
+  }, [PATH, open]);
+
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+
+  async function onUpload(files?: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const queue = Array.from(files);
+      const workers = 3;
+      let idx = 0;
+
+      async function work() {
+        while (idx < queue.length) {
+          const f = queue[idx++];
+          if (!f.type.startsWith("image/")) continue;
+          const key = uniqueKey("story", siteId, f.name);
+          const { error } = await supabase.storage
+            .from("photo-story")
+            .upload(key, f, { upsert: false, cacheControl: "3600" });
+          if (error) throw error;
+        }
+      }
+      await Promise.all(Array.from({ length: workers }, work));
+      setProgress(100);
+      await new Promise((r) => setTimeout(r, 400));
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert("Upload failed.");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  }
+
+  async function deleteOne(key: string) {
+    if (!confirm("Delete this image permanently?")) return;
+    try {
+      const { error } = await supabase.storage
+        .from("photo-story")
+        .remove([key]);
+      if (error) throw error;
+      setImages((prev) => prev.filter((x) => x.key !== key));
+    } catch (e) {
+      console.error(e);
+      alert("Delete failed.");
+    }
+  }
+
+  async function deleteAll() {
+    if (!images.length) return;
+    if (
+      !confirm(
+        `Delete ALL ${images.length} images for this site permanently? This cannot be undone.`
+      )
+    )
+      return;
+    try {
+      const { error } = await supabase.storage
+        .from("photo-story")
+        .remove(images.map((x) => x.key));
+      if (error) throw error;
+      setImages([]);
+    } catch (e) {
+      console.error(e);
+      alert("Bulk delete failed.");
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white w-full max-w-6xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="font-semibold text-gray-900">Photo Story Library</div>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => onUpload(e.currentTarget.files)}
+                className="hidden"
+                id="ps-upload-input"
+              />
+              <Btn
+                className="bg-indigo-600 text-white hover:bg-indigo-500"
+                onClick={() =>
+                  document.getElementById("ps-upload-input")?.click()
+                }
+              >
+                Upload images
+              </Btn>
+            </label>
+
+            <Btn
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              onClick={deleteAll}
+              disabled={!images.length}
+            >
+              Delete all
+            </Btn>
+            <Btn
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              onClick={onClose}
+            >
+              Close
+            </Btn>
+          </div>
+        </div>
+
+        {uploading ? (
+          <div className="px-4 pt-3">
+            <div className="h-2 w-full bg-gray-100 rounded">
+              <div
+                className="h-2 rounded bg-emerald-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="px-1 py-2 text-xs text-gray-500">
+              Uploading images… {Math.round(progress)}%
+            </div>
+          </div>
+        ) : null}
+
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="text-sm text-gray-600">Loading photos…</div>
+          ) : images.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              No photos yet. Use “Upload images” to add some.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-start gap-3">
+              {images.map((img) => {
+                const isUsed = usedSet.has(img.url);
+                return (
+                  <div
+                    key={img.key}
+                    className={`relative rounded-lg border ${
+                      isUsed ? "border-indigo-500" : "border-gray-200"
+                    } bg-white overflow-hidden`}
+                    onClick={() => {
+                      if (!isUsed) onPick(img);
+                    }}
+                    role="button"
+                    aria-disabled={isUsed}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.name}
+                      className={`h-44 w-auto object-cover block ${
+                        isUsed
+                          ? "opacity-90"
+                          : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition"
+                      }`}
+                      draggable={false}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
+                      <div className="truncate">{img.name}</div>
+                    </div>
+                    {isUsed ? (
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-600 text-white">
+                        Already selected
+                      </div>
+                    ) : null}
+                    <div className="absolute top-2 right-2">
+                      <button
+                        className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteOne(img.key);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero Cover Library (story-hero/<site>)                              */
+/* ------------------------------------------------------------------ */
+
+function HeroCoverLibraryModal({
+  siteId,
+  open,
+  currentUrl,
+  onClose,
+  onPick,
+  onClearedCurrent,
+}: {
+  siteId: UUID;
+  open: boolean;
+  currentUrl: string | null;
+  onClose: () => void;
+  onPick: (img: LibraryImage) => void;
+  onClearedCurrent: () => void;
+}) {
+  const PATH = `story-hero/${siteId}`;
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useRafProgress(uploading);
+
+  const refresh = useCallback(async () => {
+    if (!open) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("photo-story")
+        .list(PATH, { limit: 1000, offset: 0 });
+      if (error) throw error;
+      const rows = data ?? [];
+      const mapped: LibraryImage[] = await Promise.all(
+        rows
+          .filter((r) => !r.name.endsWith("/"))
+          .map(async (r) => {
+            const key = `${PATH}/${r.name}`;
+            const url = await publicUrl("photo-story", key);
+            return {
+              key,
+              url,
+              name: r.name,
+              size: (r as any).metadata?.size ?? null,
+              created_at: (r as any).created_at ?? null,
+            };
+          })
+      );
+      mapped.sort(
+        (a, b) =>
+          (b.created_at || "").localeCompare(a.created_at || "") ||
+          b.name.localeCompare(a.name)
+      );
+      setImages(mapped);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load cover library.");
+    } finally {
+      setLoading(false);
+    }
+  }, [PATH, open]);
+
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+
+  async function onUpload(files?: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const queue = Array.from(files);
+      const workers = 3;
+      let idx = 0;
+
+      async function work() {
+        while (idx < queue.length) {
+          const f = queue[idx++];
+          if (!f.type.startsWith("image/")) continue;
+          const key = uniqueKey("story-hero", siteId, f.name);
+          const { error } = await supabase.storage
+            .from("photo-story")
+            .upload(key, f, { upsert: false, cacheControl: "3600" });
+          if (error) throw error;
+        }
+      }
+      await Promise.all(Array.from({ length: workers }, work));
+      setProgress(100);
+      await new Promise((r) => setTimeout(r, 400));
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      alert("Upload failed.");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  }
+
+  async function deleteOne(key: string) {
+    if (!confirm("Delete this cover permanently?")) return;
+    try {
+      const { error } = await supabase.storage
+        .from("photo-story")
+        .remove([key]);
+      if (error) throw error;
+
+      setImages((prev) => prev.filter((x) => x.key !== key));
+
+      const deletedUrl = await publicUrl("photo-story", key);
+      if (currentUrl && deletedUrl === currentUrl) {
+        onClearedCurrent();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Delete failed.");
+    }
+  }
+
+  async function deleteAll() {
+    if (!images.length) return;
+    if (
+      !confirm(
+        `Delete ALL ${images.length} cover photos for this site permanently? This cannot be undone.`
+      )
+    )
+      return;
+    try {
+      const { error } = await supabase.storage
+        .from("photo-story")
+        .remove(images.map((x) => x.key));
+      if (error) throw error;
+      setImages([]);
+      if (currentUrl) onClearedCurrent();
+    } catch (e) {
+      console.error(e);
+      alert("Bulk delete failed.");
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[101] bg-black/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white w-full max-w-5xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="font-semibold text-gray-900">Hero Covers</div>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => onUpload(e.currentTarget.files)}
+                className="hidden"
+                id="hero-upload-input"
+              />
+              <Btn
+                className="bg-indigo-600 text-white hover:bg-indigo-500"
+                onClick={() =>
+                  document.getElementById("hero-upload-input")?.click()
+                }
+              >
+                Upload images
+              </Btn>
+            </label>
+            <Btn
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              onClick={deleteAll}
+              disabled={!images.length}
+            >
+              Delete all
+            </Btn>
+            <Btn
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              onClick={onClose}
+            >
+              Close
+            </Btn>
+          </div>
+        </div>
+
+        {uploading ? (
+          <div className="px-4 pt-3">
+            <div className="h-2 w-full bg-gray-100 rounded">
+              <div
+                className="h-2 rounded bg-emerald-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="px-1 py-2 text-xs text-gray-500">
+              Uploading images… {Math.round(progress)}%
+            </div>
+          </div>
+        ) : null}
+
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="text-sm text-gray-600">Loading covers…</div>
+          ) : images.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              No cover photos yet. Use “Upload images” to add some.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-start gap-3">
+              {images.map((img) => {
+                const isCurrent = currentUrl && img.url === currentUrl;
+                return (
+                  <div
+                    key={img.key}
+                    className={`relative rounded-lg border ${
+                      isCurrent ? "border-indigo-500" : "border-gray-200"
+                    } bg-white overflow-hidden`}
+                    onClick={() => {
+                      if (!isCurrent) onPick(img);
+                    }}
+                    role="button"
+                    aria-disabled={isCurrent}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.name}
+                      className={`h-44 w-auto object-cover block ${
+                        isCurrent
+                          ? "opacity-90"
+                          : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition"
+                      }`}
+                      draggable={false}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
+                      <div className="truncate">{img.name}</div>
+                    </div>
+                    {isCurrent ? (
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-600 text-white">
+                        Current cover
+                      </div>
+                    ) : null}
+                    <div className="absolute top-2 right-2">
+                      <button
+                        className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteOne(img.key);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -267,7 +836,7 @@ export default function PhotoStory({
   const siteUuid = useMemo(() => String(siteId ?? "").trim(), [siteId]);
 
   const [story, setStory] = useState<PhotoStoryRow>({
-    site_id: siteUuid,
+    site_id: siteUuid as UUID,
     hero_photo_url: null,
     subtitle: null,
   });
@@ -277,14 +846,16 @@ export default function PhotoStory({
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // CSV: cache last uploaded row
   const [lastCsvRow, setLastCsvRow] = useState<string[] | null>(null);
 
-  // Bulk add modal
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkCount, setBulkCount] = useState(3);
 
-  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryForIndex, setLibraryForIndex] = useState<number | null>(null);
+
+  const [heroOpen, setHeroOpen] = useState(false);
+
   const textSaveTimers = useRef<Record<string, any>>({});
 
   /* ----------------------------- Load ------------------------------ */
@@ -328,7 +899,7 @@ export default function PhotoStory({
 
         if (!cancelled) {
           setStory({
-            site_id: siteUuid,
+            site_id: siteUuid as UUID,
             hero_photo_url: ensured?.hero_photo_url ?? null,
             subtitle: ensured?.subtitle ?? null,
             created_at: ensured?.created_at ?? null,
@@ -395,7 +966,7 @@ export default function PhotoStory({
       ...prev,
       {
         id,
-        site_id: siteUuid,
+        site_id: siteUuid as UUID,
         image_url: "",
         text_block: "",
         sort_order: prev.length,
@@ -411,7 +982,7 @@ export default function PhotoStory({
         const next = [...prev];
         const newItem: PhotoStoryItemRow = {
           id,
-          site_id: siteUuid,
+          site_id: siteUuid as UUID,
           image_url: "",
           text_block: "",
           sort_order: afterIndex + 1,
@@ -445,116 +1016,11 @@ export default function PhotoStory({
     });
   }, []);
 
-  const onUploadItem = useCallback(
-    async (idx: number, file: File) => {
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        alert("Please select an image file.");
-        return;
-      }
-      try {
-        const current = items[idx];
-        if (!current) return;
+  const openLibraryFor = useCallback((index: number) => {
+    setLibraryForIndex(index);
+    setLibraryOpen(true);
+  }, []);
 
-        const key = uniqueKey("story", siteUuid, file.name);
-        const { error } = await supabase.storage
-          .from("photo-story")
-          .upload(key, file, { upsert: false, cacheControl: "3600" });
-        if (error) throw error;
-
-        const url = await publicUrl("photo-story", key);
-
-        setItems((prev) =>
-          prev.map((x, i) => (i === idx ? { ...x, image_url: url } : x))
-        );
-
-        await upsertSingleItem({
-          id: current.id,
-          site_id: siteUuid,
-          image_url: url,
-          text_block: current.text_block ?? null,
-          sort_order: idx,
-        });
-      } catch (e: any) {
-        console.error(e);
-        alert(e?.message || "Upload failed.");
-      }
-    },
-    [items, siteUuid]
-  );
-
-  const addBlockWithFile = useCallback(
-    async (file: File) => {
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        alert("Please select an image file.");
-        return;
-      }
-      const newId = addEmptyItem();
-      const newIndex = items.length;
-
-      try {
-        const key = uniqueKey("story", siteUuid, file.name);
-        const { error } = await supabase.storage
-          .from("photo-story")
-          .upload(key, file, { upsert: false, cacheControl: "3600" });
-        if (error) throw error;
-
-        const url = await publicUrl("photo-story", key);
-
-        setItems((prev) =>
-          prev.map((x, i) => (i === newIndex ? { ...x, image_url: url } : x))
-        );
-
-        await upsertSingleItem({
-          id: newId,
-          site_id: siteUuid,
-          image_url: url,
-          text_block: null,
-          sort_order: newIndex,
-        });
-      } catch (e: any) {
-        setItems((prev) => prev.filter((x) => x.id !== newId));
-        console.error(e);
-        alert(e?.message || "Upload failed.");
-      }
-    },
-    [addEmptyItem, items.length, siteUuid]
-  );
-
-  const onUploadHero = useCallback(
-    async (file: File | undefined | null) => {
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        alert("Please select an image file.");
-        return;
-      }
-      try {
-        const key = uniqueKey("story-hero", siteUuid, file.name);
-        const { error } = await supabase.storage
-          .from("photo-story")
-          .upload(key, file, { upsert: false, cacheControl: "3600" });
-        if (error) throw error;
-        const url = await publicUrl("photo-story", key);
-        setStory((prev) => ({ ...prev, hero_photo_url: url }));
-
-        await supabase.from("photo_stories").upsert(
-          {
-            site_id: siteUuid,
-            hero_photo_url: url,
-            subtitle: story.subtitle ?? null,
-          },
-          { onConflict: "site_id" }
-        );
-      } catch (e: any) {
-        console.error(e);
-        alert(e?.message || "Upload failed.");
-      }
-    },
-    [siteUuid, story.subtitle]
-  );
-
-  // Accept "photostory:save" events from the main page save/autosave
   const saveStory = useCallback(
     async (silent?: boolean) => {
       if (!siteUuid || !UUID_RX.test(siteUuid)) {
@@ -567,7 +1033,7 @@ export default function PhotoStory({
       try {
         const { error: sErr } = await supabase.from("photo_stories").upsert(
           {
-            site_id: siteUuid,
+            site_id: siteUuid as UUID,
             hero_photo_url: story.hero_photo_url ?? null,
             subtitle: (story.subtitle?.trim() || null) as string | null,
           },
@@ -578,7 +1044,7 @@ export default function PhotoStory({
         const normalized: PhotoStoryItemRow[] = items
           .map((x, i) => ({
             id: x.id,
-            site_id: siteUuid,
+            site_id: siteUuid as UUID,
             image_url: (x.image_url || "").trim(),
             text_block: (x.text_block ?? "") || null,
             sort_order: i,
@@ -714,7 +1180,6 @@ export default function PhotoStory({
             setBulkOpen(true);
           }}
         >
-          {/* grid/plus icon */}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path
               d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm11 0h2v-2h2v2h2v2h-2v2h-2v-2h-2v-2z"
@@ -735,7 +1200,6 @@ export default function PhotoStory({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         {/* -------------------- MAIN CONTENT CARD -------------------- */}
         <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 relative">
-          {/* Empty state: add placeholder (no file dialog) */}
           {items.length === 0 ? (
             <div className="py-10 grid place-items-center">
               <AddBlockButton onClick={() => addEmptyItem()} />
@@ -744,9 +1208,7 @@ export default function PhotoStory({
 
           {items.map((it, idx) => (
             <div key={it.id} className="relative mb-10">
-              {/* Block card */}
               <div className="border border-gray-200 rounded-xl overflow-hidden">
-                {/* Image area with hover group */}
                 <div className="relative w-full bg-gray-50 group">
                   {it.image_url ? (
                     <img
@@ -758,7 +1220,7 @@ export default function PhotoStory({
                     <div className="aspect-[16/9] w-full grid place-items-center bg-white">
                       <button
                         className="inline-flex items-center justify-center rounded-full h-14 w-14 bg-white border border-gray-300 text-gray-400 hover:text-emerald-600 hover:border-emerald-400 shadow-sm transition transform hover:scale-110"
-                        onClick={() => fileInputs.current[it.id!]?.click()}
+                        onClick={() => openLibraryFor(idx)}
                         title="Add photo to this block"
                         aria-label="Add photo to this block"
                       >
@@ -767,25 +1229,10 @@ export default function PhotoStory({
                     </div>
                   )}
 
-                  {/* Hidden input exists for EVERY block (fixes Change Image) */}
-                  <input
-                    ref={(el) => (fileInputs.current[it.id] = el)}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onUploadItem(idx, f);
-                      e.currentTarget.value = "";
-                    }}
-                  />
-
-                  {/* HOVER CONTROLS (top-right) */}
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition">
-                    {/* Change image */}
                     <CircleIconBtn
                       title={it.image_url ? "Change image" : "Add image"}
-                      onClick={() => fileInputs.current[it.id!]?.click()}
+                      onClick={() => openLibraryFor(idx)}
                     >
                       <svg
                         width="18"
@@ -806,7 +1253,6 @@ export default function PhotoStory({
                         />
                       </svg>
                     </CircleIconBtn>
-                    {/* Move up */}
                     <CircleIconBtn
                       title="Move up"
                       onClick={() => moveItem(idx, -1)}
@@ -819,7 +1265,6 @@ export default function PhotoStory({
                         />
                       </svg>
                     </CircleIconBtn>
-                    {/* Move down */}
                     <CircleIconBtn
                       title="Move down"
                       onClick={() => moveItem(idx, +1)}
@@ -832,7 +1277,6 @@ export default function PhotoStory({
                         />
                       </svg>
                     </CircleIconBtn>
-                    {/* Delete */}
                     <CircleIconBtn
                       title="Delete block"
                       onClick={() => removeItem(it.id)}
@@ -863,7 +1307,7 @@ export default function PhotoStory({
                       );
                       scheduleItemAutosave({
                         id,
-                        site_id: siteUuid,
+                        site_id: siteUuid as UUID,
                         image_url,
                         text_block: val || null,
                         sort_order: idx,
@@ -873,7 +1317,6 @@ export default function PhotoStory({
                 </div>
               </div>
 
-              {/* Seam-left add button → inserts placeholder after this block */}
               <button
                 type="button"
                 onClick={() => addEmptyItemAfter(idx)}
@@ -907,15 +1350,28 @@ export default function PhotoStory({
               </div>
             )}
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => onUploadHero(e.target.files?.[0])}
-              className="text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500"
-            />
+            <div className="flex items-center gap-2">
+              <Btn
+                className="bg-indigo-600 text-white hover:bg-indigo-500"
+                onClick={() => setHeroOpen(true)}
+              >
+                Choose image
+              </Btn>
+              {story.hero_photo_url ? (
+                <Btn
+                  className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  onClick={async () => {
+                    setStory((s) => ({ ...s, hero_photo_url: null }));
+                    await saveStory(true);
+                  }}
+                >
+                  Clear
+                </Btn>
+              ) : null}
+            </div>
           </Field>
 
-          {/* Subtitle (2 lines max) */}
+          {/* Subtitle */}
           <Field label="Subtitle (optional)">
             <textarea
               rows={2}
@@ -962,19 +1418,8 @@ export default function PhotoStory({
                   Apply to blocks
                 </Btn>
               </div>
-
-              {lastCsvRow ? (
-                <div className="mt-2 text-xs text-gray-500">
-                  Loaded {Math.min(lastCsvRow.length, 10)} column
-                  {Math.min(lastCsvRow.length, 10) === 1 ? "" : "s"} from CSV.
-                  Mapping: C1→Block 1, C2→Block 2, etc. Columns beyond 10 are
-                  ignored.
-                </div>
-              ) : null}
             </Field>
           </div>
-
-          {/* Save button removed; saves happen from main page or autosave */}
         </aside>
       </div>
 
@@ -1015,7 +1460,7 @@ export default function PhotoStory({
                     for (let i = 0; i < count; i++) {
                       base.push({
                         id: makeUUID(),
-                        site_id: siteUuid,
+                        site_id: siteUuid as UUID,
                         image_url: "",
                         text_block: "",
                         sort_order: base.length,
@@ -1033,12 +1478,87 @@ export default function PhotoStory({
           </div>
         </div>
       ) : null}
+
+      {/* Photo Story Library Modal */}
+      <PhotoLibraryModal
+        siteId={siteUuid as UUID}
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        usedUrls={items.map((i) => i.image_url)}
+        onPick={async (img) => {
+          if (libraryForIndex == null) return;
+          const idx = libraryForIndex;
+          const current = items[idx];
+          if (!current) return;
+
+          setItems((prev) =>
+            prev.map((x, i) => (i === idx ? { ...x, image_url: img.url } : x))
+          );
+
+          try {
+            await upsertSingleItem({
+              id: current.id,
+              site_id: siteUuid as UUID,
+              image_url: img.url,
+              text_block: current.text_block ?? null,
+              sort_order: idx,
+            });
+          } catch (e) {
+            console.error(e);
+            alert("Failed to save selected image.");
+          } finally {
+            setLibraryForIndex(null);
+            setLibraryOpen(false);
+          }
+        }}
+      />
+
+      {/* Hero Cover Library Modal */}
+      <HeroCoverLibraryModal
+        siteId={siteUuid as UUID}
+        open={heroOpen}
+        currentUrl={story.hero_photo_url}
+        onClose={() => setHeroOpen(false)}
+        onPick={async (img) => {
+          try {
+            setStory((s) => ({ ...s, hero_photo_url: img.url }));
+            await supabase.from("photo_stories").upsert(
+              {
+                site_id: siteUuid as UUID,
+                hero_photo_url: img.url,
+                subtitle: story.subtitle ?? null,
+              },
+              { onConflict: "site_id" }
+            );
+          } catch (e) {
+            console.error(e);
+            alert("Failed to set cover.");
+          } finally {
+            setHeroOpen(false);
+          }
+        }}
+        onClearedCurrent={async () => {
+          try {
+            setStory((s) => ({ ...s, hero_photo_url: null }));
+            await supabase.from("photo_stories").upsert(
+              {
+                site_id: siteUuid as UUID,
+                hero_photo_url: null,
+                subtitle: story.subtitle ?? null,
+              },
+              { onConflict: "site_id" }
+            );
+          } catch {
+            /* noop */
+          }
+        }}
+      />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Add Block Button (empty state primary action)                       */
+/* Add Block Button                                                    */
 /* ------------------------------------------------------------------ */
 
 function AddBlockButton({ onClick }: { onClick: () => void }) {

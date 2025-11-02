@@ -62,21 +62,23 @@ function getSelectedTypes(f: Filters): string[] {
 }
 
 /* ───────────────────────────── UI Skeleton ───────────────────────────── */
+/** Neutral, low-contrast skeleton: slate grays, softer rings. */
 const PreviewCardSkeleton = () => (
-  <div className="block rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-[var(--taupe-grey)]/60 animate-pulse">
+  <div className="block rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-slate-200 animate-pulse">
     <div className="relative">
-      <div className="w-full h-48 sm:h-52 bg-[var(--ivory-cream)]" />
+      {/* Darker gray to match background */}
+      <div className="w-full h-48 sm:h-52 bg-slate-200" />
       <div className="absolute inset-x-0 bottom-0 p-3">
-        <div className="h-6 bg-[var(--taupe-grey)]/40 rounded w-3/4 mb-2" />
-        <div className="h-4 bg-[var(--taupe-grey)]/30 rounded w-1/2" />
+        <div className="h-6 bg-slate-200 rounded w-3/4 mb-2" />
+        <div className="h-4 bg-slate-200/80 rounded w-1/2" />
       </div>
     </div>
     <div className="flex items-center justify-between px-4 py-3">
-      <div className="h-4 bg-[var(--taupe-grey)]/40 rounded w-1/3" />
+      <div className="h-4 bg-slate-200 rounded w-1/3" />
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-[var(--ivory-cream)]" />
-        <div className="w-8 h-8 rounded-full bg-[var(--ivory-cream)]" />
-        <div className="w-8 h-8 rounded-full bg-[var(--ivory-cream)]" />
+        <div className="w-8 h-8 rounded-full bg-slate-200" />
+        <div className="w-8 h-8 rounded-full bg-slate-200" />
+        <div className="w-8 h-8 rounded-full bg-slate-200" />
       </div>
     </div>
   </div>
@@ -219,8 +221,7 @@ function StableBannerImage({
     if (src !== computed.primary && !usedFallback.current) {
       setSrc(computed.primary);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computed.primary]);
+  }, [computed.primary, src]);
 
   const onError = useCallback(() => {
     if (
@@ -249,8 +250,9 @@ function StableBannerImage({
   }, [src]);
 
   if (!src) {
+    // Neutral fallback (darker gray to match)
     return (
-      <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />
+      <div className="w-14 h-14 rounded-full bg-slate-200 ring-1 ring-slate-200" />
     );
   }
 
@@ -261,22 +263,17 @@ function StableBannerImage({
       alt={alt}
       decoding="async"
       loading="lazy"
-      className={`w-14 h-14 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40 ${className}`}
+      className={`w-14 h-14 rounded-full object-cover ring-1 ring-slate-200 ${className}`}
       onError={onError}
     />
   );
 }
 
 /* ───────────────── Province slug patch (schema-correct) ───────────────── */
-/**
- * Given a list of **site IDs**, fetch their province_id, then fetch the province slugs,
- * and return a map: { siteId -> province_slug | null }.
- */
 async function buildProvinceSlugMapForSites(siteIds: string[]) {
   const out = new Map<string, string | null>();
   if (!siteIds.length) return out;
 
-  // 1) Get sites → province_id
   const { data: siteRows, error: siteErr } = await supabase
     .from("sites")
     .select("id, province_id")
@@ -291,7 +288,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
     if (r.province_id != null) provinceIds.add(r.province_id);
   }
 
-  // 2) Get province slug for those province_ids
   let slugByProvinceId = new Map<number, string>();
   if (provinceIds.size > 0) {
     const { data: provs } = await supabase
@@ -306,7 +302,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
     );
   }
 
-  // 3) Build final map
   for (const id of siteIds) {
     const pid = bySiteId.get(id);
     const slug = pid != null ? slugByProvinceId.get(pid) ?? null : null;
@@ -315,10 +310,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
   return out;
 }
 
-/**
- * Ensure each site object has a province_slug (computed from province_id → provinces.slug).
- * This mutates the input array for convenience.
- */
 async function ensureProvinceSlugOnSites(sites: Site[]) {
   const missing = sites.filter(
     (s) => !s.province_slug || s.province_slug.trim() === ""
@@ -339,7 +330,6 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isInitialMount = useRef(true);
 
   const [filters, setFilters] = useState<Filters>({
     name: "",
@@ -377,7 +367,7 @@ function ExplorePageContent() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  /* ───────── Detect Places Nearby deep-link ───────── */
+  /* Detect Places Nearby deep-link */
   useEffect(() => {
     const centerSiteId = searchParams.get("centerSiteId");
     const lat = searchParams.get("centerLat");
@@ -434,7 +424,7 @@ function ExplorePageContent() {
     })();
   }, []);
 
-  /* Stable URL key for router sync */
+  /* Stable URL key for search button */
   const urlKey = useMemo(() => {
     const params = new URLSearchParams();
     if (filters.name) params.set("q", filters.name);
@@ -467,14 +457,6 @@ function ExplorePageContent() {
   const executeSearch = useCallback(() => {
     router.push(`/explore?${urlKey}`);
   }, [router, urlKey]);
-
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    const current = searchParams.toString();
-    if (current !== urlKey) {
-      router.push(`/explore?${urlKey}`);
-    }
-  }, [urlKey, router, searchParams]);
 
   /* Read URL → fetch data + banner info */
   useEffect(() => {
@@ -545,7 +527,7 @@ function ExplorePageContent() {
           setCenterSitePreview(null);
         }
 
-        /* ───── Radius mode ───── */
+        /* Radius mode */
         if (hasRadius(nextFilters)) {
           const radiusRows = await fetchSitesByFilters(nextFilters);
           let distanceOrdered = [...radiusRows].sort(
@@ -598,7 +580,7 @@ function ExplorePageContent() {
             return;
           }
 
-          // Fetch display fields — include province_id (NOT category_id)
+          // Fetch display fields — include province_id
           const { data: details, error: detailsErr } = await supabase
             .from("sites")
             .select(
@@ -630,7 +612,7 @@ function ExplorePageContent() {
           return;
         }
 
-        /* ───── Non-radius mode ───── */
+        /* Non-radius mode */
         const orderQuery = "latest";
         const { data, error: rpcError } = await supabase.rpc("search_sites", {
           p_name_query: nameQuery.trim() || null,
@@ -645,15 +627,12 @@ function ExplorePageContent() {
         const sites = ((data as any[]) || []) as Site[];
         const total = (data as any[])?.[0]?.total_count || 0;
 
-        // Ensure province_slug is present for all sites shown on this page.
         await ensureProvinceSlugOnSites(sites);
-
         setResults({ sites, total });
       } catch (e: any) {
         setError(e?.message || "Failed to load results");
       } finally {
         setLoading(false);
-        isInitialMount.current = false;
       }
     })();
   }, [searchParams]);
@@ -666,6 +645,7 @@ function ExplorePageContent() {
   const navigatePage = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(newPage));
+    // Only this navigation changes page; no sync effect to fight it.
     router.push(`/explore?${params.toString()}`);
   };
 
@@ -700,7 +680,7 @@ function ExplorePageContent() {
     ]
   );
 
-  /* ───────── Fade-in for preview card images (event delegation) ───────── */
+  /* Fade-in for preview card images (event delegation) */
   const cardsRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const root = cardsRef.current;
@@ -724,14 +704,14 @@ function ExplorePageContent() {
     };
   }, [results.sites]);
 
-  /* ───────── Locked Radius Banner (with KM pill) ───────── */
+  /* Locked Radius Banner (with KM pill) */
   const CenterBanner = () =>
     hasRadius(filters) && centerSitePreview ? (
       <div
         className="hidden xl:flex items-center gap-3 absolute right-2 top-1"
         aria-label="Locked radius location"
       >
-        <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 flex items-center max-w-[360px]">
+        <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-slate-200 px-3 py-2 flex items-center max-w-[360px]">
           <div className="relative w-14 h-14 flex-shrink-0">
             <StableBannerImage
               rawCover={centerSitePreview.cover}
@@ -762,8 +742,8 @@ function ExplorePageContent() {
     ) : null;
 
   return (
-    <div className="relative min-h-screen bg-[var(--ivory-cream)]">
-      {/* Global palette */}
+    <div className="relative min-h-screen">
+      {/* Global palette + ensure no harsh outlines */}
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -776,20 +756,26 @@ function ExplorePageContent() {
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
         }
+        img,
+        video,
+        canvas,
+        iframe {
+          border: 0;
+        }
       `}</style>
 
       {/* Content */}
       <div className="relative z-10">
         <div className="lg:flex">
           <aside className="hidden lg:block w-[360px] fixed left-4 top-[88px] bottom-4 z-20">
-            <div className="h-full rounded-2xl bg-white shadow-2xl ring-1 ring-[var(--taupe-grey)] overflow-hidden flex flex-col">
+            <div className="h-full rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden flex flex-col">
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onSearch={executeSearch}
               />
               {hasRadius(filters) && centerSitePreview?.subtitle ? (
-                <div className="px-4 pb-3 pt-1 text-xs text-[var(--espresso-brown)]/80 border-t border-[var(--taupe-grey)]/30">
+                <div className="px-4 pb-3 pt-1 text-xs text-[var(--espresso-brown)]/80 border-t border-slate-200">
                   {centerSitePreview.subtitle}
                 </div>
               ) : null}
@@ -836,7 +822,7 @@ function ExplorePageContent() {
             {results.total > PAGE_SIZE && (
               <div className="flex items-center justify-center gap-3 mt-8">
                 <button
-                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-slate-200 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
                   onClick={() => navigatePage(page - 1)}
                   disabled={page <= 1}
                 >
@@ -848,7 +834,7 @@ function ExplorePageContent() {
                 </span>
 
                 <button
-                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-slate-200 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
                   onClick={() => navigatePage(page + 1)}
                   disabled={page >= totalPages}
                 >
@@ -865,9 +851,7 @@ function ExplorePageContent() {
 
 export default function ExplorePage() {
   return (
-    <Suspense
-      fallback={<div className="min-h-screen bg-[var(--ivory-cream)]" />}
-    >
+    <Suspense fallback={<div className="min-h-screen" />}>
       <ExplorePageContent />
     </Suspense>
   );
