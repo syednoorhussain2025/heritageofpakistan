@@ -10,13 +10,17 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
-import { supabase } from "@/lib/supabaseClient";
-import { buildPlacesNearbyURL } from "@/lib/placesNearby";
+import { supabase } from "@/lib/supabaseClient"; // ← kept for lat/lng fallback
+import { buildPlacesNearbyURL } from "@/lib/placesNearby"; // ← centralized helper
 
 type Site = {
   id: string;
   slug: string;
+  /** Primary key we want for province-aware route */
   province_slug?: string | null;
+  /** Some datasets may expose region as 'region_slug' or a string 'province' */
+  region_slug?: string | null; // optional, if present in your rows
+  province?: string | null; // optional, if present in your rows
   title: string;
   cover_photo_url?: string | null;
   location_free?: string | null;
@@ -54,6 +58,22 @@ function roundToStep(n: number, step = 40, min = 280, max = 800) {
   return Math.round(clamped / step) * step;
 }
 
+/** Optional: keep your Supabase transformer for non-Next/Image callers */
+function transformedUrl(url?: string | null, w = 800, q = 85) {
+  if (!url) return "";
+  const marker = "/storage/v1/object/public/";
+  if (!url.includes(marker)) return url;
+  const [origin] = url.split(marker);
+  const tail = url.split(marker)[1];
+  const h = Math.round(w * (2 / 3));
+  const u = new URL(`${origin}/storage/v1/render/image/public/${tail}`);
+  u.searchParams.set("width", String(w));
+  u.searchParams.set("height", String(h));
+  u.searchParams.set("resize", "cover");
+  u.searchParams.set("quality", String(q));
+  return u.toString();
+}
+
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -62,6 +82,23 @@ function Portal({ children }: { children: React.ReactNode }) {
   }, []);
   if (!mounted) return null;
   return createPortal(children, document.body);
+}
+
+/** Resolve the best available province/region slug field from the card data. */
+function resolveProvinceSlug(site: Site): string | null {
+  // Preferred field
+  if (site.province_slug && site.province_slug.trim().length > 0) {
+    return site.province_slug.trim();
+  }
+  // Alternate common naming
+  if (site.region_slug && site.region_slug.trim().length > 0) {
+    return site.region_slug.trim();
+  }
+  // Sometimes datasets carry a plain string 'province' that is already slugified
+  if (site.province && site.province.trim().length > 0) {
+    return site.province.trim();
+  }
+  return null;
 }
 
 /* ---------- Component ---------- */
@@ -79,43 +116,38 @@ export default function SitePreviewCard({
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
 
-  const detailHref =
-    site.province_slug && site.province_slug?.length
-      ? `/heritage/${site.province_slug}/${site.slug}`
-      : `/heritage/${site.slug}`;
+  // Build province-aware detail href with safe fallback to legacy
+  const regionSlug = resolveProvinceSlug(site);
+  const detailHref = regionSlug
+    ? `/heritage/${regionSlug}/${site.slug}`
+    : `/heritage/${site.slug}`;
 
-  /* ---------- Image sizing for accurate 'sizes' ---------- */
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerW, setContainerW] = useState<number>(384);
+  // Image src resolution
+  const original = site.cover_photo_url || "";
+  const [imgSrc, setImgSrc] = useState<string>(() => original || FALLBACK_SVG);
+  const triedOriginalRef = useRef(false);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = Math.round(entry.contentRect.width);
-        if (w > 0) setContainerW(w);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const baseW = roundToStep(containerW, 40, 280, 800);
-
-  // We keep a tiny placeholder to avoid layout thrash on slow networks
-  const [src, setSrc] = useState<string>(site.cover_photo_url || FALLBACK_SVG);
-  useEffect(() => {
-    setSrc(site.cover_photo_url || FALLBACK_SVG);
+    const orig = site.cover_photo_url || "";
+    triedOriginalRef.current = false;
+    setImgSrc(orig || FALLBACK_SVG);
   }, [site.cover_photo_url]);
 
-  const [broken, setBroken] = useState(false);
+  const handleImgError = () => {
+    // If original fails, fall back to SVG
+    if (!triedOriginalRef.current && original && imgSrc !== original) {
+      triedOriginalRef.current = true;
+      setImgSrc(original);
+      return;
+    }
+    setImgSrc(FALLBACK_SVG);
+  };
 
   const hasDistance =
     site.distance_km != null && !Number.isNaN(site.distance_km);
   const distanceLabel = fmtKm(site.distance_km ?? null);
 
-  /* ---------- Places Nearby ---------- */
+  /* ---------- Places Nearby Action (centralized via helper) ---------- */
   const handlePlacesNearby = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -123,6 +155,7 @@ export default function SitePreviewCard({
     let lat = site.latitude;
     let lng = site.longitude;
 
+    // If lat/lng not provided on card, fetch once from Supabase
     if ((lat == null || lng == null) && site.id) {
       try {
         const { data, error } = await supabase
@@ -146,6 +179,7 @@ export default function SitePreviewCard({
       return;
     }
 
+    // Build the canonical URL with correct param keys: center, clat, clng, rkm
     const href = buildPlacesNearbyURL({
       siteId: site.id,
       lat,
@@ -160,6 +194,26 @@ export default function SitePreviewCard({
       if (typeof window !== "undefined") window.location.assign(href);
     }
   };
+
+  /* ---------- Next/Image sizing logic ---------- */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerW, setContainerW] = useState<number>(384);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0) setContainerW(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Stabilize the declared width so the browser picks consistent srcset candidates
+  const baseW = roundToStep(containerW, 40, 280, 800);
 
   /* ---------- Render ---------- */
   return (
@@ -176,18 +230,17 @@ export default function SitePreviewCard({
 
       <Link href={detailHref} className="group block" prefetch={false}>
         <div className="relative" ref={containerRef}>
-          {/* Image (Next/Image picks the closest width & DPR to kill aliasing) */}
+          {/* Image (Next/Image with real render width via sizes) */}
           <div className="relative aspect-[3/2] w-full">
             <Image
-              src={broken ? FALLBACK_SVG : src}
+              src={imgSrc}
               alt={site.title}
               fill
-              // Tell Next the real render width so it chooses the right file
               sizes={`${baseW}px`}
               className="object-cover"
-              onError={() => setBroken(true)}
-              priority={false}
-              // These hints often reduce blur on Chrome without harming Safari/Firefox
+              loading="lazy"
+              onError={handleImgError}
+              // Keep default optimization. Hint Chrome to avoid over-sharpening artifacts.
               style={{ imageRendering: "auto" }}
             />
           </div>

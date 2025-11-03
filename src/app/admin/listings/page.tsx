@@ -15,13 +15,20 @@ const TABLES = {
   gallery: "site_images", // site_id, alt_text, caption
   photoStoryItems: "photo_story_items", // site_id, image_url, text_block
   bibliographyLink: "listing_bibliography", // listing_id
+  /** NEW: source of photo story cover URL */
+  photoStories: "photo_stories", // site_id, hero_photo_url
 } as const;
 
 const COLS = {
   gallery: { siteId: "site_id", alt: "alt_text", caption: "caption" },
   storyItems: { siteId: "site_id", image: "image_url", text: "text_block" },
   biblio: { listingId: "listing_id" },
+  /** NEW: columns for photo story cover */
+  photoStories: { siteId: "site_id", hero: "hero_photo_url" },
 } as const;
+
+/* ───────────────────────── Pagination config ───────────────────────── */
+const LIST_PAGE_SIZE = 30;
 
 /* =========================================================================
    TYPES
@@ -51,7 +58,18 @@ type FilterOption = { id: string; name: string };
 type Indicators = {
   cover: { ok: boolean; tip: string };
   gallery: { ok: boolean; count: number; tip: string };
-  story: { ok: boolean; count: number; tip: string };
+  story: {
+    ok: boolean;
+    mid: boolean;
+    /** For green state accessibility and legacy display */
+    count: number;
+    /** New dual counts for yellow state */
+    bucketCount: number;
+    blocksCount: number;
+    tip: string;
+  };
+  /** NEW: discrete indicator for Photo Story cover */
+  storyCover: { ok: boolean; count: number; tip: string };
   taxonomy: { ok: boolean; tip: string; catCount: number; regCount: number };
   biblio: { ok: boolean; count: number; tip: string };
   article: { ok: boolean; count: number; tip: string };
@@ -77,117 +95,55 @@ const CONTROL_H = "h-10"; // 40px: primary action/input heights
 const TOOL_H = "h-10"; // 40px: ALL compact controls in sorting card unified
 const BAR_MIN_H = "min-h-[56px]"; // aligns orange and blue bars’ container heights
 
-/* ───────────────────────── Tick/Cross with inline count ───────────────────────── */
+/* ───────────────────────── Tick/Cross with counts ─────────────────────────
+   - ok=true  -> green ✓ + (count)
+   - mid=true -> yellow ✓ + (bucketCount)(blocksCount)
+   - else     -> red ✗ + (count)
+------------------------------------------------------------------------------- */
 const TickCross = ({
   ok,
+  mid,
   count,
   title,
+  dual,
 }: {
   ok: boolean;
+  mid?: boolean;
   count: number;
   title: string;
+  /** Only used in yellow state: [bucketCount, blocksCount] */
+  dual?: [number, number];
 }) => {
-  const color = ok ? "text-emerald-600" : "text-red-600";
+  const color = ok
+    ? "text-emerald-600"
+    : mid
+    ? "text-yellow-500"
+    : "text-red-600";
+
+  const label = ok
+    ? `Complete (${count})`
+    : mid && dual
+    ? `In progress (bucket ${dual[0]})(blocks ${dual[1]})`
+    : `Missing (${count})`;
+
   return (
     <span
       className={`inline-flex items-center justify-center text-lg font-semibold cursor-pointer ${color} hover:underline decoration-2 decoration-current`}
       title={title}
-      aria-label={ok ? `Complete (${count})` : `Missing (${count})`}
+      aria-label={label}
     >
-      {ok ? "✓" : "✗"}
-      <span className={`ml-1 text-xs font-medium ${color}`}>({count})</span>
-    </span>
-  );
-};
-
-/* ───────────────────────── SearchableDropdown ───────────────────────── */
-const SearchableDropdown = ({
-  options,
-  value,
-  onChange,
-  placeholder,
-}: {
-  options: FilterOption[];
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const filteredOptions = useMemo(
-    () =>
-      options.filter((option) =>
-        option.name.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [options, searchTerm]
-  );
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find((opt) => opt.id === value);
-
-  return (
-    <div className="relative w-48" ref={dropdownRef}>
-      <button
-        type="button"
-        className={`w-full bg-white border border-slate-200 rounded-md px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-200 flex items-center justify-between leading-none ${TOOL_H}`}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="truncate">
-          {selectedOption ? selectedOption.name : placeholder}
-        </span>
-        {value ? (
-          <FaTimes
-            className="text-slate-400 hover:text-slate-600 shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange("");
-            }}
-          />
-        ) : (
-          <span className="text-slate-400">▾</span>
-        )}
-      </button>
-      {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full bg-slate-100 px-3 py-2 text-sm text-slate-800 border-b border-slate-200 focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <ul className="max-h-60 overflow-y-auto">
-            {filteredOptions.map((option) => (
-              <li
-                key={option.id}
-                className="px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 cursor-pointer"
-                onClick={() => {
-                  onChange(option.id);
-                  setIsOpen(false);
-                  setSearchTerm("");
-                }}
-              >
-                {option.name}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {ok ? "✓" : mid ? "✓" : "✗"}
+      {ok && <span className={`ml-1 text-xs font-medium ${color}`}>({count})</span>}
+      {mid && dual && (
+        <>
+          <span className={`ml-1 text-xs font-medium ${color}`}>({dual[0]})</span>
+          <span className={`ml-1 text-xs font-medium ${color}`}>({dual[1]})</span>
+        </>
       )}
-    </div>
+      {!ok && !mid && (
+        <span className={`ml-1 text-xs font-medium ${color}`}>({count})</span>
+      )}
+    </span>
   );
 };
 
@@ -209,6 +165,9 @@ export default function AdminListingsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
 
   // Filters (taxonomy)
   const [categories, setCategories] = useState<FilterOption[]>([]);
@@ -266,7 +225,7 @@ export default function AdminListingsPage() {
         ].join(", ")
       )
       .order("updated_at", { ascending: false })
-      .limit(400);
+      .limit(10000);
 
     const { data, error } = await query;
 
@@ -301,6 +260,24 @@ export default function AdminListingsPage() {
     loadFilters();
   }, []);
 
+  // Reset to page 1 whenever the result set shape changes
+  useEffect(() => {
+    setPage(1);
+  }, [
+    tab,
+    q,
+    selectedCategory,
+    selectedRegion,
+    fCover,
+    fGallery,
+    fStory,
+    fTaxonomy,
+    fBiblio,
+    fArticle,
+    sortBy,
+    cTab,
+  ]);
+
   const sourceRows = tab === "active" ? rowsActive : rowsDeleted;
 
   /* --------------------------------------------------------------------- */
@@ -320,7 +297,7 @@ export default function AdminListingsPage() {
         .from(table)
         .select(selectCols)
         .in(filterCol, filterIds)
-        .order(filterCol, { ascending: true }) // stable chunks
+        .order(filterCol, { ascending: true })
         .range(from, from + pageSize - 1);
 
       if (error) throw error;
@@ -330,6 +307,29 @@ export default function AdminListingsPage() {
       from += pageSize;
     }
     return out;
+  }
+
+  /* --------------------------------------------------------------------- */
+  /* Storage bucket helper for photo-story mid-stage                       */
+  /* --------------------------------------------------------------------- */
+  async function countPhotoStoryFromBucket(siteIds: string[]) {
+    const counts = new Map<string, number>();
+    for (const sid of siteIds) {
+      let total = 0;
+      const prefixes = [`story/${sid}`, `story-hero/${sid}`];
+      for (const prefix of prefixes) {
+        const { data, error } = await supabase.storage
+          .from("photo-story")
+          .list(prefix, { limit: 1000 });
+        if (!error && Array.isArray(data)) {
+          total += data.filter((f: any) =>
+            /\.(jpg|jpeg|png|webp|gif)$/i.test(f?.name || "")
+          ).length;
+        }
+      }
+      counts.set(sid, total);
+    }
+    return counts;
   }
 
   // Aggregate fetch for indicators (no DB changes)
@@ -368,6 +368,40 @@ export default function AdminListingsPage() {
           COLS.biblio.listingId,
           ids
         );
+
+        // 4) Mid-stage: count files inside storage buckets for each site
+        const bucketCounts = await countPhotoStoryFromBucket(ids);
+
+        // 5) NEW: Photo story cover detection
+        //    a) Try table photo_stories.hero_photo_url (preferred)
+        const psRows = await fetchAllRowsPaged<any>(
+          TABLES.photoStories,
+          `${COLS.photoStories.siteId}, ${COLS.photoStories.hero}`,
+          COLS.photoStories.siteId,
+          ids
+        );
+        const psCoverBySite = new Map<string, string | null>();
+        (psRows || []).forEach((row: any) => {
+          const sid = row[COLS.photoStories.siteId];
+          const hero = (row[COLS.photoStories.hero] as string | null) ?? null;
+          psCoverBySite.set(sid, hero);
+        });
+
+        //    b) Also check storage folder 'story-hero/{siteId}' (fallback)
+        const heroFromStorage = new Map<string, number>();
+        for (const sid of ids) {
+          const { data: heroFiles, error: heroErr } = await supabase.storage
+            .from("photo-story")
+            .list(`story-hero/${sid}`, { limit: 2 });
+          if (!heroErr && Array.isArray(heroFiles)) {
+            const imgCount = heroFiles.filter((f: any) =>
+              /\.(jpg|jpeg|png|webp|gif)$/i.test(f?.name || "")
+            ).length;
+            heroFromStorage.set(sid, imgCount);
+          } else {
+            heroFromStorage.set(sid, 0);
+          }
+        }
 
         // Group to maps
         const galleryBySite = new Map<
@@ -434,17 +468,54 @@ export default function AdminListingsPage() {
                 .filter(Boolean)
                 .join(" ");
 
+          // Photo Story: buckets vs table blocks
           const sRows = storyItemsBySite.get(r.id) || [];
-          const blocksValid = sRows.filter((x) => {
+          const validBlocks = sRows.filter((x) => {
             const hasImg = !!(x.image && String(x.image).trim().length > 0);
             const hasCaption = !!(x.text && String(x.text).trim().length > 0);
             return hasImg && hasCaption;
-          });
-          const sCount = blocksValid.length;
-          const sOk = sCount >= 10;
-          const sTip = sOk
-            ? `Photo Story OK. ${sCount} blocks have image and caption.`
-            : `Needs at least 10 Photo Story blocks with image and caption (currently ${sCount}).`;
+          }).length;
+
+          const bucketCount = bucketCounts.get(r.id) || 0;
+
+          // Decision tree:
+          // 1) Green: ≥10 valid story blocks (show block count)
+          // 2) Yellow (progress): <10 valid blocks and/or bucket-only presence
+          // 3) Red X(0): no bucket photos and no blocks
+          let sOk = false;
+          let sMid = false;
+          let sCountForDisplay = 0;
+          let sTip = "";
+
+          if (validBlocks >= 10) {
+            sOk = true;
+            sMid = false;
+            sCountForDisplay = validBlocks;
+            sTip = `Photo Story OK. ${validBlocks} blocks with image and caption.`;
+          } else if (validBlocks > 0 || bucketCount > 0) {
+            sOk = false;
+            sMid = true;
+            sCountForDisplay = validBlocks; // kept for a11y; UI will show dual
+            sTip =
+              validBlocks > 0
+                ? `Progress: storage ${bucketCount}, blocks ${validBlocks} (need ≥10 blocks).`
+                : `Images present in storage (${bucketCount}) but no Photo Story blocks yet. Create blocks with image + caption.`;
+          } else {
+            sOk = false;
+            sMid = false;
+            sCountForDisplay = 0;
+            sTip = `No images in bucket and no Photo Story blocks. Upload photos to the 'photo-story' bucket to begin.`;
+          }
+
+          // NEW: Photo Story Cover (table OR storage)
+          const heroUrl = psCoverBySite.get(r.id) ?? null;
+          const heroCountFromStorage = heroFromStorage.get(r.id) || 0;
+          const storyCoverOk =
+            !!(heroUrl && String(heroUrl).trim().length > 0) ||
+            heroCountFromStorage > 0;
+          const storyCoverTip = storyCoverOk
+            ? "Photo Story cover set."
+            : "Photo Story cover missing.";
 
           const catCount = r.site_categories?.length || 0;
           const regCount = r.site_regions?.length || 0;
@@ -477,14 +548,23 @@ export default function AdminListingsPage() {
           next[r.id] = {
             cover: { ok: coverOk, tip: coverTip },
             gallery: { ok: gOk, count: gCount, tip: gTip },
-            story: { ok: sOk, count: sCount, tip: sTip },
+            story: {
+              ok: sOk,
+              mid: sMid,
+              count: sCountForDisplay,
+              bucketCount,
+              blocksCount: validBlocks,
+              tip: sTip,
+            },
+            storyCover: { ok: storyCoverOk, count: storyCoverOk ? 1 : 0, tip: storyCoverTip },
             taxonomy: { ok: tOk, tip: tTip, catCount, regCount },
             biblio: { ok: bOk, count: bCount, tip: bTip },
             article: { ok: aOk, count: articleCount, tip: aTip },
           };
         }
 
-        if (!abort.signal.aborted) setIndicators(next);
+        if (!abort.signal.aborted)
+          setIndicators(next);
       } catch (e: any) {
         if (!abort.signal.aborted)
           setError(e.message || "Failed to load indicators.");
@@ -505,7 +585,7 @@ export default function AdminListingsPage() {
     ind.biblio.ok &&
     ind.article.ok;
 
-  // Completeness counts for the orange bar (based on current tab set)
+  // Completeness counts for the orange bar (based on current tab + filters)
   const completenessCounts = useMemo(() => {
     const rows = sourceRows;
     let complete = 0;
@@ -597,7 +677,7 @@ export default function AdminListingsPage() {
       const ia = indicators[a.id];
       const ib = indicators[b.id];
       const get = (k: IndicatorKey) => (x?: Indicators) =>
-        x ? (x[k].ok ? 1 : 0) : 1;
+        x ? (x[k as keyof Indicators] as any)?.ok ? 1 : 0 : 1;
       const keyMap: Record<typeof sortBy, IndicatorKey> = {
         cover: "cover",
         gallery: "gallery",
@@ -617,6 +697,20 @@ export default function AdminListingsPage() {
     });
     return rows;
   }, [indicatorFiltered, indicators, sortBy]);
+
+  /* ───────────────────────── Pagination derived rows ───────────────────────── */
+  const totalPages = Math.max(1, Math.ceil(sorted.length / LIST_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * LIST_PAGE_SIZE;
+  const endIdx = startIdx + LIST_PAGE_SIZE;
+  const pagedRows = sorted.slice(startIdx, endIdx);
+
+  function goPrev() {
+    setPage((p) => Math.max(1, p - 1));
+    }
+  function goNext() {
+    setPage((p) => Math.min(totalPages, p + 1));
+  }
 
   /* --------------------------------------------------------------------- */
   /* CRUD helpers                                                          */
@@ -868,9 +962,7 @@ export default function AdminListingsPage() {
                 className={`flex gap-2 items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 shadow-sm ${BAR_MIN_H}`}
               >
                 <input
-                  placeholder={`Search ${
-                    tab === "active" ? "active" : "recycled"
-                  } by title or slug…`}
+                  placeholder={`Search ${tab === "active" ? "active" : "recycled"} by title or slug…`}
                   className={`w-full bg-white border border-sky-200 rounded-md px-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 ${CONTROL_H}`}
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -994,195 +1086,250 @@ export default function AdminListingsPage() {
               Loading listings…
             </div>
           ) : (
-            <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full min-w-[960px] text-sm">
-                <thead className="bg-slate-50 text-left">
-                  <tr>
-                    <th className="px-4 py-3 font-medium text-slate-600 w-14">
-                      #
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600">
-                      Title
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Cover
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Gallery
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Photo Story
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Taxonomy
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Bibliography
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-center">
-                      Article
-                    </th>
-                    <th className="px-4 py-3 font-medium text-slate-600 text-right">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {sorted.map((r, idx) => {
-                    const ind = indicators[r.id];
-                    return (
-                      <tr key={r.id} className="hover:bg-slate-50/60">
-                        <td className="px-4 py-3 text-slate-500">{idx + 1}</td>
-                        <td className="px-4 py-3">
-                          {tab === "active" ? (
-                            <Link
-                              href={`/admin/listings/${r.id}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {r.title || "Untitled"}
-                            </Link>
-                          ) : (
-                            <span className="text-slate-800">
-                              {r.title || "Untitled"}
-                            </span>
-                          )}
-                        </td>
+            <>
+              {/* Pagination header */}
+              <PaginationBar
+                page={safePage}
+                totalPages={totalPages}
+                totalItems={sorted.length}
+                onPrev={goPrev}
+                onNext={goNext}
+                pageSize={LIST_PAGE_SIZE}
+              />
 
-                        {/* Indicator cells */}
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.cover.ok}
-                              count={ind.cover.ok ? 1 : 0}
-                              title={ind.cover.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.gallery.ok}
-                              count={ind.gallery.count}
-                              title={ind.gallery.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.story.ok}
-                              count={ind.story.count}
-                              title={ind.story.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.taxonomy.ok}
-                              count={
-                                ind.taxonomy.catCount + ind.taxonomy.regCount
-                              }
-                              title={ind.taxonomy.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.biblio.ok}
-                              count={ind.biblio.count}
-                              title={ind.biblio.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ind ? (
-                            <TickCross
-                              ok={ind.article.ok}
-                              count={ind.article.count}
-                              title={ind.article.tip}
-                            />
-                          ) : (
-                            <span className="text-slate-400">…</span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
+              <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <table className="w-full min-w-[1060px] text-sm">
+                  <thead className="bg-slate-50 text-left">
+                    <tr>
+                      <th className="px-4 py-3 font-medium text-slate-600 w-14">
+                        #
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Cover
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Gallery
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Photo Story
+                      </th>
+                      {/* NEW HEADER: Photo Story Cover */}
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Photo Story Cover
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Taxonomy
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Bibliography
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-center">
+                        Article
+                      </th>
+                      <th className="px-4 py-3 font-medium text-slate-600 text-right">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {pagedRows.map((r, idx) => {
+                      const ind = indicators[r.id];
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50/60">
+                          <td className="px-4 py-3 text-slate-500">
+                            {startIdx + idx + 1}
+                          </td>
+                          <td className="px-4 py-3">
                             {tab === "active" ? (
-                              <>
-                                <Link
-                                  href={`/admin/listings/${r.id}`}
-                                  className="px-2.5 py-1.5 border border-blue-200 bg-blue-50 rounded-md text-blue-700 text-xs hover:bg-blue-100 transition-colors"
-                                >
-                                  Edit
-                                </Link>
-                                <button
-                                  onClick={() => duplicate(r.id)}
-                                  className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs text-slate-700 bg-white hover:bg-slate-50 transition-colors disabled:opacity-60"
-                                  disabled={busy === r.id}
-                                >
-                                  Duplicate
-                                </button>
-                                <button
-                                  onClick={() => remove(r.id)}
-                                  className="px-2.5 py-1.5 border border-red-200 rounded-md text-red-700 bg-red-50 text-xs hover:bg-red-100 transition-colors disabled:opacity-60"
-                                  disabled={busy === r.id}
-                                >
-                                  Delete
-                                </button>
-                              </>
+                              <Link
+                                href={`/admin/listings/${r.id}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {r.title || "Untitled"}
+                              </Link>
                             ) : (
-                              <>
-                                <button
-                                  onClick={() => restore(r.id)}
-                                  className="px-2.5 py-1.5 border border-emerald-200 rounded-md text-emerald-700 bg-emerald-50 text-xs hover:bg-emerald-100 transition-colors disabled:opacity-60"
-                                  disabled={busy === r.id}
-                                >
-                                  Restore
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    confirmPermanentDelete(r.id, r.title)
-                                  }
-                                  className="px-2.5 py-1.5 border border-red-200 rounded-md text-red-700 bg-red-50 text-xs hover:bg-red-100 transition-colors disabled:opacity-60"
-                                  disabled={busy === r.id}
-                                >
-                                  Permanently Delete
-                                </button>
-                              </>
+                              <span className="text-slate-800">
+                                {r.title || "Untitled"}
+                              </span>
                             )}
-                          </div>
+                          </td>
+
+                          {/* Indicator cells */}
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.cover?.ok ?? false}
+                                count={ind.cover?.ok ? 1 : 0}
+                                title={ind.cover?.tip ?? "Cover status"}
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.gallery?.ok ?? false}
+                                count={ind.gallery?.count ?? 0}
+                                title={ind.gallery?.tip ?? "Gallery status"}
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.story?.ok ?? false}
+                                mid={ind.story?.mid ?? false}
+                                count={ind.story?.count ?? 0}
+                                title={ind.story?.tip ?? "Photo Story status"}
+                                dual={
+                                  ind.story?.mid
+                                    ? [
+                                        ind.story?.bucketCount ?? 0,
+                                        ind.story?.blocksCount ?? 0,
+                                      ]
+                                    : undefined
+                                }
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+
+                          {/* NEW CELL: Photo Story Cover (defensive against stale state) */}
+                          <td className="px-4 py-3 text-center">
+                            {ind && ind.storyCover ? (
+                              <TickCross
+                                ok={ind.storyCover.ok}
+                                count={ind.storyCover.count}
+                                title={ind.storyCover.tip}
+                              />
+                            ) : ind ? (
+                              <TickCross
+                                ok={false}
+                                count={0}
+                                title="Photo Story cover status"
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.taxonomy?.ok ?? false}
+                                count={(ind.taxonomy?.catCount ?? 0) + (ind.taxonomy?.regCount ?? 0)}
+                                title={ind.taxonomy?.tip ?? "Taxonomy status"}
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.biblio?.ok ?? false}
+                                count={ind.biblio?.count ?? 0}
+                                title={ind.biblio?.tip ?? "Bibliography status"}
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {ind ? (
+                              <TickCross
+                                ok={ind.article?.ok ?? false}
+                                count={ind.article?.count ?? 0}
+                                title={ind.article?.tip ?? "Article status"}
+                              />
+                            ) : (
+                              <span className="text-slate-400">…</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {tab === "active" ? (
+                                <>
+                                  <Link
+                                    href={`/admin/listings/${r.id}`}
+                                    className="px-2.5 py-1.5 border border-blue-200 bg-blue-50 rounded-md text-blue-700 text-xs hover:bg-blue-100 transition-colors"
+                                  >
+                                    Edit
+                                  </Link>
+                                  <button
+                                    onClick={() => duplicate(r.id)}
+                                    className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs text-slate-700 bg-white hover:bg-slate-50 transition-colors disabled:opacity-60"
+                                    disabled={busy === r.id}
+                                  >
+                                    Duplicate
+                                  </button>
+                                  <button
+                                    onClick={() => remove(r.id)}
+                                    className="px-2.5 py-1.5 border border-red-200 rounded-md text-red-700 bg-red-50 text-xs hover:bg-red-100 transition-colors disabled:opacity-60"
+                                    disabled={busy === r.id}
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => restore(r.id)}
+                                    className="px-2.5 py-1.5 border border-emerald-200 rounded-md text-emerald-700 bg-emerald-50 text-xs hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                                    disabled={busy === r.id}
+                                  >
+                                    Restore
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      confirmPermanentDelete(r.id, r.title)
+                                    }
+                                    className="px-2.5 py-1.5 border border-red-200 rounded-md text-red-700 bg-red-50 text-xs hover:bg-red-100 transition-colors disabled:opacity-60"
+                                    disabled={busy === r.id}
+                                  >
+                                    Permanently Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {pagedRows.length === 0 && (
+                      <tr>
+                        <td
+                          className="px-4 py-10 text-center text-slate-500"
+                          colSpan={10}
+                        >
+                          {tab === "active"
+                            ? "No listings match the current filters."
+                            : "Recycle Bin is empty."}
                         </td>
                       </tr>
-                    );
-                  })}
-                  {sorted.length === 0 && (
-                    <tr>
-                      <td
-                        className="px-4 py-10 text-center text-slate-500"
-                        colSpan={9}
-                      >
-                        {tab === "active"
-                          ? "No listings match the current filters."
-                          : "Recycle Bin is empty."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination footer */}
+              <PaginationBar
+                page={safePage}
+                totalPages={totalPages}
+                totalItems={sorted.length}
+                onPrev={goPrev}
+                onNext={goNext}
+                pageSize={LIST_PAGE_SIZE}
+              />
+            </>
           )}
         </div>
 
@@ -1251,6 +1398,152 @@ export default function AdminListingsPage() {
 }
 
 /* =========================================================================
+   Pagination bar component
+   ========================================================================= */
+function PaginationBar({
+  page,
+  totalPages,
+  totalItems,
+  onPrev,
+  onNext,
+  pageSize,
+}: {
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  onPrev: () => void;
+  onNext: () => void;
+  pageSize: number;
+}) {
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(totalItems, page * pageSize);
+  return (
+    <div className="flex items-center justify-between mt-3 mb-3">
+      <div className="text-sm text-slate-600">
+        Showing <span className="font-medium">{start}</span>–
+        <span className="font-medium">{end}</span> of{" "}
+        <span className="font-medium">{totalItems}</span>
+      </div>
+      <div className="inline-flex rounded-md border border-slate-200 bg-white shadow-sm">
+        <button
+          onClick={onPrev}
+          disabled={page <= 1}
+          className="px-3 py-2 text-sm disabled:opacity-40 hover:bg-slate-50"
+          aria-label="Previous page"
+        >
+          ‹ Prev
+        </button>
+        <div className="px-3 py-2 text-sm border-x border-slate-200 bg-slate-50 text-slate-700">
+          Page {page} of {totalPages}
+        </div>
+        <button
+          onClick={onNext}
+          disabled={page >= totalPages}
+          className="px-3 py-2 text-sm disabled:opacity-40 hover:bg-slate-50"
+          aria-label="Next page"
+        >
+          Next ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   SearchableDropdown
+   ========================================================================= */
+function SearchableDropdown({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: { id: string; name: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredOptions = useMemo(
+    () =>
+      options.filter((option) =>
+        option.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [options, searchTerm]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt) => opt.id === value);
+
+  return (
+    <div className="relative w-48" ref={dropdownRef}>
+      <button
+        type="button"
+        className={`w-full bg-white border border-slate-200 rounded-md px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-200 flex items-center justify-between leading-none ${TOOL_H}`}
+        onClick={() => setIsOpen((x) => !x)}
+      >
+        <span className="truncate">
+          {selectedOption ? selectedOption.name : placeholder}
+        </span>
+        {value ? (
+          <FaTimes
+            className="text-slate-400 hover:text-slate-600 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+            }}
+          />
+        ) : (
+          <span className="text-slate-400">▾</span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full bg-slate-100 px-3 py-2 text-sm text-slate-800 border-b border-slate-200 focus:outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <ul className="max-h-60 overflow-y-auto">
+            {filteredOptions.map((option) => (
+              <li
+                key={option.id}
+                className="px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 cursor-pointer"
+                onClick={() => {
+                  onChange(option.id);
+                  setIsOpen(false);
+                  setSearchTerm("");
+                }}
+              >
+                {option.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================================
    SMALL UI: FilterChip
    ========================================================================= */
 function FilterChip({
@@ -1271,6 +1564,7 @@ function FilterChip({
         className={`text-xs bg-transparent leading-none appearance-none px-2 rounded ${TOOL_H}`}
         value={value}
         onChange={(e) => onChange(e.target.value as any)}
+        aria-label={`${label} filter`}
       >
         <option value="all">All</option>
         <option value="ok">✓ Present</option>
