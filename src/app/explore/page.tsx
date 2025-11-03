@@ -25,9 +25,7 @@ const PAGE_SIZE = 12;
 type Site = {
   id: string;
   slug: string;
-  // Province-aware routing (computed in this page)
   province_slug?: string | null;
-  // Real DB field
   province_id?: number | null;
 
   title: string;
@@ -37,7 +35,6 @@ type Site = {
   avg_rating?: number | null;
   review_count?: number | null;
   distance_km?: number | null;
-  // kept optional; not selected in queries because it doesn't exist on sites
   category_id?: string | null;
 };
 
@@ -219,8 +216,7 @@ function StableBannerImage({
     if (src !== computed.primary && !usedFallback.current) {
       setSrc(computed.primary);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computed.primary]);
+  }, [computed.primary, src]);
 
   const onError = useCallback(() => {
     if (
@@ -267,16 +263,11 @@ function StableBannerImage({
   );
 }
 
-/* ───────────────── Province slug patch (schema-correct) ───────────────── */
-/**
- * Given a list of **site IDs**, fetch their province_id, then fetch the province slugs,
- * and return a map: { siteId -> province_slug | null }.
- */
+/* ───────────────── Province slug patch ───────────────── */
 async function buildProvinceSlugMapForSites(siteIds: string[]) {
   const out = new Map<string, string | null>();
   if (!siteIds.length) return out;
 
-  // 1) Get sites → province_id
   const { data: siteRows, error: siteErr } = await supabase
     .from("sites")
     .select("id, province_id")
@@ -291,7 +282,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
     if (r.province_id != null) provinceIds.add(r.province_id);
   }
 
-  // 2) Get province slug for those province_ids
   let slugByProvinceId = new Map<number, string>();
   if (provinceIds.size > 0) {
     const { data: provs } = await supabase
@@ -306,7 +296,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
     );
   }
 
-  // 3) Build final map
   for (const id of siteIds) {
     const pid = bySiteId.get(id);
     const slug = pid != null ? slugByProvinceId.get(pid) ?? null : null;
@@ -315,10 +304,6 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
   return out;
 }
 
-/**
- * Ensure each site object has a province_slug (computed from province_id → provinces.slug).
- * This mutates the input array for convenience.
- */
 async function ensureProvinceSlugOnSites(sites: Site[]) {
   const missing = sites.filter(
     (s) => !s.province_slug || s.province_slug.trim() === ""
@@ -339,7 +324,6 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isInitialMount = useRef(true);
 
   const [filters, setFilters] = useState<Filters>({
     name: "",
@@ -352,6 +336,15 @@ function ExplorePageContent() {
     radiusKm: null,
   });
 
+  // Live snapshot to avoid stale reads when onSearch and onFilterChange fire together
+  const filtersRef = useRef<Filters>(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  // Are we currently hydrating state FROM the URL? If yes, don't auto-push.
+  const isHydratingRef = useRef(false);
+
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
     sites: [],
@@ -363,9 +356,8 @@ function ExplorePageContent() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
-  // For headline
+  // For headline & banner
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
-  // For the banner (top-right card)
   const [centerSitePreview, setCenterSitePreview] = useState<{
     id: string;
     title: string;
@@ -374,10 +366,14 @@ function ExplorePageContent() {
   } | null>(null);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters((prev) => {
+      const next = { ...prev, ...newFilters };
+      filtersRef.current = next;
+      return next;
+    });
   };
 
-  /* ───────── Detect Places Nearby deep-link ───────── */
+  /* Deep-link canonicalization for Places Nearby */
   useEffect(() => {
     const centerSiteId = searchParams.get("centerSiteId");
     const lat = searchParams.get("centerLat");
@@ -389,13 +385,17 @@ function ExplorePageContent() {
       const parsedLng = Number(lng);
       const parsedRkm = Number(rkm);
 
-      setFilters((prev) => ({
-        ...prev,
+      const next = {
+        ...filtersRef.current,
         centerSiteId,
         centerLat: !Number.isNaN(parsedLat) ? parsedLat : null,
         centerLng: !Number.isNaN(parsedLng) ? parsedLng : null,
         radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 25,
-      }));
+      } satisfies Filters;
+
+      isHydratingRef.current = true;
+      setFilters(next);
+      filtersRef.current = next;
 
       const canonical = new URLSearchParams();
       canonical.set("center", centerSiteId);
@@ -405,6 +405,10 @@ function ExplorePageContent() {
       if (searchParams.toString() !== canonical.toString()) {
         router.replace(`/explore?${canonical.toString()}`);
       }
+      // Allow hydration window to end on next tick
+      setTimeout(() => {
+        isHydratingRef.current = false;
+      }, 0);
     }
   }, [searchParams, router]);
 
@@ -434,47 +438,39 @@ function ExplorePageContent() {
     })();
   }, []);
 
-  /* Stable URL key for router sync */
-  const urlKey = useMemo(() => {
+  /* Helper to build URL params from filters + page */
+  const buildParamsFrom = useCallback((f: Filters, pageNum: number) => {
     const params = new URLSearchParams();
-    if (filters.name) params.set("q", filters.name);
-    if (filters.categoryIds.length > 0)
-      params.set("cats", filters.categoryIds.join(","));
-    if (filters.regionIds.length > 0)
-      params.set("regs", filters.regionIds.join(","));
-    if (hasRadius(filters)) {
-      if (filters.centerSiteId) params.set("center", filters.centerSiteId);
-      if (typeof filters.centerLat === "number")
-        params.set("clat", String(filters.centerLat));
-      if (typeof filters.centerLng === "number")
-        params.set("clng", String(filters.centerLng));
-      if (typeof filters.radiusKm === "number")
-        params.set("rkm", String(filters.radiusKm));
+    if (f.name) params.set("q", f.name);
+    if (f.categoryIds.length > 0) params.set("cats", f.categoryIds.join(","));
+    if (f.regionIds.length > 0) params.set("regs", f.regionIds.join(","));
+    if (hasRadius(f)) {
+      if (f.centerSiteId) params.set("center", f.centerSiteId);
+      if (typeof f.centerLat === "number") params.set("clat", String(f.centerLat));
+      if (typeof f.centerLng === "number") params.set("clng", String(f.centerLng));
+      if (typeof f.radiusKm === "number") params.set("rkm", String(f.radiusKm));
     }
-    params.set("page", String(page || 1));
-    return params.toString();
-  }, [
-    filters.name,
-    filters.categoryIds.join(","),
-    filters.regionIds.join(","),
-    filters.centerSiteId,
-    filters.centerLat,
-    filters.centerLng,
-    filters.radiusKm,
-    page,
-  ]);
+    params.set("page", String(pageNum));
+    return params;
+  }, []);
 
-  const executeSearch = useCallback(() => {
-    router.push(`/explore?${urlKey}`);
-  }, [router, urlKey]);
-
+  /* Debounced auto-search when filters change (user input), not during URL hydration */
+  const debounceIdRef = useRef<number | null>(null);
   useEffect(() => {
-    if (isInitialMount.current) return;
-    const current = searchParams.toString();
-    if (current !== urlKey) {
-      router.push(`/explore?${urlKey}`);
-    }
-  }, [urlKey, router, searchParams]);
+    if (isHydratingRef.current) return;
+    // debounce 300ms
+    if (debounceIdRef.current) window.clearTimeout(debounceIdRef.current);
+    debounceIdRef.current = window.setTimeout(() => {
+      const f = filtersRef.current;
+      const params = buildParamsFrom(f, 1);
+      if (searchParams.toString() !== params.toString()) {
+        router.push(`/explore?${params.toString()}`);
+      }
+    }, 300);
+    return () => {
+      if (debounceIdRef.current) window.clearTimeout(debounceIdRef.current);
+    };
+  }, [filters, buildParamsFrom, router, searchParams]);
 
   /* Read URL → fetch data + banner info */
   useEffect(() => {
@@ -514,7 +510,9 @@ function ExplorePageContent() {
           : null,
     };
 
+    isHydratingRef.current = true;
     setFilters(nextFilters);
+    filtersRef.current = nextFilters;
     setPage(currentPage);
 
     (async () => {
@@ -598,7 +596,6 @@ function ExplorePageContent() {
             return;
           }
 
-          // Fetch display fields — include province_id (NOT category_id)
           const { data: details, error: detailsErr } = await supabase
             .from("sites")
             .select(
@@ -607,7 +604,6 @@ function ExplorePageContent() {
             .in("id", ids);
           if (detailsErr) throw detailsErr;
 
-          // Compute province_slug for this page
           await ensureProvinceSlugOnSites(details as Site[]);
 
           const distanceById = new Map<string, number | null>(
@@ -645,7 +641,6 @@ function ExplorePageContent() {
         const sites = ((data as any[]) || []) as Site[];
         const total = (data as any[])?.[0]?.total_count || 0;
 
-        // Ensure province_slug is present for all sites shown on this page.
         await ensureProvinceSlugOnSites(sites);
 
         setResults({ sites, total });
@@ -653,7 +648,8 @@ function ExplorePageContent() {
         setError(e?.message || "Failed to load results");
       } finally {
         setLoading(false);
-        isInitialMount.current = false;
+        // End hydration window so user-driven changes can auto-push
+        isHydratingRef.current = false;
       }
     })();
   }, [searchParams]);
@@ -663,19 +659,32 @@ function ExplorePageContent() {
     [results.total]
   );
 
+  /* Manual Search button: build URL from freshest snapshot and reset to page 1 */
+  const executeSearch = useCallback(() => {
+    const f = filtersRef.current;
+    const params = buildParamsFrom(f, 1);
+    if (searchParams.toString() !== params.toString()) {
+      router.push(`/explore?${params.toString()}`);
+    }
+  }, [router, buildParamsFrom, searchParams]);
+
+  /* Pagination: only navigate if within bounds and different */
   const navigatePage = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === page) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(newPage));
     router.push(`/explore?${params.toString()}`);
   };
 
+  const [categoryMapState, regionMapState] = [categoryMap, regionMap];
+
   const selectedCategoryNames = useMemo(
-    () => filters.categoryIds.map((id) => categoryMap[id]).filter(Boolean),
-    [filters.categoryIds, categoryMap]
+    () => filters.categoryIds.map((id) => categoryMapState[id]).filter(Boolean),
+    [filters.categoryIds, categoryMapState]
   );
   const selectedRegionNames = useMemo(
-    () => filters.regionIds.map((id) => regionMap[id]).filter(Boolean),
-    [filters.regionIds, regionMap]
+    () => filters.regionIds.map((id) => regionMapState[id]).filter(Boolean),
+    [filters.regionIds, regionMapState]
   );
 
   const headline = useMemo(
@@ -700,7 +709,7 @@ function ExplorePageContent() {
     ]
   );
 
-  /* ───────── Fade-in for preview card images (event delegation) ───────── */
+  /* Fade-in for preview card images */
   const cardsRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const root = cardsRef.current;
@@ -724,7 +733,7 @@ function ExplorePageContent() {
     };
   }, [results.sites]);
 
-  /* ───────── Locked Radius Banner (with KM pill) ───────── */
+  /* Locked Radius Banner */
   const CenterBanner = () =>
     hasRadius(filters) && centerSitePreview ? (
       <div
@@ -763,7 +772,6 @@ function ExplorePageContent() {
 
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
-      {/* Global palette */}
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -778,7 +786,6 @@ function ExplorePageContent() {
         }
       `}</style>
 
-      {/* Content */}
       <div className="relative z-10">
         <div className="lg:flex">
           <aside className="hidden lg:block w-[360px] fixed left-4 top-[88px] bottom-4 z-20">
