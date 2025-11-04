@@ -99,6 +99,15 @@ export default function AdminHome() {
       desc: "Manage heritage listings.",
       icon: "listings",
     },
+
+    // NEW: Heritage Database (master reference)
+    {
+      href: "/admin/heritage-database",
+      title: "Heritage Database",
+      desc: "Master reference of heritage sites.",
+      icon: "listings",
+    },
+
     {
       href: "/admin/categories",
       title: "Categories",
