@@ -29,6 +29,14 @@ export type Filters = {
 
 type Option = { id: string; name: string; icon_key: string | null };
 
+type CategoryRow = {
+  id: string;
+  name: string;
+  icon_key: string | null;
+  parent_id: string | null;
+  slug: string;
+};
+
 /* ───────────────────────────── Small utils ───────────────────────────── */
 const andJoin = (arr: string[]) =>
   arr.length <= 2
@@ -80,6 +88,31 @@ function thumbUrl(input?: string | null, size = 48) {
   u.searchParams.set("resize", "cover");
   u.searchParams.set("quality", "75");
   return u.toString();
+}
+
+/** Collect all categories whose ancestry includes the given root id. */
+function collectCategorySubtree(
+  all: CategoryRow[],
+  rootId: string,
+  includeRoot = false
+): CategoryRow[] {
+  const parentById: Record<string, string | null> = {};
+  all.forEach((c) => {
+    parentById[c.id] = c.parent_id;
+  });
+
+  return all.filter((c) => {
+    if (!includeRoot && c.id === rootId) return false;
+    let cur: string | null = c.id;
+    const seen = new Set<string>();
+    while (cur) {
+      if (cur === rootId) return true;
+      if (seen.has(cur)) break;
+      seen.add(cur);
+      cur = parentById[cur] ?? null;
+    }
+    return false;
+  });
 }
 
 /* ───────────────────────────── Click Outside Hook ───────────────────────────── */
@@ -168,10 +201,10 @@ const MultiSelectDropdown = ({
           aria-expanded={isOpen}
           onClick={() => setIsOpen(!isOpen)}
           onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-4 py-3 cursor-pointer"
+          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
         >
           <div
-            className={`text-base truncate
+            className={`text-sm truncate
             ${
               !selectedIds || selectedIds.length === 0
                 ? "text-[var(--espresso-brown)]/60 font-normal"
@@ -191,7 +224,7 @@ const MultiSelectDropdown = ({
             )}
           </div>
 
-          <div className="flex items-center gap-3 pl-3">
+          <div className="flex items-center gap-2 pl-2">
             {selectedIds && selectedIds.length > 0 && (
               <div
                 role="button"
@@ -207,15 +240,15 @@ const MultiSelectDropdown = ({
                     onChange([]);
                   }
                 }}
-                className="w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
+                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
                 title="Clear selection"
               >
-                <Icon name="times" size={10} />
+                <Icon name="times" size={9} />
               </div>
             )}
             <Icon
               name="chevron-down"
-              size={16}
+              size={14}
               className={`transition-transform text-[var(--taupe-grey)] ${
                 isOpen ? "rotate-180" : ""
               }`}
@@ -239,15 +272,15 @@ const MultiSelectDropdown = ({
             placeholder="Search…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--ivory-cream)] focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] placeholder-[var(--espresso-brown)]/60 text-[var(--dark-grey)]"
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
           />
         </div>
-        <ul className="py-2 max-h-60 overflow-auto">
+        <ul className="py-1.5 max-h-60 overflow-auto text-sm">
           {filteredOptions.map((opt) => (
             <li
               key={opt.id}
               onClick={() => toggleOption(opt.id)}
-              className={`px-3 py-2 cursor-pointer transition-colors font-explore-dropdown-item
+              className={`px-3 py-1.5 cursor-pointer transition-colors font-explore-dropdown-item
               ${
                 selectedIds && selectedIds.includes(opt.id)
                   ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
@@ -380,10 +413,10 @@ const TopLevelRegionSelect = ({
           aria-expanded={isOpen}
           onClick={() => setIsOpen(!isOpen)}
           onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-4 py-3 cursor-pointer"
+          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
         >
           <div
-            className={`text-base truncate ${
+            className={`text-sm truncate ${
               selectedIds.length || activeParentId
                 ? "text-[var(--dark-grey)] font-semibold"
                 : "text-[var(--espresso-brown)]/60"
@@ -391,7 +424,7 @@ const TopLevelRegionSelect = ({
           >
             {label}
           </div>
-          <div className="flex items-center gap-3 pl-3">
+          <div className="flex items-center gap-2 pl-2">
             {(selectedIds.length > 0 || activeParentId) && (
               <div
                 role="button"
@@ -407,15 +440,15 @@ const TopLevelRegionSelect = ({
                     onClearAll();
                   }
                 }}
-                className="w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
+                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
                 title="Clear"
               >
-                <Icon name="times" size={10} />
+                <Icon name="times" size={9} />
               </div>
             )}
             <Icon
               name="chevron-down"
-              size={16}
+              size={14}
               className={`transition-transform text-[var(--taupe-grey)] ${
                 isOpen ? "rotate-180" : ""
               }`}
@@ -438,18 +471,18 @@ const TopLevelRegionSelect = ({
             placeholder="Search regions…"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--ivory-cream)] focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] placeholder-[var(--espresso-brown)]/60 text-[var(--dark-grey)]"
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
           />
         </div>
 
-        <div className="py-2 max-h-72 overflow-auto">
+        <div className="py-1.5 max-h-72 overflow-auto text-sm">
           {term.trim().length >= 2 ? (
             searching ? (
-              <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+              <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
                 Searching…
               </div>
             ) : results.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+              <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
                 No regions found
               </div>
             ) : (
@@ -462,7 +495,7 @@ const TopLevelRegionSelect = ({
                       setActiveParentId(r.parent_id ?? r.id);
                       setIsOpen(false);
                     }}
-                    className={`px-3 py-2 cursor-pointer hover:bg-[var(--ivory-cream)] ${
+                    className={`px-3 py-1.5 cursor-pointer hover:bg-[var(--ivory-cream)] ${
                       selectedIds.includes(r.id)
                         ? "text-[var(--terracotta-red)] font-semibold"
                         : "text-[var(--dark-grey)]"
@@ -485,7 +518,7 @@ const TopLevelRegionSelect = ({
                       setActiveParentId(top.id);
                       setIsOpen(false);
                     }}
-                    className={`px-3 py-2 cursor-pointer flex items-center gap-2 hover:bg-[var(--ivory-cream)] ${
+                    className={`px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-[var(--ivory-cream)] ${
                       isSelected
                         ? "text-[var(--terracotta-red)] font-semibold"
                         : "text-[var(--dark-grey)]"
@@ -493,7 +526,7 @@ const TopLevelRegionSelect = ({
                   >
                     <Icon
                       name={top.icon_key || "map"}
-                      size={16}
+                      size={14}
                       className="text-[var(--taupe-grey)]"
                     />
                     <span>{top.name}</span>
@@ -569,7 +602,7 @@ const SubRegionSelect = ({
   };
 
   return (
-    <div className="relative group mt-3" ref={ref}>
+    <div className="relative group mt-2.5" ref={ref}>
       <div
         className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
           isOpen
@@ -584,9 +617,9 @@ const SubRegionSelect = ({
           aria-expanded={isOpen}
           onClick={() => setIsOpen(!isOpen)}
           onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-4 py-3 cursor-pointer"
+          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
         >
-          <div className="text-base truncate text-[var(--dark-grey)]">
+          <div className="text-sm truncate text-[var(--dark-grey)]">
             {labelText}
           </div>
           <div className="flex items-center gap-2">
@@ -601,15 +634,15 @@ const SubRegionSelect = ({
                     clearParentSubs(e);
                   }
                 }}
-                className="w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                 title="Clear these subregions"
               >
-                <Icon name="times" size={10} />
+                <Icon name="times" size={9} />
               </div>
             )}
             <Icon
               name="chevron-down"
-              size={16}
+              size={14}
               className={`transition-transform text-[var(--taupe-grey)] ${
                 isOpen ? "rotate-180" : ""
               }`}
@@ -632,17 +665,17 @@ const SubRegionSelect = ({
             placeholder="Search subregions…"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-md bg-[var(--ivory-cream)] focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] placeholder-[var(--espresso-brown)]/60 text-[var(--dark-grey)]"
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
           />
         </div>
 
-        <div className="py-2 max-h-72 overflow-auto">
+        <div className="py-1.5 max-h-72 overflow-auto text-sm">
           {loading ? (
-            <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+            <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
               Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+            <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
               No subregions
             </div>
           ) : (
@@ -653,7 +686,7 @@ const SubRegionSelect = ({
                   <li
                     key={s.id}
                     onClick={() => onToggleWithRule(s.id)}
-                    className={`px-3 py-2 cursor-pointer transition-colors flex items-center justify-between ${
+                    className={`px-3 py-1.5 cursor-pointer transition-colors flex items-center justify-between ${
                       active
                         ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
                         : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
@@ -678,7 +711,7 @@ const SubRegionSelect = ({
                         }}
                         title="Remove"
                       >
-                        <Icon name="times" size={10} />
+                        <Icon name="times" size={9} />
                       </div>
                     )}
                   </li>
@@ -838,9 +871,9 @@ function LocationRadiusFilter({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5 text-sm">
       <div ref={boxRef}>
-        <div className="relative rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] hover:ring-[var(--mustard-accent)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+        <div className="relative rounded-xl bg-[var(--taupe-grey)]/10 shadow-sm focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
           {/* Selected site box (thumbnail + title + subtitle) */}
           {selectedPreview ? (
             <div className="flex items-center gap-3 px-3 py-2.5">
@@ -862,13 +895,13 @@ function LocationRadiusFilter({
                   : "";
 
                 return (
-                  <div className="relative w-10 h-10 flex-shrink-0">
+                  <div className="relative w-9 h-9 flex-shrink-0">
                     {thumb ? (
                       <img
                         src={thumb}
                         alt=""
                         aria-hidden="true"
-                        className="w-10 h-10 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                        className="w-9 h-9 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
                         loading="lazy"
                         decoding="async"
                         onError={(e) => {
@@ -885,16 +918,16 @@ function LocationRadiusFilter({
                     ) : null}
                     <div
                       style={{ display: thumb ? "none" : "flex" }}
-                      className="absolute inset-0 w-10 h-10 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                      className="absolute inset-0 w-9 h-9 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
                     >
-                      <Icon name="image" size={14} />
+                      <Icon name="image" size={13} />
                     </div>
                   </div>
                 );
               })()}
 
               <div className="min-w-0 flex-1">
-                <div className="text-[var(--dark-grey)] font-medium truncate">
+                <div className="text-[var(--dark-grey)] font-medium truncate text-sm">
                   {selectedPreview.title}
                 </div>
                 {selectedPreview.subtitle && (
@@ -914,10 +947,10 @@ function LocationRadiusFilter({
                     clearSelection();
                   }
                 }}
-                className="mr-1 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                className="mr-1 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                 title="Clear"
               >
-                <Icon name="times" size={10} />
+                <Icon name="times" size={9} />
               </div>
             </div>
           ) : (
@@ -925,11 +958,11 @@ function LocationRadiusFilter({
             <div className="flex items-center">
               <Icon
                 name="map-marker-alt"
-                size={16}
+                size={14}
                 className="ml-3 mr-2 text-[var(--taupe-grey)]"
               />
               <input
-                className="w-full px-2 py-3 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60"
+                className="w-full px-2 py-2.5 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 text-sm"
                 placeholder="Search Around a Site"
                 value={query}
                 onChange={(e) => {
@@ -949,10 +982,10 @@ function LocationRadiusFilter({
                       setQuery("");
                     }
                   }}
-                  className="mr-3 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                  className="mr-3 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                   title="Clear"
                 >
-                  <Icon name="times" size={10} />
+                  <Icon name="times" size={9} />
                 </div>
               )}
             </div>
@@ -967,15 +1000,15 @@ function LocationRadiusFilter({
             }`}
           >
             {loading ? (
-              <div className="px-4 py-3 text-sm text-[var(--taupe-grey)]">
+              <div className="px-4 py-2 text-xs text-[var(--taupe-grey)]">
                 Searching…
               </div>
             ) : results.length === 0 && query.length >= 2 ? (
-              <div className="px-4 py-3 text-sm text-[var(--taupe-grey)]">
+              <div className="px-4 py-2 text-xs text-[var(--taupe-grey)]">
                 No sites found
               </div>
             ) : (
-              <ul className="max-h-64 overflow-auto py-2 divide-y divide-[var(--taupe-grey)]/20">
+              <ul className="max-h-64 overflow-auto py-1.5 divide-y divide-[var(--taupe-grey)]/20 text-sm">
                 {results.map((r) => {
                   const raw = r.cover_photo_url || "";
                   const thumb = thumbUrl(raw, 40);
@@ -994,17 +1027,17 @@ function LocationRadiusFilter({
                     <li
                       key={r.id}
                       onClick={() => choose(r)}
-                      className="px-4 py-2 cursor-pointer hover:bg-[var(--ivory-cream)]"
+                      className="px-4 py-1.5 cursor-pointer hover:bg-[var(--ivory-cream)]"
                     >
                       <div className="flex items-center gap-3">
                         {/* Thumbnail with robust fallback */}
-                        <div className="relative w-10 h-10 flex-shrink-0">
+                        <div className="relative w-9 h-9 flex-shrink-0">
                           {thumb ? (
                             <img
                               src={thumb}
                               alt=""
                               aria-hidden="true"
-                              className="w-10 h-10 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                              className="w-9 h-9 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
                               loading="lazy"
                               decoding="async"
                               onError={(e) => {
@@ -1028,9 +1061,9 @@ function LocationRadiusFilter({
                           {/* Hidden placeholder to reveal if image fails */}
                           <div
                             style={{ display: thumb ? "none" : "flex" }}
-                            className="absolute inset-0 w-10 h-10 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                            className="absolute inset-0 w-9 h-9 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
                           >
-                            <Icon name="image" size={14} />
+                            <Icon name="image" size={13} />
                           </div>
                         </div>
 
@@ -1055,11 +1088,11 @@ function LocationRadiusFilter({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--espresso-brown)]/70">
+        <label className="mb-0.5 block text-[0.7rem] font-medium text-[var(--espresso-brown)]/70">
           Radius (km)
         </label>
-        <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-4 py-2">
+        <div className="grid grid-cols-[1fr_auto] gap-2.5 items-center">
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-3 py-1.5">
             <input
               type="range"
               min={1}
@@ -1073,7 +1106,7 @@ function LocationRadiusFilter({
               disabled={!value.centerSiteId}
             />
           </div>
-          <div className="w-28 rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-3 py-2">
+          <div className="w-24 rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-2.5 py-1.5">
             <input
               type="number"
               min={1}
@@ -1086,12 +1119,12 @@ function LocationRadiusFilter({
                   radiusKm: Math.max(1, Number(e.target.value) || 1),
                 })
               }
-              className="w-full bg-transparent outline-none text-right"
+              className="w-full bg-transparent outline-none text-right text-xs"
               disabled={!value.centerSiteId}
             />
           </div>
         </div>
-        <p className="mt-1 text-xs text-[var(--espresso-brown)]/70">
+        <p className="mt-1 text-[0.7rem] text-[var(--espresso-brown)]/70">
           {value.centerSiteId
             ? `Searching within ${
                 value.radiusKm ?? 25
@@ -1137,7 +1170,6 @@ async function fetchSitesWithinRadius({
 
 /* ───────────────────────────── Exported helpers ───────────────────────────── */
 export function hasRadius(f: Filters) {
-  // Keep the same named export for callers, but delegate to unified helper
   const p: NearbyParams = {
     centerSiteId: f.centerSiteId ?? null,
     centerLat: f.centerLat ?? null,
@@ -1155,7 +1187,6 @@ export async function fetchSitesByFilters(filters: Filters) {
       radiusKm: filters.radiusKm as number,
       name: filters.name?.trim() || null,
     });
-    // ensure nearest → farthest
     rows.sort(
       (a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity)
     );
@@ -1185,6 +1216,14 @@ interface SearchFiltersProps {
   onHeadingChange?: (title: string) => void;
 }
 
+type MasterTab = "all" | "region";
+type DomainTab =
+  | "all"
+  | "architecture"
+  | "nature"
+  | "cultural"
+  | "archaeology";
+
 export default function SearchFilters({
   filters,
   onFilterChange,
@@ -1212,25 +1251,77 @@ export default function SearchFilters({
   const [regSearch, setRegSearch] = useState("");
   const [regSearching, setRegSearching] = useState(false);
   const [regSearchResults, setRegSearchResults] = useState<Option[]>([]);
-  const [activeTab, setActiveTab] = useState<"filters" | "cats" | "regs">(
-    "filters"
-  );
 
-  const [catSearch, setCatSearch] = useState("");
+  const [masterTab, setMasterTab] = useState<MasterTab>("all");
+  const [domainTab, setDomainTab] = useState<DomainTab>("all");
+
+  // All tab: Heritage Type & Historical Period
+  const [heritageTypeOptions, setHeritageTypeOptions] = useState<Option[]>([]);
+  const [historicalPeriodOptions, setHistoricalPeriodOptions] = useState<
+    Option[]
+  >([]);
+
+  // Architecture tab
+  const [architectureRootId, setArchitectureRootId] = useState<string | null>(
+    null
+  );
+  const [architectureTypeOptions, setArchitectureTypeOptions] = useState<
+    Option[]
+  >([]);
+  const [architecturalStyleOptions, setArchitecturalStyleOptions] = useState<
+    Option[]
+  >([]);
+  const [architecturalFeatureOptions, setArchitecturalFeatureOptions] =
+    useState<Option[]>([]);
+  const [architectureSearch, setArchitectureSearch] = useState("");
+
+  // Nature tab
+  const [naturalRootId, setNaturalRootId] = useState<string | null>(null);
+  const [naturalTypeOptions, setNaturalTypeOptions] = useState<Option[]>([]);
+  const [natureSearch, setNatureSearch] = useState("");
+
+  // Cultural Landscape tab
+  const [culturalRootId, setCulturalRootId] = useState<string | null>(null);
+  const [culturalTypeOptions, setCulturalTypeOptions] = useState<Option[]>([]);
+  const [culturalSearch, setCulturalSearch] = useState("");
+
+  // Archaeology tab
+  const [archaeologyRootId, setArchaeologyRootId] = useState<string | null>(
+    null
+  );
+  const [archaeologyTypeOptions, setArchaeologyTypeOptions] = useState<
+    Option[]
+  >([]);
+  const [archaeologySearch, setArchaeologySearch] = useState("");
 
   useEffect(() => {
     (async () => {
       const [{ data: cat }, { data: regTop }] = await Promise.all([
-        supabase.from("categories").select("id,name,icon_key").order("name"),
+        supabase
+          .from("categories")
+          .select("id,name,icon_key,parent_id,slug")
+          .order("sort_order", { ascending: true })
+          .order("name"),
         supabase
           .from("regions")
           .select("id,name,icon_key")
           .is("parent_id", null)
           .order("name"),
       ]);
+
+      const catsRaw = (cat || []) as any[];
+      const cats: CategoryRow[] = catsRaw.map((c) => ({
+        id: c.id,
+        name: c.name,
+        icon_key: c.icon_key,
+        parent_id: c.parent_id,
+        slug: c.slug,
+      }));
+
       const top = (regTop as Option[]) || [];
-      setOptions({ categories: (cat as Option[]) || [], regions: top });
+      setOptions({ categories: cats as any, regions: top });
       setTopRegions(top);
+
       setRegionNames((m) => {
         const next = { ...m };
         top.forEach((t) => (next[t.id] = t.name));
@@ -1241,16 +1332,220 @@ export default function SearchFilters({
         top.forEach((t) => (next[t.id] = t.id));
         return next;
       });
+
+      // Heritage Type subtree (for All tab)
+      const heritageRoot = cats.find((c) => c.slug === "heritage-type");
+      if (heritageRoot) {
+        const subtree = collectCategorySubtree(cats, heritageRoot.id, false);
+        setHeritageTypeOptions(
+          subtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
+        );
+      } else {
+        setHeritageTypeOptions([]);
+      }
+
+      // Historical Period subtree (shared by All / Arch / Archaeology)
+      const periodRoot = cats.find((c) => c.slug === "historical-period");
+      if (periodRoot) {
+        const subtree = collectCategorySubtree(cats, periodRoot.id, false);
+        setHistoricalPeriodOptions(
+          subtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
+        );
+      } else {
+        setHistoricalPeriodOptions([]);
+      }
+
+      // Architecture root
+      const architectureRoot = cats.find((c) => c.slug === "architecture");
+      if (architectureRoot) {
+        setArchitectureRootId(architectureRoot.id);
+        const archSubtree = collectCategorySubtree(
+          cats,
+          architectureRoot.id,
+          false
+        );
+        setArchitectureTypeOptions(
+          archSubtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
+        );
+      } else {
+        setArchitectureRootId(null);
+        setArchitectureTypeOptions([]);
+      }
+
+      // Architectural Style root
+      const styleRoot = cats.find((c) => c.slug === "architectural-style");
+      if (styleRoot) {
+        const styleSubtree = collectCategorySubtree(cats, styleRoot.id, false);
+        setArchitecturalStyleOptions(
+          styleSubtree.map(({ id, name, icon_key }) => ({
+            id,
+            name,
+            icon_key,
+          }))
+        );
+      } else {
+        setArchitecturalStyleOptions([]);
+      }
+
+      // Architectural Features root
+      const featureRoot = cats.find((c) => c.slug === "architectural-features");
+      if (featureRoot) {
+        const featureSubtree = collectCategorySubtree(
+          cats,
+          featureRoot.id,
+          false
+        );
+        setArchitecturalFeatureOptions(
+          featureSubtree.map(({ id, name, icon_key }) => ({
+            id,
+            name,
+            icon_key,
+          }))
+        );
+      } else {
+        setArchitecturalFeatureOptions([]);
+      }
+
+      // Natural Heritage & Landscapes root (by slug OR name)
+      const naturalRoot =
+        cats.find((c) => c.slug === "natural-heritage-landscapes") ||
+        cats.find((c) => c.name === "Natural Heritage & Landscapes");
+      if (naturalRoot) {
+        setNaturalRootId(naturalRoot.id);
+        const naturalSubtree = collectCategorySubtree(
+          cats,
+          naturalRoot.id,
+          false
+        );
+        setNaturalTypeOptions(
+          naturalSubtree.map(({ id, name, icon_key }) => ({
+            id,
+            name,
+            icon_key,
+          }))
+        );
+      } else {
+        setNaturalRootId(null);
+        setNaturalTypeOptions([]);
+      }
+
+      // Cultural Landscape root (by slug OR name)
+      const culturalRoot =
+        cats.find((c) => c.slug === "cultural-landscape") ||
+        cats.find(
+          (c) =>
+            c.name === "Cultural Landscape" ||
+            c.name === "Cultural Landscapes"
+        );
+      if (culturalRoot) {
+        setCulturalRootId(culturalRoot.id);
+        const culturalSubtree = collectCategorySubtree(
+          cats,
+          culturalRoot.id,
+          false
+        );
+        setCulturalTypeOptions(
+          culturalSubtree.map(({ id, name, icon_key }) => ({
+            id,
+            name,
+            icon_key,
+          }))
+        );
+      } else {
+        setCulturalRootId(null);
+        setCulturalTypeOptions([]);
+      }
+
+      // Archaeology root (by slug OR name)
+      const archaeologyRoot =
+        cats.find((c) => c.slug === "archaeology") ||
+        cats.find((c) => c.name === "Archaeology");
+      if (archaeologyRoot) {
+        setArchaeologyRootId(archaeologyRoot.id);
+        const archaeologySubtree = collectCategorySubtree(
+          cats,
+          archaeologyRoot.id,
+          false
+        );
+        setArchaeologyTypeOptions(
+          archaeologySubtree.map(({ id, name, icon_key }) => ({
+            id,
+            name,
+            icon_key,
+          }))
+        );
+      } else {
+        setArchaeologyRootId(null);
+        setArchaeologyTypeOptions([]);
+      }
     })();
   }, []);
 
-  const filteredCategories = useMemo(
-    () =>
-      options.categories.filter((c) =>
-        c.name.toLowerCase().includes(catSearch.toLowerCase())
-      ),
-    [options.categories, catSearch]
+  // Sets for grouping logic
+  const heritageTypeIdSet = useMemo(
+    () => new Set(heritageTypeOptions.map((c) => c.id)),
+    [heritageTypeOptions]
   );
+  const historicalPeriodIdSet = useMemo(
+    () => new Set(historicalPeriodOptions.map((c) => c.id)),
+    [historicalPeriodOptions]
+  );
+  const architectureTypeIdSet = useMemo(
+    () => new Set(architectureTypeOptions.map((c) => c.id)),
+    [architectureTypeOptions]
+  );
+  const architecturalStyleIdSet = useMemo(
+    () => new Set(architecturalStyleOptions.map((c) => c.id)),
+    [architecturalStyleOptions]
+  );
+  const architecturalFeatureIdSet = useMemo(
+    () => new Set(architecturalFeatureOptions.map((c) => c.id)),
+    [architecturalFeatureOptions]
+  );
+  const naturalTypeIdSet = useMemo(
+    () => new Set(naturalTypeOptions.map((c) => c.id)),
+    [naturalTypeOptions]
+  );
+  const culturalTypeIdSet = useMemo(
+    () => new Set(culturalTypeOptions.map((c) => c.id)),
+    [culturalTypeOptions]
+  );
+  const archaeologyTypeIdSet = useMemo(
+    () => new Set(archaeologyTypeOptions.map((c) => c.id)),
+    [archaeologyTypeOptions]
+  );
+
+  const architectureSearchResults = useMemo(() => {
+    const term = architectureSearch.trim().toLowerCase();
+    if (!term) return [];
+    return architectureTypeOptions.filter((c) =>
+      c.name.toLowerCase().includes(term)
+    );
+  }, [architectureSearch, architectureTypeOptions]);
+
+  const natureSearchResults = useMemo(() => {
+    const term = natureSearch.trim().toLowerCase();
+    if (!term) return [];
+    return naturalTypeOptions.filter((c) =>
+      c.name.toLowerCase().includes(term)
+    );
+  }, [natureSearch, naturalTypeOptions]);
+
+  const culturalSearchResults = useMemo(() => {
+    const term = culturalSearch.trim().toLowerCase();
+    if (!term) return [];
+    return culturalTypeOptions.filter((c) =>
+      c.name.toLowerCase().includes(term)
+    );
+  }, [culturalSearch, culturalTypeOptions]);
+
+  const archaeologySearchResults = useMemo(() => {
+    const term = archaeologySearch.trim().toLowerCase();
+    if (!term) return [];
+    return archaeologyTypeOptions.filter((c) =>
+      c.name.toLowerCase().includes(term)
+    );
+  }, [archaeologySearch, archaeologyTypeOptions]);
 
   const loadSubregions = async (parentId: string) => {
     if (subsByParent[parentId]) return;
@@ -1275,7 +1570,7 @@ export default function SearchFilters({
     }
   };
 
-  // Remote search for regions tab
+  // Remote search for Regions tab
   useEffect(() => {
     let active = true;
     (async () => {
@@ -1316,7 +1611,7 @@ export default function SearchFilters({
     };
   }, [regSearch]);
 
-  // Toggle with updated rule (parent persists when sub toggled)
+  // Toggle region with rule
   const onToggleWithRule = async (id: string) => {
     if (hasRadius(filters)) {
       onFilterChange({
@@ -1364,6 +1659,18 @@ export default function SearchFilters({
     onFilterChange({ regionIds: next });
   };
 
+  const resetSharedUi = () => {
+    setActiveParentId(null);
+    setExpandedParentId(null);
+    setRegSearch("");
+    setRegSearchResults([]);
+    setCenterSiteTitle(null);
+    setArchitectureSearch("");
+    setNatureSearch("");
+    setCulturalSearch("");
+    setArchaeologySearch("");
+  };
+
   const handleReset = () => {
     onFilterChange({
       name: "",
@@ -1372,20 +1679,291 @@ export default function SearchFilters({
       orderBy: "latest",
       ...clearPlacesNearby(),
     });
-    setActiveParentId(null);
-    setExpandedParentId(null);
-    setRegSearch("");
-    setRegSearchResults([]);
-    setCenterSiteTitle(null);
+    resetSharedUi();
+    setMasterTab("all");
+    setDomainTab("all");
+  };
+
+  // All tab handlers
+  const handleHeritageTypeChange = (ids: string[]) => {
+    const current = filters.categoryIds || [];
+    const preserved = current.filter((id) => !heritageTypeIdSet.has(id));
+    onFilterChange({ categoryIds: [...preserved, ...ids] });
+  };
+
+  const handleHistoricalPeriodChange = (ids: string[]) => {
+    const current = filters.categoryIds || [];
+    const preserved = current.filter((id) => !historicalPeriodIdSet.has(id));
+    onFilterChange({ categoryIds: [...preserved, ...ids] });
+  };
+
+  // Architecture tab: helper to rebuild all architecture-related category IDs
+  const rebuildArchitectureCategoryIds = ({
+    newTypeIds,
+    newStyleIds,
+    newFeatureIds,
+    newPeriodIds,
+  }: {
+    newTypeIds?: string[];
+    newStyleIds?: string[];
+    newFeatureIds?: string[];
+    newPeriodIds?: string[];
+  }) => {
+    const current = filters.categoryIds || [];
+
+    const currentTypeIds = current.filter((id) =>
+      architectureTypeIdSet.has(id)
+    );
+    const currentStyleIds = current.filter((id) =>
+      architecturalStyleIdSet.has(id)
+    );
+    const currentFeatureIds = current.filter((id) =>
+      architecturalFeatureIdSet.has(id)
+    );
+    const currentPeriodIds = current.filter((id) =>
+      historicalPeriodIdSet.has(id)
+    );
+
+    const preserved = current.filter(
+      (id) =>
+        !architectureTypeIdSet.has(id) &&
+        !architecturalStyleIdSet.has(id) &&
+        !architecturalFeatureIdSet.has(id) &&
+        !historicalPeriodIdSet.has(id) &&
+        id !== architectureRootId
+    );
+
+    let nextCats = [
+      ...preserved,
+      ...(newTypeIds ?? currentTypeIds),
+      ...(newStyleIds ?? currentStyleIds),
+      ...(newFeatureIds ?? currentFeatureIds),
+      ...(newPeriodIds ?? currentPeriodIds),
+    ];
+
+    // Deduplicate
+    nextCats = Array.from(new Set(nextCats));
+
+    // Ensure Architecture root is present
+    if (architectureRootId && !nextCats.includes(architectureRootId)) {
+      nextCats.push(architectureRootId);
+    }
+
+    onFilterChange({ categoryIds: nextCats });
+  };
+
+  const handleArchitectureTypeChange = (ids: string[]) => {
+    rebuildArchitectureCategoryIds({ newTypeIds: ids });
+  };
+
+  const handleArchitecturalStyleChange = (ids: string[]) => {
+    rebuildArchitectureCategoryIds({ newStyleIds: ids });
+  };
+
+  const handleArchitecturalFeatureChange = (ids: string[]) => {
+    rebuildArchitectureCategoryIds({ newFeatureIds: ids });
+  };
+
+  const handleArchitecturePeriodChange = (ids: string[]) => {
+    rebuildArchitectureCategoryIds({ newPeriodIds: ids });
+  };
+
+  const handleArchitectureSearchPick = (id: string) => {
+    const current = filters.categoryIds || [];
+    const preserved = current.filter(
+      (cid) =>
+        !architectureTypeIdSet.has(cid) &&
+        !architecturalStyleIdSet.has(cid) &&
+        !architecturalFeatureIdSet.has(cid) &&
+        !historicalPeriodIdSet.has(cid) &&
+        cid !== architectureRootId
+    );
+
+    let nextCats = [...preserved, id];
+    if (architectureRootId && !nextCats.includes(architectureRootId)) {
+      nextCats.push(architectureRootId);
+    }
+
+    nextCats = Array.from(new Set(nextCats));
+
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds: nextCats,
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    onFilterChange(base);
+    resetSharedUi();
+    onSearch();
+  };
+
+  // Nature tab: helper to rebuild nature-related category IDs
+  const rebuildNatureCategoryIds = ({
+    newTypeIds,
+  }: {
+    newTypeIds?: string[];
+  }) => {
+    const current = filters.categoryIds || [];
+    const currentTypeIds = current.filter((id) => naturalTypeIdSet.has(id));
+
+    const preserved = current.filter(
+      (id) => !naturalTypeIdSet.has(id) && id !== naturalRootId
+    );
+
+    let nextCats = [...preserved, ...(newTypeIds ?? currentTypeIds)];
+    nextCats = Array.from(new Set(nextCats));
+
+    if (naturalRootId && !nextCats.includes(naturalRootId)) {
+      nextCats.push(naturalRootId);
+    }
+
+    onFilterChange({ categoryIds: nextCats });
+  };
+
+  const handleNatureTypeChange = (ids: string[]) => {
+    rebuildNatureCategoryIds({ newTypeIds: ids });
+  };
+
+  const handleNatureSearchPick = (id: string) => {
+    let categoryIds: string[] = [];
+    if (naturalRootId) categoryIds.push(naturalRootId);
+    categoryIds.push(id);
+    categoryIds = Array.from(new Set(categoryIds));
+
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds,
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    onFilterChange(base);
+    resetSharedUi();
+    onSearch();
+  };
+
+  // Cultural Landscape: helper
+  const rebuildCulturalCategoryIds = ({
+    newTypeIds,
+  }: {
+    newTypeIds?: string[];
+  }) => {
+    const current = filters.categoryIds || [];
+    const currentTypeIds = current.filter((id) => culturalTypeIdSet.has(id));
+
+    const preserved = current.filter(
+      (id) => !culturalTypeIdSet.has(id) && id !== culturalRootId
+    );
+
+    let nextCats = [...preserved, ...(newTypeIds ?? currentTypeIds)];
+    nextCats = Array.from(new Set(nextCats));
+
+    if (culturalRootId && !nextCats.includes(culturalRootId)) {
+      nextCats.push(culturalRootId);
+    }
+
+    onFilterChange({ categoryIds: nextCats });
+  };
+
+  const handleCulturalTypeChange = (ids: string[]) => {
+    rebuildCulturalCategoryIds({ newTypeIds: ids });
+  };
+
+  const handleCulturalSearchPick = (id: string) => {
+    let categoryIds: string[] = [];
+    if (culturalRootId) categoryIds.push(culturalRootId);
+    categoryIds.push(id);
+    categoryIds = Array.from(new Set(categoryIds));
+
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds,
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    onFilterChange(base);
+    resetSharedUi();
+    onSearch();
+  };
+
+  // Archaeology: helper (type + period)
+  const rebuildArchaeologyCategoryIds = ({
+    newTypeIds,
+    newPeriodIds,
+  }: {
+    newTypeIds?: string[];
+    newPeriodIds?: string[];
+  }) => {
+    const current = filters.categoryIds || [];
+
+    const currentTypeIds = current.filter((id) =>
+      archaeologyTypeIdSet.has(id)
+    );
+    const currentPeriodIds = current.filter((id) =>
+      historicalPeriodIdSet.has(id)
+    );
+
+    const preserved = current.filter(
+      (id) =>
+        !archaeologyTypeIdSet.has(id) &&
+        !historicalPeriodIdSet.has(id) &&
+        id !== archaeologyRootId
+    );
+
+    let nextCats = [
+      ...preserved,
+      ...(newTypeIds ?? currentTypeIds),
+      ...(newPeriodIds ?? currentPeriodIds),
+    ];
+
+    nextCats = Array.from(new Set(nextCats));
+
+    if (archaeologyRootId && !nextCats.includes(archaeologyRootId)) {
+      nextCats.push(archaeologyRootId);
+    }
+
+    onFilterChange({ categoryIds: nextCats });
+  };
+
+  const handleArchaeologyTypeChange = (ids: string[]) => {
+    rebuildArchaeologyCategoryIds({ newTypeIds: ids });
+  };
+
+  const handleArchaeologyPeriodChange = (ids: string[]) => {
+    rebuildArchaeologyCategoryIds({ newPeriodIds: ids });
+  };
+
+  const handleArchaeologySearchPick = (id: string) => {
+    let categoryIds: string[] = [];
+    if (archaeologyRootId) categoryIds.push(archaeologyRootId);
+    categoryIds.push(id);
+    categoryIds = Array.from(new Set(categoryIds));
+
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds,
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    onFilterChange(base);
+    resetSharedUi();
+    onSearch();
   };
 
   /* ───────── Heading text builder ───────── */
   useEffect(() => {
     if (!onHeadingChange) return;
 
-    const catNames = options.categories
+    const catNames = (options.categories as any[])
       .filter((c) => filters.categoryIds?.includes(c.id))
-      .map((c) => c.name);
+      .map((c) => c.name as string);
 
     if (hasRadius(filters)) {
       const types = catNames.length ? andJoin(catNames) + " " : "";
@@ -1430,153 +2008,659 @@ export default function SearchFilters({
     options.categories,
   ]);
 
+  // Selected IDs per group
+  const selectedArchitectureTypeIds = filters.categoryIds.filter((id) =>
+    architectureTypeIdSet.has(id)
+  );
+  const selectedArchitecturalStyleIds = filters.categoryIds.filter((id) =>
+    architecturalStyleIdSet.has(id)
+  );
+  const selectedArchitecturalFeatureIds = filters.categoryIds.filter((id) =>
+    architecturalFeatureIdSet.has(id)
+  );
+  const selectedArchitecturePeriodIds = filters.categoryIds.filter((id) =>
+    historicalPeriodIdSet.has(id)
+  );
+  const selectedNatureTypeIds = filters.categoryIds.filter((id) =>
+    naturalTypeIdSet.has(id)
+  );
+  const selectedCulturalTypeIds = filters.categoryIds.filter((id) =>
+    culturalTypeIdSet.has(id)
+  );
+  const selectedArchaeologyTypeIds = filters.categoryIds.filter((id) =>
+    archaeologyTypeIdSet.has(id)
+  );
+  const selectedArchaeologyPeriodIds = filters.categoryIds.filter((id) =>
+    historicalPeriodIdSet.has(id)
+  );
+
+  /* ───────── Master + Domain tab handlers ───────── */
+
+  const applyDomainDefaults = (domain: DomainTab) => {
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds: [],
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    if (domain === "all") {
+      onFilterChange(base);
+    } else if (domain === "architecture") {
+      let categoryIds: string[] = [];
+      if (architectureRootId) categoryIds.push(architectureRootId);
+      onFilterChange({ ...base, categoryIds });
+    } else if (domain === "nature") {
+      let categoryIds: string[] = [];
+      if (naturalRootId) categoryIds.push(naturalRootId);
+      onFilterChange({ ...base, categoryIds });
+    } else if (domain === "cultural") {
+      let categoryIds: string[] = [];
+      if (culturalRootId) categoryIds.push(culturalRootId);
+      onFilterChange({ ...base, categoryIds });
+    } else if (domain === "archaeology") {
+      // Prefer the heritage-type category "Archaeological Sites" if it exists
+      const archHeritage = heritageTypeOptions.find(
+        (c) => c.name === "Archaeological Sites"
+      );
+      let categoryIds: string[] = [];
+      if (archHeritage) {
+        categoryIds.push(archHeritage.id);
+      } else if (archaeologyRootId) {
+        categoryIds.push(archaeologyRootId);
+      }
+      onFilterChange({ ...base, categoryIds });
+    }
+  };
+
+  const handleMasterTabClick = (tab: MasterTab) => {
+    if (tab === masterTab) return;
+    setMasterTab(tab);
+    resetSharedUi();
+
+    const base: Partial<Filters> = {
+      name: "",
+      categoryIds: [],
+      regionIds: [],
+      orderBy: "latest",
+      ...clearPlacesNearby(),
+    };
+
+    if (tab === "all") {
+      applyDomainDefaults(domainTab);
+    } else {
+      // Region master tab
+      onFilterChange(base);
+    }
+  };
+
+  const handleDomainTabClick = (domain: DomainTab) => {
+    if (masterTab !== "all") {
+      // Only meaningful when master is "all"
+      setMasterTab("all");
+    }
+
+    // Toggle behaviour: click active pill → back to All
+    if (domain === domainTab) {
+      setDomainTab("all");
+      resetSharedUi();
+      applyDomainDefaults("all");
+    } else {
+      setDomainTab(domain);
+      resetSharedUi();
+      applyDomainDefaults(domain);
+    }
+  };
+
+  /* ───────── Render ───────── */
+
   return (
-    <div className="p-4 bg-white h-full flex flex-col">
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        {(["filters", "cats", "regs"] as const).map((t) => (
+    <div className="p-3 bg-white h-full flex flex-col text-sm">
+      {/* Master Tabs: All / Region (overall tabs) */}
+      <div className="flex mb-3 border-b border-[var(--taupe-grey)]/60 text-xs">
+        {(["all", "region"] as MasterTab[]).map((t) => (
           <button
             key={t}
-            onClick={() => setActiveTab(t)}
-            className={`font-explore-tab px-3 py-1.5 rounded-full text-sm font-semibold border transition
+            onClick={() => handleMasterTabClick(t)}
+            className={`px-3 pt-2 pb-1 -mb-[1px] font-semibold border-b-2 transition-colors
             ${
-              activeTab === t
-                ? "bg-[var(--terracotta-red)] text-white border-[var(--terracotta-red)]"
-                : "bg-white text-[var(--dark-grey)] border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+              masterTab === t
+                ? "border-[var(--terracotta-red)] text-[var(--dark-grey)]"
+                : "border-transparent text-[var(--espresso-brown)]/70 hover:text-[var(--dark-grey)]"
             }`}
           >
-            {t === "filters"
-              ? "Filters"
-              : t === "cats"
-              ? "Categories"
-              : "Regions"}
+            {t === "all" ? "All" : "Region"}
           </button>
         ))}
       </div>
 
+      {/* Domain Pills (2×2 grid) */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {[
+          "architecture",
+          "nature",
+          "cultural",
+          "archaeology",
+        ].map((d) => {
+          const domain = d as DomainTab;
+          const label =
+            domain === "architecture"
+              ? "Architecture"
+              : domain === "nature"
+              ? "Nature & Landscapes"
+              : domain === "cultural"
+              ? "Cultural Landscape"
+              : "Archaeology";
+          const isActive = masterTab === "all" && domainTab === domain;
+          return (
+            <button
+              key={domain}
+              type="button"
+              onClick={() => handleDomainTabClick(domain)}
+              className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition whitespace-nowrap flex items-center justify-center
+              ${
+                isActive
+                  ? "bg-[var(--terracotta-red)] text-white border-[var(--terracotta-red)]"
+                  : "bg-white text-[var(--dark-grey)] border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Panels */}
       <div className="flex-grow min-h-0">
-        {activeTab === "filters" && (
-          <div className="space-y-6">
-            {/* Keyword */}
-            <div className="relative rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
-              <input
-                type="text"
-                value={filters.name}
-                onChange={(e) => onFilterChange({ name: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                placeholder="Search Heritage"
-                className="w-full px-4 py-3 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60"
-              />
-            </div>
-
-            {/* Categories (dropdown) */}
-            <MultiSelectDropdown
-              options={options.categories}
-              selectedIds={filters.categoryIds}
-              onChange={(ids) => onFilterChange({ categoryIds: ids })}
-              placeholder="Heritage Type"
-            />
-
-            {/* Regions: Two dropdowns */}
-            <div className="space-y-1">
-              <TopLevelRegionSelect
-                topRegions={topRegions}
-                activeParentId={activeParentId}
-                setActiveParentId={setActiveParentId}
-                selectedIds={filters.regionIds}
-                onClearAll={clearAllRegions}
-                onToggleWithRule={onToggleWithRule}
-                regionNames={regionNames}
-                regionParents={regionParents}
-              />
-
-              {activeParentId &&
-                topRegions.find((t) => t.id === activeParentId) && (
-                  <SubRegionSelect
-                    parent={topRegions.find((t) => t.id === activeParentId)!}
-                    selectedIds={filters.regionIds}
-                    onToggleWithRule={onToggleWithRule}
+        {/* MASTER: All */}
+        {masterTab === "all" && (
+          <>
+            {/* All-domain panel (no specific pill selected) */}
+            {domainTab === "all" && (
+              <div className="space-y-4">
+                {/* Keyword */}
+                <div className="relative rounded-xl bg-[var(--taupe-grey)]/10 shadow-sm focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+                  <input
+                    type="text"
+                    value={filters.name}
+                    onChange={(e) => onFilterChange({ name: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && onSearch()}
+                    placeholder="Search Heritage"
+                    className="w-full px-3 py-2.5 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 text-sm"
                   />
-                )}
-            </div>
+                </div>
 
-            {/* Location + Radius */}
-            <LocationRadiusFilter
-              value={{
-                centerSiteId: filters.centerSiteId ?? null,
-                centerLat: filters.centerLat ?? null,
-                centerLng: filters.centerLng ?? null,
-                radiusKm: filters.radiusKm ?? undefined,
-              }}
-              onChange={(v) => onFilterChange(v)}
-              onSitePicked={(site) => setCenterSiteTitle(site?.title ?? null)}
-            />
-          </div>
+                {/* Heritage Type */}
+                <MultiSelectDropdown
+                  options={heritageTypeOptions}
+                  selectedIds={filters.categoryIds.filter((id) =>
+                    heritageTypeIdSet.has(id)
+                  )}
+                  onChange={handleHeritageTypeChange}
+                  placeholder="Heritage Type"
+                />
+
+                {/* Historical Period */}
+                <MultiSelectDropdown
+                  options={historicalPeriodOptions}
+                  selectedIds={filters.categoryIds.filter((id) =>
+                    historicalPeriodIdSet.has(id)
+                  )}
+                  onChange={handleHistoricalPeriodChange}
+                  placeholder="Historical Period"
+                />
+
+                {/* Regions: Two dropdowns */}
+                <div className="space-y-1">
+                  <TopLevelRegionSelect
+                    topRegions={topRegions}
+                    activeParentId={activeParentId}
+                    setActiveParentId={setActiveParentId}
+                    selectedIds={filters.regionIds}
+                    onClearAll={clearAllRegions}
+                    onToggleWithRule={onToggleWithRule}
+                    regionNames={regionNames}
+                    regionParents={regionParents}
+                  />
+
+                  {activeParentId &&
+                    topRegions.find((t) => t.id === activeParentId) && (
+                      <SubRegionSelect
+                        parent={topRegions.find(
+                          (t) => t.id === activeParentId
+                        )!}
+                        selectedIds={filters.regionIds}
+                        onToggleWithRule={onToggleWithRule}
+                      />
+                    )}
+                </div>
+
+                {/* Location + Radius */}
+                <LocationRadiusFilter
+                  value={{
+                    centerSiteId: filters.centerSiteId ?? null,
+                    centerLat: filters.centerLat ?? null,
+                    centerLng: filters.centerLng ?? null,
+                    radiusKm: filters.radiusKm ?? undefined,
+                  }}
+                  onChange={(v) => onFilterChange(v)}
+                  onSitePicked={(site) =>
+                    setCenterSiteTitle(site?.title ?? null)
+                  }
+                />
+              </div>
+            )}
+
+            {/* Architecture Panel */}
+            {domainTab === "architecture" && (
+              <div className="h-full flex flex-col space-y-3.5">
+                {/* Architecture search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search Architecture…"
+                    value={architectureSearch}
+                    onChange={(e) => setArchitectureSearch(e.target.value)}
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                  />
+                  {architectureSearch.trim().length >= 2 && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
+                      {architectureSearchResults.length === 0 ? (
+                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                          No architecture categories found
+                        </div>
+                      ) : (
+                        architectureSearchResults.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleArchitectureSearchPick(c.id)}
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                          >
+                            <Icon
+                              name={c.icon_key || "landmark"}
+                              size={13}
+                              className="text-[var(--taupe-grey)]"
+                            />
+                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
+                              {c.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Architecture Type */}
+                <MultiSelectDropdown
+                  options={architectureTypeOptions}
+                  selectedIds={selectedArchitectureTypeIds}
+                  onChange={handleArchitectureTypeChange}
+                  placeholder="Architecture Type"
+                />
+
+                {/* Architectural Style */}
+                <MultiSelectDropdown
+                  options={architecturalStyleOptions}
+                  selectedIds={selectedArchitecturalStyleIds}
+                  onChange={handleArchitecturalStyleChange}
+                  placeholder="Architectural Style"
+                />
+
+                {/* Architectural Features */}
+                <MultiSelectDropdown
+                  options={architecturalFeatureOptions}
+                  selectedIds={selectedArchitecturalFeatureIds}
+                  onChange={handleArchitecturalFeatureChange}
+                  placeholder="Architectural Features"
+                />
+
+                {/* Historical Period (for architecture) */}
+                <MultiSelectDropdown
+                  options={historicalPeriodOptions}
+                  selectedIds={selectedArchitecturePeriodIds}
+                  onChange={handleArchitecturePeriodChange}
+                  placeholder="Historical Period"
+                />
+
+                {/* Regions for Architecture */}
+                <div className="space-y-1">
+                  <TopLevelRegionSelect
+                    topRegions={topRegions}
+                    activeParentId={activeParentId}
+                    setActiveParentId={setActiveParentId}
+                    selectedIds={filters.regionIds}
+                    onClearAll={clearAllRegions}
+                    onToggleWithRule={onToggleWithRule}
+                    regionNames={regionNames}
+                    regionParents={regionParents}
+                  />
+
+                  {activeParentId &&
+                    topRegions.find((t) => t.id === activeParentId) && (
+                      <SubRegionSelect
+                        parent={topRegions.find(
+                          (t) => t.id === activeParentId
+                        )!}
+                        selectedIds={filters.regionIds}
+                        onToggleWithRule={onToggleWithRule}
+                      />
+                    )}
+                </div>
+
+                {/* Architecture tab radius search */}
+                <LocationRadiusFilter
+                  value={{
+                    centerSiteId: filters.centerSiteId ?? null,
+                    centerLat: filters.centerLat ?? null,
+                    centerLng: filters.centerLng ?? null,
+                    radiusKm: filters.radiusKm ?? undefined,
+                  }}
+                  onChange={(v) => onFilterChange(v)}
+                  onSitePicked={(site) =>
+                    setCenterSiteTitle(site?.title ?? null)
+                  }
+                />
+              </div>
+            )}
+
+            {/* Nature Panel */}
+            {domainTab === "nature" && (
+              <div className="h-full flex flex-col space-y-3.5">
+                {/* Nature search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search Nature…"
+                    value={natureSearch}
+                    onChange={(e) => setNatureSearch(e.target.value)}
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                  />
+                  {natureSearch.trim().length >= 2 && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
+                      {natureSearchResults.length === 0 ? (
+                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                          No natural heritage categories found
+                        </div>
+                      ) : (
+                        natureSearchResults.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleNatureSearchPick(c.id)}
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                          >
+                            <Icon
+                              name={c.icon_key || "leaf"}
+                              size={13}
+                              className="text-[var(--taupe-grey)]"
+                            />
+                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
+                              {c.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Natural Heritage Type */}
+                <MultiSelectDropdown
+                  options={naturalTypeOptions}
+                  selectedIds={selectedNatureTypeIds}
+                  onChange={handleNatureTypeChange}
+                  placeholder="Natural Heritage Type"
+                />
+
+                {/* Regions */}
+                <div className="space-y-1">
+                  <TopLevelRegionSelect
+                    topRegions={topRegions}
+                    activeParentId={activeParentId}
+                    setActiveParentId={setActiveParentId}
+                    selectedIds={filters.regionIds}
+                    onClearAll={clearAllRegions}
+                    onToggleWithRule={onToggleWithRule}
+                    regionNames={regionNames}
+                    regionParents={regionParents}
+                  />
+
+                  {activeParentId &&
+                    topRegions.find((t) => t.id === activeParentId) && (
+                      <SubRegionSelect
+                        parent={topRegions.find(
+                          (t) => t.id === activeParentId
+                        )!}
+                        selectedIds={filters.regionIds}
+                        onToggleWithRule={onToggleWithRule}
+                      />
+                    )}
+                </div>
+
+                {/* Nature tab radius search */}
+                <LocationRadiusFilter
+                  value={{
+                    centerSiteId: filters.centerSiteId ?? null,
+                    centerLat: filters.centerLat ?? null,
+                    centerLng: filters.centerLng ?? null,
+                    radiusKm: filters.radiusKm ?? undefined,
+                  }}
+                  onChange={(v) => onFilterChange(v)}
+                  onSitePicked={(site) =>
+                    setCenterSiteTitle(site?.title ?? null)
+                  }
+                />
+              </div>
+            )}
+
+            {/* Cultural Landscape Panel */}
+            {domainTab === "cultural" && (
+              <div className="h-full flex flex-col space-y-3.5">
+                {/* Cultural Landscape search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search Cultural Landscape…"
+                    value={culturalSearch}
+                    onChange={(e) => setCulturalSearch(e.target.value)}
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                  />
+                  {culturalSearch.trim().length >= 2 && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
+                      {culturalSearchResults.length === 0 ? (
+                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                          No cultural landscape categories found
+                        </div>
+                      ) : (
+                        culturalSearchResults.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleCulturalSearchPick(c.id)}
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                          >
+                            <Icon
+                              name={c.icon_key || "globe-europe"}
+                              size={13}
+                              className="text-[var(--taupe-grey)]"
+                            />
+                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
+                              {c.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Type Dropdown */}
+                <MultiSelectDropdown
+                  options={culturalTypeOptions}
+                  selectedIds={selectedCulturalTypeIds}
+                  onChange={handleCulturalTypeChange}
+                  placeholder="Type"
+                />
+
+                {/* Regions */}
+                <div className="space-y-1">
+                  <TopLevelRegionSelect
+                    topRegions={topRegions}
+                    activeParentId={activeParentId}
+                    setActiveParentId={setActiveParentId}
+                    selectedIds={filters.regionIds}
+                    onClearAll={clearAllRegions}
+                    onToggleWithRule={onToggleWithRule}
+                    regionNames={regionNames}
+                    regionParents={regionParents}
+                  />
+
+                  {activeParentId &&
+                    topRegions.find((t) => t.id === activeParentId) && (
+                      <SubRegionSelect
+                        parent={topRegions.find(
+                          (t) => t.id === activeParentId
+                        )!}
+                        selectedIds={filters.regionIds}
+                        onToggleWithRule={onToggleWithRule}
+                      />
+                    )}
+                </div>
+
+                {/* Cultural tab radius search */}
+                <LocationRadiusFilter
+                  value={{
+                    centerSiteId: filters.centerSiteId ?? null,
+                    centerLat: filters.centerLat ?? null,
+                    centerLng: filters.centerLng ?? null,
+                    radiusKm: filters.radiusKm ?? undefined,
+                  }}
+                  onChange={(v) => onFilterChange(v)}
+                  onSitePicked={(site) =>
+                    setCenterSiteTitle(site?.title ?? null)
+                  }
+                />
+              </div>
+            )}
+
+            {/* Archaeology Panel */}
+            {domainTab === "archaeology" && (
+              <div className="h-full flex flex-col space-y-3.5">
+                {/* Archaeology search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Search Archaeology…"
+                    value={archaeologySearch}
+                    onChange={(e) => setArchaeologySearch(e.target.value)}
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                  />
+                  {archaeologySearch.trim().length >= 2 && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
+                      {archaeologySearchResults.length === 0 ? (
+                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                          No archaeology categories found
+                        </div>
+                      ) : (
+                        archaeologySearchResults.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleArchaeologySearchPick(c.id)}
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                          >
+                            <Icon
+                              name={c.icon_key || "university"}
+                              size={13}
+                              className="text-[var(--taupe-grey)]"
+                            />
+                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
+                              {c.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Type Dropdown */}
+                <MultiSelectDropdown
+                  options={archaeologyTypeOptions}
+                  selectedIds={selectedArchaeologyTypeIds}
+                  onChange={handleArchaeologyTypeChange}
+                  placeholder="Type"
+                />
+
+                {/* Historical Period Dropdown */}
+                <MultiSelectDropdown
+                  options={historicalPeriodOptions}
+                  selectedIds={selectedArchaeologyPeriodIds}
+                  onChange={handleArchaeologyPeriodChange}
+                  placeholder="Historical Period"
+                />
+
+                {/* Regions */}
+                <div className="space-y-1">
+                  <TopLevelRegionSelect
+                    topRegions={topRegions}
+                    activeParentId={activeParentId}
+                    setActiveParentId={setActiveParentId}
+                    selectedIds={filters.regionIds}
+                    onClearAll={clearAllRegions}
+                    onToggleWithRule={onToggleWithRule}
+                    regionNames={regionNames}
+                    regionParents={regionParents}
+                  />
+
+                  {activeParentId &&
+                    topRegions.find((t) => t.id === activeParentId) && (
+                      <SubRegionSelect
+                        parent={topRegions.find(
+                          (t) => t.id === activeParentId
+                        )!}
+                        selectedIds={filters.regionIds}
+                        onToggleWithRule={onToggleWithRule}
+                      />
+                    )}
+                </div>
+
+                {/* Archaeology tab radius search */}
+                <LocationRadiusFilter
+                  value={{
+                    centerSiteId: filters.centerSiteId ?? null,
+                    centerLat: filters.centerLat ?? null,
+                    centerLng: filters.centerLng ?? null,
+                    radiusKm: filters.radiusKm ?? undefined,
+                  }}
+                  onChange={(v) => onFilterChange(v)}
+                  onSitePicked={(site) =>
+                    setCenterSiteTitle(site?.title ?? null)
+                  }
+                />
+              </div>
+            )}
+          </>
         )}
 
-        {/* Category Tab (now multi-select) */}
-        {activeTab === "cats" && (
-          <div className="h-full flex flex-col">
-            <input
-              type="text"
-              placeholder="Search categories..."
-              value={catSearch}
-              onChange={(e) => setCatSearch(e.target.value)}
-              className="w-full mb-3 px-3 py-2 text-sm bg-[var(--ivory-cream)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] placeholder-[var(--espresso-brown)]/60 font-explore-input flex-shrink-0"
-            />
-            <div className="space-y-1 overflow-y-auto scrollbar-hide">
-              {filteredCategories.map((c) => {
-                const active = filters.categoryIds.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      const set = new Set(filters.categoryIds || []);
-                      active ? set.delete(c.id) : set.add(c.id);
-                      onFilterChange({ categoryIds: Array.from(set) });
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-lg border transition flex items-center gap-2
-                    ${
-                      active
-                        ? "bg-[var(--terracotta-red)]/10 border-[var(--terracotta-red)]"
-                        : "border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
-                    }`}
-                  >
-                    <Icon
-                      name={c.icon_key || "folder"}
-                      size={16}
-                      className="text-[var(--taupe-grey)]"
-                    />
-                    <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                      {c.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Regions Tab (no nested buttons) */}
-        {activeTab === "regs" && (
-          <div className="h-full flex flex-col">
+        {/* MASTER: Region (full Regions panel) */}
+        {masterTab === "region" && (
+          <div className="h-full flex flex-col text-sm">
             <input
               type="text"
               placeholder="Search regions..."
               value={regSearch}
               onChange={(e) => setRegSearch(e.target.value)}
-              className="w-full mb-3 px-3 py-2 text-sm bg-[var(--ivory-cream)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] placeholder-[var(--espresso-brown)]/60 font-explore-input flex-shrink-0"
+              className="w-full mb-2.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input flex-shrink-0"
             />
 
             {regSearch.trim().length >= 2 ? (
-              <div className="space-y-1 overflow-y-auto scrollbar-hide">
+              <div className="space-y-1 overflow-y-auto scrollbar-hide text-xs">
                 {regSearching ? (
-                  <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+                  <div className="px-3 py-1.5 text-[var(--taupe-grey)]">
                     Searching…
                   </div>
                 ) : regSearchResults.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-[var(--taupe-grey)]">
+                  <div className="px-3 py-1.5 text-[var(--taupe-grey)]">
                     No regions found
                   </div>
                 ) : (
@@ -1584,7 +2668,7 @@ export default function SearchFilters({
                     <button
                       key={r.id}
                       onClick={() => onToggleWithRule(r.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border transition flex items-center gap-2
+                      className={`w-full text-left px-3 py-1.5 rounded-lg border transition flex items-center gap-2
                       ${
                         filters.regionIds.includes(r.id)
                           ? "bg-[var(--terracotta-red)]/10 border-[var(--terracotta-red)]"
@@ -1593,7 +2677,7 @@ export default function SearchFilters({
                     >
                       <Icon
                         name={r.icon_key || "map"}
-                        size={16}
+                        size={14}
                         className="text-[var(--taupe-grey)]"
                       />
                       <span className="font-explore-tab-item text-[var(--dark-grey)]">
@@ -1606,7 +2690,7 @@ export default function SearchFilters({
             ) : (
               <>
                 {!expandedParentId ? (
-                  <div className="space-y-2 overflow-y-auto scrollbar-hide">
+                  <div className="space-y-2 overflow-y-auto scrollbar-hide text-sm">
                     {topRegions.map((top) => {
                       const parentSelected = filters.regionIds.includes(top.id);
                       return (
@@ -1636,7 +2720,7 @@ export default function SearchFilters({
                               }
                               setExpandedParentId(top.id);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition cursor-pointer ${
                               parentSelected
                                 ? "bg-[var(--terracotta-red)]/10"
                                 : "hover:bg-[var(--ivory-cream)]"
@@ -1646,11 +2730,11 @@ export default function SearchFilters({
                             <div className="flex items-center gap-2">
                               <Icon
                                 name={top.icon_key || "map"}
-                                size={16}
+                                size={14}
                                 className="text-[var(--taupe-grey)]"
                               />
                               <span
-                                className={`font-explore-tab-item ${
+                                className={`font-explore-tab-item text-sm ${
                                   parentSelected
                                     ? "text-[var(--terracotta-red)] font-semibold"
                                     : "text-[var(--dark-grey)]"
@@ -1667,15 +2751,15 @@ export default function SearchFilters({
                                   e.stopPropagation();
                                   clearRegionParent(top.id);
                                 }}
-                                className="ml-2 w-6 h-6 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                                className="ml-2 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
                                 title="Clear this region"
                               >
-                                <Icon name="times" size={10} />
+                                <Icon name="times" size={9} />
                               </button>
                             ) : (
                               <Icon
                                 name="chevron-right"
-                                size={16}
+                                size={14}
                                 className="text-[var(--taupe-grey)]"
                               />
                             )}
@@ -1686,42 +2770,42 @@ export default function SearchFilters({
                   </div>
                 ) : (
                   // Expanded panel for a parent
-                  <div className="overflow-y-auto scrollbar-hide">
+                  <div className="overflow-y-auto scrollbar-hide text-sm">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setExpandedParentId(null)}
-                          className="px-2 py-1 text-sm rounded ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+                          className="px-2 py-1 text-xs rounded ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
                         >
                           ← Back
                         </button>
-                        <div className="text-sm text-[var(--dark-grey)] font-semibold">
+                        <div className="text-xs text-[var(--dark-grey)] font-semibold">
                           {regionNames[expandedParentId] || "Region"}
                         </div>
                       </div>
 
                       <button
                         onClick={() => clearRegionParent(expandedParentId!)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-sm rounded bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] hover:bg-white"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] hover:bg-white"
                         title="Clear this region & subregions"
                       >
-                        <Icon name="times" size={10} />
+                        <Icon name="times" size={9} />
                         Clear
                       </button>
                     </div>
 
                     <div className="rounded-lg border border-[var(--taupe-grey)]/60">
-                      <div className="px-3 py-2 border-b border-[var(--taupe-grey)]/40 text-xs text-[var(--espresso-brown)]/70">
+                      <div className="px-3 py-1.5 border-b border-[var(--taupe-grey)]/40 text-[0.7rem] text-[var(--espresso-brown)]/70">
                         Choose subregions under “
                         {regionNames[expandedParentId!] || "Region"}”.
                       </div>
 
-                      <div className="p-2 space-y-1">
+                      <div className="p-2 space-y-1 text-xs">
                         {(() => {
                           const subs = subsByParent[expandedParentId!] || [];
                           if (!subs.length)
                             return (
-                              <div className="px-2 py-2 text-sm text-[var(--taupe-grey)]">
+                              <div className="px-2 py-1.5 text-[var(--taupe-grey)]">
                                 No subregions
                               </div>
                             );
@@ -1731,7 +2815,7 @@ export default function SearchFilters({
                             return (
                               <div
                                 key={s.id}
-                                className={`flex items-center justify-between rounded px-3 py-2 text-sm ${
+                                className={`flex items-center justify-between rounded px-3 py-1.5 ${
                                   active
                                     ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
                                     : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
@@ -1751,7 +2835,7 @@ export default function SearchFilters({
                                     className="ml-2 w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-current"
                                     title="Remove"
                                   >
-                                    <Icon name="times" size={10} />
+                                    <Icon name="times" size={9} />
                                   </button>
                                 )}
                               </div>
@@ -1769,22 +2853,22 @@ export default function SearchFilters({
       </div>
 
       {/* Footer actions */}
-      <div className="flex gap-3 pt-4 mt-4 flex-shrink-0">
+      <div className="flex gap-2.5 pt-3 mt-3 flex-shrink-0">
         <button
           onClick={onSearch}
-          className="font-explore-button flex-1 py-2.5 rounded-xl bg-[var(--terracotta-red)] hover:brightness-95 text-white font-semibold shadow-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+          className="font-explore-button flex-1 py-2 rounded-xl bg-[var(--terracotta-red)] hover:brightness-95 text-white font-semibold shadow-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] text-sm"
         >
           Search
         </button>
         <button
           onClick={handleReset}
-          className="font-explore-button px-4 rounded-xl bg-white ring-1 ring-[var(--taupe-grey)] shadow-sm text-[var(--dark-grey)] hover:bg-[var(--ivory-cream)] inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+          className="font-explore-button px-3.5 rounded-xl bg-white ring-1 ring-[var(--taupe-grey)] shadow-sm text-[var(--dark-grey)] hover:bg-[var(--ivory-cream)] inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] text-xs"
           title="Reset filters"
           type="button"
         >
           <Icon
             name="redo-alt"
-            size={14}
+            size={12}
             className="text-[var(--terracotta-red)]"
           />
           Reset
