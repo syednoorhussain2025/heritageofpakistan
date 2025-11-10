@@ -7,7 +7,8 @@ import IconPickerModal from "@/components/IconPickerModal";
 
 /**
  * Heritage Categories & Regions (multi-select) WITH inline management.
- * - Two searchable multi-selects side by side.
+ * - Categories: drill-down hierarchical selector (full-panel per level).
+ * - Regions: flat searchable multi-select.
  * - A "Manage Taxonomies" modal to create/rename/delete Categories & Regions.
  * - Shows taxonomy icons in lists and selected chips.
  */
@@ -60,7 +61,7 @@ export default function CategoriesRegionsSelector({
           <div className="text-base font-semibold mb-3 text-gray-900">
             Categories
           </div>
-          <MultiSelect
+          <CategoryDrilldownSelect
             items={allCategories}
             selectedIds={selectedCatIds}
             setSelectedIds={setSelectedCatIds}
@@ -94,7 +95,301 @@ export default function CategoriesRegionsSelector({
   );
 }
 
-/* ---------- Local MultiSelect (shows icons) ---------- */
+/* ---------- Category drill-down selector (full-panel per level) ---------- */
+
+function CategoryDrilldownSelect({
+  items,
+  selectedIds,
+  setSelectedIds,
+  labelKey,
+}: {
+  items: Array<{
+    id: string;
+    name: string;
+    parent_id?: string | null;
+    icon_key?: string | null;
+  }>;
+  selectedIds: string[];
+  setSelectedIds: (ids: string[]) => void;
+  labelKey: string;
+}) {
+  // null = root (top-level categories where parent_id is null)
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const isAtRoot = !currentParentId;
+
+  // Desired order for first-level categories (by name)
+  const rootOrder = useMemo(
+    () => [
+      "Heritage Type",
+      "Architectural Style",
+      "Architectural Features",
+      "Historical Period",
+      "UNESCO Status",
+    ],
+    []
+  );
+  const rootOrderIndex = useMemo(() => {
+    const m: Record<string, number> = {};
+    rootOrder.forEach((name, idx) => {
+      m[name] = idx;
+    });
+    return m;
+  }, [rootOrder]);
+
+  // Map for quick lookup (for breadcrumbs / parent chain)
+  const categoryById = useMemo(() => {
+    const map: Record<string, (typeof items)[number]> = {};
+    for (const c of items) {
+      map[c.id] = c;
+    }
+    return map;
+  }, [items]);
+
+  // Precompute which categories have children (for the drill-in arrow)
+  const hasChildrenMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const c of items) {
+      if (c.parent_id) {
+        map[c.parent_id] = true;
+      }
+    }
+    return map;
+  }, [items]);
+
+  // Selected chips (all levels) – exclude true top-level parents
+  const selectedItems = useMemo(
+    () =>
+      items.filter(
+        (it) =>
+          selectedIds.includes(it.id) &&
+          it.parent_id !== null &&
+          typeof it.parent_id !== "undefined"
+      ),
+    [items, selectedIds]
+  );
+
+  // Visible list on the current "screen"
+  const visibleItems = useMemo(() => {
+    let levelItems = items.filter((it) =>
+      currentParentId ? it.parent_id === currentParentId : !it.parent_id
+    );
+
+    // At root, reorder according to desired order
+    if (!currentParentId) {
+      levelItems = [...levelItems].sort((a, b) => {
+        const ai =
+          typeof rootOrderIndex[a.name] === "number"
+            ? rootOrderIndex[a.name]
+            : Number.MAX_SAFE_INTEGER;
+        const bi =
+          typeof rootOrderIndex[b.name] === "number"
+            ? rootOrderIndex[b.name]
+            : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    return levelItems;
+  }, [items, currentParentId, rootOrderIndex]);
+
+  // Search is applied only within the current level
+  const filteredVisibleItems = useMemo(() => {
+    if (!searchQuery.trim()) return visibleItems;
+    const q = searchQuery.toLowerCase();
+    return visibleItems.filter((item) =>
+      String(item[labelKey]).toLowerCase().includes(q)
+    );
+  }, [visibleItems, searchQuery, labelKey]);
+
+  // Breadcrumb path based on currentParentId
+  const breadcrumb = useMemo(() => {
+    if (!currentParentId) return [];
+    const chain: (typeof items)[number][] = [];
+    let cur: (typeof items)[number] | undefined = categoryById[currentParentId];
+    while (cur) {
+      chain.push(cur);
+      if (!cur.parent_id) break;
+      cur = categoryById[cur.parent_id];
+    }
+    return chain.reverse();
+  }, [currentParentId, categoryById]);
+
+  function toggle(id: string) {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((x) => x !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  }
+
+  function goBackOneLevel() {
+    if (!currentParentId) return;
+    const current = categoryById[currentParentId];
+    if (!current || !current.parent_id) {
+      // back to root
+      setCurrentParentId(null);
+    } else {
+      // back to parent of current
+      setCurrentParentId(current.parent_id);
+    }
+    setSearchQuery("");
+  }
+
+  function drillInto(id: string) {
+    setCurrentParentId(id);
+    setSearchQuery("");
+  }
+
+  return (
+    <div className="bg-white border border-gray-300 rounded-md p-3">
+      {/* Header / breadcrumb for drill-down – fixed height to avoid layout shift */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          type="button"
+          onClick={goBackOneLevel}
+          disabled={isAtRoot}
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-300 bg-white text-gray-700 text-xs ${
+            isAtRoot
+              ? "invisible cursor-default"
+              : "hover:bg-gray-100 cursor-pointer"
+          }`}
+        >
+          <span className="text-sm">←</span>
+          <span>Back</span>
+        </button>
+        <div className="flex-1 truncate text-xs text-gray-500">
+          {isAtRoot
+            ? "Top-level categories"
+            : breadcrumb.map((b, idx) => (
+                <span key={b.id}>
+                  {idx > 0 && " / "}
+                  {b.name}
+                </span>
+              ))}
+        </div>
+      </div>
+
+      {/* Search within current level */}
+      <input
+        type="text"
+        placeholder="Search in this level…"
+        className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500 mb-3"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+
+      {/* Panel for current level (full "screen" for this level) */}
+      <div className="max-h-60 overflow-auto space-y-2 mb-3">
+        {filteredVisibleItems.map((it) => {
+          const hasChildren = !!hasChildrenMap[it.id];
+
+          // ROOT LEVEL: not selectable, no checkbox, whole row drills in
+          if (isAtRoot) {
+            return (
+              <div
+                key={it.id}
+                className="flex items-center gap-3 text-sm p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+                onClick={() => drillInto(it.id)}
+              >
+                {/* spacer to align with checkbox column of deeper levels */}
+                <span className="w-4 h-4" />
+                {it.icon_key ? (
+                  <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+                ) : (
+                  <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
+                )}
+                <span className="text-gray-800 truncate flex-1">
+                  {it[labelKey] as string}
+                </span>
+                {hasChildren && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded-md text-gray-400 text-xs">
+                    <span className="text-base leading-none">›</span>
+                  </span>
+                )}
+              </div>
+            );
+          }
+
+          // DEEPER LEVELS: selectable with checkbox, row toggles
+          return (
+            <div
+              key={it.id}
+              className="flex items-center gap-3 text-sm p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+              onClick={() => toggle(it.id)}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                checked={selectedIds.includes(it.id)}
+                readOnly
+                onClick={(e) => e.stopPropagation()}
+              />
+              {it.icon_key ? (
+                <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+              ) : (
+                <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
+              )}
+              <span className="text-gray-800 truncate flex-1">
+                {it[labelKey] as string}
+              </span>
+
+              {hasChildren && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    drillInto(it.id);
+                  }}
+                  className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 text-xs"
+                  title="View sub-categories"
+                >
+                    <span className="text-base leading-none">›</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {filteredVisibleItems.length === 0 && (
+          <div className="text-sm text-gray-500 p-2">
+            No categories found at this level.
+          </div>
+        )}
+      </div>
+
+      {/* Selected chips (all levels, excluding root parents) BELOW selector */}
+      {selectedItems.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+          {selectedItems.map((item) => (
+            <span
+              key={item.id}
+              className="bg-indigo-600 text-white rounded-full px-3 py-1 text-sm flex items-center gap-2"
+            >
+              {item.icon_key ? (
+                <Icon name={item.icon_key} className="w-3.5 h-3.5 text-white" />
+              ) : (
+                <span className="w-3.5 h-3.5 rounded-full bg:white/40" />
+              )}
+              <span>{item[labelKey] as string}</span>
+              <button
+                onClick={() => toggle(item.id)}
+                className="text-indigo-100 hover:text-white font-bold"
+                aria-label="Remove"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Flat MultiSelect (for Regions; shows icons) ---------- */
 
 function MultiSelect({
   items,
@@ -140,8 +435,37 @@ function MultiSelect({
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 
+      <div className="max-h-60 overflow-auto space-y-2 mb-3">
+        {filteredItems.map((it) => (
+          <label
+            key={it.id}
+            className="flex items-center gap-3 text-sm cursor-pointer p-1 rounded-md hover:bg-gray-100"
+            onClick={() => toggle(it.id)}
+          >
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+              checked={selectedIds.includes(it.id)}
+              readOnly
+              onClick={(e) => e.stopPropagation()}
+            />
+            {it.icon_key ? (
+              <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+            ) : (
+              <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
+            )}
+            <span className="text-gray-800">{it[labelKey] as string}</span>
+          </label>
+        ))}
+        {filteredItems.length === 0 && (
+          <div className="text-sm text-gray-500 p-2">
+            No items match your search.
+          </div>
+        )}
+      </div>
+
       {selectedItems.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-gray-200">
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
           {selectedItems.map((item) => (
             <span
               key={item.id}
@@ -164,33 +488,6 @@ function MultiSelect({
           ))}
         </div>
       )}
-
-      <div className="max-h-60 overflow-auto space-y-2">
-        {filteredItems.map((it) => (
-          <label
-            key={it.id}
-            className="flex items-center gap-3 text-sm cursor-pointer p-1 rounded-md hover:bg-gray-100"
-          >
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-              checked={selectedIds.includes(it.id)}
-              onChange={() => toggle(it.id)}
-            />
-            {it.icon_key ? (
-              <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
-            ) : (
-              <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
-            )}
-            <span className="text-gray-800">{it[labelKey] as string}</span>
-          </label>
-        ))}
-        {filteredItems.length === 0 && (
-          <div className="text-sm text-gray-500 p-2">
-            No items match your search.
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -230,7 +527,6 @@ function TaxonomyManagerModal({
     Array<{ name: string; svg_content: string }>
   >([]);
 
-  // Borrow slugify utility from TaxonomyManager
   function slugify(s: string) {
     return s
       .toLowerCase()
@@ -240,7 +536,7 @@ function TaxonomyManagerModal({
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
   }
-  // Ensure uniqueness against DB (handles UNIQUE index on slug)
+
   async function uniqueSlug(table: "categories" | "regions", base: string) {
     let candidate = slugify(base);
     let n = 1;
@@ -255,11 +551,10 @@ function TaxonomyManagerModal({
       n += 1;
       candidate = `${slugify(base)}-${n}`;
     }
-    return `${slugify(base)}-${Date.now()}`; // fallback
+    return `${slugify(base)}-${Date.now()}`;
   }
 
   useEffect(() => {
-    // load icons like manager does
     (async () => {
       const { data, error } = await supabase
         .from("icons")
@@ -285,7 +580,7 @@ function TaxonomyManagerModal({
       return;
     }
     setSaving(true);
-    const slug = await uniqueSlug(table, nm); // ← FIX: satisfy NOT NULL and uniqueness
+    const slug = await uniqueSlug(table, nm);
     const payload: any = { name: nm, slug };
     if (parentId) payload.parent_id = parentId;
     if (iconKey) payload.icon_key = iconKey;
@@ -296,7 +591,6 @@ function TaxonomyManagerModal({
       alert(error.message);
       return;
     }
-    // reset local inputs and refresh parent
     setName("");
     setParentId("");
     setIconKey(null);
@@ -328,16 +622,13 @@ function TaxonomyManagerModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
-      {/* backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
         aria-hidden
       />
-      {/* panel */}
       <div className="relative w-full sm:max-w-4xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-200">
         <div className="p-4 sm:p-6">
-          {/* header */}
           <div className="flex items-center gap-3 mb-4">
             <div className="text-lg font-semibold text-gray-900">
               Manage Taxonomies
@@ -352,7 +643,6 @@ function TaxonomyManagerModal({
             </div>
           </div>
 
-          {/* tabs */}
           <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden mb-4">
             {(["categories", "regions"] as const).map((k) => {
               const active = tab === k;
@@ -378,7 +668,6 @@ function TaxonomyManagerModal({
             })}
           </div>
 
-          {/* quick add */}
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <input
@@ -406,7 +695,6 @@ function TaxonomyManagerModal({
                 ))}
               </select>
 
-              {/* icon picker trigger */}
               <button
                 type="button"
                 onClick={() => setIsIconPickerOpen(true)}
@@ -431,7 +719,6 @@ function TaxonomyManagerModal({
             </div>
           </div>
 
-          {/* icon picker modal */}
           <IconPickerModal
             isOpen={isIconPickerOpen}
             onClose={() => setIsIconPickerOpen(false)}
@@ -443,7 +730,6 @@ function TaxonomyManagerModal({
             }}
           />
 
-          {/* search + list */}
           <div className="mb-3">
             <input
               className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
