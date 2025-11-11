@@ -8,7 +8,7 @@ import IconPickerModal from "@/components/IconPickerModal";
 /**
  * Heritage Categories & Regions (multi-select) WITH inline management.
  * - Categories: drill-down hierarchical selector (full-panel per level).
- * - Regions: flat searchable multi-select.
+ * - Regions: drill-down hierarchical selector (parents selectable).
  * - A "Manage Taxonomies" modal to create/rename/delete Categories & Regions.
  * - Shows taxonomy icons in lists and selected chips.
  */
@@ -169,6 +169,58 @@ function CategoryDrilldownSelect({
       ),
     [items, selectedIds]
   );
+
+  // Group selected items under their top-level parent category
+  const selectedGroupedByRoot = useMemo(() => {
+    type Cat = (typeof items)[number];
+    const groups: Record<
+      string,
+      {
+        root: Cat;
+        items: Cat[];
+      }
+    > = {};
+
+    for (const item of selectedItems) {
+      let cur: Cat | undefined = item;
+      let root: Cat = item;
+
+      // walk up to top-level parent
+      while (cur && cur.parent_id) {
+        const parent = categoryById[cur.parent_id];
+        if (!parent) break;
+        root = parent;
+        cur = parent;
+      }
+
+      const rootId = String(root.id);
+      if (!groups[rootId]) {
+        groups[rootId] = { root, items: [] };
+      }
+      groups[rootId].items.push(item);
+    }
+
+    // sort groups by desired root order, then name
+    const orderedGroups = Object.values(groups).sort((a, b) => {
+      const ai =
+        typeof rootOrderIndex[a.root.name] === "number"
+          ? rootOrderIndex[a.root.name]
+          : Number.MAX_SAFE_INTEGER;
+      const bi =
+        typeof rootOrderIndex[b.root.name] === "number"
+          ? rootOrderIndex[b.root.name]
+          : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.root.name.localeCompare(b.root.name);
+    });
+
+    // sort items inside each group alphabetically
+    for (const g of orderedGroups) {
+      g.items.sort((x, y) => x.name.localeCompare(y.name));
+    }
+
+    return orderedGroups;
+  }, [selectedItems, categoryById, rootOrderIndex, items]);
 
   // Visible list on the current "screen"
   const visibleItems = useMemo(() => {
@@ -346,7 +398,7 @@ function CategoryDrilldownSelect({
                   className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 text-xs"
                   title="View sub-categories"
                 >
-                    <span className="text-base leading-none">›</span>
+                  <span className="text-base leading-none">›</span>
                 </button>
               )}
             </div>
@@ -360,28 +412,40 @@ function CategoryDrilldownSelect({
         )}
       </div>
 
-      {/* Selected chips (all levels, excluding root parents) BELOW selector */}
+      {/* Selected chips (all levels, excluding root parents) grouped by top-level parent BELOW selector */}
       {selectedItems.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
-          {selectedItems.map((item) => (
-            <span
-              key={item.id}
-              className="bg-indigo-600 text-white rounded-full px-3 py-1 text-sm flex items-center gap-2"
-            >
-              {item.icon_key ? (
-                <Icon name={item.icon_key} className="w-3.5 h-3.5 text-white" />
-              ) : (
-                <span className="w-3.5 h-3.5 rounded-full bg:white/40" />
-              )}
-              <span>{item[labelKey] as string}</span>
-              <button
-                onClick={() => toggle(item.id)}
-                className="text-indigo-100 hover:text-white font-bold"
-                aria-label="Remove"
-              >
-                &times;
-              </button>
-            </span>
+        <div className="pt-3 border-t border-gray-200 space-y-3">
+          {selectedGroupedByRoot.map((group) => (
+            <div key={group.root.id}>
+              <div className="text-xs font-semibold text-gray-500 mb-1">
+                {group.root.name}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {group.items.map((item) => (
+                  <span
+                    key={item.id}
+                    className="bg-indigo-600 text-white rounded-full px-3 py-1 text-sm flex items-center gap-2"
+                  >
+                    {item.icon_key ? (
+                      <Icon
+                        name={item.icon_key}
+                        className="w-3.5 h-3.5 text-white"
+                      />
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
+                    )}
+                    <span>{item[labelKey] as string}</span>
+                    <button
+                      onClick={() => toggle(item.id)}
+                      className="text-indigo-100 hover:text-white font-bold"
+                      aria-label="Remove"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -389,7 +453,7 @@ function CategoryDrilldownSelect({
   );
 }
 
-/* ---------- Flat MultiSelect (for Regions; shows icons) ---------- */
+/* ---------- Region drill-down MultiSelect (parents selectable) ---------- */
 
 function MultiSelect({
   items,
@@ -397,25 +461,79 @@ function MultiSelect({
   setSelectedIds,
   labelKey,
 }: {
-  items: Array<{ id: string; name: string; icon_key?: string | null }>;
+  items: Array<{
+    id: string;
+    name: string;
+    icon_key?: string | null;
+    parent_id?: string | null;
+  }>;
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
   labelKey: string;
 }) {
+  // null = root (top-level regions where parent_id is null)
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const isAtRoot = !currentParentId;
+
+  // Map for quick lookup (for breadcrumbs / parent chain)
+  const regionById = useMemo(() => {
+    const map: Record<string, (typeof items)[number]> = {};
+    for (const r of items) {
+      map[r.id] = r;
+    }
+    return map;
+  }, [items]);
+
+  // Precompute which regions have children
+  const hasChildrenMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const r of items) {
+      if (r.parent_id) {
+        map[r.parent_id] = true;
+      }
+    }
+    return map;
+  }, [items]);
 
   const selectedItems = useMemo(
     () => items.filter((it) => selectedIds.includes(it.id)),
     [items, selectedIds]
   );
 
+  // Visible list on the current "screen"
+  const visibleItems = useMemo(
+    () =>
+      items
+        .filter((it) =>
+          currentParentId ? it.parent_id === currentParentId : !it.parent_id
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [items, currentParentId]
+  );
+
+  // Search is applied only within the current level
   const filteredItems = useMemo(() => {
-    if (!searchQuery) return items;
+    if (!searchQuery.trim()) return visibleItems;
     const q = searchQuery.toLowerCase();
-    return items.filter((item) =>
+    return visibleItems.filter((item) =>
       String(item[labelKey]).toLowerCase().includes(q)
     );
-  }, [items, searchQuery, labelKey]);
+  }, [visibleItems, searchQuery, labelKey]);
+
+  // Breadcrumb path based on currentParentId
+  const breadcrumb = useMemo(() => {
+    if (!currentParentId) return [];
+    const chain: (typeof items)[number][] = [];
+    let cur: (typeof items)[number] | undefined = regionById[currentParentId];
+    while (cur) {
+      chain.push(cur);
+      if (!cur.parent_id) break;
+      cur = regionById[cur.parent_id];
+    }
+    return chain.reverse();
+  }, [currentParentId, regionById]);
 
   function toggle(id: string) {
     if (selectedIds.includes(id)) {
@@ -425,67 +543,142 @@ function MultiSelect({
     }
   }
 
+  function goBackOneLevel() {
+    if (!currentParentId) return;
+    const current = regionById[currentParentId];
+    if (!current || !current.parent_id) {
+      // back to root
+      setCurrentParentId(null);
+    } else {
+      // back to parent of current
+      setCurrentParentId(current.parent_id);
+    }
+    setSearchQuery("");
+  }
+
+  function drillInto(id: string) {
+    setCurrentParentId(id);
+    setSearchQuery("");
+  }
+
   return (
     <div className="bg-white border border-gray-300 rounded-md p-3">
+      {/* Header / breadcrumb for drill-down – fixed height to avoid layout shift */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          type="button"
+          onClick={goBackOneLevel}
+          disabled={isAtRoot}
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-300 bg-white text-gray-700 text-xs ${
+            isAtRoot
+              ? "invisible cursor-default"
+              : "hover:bg-gray-100 cursor-pointer"
+          }`}
+        >
+          <span className="text-sm">←</span>
+          <span>Back</span>
+        </button>
+        <div className="flex-1 truncate text-xs text-gray-500">
+          {isAtRoot
+            ? "Top-level regions"
+            : breadcrumb.map((b, idx) => (
+                <span key={b.id}>
+                  {idx > 0 && " / "}
+                  {b.name}
+                </span>
+              ))}
+        </div>
+      </div>
+
+      {/* Search within current level */}
       <input
         type="text"
-        placeholder="Search…"
+        placeholder="Search in this level…"
         className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500 mb-3"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 
+      {/* Panel for current level */}
       <div className="max-h-60 overflow-auto space-y-2 mb-3">
-        {filteredItems.map((it) => (
-          <label
-            key={it.id}
-            className="flex items-center gap-3 text-sm cursor-pointer p-1 rounded-md hover:bg-gray-100"
-            onClick={() => toggle(it.id)}
-          >
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-              checked={selectedIds.includes(it.id)}
-              readOnly
-              onClick={(e) => e.stopPropagation()}
-            />
-            {it.icon_key ? (
-              <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
-            ) : (
-              <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
-            )}
-            <span className="text-gray-800">{it[labelKey] as string}</span>
-          </label>
-        ))}
+        {filteredItems.map((it) => {
+          const hasChildren = !!hasChildrenMap[it.id];
+
+          return (
+            <div
+              key={it.id}
+              className="flex items-center gap-3 text-sm p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+              onClick={() => toggle(it.id)}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                checked={selectedIds.includes(it.id)}
+                readOnly
+                onClick={(e) => e.stopPropagation()}
+              />
+              {it.icon_key ? (
+                <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+              ) : (
+                <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
+              )}
+              <span className="text-gray-800 truncate flex-1">
+                {it[labelKey] as string}
+              </span>
+
+              {hasChildren && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    drillInto(it.id);
+                  }}
+                  className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 text-xs"
+                  title="View sub-regions"
+                >
+                  <span className="text-base leading-none">›</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+
         {filteredItems.length === 0 && (
           <div className="text-sm text-gray-500 p-2">
-            No items match your search.
+            No regions found at this level.
           </div>
         )}
       </div>
 
+      {/* Selected region chips (all levels) */}
       {selectedItems.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
-          {selectedItems.map((item) => (
-            <span
-              key={item.id}
-              className="bg-indigo-600 text-white rounded-full px-3 py-1 text-sm flex items-center gap-2"
-            >
-              {item.icon_key ? (
-                <Icon name={item.icon_key} className="w-3.5 h-3.5 text-white" />
-              ) : (
-                <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
-              )}
-              <span>{item[labelKey] as string}</span>
-              <button
-                onClick={() => toggle(item.id)}
-                className="text-indigo-100 hover:text-white font-bold"
-                aria-label="Remove"
+          {selectedItems
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((item) => (
+              <span
+                key={item.id}
+                className="bg-indigo-600 text-white rounded-full px-3 py-1 text-sm flex items-center gap-2"
               >
-                &times;
-              </button>
-            </span>
-          ))}
+                {item.icon_key ? (
+                  <Icon
+                    name={item.icon_key}
+                    className="w-3.5 h-3.5 text-white"
+                  />
+                ) : (
+                  <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
+                )}
+                <span>{item[labelKey] as string}</span>
+                <button
+                  onClick={() => toggle(item.id)}
+                  className="text-indigo-100 hover:text-white font-bold"
+                  aria-label="Remove"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
         </div>
       )}
     </div>
@@ -658,7 +851,7 @@ function TaxonomyManagerModal({
                   }}
                   className={`px-4 py-2 text-sm font-medium ${
                     active
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-indigo-600 text:white text-white"
                       : "bg-white text-gray-700 hover:bg-gray-100"
                   }`}
                 >

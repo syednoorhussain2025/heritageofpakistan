@@ -1126,9 +1126,7 @@ function LocationRadiusFilter({
         </div>
         <p className="mt-1 text-[0.7rem] text-[var(--espresso-brown)]/70">
           {value.centerSiteId
-            ? `Searching within ${
-                value.radiusKm ?? 25
-              } km of the selected site.`
+            ? `Searching within ${value.radiusKm ?? 25} km of the selected site.`
             : "Choose a site to enable radius search."}
         </p>
       </div>
@@ -1621,7 +1619,6 @@ export default function SearchFilters({
         orderBy: "latest",
         ...clearPlacesNearby(),
       });
-      setCenterSiteTitle(null);
     }
 
     if (!(id in regionParents)) {
@@ -1733,19 +1730,27 @@ export default function SearchFilters({
         id !== architectureRootId
     );
 
+    // Effective selections after update
+    const nextType = newTypeIds ?? currentTypeIds;
+    const nextStyle = newStyleIds ?? currentStyleIds;
+    const nextFeature = newFeatureIds ?? currentFeatureIds;
+    const nextPeriod = newPeriodIds ?? currentPeriodIds;
+
     let nextCats = [
       ...preserved,
-      ...(newTypeIds ?? currentTypeIds),
-      ...(newStyleIds ?? currentStyleIds),
-      ...(newFeatureIds ?? currentFeatureIds),
-      ...(newPeriodIds ?? currentPeriodIds),
+      ...nextType,
+      ...nextStyle,
+      ...nextFeature,
+      ...nextPeriod,
     ];
 
     // Deduplicate
     nextCats = Array.from(new Set(nextCats));
 
-    // Ensure Architecture root is present
-    if (architectureRootId && !nextCats.includes(architectureRootId)) {
+    // Include Architecture root ONLY when there are NO arch-specific selections.
+    // If only Period is selected, keep root to constrain the domain to Architecture.
+    const hasArchSpecific = nextType.length + nextStyle.length + nextFeature.length > 0;
+    if (!hasArchSpecific && architectureRootId && !nextCats.includes(architectureRootId)) {
       nextCats.push(architectureRootId);
     }
 
@@ -1769,26 +1774,10 @@ export default function SearchFilters({
   };
 
   const handleArchitectureSearchPick = (id: string) => {
-    const current = filters.categoryIds || [];
-    const preserved = current.filter(
-      (cid) =>
-        !architectureTypeIdSet.has(cid) &&
-        !architecturalStyleIdSet.has(cid) &&
-        !architecturalFeatureIdSet.has(cid) &&
-        !historicalPeriodIdSet.has(cid) &&
-        cid !== architectureRootId
-    );
-
-    let nextCats = [...preserved, id];
-    if (architectureRootId && !nextCats.includes(architectureRootId)) {
-      nextCats.push(architectureRootId);
-    }
-
-    nextCats = Array.from(new Set(nextCats));
-
+    // Narrow to the picked architecture type ONLY (no architecture root)
     const base: Partial<Filters> = {
       name: "",
-      categoryIds: nextCats,
+      categoryIds: [id],
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
@@ -1812,10 +1801,13 @@ export default function SearchFilters({
       (id) => !naturalTypeIdSet.has(id) && id !== naturalRootId
     );
 
-    let nextCats = [...preserved, ...(newTypeIds ?? currentTypeIds)];
+    const nextType = newTypeIds ?? currentTypeIds;
+
+    let nextCats = [...preserved, ...nextType];
     nextCats = Array.from(new Set(nextCats));
 
-    if (naturalRootId && !nextCats.includes(naturalRootId)) {
+    // Include Natural root ONLY when there are NO nature selections.
+    if (nextType.length === 0 && naturalRootId && !nextCats.includes(naturalRootId)) {
       nextCats.push(naturalRootId);
     }
 
@@ -1827,14 +1819,10 @@ export default function SearchFilters({
   };
 
   const handleNatureSearchPick = (id: string) => {
-    let categoryIds: string[] = [];
-    if (naturalRootId) categoryIds.push(naturalRootId);
-    categoryIds.push(id);
-    categoryIds = Array.from(new Set(categoryIds));
-
+    // Narrow to the picked nature type ONLY (no natural root)
     const base: Partial<Filters> = {
       name: "",
-      categoryIds,
+      categoryIds: [id],
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
@@ -1858,10 +1846,13 @@ export default function SearchFilters({
       (id) => !culturalTypeIdSet.has(id) && id !== culturalRootId
     );
 
-    let nextCats = [...preserved, ...(newTypeIds ?? currentTypeIds)];
+    const nextType = newTypeIds ?? currentTypeIds;
+
+    let nextCats = [...preserved, ...nextType];
     nextCats = Array.from(new Set(nextCats));
 
-    if (culturalRootId && !nextCats.includes(culturalRootId)) {
+    // Include Cultural root ONLY when there are NO cultural selections.
+    if (nextType.length === 0 && culturalRootId && !nextCats.includes(culturalRootId)) {
       nextCats.push(culturalRootId);
     }
 
@@ -1873,14 +1864,10 @@ export default function SearchFilters({
   };
 
   const handleCulturalSearchPick = (id: string) => {
-    let categoryIds: string[] = [];
-    if (culturalRootId) categoryIds.push(culturalRootId);
-    categoryIds.push(id);
-    categoryIds = Array.from(new Set(categoryIds));
-
+    // Narrow to the picked cultural type ONLY (no cultural root)
     const base: Partial<Filters> = {
       name: "",
-      categoryIds,
+      categoryIds: [id],
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
@@ -1908,23 +1895,32 @@ export default function SearchFilters({
       historicalPeriodIdSet.has(id)
     );
 
+    // Identify heritage-type "Archaeological Sites" (used as a default)
+    const archHeritage = heritageTypeOptions.find(
+      (c) => c.name === "Archaeological Sites"
+    );
+    const archHeritageId = archHeritage?.id;
+
     const preserved = current.filter(
       (id) =>
         !archaeologyTypeIdSet.has(id) &&
         !historicalPeriodIdSet.has(id) &&
-        id !== archaeologyRootId
+        id !== archaeologyRootId &&
+        id !== archHeritageId // drop broad heritage-type default once specific selections appear
     );
 
-    let nextCats = [
-      ...preserved,
-      ...(newTypeIds ?? currentTypeIds),
-      ...(newPeriodIds ?? currentPeriodIds),
-    ];
+    const nextType = newTypeIds ?? currentTypeIds;
+    const nextPeriod = newPeriodIds ?? currentPeriodIds;
 
+    let nextCats = [...preserved, ...nextType, ...nextPeriod];
     nextCats = Array.from(new Set(nextCats));
 
-    if (archaeologyRootId && !nextCats.includes(archaeologyRootId)) {
-      nextCats.push(archaeologyRootId);
+    // Include an archaeology "anchor" ONLY when there is no archaeology TYPE selected.
+    // If only Period is selected, keep the domain constrained to Archaeology via anchor.
+    const hasArchaeologyType = nextType.length > 0;
+    if (!hasArchaeologyType) {
+      const anchorId = archaeologyRootId || archHeritageId || null;
+      if (anchorId && !nextCats.includes(anchorId)) nextCats.push(anchorId);
     }
 
     onFilterChange({ categoryIds: nextCats });
@@ -1939,14 +1935,10 @@ export default function SearchFilters({
   };
 
   const handleArchaeologySearchPick = (id: string) => {
-    let categoryIds: string[] = [];
-    if (archaeologyRootId) categoryIds.push(archaeologyRootId);
-    categoryIds.push(id);
-    categoryIds = Array.from(new Set(categoryIds));
-
+    // Narrow to the picked archaeology type ONLY (no archaeology root)
     const base: Partial<Filters> = {
       name: "",
-      categoryIds,
+      categoryIds: [id],
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
