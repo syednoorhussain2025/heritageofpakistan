@@ -2,6 +2,17 @@ import { createClient } from "../supabaseClient";
 import { LightboxPhoto } from "../../types/lightbox";
 import { storagePublicUrl } from "../image/storagePublicUrl";
 
+type ImageRow = {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  credit: string | null;
+  width: number | null;
+  height: number | null;
+  blur_hash: string | null;
+  blur_data_url: string | null;
+};
+
 /**
  * Fetches and transforms official site gallery photos into the universal
  * LightboxPhoto format.
@@ -25,7 +36,10 @@ export async function getSiteGalleryPhotosForLightbox(
         .single(),
       supabase
         .from("site_images")
-        .select("id, storage_path, caption, credit")
+        .select(
+          // ⬇️ include performance-related columns
+          "id, storage_path, caption, credit, width, height, blur_hash, blur_data_url"
+        )
         .eq("site_id", siteId)
         .order("sort_order"),
       supabase
@@ -48,7 +62,8 @@ export async function getSiteGalleryPhotosForLightbox(
   if (imagesRes.error) throw imagesRes.error;
 
   const site = siteRes.data;
-  const images = imagesRes.data || [];
+  const images = (imagesRes.data || []) as ImageRow[];
+
   const bookmarkedPaths = new Set(
     (bookmarkRes.data
       ?.map((b: { storage_path: string }) => b.storage_path)
@@ -65,26 +80,35 @@ export async function getSiteGalleryPhotosForLightbox(
       .filter(Boolean) as string[]) ?? [];
 
   // 2. Map the raw database data into the clean, universal LightboxPhoto shape
-  return images.map((img) => ({
-    id: img.id,
-    url: storagePublicUrl("site-images", img.storage_path),
-    caption: img.caption,
-    author: {
-      name: img.credit || "Heritage of Pakistan",
-    },
-    site: {
-      id: site.id,
-      name: site.title,
-      location: site.location_free ?? "Unknown Location",
-      latitude: site.latitude,
-      longitude: site.longitude,
-      region: siteRegion,
-      categories: siteCategories,
-      architecturalStyle: site.architectural_style,
-      // ✅ Include the tagline from the sites table
-      tagline: site.tagline ?? null,
-    },
-    isBookmarked: bookmarkedPaths.has(img.storage_path),
-    storagePath: img.storage_path,
-  }));
+  return images.map(
+    (img): LightboxPhoto =>
+      ({
+        id: img.id,
+        url: storagePublicUrl("site-images", img.storage_path),
+        caption: img.caption,
+        author: {
+          name: img.credit || "Heritage of Pakistan",
+        },
+        site: {
+          id: site.id,
+          name: site.title,
+          location: site.location_free ?? "Unknown Location",
+          latitude: site.latitude,
+          longitude: site.longitude,
+          region: siteRegion,
+          categories: siteCategories,
+          architecturalStyle: site.architectural_style,
+          // ✅ Include the tagline from the sites table
+          tagline: site.tagline ?? null,
+        },
+        isBookmarked: bookmarkedPaths.has(img.storage_path),
+        storagePath: img.storage_path,
+
+        // ✅ Performance extras from DB
+        width: img.width ?? undefined,
+        height: img.height ?? undefined,
+        blurHash: img.blur_hash ?? undefined,
+        blurDataURL: img.blur_data_url ?? undefined,
+      } as any) // `as any` keeps TS happy if LightboxPhoto doesn't declare these yet
+  );
 }

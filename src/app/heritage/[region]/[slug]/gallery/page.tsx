@@ -13,6 +13,7 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabaseClient";
+import { decode } from "blurhash";
 
 // Collections
 import { useCollections } from "@/components/CollectionsProvider";
@@ -38,11 +39,12 @@ type SiteHeaderInfo = {
   tagline?: string | null;
 };
 
-/** Some backends include intrinsic dimensions on each photo; your LightboxPhoto
- * type doesn't, so we treat them as optional if present. */
-type PhotoWithDims = LightboxPhoto & {
-  width?: number;
-  height?: number;
+/** LightboxPhoto plus optional server-provided extras. */
+type PhotoWithExtras = LightboxPhoto & {
+  width?: number | null;
+  height?: number | null;
+  blurHash?: string | null;
+  blurDataURL?: string | null;
 };
 
 /* ---------- Masonry (row-major) helpers ---------- */
@@ -51,165 +53,155 @@ const ROW_PX = 8; // must match auto-rows value
 const GAP_PX = 16; // must match gap-4
 const FALLBACK_RATIO = 4 / 3;
 
-/** Pre-measure an image off-DOM to get a stable natural ratio before we reveal it. */
-function useNaturalRatio(
-  src: string | undefined,
-  hintRatio?: number
-): { ratio: number | undefined; ready: boolean } {
-  const [ratio, setRatio] = useState<number | undefined>(hintRatio);
-  const [ready, setReady] = useState<boolean>(!!hintRatio);
+/* ---------- Blurhash Placeholder ---------- */
+
+function BlurhashPlaceholder({ hash }: { hash: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!src) return;
+    if (!hash || !canvasRef.current) return;
 
-    // If we already have a good ratio, we consider it ready.
-    if (hintRatio && hintRatio > 0) {
-      setRatio(hintRatio);
-      setReady(true);
-      return;
-    }
+    const width = 32;
+    const height = 32;
+    const pixels = decode(hash, width, height);
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
 
-    const img = new window.Image();
-    (img as any).fetchPriority = "low";
-    img.decoding = "async";
-    img.onload = () => {
-      if (cancelled) return;
-      const w = img.naturalWidth || 0;
-      const h = img.naturalHeight || 0;
-      setRatio(w > 0 && h > 0 ? w / h : undefined);
-      setReady(true);
-    };
-    img.onerror = () => {
-      if (cancelled) return;
-      setRatio(undefined);
-      setReady(true);
-    };
-    img.src = src;
+    const imageData = ctx.createImageData(width, height);
+    imageData.data.set(pixels);
+    ctx.putImageData(imageData, 0, 0);
+  }, [hash]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [src, hintRatio]);
-
-  return { ratio, ready };
+  return (
+    <canvas
+      ref={canvasRef}
+      className="w-full h-full"
+      width={32}
+      height={32}
+    />
+  );
 }
 
-function MasonryTile({
-  photo,
-  onOpen,
-  siteId,
-}: {
+type MasonryTileProps = {
   photo: LightboxPhoto;
   onOpen: () => void;
   siteId: string;
-}) {
+  isPriority: boolean;
+};
+
+function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [span, setSpan] = useState(1);
 
-  // Read optional dims without breaking types
-  const dims = photo as PhotoWithDims;
-  const ratioFromDims =
-    dims.width && dims.height && dims.width > 0 && dims.height > 0
-      ? dims.width / dims.height
-      : undefined;
+  const extras = photo as PhotoWithExtras;
 
-  // Pre-measure ratio if not provided
-  const { ratio: measuredRatio, ready: ratioReady } = useNaturalRatio(
-    photo.url,
-    ratioFromDims
-  );
+  // Prefer server-cached dimensions if available
+  const initialRatio =
+    extras.width && extras.height && extras.width > 0 && extras.height > 0
+      ? extras.width / extras.height
+      : FALLBACK_RATIO;
 
-  // Chosen ratio: prefer provided → measured → fallback
-  const chosenRatio = measuredRatio ?? ratioFromDims ?? FALLBACK_RATIO;
+  const [aspectRatio, setAspectRatio] = useState(initialRatio);
 
-  const recompute = useCallback(() => {
-    if (!wrapperRef.current) return;
+  // Blur data from DB if present
+  const blurHash = extras.blurHash;
+  const blurDataURL = extras.blurDataURL ?? undefined;
+
+  const recomputeSpan = useCallback(() => {
+    if (!wrapperRef.current || !aspectRatio) return;
     const w = wrapperRef.current.clientWidth;
     if (w <= 0) return;
-    const imgH = w / chosenRatio;
+
+    const imgH = w / aspectRatio;
     const rows = Math.ceil((imgH + GAP_PX) / (ROW_PX + GAP_PX));
     setSpan(rows);
-  }, [chosenRatio]);
+  }, [aspectRatio]);
 
-  // Compute span when ratio is known or container resizes
+  // Initial + whenever aspectRatio changes
   useLayoutEffect(() => {
-    recompute();
-  }, [recompute]);
+    recomputeSpan();
+  }, [recomputeSpan]);
 
+  // Recompute on wrapper resize and window resize
   useEffect(() => {
-    const ro = new ResizeObserver(() => recompute());
-    if (wrapperRef.current) ro.observe(wrapperRef.current);
-    const onResize = () => recompute();
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => recomputeSpan());
+    ro.observe(el);
+
+    const onResize = () => recomputeSpan();
     window.addEventListener("resize", onResize);
+
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", onResize);
     };
-  }, [recompute]);
+  }, [recomputeSpan]);
 
-  // Reveal effects
-  const [visible, setVisible] = useState(false);
-  const imgReadyRef = useRef(false);
-
-  // Fade-in only when in view and decoded
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            if (ratioReady && imgReadyRef.current) setVisible(true);
-          }
-        });
-      },
-      { rootMargin: "100px 0px" }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [ratioReady]);
+  // Only care whether the image has loaded
+  const [loaded, setLoaded] = useState(false);
 
   return (
-    <figure
-      className="relative rounded-xl overflow-hidden bg-white shadow-sm"
-      style={{ gridRowEnd: `span ${span}` }}
-    >
+    <figure className="relative" style={{ gridRowEnd: `span ${span}` }}>
       <div
         ref={wrapperRef}
-        className={`
-          relative w-full overflow-hidden group rounded-xl
-          transition-opacity duration-500 ease-out
-          ${visible ? "opacity-100" : "opacity-0"}
-        `}
-        style={{ aspectRatio: String(chosenRatio) }}
+        className="relative w-full overflow-hidden group rounded-xl"
+        style={{ aspectRatio: String(aspectRatio) }}
         onClick={onOpen}
         title="Open"
       >
-        {!visible && (
-          <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-        )}
+        {/* Placeholder layer:
+            - stays mounted, fades out when the image is ready
+        */}
+        <div
+          className={`
+            absolute inset-0 pointer-events-none
+            transition-opacity duration-500 ease-out
+            ${loaded ? "opacity-0" : "opacity-100"}
+          `}
+        >
+          {blurHash ? (
+            <BlurhashPlaceholder hash={blurHash} />
+          ) : (
+            <div className="w-full h-full bg-gray-100 animate-pulse" />
+          )}
+        </div>
 
+        {/* Actual image, fading in over the placeholder */}
         <Image
           src={photo.url}
           alt={photo.caption ?? ""}
           fill
-          sizes="(min-width:1536px) 18vw, (min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:768px) 33vw, (min-width:640px) 50vw, 100vw"
-          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
-          loading="lazy"
-          fetchPriority="low"
-          placeholder={(photo as any).blurDataURL ? "blur" : "empty"}
-          blurDataURL={(photo as any).blurDataURL || undefined}
-          onLoad={async (e) => {
-            try {
-              const el = e.currentTarget as HTMLImageElement;
-              if ("decode" in el) await (el as any).decode?.();
-            } catch {
-              /* ignore */
-            } finally {
-              imgReadyRef.current = true;
-              if (ratioReady) setVisible(true);
+          className={`
+            object-cover w-full h-full transform-gpu will-change-transform
+            transition-transform duration-200 ease-out group-hover:scale-110
+            transition-opacity duration-500 ease-out
+            ${loaded ? "opacity-100" : "opacity-0"}
+          `}
+          sizes="
+            (min-width: 1600px) 18vw,
+            (min-width: 1280px) 22vw,
+            (min-width: 1024px) 28vw,
+            (min-width: 768px)  34vw,
+            (min-width: 640px)  48vw,
+            100vw
+          "
+          priority={isPriority}
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : "low"}
+          placeholder={blurDataURL ? "blur" : "empty"}
+          blurDataURL={blurDataURL}
+          onLoadingComplete={(img) => {
+            // Only recompute ratio if we didn't already have good server dimensions
+            if (
+              (!extras.width || !extras.height) &&
+              img.naturalWidth > 0 &&
+              img.naturalHeight > 0
+            ) {
+              setAspectRatio(img.naturalWidth / img.naturalHeight);
             }
+            setLoaded(true);
           }}
         />
 
@@ -314,7 +306,7 @@ export default function SiteGalleryPage() {
       if (!siteData) throw new Error("Site not found.");
       setSite(siteData as SiteHeaderInfo);
 
-      // Photos for Lightbox (dims may or may not be present)
+      // Photos for Lightbox
       const photoData = await getSiteGalleryPhotosForLightbox(
         siteData.id,
         viewerId
@@ -411,7 +403,9 @@ export default function SiteGalleryPage() {
               )}
 
               {site.tagline && (
-                <div className="mt-2 text-sm text-gray-700">{site.tagline}</div>
+                <div className="mt-2 text-sm text-gray-700">
+                  {site.tagline}
+                </div>
               )}
 
               {categories.length > 0 && (
@@ -457,6 +451,8 @@ export default function SiteGalleryPage() {
                   photo={photo}
                   siteId={site!.id}
                   onOpen={() => setLightboxIndex(idx)}
+                  // First N images eager/high priority for snappy above-the-fold feel
+                  isPriority={idx < 10}
                 />
               ))}
             </div>
