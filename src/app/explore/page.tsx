@@ -777,7 +777,7 @@ function ExplorePageContent() {
           --navy-deep: #1c1f4c;
           --sand-gold: #c7a76b;
           --espresso-brown: #4b2e05;
-          --ivory-cream: #faf7f2;
+          --ivory-cream: #f8f8f8;
           --taupe-grey: #d8cfc4;
           --terracotta-red: #a9502a;
           --mustard-accent: #e2b65c;

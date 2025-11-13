@@ -16,6 +16,7 @@ import {
   getCaptionEngineInfo,
 } from "./gallery-actions";
 import type { CaptionAltOut } from "./gallery-actions";
+import { encode } from "blurhash";
 
 /* -------------------- URL + Reachability Helpers -------------------- */
 
@@ -143,6 +144,10 @@ type Row = {
   sort_order: number | null;
   alt_text: string | null;
   caption: string | null;
+  width?: number | null;
+  height?: number | null;
+  blur_hash?: string | null;
+  blur_data_url?: string | null;
   publicUrl?: string | null;
 };
 
@@ -177,6 +182,65 @@ type ActionReturn =
       modelId?: string;
       usdEstimate?: number | null;
     };
+
+/* ---------------- Blur + Dimension helpers (client-side) ---------------- */
+
+async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+}
+
+async function extractImageMetaFromFile(file: File): Promise<{
+  width: number | null;
+  height: number | null;
+  blurHash: string | null;
+  blurDataURL: string | null;
+}> {
+  try {
+    const img = await loadImageFromFile(file);
+    const width = img.naturalWidth || img.width || null;
+    const height = img.naturalHeight || img.height || null;
+
+    if (!width || !height) {
+      return { width, height, blurHash: null, blurDataURL: null };
+    }
+
+    // Downscale for blurhash to keep it cheap
+    const maxSize = 64;
+    const scale = Math.min(maxSize / width, maxSize / height, 1);
+    const w = Math.max(1, Math.round(width * scale));
+    const h = Math.max(1, Math.round(height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return { width, height, blurHash: null, blurDataURL: null };
+    }
+
+    ctx.drawImage(img, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+
+    const blurHash = encode(imageData.data, w, h, 4, 4);
+    const blurDataURL = canvas.toDataURL("image/jpeg", 0.6);
+
+    return { width, height, blurHash, blurDataURL };
+  } catch {
+    return { width: null, height: null, blurHash: null, blurDataURL: null };
+  }
+}
 
 /* ---------------------- Auto-grow Textarea ---------------------- */
 function AutoGrowTextarea(
@@ -374,24 +438,42 @@ export default function GalleryUploader({
       }, 120);
 
       try {
-        const { error } = await supabase.storage
+        // 🔍 1) Compute dimensions + blurhash + tiny blur data URL in the browser
+        const {
+          width,
+          height,
+          blurHash,
+          blurDataURL,
+        } = await extractImageMetaFromFile(file);
+
+        // 📤 2) Upload to Supabase Storage
+        const { error: uploadErr } = await supabase.storage
           .from("site-images")
           .upload(thisKey, file, {
             upsert: false,
           });
-        if (error) {
-          alert(error.message);
+        if (uploadErr) {
+          alert(uploadErr.message);
           setUploads((prev) =>
             prev.map((u) => (u.key === thisKey ? { ...u, done: true } : u))
           );
           continue;
         }
 
-        await supabase.from("site_images").insert({
+        // 🗄️ 3) Insert DB row with dimensions + blur info
+        const { error: dbErr } = await supabase.from("site_images").insert({
           site_id: siteId,
           storage_path: thisKey,
           sort_order: order++,
+          width: width ?? null,
+          height: height ?? null,
+          blur_hash: blurHash ?? null,
+          blur_data_url: blurDataURL ?? null,
         });
+
+        if (dbErr) {
+          alert(dbErr.message);
+        }
 
         setUploads((prev) =>
           prev.map((u) =>
@@ -435,30 +517,47 @@ export default function GalleryUploader({
   }
 
   async function computeMetaForRow(r: Row): Promise<Meta> {
-    if (!r.publicUrl) return {};
-    try {
-      const img = new Image();
-      const dims = await new Promise<Meta>((resolve) => {
-        img.onload = () =>
-          resolve({ w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => resolve({});
-        img.src = r.publicUrl!;
-      });
-      // HEAD might be blocked on some CDNs; swallow errors
-      try {
-        const resp = await fetch(r.publicUrl, {
-          method: "HEAD",
-          cache: "no-store",
-        });
-        const len = resp.headers.get("content-length");
-        const kb = len ? Math.round(parseInt(len, 10) / 1024) : undefined;
-        return { ...dims, kb };
-      } catch {
-        return { ...dims };
-      }
-    } catch {
-      return {};
+    const baseMeta: Meta = {};
+    // Prefer DB width/height if already stored
+    if (r.width && r.height) {
+      baseMeta.w = r.width;
+      baseMeta.h = r.height;
     }
+
+    if (!r.publicUrl) return baseMeta;
+
+    const meta: Meta = { ...baseMeta };
+
+    // Only fetch dimensions from image if DB doesn't have them
+    if (!meta.w || !meta.h) {
+      try {
+        const img = new Image();
+        const dims = await new Promise<Meta>((resolve) => {
+          img.onload = () =>
+            resolve({ w: img.naturalWidth, h: img.naturalHeight });
+          img.onerror = () => resolve({});
+          img.src = r.publicUrl!;
+        });
+        Object.assign(meta, dims);
+      } catch {
+        // ignore
+      }
+    }
+
+    // HEAD for KB (optional)
+    try {
+      const resp = await fetch(r.publicUrl, {
+        method: "HEAD",
+        cache: "no-store",
+      });
+      const len = resp.headers.get("content-length");
+      const kb = len ? Math.round(parseInt(len, 10) / 1024) : undefined;
+      meta.kb = kb;
+    } catch {
+      // ignore
+    }
+
+    return meta;
   }
 
   async function computeAllMeta(items: Row[]) {
@@ -872,7 +971,7 @@ export default function GalleryUploader({
               </div>
 
               {(genLoading || tokTotal > 0 || activeModel) && (
-                <div className="rounded-xl border border-gray-200 p-3 bg-white/60">
+                <div className="rounded-2xl border border-gray-200 p-3 bg-white/60">
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
                       <div>
