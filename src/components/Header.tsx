@@ -1,51 +1,48 @@
-// src/components/Header.tsx
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
+import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
-
-/* ---------- Static menus ---------- */
-const PROVINCES = [
-  "Punjab",
-  "Sindh",
-  "Khyber Pakhtunkhwa",
-  "Balochistan",
-  "Gilgit Baltistan",
-  "Azad Kashmir",
-];
-
-const QUICK_CATEGORIES = [
-  "Mountains & Valleys",
-  "Architecture",
-  "Forts & Palaces",
-  "Waterbodies",
-  "Tombs & Sufi Shrines",
-  "Archaeological Sites",
-  "Mosques",
-  "Temples",
-  "Churches",
-  "Gurdwaras",
-  "Deserts",
-  "Beaches",
-  "Parks & Gardens",
-];
+const PANEL_ANIM_MS = 420;
 
 /* ---------- Types ---------- */
-type Simple = { id: string; name: string };
 type Site = {
   id: string;
   slug: string;
   title: string;
   cover_photo_url?: string | null;
-  /** NEW: used to build /heritage/<province>/<slug> links */
   province_slug?: string | null;
+};
+
+type HeaderSubItem = {
+  id: string;
+  main_item_id: string;
+  label: string;
+  icon_name: string | null;
+  url: string | null;
+  title: string | null;
+  detail: string | null;
+  site_id: string | null;
+  site_image_id: string | null;
+  sort_order: number;
+  image_url: string | null;
+};
+
+type HeaderMainItem = {
+  id: string;
+  label: string;
+  slug: string;
+  icon_name: string | null;
+  url: string | null;
+  sort_order: number;
+  sub_items: HeaderSubItem[];
 };
 
 /* ---------- Utils ---------- */
@@ -79,34 +76,31 @@ export default function Header() {
   const pathname = usePathname();
   const supabase = createClient();
 
-  // Transparent-at-top allowed for:
-  // 1) Home page: "/"
-  // 2) Heritage detail page (exact): /heritage/<province>/<slug>
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
     pathname === "/" || heritageDetailRe.test(pathname || "");
 
   const [user, setUser] = useState<User | null>(null);
 
-  // Initial render matches SSR: hero routes start transparent; others solid.
+  // Scroll-driven solid state ONLY (no panel influence)
   const [solid, setSolid] = useState<boolean>(!allowTransparent);
   const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState<number>(72);
 
   useEffect(() => {
-    const HEADER_FALLBACK = 72; // px
-    const DEFAULT_THRESHOLD = 140; // px
+    const HEADER_FALLBACK = 72;
+    const DEFAULT_THRESHOLD = 140;
 
     const measureAndSetOffsetVar = () => {
       const h = headerRef.current?.offsetHeight ?? HEADER_FALLBACK;
+      setHeaderHeight(h);
       document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
       return h;
     };
 
-    // Always set the CSS var once
     measureAndSetOffsetVar();
 
     if (!allowTransparent) {
-      // Force solid and skip listeners if page should always be white
       setSolid(true);
       return;
     }
@@ -148,8 +142,246 @@ export default function Header() {
     };
   }, [allowTransparent]);
 
-  /* -------------------------------- User Menu ------------------------------- */
-  const UserMenu = ({ user }: { user: User }) => {
+  /* ------------------------------ Search ------------------------------ */
+
+  const [q, setQ] = useState("");
+  const dq = useDebounced(q, 250);
+  const [suggestions, setSuggestions] = useState<Site[]>([]);
+  const [openSuggest, setOpenSuggest] = useState(false);
+  const suggestRef = useRef<HTMLDivElement | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchHovered, setIsSearchHovered] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!dq.trim()) {
+        setSuggestions([]);
+        return;
+      }
+      setIsSearching(true);
+      const { data } = await supabase
+        .from("sites")
+        .select("id,slug,title,cover_photo_url,province_slug")
+        .ilike("title", `%${dq.trim()}%`)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!cancelled) setSuggestions(((data as any[]) || []) as Site[]);
+      setIsSearching(false);
+    })();
+    return () => {
+      cancelled = true;
+      setIsSearching(false);
+    };
+  }, [dq, supabase]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useClickOutside(suggestRef, () => {
+    setOpenSuggest(false);
+    setIsSearchFocused(false);
+  });
+
+  const submitQuickSearch = () => {
+    if (!q.trim()) return;
+    router.push(`/explore?q=${encodeURIComponent(q.trim())}`);
+    setOpenSuggest(false);
+    setIsSearchFocused(false);
+  };
+
+  /* -------------------------- Header menu data + mega state -------------------------- */
+
+  const [headerItems, setHeaderItems] = useState<HeaderMainItem[]>([]);
+  const [headerLoading, setHeaderLoading] = useState<boolean>(true);
+  const [activeMainId, setActiveMainId] = useState<string | null>(null);
+  const [activeSubId, setActiveSubId] = useState<string | null>(null);
+
+  const [megaOpen, setMegaOpen] = useState(false);
+  const megaRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setHeaderLoading(true);
+
+      const { data: mainItems, error: mainErr } = await supabase
+        .from("header_main_items")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (mainErr || !mainItems || mainItems.length === 0) {
+        if (!cancelled) {
+          setHeaderItems([]);
+          setHeaderLoading(false);
+        }
+        return;
+      }
+
+      const mainIds = (mainItems as any[]).map((m) => m.id);
+
+      const { data: subItems, error: subErr } = await supabase
+        .from("header_sub_items")
+        .select("*")
+        .in("main_item_id", mainIds)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      let finalSubItems: HeaderSubItem[] = [];
+      let imageMap: Record<string, string> = {};
+
+      if (!subErr && subItems && subItems.length > 0) {
+        const imageIds = (subItems as any[])
+          .map((s) => s.site_image_id)
+          .filter((id) => !!id) as string[];
+
+        if (imageIds.length > 0) {
+          const { data: images } = await supabase
+            .from("site_images")
+            .select("id,storage_path")
+            .in("id", imageIds);
+
+          if (images) {
+            imageMap = (images as any[]).reduce((acc, img) => {
+              acc[img.id] = img.storage_path;
+              return acc;
+            }, {} as Record<string, string>);
+          }
+        }
+
+        finalSubItems = (subItems as any[]).map((s) => {
+          const storagePath = s.site_image_id
+            ? imageMap[s.site_image_id] ?? null
+            : null;
+          const imageUrl = storagePath
+            ? storagePublicUrl("site-images", storagePath)
+            : null;
+
+          return {
+            id: s.id,
+            main_item_id: s.main_item_id,
+            label: s.label,
+            icon_name: s.icon_name,
+            url: s.url,
+            title: s.title,
+            detail: s.detail,
+            site_id: s.site_id,
+            site_image_id: s.site_image_id,
+            sort_order: s.sort_order,
+            image_url: imageUrl,
+          } as HeaderSubItem;
+        });
+      }
+
+      const subByMain: Record<string, HeaderSubItem[]> = {};
+      finalSubItems.forEach((s) => {
+        const arr =
+          subByMain[s.main_item_id] || (subByMain[s.main_item_id] = []);
+        arr.push(s);
+      });
+
+      const final: HeaderMainItem[] = (mainItems as any[]).map((m) => ({
+        id: m.id,
+        label: m.label,
+        slug: m.slug,
+        icon_name: m.icon_name,
+        url: m.url,
+        sort_order: m.sort_order,
+        sub_items: subByMain[m.id] || [],
+      }));
+
+      if (!cancelled) {
+        setHeaderItems(final);
+        setHeaderLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  const activeMain =
+    headerItems.find((m) => m.id === activeMainId) ||
+    (headerItems.length > 0 ? headerItems[0] : null);
+
+  const activeSubItems = activeMain?.sub_items || [];
+  const activeSub =
+    activeSubItems.find((s) => s.id === activeSubId) ||
+    (activeSubItems.length > 0 ? activeSubItems[0] : null);
+
+  const panelActive = megaOpen && !!activeSub && activeSubItems.length > 0;
+
+  // Text / icon color: light when solid OR panel open
+  const textLight = solid || panelActive;
+
+  const megaTextClass = `transition-colors duration-200 [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+    textLight ? "[color:var(--brand-grey)]" : "text-white"
+  }`;
+
+  const handleMainClick = (
+    id: string,
+    hasPanel: boolean,
+    url: string | null
+  ) => {
+    if (!hasPanel) {
+      if (url) router.push(url);
+      return;
+    }
+
+    // toggle behavior on same item
+    if (megaOpen && activeMainId === id) {
+      setMegaOpen(false);
+      return;
+    }
+
+    setActiveMainId(id);
+    const firstSub =
+      headerItems.find((m) => m.id === id)?.sub_items?.[0] ?? null;
+    setActiveSubId(firstSub?.id ?? null);
+    setMegaOpen(true);
+  };
+
+  // Close panel on scroll
+  useEffect(() => {
+    if (!megaOpen) return;
+    const onScroll = () => setMegaOpen(false);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [megaOpen]);
+
+  // Close panel on ESC
+  useEffect(() => {
+    if (!megaOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMegaOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [megaOpen]);
+
+  // Close panel on click outside (header is outside because it's z-40)
+  useClickOutside(megaRef, () => {
+    if (megaOpen) setMegaOpen(false);
+  });
+
+  /* -------------------------------- User Menu (uses textLight via prop) ------------------------------- */
+  const UserMenu = ({ user, lightOn }: { user: User; lightOn: boolean }) => {
     const supabase = createClient();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
@@ -219,7 +451,7 @@ export default function Header() {
           </div>
           <span
             className={`hidden sm:inline text-sm font-medium transition-colors ${
-              solid ? "text-gray-700" : "text-white"
+              lightOn ? "text-gray-700" : "text-white"
             }`}
           >
             {name}
@@ -228,7 +460,7 @@ export default function Header() {
             name="chevron-down"
             size={14}
             className={`transition-transform ${isOpen ? "rotate-180" : ""} ${
-              solid ? "text-gray-500" : "text-white"
+              lightOn ? "text-gray-500" : "text-white"
             }`}
           />
         </div>
@@ -272,124 +504,7 @@ export default function Header() {
     );
   };
 
-  const [regions, setRegions] = useState<Simple[]>([]);
-  const [categories, setCategories] = useState<Simple[]>([]);
-  useEffect(() => {
-    (async () => {
-      const [{ data: rs }, { data: cs }] = await Promise.all([
-        supabase.from("regions").select("id,name"),
-        supabase.from("categories").select("id,name"),
-      ]);
-      setRegions(
-        ((rs as any[]) || []).map((r) => ({ id: r.id, name: r.name }))
-      );
-      setCategories(
-        ((cs as any[]) || []).map((c) => ({ id: c.id, name: c.name }))
-      );
-    })();
-  }, [supabase]);
-
-  const nameToId = useMemo(
-    () => ({
-      region: (n: string) =>
-        regions.find((r) => r.name.toLowerCase() === n.toLowerCase())?.id,
-      category: (n: string) =>
-        categories.find((c) => c.name.toLowerCase() === n.toLowerCase())?.id,
-    }),
-    [regions, categories]
-  );
-
-  const [q, setQ] = useState("");
-  const dq = useDebounced(q, 250);
-  const [suggestions, setSuggestions] = useState<Site[]>([]);
-  const [openSuggest, setOpenSuggest] = useState(false);
-  const suggestRef = useRef<HTMLDivElement | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isSearchHovered, setIsSearchHovered] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!dq.trim()) {
-        setSuggestions([]);
-        return;
-      }
-      setIsSearching(true);
-      const { data } = await supabase
-        .from("sites")
-        .select("id,slug,title,cover_photo_url,province_slug") // ← include province_slug
-        .ilike("title", `%${dq.trim()}%`)
-        .order("created_at", { ascending: false })
-        .limit(8);
-      if (!cancelled) setSuggestions(((data as any[]) || []) as Site[]);
-      setIsSearching(false);
-    })();
-    return () => {
-      cancelled = true;
-      setIsSearching(false);
-    };
-  }, [dq, supabase]);
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  useClickOutside(suggestRef, () => {
-    setOpenSuggest(false);
-    setIsSearchFocused(false);
-  });
-
-  const submitQuickSearch = () => {
-    if (!q.trim()) return;
-    router.push(`/explore?q=${encodeURIComponent(q.trim())}`);
-    setOpenSuggest(false);
-    setIsSearchFocused(false);
-  };
-
-  const [regionsOpen, setRegionsOpen] = useState(false);
-  const [catsOpen, setCatsOpen] = useState(false);
-  const regionsTimer = useRef<number | null>(null);
-  const catsTimer = useRef<number | null>(null);
-
-  const openWithDelay = (which: "regions" | "cats") => {
-    const setOpen = which === "regions" ? setRegionsOpen : setCatsOpen;
-    const timerRef = which === "regions" ? regionsTimer : catsTimer;
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setOpen(true), 120);
-  };
-  const closeWithDelay = (which: "regions" | "cats") => {
-    const setOpen = which === "regions" ? setRegionsOpen : setCatsOpen;
-    const timerRef = which === "regions" ? regionsTimer : catsTimer;
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setOpen(false), 180);
-  };
-
-  const goExploreRegion = (name: string) => {
-    const id = nameToId.region(name);
-    if (id) router.push(`/explore?regs=${id}`);
-    else router.push(`/explore?q=${encodeURIComponent(name)}`);
-    setRegionsOpen(false);
-  };
-
-  const goExploreCategory = (name: string) => {
-    const id = nameToId.category(name);
-    if (id) router.push(`/explore?cats=${id}`);
-    else router.push(`/explore?q=${encodeURIComponent(name)}`);
-    setCatsOpen(false);
-  };
+  /* ------------------------------------------------------------------------ */
 
   return (
     <>
@@ -400,18 +515,6 @@ export default function Header() {
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
-        }
-        .menu-item-divider > button {
-          position: relative;
-        }
-        .menu-item-divider > button:not(:last-child)::after {
-          content: "";
-          position: absolute;
-          bottom: 0;
-          left: 15%;
-          right: 15%;
-          height: 1px;
-          background-color: #f3f4f6;
         }
         @keyframes fadeIn {
           from {
@@ -424,8 +527,20 @@ export default function Header() {
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-in-out forwards;
         }
+        @keyframes imageFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-fadeInImage {
+          animation: imageFadeIn 0.35s ease-in-out forwards;
+        }
       `}</style>
 
+      {/* HEADER (above panel). Background depends ONLY on scroll (solid). */}
       <header
         ref={headerRef as any}
         className={`sticky top-0 z-40 transition-colors duration-300 ${
@@ -437,11 +552,13 @@ export default function Header() {
           backgroundColor: solid ? "rgba(255,255,255,0.95)" : "transparent",
         }}
       >
-        {/* Always render gradient to keep DOM identical; just fade it */}
+        {/* Gradient only when transparent and no panel */}
         <div
           aria-hidden="true"
           className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
-            allowTransparent && !solid ? "opacity-100" : "opacity-0"
+            allowTransparent && !solid && !panelActive
+              ? "opacity-100"
+              : "opacity-0"
           }`}
         />
 
@@ -453,6 +570,7 @@ export default function Header() {
             HERITAGE OF PAKISTAN
           </Link>
 
+          {/* Search */}
           <div className="relative flex-1 max-w-2xl" ref={suggestRef}>
             <div
               className={`flex items-center gap-2 rounded-full px-3 py-1.5 bg-transparent transition-all duration-200 ease-in-out ${
@@ -466,7 +584,7 @@ export default function Header() {
               <Icon
                 name="search"
                 size={16}
-                className={solid ? "text-gray-400" : "text-white"}
+                className={textLight ? "text-gray-400" : "text-white"}
               />
               <input
                 value={q}
@@ -481,7 +599,7 @@ export default function Header() {
                 onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
                 placeholder="Search Heritage"
                 className={`w-full bg-transparent outline-none text-sm ${
-                  solid
+                  textLight
                     ? "placeholder-gray-400 text-gray-800"
                     : "placeholder-white text-white"
                 }`}
@@ -490,7 +608,7 @@ export default function Header() {
                 <Icon
                   name="spinner"
                   className={`animate-spin ${
-                    solid ? "text-gray-500" : "text-white/80"
+                    textLight ? "text-gray-500" : "text-white/80"
                   }`}
                   size={16}
                 />
@@ -513,8 +631,8 @@ export default function Header() {
                       key={index}
                       className="flex items-center gap-3 px-3 py-2 animate-pulse"
                     >
-                      <div className="w-10 h-10 bg-gray-200 rounded"></div>
-                      <div className="w-3/4 h-4 bg-gray-200 rounded"></div>
+                      <div className="w-10 h-10 bg-gray-200 rounded" />
+                      <div className="w-3/4 h-4 bg-gray-200 rounded" />
                     </div>
                   ))}
                 </div>
@@ -553,6 +671,7 @@ export default function Header() {
             </div>
           </div>
 
+          {/* Nav + mega menu */}
           <nav className="hidden md:flex items-center gap-4 text-[15px]">
             <Link
               href="/"
@@ -561,118 +680,61 @@ export default function Header() {
               <Icon name="home" className={iconStyles} />
               <span
                 className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                  textLight ? "[color:var(--brand-grey)]" : "text-white"
                 }`}
               >
                 Home
               </span>
             </Link>
 
-            <div
-              className="relative"
-              onMouseEnter={() => openWithDelay("regions")}
-              onMouseLeave={() => closeWithDelay("regions")}
-            >
-              <button className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden">
-                <Icon name="map-marker-alt" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    solid ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
-                >
-                  Regions
-                </span>
-                <span
-                  className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
-                    solid ? "text-[color:var(--brand-grey)]" : "text-white"
-                  }`}
-                >
-                  ▾
-                </span>
-              </button>
-              <div
-                className={`absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
-                  regionsOpen
-                    ? "opacity-100 translate-y-0 pointer-events-auto"
-                    : "opacity-0 -translate-y-1 pointer-events-none"
-                }`}
-              >
-                <div className="menu-item-divider">
-                  {PROVINCES.map((name) => (
-                    <button
-                      key={name}
-                      className="group relative w-full text-left px-3 py-2.5 rounded hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                      onClick={() => goExploreRegion(name)}
-                    >
-                      <div className="flex items-center gap-2 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
-                        <Icon name="map-marker-alt" className={iconStyles} />
-                        <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
-                          {name}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Dynamic header items */}
+            {!headerLoading &&
+              headerItems.map((m) => {
+                const hasPanel = (m.sub_items?.length ?? 0) > 0;
 
-            <div
-              className="relative"
-              onMouseEnter={() => openWithDelay("cats")}
-              onMouseLeave={() => closeWithDelay("cats")}
-            >
-              <button className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden">
-                <Icon name="landmark" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    solid ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
-                >
-                  Heritage
-                </span>
-                <span
-                  className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
-                    solid ? "text-[color:var(--brand-grey)]" : "text-white"
-                  }`}
-                >
-                  ▾
-                </span>
-              </button>
-              <div
-                className={`absolute right-0 mt-2 w-72 max-h-[85vh] overflow-y-auto scrollbar-hide bg-white rounded-xl shadow-lg p-2 transition-all duration-200 ease-out ${
-                  catsOpen
-                    ? "opacity-100 translate-y-0 pointer-events-auto"
-                    : "opacity-0 -translate-y-1 pointer-events-none"
-                }`}
-              >
-                <div className="menu-item-divider">
-                  {QUICK_CATEGORIES.map((name) => (
-                    <button
-                      key={name}
-                      className="group relative w-full text-left px-3 py-2.5 rounded hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                      onClick={() => goExploreCategory(name)}
+                if (!hasPanel && m.url) {
+                  // Simple link when no panel
+                  return (
+                    <Link
+                      key={m.id}
+                      href={m.url}
+                      className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
                     >
-                      <div className="flex items-center gap-2 transition-transform duration-200 ease-in-out group-hover:translate-x-1">
-                        <Icon
-                          name={
-                            name === "Mountains & Valleys"
-                              ? "mountain"
-                              : name === "Architecture"
-                              ? "university"
-                              : "landmark"
-                          }
-                          className={iconStyles}
-                        />
-                        <span className="transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]">
-                          {name}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+                      {m.icon_name && (
+                        <Icon name={m.icon_name} className={iconStyles} />
+                      )}
+                      <span className={megaTextClass}>{m.label}</span>
+                    </Link>
+                  );
+                }
 
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleMainClick(m.id, hasPanel, m.url)}
+                    className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                  >
+                    {m.icon_name && (
+                      <Icon name={m.icon_name} className={iconStyles} />
+                    )}
+                    <span className={megaTextClass}>{m.label}</span>
+                    {hasPanel && (
+                      <span
+                        className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
+                          textLight
+                            ? "text-[color:var(--brand-grey)]"
+                            : "text-white"
+                        }`}
+                      >
+                        ▾
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+            {/* Explore, Map, Trip Builder, Auth */}
             <Link
               href="/explore"
               className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
@@ -680,7 +742,7 @@ export default function Header() {
               <Icon name="search" className={iconStyles} />
               <span
                 className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                  textLight ? "[color:var(--brand-grey)]" : "text-white"
                 }`}
               >
                 Explore
@@ -694,7 +756,7 @@ export default function Header() {
               <Icon name="map" className={iconStyles} />
               <span
                 className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                  textLight ? "[color:var(--brand-grey)]" : "text-white"
                 }`}
               >
                 Map
@@ -717,7 +779,7 @@ export default function Header() {
               <Icon name="route" className={iconStyles} />
               <span
                 className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                  solid ? "[color:var(--brand-grey)]" : "text-white"
+                  textLight ? "[color:var(--brand-grey)]" : "text-white"
                 }`}
               >
                 Trip Builder
@@ -725,7 +787,7 @@ export default function Header() {
             </button>
 
             {user ? (
-              <UserMenu user={user} />
+              <UserMenu user={user} lightOn={textLight} />
             ) : (
               <Link
                 href="/auth/sign-in"
@@ -734,7 +796,7 @@ export default function Header() {
                 <Icon name="user" className={iconStyles} />
                 <span
                   className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    solid ? "[color:var(--brand-grey)]" : "text-white"
+                    textLight ? "[color:var(--brand-grey)]" : "text-white"
                   }`}
                 >
                   Sign in
@@ -744,6 +806,92 @@ export default function Header() {
           </nav>
         </div>
       </header>
+
+      {/* FULL-WIDTH PANEL (behind header, above gradient, always mounted for smooth close) */}
+      {activeSub && activeSubItems.length > 0 && (
+        <div
+          ref={megaRef}
+          className={`fixed inset-x-0 top-0 z-30 bg-white/95 backdrop-blur shadow-lg border-b border-gray-200 transform transition-transform duration-[${PANEL_ANIM_MS}ms] ease-out ${
+            megaOpen
+              ? "translate-y-0 opacity-100 pointer-events-auto"
+              : "-translate-y-full opacity-0 pointer-events-none"
+          }`}
+          style={{
+            transition:
+              "transform 420ms cubic-bezier(0.22,1,0.36,1), opacity 220ms ease-out",
+          }}
+        >
+          <div
+            className="mx-auto max-w-[1400px] px-8 py-10 flex gap-8 min-h-[520px]"
+            style={{ paddingTop: headerHeight + 16 }}
+          >
+            {/* Left column: sub menu list */}
+            <div className="w-1/3 border-r border-gray-100 pr-4">
+              <ul className="space-y-1">
+                {activeSubItems.map((s) => {
+                  const isActive = s.id === activeSub.id;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setActiveSubId(s.id)}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                          isActive
+                            ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
+                            : "hover:bg-gray-50 text-gray-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {s.icon_name && (
+                            <Icon name={s.icon_name} className={iconStyles} />
+                          )}
+                          <span className="font-medium">{s.label}</span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* Right column: detail + image (fade on change) */}
+            <div className="w-2/3 grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] gap-6">
+              <div
+                key={activeSub.id + "_text"}
+                className="flex flex-col justify-center opacity-0 animate-fadeIn"
+              >
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {activeSub.title || activeSub.label}
+                </h3>
+                {activeSub.detail && (
+                  <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                    {activeSub.detail}
+                  </p>
+                )}
+                {activeSub.url && (
+                  <Link
+                    href={activeSub.url}
+                    className="mt-4 inline-flex items-center text-sm font-medium text-[var(--brand-orange)] hover:underline"
+                  >
+                    Discover more
+                  </Link>
+                )}
+              </div>
+              <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100">
+                {activeSub.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={activeSub.id + "_img"}
+                    src={activeSub.image_url}
+                    alt={activeSub.title || activeSub.label}
+                    className="h-full w-full object-cover opacity-0 animate-fadeInImage"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

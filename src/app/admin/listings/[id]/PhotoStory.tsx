@@ -8,6 +8,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
 /* ------------------------------------------------------------------ */
@@ -40,6 +41,23 @@ type LibraryImage = {
   name: string;
   size?: number | null;
   created_at?: string | null;
+};
+
+type SiteCoverRow = {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  credit: string | null;
+  is_active: boolean;
+};
+
+type HeroCoverImage = {
+  key: string;
+  url: string;
+  name: string;
+  caption: string | null;
+  credit: string | null;
+  isActive: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -511,9 +529,11 @@ function PhotoLibraryModal({
                     role="button"
                     aria-disabled={isUsed}
                   >
-                    <img
+                    <Image
                       src={img.url}
                       alt={img.name}
+                      width={320}
+                      height={176}
                       className={`h-44 w-auto object-cover block ${
                         isUsed
                           ? "opacity-90"
@@ -552,7 +572,7 @@ function PhotoLibraryModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero Cover Library (story-hero/<site>)                              */
+/* Hero Cover Library (now from site_covers)                           */
 /* ------------------------------------------------------------------ */
 
 function HeroCoverLibraryModal({
@@ -570,126 +590,60 @@ function HeroCoverLibraryModal({
   onPick: (img: LibraryImage) => void;
   onClearedCurrent: () => void;
 }) {
-  const PATH = `story-hero/${siteId}`;
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState<LibraryImage[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useRafProgress(uploading);
+  const [covers, setCovers] = useState<HeroCoverImage[]>([]);
 
   const refresh = useCallback(async () => {
     if (!open) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.storage
-        .from("photo-story")
-        .list(PATH, { limit: 1000, offset: 0 });
+      const { data, error } = await supabase
+        .from("site_covers")
+        .select(
+          `
+          id,
+          storage_path,
+          caption,
+          credit,
+          is_active
+        `
+        )
+        .eq("site_id", siteId)
+        .order("is_active", { ascending: false })
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
       if (error) throw error;
-      const rows = data ?? [];
-      const mapped: LibraryImage[] = await Promise.all(
-        rows
-          .filter((r) => !r.name.endsWith("/"))
-          .map(async (r) => {
-            const key = `${PATH}/${r.name}`;
-            const url = await publicUrl("photo-story", key);
-            return {
-              key,
-              url,
-              name: r.name,
-              size: (r as any).metadata?.size ?? null,
-              created_at: (r as any).created_at ?? null,
-            };
-          })
+
+      const rows = (data ?? []) as SiteCoverRow[];
+
+      const mapped: HeroCoverImage[] = await Promise.all(
+        rows.map(async (row) => {
+          const url = await publicUrl("site-images", row.storage_path);
+          const name = row.storage_path.split("/").slice(-1)[0] || row.id;
+          return {
+            key: row.id,
+            url,
+            name,
+            caption: row.caption,
+            credit: row.credit,
+            isActive: row.is_active,
+          };
+        })
       );
-      mapped.sort(
-        (a, b) =>
-          (b.created_at || "").localeCompare(a.created_at || "") ||
-          b.name.localeCompare(a.name)
-      );
-      setImages(mapped);
+
+      setCovers(mapped);
     } catch (e) {
       console.error(e);
       alert("Failed to load cover library.");
     } finally {
       setLoading(false);
     }
-  }, [PATH, open]);
+  }, [open, siteId]);
 
   useEffect(() => {
     if (open) void refresh();
   }, [open, refresh]);
-
-  async function onUpload(files?: FileList | null) {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      const queue = Array.from(files);
-      const workers = 3;
-      let idx = 0;
-
-      async function work() {
-        while (idx < queue.length) {
-          const f = queue[idx++];
-          if (!f.type.startsWith("image/")) continue;
-          const key = uniqueKey("story-hero", siteId, f.name);
-          const { error } = await supabase.storage
-            .from("photo-story")
-            .upload(key, f, { upsert: false, cacheControl: "3600" });
-          if (error) throw error;
-        }
-      }
-      await Promise.all(Array.from({ length: workers }, work));
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 400));
-      await refresh();
-    } catch (e) {
-      console.error(e);
-      alert("Upload failed.");
-    } finally {
-      setUploading(false);
-      setProgress(0);
-    }
-  }
-
-  async function deleteOne(key: string) {
-    if (!confirm("Delete this cover permanently?")) return;
-    try {
-      const { error } = await supabase.storage
-        .from("photo-story")
-        .remove([key]);
-      if (error) throw error;
-
-      setImages((prev) => prev.filter((x) => x.key !== key));
-
-      const deletedUrl = await publicUrl("photo-story", key);
-      if (currentUrl && deletedUrl === currentUrl) {
-        onClearedCurrent();
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Delete failed.");
-    }
-  }
-
-  async function deleteAll() {
-    if (!images.length) return;
-    if (
-      !confirm(
-        `Delete ALL ${images.length} cover photos for this site permanently? This cannot be undone.`
-      )
-    )
-      return;
-    try {
-      const { error } = await supabase.storage
-        .from("photo-story")
-        .remove(images.map((x) => x.key));
-      if (error) throw error;
-      setImages([]);
-      if (currentUrl) onClearedCurrent();
-    } catch (e) {
-      console.error(e);
-      alert("Bulk delete failed.");
-    }
-  }
 
   if (!open) return null;
 
@@ -707,33 +661,18 @@ function HeroCoverLibraryModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <div className="font-semibold text-gray-900">Hero Covers</div>
+          <div className="font-semibold text-gray-900">
+            Hero Covers (from site_covers)
+          </div>
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => onUpload(e.currentTarget.files)}
-                className="hidden"
-                id="hero-upload-input"
-              />
+            {currentUrl ? (
               <Btn
-                className="bg-indigo-600 text-white hover:bg-indigo-500"
-                onClick={() =>
-                  document.getElementById("hero-upload-input")?.click()
-                }
+                className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                onClick={() => onClearedCurrent()}
               >
-                Upload images
+                Clear hero
               </Btn>
-            </label>
-            <Btn
-              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              onClick={deleteAll}
-              disabled={!images.length}
-            >
-              Delete all
-            </Btn>
+            ) : null}
             <Btn
               className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
               onClick={onClose}
@@ -743,30 +682,18 @@ function HeroCoverLibraryModal({
           </div>
         </div>
 
-        {uploading ? (
-          <div className="px-4 pt-3">
-            <div className="h-2 w-full bg-gray-100 rounded">
-              <div
-                className="h-2 rounded bg-emerald-500 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="px-1 py-2 text-xs text-gray-500">
-              Uploading images… {Math.round(progress)}%
-            </div>
-          </div>
-        ) : null}
-
         <div className="p-4 overflow-y-auto flex-1">
           {loading ? (
             <div className="text-sm text-gray-600">Loading covers…</div>
-          ) : images.length === 0 ? (
+          ) : covers.length === 0 ? (
             <div className="text-sm text-gray-600">
-              No cover photos yet. Use “Upload images” to add some.
+              No cover photos yet for this site in{" "}
+              <code className="font-mono text-xs">site_covers</code>. Use the
+              main listing cover editor to add covers.
             </div>
           ) : (
             <div className="flex flex-wrap items-start gap-3">
-              {images.map((img) => {
+              {covers.map((img) => {
                 const isCurrent = currentUrl && img.url === currentUrl;
                 return (
                   <div
@@ -775,14 +702,23 @@ function HeroCoverLibraryModal({
                       isCurrent ? "border-indigo-500" : "border-gray-200"
                     } bg-white overflow-hidden`}
                     onClick={() => {
-                      if (!isCurrent) onPick(img);
+                      if (isCurrent) return;
+                      onPick({
+                        key: img.key,
+                        url: img.url,
+                        name: img.name,
+                        size: null,
+                        created_at: null,
+                      });
                     }}
                     role="button"
                     aria-disabled={isCurrent}
                   >
-                    <img
+                    <Image
                       src={img.url}
                       alt={img.name}
+                      width={320}
+                      height={176}
                       className={`h-44 w-auto object-cover block ${
                         isCurrent
                           ? "opacity-90"
@@ -791,24 +727,19 @@ function HeroCoverLibraryModal({
                       draggable={false}
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
-                      <div className="truncate">{img.name}</div>
+                      <div className="truncate">
+                        {img.name}
+                        {img.isActive ? " · Active cover" : ""}
+                      </div>
+                      {img.caption ? (
+                        <div className="truncate opacity-80">{img.caption}</div>
+                      ) : null}
                     </div>
                     {isCurrent ? (
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-600 text-white">
-                        Current cover
+                        Current hero
                       </div>
                     ) : null}
-                    <div className="absolute top-2 right-2">
-                      <button
-                        className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void deleteOne(img.key);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
                   </div>
                 );
               })}
@@ -1211,9 +1142,11 @@ export default function PhotoStory({
               <div className="border border-gray-200 rounded-xl overflow-hidden">
                 <div className="relative w-full bg-gray-50 group">
                   {it.image_url ? (
-                    <img
+                    <Image
                       src={it.image_url}
                       alt=""
+                      width={1600}
+                      height={900}
                       className="w-full object-cover aspect-[16/9]"
                     />
                   ) : (
@@ -1339,9 +1272,11 @@ export default function PhotoStory({
           {/* HERO */}
           <Field label="Photo Story Hero">
             {story.hero_photo_url ? (
-              <img
+              <Image
                 src={story.hero_photo_url}
                 alt="Photo Story hero"
+                width={800}
+                height={450}
                 className="w-full rounded-lg border border-gray-200 object-cover aspect-[16/9] mb-2"
               />
             ) : (

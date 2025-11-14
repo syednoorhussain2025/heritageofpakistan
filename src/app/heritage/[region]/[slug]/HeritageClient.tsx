@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import StickyHeader from "./heritage/StickyHeader";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -11,10 +11,10 @@ import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
 import { createPortal } from "react-dom";
 
-// ✅ Provider for collect hearts
+// Hearts provider
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 
-// page-local imports from our heritage folder (RELATIVE paths)
+// Page-local imports
 import { useHeritageData } from "./heritage/heritagedata";
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageSidebar from "./heritage/HeritageSidebar";
@@ -33,18 +33,50 @@ import {
 } from "./heritage/HeritageSkeletons";
 import HeritageSection from "./heritage/HeritageSection";
 
-export default function HeritagePage() {
-  const params = useParams() as { region?: string; slug?: string };
-  const searchParams = useSearchParams();
-  const region = params.region ?? ""; // available if you later need it
-  const slug = params.slug ?? "";
-  const deepLinkNoteId = searchParams?.get("note") || null;
+/* ---------------- Types for site from server ---------------- */
 
+type HeroCover = {
+  url: string | null;
+  width?: number | null;
+  height?: number | null;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
+  caption?: string | null;
+  credit?: string | null;
+} | null;
+
+type HeritageClientSite = {
+  id: string;
+  slug: string;
+  province_slug?: string;
+  title: string;
+  tagline?: string | null;
+  heritage_type?: string | null;
+  location_free?: string | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+
+  /** Unified cover coming from site_covers */
+  cover?: HeroCover;
+
+  [key: string]: any;
+};
+
+export default function HeritagePage({
+  site: initialSite,
+}: {
+  site: HeritageClientSite;
+}) {
+  const searchParams = useSearchParams();
+  const deepLinkNoteId = searchParams?.get("note") || null;
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
 
+  const slug = initialSite?.slug ?? "";
+
+  /* ---------------- Fetch hydrated content ---------------- */
   const {
     loading,
-    site,
+    site: fetchedSite,
     provinceName,
     categories,
     regions,
@@ -55,12 +87,53 @@ export default function HeritagePage() {
     highlight,
     setHighlight,
     maps,
+    travelGuideSummary,
   } = useHeritageData(slug, deepLinkNoteId);
+
+  /* ---------------- Merge SSR + Client site data ---------------- */
+
+  const site: HeritageClientSite | null = (() => {
+    if (!initialSite && !fetchedSite) return null;
+
+    const base = (fetchedSite as any) ?? initialSite;
+
+    // Covers: merge SSR + hydrated, both sourced from site_covers.
+    const serverCover = initialSite?.cover || null;
+    const clientCover = (fetchedSite as any)?.cover || null;
+
+    const mergedCover: HeroCover =
+      serverCover || clientCover
+        ? {
+            // Start with SSR, then hydrate with client-fetched values
+            ...(serverCover || {}),
+            ...(clientCover || {}),
+            // Prefer client blurhash if present
+            blurhash:
+              (clientCover as any)?.blurhash ??
+              (serverCover as any)?.blurhash ??
+              null,
+            // Prefer SSR blurDataURL for first paint, then client
+            blurDataURL:
+              (serverCover as any)?.blurDataURL ??
+              (clientCover as any)?.blurDataURL ??
+              null,
+          }
+        : null;
+
+    return {
+      ...base,
+      province_slug: base.province_slug ?? initialSite?.province_slug,
+      cover: mergedCover,
+    };
+  })();
+
+  /* ---------------- UI State ---------------- */
 
   const [wishlisted, setWishlisted] = useState(false);
   const [inTrip, setInTrip] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+
   const [researchEnabled, setResearchEnabled] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem("researchMode");
@@ -83,18 +156,23 @@ export default function HeritagePage() {
     }
   }
 
+  /* ---------------- Render ---------------- */
+
   return (
-    // ✅ Everything below is wrapped so Heart portals inherit context
     <CollectionsProvider>
       <div className="min-h-screen bg-[#f8f8f8]">
-        {/* HERO */}
-        {loading || !site ? (
+        {/* HERO (SSR → client-hydrated) */}
+        {!site ? (
           <HeroSkeleton />
         ) : (
-          <HeritageCover site={site} hasPhotoStory={hasPhotoStory} />
+          <HeritageCover
+            site={site}
+            hasPhotoStory={hasPhotoStory}
+            fadeImage={false} // let Next/Image show blur immediately
+          />
         )}
 
-        {/* Sticky action bar */}
+        {/* Sticky header */}
         {!loading && site && (
           <StickyHeader
             site={{ id: site.id, slug: site.slug, title: site.title }}
@@ -103,11 +181,11 @@ export default function HeritagePage() {
             inTrip={inTrip}
             mapsLink={maps.link}
             isLoaded={isLoaded}
-            toggleBookmark={(id: string) => toggleBookmark(id)}
-            setShowWishlistModal={(show: boolean) => setShowWishlistModal(show)}
+            toggleBookmark={toggleBookmark}
+            setShowWishlistModal={setShowWishlistModal}
             setInTrip={setInTrip}
             doShare={doShare}
-            setShowReviewModal={(show: boolean) => setShowReviewModal(show)}
+            setShowReviewModal={setShowReviewModal}
             researchMode={researchEnabled}
             onChangeResearchMode={(v) => {
               setResearchEnabled(v);
@@ -118,11 +196,11 @@ export default function HeritagePage() {
           />
         )}
 
-        {/* BODY */}
+        {/* Content layout */}
         <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
           {/* LEFT SIDEBAR */}
           <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
-            {loading || !site ? (
+            {!site || loading ? (
               <>
                 <SidebarCardSkeleton lines={7} />
                 <SidebarCardSkeleton lines={5} />
@@ -138,13 +216,14 @@ export default function HeritagePage() {
                 provinceName={provinceName}
                 regions={regions}
                 maps={maps}
+                travelGuideSummary={travelGuideSummary}
               />
             )}
           </aside>
 
-          {/* RIGHT MAIN */}
+          {/* RIGHT MAIN CONTENT */}
           <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
-            {loading || !site ? (
+            {!site || loading ? (
               <>
                 <SidebarCardSkeleton lines={6} />
                 <SidebarCardSkeleton lines={6} />
@@ -172,10 +251,7 @@ export default function HeritagePage() {
                       key={`history-${site.history_layout_html.length}`}
                       html={site.history_layout_html}
                       site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{
-                        id: "history",
-                        title: "History and Background",
-                      }}
+                      section={{ id: "history", title: "History and Background" }}
                       highlightQuote={
                         highlight.section_id === "history"
                           ? highlight.quote
@@ -218,10 +294,7 @@ export default function HeritagePage() {
                       key={`climate-${site.climate_layout_html.length}`}
                       html={site.climate_layout_html}
                       site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{
-                        id: "climate",
-                        title: "Climate & Environment",
-                      }}
+                      section={{ id: "climate", title: "Climate & Environment" }}
                       highlightQuote={
                         highlight.section_id === "climate"
                           ? highlight.quote
@@ -233,10 +306,8 @@ export default function HeritagePage() {
 
                 {Array.isArray(site.custom_sections_json) &&
                   site.custom_sections_json
-                    .filter(
-                      (cs) => !!cs.layout_html && cs.layout_html.trim() !== ""
-                    )
-                    .map((cs) => (
+                    .filter((cs: any) => !!cs.layout_html?.trim())
+                    .map((cs: any) => (
                       <HeritageSection
                         key={cs.id}
                         id={cs.id}
@@ -244,15 +315,9 @@ export default function HeritagePage() {
                         iconName="history-background"
                       >
                         <HeritageArticle
-                          key={`custom-${cs.id}-${
-                            (cs.layout_html || "").length
-                          }`}
-                          html={cs.layout_html!}
-                          site={{
-                            id: site.id,
-                            slug: site.slug,
-                            title: site.title,
-                          }}
+                          key={`custom-${cs.id}-${(cs.layout_html || "").length}`}
+                          html={cs.layout_html}
+                          site={{ id: site.id, slug: site.slug, title: site.title }}
                           section={{ id: cs.id, title: cs.title }}
                           highlightQuote={
                             highlight.section_id === cs.id
@@ -265,7 +330,6 @@ export default function HeritagePage() {
 
                 <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
 
-                {/* ⬇️ Places Nearby ABOVE Photography & Content */}
                 <HeritageNearby
                   siteId={site.id}
                   siteTitle={site.title}
@@ -273,16 +337,11 @@ export default function HeritagePage() {
                   lng={site.longitude ? Number(site.longitude) : null}
                 />
 
-                {/* Photography & Content */}
                 <HeritagePhotoRights />
 
                 <HeritageBibliography items={bibliography} styleId={styleId} />
 
-                <HeritageSection
-                  id="reviews"
-                  title="Traveler Reviews"
-                  iconName="star"
-                >
+                <HeritageSection id="reviews" title="Traveler Reviews" iconName="star">
                   <ReviewsTab siteId={site.id} />
                 </HeritageSection>
               </>
@@ -290,7 +349,6 @@ export default function HeritagePage() {
           </main>
         </div>
 
-        {/* Global selection bubble & persisted overlay */}
         {site && (
           <GlobalResearchDebug
             enabled={researchEnabled}
@@ -300,7 +358,6 @@ export default function HeritagePage() {
           />
         )}
 
-        {/* Review Modal */}
         {showReviewModal && site && (
           <ReviewModal
             open={showReviewModal}
@@ -309,7 +366,6 @@ export default function HeritagePage() {
           />
         )}
 
-        {/* Wishlist modal */}
         {showWishlistModal && site && (
           <AddToWishlistModal
             siteId={site.id}
@@ -317,7 +373,6 @@ export default function HeritagePage() {
           />
         )}
 
-        {/* Global style bits */}
         <style jsx global>{`
           :root {
             --sticky-offset: 72px;
@@ -331,27 +386,11 @@ export default function HeritagePage() {
             --amber-border: #e2b56c;
             --amber-ink: #4a3a20;
           }
+
           h2[id],
           h3[id],
           h4[id] {
             scroll-margin-top: var(--sticky-offset);
-          }
-          .reading-article figure > figcaption.cap-with-heart {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            justify-content: center;
-            width: 100%;
-            text-align: center;
-          }
-          .reading-article
-            figure
-            > figcaption.cap-with-heart
-            [data-heart-slot] {
-            display: inline-flex;
-            align-items: center;
-            margin-right: 2px;
-            transform: translateY(1px);
           }
         `}</style>
       </div>
@@ -359,32 +398,12 @@ export default function HeritagePage() {
   );
 }
 
-/* ───────────── GlobalResearchDebug kept here to minimize file count ───────────── */
+/* ---------------- Research Bubble ---------------- */
 
-function GlobalResearchDebug({
-  enabled,
-  siteId,
-  siteSlug,
-  siteTitle,
-}: {
-  enabled: boolean;
-  siteId: string;
-  siteSlug: string;
-  siteTitle: string;
-}) {
+function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
   const bubbleRef = useRef<HTMLDivElement | null>(null);
-  const [bubble, setBubble] = useState<{
-    visible: boolean;
-    top: number;
-    left: number;
-  }>({
-    visible: false,
-    top: 0,
-    left: 0,
-  });
-  const [rects, setRects] = useState<
-    Array<{ top: number; left: number; width: number; height: number }>
-  >([]);
+  const [bubble, setBubble] = useState({ visible: false, top: 0, left: 0 });
+  const [rects, setRects] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const lastSelectionRef = useRef<string>("");
   const lastSectionIdRef = useRef<string | null>(null);
@@ -405,88 +424,79 @@ function GlobalResearchDebug({
     if (!enabled) return false;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
+
     const quote = sel.toString().trim();
     if (!quote || quote.length < 5) return false;
+
     const range = sel.getRangeAt(0);
     const r = range.getBoundingClientRect();
+
     const clientRects = Array.from(range.getClientRects()).map((cr) => ({
       top: cr.top,
       left: cr.left,
       width: cr.width,
       height: cr.height,
     }));
+
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
-    const elAtCenter = document.elementFromPoint(cx, cy) as HTMLElement | null;
-    const article = elAtCenter?.closest(
-      ".reading-article"
-    ) as HTMLElement | null;
+    const el = document.elementFromPoint(cx, cy) as HTMLElement | null;
+    const article = el?.closest(".reading-article") as HTMLElement | null;
 
     lastSectionIdRef.current = article?.dataset.sectionId ?? null;
     lastSectionTitleRef.current = article?.dataset.sectionTitle ?? null;
-    lastContextTextRef.current = (
-      article?.innerText ||
-      document.body.innerText ||
-      ""
-    )
-      .replace(/\s+/g, " ")
-      .trim();
+    lastContextTextRef.current =
+      article?.innerText?.replace(/\s+/g, " ").trim() ?? "";
 
     lastSelectionRef.current = quote;
+
     setRects(clientRects);
     setBubble({
       visible: true,
       top: Math.max(8, r.top - 42),
       left: r.left + r.width / 2,
     });
+
     sel.removeAllRanges();
     return true;
   };
 
   React.useEffect(() => {
-    const onMouseUp = () => {
-      if (!captureSelection()) clearAll();
-    };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Escape") clearAll();
-    };
-    const onScrollOrResize = () => clearAll();
-    const onMouseDown = (e: MouseEvent) => {
-      const t = e.target as Node | null;
-      if (bubbleRef.current && t && bubbleRef.current.contains(t)) return;
-      clearAll();
-    };
+    const onMouseUp = () => (captureSelection() ? null : clearAll());
+    const onKeyUp = (e: any) => e.key === "Escape" && clearAll();
+    const onScroll = () => clearAll();
+
     document.addEventListener("mouseup", onMouseUp);
-    document.addEventListener("keyup", onKeyUp as any);
-    document.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("scroll", onScrollOrResize, { passive: true });
-    window.addEventListener("resize", onScrollOrResize);
+    document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("scroll", onScroll, { passive: true });
+
     return () => {
       document.removeEventListener("mouseup", onMouseUp);
-      document.removeEventListener("keyup", onKeyUp as any);
-      document.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("scroll", onScrollOrResize);
-      window.removeEventListener("resize", onScrollOrResize);
+      document.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [enabled]);
 
   const handleSaveSelection = async () => {
-    try {
-      if (saving) return;
-      const quote = (lastSelectionRef.current || "").trim();
-      if (!quote) return;
-      setSaving(true);
-      const full = (lastContextTextRef.current || document.body.innerText || "")
-        .replace(/\s+/g, " ")
-        .trim();
-      let idx = full.indexOf(quote);
-      if (idx < 0) idx = full.toLowerCase().indexOf(quote.toLowerCase());
-      const before = idx >= 0 ? full.slice(Math.max(0, idx - 160), idx) : null;
-      const after =
-        idx >= 0
-          ? full.slice(idx + quote.length, idx + quote.length + 160)
-          : null;
+    const quote = lastSelectionRef.current.trim();
+    if (!quote || saving) return;
 
+    setSaving(true);
+
+    const full =
+      lastContextTextRef.current ||
+      document.body.innerText?.replace(/\s+/g, " ").trim() ||
+      "";
+    let idx = full.indexOf(quote);
+    if (idx < 0) idx = full.toLowerCase().indexOf(quote.toLowerCase());
+
+    const before = idx >= 0 ? full.slice(Math.max(0, idx - 160), idx) : null;
+    const after =
+      idx >= 0
+        ? full.slice(idx + quote.length, idx + quote.length + 160)
+        : null;
+
+    try {
       await saveResearchNote({
         site_id: siteId,
         site_slug: siteSlug,
@@ -497,13 +507,12 @@ function GlobalResearchDebug({
         context_before: before,
         context_after: after,
       });
-
       clearAll();
       alert("Saved to Notebook → Research");
     } catch (e) {
       console.error(e);
-      setSaving(false);
       alert("Could not save. Please sign in and try again.");
+      setSaving(false);
     }
   };
 
@@ -537,32 +546,17 @@ function GlobalResearchDebug({
             left: bubble.left,
             transform: "translate(-50%, -100%)",
           }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
         >
           <div className="note-callout">
             <button
               onMouseDown={(e) => {
                 e.preventDefault();
-                e.stopPropagation();
-                handleSaveSelection();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
                 handleSaveSelection();
               }}
               disabled={saving}
               className={`note-btn ${saving ? "saving" : ""}`}
-              aria-live="polite"
             >
-              <Icon
-                name={saving ? "info" : "book"}
-                size={16}
-                className="text-[inherit]"
-              />
+              <Icon name={saving ? "info" : "book"} size={16} />
               {saving ? "Saving…" : "Add to Note"}
             </button>
           </div>

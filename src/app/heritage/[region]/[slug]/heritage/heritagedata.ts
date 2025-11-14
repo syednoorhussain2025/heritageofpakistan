@@ -67,7 +67,10 @@ export type Site = {
   slug: string;
   title: string;
   tagline?: string | null;
+
+  /** Legacy URL, kept for backward compatibility / fallback */
   cover_photo_url?: string | null;
+
   avg_rating?: number | null;
   review_count?: number | null;
   heritage_type?: string | null;
@@ -84,6 +87,9 @@ export type Site = {
 
   // NEW: link to region guide
   region_travel_guide_id?: string | null;
+
+  // Legacy relational cover reference (not used now that site_covers is the source of truth)
+  cover_image_id?: string | null;
 
   architectural_style?: string | null;
   construction_materials?: string | null;
@@ -148,6 +154,15 @@ export type Site = {
   stay_spending_night_recommended?: string | null;
   stay_camping_possible?: string | null;
   stay_places_to_eat_available?: string | null;
+
+  /** Unified cover object built from site_covers (if present) */
+  cover?: {
+    url: string;
+    width?: number | null;
+    height?: number | null;
+    blurhash?: string | null;
+    blurDataURL?: string | null;
+  } | null;
 };
 
 export type Taxonomy = { id: string; name: string; icon_key: string | null };
@@ -159,9 +174,15 @@ export type ImageRow = {
   alt_text?: string | null;
   caption?: string | null;
   credit?: string | null;
-  is_cover?: boolean | null;
+  is_cover?: boolean | null; // legacy flag, safe to ignore now
   sort_order: number;
   publicUrl?: string | null;
+
+  // metadata from site_images table
+  width?: number | null;
+  height?: number | null;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
 };
 
 export type BiblioItem = {
@@ -280,7 +301,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
       try {
         setLoading(true);
 
-        // Pull site + province in one round-trip so we get province_slug for routing.
+        // 1) Load site + province
         const { data: s, error: siteErr } = await supabase
           .from("sites")
           .select(
@@ -296,77 +317,163 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .eq("slug", slug)
           .maybeSingle();
 
-        if (siteErr) {
-          setSite(null);
-          setTravelGuideSummary(null);
-          setProvinceName(null);
-          return;
-        }
-        if (!s) {
+        if (siteErr || !s) {
           setSite(null);
           setTravelGuideSummary(null);
           setProvinceName(null);
           return;
         }
 
-        // Normalize: attach province_slug on the site object for URL building.
-        const siteData: Site = {
-          ...(s as any),
-          province_slug: (s as any)?.province?.slug ?? null,
+        const rawSite: any = s;
+
+        const siteBase: Site = {
+          ...(rawSite as any),
+          province_slug: rawSite?.province?.slug ?? null,
         };
-        setSite(siteData);
 
-        // Province name for sidebar/breadcrumbs
-        setProvinceName((s as any)?.province?.name ?? null);
+        setProvinceName(rawSite?.province?.name ?? null);
 
+        // 2) Citation style
         const style = await loadGlobalCitationStyle();
         setStyleId(style);
 
+        // 3) Categories
         const { data: sc } = await supabase
           .from("site_categories")
           .select("categories(id, name, icon_key)")
-          .eq("site_id", siteData.id);
+          .eq("site_id", siteBase.id);
         setCategories(
           (sc || []).map((row: any) => row.categories).filter(Boolean)
         );
 
+        // 4) Regions
         const { data: sr } = await supabase
           .from("site_regions")
           .select("regions(id, name, icon_key)")
-          .eq("site_id", siteData.id);
+          .eq("site_id", siteBase.id);
         setRegions((sr || []).map((row: any) => row.regions).filter(Boolean));
 
+        // 5) Gallery: still from site_images
         const { data: imgs } = await supabase
           .from("site_images")
-          .select("*")
-          .eq("site_id", siteData.id)
-          .order("sort_order", { ascending: true })
-          .limit(6);
+          .select(
+            `
+              id,
+              site_id,
+              storage_path,
+              alt_text,
+              caption,
+              credit,
+              is_cover,
+              sort_order,
+              width,
+              height,
+              blur_hash,
+              blur_data_url
+            `
+          )
+          .eq("site_id", siteBase.id)
+          .order("sort_order", { ascending: true });
 
-        const withUrls: ImageRow[] = await Promise.all(
-          (imgs || []).map(async (r: any) => ({
-            ...r,
-            publicUrl: r.storage_path
-              ? supabase.storage
-                  .from("site-images")
-                  .getPublicUrl(r.storage_path).data.publicUrl
-              : null,
-          }))
-        );
-        setGallery(withUrls);
+        const galleryWithUrls: ImageRow[] = (imgs || []).map((r: any) => ({
+          id: r.id,
+          site_id: r.site_id,
+          storage_path: r.storage_path,
+          alt_text: r.alt_text,
+          caption: r.caption,
+          credit: r.credit,
+          is_cover: r.is_cover,
+          sort_order: r.sort_order ?? 0,
+          width: r.width,
+          height: r.height,
+          blurhash: r.blur_hash ?? null,
+          blurDataURL: r.blur_data_url ?? null,
+          publicUrl: r.storage_path
+            ? supabase.storage
+                .from("site-images")
+                .getPublicUrl(r.storage_path).data.publicUrl
+            : null,
+        }));
 
-        const b = await loadBibliographyForPublic(siteData.id);
+        setGallery(galleryWithUrls);
+
+        // 6) Cover: source of truth = site_covers
+        let cover: Site["cover"] = null;
+
+        try {
+          // Prefer active cover; otherwise, latest record
+          const { data: coverRow } = await supabase
+            .from("site_covers")
+            .select(
+              `
+              id,
+              storage_path,
+              width,
+              height,
+              blur_hash,
+              blur_data_url,
+              is_active,
+              created_at
+            `
+            )
+            .eq("site_id", siteBase.id)
+            .order("is_active", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (coverRow && coverRow.storage_path) {
+            const { data: pub } = supabase.storage
+              .from("site-images")
+              .getPublicUrl(coverRow.storage_path as string);
+            const url = pub?.publicUrl || null;
+
+            if (url) {
+              cover = {
+                url,
+                width: coverRow.width ?? null,
+                height: coverRow.height ?? null,
+                blurhash: coverRow.blur_hash ?? null,
+                blurDataURL: coverRow.blur_data_url ?? null,
+              };
+            }
+          }
+        } catch (e) {
+          // Non-fatal: we fall back to legacy field below
+          console.error("Failed to load cover from site_covers", e);
+        }
+
+        // Legacy fallback: if there is no site_covers row but cover_photo_url exists
+        if (!cover && siteBase.cover_photo_url) {
+          cover = {
+            url: siteBase.cover_photo_url,
+            width: null,
+            height: null,
+            blurhash: null,
+            blurDataURL: null,
+          };
+        }
+
+        // 7) Set final site with cover attached
+        setSite({
+          ...siteBase,
+          cover,
+        });
+
+        // 8) Bibliography
+        const b = await loadBibliographyForPublic(siteBase.id);
         setBibliography(b);
 
+        // 9) Photo story
         const { data: ps } = await supabase
           .from("photo_stories")
           .select("site_id")
-          .eq("site_id", siteData.id)
+          .eq("site_id", siteBase.id)
           .maybeSingle();
         setHasPhotoStory(!!ps);
 
-        // -------- NEW: fetch linked published travel guide summary --------
-        if (siteData.region_travel_guide_id) {
+        // 10) Linked travel guide summary (published only)
+        if (siteBase.region_travel_guide_id) {
           const { data: tgs } = await supabase
             .from("region_travel_guide_summary")
             .select(
@@ -379,7 +486,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
               region_travel_guides!inner ( status )
             `
             )
-            .eq("guide_id", siteData.region_travel_guide_id)
+            .eq("guide_id", siteBase.region_travel_guide_id)
             .eq("region_travel_guides.status", "published")
             .maybeSingle();
 
@@ -393,8 +500,8 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
         } else {
           setTravelGuideSummary(null);
         }
-        // -------------------------------------------------------------------
 
+        // 11) Deep-link highlight (research note)
         if (deepLinkNoteId) {
           const { data: rn } = await supabase
             .from("research_notes")
@@ -430,8 +537,8 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
   return {
     loading,
-    site, // now includes site.province_slug
-    provinceName, // still exposed for UI
+    site, // includes province_slug + cover (from site_covers)
+    provinceName,
     categories,
     regions,
     gallery,
@@ -441,7 +548,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     highlight,
     setHighlight,
     maps,
-    // NEW: expose to HeritageSidebar
+    // For sidebar / details
     travelGuideSummary,
   };
 }

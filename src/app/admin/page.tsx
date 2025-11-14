@@ -133,6 +133,15 @@ export default function AdminHome() {
       desc: "Update homepage hero.",
       icon: "home",
     },
+
+    // NEW: Header Settings
+    {
+      href: "/admin/header",
+      title: "Header Settings",
+      desc: "Control navigation & mega menu.",
+      icon: "admin",
+    },
+
     {
       href: "/admin/fonts",
       title: "Font Manager",

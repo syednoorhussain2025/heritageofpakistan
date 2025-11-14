@@ -1,0 +1,372 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import NextImage from "next/image";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import type { LightboxPhoto } from "../../types/lightbox";
+import Icon from "../Icon";
+import { decode } from "blurhash";
+
+/* ---------- CONFIG ---------- */
+const PANEL_W = 264;
+const GAP = 20;
+const PADDING = 24;
+const MAX_VH = { base: 76, md: 84, lg: 88 };
+
+/* ---------- BlurHash Component (matches aspect ratio) ---------- */
+
+type BlurhashPlaceholderProps = {
+  hash: string;
+  aspectRatio: number; // width / height
+};
+
+function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hash) return;
+
+    // We generate a tiny bitmap that roughly matches the photo’s aspect ratio
+    // to avoid distortion / weird edges.
+    const BASE = 32;
+    let width = BASE;
+    let height = BASE;
+
+    if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
+      if (aspectRatio >= 1) {
+        // wider than tall
+        width = BASE;
+        height = Math.max(1, Math.round(BASE / aspectRatio));
+      } else {
+        // taller than wide
+        height = BASE;
+        width = Math.max(1, Math.round(BASE * aspectRatio));
+      }
+    }
+
+    const pixels = decode(hash, width, height);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const imageData = ctx.createImageData(width, height);
+    imageData.data.set(pixels);
+    ctx.putImageData(imageData, 0, 0);
+
+    setUrl(canvas.toDataURL());
+  }, [hash, aspectRatio]);
+
+  if (!url) return null;
+
+  return (
+    <img
+      src={url}
+      alt="blurhash preview"
+      className="w-full h-full object-contain"
+    />
+  );
+}
+
+/* ---------- Types ---------- */
+
+type LightboxPhotoWithExtras = LightboxPhoto & {
+  width?: number | null;
+  height?: number | null;
+  blurHash?: string | null;
+};
+
+type LightboxProps = {
+  photos: LightboxPhoto[];
+  startIndex: number;
+  onClose: () => void;
+  onBookmarkToggle?: (photo: LightboxPhoto) => void;
+  onAddToCollection?: (photo: LightboxPhoto) => void;
+};
+
+/* =======================================================
+   LIGHTBOX COMPONENT
+======================================================= */
+
+export function Lightbox({
+  photos,
+  startIndex,
+  onClose,
+  onBookmarkToggle,
+  onAddToCollection,
+}: LightboxProps) {
+  const [currentIndex, setCurrentIndex] = useState(startIndex);
+  const photo = photos[currentIndex] as LightboxPhotoWithExtras;
+
+  /* ---------- Window size ---------- */
+  const [win, setWin] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const setSize = () =>
+      setWin({ w: window.innerWidth, h: window.innerHeight });
+    setSize();
+    window.addEventListener("resize", setSize);
+    return () => window.removeEventListener("resize", setSize);
+  }, []);
+
+  const isMdUp = win.w >= 768;
+  const isLgUp = win.w >= 1024;
+
+  /* ---------- Keyboard nav ---------- */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight")
+        setCurrentIndex((p) => (p + 1) % photos.length);
+      if (e.key === "ArrowLeft")
+        setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, photos.length]);
+
+  /* ---------- Use server-set dimensions ---------- */
+  const nat = useMemo(
+    () => ({
+      w: photo.width && photo.width > 0 ? photo.width : 4,
+      h: photo.height && photo.height > 0 ? photo.height : 3,
+    }),
+    [photo.width, photo.height]
+  );
+
+  const aspectRatio = nat.w / nat.h;
+
+  /* ---------- Geometry (stable, no shift) ---------- */
+  const geom = useMemo(() => {
+    const nw = nat.w;
+    const nh = nat.h;
+
+    const pad = isMdUp ? PADDING : 16;
+    const vw = Math.max(320, win.w);
+    const vh = Math.max(320, win.h);
+
+    const maxH =
+      vh * ((isLgUp ? MAX_VH.lg : isMdUp ? MAX_VH.md : MAX_VH.base) / 100);
+
+    const usableW = isMdUp ? vw - pad * 2 - (PANEL_W + GAP) : vw - pad * 2;
+
+    const scale = Math.min(usableW / nw, maxH / nh);
+    const imgW = nw * scale;
+    const imgH = nh * scale;
+
+    const totalW = isMdUp ? imgW + GAP + PANEL_W : imgW;
+
+    const contentLeft = Math.round((vw - totalW) / 2);
+    const imgLeft = contentLeft;
+    const imgTop = Math.round((vh - imgH) / 2);
+
+    const panelLeft = isMdUp ? imgLeft + imgW + GAP : pad;
+    const panelTop = isMdUp
+      ? imgTop + imgH / 2
+      : imgTop + imgH + 16;
+
+    return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
+  }, [isMdUp, isLgUp, nat, win]);
+
+  /* ---------- Prefetch neighbours for snappy nav ---------- */
+  useEffect(() => {
+    const preload = (p?: LightboxPhoto) => {
+      if (!p) return;
+      const img = new window.Image();
+      img.src = p.url;
+    };
+    preload(photos[(currentIndex + 1) % photos.length]);
+    preload(photos[(currentIndex - 1 + photos.length) % photos.length]);
+  }, [currentIndex, photos]);
+
+  /* ---------- Google Maps link ---------- */
+  const googleMapsUrl =
+    photo.site.latitude != null && photo.site.longitude != null
+      ? `https://www.google.com/maps/search/?api=1&query=${photo.site.latitude},${photo.site.longitude}`
+      : null;
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[100] bg-black/90"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        {/* Controls */}
+        <button
+          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={onClose}
+        >
+          <Icon name="xmark" />
+        </button>
+
+        <button
+          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+          }}
+        >
+          <Icon name="chevron-left" />
+        </button>
+
+        <button
+          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((p) => (p + 1) % photos.length);
+          }}
+        >
+          <Icon name="chevron-right" />
+        </button>
+
+        {/* ---------- IMAGE CONTAINER WITH CROSSFADE ---------- */}
+        <div
+          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
+          style={{
+            left: geom.imgLeft,
+            top: geom.imgTop,
+            width: geom.imgW,
+            height: geom.imgH,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={photo.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="absolute inset-0"
+            >
+              {/* BlurHash background (matches aspect ratio) */}
+              {photo.blurHash && (
+                <div className="absolute inset-0 bg-black/20">
+                  <BlurhashPlaceholder
+                    hash={photo.blurHash}
+                    aspectRatio={aspectRatio}
+                  />
+                </div>
+              )}
+
+              {/* Full image on top, object-contain */}
+              <NextImage
+                src={photo.url}
+                alt={photo.caption ?? ""}
+                fill
+                sizes="100vw"
+                className="w-full h-full object-contain"
+                priority
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* ---------- INFO PANEL ---------- */}
+        <div
+          className={
+            geom.isMdUp
+              ? "absolute z-20"
+              : "absolute z-20 w-[min(92vw,620px)]"
+          }
+          style={{
+            left: geom.panelLeft,
+            top: geom.panelTop,
+            transform: geom.isMdUp ? "translateY(-50%)" : "none",
+            width: geom.isMdUp ? PANEL_W : undefined,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-white space-y-4">
+            <div>
+              <h3 className="font-bold text-xl">{photo.site.name}</h3>
+
+              {photo.site.location && (
+                <p className="text-sm text-gray-300">{photo.site.location}</p>
+              )}
+
+              <p className="text-sm text-gray-400 mt-1">
+                Photo by{" "}
+                {photo.author.profileUrl ? (
+                  <Link
+                    href={photo.author.profileUrl}
+                    className="hover:underline"
+                  >
+                    {photo.author.name}
+                  </Link>
+                ) : (
+                  <span>{photo.author.name}</span>
+                )}
+              </p>
+
+              {photo.caption && (
+                <p className="text-sm text-gray-200 mt-2 italic">
+                  {photo.caption}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {photo.site.region && (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
+                  {photo.site.region}
+                </span>
+              )}
+              {photo.site.categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+              {onBookmarkToggle && (
+                <button
+                  className="p-2 rounded-full bg-white/10 hover:bg:white/20"
+                  onClick={() => onBookmarkToggle(photo)}
+                >
+                  <Icon
+                    name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
+                  />
+                </button>
+              )}
+
+              {onAddToCollection && (
+                <button
+                  className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                  onClick={() => onAddToCollection(photo)}
+                >
+                  Add to Collection
+                </button>
+              )}
+
+              {googleMapsUrl && (
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  title="View on Google Maps"
+                >
+                  <Icon name="map-marker-alt" />
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

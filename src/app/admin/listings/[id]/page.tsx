@@ -4,11 +4,13 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
 import Papa from "papaparse";
+import { encode } from "blurhash";
 
 /* Externalized Components */
 import GalleryUploader from "./GalleryUploader";
@@ -210,6 +212,216 @@ function parseStoragePathFromPublicUrl(url: string | undefined | null) {
   const rest = url.slice(i + marker.length);
   const [bucket, ...pathParts] = rest.split("/");
   return { bucket, path: pathParts.join("/") };
+}
+
+/**
+ * Extract width, height, blurhash and blurDataURL from a File (client-side).
+ * Used for cover uploads before saving metadata.
+ */
+async function extractImageMetaFromFile(file: File): Promise<{
+  width: number | null;
+  height: number | null;
+  blurHash: string | null;
+  blurDataUrl: string | null;
+}> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const width = img.naturalWidth || null;
+        const height = img.naturalHeight || null;
+
+        // Fallback result in case canvas / encode fails
+        let blurHash: string | null = null;
+        let blurDataUrl: string | null = null;
+
+        try {
+          const canvas = document.createElement("canvas");
+          const targetW = 32;
+          const targetH =
+            width && height ? Math.round((height / width) * targetW) : 32;
+
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            const imageData = ctx.getImageData(0, 0, targetW, targetH);
+            // encode expects RGBA data
+            try {
+              blurHash = encode(
+                imageData.data,
+                imageData.width,
+                imageData.height,
+                4,
+                3
+              );
+            } catch {
+              blurHash = null;
+            }
+            try {
+              blurDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            } catch {
+              blurDataUrl = null;
+            }
+          }
+        } catch {
+          // ignore, keep nulls
+        }
+
+        resolve({ width, height, blurHash, blurDataUrl });
+      };
+      img.onerror = () => {
+        resolve({
+          width: null,
+          height: null,
+          blurHash: null,
+          blurDataUrl: null,
+        });
+      };
+      if (typeof reader.result === "string") {
+        img.src = reader.result;
+      } else {
+        resolve({
+          width: null,
+          height: null,
+          blurHash: null,
+          blurDataUrl: null,
+        });
+      }
+    };
+
+    reader.onerror = () =>
+      resolve({
+        width: null,
+        height: null,
+        blurHash: null,
+        blurDataUrl: null,
+      });
+
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Resize an image file on the client to a medium size (max 1600x1600),
+ * and compute blurhash + blurDataUrl from the resized version.
+ */
+async function resizeImageForUpload(
+  file: File,
+  maxWidth = 1600,
+  maxHeight = 1600
+): Promise<{
+  blob: Blob;
+  width: number | null;
+  height: number | null;
+  blurHash: string | null;
+  blurDataUrl: string | null;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.naturalWidth || 0;
+        let height = img.naturalHeight || 0;
+
+        if (!width || !height) {
+          // Fallback: just return original file
+          resolve({
+            blob: file,
+            width: null,
+            height: null,
+            blurHash: null,
+            blurDataUrl: null,
+          });
+          return;
+        }
+
+        // Constrain to max dimensions while preserving aspect ratio
+        const ratio = Math.min(
+          maxWidth / width,
+          maxHeight / height,
+          1 // never upscale
+        );
+        const targetW = Math.round(width * ratio);
+        const targetH = Math.round(height * ratio);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve({
+            blob: file,
+            width,
+            height,
+            blurHash: null,
+            blurDataUrl: null,
+          });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        let blurHash: string | null = null;
+        let blurDataUrl: string | null = null;
+
+        try {
+          const imageData = ctx.getImageData(0, 0, targetW, targetH);
+          blurHash = encode(
+            imageData.data,
+            imageData.width,
+            imageData.height,
+            4,
+            3
+          );
+        } catch {
+          blurHash = null;
+        }
+
+        try {
+          blurDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        } catch {
+          blurDataUrl = null;
+        }
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve({
+                blob: file,
+                width: targetW,
+                height: targetH,
+                blurHash,
+                blurDataUrl,
+              });
+              return;
+            }
+            resolve({
+              blob,
+              width: targetW,
+              height: targetH,
+              blurHash,
+              blurDataUrl,
+            });
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+      img.onerror = () =>
+        reject(new Error("Failed to load image for resizing."));
+      img.src = reader.result as string;
+    };
+
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 /* Root wrapper */
@@ -487,7 +699,7 @@ const HEADER_TO_FIELD: Record<
   known_for: "known_for",
   era: "era",
   inhabited_by: "inhabited_by",
-  national_park_established_in: "national_park_established_in",
+  national_park_established_in: "national_ark_established_in",
   population: "population",
   ethnic_groups: "ethnic_groups",
   languages_spoken: "languages_spoken",
@@ -708,7 +920,9 @@ function EditContent({ id }: { id: string }) {
     setAllCategories(cats || []);
     setAllRegions(regs || []);
     setSelectedCatIds((sc?.map((r: any) => r.category_id) as string[]) || []);
-    setSelectedRegionIds((sr?.map((r: any) => r.region_id) as string[]) || []);
+    setSelectedRegionIds(
+      (sr?.map((r: any) => r.region_id) as string[]) || []
+    );
   }, [id]);
 
   useEffect(() => {
@@ -846,16 +1060,14 @@ function EditContent({ id }: { id: string }) {
       status: g.status,
     });
 
-    // 2) (preview) fetch summary → compute inherited mapping (we keep for next step UI)
+    // 2) (preview) fetch summary → compute inherited mapping (kept for future use)
     const { data: s, error: sErr } = await supabase
       .from("region_travel_guide_summary")
       .select("*")
       .eq("guide_id", g.id)
       .maybeSingle();
     if (!sErr && s) {
-      // Optionally prefill blanks from the summary:
       // const mapped = mapSummaryToSiteFields(s);
-      // setForm((prev: any) => ({ ...mapped, ...prev }));
     }
   }
 
@@ -1189,20 +1401,32 @@ function ListingForm({
     };
   }, [form.cover_photo_url]);
 
+  // New: just unset active cover in site_covers + clear sites.cover_photo_url
   async function deleteCover() {
     if (!form.cover_photo_url) return;
-    const parsed = parseStoragePathFromPublicUrl(form.cover_photo_url);
-    if (!parsed) {
-      set("cover_photo_url", "");
-      return;
-    }
     setDeletingCover(true);
     try {
-      const { error } = await supabase.storage
-        .from(parsed.bucket)
-        .remove([parsed.path]);
-      if (error) alert(error.message);
+      await supabase
+        .from("site_covers")
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("site_id", site.id);
+
+      await supabase
+        .from("sites")
+        .update({
+          cover_photo_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", site.id);
+
       set("cover_photo_url", "");
+      setCoverMeta({});
+    } catch (e) {
+      console.error(e);
+      alert("Could not clear cover.");
     } finally {
       setDeletingCover(false);
     }
@@ -1435,15 +1659,26 @@ function ListingForm({
             </div>
 
             <div className="space-y-3">
-              <div className="w-full aspect-video bg-gray-100 border border-gray-300 rounded-2xl overflow-hidden grid place-items-center">
+              <div className="w-full aspect-video bg-gray-100 border border-gray-300 rounded-2xl overflow-hidden">
                 {form.cover_photo_url ? (
-                  <img
-                    src={form.cover_photo_url}
-                    className="w-full h-full object-cover"
-                    alt="Cover preview"
-                  />
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={form.cover_photo_url}
+                      alt={
+                        form.title
+                          ? `Cover for ${form.title}`
+                          : "Cover preview"
+                      }
+                      fill
+                      className="object-cover"
+                      sizes="(min-width: 1024px) 800px, 100vw"
+                      priority
+                    />
+                  </div>
                 ) : (
-                  <div className="text-sm text-gray-500">No cover uploaded</div>
+                  <div className="grid place-items-center h-full text-sm text-gray-500">
+                    No cover uploaded
+                  </div>
                 )}
               </div>
 
@@ -1641,11 +1876,15 @@ function CoverUploader({
           Choose File
         </button>
         {showPreview && value ? (
-          <img
-            src={value}
-            className="h-14 w-14 object-cover rounded-xl"
-            alt="Cover preview"
-          />
+          <div className="relative h-14 w-14">
+            <Image
+              src={value}
+              alt="Cover preview"
+              fill
+              className="rounded-xl object-cover"
+              sizes="56px"
+            />
+          </div>
         ) : null}
       </div>
 
@@ -1666,11 +1905,13 @@ function CoverUploader({
 /* -------- Cover library modal (outside click closes) -------- */
 
 type LibraryImage = {
-  key: string; // storage key
+  id: string; // site_covers.id
+  key: string; // storage_path
   url: string; // public URL
   name: string;
   size?: number | null;
   created_at?: string | null;
+  isActive?: boolean;
 };
 
 function CoverLibraryModal({
@@ -1691,38 +1932,51 @@ function CoverLibraryModal({
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Close on ESC
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  // Load covers from site_covers
   const refresh = useCallback(async () => {
     if (!open) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(PATH, { limit: 1000, offset: 0 });
+      const { data, error } = await supabase
+        .from("site_covers")
+        .select("id, storage_path, is_active, created_at")
+        .eq("site_id", siteId)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
 
       const rows = data ?? [];
       const mapped: LibraryImage[] = await Promise.all(
-        rows
-          .filter((r) => !r.name.endsWith("/"))
-          .map(async (r) => {
-            const key = `${PATH}/${r.name}`;
-            const url = await publicUrl(BUCKET, key);
-            return {
-              key,
-              url,
-              name: r.name,
-              size: (r as any).metadata?.size ?? null,
-              created_at: (r as any).created_at ?? null,
-            };
-          })
+        rows.map(async (row: any) => {
+          const url = await publicUrl(BUCKET, row.storage_path as string);
+          const name =
+            (row.storage_path as string).split("/").pop() ||
+            (row.storage_path as string);
+
+          return {
+            id: row.id,
+            key: row.storage_path,
+            url,
+            name,
+            size: null,
+            created_at: row.created_at,
+            isActive: !!row.is_active,
+          };
+        })
       );
 
-      mapped.sort(
-        (a, b) =>
-          (b.created_at || "").localeCompare(a.created_at || "") ||
-          b.name.localeCompare(a.name)
-      );
       setImages(mapped);
     } catch (e) {
       console.error(e);
@@ -1730,11 +1984,44 @@ function CoverLibraryModal({
     } finally {
       setLoading(false);
     }
-  }, [BUCKET, PATH, open]);
+  }, [open, siteId]);
 
   useEffect(() => {
     if (open) void refresh();
   }, [open, refresh]);
+
+  // Helper: set one cover as active and sync sites.cover_photo_url
+  async function setActiveCover(img: LibraryImage) {
+    try {
+      // Clear previous active
+      await supabase
+        .from("site_covers")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("site_id", siteId);
+
+      // Set chosen as active
+      await supabase
+        .from("site_covers")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("id", img.id);
+
+      // Update sites.cover_photo_url for convenience / preview
+      await supabase
+        .from("sites")
+        .update({
+          cover_photo_url: img.url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", siteId);
+
+      setImages((prev) =>
+        prev.map((x) => ({ ...x, isActive: x.id === img.id }))
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Could not set cover as active.");
+    }
+  }
 
   async function onUpload(files?: FileList | null) {
     if (!files || !files.length) return;
@@ -1743,30 +2030,148 @@ function CoverLibraryModal({
       const queue = Array.from(files).filter((f) =>
         f.type.startsWith("image/")
       );
-      for (const f of queue) {
+
+      // Check if there's already an active cover
+      const { data: existingActive } = await supabase
+        .from("site_covers")
+        .select("id")
+        .eq("site_id", siteId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      let hasActive = !!existingActive;
+
+      for (const [index, f] of queue.entries()) {
+        // Resize client-side to medium size and compute meta
+        let prepared:
+          | {
+              blob: Blob;
+              width: number | null;
+              height: number | null;
+              blurHash: string | null;
+              blurDataUrl: string | null;
+            }
+          | null = null;
+
+        try {
+          prepared = await resizeImageForUpload(f, 1600, 1600);
+        } catch (err) {
+          console.error("Resize failed, falling back to original file.", err);
+          const meta = await extractImageMetaFromFile(f);
+          prepared = {
+            blob: f,
+            width: meta.width,
+            height: meta.height,
+            blurHash: meta.blurHash,
+            blurDataUrl: meta.blurDataUrl,
+          };
+        }
+
+        const { blob, width, height, blurHash, blurDataUrl } = prepared;
+
+        const safeName = f.name.replace(/\s+/g, "-");
+        const ext = ".jpg"; // we are uploading JPEG from canvas
         const key = `${PATH}/${Date.now()}-${Math.random()
           .toString(36)
-          .slice(2)}-${f.name.replace(/\s+/g, "-")}`;
-        const { error } = await supabase.storage
+          .slice(2)}-${safeName.replace(/\.[^.]+$/, "")}${ext}`;
+
+        // Upload medium-sized blob to storage
+        const { error: uploadError } = await supabase.storage
           .from(BUCKET)
-          .upload(key, f, { upsert: false, cacheControl: "3600" });
-        if (error) throw error;
+          .upload(key, blob, { upsert: false, cacheControl: "3600" });
+        if (uploadError) throw uploadError;
+
+        const makeActive = !hasActive && index === 0;
+
+        // Insert into site_covers
+        const { data: inserted, error: dbError } = await supabase
+          .from("site_covers")
+          .insert({
+            site_id: siteId,
+            storage_path: key,
+            width,
+            height,
+            blur_hash: blurHash,
+            blur_data_url: blurDataUrl,
+            is_active: makeActive,
+          } as any)
+          .select("id, storage_path, is_active")
+          .single();
+
+        if (dbError) {
+          console.error("Failed to insert into site_covers", dbError);
+          continue;
+        }
+
+        const url = await publicUrl(BUCKET, inserted.storage_path as string);
+
+        if (makeActive && inserted) {
+          hasActive = true;
+
+          // Update sites.cover_photo_url
+          await supabase
+            .from("sites")
+            .update({
+              cover_photo_url: url,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", siteId);
+
+          // Immediately update parent form + preview
+          const activeImg: LibraryImage = {
+            id: inserted.id,
+            key: inserted.storage_path,
+            url,
+            name:
+              (inserted.storage_path as string).split("/").pop() ||
+              (inserted.storage_path as string),
+            size: null,
+            created_at: null,
+            isActive: true,
+          };
+          onPick(activeImg);
+        }
       }
+
       await refresh();
     } catch (e) {
       console.error(e);
       alert("Upload failed.");
     } finally {
       setUploading(false);
+      // allow re-upload of the same file
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  async function deleteOne(key: string) {
+  async function deleteOne(img: LibraryImage) {
     if (!confirm("Delete this image permanently?")) return;
     try {
-      const { error } = await supabase.storage.from(BUCKET).remove([key]);
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .remove([img.key]);
       if (error) throw error;
-      setImages((prev) => prev.filter((x) => x.key !== key));
+
+      await supabase.from("site_covers").delete().eq("id", img.id);
+
+      if (img.isActive) {
+        await supabase
+          .from("sites")
+          .update({
+            cover_photo_url: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", siteId);
+
+        // also clear parent preview
+        onPick({
+          ...img,
+          url: "",
+          isActive: false,
+        });
+      }
+
+      setImages((prev) => prev.filter((x) => x.id !== img.id));
     } catch (e) {
       console.error(e);
       alert("Delete failed.");
@@ -1782,11 +2187,31 @@ function CoverLibraryModal({
     )
       return;
     try {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .remove(images.map((x) => x.key));
+      const keys = images.map((x) => x.key);
+      const { error } = await supabase.storage.from(BUCKET).remove(keys);
       if (error) throw error;
+
+      await supabase.from("site_covers").delete().eq("site_id", siteId);
+
+      await supabase
+        .from("sites")
+        .update({
+          cover_photo_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", siteId);
+
       setImages([]);
+      // clear parent preview
+      if (currentUrl) {
+        onPick({
+          id: "",
+          key: "",
+          url: "",
+          name: "",
+          isActive: false,
+        });
+      }
     } catch (e) {
       console.error(e);
       alert("Bulk delete failed.");
@@ -1813,19 +2238,17 @@ function CoverLibraryModal({
           <div className="flex items-center gap-2">
             <label className="inline-flex items-center">
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 multiple
                 onChange={(e) => onUpload(e.currentTarget.files)}
                 className="hidden"
-                id="cover-upload-input"
               />
               <button
                 type="button"
                 className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
-                onClick={() =>
-                  document.getElementById("cover-upload-input")?.click()
-                }
+                onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
                 {uploading ? "Uploading…" : "Upload images"}
@@ -1860,29 +2283,49 @@ function CoverLibraryModal({
           ) : (
             <div className="flex flex-wrap items-start gap-3">
               {images.map((img) => {
-                const isCurrent = currentUrl && img.url === currentUrl;
+                const isCurrent =
+                  img.isActive || (currentUrl && img.url === currentUrl);
+
+                const imageClass = isCurrent
+                  ? "opacity-90"
+                  : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition";
+
                 return (
                   <div
-                    key={img.key}
+                    key={img.id}
                     className={`relative rounded-lg border ${
                       isCurrent ? "border-indigo-500" : "border-gray-200"
                     } bg-white overflow-hidden`}
-                    onClick={() => {
-                      if (!isCurrent) onPick(img);
+                    onClick={async () => {
+                      if (isCurrent) return;
+                      await setActiveCover(img);
+                      onPick(img);
                     }}
                     role="button"
                     aria-disabled={isCurrent}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (!isCurrent) {
+                          void (async () => {
+                            await setActiveCover(img);
+                            onPick(img);
+                          })();
+                        }
+                      }
+                    }}
                   >
-                    <img
-                      src={img.url}
-                      alt={img.name}
-                      className={`h-44 w-auto object-cover block ${
-                        isCurrent
-                          ? "opacity-90"
-                          : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition"
-                      }`}
-                      draggable={false}
-                    />
+                    <div className="relative h-44 w-72">
+                      <Image
+                        src={img.url}
+                        alt={img.name}
+                        fill
+                        className={`object-cover ${imageClass}`}
+                        sizes="288px"
+                        draggable={false}
+                      />
+                    </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
                       <div className="truncate">{img.name}</div>
                     </div>
@@ -1896,7 +2339,7 @@ function CoverLibraryModal({
                         className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void deleteOne(img.key);
+                          void deleteOne(img);
                         }}
                       >
                         Delete

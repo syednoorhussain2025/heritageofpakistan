@@ -1,0 +1,663 @@
+// src/modules/flow-layout/default-sections.tsx
+import React from "react";
+
+export type ArchetypeSlug =
+  | "full-width-image"
+  | "full-width-text"
+  | "image-left-text-right"
+  | "image-right-text-left"
+  | "two-images"
+  | "three-images"
+  | "aside-figure"
+  | "quotation" // NEW
+  | "carousel"; // NEW
+
+export type SectionSettings = {
+  paddingY: number; // px
+  paddingX: number; // px
+  marginY: number; // px (gap between sections)
+  maxWidth: number; // px (content container width)
+  gutter: number; // px (gap between columns/images)
+  background: string; // CSS color (e.g. "#fff" or "transparent")
+};
+
+export const DEFAULT_SETTINGS: Record<ArchetypeSlug, SectionSettings> = {
+  "full-width-image": {
+    paddingY: 24,
+    paddingX: 0,
+    marginY: 24,
+    maxWidth: 1200,
+    gutter: 16,
+    background: "transparent",
+  },
+  "full-width-text": {
+    paddingY: 28,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 820,
+    gutter: 20,
+    background: "transparent",
+  },
+  "image-left-text-right": {
+    paddingY: 32,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1100,
+    gutter: 24,
+    background: "transparent",
+  },
+  "image-right-text-left": {
+    paddingY: 32,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1100,
+    gutter: 24,
+    background: "transparent",
+  },
+  "two-images": {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1200,
+    gutter: 12,
+    background: "transparent",
+  },
+  "three-images": {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1200,
+    gutter: 12,
+    background: "transparent",
+  },
+  "aside-figure": {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 820,
+    gutter: 16,
+    background: "transparent",
+  },
+  // NEW
+  quotation: {
+    paddingY: 36,
+    paddingX: 24,
+    marginY: 28,
+    maxWidth: 900,
+    gutter: 16,
+    background: "#ffffff", // emphasized white panel by default
+  },
+  // NEW
+  carousel: {
+    paddingY: 24,
+    paddingX: 20,
+    marginY: 24,
+    maxWidth: 1200,
+    gutter: 16,
+    background: "transparent",
+  },
+};
+
+export const ARCHETYPES: {
+  slug: ArchetypeSlug;
+  name: string;
+  description: string;
+}[] = [
+  {
+    slug: "full-width-image",
+    name: "Full-width Image",
+    description: "Single edge-to-edge image band",
+  },
+  {
+    slug: "full-width-text",
+    name: "Full-width Text",
+    description: "Single prose block across the page",
+  },
+  {
+    slug: "image-left-text-right",
+    name: "Image Left + Text Right",
+    description: "Two columns: media then prose",
+  },
+  {
+    slug: "image-right-text-left",
+    name: "Image Right + Text Left",
+    description: "Two columns: prose then media",
+  },
+  {
+    slug: "two-images",
+    name: "Two Images Side-by-Side",
+    description: "2-up gallery row",
+  },
+  {
+    slug: "three-images",
+    name: "Three Images Side-by-Side",
+    description: "3-up gallery row",
+  },
+  {
+    slug: "aside-figure",
+    name: "Aside Figure (Wrapped Text)",
+    description: "Float an image left/right with true text wrap",
+  },
+  // NEW
+  {
+    slug: "quotation",
+    name: "Quotation",
+    description: "One-sentence emphasis with large type and generous padding",
+  },
+  // NEW
+  {
+    slug: "carousel",
+    name: "Carousel Photos",
+    description: "Scrollable horizontal photo carousel (up to 10 images)",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+type ImageData = {
+  src: string;
+  alt?: string;
+  caption?: string | null;
+  credit?: string | null;
+  /** Defaults to 4:5 (portrait) for side images */
+  aspectRatio?: number;
+};
+
+function FigureBox({
+  image,
+  widthVar = "--side-img-w",
+  defaultWidthPx = 480,
+}: {
+  image: ImageData;
+  widthVar?: string;
+  defaultWidthPx?: number;
+}) {
+  const ar = image.aspectRatio ?? 4 / 5; // portrait default
+  return (
+    <figure style={{ margin: 0 }}>
+      <div
+        className="flx-img"
+        style={{
+          width: `var(${widthVar}, ${defaultWidthPx}px)`,
+          aspectRatio: `${ar}`,
+          overflow: "hidden",
+          borderRadius: 8,
+          background: "#f4f4f5",
+        }}
+      >
+        {/* Use object-fit to honor aspect; height follows from aspect-ratio */}
+        <img
+          src={image.src}
+          alt={image.alt || ""}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
+      {(image.caption || image.credit) && (
+        <figcaption
+          style={{
+            color: "#6b7280",
+            fontSize: 12,
+            marginTop: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          {image.caption}
+          {image.credit
+            ? image.caption
+              ? ` — ${image.credit}`
+              : image.credit
+            : null}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Presentational primitives                                          */
+/* ------------------------------------------------------------------ */
+
+export function FullWidthImage({
+  src,
+  alt,
+  caption,
+  settings,
+}: {
+  src: string;
+  alt?: string;
+  caption?: string;
+  settings: SectionSettings;
+}) {
+  const { paddingY, marginY, background } = settings;
+  return (
+    <section
+      style={{
+        margin: `${marginY}px 0`,
+        background,
+        padding: `${paddingY}px 0`,
+      }}
+    >
+      <img
+        src={src}
+        alt={alt || ""}
+        style={{ display: "block", width: "100%", height: "auto" }}
+      />
+      {caption ? (
+        <div
+          style={{
+            textAlign: "center",
+            color: "#6b7280",
+            fontSize: 14,
+            marginTop: 8,
+          }}
+        >
+          {caption}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function FullWidthText({
+  children,
+  settings,
+}: {
+  children?: React.ReactNode;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, background } = settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div style={{ fontSize: 18, lineHeight: 1.8 }}>{children}</div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Image Left + Text Right
+ * Enforces a stable side image width via CSS token and supports a minimum text height lock
+ * using `minTextHeightPx`. When snapshots are rendered publicly, an inline `min-height`
+ * will be injected into the text container and we’ll add `data-text-lock="image"`.
+ */
+export function ImageLeftTextRight({
+  image,
+  children,
+  settings,
+  minTextHeightPx,
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  /** Optional: engine/composer can pass the computed min-height (px) for the text block. */
+  minTextHeightPx?: number;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          className="flx--two-col"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr",
+            gap: gutter,
+            alignItems: "start",
+          }}
+        >
+          <FigureBox image={image} />
+          <div
+            className="flx-text"
+            data-text-lock={
+              typeof minTextHeightPx === "number" ? "image" : undefined
+            }
+            style={{
+              minHeight:
+                typeof minTextHeightPx === "number" && minTextHeightPx > 0
+                  ? `${minTextHeightPx}px`
+                  : undefined,
+              fontSize: 18,
+              lineHeight: 1.8,
+            }}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Image Right + Text Left
+ * Same behavior as the left variant; just flips column order.
+ */
+export function ImageRightTextLeft({
+  image,
+  children,
+  settings,
+  minTextHeightPx,
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  minTextHeightPx?: number;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          className="flx--two-col"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: gutter,
+            alignItems: "start",
+          }}
+        >
+          <div
+            className="flx-text"
+            data-text-lock={
+              typeof minTextHeightPx === "number" ? "image" : undefined
+            }
+            style={{
+              minHeight:
+                typeof minTextHeightPx === "number" && minTextHeightPx > 0
+                  ? `${minTextHeightPx}px`
+                  : undefined,
+              fontSize: 18,
+              lineHeight: 1.8,
+            }}
+          >
+            {children}
+          </div>
+          <FigureBox image={image} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Two images side-by-side
+ */
+export function TwoImages({
+  left,
+  right,
+  settings,
+}: {
+  left: ImageData;
+  right: ImageData;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: gutter,
+          }}
+        >
+          <FigureBox image={left} widthVar="--side-img-w" />
+          <FigureBox image={right} widthVar="--side-img-w" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Three images side-by-side
+ */
+export function ThreeImages({
+  a,
+  b,
+  c,
+  settings,
+}: {
+  a: ImageData;
+  b: ImageData;
+  c: ImageData;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: gutter,
+          }}
+        >
+          <FigureBox image={a} widthVar="--side-img-w" />
+          <FigureBox image={b} widthVar="--side-img-w" />
+          <FigureBox image={c} widthVar="--side-img-w" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Aside Figure (Wrapped Text)
+ * Floats an image left/right/center within a flow-root section so text wraps naturally.
+ * Compatible with flow-layout.css rules added earlier.
+ */
+export function AsideFigure({
+  image,
+  children,
+  settings,
+  align = "left",
+}: {
+  image: ImageData;
+  children?: React.ReactNode;
+  settings: SectionSettings;
+  align?: "left" | "right" | "center";
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, background } = settings;
+
+  // Figure wrapper uses semantic classes so your CSS controls float/width:
+  // section.aside-figure + figure.hop-media.img-left|img-right|img-center
+  const figClass =
+    align === "right"
+      ? "hop-media img-right"
+      : align === "center"
+      ? "hop-media img-center"
+      : "hop-media img-left";
+
+  const ar = image.aspectRatio ?? 4 / 5;
+
+  return (
+    <section
+      className="aside-figure"
+      style={{ margin: `${marginY}px 0`, background }}
+    >
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <figure className={figClass} style={{ margin: 0 }}>
+          <div
+            style={{
+              aspectRatio: `${ar}`,
+              overflow: "hidden",
+              borderRadius: 10,
+              background: "#f4f4f5",
+            }}
+          >
+            <img
+              src={image.src}
+              alt={image.alt || ""}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+          {(image.caption || image.credit) && (
+            <figcaption className="hop-caption">
+              {image.caption}
+              {image.credit
+                ? image.caption
+                  ? ` — ${image.credit}`
+                  : image.credit
+                : null}
+            </figcaption>
+          )}
+        </figure>
+
+        <div className="hop-text" style={{ fontSize: 18, lineHeight: 1.8 }}>
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Quotation (emphasis block)
+ * Large, centered, single-sentence emphasis with generous padding.
+ */
+export function Quotation({
+  children,
+  settings,
+}: {
+  children?: React.ReactNode;
+  settings: SectionSettings;
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, background } = settings;
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+          borderRadius: 16,
+        }}
+      >
+        <div
+          style={{
+            textAlign: "center",
+            fontWeight: 600,
+            fontStyle: "italic",
+            lineHeight: 1.35,
+            // Responsive clamp for prominence
+            fontSize: "clamp(22px, 3.2vw, 34px)",
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * NEW: Carousel Photos
+ * Horizontal scroll-snap carousel (up to 10 images).
+ */
+export function CarouselPhotos({
+  images,
+  settings,
+  maxItems = 10,
+}: {
+  images: ImageData[];
+  settings: SectionSettings;
+  maxItems?: number; // upper bound enforcement (default 10)
+}) {
+  const { paddingY, paddingX, marginY, maxWidth, gutter, background } =
+    settings;
+  const safe = images.slice(0, Math.max(1, Math.min(maxItems, 10)));
+
+  return (
+    <section style={{ margin: `${marginY}px 0`, background }}>
+      <div
+        style={{
+          maxWidth,
+          margin: "0 auto",
+          padding: `${paddingY}px ${paddingX}px`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: gutter,
+            overflowX: "auto",
+            paddingBottom: 8,
+            scrollSnapType: "x mandatory",
+          }}
+        >
+          {safe.map((img, i) => (
+            <div
+              key={i}
+              style={{
+                minWidth: "78%", // mobile
+                scrollSnapAlign: "start",
+              }}
+            >
+              <FigureBox
+                image={img}
+                widthVar="--carousel-card-w"
+                defaultWidthPx={520}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -15,7 +15,7 @@ function getSupabaseServerClient() {
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
-        // In RSC these are effectively no-ops, which is fine for reads.
+        // In RSC these are effectively no-ops; fine for reads.
         set: () => {},
         remove: () => {},
       },
@@ -28,38 +28,131 @@ export default async function Page({ params }: { params: Params }) {
 
   const supabase = getSupabaseServerClient();
 
-  // Fetch site and its province slug for strict validation against URL.
-  const { data: site, error } = await supabase
+  /* ----------------------------------------------------------------
+     1. Fetch site basic data + province slug (for URL validation)
+     ---------------------------------------------------------------- */
+  const { data: site, error: siteErr } = await supabase
     .from("sites")
     .select(
       `
-      id,
-      slug,
-      title,
-      province:provinces!sites_province_id_fkey (
-        slug
-      )
-    `
+        id,
+        slug,
+        title,
+        tagline,
+        heritage_type,
+        location_free,
+        avg_rating,
+        review_count,
+        province:provinces!sites_province_id_fkey ( slug )
+      `
     )
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error) {
-    // Surface 404 rather than crashing on read errors for a public page.
-    return notFound();
-  }
-  if (!site) return notFound();
+  if (siteErr || !site) return notFound();
 
   const provinceSlug: string | null = site.province?.slug ?? null;
 
-  // No backward compatibility: region must match DB, else 404.
+  // Region MUST match the province slug or 404
   if (!provinceSlug || region !== provinceSlug) return notFound();
 
-  // Render the client page. All data fetching remains in your client hook.
-  return <HeritageClient />;
+  /* ----------------------------------------------------------------
+     2. Fetch cover from site_covers (canonical source)
+
+        Priority:
+        1) active cover (is_active = true)
+        2) first by sort_order, then by created_at
+  ---------------------------------------------------------------- */
+  let coverRow: any = null;
+
+  // 2.1 Active cover
+  const { data: activeCover, error: activeErr } = await supabase
+    .from("site_covers")
+    .select(
+      `
+        id,
+        storage_path,
+        width,
+        height,
+        blur_hash,
+        blur_data_url,
+        caption,
+        credit,
+        is_active,
+        sort_order,
+        created_at
+      `
+    )
+    .eq("site_id", site.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!activeErr && activeCover) {
+    coverRow = activeCover;
+  }
+
+  // 2.2 Fallback: first non-active row by sort_order / created_at
+  if (!coverRow) {
+    const { data: fallbackRows, error: fallbackErr } = await supabase
+      .from("site_covers")
+      .select(
+        `
+          id,
+          storage_path,
+          width,
+          height,
+          blur_hash,
+          blur_data_url,
+          caption,
+          credit,
+          is_active,
+          sort_order,
+          created_at
+        `
+      )
+      .eq("site_id", site.id)
+      .order("sort_order", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (fallbackErr) {
+      console.warn("site_covers fallback fetch error:", fallbackErr);
+    }
+
+    coverRow = fallbackRows?.[0] ?? null;
+  }
+
+  /* ----------------------------------------------------------------
+     3. Map site_covers → cover object for the client
+  ---------------------------------------------------------------- */
+  const publicUrl = (path: string | null) =>
+    path
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/site-images/${path}`
+      : null;
+
+  const siteDataForClient = {
+    ...site,
+    province_slug: provinceSlug,
+    cover: coverRow
+      ? {
+          url: publicUrl(coverRow.storage_path),
+          width: coverRow.width,
+          height: coverRow.height,
+          blurhash: coverRow.blur_hash ?? null,
+          blurDataURL: coverRow.blur_data_url ?? null,
+          caption: coverRow.caption ?? null,
+          credit: coverRow.credit ?? null,
+        }
+      : null,
+  };
+
+  /* ----------------------------------------------------------------
+     4. Render the client page with SSR site (incl. cover + blur)
+  ---------------------------------------------------------------- */
+  return <HeritageClient site={siteDataForClient} />;
 }
 
-/* ----------------------------- SEO (optional) ----------------------------- */
+/* ----------------------------- SEO ----------------------------- */
 export async function generateMetadata({ params }: { params: Params }) {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "";
   const canonical = `${base}/heritage/${params.region}/${params.slug}`;
@@ -68,27 +161,3 @@ export async function generateMetadata({ params }: { params: Params }) {
     openGraph: { url: canonical },
   };
 }
-
-/* ------------------------ Static params (optional) ------------------------ */
-/* If you pre-render site pages at build time, uncomment and implement:
-
-export async function generateStaticParams(): Promise<Params[]> {
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("sites")
-    .select(`
-      slug,
-      province:provinces!sites_province_id_fkey ( slug )
-    `)
-    .eq("is_published", true);
-
-  if (error || !data) return [];
-
-  return data
-    .filter((row) => row.province?.slug)
-    .map((row) => ({
-      region: row.province!.slug as string,
-      slug: row.slug as string,
-    }));
-}
-*/
