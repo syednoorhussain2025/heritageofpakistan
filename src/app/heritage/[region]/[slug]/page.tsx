@@ -1,4 +1,4 @@
-// app/heritage/[region]/[slug]/page.tsx
+// src/app/heritage/[region]/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -13,7 +13,7 @@ type HeritagePageProps = {
 
 /** Build a Supabase server client bound to request cookies. */
 async function getSupabaseServerClient() {
-  const cookieStore = await cookies();
+  const cookieStore = await cookies(); // <- note the await here
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,7 +58,9 @@ export default async function Page({ params }: HeritagePageProps) {
 
   if (siteErr || !site) return notFound();
 
-  const provinceSlug: string | null = site.province?.slug ?? null;
+  // Supabase types this relation as an array: { slug: any }[]
+  const provinceSlug: string | null =
+    (site.province as { slug: string | null }[] | null)?.[0]?.slug ?? null;
 
   // Region MUST match the province slug or 404
   if (!provinceSlug || region !== provinceSlug) return notFound();
