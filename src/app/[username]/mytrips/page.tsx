@@ -1,4 +1,4 @@
-// app/[username]/mytrips/page.tsx  (SERVER COMPONENT — no "use client")
+// src/src/app/[username]/mytrips/page.tsx  (SERVER COMPONENT — no "use client")
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import MyTripsGrid from "@/components/MyTripsGrid";
@@ -44,7 +44,7 @@ export default async function UserTripsPage({ params }: UserTripsPageProps) {
     redirect(`/${canonical}/mytrips`);
   }
 
-  // 4) Render — client grid will use the canonical username only for data lookup
+  // 4) Render — client grid will use the canonical username only for data lookups
   return (
     <div className="pt-8 min-h-screen bg-[url('https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png')] bg-repeat bg-[length:500px] bg-fixed">
       <MyTripsGrid
