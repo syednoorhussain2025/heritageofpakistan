@@ -356,8 +356,8 @@ export default function GalleryUploader({
         supabase.auth.getUser(),
         supabase.from("sites").select("title").eq("id", siteId).maybeSingle(),
       ]);
-      setCurrentEmail(userData.user?.email ?? null);
-      setCurrentUserId(userData.user?.id ?? null);
+      setCurrentEmail(userData?.user?.email ?? null);
+      setCurrentUserId(userData?.user?.id ?? null);
       setSiteTitle(siteData?.title || "");
     })();
   }, [siteId]);
@@ -438,7 +438,7 @@ export default function GalleryUploader({
       }, 120);
 
       try {
-        // 🔍 1) Compute dimensions + blurhash + tiny blur data URL in the browser
+        // 1) Compute dimensions + blurhash + tiny blur data URL in the browser
         const {
           width,
           height,
@@ -446,7 +446,7 @@ export default function GalleryUploader({
           blurDataURL,
         } = await extractImageMetaFromFile(file);
 
-        // 📤 2) Upload to Supabase Storage
+        // 2) Upload to Supabase Storage
         const { error: uploadErr } = await supabase.storage
           .from("site-images")
           .upload(thisKey, file, {
@@ -460,7 +460,7 @@ export default function GalleryUploader({
           continue;
         }
 
-        // 🗄️ 3) Insert DB row with dimensions + blur info
+        // 3) Insert DB row with dimensions + blur info
         const { error: dbErr } = await supabase.from("site_images").insert({
           site_id: siteId,
           storage_path: thisKey,
@@ -609,19 +609,23 @@ export default function GalleryUploader({
       if (dbErr) throw dbErr;
 
       let keys = rows.map((r) => r.storage_path).filter(Boolean);
+
       try {
-        const listed = await supabase.storage
+        const { data: listedData } = await supabase.storage
           .from("site-images")
           .list(galleryFolder);
-        keys = [
-          ...new Set([
-            ...keys,
-            ...(listed?.map((x) => `${galleryFolder}/${x.name}`) || []),
-          ]),
-        ];
-      } catch {}
 
-      if (keys.length) await supabase.storage.from("site-images").remove(keys);
+        const listedKeys =
+          listedData?.map((x) => `${galleryFolder}/${x.name}`) ?? [];
+
+        keys = [...new Set([...keys, ...listedKeys])];
+      } catch {
+        // ignore listing error and just delete from known keys
+      }
+
+      if (keys.length) {
+        await supabase.storage.from("site-images").remove(keys);
+      }
 
       await load();
       setShowConfirm(false);
@@ -1283,28 +1287,41 @@ export default function GalleryUploader({
             <div className="px-4 py-3 border-b">
               <div className="text-lg font-semibold">Delete all images</div>
             </div>
-            <div className="p-4">
+            <div className="p-4 space-y-3">
               <p>
                 Permanently delete <b>{rows.length}</b> images for this site.
               </p>
-              <label>Email</label>
-              <input
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                className="w-full border rounded-md px-3 py-2"
-              />
-              <label>Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full border rounded-md px-3 py-2"
-              />
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-700">Email</label>
+                <input
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-700">Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
               <div className="mt-3 flex justify-end gap-2">
-                <button onClick={closeDeleteAllModal}>Cancel</button>
                 <button
+                  type="button"
+                  onClick={closeDeleteAllModal}
+                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm"
+                  disabled={deletingAll}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
                   onClick={deleteAllConfirmed}
-                  className="bg-red-600 text-white px-3 py-2 rounded"
+                  className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-60"
+                  disabled={deletingAll}
                 >
                   {deletingAll ? "Deleting…" : "Delete All"}
                 </button>
