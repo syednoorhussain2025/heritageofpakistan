@@ -2,7 +2,6 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/browser";
-import { makeCollectKey } from "@/lib/collections";
 
 type ImageIdentity = {
   siteImageId?: string | null;

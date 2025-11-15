@@ -85,9 +85,12 @@ function resolveProvinceSlug(site: Site): string | null {
 export default function SitePreviewCard({
   site,
   onClose,
+  index = 0,
 }: {
   site: Site;
   onClose?: () => void;
+  /** Index from ExplorePage – used to prioritise first two rows */
+  index?: number;
 }) {
   const router = useRouter();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
@@ -101,30 +104,47 @@ export default function SitePreviewCard({
     ? `/heritage/${regionSlug}/${site.slug}`
     : `/heritage/${site.slug}`;
 
-  const [imgSrc, setImgSrc] = useState<string>(
-    site.cover_photo_url || FALLBACK_SVG
-  );
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  // Progressive image loading state
+  const [isSharpLoaded, setIsSharpLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerW, setContainerW] = useState<number>(384);
 
   useEffect(() => {
-    setImgSrc(site.cover_photo_url || FALLBACK_SVG);
-    setImgLoaded(false);
-    setImgError(false);
-  }, [site.cover_photo_url, site.id]);
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0) setContainerW(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  const handleImgError = () => {
-    setImgError(true);
+  const baseW = roundToStep(containerW, 40, 280, 800);
 
-    // If we have a blur, stay on blur forever (premium failure mode)
-    if (site.cover_blur_data_url) {
-      // keep imgSrc as-is; the overlaid Image will just stay invisible
-      return;
-    }
+  const hasBlur = Boolean(site.cover_blur_data_url);
+  const sharpSrc = site.cover_photo_url || FALLBACK_SVG;
 
-    // Only if there is no blur at all, use SVG as a last-resort fallback
-    setImgSrc(FALLBACK_SVG);
-  };
+  // Reset load/error when the image changes
+  useEffect(() => {
+    setIsSharpLoaded(false);
+    setHasError(false);
+  }, [sharpSrc, site.id]);
+
+  // Prioritise first two rows in the Explore grid
+  const isPriority = index < 6;
+
+  // Extra safety: for priority cards, force browser to start image download
+  useEffect(() => {
+    if (!isPriority || !sharpSrc || sharpSrc === FALLBACK_SVG) return;
+    if (typeof window === "undefined") return;
+    const pre = new window.Image();
+    pre.src = sharpSrc;
+  }, [isPriority, sharpSrc]);
 
   const hasDistance =
     site.distance_km != null && !Number.isNaN(site.distance_km);
@@ -175,27 +195,6 @@ export default function SitePreviewCard({
     }
   };
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerW, setContainerW] = useState<number>(384);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = Math.round(entry.contentRect.width);
-        if (w > 0) setContainerW(w);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const baseW = roundToStep(containerW, 40, 280, 800);
-
-  const showBlurLayer = Boolean(site.cover_blur_data_url);
-  const useSvgAsRealImage = imgSrc === FALLBACK_SVG && !showBlurLayer;
-
   return (
     <div className="w-full max-w-sm rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
@@ -210,43 +209,43 @@ export default function SitePreviewCard({
 
       <Link href={detailHref} className="group block" prefetch={false}>
         <div className="relative" ref={containerRef}>
-          {/* Image container with blur-underlay UX */}
+          {/* Image container with robust progressive loading */}
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-none">
-            {/* Blur underlay (Option A): stays under final image with slight opacity */}
-            {showBlurLayer && (
-              <img
+            {/* Blur layer – always fades out once we decide we're "done" */}
+            {hasBlur && (
+              <Image
                 src={site.cover_blur_data_url!}
-                aria-hidden="true"
-                decoding="async"
-                className={`absolute inset-0 h-full w-full object-cover scale-105 blur-xl transition-opacity duration-700 ${
-                  imgLoaded ? "opacity-30" : "opacity-100"
+                alt=""
+                fill
+                unoptimized
+                aria-hidden
+                priority={isPriority}
+                sizes={`${baseW}px`}
+                className={`object-cover scale-105 blur-xl transition-opacity duration-700 ${
+                  isSharpLoaded || hasError ? "opacity-0" : "opacity-100"
                 }`}
               />
             )}
 
-            {/* Main image: fades in over blur when loaded */}
+            {/* Sharp image – eager + priority for first two rows */}
             <Image
-              src={imgSrc}
+              src={sharpSrc}
               alt={site.title}
               fill
               sizes={`${baseW}px`}
-              loading="lazy"
-              onError={handleImgError}
-              onLoadingComplete={() => setImgLoaded(true)}
+              loading={isPriority ? "eager" : "lazy"}
+              priority={isPriority}
+              onLoadingComplete={() => setIsSharpLoaded(true)}
+              onError={() => {
+                setHasError(true);
+                setIsSharpLoaded(true); // ensure we never stay stuck on blur
+              }}
               className={`object-cover transition-opacity duration-700 ${
-                imgLoaded && !imgError ? "opacity-100" : "opacity-0"
+                isSharpLoaded || !hasBlur ? "opacity-100" : "opacity-0"
               }`}
               style={{ imageRendering: "auto" }}
-              // We rely on our own blur-underlay; keep placeholder empty
               placeholder="empty"
             />
-
-            {/* If no blur and using pure SVG fallback, keep it fully visible */}
-            {useSvgAsRealImage && (
-              <div className="absolute inset-0 h-full w-full">
-                {/* The SVG is already the src; this extra wrapper just ensures full coverage */}
-              </div>
-            )}
           </div>
 
           {/* Heritage type chip */}

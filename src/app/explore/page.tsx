@@ -22,7 +22,7 @@ const PAGE_SIZE = 12;
 
 /* ───────────────────────────── Spinner ───────────────────────────── */
 function Spinner({
-  size = 24,
+  size = 40,
   className = "",
 }: {
   size?: number;
@@ -30,13 +30,21 @@ function Spinner({
 }) {
   return (
     <span
-      className={`inline-block rounded-full border-2 border-[var(--taupe-grey)] border-t-[var(--terracotta-red)] animate-spin ${className}`}
-      style={{ width: size, height: size }}
-      aria-label="Loading"
+      className={`inline-block rounded-full animate-spin ${className}`}
+      style={{
+        width: size,
+        height: size,
+        borderWidth: "3px",
+        borderStyle: "solid",
+        borderColor: "grey",              // deep dark blue
+        borderTopColor: "transparent",                // makes rotation visible
+      }}
       role="status"
+      aria-label="Loading"
     />
   );
 }
+
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type Site = {
@@ -894,7 +902,7 @@ function ExplorePageContent() {
             <div className="relative">
               {loading && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                  <Spinner size={28} />
+                  <Spinner size={40} />
                 </div>
               )}
 
@@ -915,8 +923,8 @@ function ExplorePageContent() {
                     No sites match your filters.
                   </div>
                 ) : (
-                  results.sites.map((s) => (
-                    <SitePreviewCard key={s.id} site={s} />
+                  results.sites.map((s, index) => (
+                    <SitePreviewCard key={s.id} site={s} index={index} />
                   ))
                 )}
               </div>
