@@ -829,9 +829,16 @@ function EditContent({ id }: { id: string }) {
         setLinkedGuideMeta(null);
         return;
       }
+
+      // regions comes back as an array; safely read first item
+      const regionName =
+        (Array.isArray((data as any).regions) &&
+          (data as any).regions[0]?.name) ||
+        "Travel Guide";
+
       setLinkedGuideMeta({
         id: data.id,
-        regionName: data.regions?.name || "Travel Guide",
+        regionName,
         status: data.status,
       });
     }
@@ -939,7 +946,7 @@ function EditContent({ id }: { id: string }) {
         }
       }
     }, 30_000);
-  return () => clearInterval(timer);
+    return () => clearInterval(timer);
   }, [autoSaveEnabled, saving]);
 
   if (!site)
