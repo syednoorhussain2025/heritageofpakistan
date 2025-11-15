@@ -570,9 +570,7 @@ export default function TripBuilderPage() {
         if (newDayId) {
           await attachItemsToDay({ dayId: newDayId, itemIds: [movedNow.id] });
         } else {
-          await updateTripItemsBatch([
-            { id: movedNow.id, day_id: null } as any,
-          ]);
+          await updateTripItemsBatch([{ id: movedNow.id, day_id: null } as any]);
         }
       }
       await persistFullOrder(next);
@@ -706,7 +704,7 @@ export default function TripBuilderPage() {
       if (!el) return;
       try {
         // @ts-ignore: showPicker may not be in lib types
-        if (typeof el.showPicker === "function") (el as any).showPicker();
+        if (typeof (el as any).showPicker === "function") (el as any).showPicker();
         else el.focus();
       } catch {
         el.focus();
@@ -959,13 +957,17 @@ export default function TripBuilderPage() {
   };
 
   /* ---------- Add Site from Search ---------- */
-  const handleAddSiteFromSearch = async (site: SiteLite) => {
+  const handleAddSiteFromSearch = async (site: any) => {
+    // Accept a general type here to match TripBuilderSearch's onAdd signature,
+    // and then use it as SiteLite internally.
+    const typedSite = site as SiteLite;
+
     if (!tripId) return;
     try {
       const orderIndex = await getNextOrderIndex(tripId);
       const created = await addSiteToTrip({
         tripId,
-        siteId: site.id,
+        siteId: typedSite.id,
         orderIndex,
         dayId: null,
       });
@@ -982,7 +984,7 @@ export default function TripBuilderPage() {
         notes: created.notes ?? null,
         created_at: created.created_at,
         updated_at: created.updated_at,
-        site,
+        site: typedSite,
         provinceName: null,
         experience: [],
       } as any;
