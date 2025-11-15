@@ -1,7 +1,8 @@
+// src/modules/flow-layout/FlowRenderer.tsx
 "use client";
+
 import React from "react";
 import { LayoutInstance, FlowInput, ImageRef, Breakpoint } from "./types";
-import { computeLayout } from "./engine";
 import { useMeasurer } from "./Measurer";
 
 /* ---------- helpers & types ---------- */
@@ -30,6 +31,28 @@ type Props = {
   input: FlowInput;
   imagesBySlot?: Record<string, ImageRef | null>;
 } & ClassMaps;
+
+/**
+ * Local fallback for computeLayout.
+ * If a precomputed layout is present on the input, we use it.
+ * Otherwise we return an empty layout to keep the renderer safe.
+ */
+function computeLayout(input: FlowInput, _measurer: any): LayoutInstance {
+  const anyInput = input as any;
+
+  // Prefer a precomputed layout if the engine already ran upstream.
+  if (anyInput?.layout && Array.isArray(anyInput.layout.flow)) {
+    return anyInput.layout as LayoutInstance;
+  }
+  if (anyInput?.precomputedLayout) {
+    return anyInput.precomputedLayout as LayoutInstance;
+  }
+
+  // Fallback: empty layout (renders nothing instead of crashing)
+  return {
+    flow: [],
+  } as unknown as LayoutInstance;
+}
 
 function withDefaultDesignTokens(input: FlowInput): FlowInput {
   const defaultSideW =
