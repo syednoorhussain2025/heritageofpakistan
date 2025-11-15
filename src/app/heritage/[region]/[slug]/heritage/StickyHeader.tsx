@@ -331,6 +331,7 @@ export default function StickyHeader({
 
   const [researchModeInternal, setResearchModeInternal] =
     useState<boolean>(true);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RESEARCH_LS_KEY);
@@ -338,14 +339,17 @@ export default function StickyHeader({
         localStorage.setItem(RESEARCH_LS_KEY, "1");
         setResearchModeInternal(true);
       } else {
-        setResearchModeInternal(raw === "1" || "true");
+        // FIXED: ensure this is a pure boolean, not `true | "true"`
+        setResearchModeInternal(raw === "1" || raw === "true");
       }
     } catch {}
   }, []);
+
   useEffect(() => {
     if (typeof researchMode === "boolean")
       setResearchModeInternal(researchMode);
   }, [researchMode]);
+
   useEffect(() => {
     onChangeResearchMode?.(researchModeInternal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
