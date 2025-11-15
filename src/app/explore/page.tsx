@@ -769,9 +769,12 @@ function ExplorePageContent() {
         query: filters.name || "",
         categoryNames: selectedCategoryNames,
         regionNames: selectedRegionNames,
-        radiusActive: hasRadius(filters),
+        // ensure strict boolean here
+        radiusActive: Boolean(hasRadius(filters)),
+        // ensure radiusKm is number | null, not string | boolean | null
+        radiusKm:
+          typeof filters.radiusKm === "number" ? filters.radiusKm : null,
         centerSiteTitle,
-        radiusKm: filters.radiusKm ?? null,
       }),
     [
       filters.name,
