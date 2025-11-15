@@ -37,7 +37,7 @@ import HeritageSection from "./heritage/HeritageSection";
 
 type HeroCover =
   | {
-      url: string; // must be string (non-null) to match Site.cover
+      url: string; // non-null to match Site.cover
       width?: number | null;
       height?: number | null;
       blurhash?: string | null;
@@ -50,7 +50,6 @@ type HeroCover =
 type HeritageClientSite = {
   id: string;
   slug: string;
-  // Keep this required so it matches Site type used by HeritageCover/Sidebar
   province_slug: string;
   title: string;
   tagline?: string | null;
@@ -100,7 +99,6 @@ export default function HeritagePage({
 
     const base = (fetchedSite as any) ?? initialSite;
 
-    // Covers: merge SSR + hydrated, both sourced from site_covers.
     const serverCover = (initialSite?.cover || null) as any;
     const clientCover = ((fetchedSite as any)?.cover || null) as any;
 
@@ -110,31 +108,19 @@ export default function HeritagePage({
       const url: string | null =
         clientCover?.url ?? serverCover?.url ?? null;
 
-      // Only create a cover object if we actually have a non-null URL
       if (url) {
         mergedCover = {
           url,
-          // Prefer client dimensions if present, otherwise server
           width: clientCover?.width ?? serverCover?.width ?? null,
           height: clientCover?.height ?? serverCover?.height ?? null,
-          // Prefer client blurhash if present
           blurhash:
-            clientCover?.blurhash ??
-            serverCover?.blurhash ??
-            null,
-          // Prefer SSR blurDataURL for first paint, then client
+            clientCover?.blurhash ?? serverCover?.blurhash ?? null,
           blurDataURL:
-            serverCover?.blurDataURL ??
-            clientCover?.blurDataURL ??
-            null,
+            serverCover?.blurDataURL ?? clientCover?.blurDataURL ?? null,
           caption:
-            clientCover?.caption ??
-            serverCover?.caption ??
-            null,
+            clientCover?.caption ?? serverCover?.caption ?? null,
           credit:
-            clientCover?.credit ??
-            serverCover?.credit ??
-            null,
+            clientCover?.credit ?? serverCover?.credit ?? null,
         };
       } else {
         mergedCover = null;
@@ -143,11 +129,8 @@ export default function HeritagePage({
 
     return {
       ...base,
-      // Ensure province_slug is always a concrete string
       province_slug:
-        base.province_slug ??
-        initialSite?.province_slug ??
-        "",
+        base.province_slug ?? initialSite?.province_slug ?? "",
       cover: mergedCover,
     };
   })();
@@ -193,7 +176,7 @@ export default function HeritagePage({
           <HeritageCover
             site={site}
             hasPhotoStory={hasPhotoStory}
-            fadeImage={false} // let Next/Image show blur immediately
+            fadeImage={false}
           />
         )}
 
@@ -276,7 +259,10 @@ export default function HeritagePage({
                       key={`history-${site.history_layout_html.length}`}
                       html={site.history_layout_html}
                       site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{ id: "history", title: "History and Background" }}
+                      section={{
+                        id: "history",
+                        title: "History and Background",
+                      }}
                       highlightQuote={
                         highlight.section_id === "history"
                           ? highlight.quote
@@ -534,7 +520,8 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         site_id: siteId,
         site_slug: siteSlug,
         site_title: siteTitle,
-        section_id: lastSectionIdRef.current,
+        // Coerce to a plain string so it matches the saveResearchNote type
+        section_id: lastSectionIdRef.current || "",
         section_title: lastSectionTitleRef.current,
         quote_text: quote,
         context_before: before,
