@@ -5,18 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 
-/* -------------------------------------------------------
-   Local taxonomy type (matches your Taxonomy shape)
---------------------------------------------------------*/
-type HeritageCategory = {
-  id: string;
-  name: string;
-  icon_key?: string | null;
-};
-
-/* -------------------------------------------------------
-   BLURHASH FALLBACK (only if we have a hash and metadata)
---------------------------------------------------------*/
 function BlurhashImage({
   hash,
   width,
@@ -37,19 +25,16 @@ function BlurhashImage({
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const imageData = ctx.createImageData(w, h);
     imageData.data.set(pixels);
     ctx.putImageData(imageData, 0, 0);
-
     setUrl(canvas.toDataURL());
   }, [hash, width, height]);
 
   if (!url) return null;
-
   return (
     <img
       src={url}
@@ -60,14 +45,10 @@ function BlurhashImage({
   );
 }
 
-/* -------------------------------------------------------
-   MAIN COMPONENT
---------------------------------------------------------*/
 export default function HeritageCover({
   site,
   hasPhotoStory,
   fadeImage = false,
-  categories,
 }: {
   site: {
     id: string;
@@ -79,6 +60,7 @@ export default function HeritageCover({
     location_free?: string | null;
     avg_rating?: number | null;
     review_count?: number | null;
+    categories_heritage_type?: { id: string; name: string; icon_key?: string | null }[] | null;
     cover?: {
       url: string | null;
       width?: number | null;
@@ -89,8 +71,6 @@ export default function HeritageCover({
   };
   hasPhotoStory: boolean;
   fadeImage?: boolean;
-  /** Only pass terms from the "Heritage Type" taxonomy here */
-  categories?: HeritageCategory[];
 }) {
   const HEADER_FALLBACK_PX = 72;
 
@@ -121,7 +101,6 @@ export default function HeritageCover({
     const hero = heroRef.current;
     const overlay = overlayRef.current;
     if (!hero || !overlay) return;
-
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -135,7 +114,6 @@ export default function HeritageCover({
         overlay.style.setProperty("--exit", String(e));
       });
     };
-
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
@@ -158,9 +136,6 @@ export default function HeritageCover({
     return "landmark";
   };
 
-  // Only 4 chips max, safe if categories is undefined
-  const heritageTypeChips = (categories ?? []).slice(0, 4);
-
   return (
     <section
       ref={heroRef}
@@ -171,7 +146,7 @@ export default function HeritageCover({
       }}
       className="relative w-full overflow-hidden"
     >
-      {/* IMAGE + PLACEHOLDERS */}
+      {/* IMAGE */}
       <div className="absolute inset-0">
         {heroUrl ? (
           <>
@@ -185,7 +160,6 @@ export default function HeritageCover({
                   height={activeHeight}
                 />
               )}
-
             <Image
               src={heroUrl}
               alt={site.title}
@@ -211,7 +185,7 @@ export default function HeritageCover({
         )}
       </div>
 
-      {/* 1) DARK READABILITY GRADIENT */}
+      {/* DARK + BLUR LAYERS */}
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%]"
         style={{
@@ -219,15 +193,11 @@ export default function HeritageCover({
             "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
         }}
       />
-
-      {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK (no hard edges) */}
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
         style={{
           backdropFilter: "blur(2px)",
           WebkitBackdropFilter: "blur(2px)",
-          WebkitMaskImage:
-            "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
           maskImage:
             "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
         }}
@@ -240,7 +210,7 @@ export default function HeritageCover({
           mounted ? "blocks-in" : ""
         }`}
       >
-        {/* RATING / REVIEWS – TOP RIGHT */}
+        {/* RATING */}
         {(site.avg_rating != null || site.review_count != null) && (
           <div
             className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
@@ -270,6 +240,7 @@ export default function HeritageCover({
         )}
 
         <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+
           {/* LEFT */}
           <div className="text-white hero-left">
             <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
@@ -277,33 +248,32 @@ export default function HeritageCover({
             </h1>
 
             {site.tagline && (
-              <p className="mt-4 max-w-2xl font-hero-tagline">
-                {site.tagline}
-              </p>
+              <p className="mt-4 max-w-2xl font-hero-tagline">{site.tagline}</p>
             )}
 
-            {/* HERITAGE TYPE CATEGORY CHIPS */}
-            {heritageTypeChips.length > 0 && (
-              <div className="mt-5 flex flex-wrap gap-2">
-                {heritageTypeChips.map((c) => (
-                  <a
-                    key={c.id}
-                    href={`/explore?cats=${c.id}`}
-                    className="px-4 py-1.5 rounded-full border border-white/35 text-white text-sm font-medium
-                               hover:bg-white/15 hover:border-white/60 transition-colors duration-200
-                               flex items-center gap-1.5 backdrop-blur-sm"
-                  >
-                    {c.icon_key && (
-                      <Icon
-                        name={c.icon_key}
-                        className="text-white/70 text-[14px]"
-                      />
-                    )}
-                    <span>{c.name}</span>
-                  </a>
-                ))}
-              </div>
-            )}
+            {/* HERITAGE CATEGORY CHIPS (added) */}
+            {Array.isArray(site.categories_heritage_type) &&
+              site.categories_heritage_type.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {site.categories_heritage_type.slice(0, 4).map((c) => (
+                    <a
+                      key={c.id}
+                      href={`/explore?cats=${c.id}`}
+                      className="px-4 py-1.5 rounded-full border border-white/35 text-white text-sm font-medium
+                                 hover:bg-white/15 hover:border-white/60 transition-colors duration-200
+                                 flex items-center gap-1.5 backdrop-blur-sm"
+                    >
+                      {c.icon_key && (
+                        <Icon
+                          name={c.icon_key}
+                          className="text-white/70 text-[14px]"
+                        />
+                      )}
+                      {c.name}
+                    </a>
+                  ))}
+                </div>
+              )}
           </div>
 
           {/* RIGHT */}
@@ -360,38 +330,32 @@ export default function HeritageCover({
             transform: none !important;
           }
         }
-
         .hero-overlay {
           --exit: 0;
           opacity: calc(1 - var(--exit));
         }
-
         .hero-left,
         .hero-right {
           opacity: 0;
           will-change: transform, opacity;
         }
-
         .hero-left {
           --initial-tx: -32px;
           transform: translateX(var(--initial-tx));
           transition: opacity 600ms ease-out 150ms,
             transform 600ms ease-out 150ms;
         }
-
         .hero-right {
           --initial-tx: 32px;
           transform: translateX(var(--initial-tx));
           transition: opacity 600ms ease-out 250ms,
             transform 600ms ease-out 250ms;
         }
-
         .hero-overlay.blocks-in .hero-left,
         .hero-overlay.blocks-in .hero-right {
           opacity: 1;
           transform: translateX(0px);
         }
-
         .rating-star--filled {
           color: var(--brand-amber, #ffc107);
         }
