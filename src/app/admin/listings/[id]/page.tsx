@@ -4,12 +4,11 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import NextImage from "next/image";
 import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
-// ⬇⬇⬇ Tell TypeScript to ignore missing type declarations for papaparse
 // @ts-expect-error - papaparse has no type declarations in this project; treat as any
 import Papa from "papaparse";
 import { encode } from "blurhash";
@@ -701,7 +700,7 @@ const HEADER_TO_FIELD: Record<
   known_for: "known_for",
   era: "era",
   inhabited_by: "inhabited_by",
-  national_park_established_in: "national_ark_established_in",
+  national_park_established_in: "national_park_established_in",
   population: "population",
   ethnic_groups: "ethnic_groups",
   languages_spoken: "languages_spoken",
@@ -931,7 +930,7 @@ function EditContent({ id }: { id: string }) {
     loadTaxonomies();
   }, [loadTaxonomies]);
 
-  // NEW: periodic auto-save every 60s when enabled
+  // NEW: periodic auto-save every 30s when enabled
   useEffect(() => {
     if (!autoSaveEnabled) return;
     const timer = setInterval(async () => {
@@ -1664,7 +1663,7 @@ function ListingForm({
               <div className="w-full aspect-video bg-gray-100 border border-gray-300 rounded-2xl overflow-hidden">
                 {form.cover_photo_url ? (
                   <div className="relative w-full h-full">
-                    <Image
+                    <NextImage
                       src={form.cover_photo_url}
                       alt={
                         form.title
@@ -1879,7 +1878,7 @@ function CoverUploader({
         </button>
         {showPreview && value ? (
           <div className="relative h-14 w-14">
-            <Image
+            <NextImage
               src={value}
               alt="Cover preview"
               fill
@@ -2319,7 +2318,7 @@ function CoverLibraryModal({
                     }}
                   >
                     <div className="relative h-44 w-72">
-                      <Image
+                      <NextImage
                         src={img.url}
                         alt={img.name}
                         fill
@@ -2398,12 +2397,12 @@ function SidebarImporter({
     Papa.parse<Record<string, any>>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (res) => {
+      complete: (res: any) => {
         if (res.errors?.length) {
           setStatus(`Failed to parse: ${res.errors[0].message}`);
           return;
         }
-        const rows = (res.data || []).filter((r) =>
+        const rows = (res.data || []).filter((r: any) =>
           Object.values(r || {}).some((v) => String(v || "").trim() !== "")
         );
         if (!rows.length) {
@@ -2465,7 +2464,7 @@ function SidebarImporter({
         onParsed(kv, file.name);
         setStatus(`Parsed and cached ${applied} fields from “${file.name}”.`);
       },
-      error: (err) => setStatus(`Error: ${err?.message || "unknown error"}`),
+      error: (err: any) => setStatus(`Error: ${err?.message || "unknown error"}`),
     });
 
     // allow re-upload of same file
