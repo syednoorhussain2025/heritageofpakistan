@@ -480,17 +480,28 @@ export default function TravelDetails({
     let cancelled = false;
     async function load() {
       if (!guideId || linkedGuide) return;
-      const { data: meta } = await supabase
+      const { data } = await supabase
         .from("region_travel_guides")
         .select("id, region_id, regions:region_id (name)")
         .eq("id", guideId)
         .maybeSingle();
 
       if (cancelled) return;
+
+      type GuideMeta = {
+        id: string;
+        regions?: { name: string }[] | { name: string } | null;
+      };
+
+      const meta = data as GuideMeta | null;
+
       if (meta) {
+        const regionName = Array.isArray(meta.regions)
+          ? meta.regions[0]?.name
+          : meta.regions?.name;
         setAutoLinked({
           id: meta.id,
-          name: meta.regions?.name || "Travel Guide",
+          name: regionName || "Travel Guide",
         });
       } else {
         setAutoLinked(null);
@@ -609,7 +620,7 @@ export default function TravelDetails({
               </span>
             )}
             {overridden && (
-              <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-[2px] text-[11px]">
+              <span className="inline-flex items-center rounded_full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-[2px] text-[11px]">
                 Overridden
               </span>
             )}
