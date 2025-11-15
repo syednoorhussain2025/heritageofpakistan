@@ -3,7 +3,14 @@
 
 import React from "react";
 import { LayoutInstance, FlowInput, ImageRef, Breakpoint } from "./types";
-import { useMeasurer } from "./Measurer";
+
+/* ---------- local stub measurer (no external file needed) ---------- */
+
+function useMeasurer() {
+  // If you later add a real measurer, you can replace this.
+  // For now, layout fallback does not use this value.
+  return null as any;
+}
 
 /* ---------- helpers & types ---------- */
 
@@ -62,7 +69,7 @@ function withDefaultDesignTokens(input: FlowInput): FlowInput {
       ? 420
       : undefined;
 
-  // NEW: default carousel card width per breakpoint
+  // default carousel card width per breakpoint
   const defaultCarouselW =
     input.breakpoint === "desktop"
       ? 520
@@ -167,7 +174,7 @@ export default function FlowRenderer({
       sectionTypeId === "aside-figure"
         ? "aside-figure"
         : sectionTypeId === "quotation"
-        ? "quotation sec-quotation" // add both for styling flexibility
+        ? "quotation sec-quotation"
         : sectionTypeId === "carousel"
         ? "sec-carousel"
         : "";
@@ -175,7 +182,7 @@ export default function FlowRenderer({
       ? `${baseSectionCls} ${semantic}`.trim()
       : baseSectionCls;
 
-    // ───────── Renderers ─────────
+    /* ───────── Renderers ───────── */
 
     const renderText = (blk: any) => {
       const text = input.text.slice(blk.startChar, blk.endChar);
@@ -273,7 +280,7 @@ export default function FlowRenderer({
       );
     };
 
-    // UPDATED: quotation renderer -> semantic <blockquote> with paragraphs
+    // quotation renderer -> semantic <blockquote> with paragraphs
     const renderQuote = (blk: any) => {
       const content: string = blk.content || "";
       const parts = content.split(/\n{2,}/);
@@ -290,7 +297,7 @@ export default function FlowRenderer({
       );
     };
 
-    // NEW: carousel renderer
+    // carousel renderer
     const renderCarousel = (blk: any) => {
       const slotIds: string[] = Array.isArray(blk.imageSlotIds)
         ? blk.imageSlotIds.slice(0, 10)
@@ -344,7 +351,7 @@ export default function FlowRenderer({
       );
     };
 
-    // ───────── Section assembly ─────────
+    /* ───────── Section assembly ───────── */
 
     // Aside-figure keeps special ordering (img first, then text, then more images)
     if (sectionTypeId === "aside-figure") {
@@ -375,7 +382,7 @@ export default function FlowRenderer({
       continue;
     }
 
-    // Other sections: render in flow order, now including quote + carousel
+    // Other sections: render in flow order, including quote + carousel
     sectionsOut.push(
       <section
         key={`sec-${sectionKey}`}
