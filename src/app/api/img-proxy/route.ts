@@ -36,13 +36,10 @@ export async function GET(req: NextRequest) {
       .jpeg({ quality: Math.min(Math.max(q, 40), 80), mozjpeg: true })
       .toBuffer();
 
-    // Convert Node Buffer -> ArrayBuffer so it is a valid BodyInit
-    const resizedArrayBuffer = resizedBuffer.buffer.slice(
-      resizedBuffer.byteOffset,
-      resizedBuffer.byteOffset + resizedBuffer.byteLength
-    );
+    // Use Uint8Array to satisfy BodyInit typing
+    const body = new Uint8Array(resizedBuffer);
 
-    return new NextResponse(resizedArrayBuffer, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         "Content-Type": "image/jpeg",
