@@ -49,7 +49,6 @@ export default async function UserTripsPage({ params }: UserTripsPageProps) {
     <div className="pt-8 min-h-screen bg-[url('https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png')] bg-repeat bg-[length:500px] bg-fixed">
       <MyTripsGrid
         username={canonical}
-        variant="page"
         title="Your Trips"
         allowDelete={true}
       />
