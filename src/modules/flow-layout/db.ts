@@ -42,7 +42,9 @@ export async function seedDefaultSectionTypes(
   const { data: rows } = await supabase
     .from("section_types")
     .select("id, slug");
+
   const have = new Set((rows || []).map((r: any) => r.slug));
+
   const toCreate: any[] = [];
   (Object.keys(DEFAULT_META) as ArchetypeSlug[]).forEach((slug) => {
     if (!have.has(slug)) {
@@ -55,6 +57,7 @@ export async function seedDefaultSectionTypes(
       });
     }
   });
+
   if (toCreate.length) {
     const { error } = await supabase.from("section_types").insert(toCreate);
     if (error) throw error;
@@ -68,6 +71,7 @@ export async function loadArchetypeRows(): Promise<SectionTypeRow[]> {
     .select("*")
     .in("slug", Object.keys(DEFAULT_META))
     .order("name");
+
   if (error) throw error;
   return (data || []) as SectionTypeRow[];
 }
@@ -81,12 +85,13 @@ export async function updateArchetypeSettings(
     .from("section_types")
     .update({
       config_json: settings,
-      version: supabase.rpc ? undefined : undefined, // keep version simple
+      // keep version unchanged; only touch settings + timestamp
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
     .select()
     .single();
+
   if (error) throw error;
   return data as SectionTypeRow;
 }
@@ -97,6 +102,7 @@ export async function loadTemplates(): Promise<{ rows: TemplateRow[] }> {
     .from("templates")
     .select("id, name, slug, version")
     .order("name");
+
   if (error) throw error;
   return { rows: data as TemplateRow[] };
 }
@@ -105,6 +111,7 @@ export async function upsertTemplate(
   tpl: Partial<TemplateRow> & { sections: { section_type_id: string }[] }
 ): Promise<TemplateRow> {
   let tplRow: TemplateRow;
+
   if (tpl.id) {
     const { data, error } = await supabase
       .from("templates")
@@ -117,8 +124,10 @@ export async function upsertTemplate(
       .eq("id", tpl.id)
       .select()
       .single();
+
     if (error) throw error;
     tplRow = data as TemplateRow;
+
     await supabase
       .from("template_sections")
       .delete()
@@ -133,9 +142,11 @@ export async function upsertTemplate(
       })
       .select()
       .single();
+
     if (error) throw error;
     tplRow = data as TemplateRow;
   }
+
   if (tpl.sections?.length) {
     const rows = tpl.sections.map((s, i) => ({
       template_id: tplRow.id,
@@ -143,8 +154,10 @@ export async function upsertTemplate(
       sort_order: i,
       overrides_json: null,
     }));
+
     const { error } = await supabase.from("template_sections").insert(rows);
     if (error) throw error;
   }
+
   return tplRow;
 }
