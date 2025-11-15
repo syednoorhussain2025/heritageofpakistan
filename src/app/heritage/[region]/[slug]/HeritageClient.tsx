@@ -48,7 +48,8 @@ type HeroCover = {
 type HeritageClientSite = {
   id: string;
   slug: string;
-  province_slug?: string;
+  // Make province_slug required to match HeritageCover's prop type
+  province_slug: string;
   title: string;
   tagline?: string | null;
   heritage_type?: string | null;
@@ -122,7 +123,11 @@ export default function HeritagePage({
 
     return {
       ...base,
-      province_slug: base.province_slug ?? initialSite?.province_slug,
+      // Ensure province_slug is always a concrete string
+      province_slug:
+        base.province_slug ??
+        initialSite?.province_slug ??
+        "",
       cover: mergedCover,
     };
   })();
@@ -317,7 +322,11 @@ export default function HeritagePage({
                         <HeritageArticle
                           key={`custom-${cs.id}-${(cs.layout_html || "").length}`}
                           html={cs.layout_html}
-                          site={{ id: site.id, slug: site.slug, title: site.title }}
+                          site={{
+                            id: site.id,
+                            slug: site.slug,
+                            title: site.title,
+                          }}
                           section={{ id: cs.id, title: cs.title }}
                           highlightQuote={
                             highlight.section_id === cs.id
@@ -341,7 +350,11 @@ export default function HeritagePage({
 
                 <HeritageBibliography items={bibliography} styleId={styleId} />
 
-                <HeritageSection id="reviews" title="Traveler Reviews" iconName="star">
+                <HeritageSection
+                  id="reviews"
+                  title="Traveler Reviews"
+                  iconName="star"
+                >
                   <ReviewsTab siteId={site.id} />
                 </HeritageSection>
               </>
