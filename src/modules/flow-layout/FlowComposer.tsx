@@ -470,12 +470,12 @@ function Figure({
 
       {(hasImg || displayCaption) && (
         <figcaption className="mt-2 relative min-h-[1.5rem]">
-          {hasImg && siteId && (
+          {hasImg && siteId != null && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2">
               <CollectHeart
                 variant="icon"
                 size={22}
-                siteId={siteId}
+                siteId={String(siteId)}
                 imageUrl={slot.src || ""}
                 altText={slot.alt || null}
                 caption={displayCaption}
@@ -996,7 +996,8 @@ const AsideImage = Image.extend({
     if (HTMLAttributes["data-caption"])
       imgAttrs["data-caption"] = HTMLAttributes["data-caption"];
     if (HTMLAttributes["data-gallery-caption"])
-      imgAttrs["data-gallery-caption"] = HTMLAttributes["data-gallery-caption"];
+      imgAttrs["data-gallery-caption"] =
+        HTMLAttributes["data-gallery-caption"];
 
     const children: any[] = [["img", imgAttrs]];
     if (cap && String(cap).trim().length) {
