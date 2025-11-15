@@ -20,6 +20,24 @@ import SitePreviewCard from "@/components/SitePreviewCard";
 
 const PAGE_SIZE = 12;
 
+/* ───────────────────────────── Spinner ───────────────────────────── */
+function Spinner({
+  size = 24,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-block rounded-full border-2 border-[var(--taupe-grey)] border-t-[var(--terracotta-red)] animate-spin ${className}`}
+      style={{ width: size, height: size }}
+      aria-label="Loading"
+      role="status"
+    />
+  );
+}
+
 /* ───────────────────────────── Types ───────────────────────────── */
 type Site = {
   id: string;
@@ -874,27 +892,41 @@ function ExplorePageContent() {
               <CenterBanner />
             </div>
 
-            <div
-              ref={cardsRef}
-              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
-            >
-              {loading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <PreviewCardSkeleton key={i} />
-                ))
-              ) : error ? (
-                <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">
-                  {error}
+            {/* Grid + centered spinner overlay */}
+            <div className="relative">
+              {loading && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/90 shadow-lg ring-1 ring-[var(--taupe-grey)] px-4 py-2">
+                    <Spinner size={20} />
+                    <span className="text-xs font-medium text-[var(--espresso-brown)]">
+                      Updating results…
+                    </span>
+                  </div>
                 </div>
-              ) : results.sites.length === 0 ? (
-                <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">
-                  No sites match your filters.
-                </div>
-              ) : (
-                results.sites.map((s) => (
-                  <SitePreviewCard key={s.id} site={s} />
-                ))
               )}
+
+              <div
+                ref={cardsRef}
+                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+              >
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <PreviewCardSkeleton key={i} />
+                  ))
+                ) : error ? (
+                  <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">
+                    {error}
+                  </div>
+                ) : results.sites.length === 0 ? (
+                  <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">
+                    No sites match your filters.
+                  </div>
+                ) : (
+                  results.sites.map((s) => (
+                    <SitePreviewCard key={s.id} site={s} />
+                  ))
+                )}
+              </div>
             </div>
 
             {results.total > PAGE_SIZE && (

@@ -15,7 +15,8 @@ import {
 type TripRow = {
   id: string;
   name: string;
-  slug: string;
+  // slug can be nullable/undefined in DB, so reflect that in the type
+  slug?: string | null;
   cover_photo_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -54,7 +55,9 @@ export default function MyTripsGrid({
         setErrMsg(null);
         const data = await listTripsByUsername(username);
         if (!mounted) return;
-        setTrips(data ?? []);
+
+        // data is TripWithCover[] where slug may be null/undefined
+        setTrips((data ?? []) as TripRow[]);
 
         // Fetch counts in a fail-safe way (no UI error spam)
         Promise.allSettled(
@@ -101,11 +104,14 @@ export default function MyTripsGrid({
     const needle = q.trim().toLowerCase();
     let rows = !needle
       ? trips
-      : trips.filter(
-          (t) =>
-            t.name.toLowerCase().includes(needle) ||
-            t.slug.toLowerCase().includes(needle)
-        );
+      : trips.filter((t) => {
+          const inName = t.name.toLowerCase().includes(needle);
+          const inSlug = t.slug
+            ? t.slug.toLowerCase().includes(needle)
+            : false;
+          return inName || inSlug;
+        });
+
     if (order === "az") {
       rows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
     } else {
@@ -148,7 +154,8 @@ export default function MyTripsGrid({
     }
   };
 
-  const toTrip = (slug: string) => {
+  const toTrip = (slug?: string | null) => {
+    if (!slug) return;
     router.push(`/${username}/trip/${slug}`);
   };
 
@@ -200,7 +207,7 @@ export default function MyTripsGrid({
                 <div className="relative h-36 w-full bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 w-3/4 bg-gray-200 rounded" />
-                  <div className="h-3 w-1/2 bg-gray-2 00 rounded" />
+                  <div className="h-3 w-1/2 bg-gray-200 rounded" />
                   <div className="h-3 w-2/3 bg-gray-200 rounded" />
                 </div>
               </div>
@@ -265,7 +272,7 @@ export default function MyTripsGrid({
                         decoding="async"
                       />
                     ) : (
-                      <div className="h-full w-full flex items-center justify-center text-gray-400">
+                      <div className="h-full w-full flex items-center justify-center text-gray-400 gap-1 text-xs">
                         <Icon name="image" size={16} />
                         <span>No cover</span>
                       </div>
