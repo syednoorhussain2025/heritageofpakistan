@@ -176,8 +176,10 @@ async function crossrefByTitle(query: string): Promise<Candidate[]> {
     if (!r.ok) return [];
     const data = await r.json();
     const items = (data?.message?.items ?? []) as any[];
+
+    // ⬇️ Explicitly type each mapped item as Candidate to fix TS narrowing
     return items
-      .map((m) => {
+      .map((m): Candidate => {
         const csl = crossrefToCSL(m);
         const score = basicScoreTitleMatch(query, csl.title || "");
         return { csl, score: Math.max(score, 0.55), source: "crossref" };
