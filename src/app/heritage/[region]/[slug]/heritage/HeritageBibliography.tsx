@@ -1,5 +1,25 @@
 "use client";
 
+/**
+ * Minimal TypeScript shims for citation-js packages
+ * (they don't ship their own .d.ts files).
+ */
+declare module "@citation-js/core" {
+  export class Cite {
+    constructor(data: any);
+    format(
+      mode: string,
+      options?: {
+        format?: string;
+        template?: string;
+        lang?: string;
+      }
+    ): string;
+  }
+}
+
+declare module "@citation-js/plugin-csl";
+
 import HeritageSection from "./HeritageSection";
 import type { BiblioItem } from "./heritagedata";
 import { useMemo } from "react";
@@ -16,16 +36,21 @@ export default function HeritageBibliography({
   const entries = useMemo(() => {
     try {
       if (!items.length) return [];
+
       const cite = new Cite(items.map((b) => b.csl));
+
       const html = cite.format("bibliography", {
         format: "html",
         template: styleId,
         lang: "en-US",
       });
+
       const container =
         typeof document !== "undefined" ? document.createElement("div") : null;
       if (!container) return [];
+
       container.innerHTML = html;
+
       return Array.from(container.querySelectorAll(".csl-entry")).map(
         (el) => el.innerHTML || ""
       );
