@@ -2287,8 +2287,10 @@ function CoverLibraryModal({
           ) : (
             <div className="flex flex-wrap items-start gap-3">
               {images.map((img) => {
-                const isCurrent =
-                  img.isActive || (currentUrl && img.url === currentUrl);
+                // strict boolean to satisfy aria-disabled type
+                const isCurrent = !!(
+                  img.isActive || (currentUrl && img.url === currentUrl)
+                );
 
                 const imageClass = isCurrent
                   ? "opacity-90"
