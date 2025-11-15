@@ -92,7 +92,12 @@ export default function HeritageGalleryLink({
 
   return (
     // No outer white wrapper and no outer section heading; inner cards provide headers
-    <HeritageSection id="gallery" noFrame hideHeader>
+    <HeritageSection
+      id="gallery"
+      title="Gallery & Photo Story"
+      noFrame
+      hideHeader
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* --------- Card: Photo Gallery (1st, earlier delay) --------- */}
         <div
