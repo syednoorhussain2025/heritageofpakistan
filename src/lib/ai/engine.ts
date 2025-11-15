@@ -47,7 +47,7 @@ function renderTemplate(tpl: string, vars: Record<string, any>): string {
   return tpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
     const val = key
       .split(".")
-      .reduce((acc, k) => (acc ? (acc as any)[k] : undefined), vars);
+      .reduce((acc: any, k: string) => (acc ? acc[k] : undefined), vars as any);
     return typeof val === "string" ? val : JSON.stringify(val ?? "");
   });
 }
