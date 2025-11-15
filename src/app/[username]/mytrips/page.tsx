@@ -6,19 +6,24 @@ import MyTripsGrid from "@/components/MyTripsGrid";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function UserTripsPage({
-  params,
-}: {
-  params: { username: string };
-}) {
+type UserTripsPageProps = {
+  // In Next.js 15, params is a Promise
+  params: Promise<{ username: string }>;
+};
+
+export default async function UserTripsPage({ params }: UserTripsPageProps) {
+  // Await the async params object
+  const { username } = await params;
+
   const supabase = await createClient();
 
   // 1) Require auth
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user) {
-    redirect(`/auth/sign-in?redirectTo=/${params.username}/mytrips`);
+    redirect(`/auth/sign-in?redirectTo=/${username}/mytrips`);
   }
 
   // 2) Resolve the signed-in user's canonical username
@@ -29,13 +34,13 @@ export default async function UserTripsPage({
     .maybeSingle();
 
   if (profileErr || !profile?.username) {
-    redirect(`/auth/sign-in?redirectTo=/${params.username}/mytrips`);
+    redirect(`/auth/sign-in?redirectTo=/${username}/mytrips`);
   }
 
   const canonical = profile.username;
 
   // 3) If path username ≠ signed-in user's username, redirect to canonical
-  if (params.username !== canonical) {
+  if (username !== canonical) {
     redirect(`/${canonical}/mytrips`);
   }
 
