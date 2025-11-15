@@ -787,9 +787,7 @@ function ExplorePageContent() {
         query: filters.name || "",
         categoryNames: selectedCategoryNames,
         regionNames: selectedRegionNames,
-        // ensure strict boolean here
         radiusActive: Boolean(hasRadius(filters)),
-        // ensure radiusKm is number | null, not string | boolean | null
         radiusKm:
           typeof filters.radiusKm === "number" ? filters.radiusKm : null,
         centerSiteTitle,
@@ -896,12 +894,7 @@ function ExplorePageContent() {
             <div className="relative">
               {loading && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/90 shadow-lg ring-1 ring-[var(--taupe-grey)] px-4 py-2">
-                    <Spinner size={20} />
-                    <span className="text-xs font-medium text-[var(--espresso-brown)]">
-                      Updating results…
-                    </span>
-                  </div>
+                  <Spinner size={28} />
                 </div>
               )}
 

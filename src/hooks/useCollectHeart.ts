@@ -47,11 +47,14 @@ export function useCollectHeart({
     setPopping(true);
     setTimeout(() => setPopping(false), 150);
 
+    const normalizedSiteId =
+      siteId !== null && siteId !== undefined ? String(siteId) : undefined;
+
     await toggleCollect({
       siteImageId: siteImageId ?? undefined,
       storagePath: storagePath ?? undefined,
       imageUrl: imageUrl ?? undefined,
-      siteId: (siteId ?? undefined) as string | number | undefined,
+      siteId: normalizedSiteId,
       altText: altText ?? null,
       caption: caption ?? null,
       credit: credit ?? null,
