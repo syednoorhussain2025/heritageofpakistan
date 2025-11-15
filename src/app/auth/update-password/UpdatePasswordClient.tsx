@@ -11,9 +11,8 @@ export default function UpdatePasswordClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const [stage, setStage] = useState<"checking" | "ready" | "done" | "error">(
-    "checking"
-  );
+  type Stage = "checking" | "ready" | "done" | "error";
+  const [stage, setStage] = useState<Stage>("checking");
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -119,7 +118,7 @@ export default function UpdatePasswordClient() {
           </div>
         )}
 
-        {(stage === "ready" || stage === "error") && stage !== "done" && (
+        {(stage === "ready" || stage === "error") && (
           <form className="space-y-4 mt-2" onSubmit={onSubmit}>
             <label className="block text-sm font-medium text-gray-700">
               New password
