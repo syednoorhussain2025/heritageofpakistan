@@ -12,8 +12,9 @@ type HeritagePageProps = {
 };
 
 /** Build a Supabase server client bound to request cookies. */
-function getSupabaseServerClient() {
-  const cookieStore = cookies();
+async function getSupabaseServerClient() {
+  const cookieStore = await cookies();
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,7 +33,7 @@ export default async function Page({ params }: HeritagePageProps) {
   // Await the async params object
   const { region, slug } = await params;
 
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
 
   /* ----------------------------------------------------------------
      1. Fetch site basic data + province slug (for URL validation)
