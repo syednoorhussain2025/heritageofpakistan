@@ -6,6 +6,15 @@ import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 
 /* -------------------------------------------------------
+   Local taxonomy type (matches your Taxonomy shape)
+--------------------------------------------------------*/
+type HeritageCategory = {
+  id: string;
+  name: string;
+  icon_key?: string | null;
+};
+
+/* -------------------------------------------------------
    BLURHASH FALLBACK (only if we have a hash and metadata)
 --------------------------------------------------------*/
 function BlurhashImage({
@@ -58,6 +67,7 @@ export default function HeritageCover({
   site,
   hasPhotoStory,
   fadeImage = false,
+  categories,
 }: {
   site: {
     id: string;
@@ -79,6 +89,8 @@ export default function HeritageCover({
   };
   hasPhotoStory: boolean;
   fadeImage?: boolean;
+  /** Only pass terms from the "Heritage Type" taxonomy here */
+  categories?: HeritageCategory[];
 }) {
   const HEADER_FALLBACK_PX = 72;
 
@@ -145,6 +157,9 @@ export default function HeritageCover({
     if (t.includes("tomb") || t.includes("shrine")) return "landmark";
     return "landmark";
   };
+
+  // Only 4 chips max, safe if categories is undefined
+  const heritageTypeChips = (categories ?? []).slice(0, 4);
 
   return (
     <section
@@ -266,11 +281,33 @@ export default function HeritageCover({
                 {site.tagline}
               </p>
             )}
+
+            {/* HERITAGE TYPE CATEGORY CHIPS */}
+            {heritageTypeChips.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {heritageTypeChips.map((c) => (
+                  <a
+                    key={c.id}
+                    href={`/explore?cats=${c.id}`}
+                    className="px-4 py-1.5 rounded-full border border-white/35 text-white text-sm font-medium
+                               hover:bg-white/15 hover:border-white/60 transition-colors duration-200
+                               flex items-center gap-1.5 backdrop-blur-sm"
+                  >
+                    {c.icon_key && (
+                      <Icon
+                        name={c.icon_key}
+                        className="text-white/70 text-[14px]"
+                      />
+                    )}
+                    <span>{c.name}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* RIGHT */}
-         <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
-
+          <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
             {hasPhotoStory && (
               <a
                 href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}

@@ -102,11 +102,13 @@ const SELECT_TEXT: React.CSSProperties = {
   WebkitUserSelect: "text",
   msUserSelect: "text",
 };
+
 const SELECT_AUTO: React.CSSProperties = {
   userSelect: "auto",
   WebkitUserSelect: "auto",
-  msUserSelect: "auto",
+  // Note: msUserSelect's TS type does not accept "auto", so we omit it here.
 };
+
 const NO_SELECT_MEDIA: React.CSSProperties = {
   userSelect: "none",
   WebkitUserSelect: "none",
