@@ -16,16 +16,18 @@ export async function GET(req: NextRequest) {
     const w = parseInt(searchParams.get("w") || "512", 10);
     const q = parseInt(searchParams.get("q") || "60", 10);
 
-    if (!url)
+    if (!url) {
       return NextResponse.json({ error: "Missing url" }, { status: 400 });
+    }
 
     const upstream = await fetch(url, { cache: "force-cache" });
     if (!upstream.ok) {
       return NextResponse.json({ error: "Fetch failed" }, { status: 400 });
     }
+
     const buf = Buffer.from(await upstream.arrayBuffer());
 
-    const resized = await sharp(buf)
+    const resizedBuffer = await sharp(buf)
       .rotate() // respect EXIF
       .resize({
         width: Math.min(Math.max(w, 128), 1024),
@@ -34,7 +36,13 @@ export async function GET(req: NextRequest) {
       .jpeg({ quality: Math.min(Math.max(q, 40), 80), mozjpeg: true })
       .toBuffer();
 
-    return new NextResponse(resized, {
+    // Convert Node Buffer -> ArrayBuffer so it is a valid BodyInit
+    const resizedArrayBuffer = resizedBuffer.buffer.slice(
+      resizedBuffer.byteOffset,
+      resizedBuffer.byteOffset + resizedBuffer.byteLength
+    );
+
+    return new NextResponse(resizedArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "image/jpeg",
