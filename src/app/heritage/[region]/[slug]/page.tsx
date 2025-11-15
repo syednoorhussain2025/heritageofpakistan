@@ -6,6 +6,11 @@ import HeritageClient from "./HeritageClient";
 
 type Params = { region: string; slug: string };
 
+type HeritagePageProps = {
+  // Next.js 15: params is now a Promise
+  params: Promise<Params>;
+};
+
 /** Build a Supabase server client bound to request cookies. */
 function getSupabaseServerClient() {
   const cookieStore = cookies();
@@ -23,8 +28,9 @@ function getSupabaseServerClient() {
   );
 }
 
-export default async function Page({ params }: { params: Params }) {
-  const { region, slug } = params;
+export default async function Page({ params }: HeritagePageProps) {
+  // Await the async params object
+  const { region, slug } = await params;
 
   const supabase = getSupabaseServerClient();
 
@@ -153,9 +159,12 @@ export default async function Page({ params }: { params: Params }) {
 }
 
 /* ----------------------------- SEO ----------------------------- */
-export async function generateMetadata({ params }: { params: Params }) {
+export async function generateMetadata({ params }: HeritagePageProps) {
+  const { region, slug } = await params;
+
   const base = process.env.NEXT_PUBLIC_SITE_URL || "";
-  const canonical = `${base}/heritage/${params.region}/${params.slug}`;
+  const canonical = `${base}/heritage/${region}/${slug}`;
+
   return {
     alternates: { canonical },
     openGraph: { url: canonical },
