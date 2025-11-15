@@ -612,7 +612,6 @@ const TEMPLATE_HEADERS = [
   "did_you_know (One line interesting fact e.g The Jahanabad Buddha near Malam Jabba is one of the largest carved Buddha reliefs in Pakistan)",
 ] as const;
 
-type CanonicalKey = (typeof TEMPLATE_HEADERS)[number];
 function normHeader(h: string): string {
   const base = h.replace(/\(.*/, "").trim();
   return base
@@ -653,10 +652,7 @@ function normalizeSlug(s: string): string {
 }
 
 /** Map common header variants → canonical keys */
-const HEADER_TO_FIELD: Record<
-  string,
-  CanonicalKey | "province_name" | "location_free"
-> = {
+const HEADER_TO_FIELD: Record<string, string> = {
   // Cover
   title: "title",
   name: "title",
@@ -943,7 +939,7 @@ function EditContent({ id }: { id: string }) {
         }
       }
     }, 30_000);
-    return () => clearInterval(timer);
+  return () => clearInterval(timer);
   }, [autoSaveEnabled, saving]);
 
   if (!site)
@@ -2231,7 +2227,7 @@ function CoverLibraryModal({
       }}
     >
       <div
-        className="bg-white w-full max-w-5xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+        className="bg-white w-full max-w-5xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex-col flex"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -2464,7 +2460,8 @@ function SidebarImporter({
         onParsed(kv, file.name);
         setStatus(`Parsed and cached ${applied} fields from “${file.name}”.`);
       },
-      error: (err: any) => setStatus(`Error: ${err?.message || "unknown error"}`),
+      error: (err: any) =>
+        setStatus(`Error: ${err?.message || "unknown error"}`),
     });
 
     // allow re-upload of same file
