@@ -527,26 +527,21 @@ export async function attachItemsToDay(params: {
   itemIds?: string[];
   travelIds?: string[];
 }) {
-  const tasks: Promise<any>[] = [];
   if (params.itemIds?.length) {
-    tasks.push(
-      supabase
-        .from("trip_items")
-        .update({ day_id: params.dayId })
-        .in("id", params.itemIds)
-    );
+    const { error } = await supabase
+      .from("trip_items")
+      .update({ day_id: params.dayId })
+      .in("id", params.itemIds);
+    if (error) throw error;
   }
+
   if (params.travelIds?.length) {
-    tasks.push(
-      supabase
-        .from("trip_travel")
-        .update({ day_id: params.dayId })
-        .in("id", params.travelIds)
-    );
+    const { error } = await supabase
+      .from("trip_travel")
+      .update({ day_id: params.dayId })
+      .in("id", params.travelIds);
+    if (error) throw error;
   }
-  const res = await Promise.all(tasks);
-  const err = res.find((r) => r.error)?.error;
-  if (err) throw err;
 }
 
 /** Set a Day's date and propagate the same date to all *site* items in that Day. */

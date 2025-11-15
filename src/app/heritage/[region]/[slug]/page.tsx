@@ -7,7 +7,7 @@ import HeritageClient from "./HeritageClient";
 type Params = { region: string; slug: string };
 
 type HeritagePageProps = {
-  // Next.js 15: params is now a Promise
+  // Next.js 15 typing
   params: Promise<Params>;
 };
 
@@ -41,14 +41,14 @@ type HeroCoverForClient = {
 };
 
 export default async function Page({ params }: HeritagePageProps) {
-  // Await the async params object
+  // Await the async params object (Next 15)
   const { region, slug } = await params;
 
   const supabase = await getSupabaseServerClient();
 
   /* ----------------------------------------------------------------
      1. Fetch site basic data + province slug (for URL validation)
-     ---------------------------------------------------------------- */
+  ----------------------------------------------------------------- */
   const { data: site, error: siteErr } = await supabase
     .from("sites")
     .select(
@@ -69,9 +69,11 @@ export default async function Page({ params }: HeritagePageProps) {
 
   if (siteErr || !site) return notFound();
 
-  // Supabase types this relation as an array: { slug: any }[]
-  const provinceSlug: string | null =
-    (site.province as { slug: string | null }[] | null)?.[0]?.slug ?? null;
+  // Support both object and array shapes for the relation
+  const provinceRel: any = (site as any).province;
+  const provinceSlug: string | null = Array.isArray(provinceRel)
+    ? provinceRel[0]?.slug ?? null
+    : provinceRel?.slug ?? null;
 
   // Region MUST match the province slug or 404
   if (!provinceSlug || region !== provinceSlug) return notFound();
@@ -82,7 +84,7 @@ export default async function Page({ params }: HeritagePageProps) {
         Priority:
         1) active cover (is_active = true)
         2) first by sort_order, then by created_at
-  ---------------------------------------------------------------- */
+  ----------------------------------------------------------------- */
   let coverRow: any = null;
 
   // 2.1 Active cover
@@ -144,7 +146,7 @@ export default async function Page({ params }: HeritagePageProps) {
 
   /* ----------------------------------------------------------------
      3. Map site_covers → cover object for the client
-  ---------------------------------------------------------------- */
+  ----------------------------------------------------------------- */
   const publicUrl = (path: string | null) =>
     path
       ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/site-images/${path}`
@@ -170,13 +172,12 @@ export default async function Page({ params }: HeritagePageProps) {
   const siteDataForClient = {
     ...site,
     province_slug: provinceSlug,
-    // cover is either a proper HeroCover object or undefined
-    cover: coverForClient,
+    cover: coverForClient ?? null,
   };
 
   /* ----------------------------------------------------------------
      4. Render the client page with SSR site (incl. cover + blur)
-  ---------------------------------------------------------------- */
+  ----------------------------------------------------------------- */
   return <HeritageClient site={siteDataForClient} />;
 }
 
