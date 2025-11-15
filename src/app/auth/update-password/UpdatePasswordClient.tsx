@@ -6,18 +6,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
+type Stage = "checking" | "ready" | "done" | "error";
+
 export default function UpdatePasswordClient() {
   const supabase = createClient();
   const router = useRouter();
   const sp = useSearchParams();
 
-  type Stage = "checking" | "ready" | "done" | "error";
   const [stage, setStage] = useState<Stage>("checking");
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Optional redirect target after success
   const redirectTo = sp.get("next") || "/dashboard";
@@ -67,13 +69,16 @@ export default function UpdatePasswordClient() {
     e.preventDefault();
     setError("");
     setMessage("");
+    setIsSubmitting(true);
 
     if (pw1.length < 8) {
       setError("Password must be at least 8 characters.");
+      setIsSubmitting(false);
       return;
     }
     if (pw1 !== pw2) {
       setError("Passwords do not match.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -84,6 +89,7 @@ export default function UpdatePasswordClient() {
     if (updErr) {
       setError(updErr.message || "Failed to update password.");
       setStage("error");
+      setIsSubmitting(false);
       return;
     }
 
@@ -167,13 +173,9 @@ export default function UpdatePasswordClient() {
               className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[var(--brand-orange)]
                          px-4 py-2.5 text-sm font-medium text-white shadow-sm
                          hover:bg-[var(--brand-orange-dark)] transition disabled:opacity-60"
-              disabled={stage === "checking" || stage === "done"}
+              disabled={isSubmitting}
             >
-              {stage === "checking"
-                ? "Checking recovery link…"
-                : stage === "done"
-                ? "Updated"
-                : "Update password"}
+              {isSubmitting ? "Updating…" : "Update password"}
             </button>
           </form>
         )}
