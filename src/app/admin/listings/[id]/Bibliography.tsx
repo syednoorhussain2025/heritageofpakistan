@@ -1,3 +1,4 @@
+// src/app/admin/listings/[id]/Bibliography.tsx
 "use client";
 
 import React, {
@@ -9,6 +10,10 @@ import React, {
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CitationWizard from "@/components/biblio/CitationWizard";
+
+// TS: this package ships JS only and has no bundled types; ignore missing declaration.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 
