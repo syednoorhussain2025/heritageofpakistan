@@ -862,7 +862,7 @@ export default function GalleryUploader({
           filename: c.filename,
           alt: null,
         })),
-        siteId,
+        siteId: String(siteId), // ensure string for action typing
         siteName: siteTitle,
       })) as ActionReturn;
 
