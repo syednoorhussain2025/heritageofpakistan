@@ -1,4 +1,4 @@
-// src/app/admin/listings/ArticlesSection.tsx
+// src/app/admin/listings/[id]/ArticlesSection.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -73,10 +73,24 @@ function useDebouncedEffect(
   delay = 400
 ) {
   const timeout = useRef<number | null>(null);
+
   useEffect(() => {
-    if (timeout.current) window.clearTimeout(timeout.current);
-    timeout.current = window.setTimeout(() => effect(), delay);
-    return () => timeout.current && window.clearTimeout(timeout.current);
+    // clear any pending timeout before scheduling a new one
+    if (timeout.current !== null) {
+      window.clearTimeout(timeout.current);
+      timeout.current = null;
+    }
+
+    timeout.current = window.setTimeout(() => {
+      effect();
+    }, delay);
+
+    return () => {
+      if (timeout.current !== null) {
+        window.clearTimeout(timeout.current);
+        timeout.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
@@ -574,7 +588,7 @@ function PartComposer({
       lastInitRef.current = nextKey;
       setSections(initialSections || []);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-comments
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(initialSections || [])]);
 
   const previewRef = useRef<HTMLDivElement>(null);
@@ -695,7 +709,10 @@ function PartComposer({
   useDebouncedEffect(
     () => {
       const root = previewRef.current;
-      if (!root) return onSnapshotChange(null);
+      if (!root) {
+        onSnapshotChange(null);
+        return;
+      }
       const html = snapshotCleanHTML(root);
       onSnapshotChange(html && sections.length ? html : null);
     },
@@ -1051,23 +1068,20 @@ function PartComposer({
       />
     </>
   );
-
-  function updateCustom(index: number, patch: Partial<CustomSection>) {
-    const next = [...customSections];
-    next[index] = { ...next[index], ...patch };
-    onChange({ custom_sections_json: next });
-  }
-
-  function removeCustom(index: number) {
-    const next = [...customSections];
-    next.splice(index, 1);
-    onChange({ custom_sections_json: next });
-  }
 }
 
 /* -------------------------------------------------------------- */
 /* Exported page component                                        */
 /* -------------------------------------------------------------- */
+
+function newCustomSection(): CustomSection {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title: "Untitled section",
+    sections_json: [],
+    layout_html: null,
+  };
+}
 
 export default function ArticlesSection({
   siteId,
@@ -1085,6 +1099,18 @@ export default function ArticlesSection({
       (custom_sections_json || []).map((s) => ({ sections_json: [], ...s })),
     [custom_sections_json]
   );
+
+  function updateCustom(index: number, patch: Partial<CustomSection>) {
+    const next = [...customSections];
+    next[index] = { ...next[index], ...patch };
+    onChange({ custom_sections_json: next });
+  }
+
+  function removeCustom(index: number) {
+    const next = [...customSections];
+    next.splice(index, 1);
+    onChange({ custom_sections_json: next });
+  }
 
   return (
     <div className="space-y-8">
@@ -1188,16 +1214,4 @@ export default function ArticlesSection({
       </div>
     </div>
   );
-
-  function updateCustom(index: number, patch: Partial<CustomSection>) {
-    const next = [...customSections];
-    next[index] = { ...next[index], ...patch };
-    onChange({ custom_sections_json: next });
-  }
-
-  function removeCustom(index: number) {
-    const next = [...customSections];
-    next.splice(index, 1);
-    onChange({ custom_sections_json: next });
-  }
 }
