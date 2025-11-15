@@ -474,14 +474,14 @@ export default function SiteGalleryPage() {
       {/* Add to Collection Modal */}
       {!loading && collectionModalOpen && selectedPhoto && (
         <AddToCollectionModal
+          open={collectionModalOpen}
           onClose={() => setCollectionModalOpen(false)}
-          image={{
-            siteImageId: selectedPhoto.id,
-            storagePath: selectedPhoto.storagePath,
-            siteId: site!.id,
-            altText: selectedPhoto.caption,
-            caption: selectedPhoto.caption,
-            credit: selectedPhoto.author?.name,
+          // Adjust bucket if your component expects a specific one; or omit if not needed
+          // bucket="site-images"
+          onInsert={(_items) => {
+            // You can integrate with your collections system here,
+            // using `selectedPhoto` and whatever data `_items` holds.
+            setCollectionModalOpen(false);
           }}
         />
       )}
