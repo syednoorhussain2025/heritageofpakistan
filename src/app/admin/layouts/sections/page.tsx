@@ -154,31 +154,18 @@ export default function SectionSettingsPage() {
                     <div className="text-xs text-slate-500">{active.slug}</div>
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
+                  {/* Spacing controls */}
+                  <div className="grid md:grid-cols-2 gap-4">
                     <label className="text-sm">
-                      Padding Top (px)
+                      Padding Y (px)
                       <input
                         type="number"
                         className={input}
-                        value={form.paddingTop ?? 0}
+                        value={form.paddingY ?? 0}
                         onChange={(e) =>
                           setForm({
                             ...form,
-                            paddingTop: Number(e.target.value || 0),
-                          })
-                        }
-                      />
-                    </label>
-                    <label className="text-sm">
-                      Padding Bottom (px)
-                      <input
-                        type="number"
-                        className={input}
-                        value={form.paddingBottom ?? 0}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            paddingBottom: Number(e.target.value || 0),
+                            paddingY: Number(e.target.value || 0),
                           })
                         }
                       />
