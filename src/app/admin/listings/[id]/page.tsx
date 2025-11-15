@@ -9,6 +9,8 @@ import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
+// ⬇⬇⬇ Tell TypeScript to ignore missing type declarations for papaparse
+// @ts-expect-error - papaparse has no type declarations in this project; treat as any
 import Papa from "papaparse";
 import { encode } from "blurhash";
 
