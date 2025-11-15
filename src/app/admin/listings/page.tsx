@@ -133,11 +133,17 @@ const TickCross = ({
       aria-label={label}
     >
       {ok ? "✓" : mid ? "✓" : "✗"}
-      {ok && <span className={`ml-1 text-xs font-medium ${color}`}>({count})</span>}
+      {ok && (
+        <span className={`ml-1 text-xs font-medium ${color}`}>({count})</span>
+      )}
       {mid && dual && (
         <>
-          <span className={`ml-1 text-xs font-medium ${color}`}>({dual[0]})</span>
-          <span className={`ml-1 text-xs font-medium ${color}`}>({dual[1]})</span>
+          <span className={`ml-1 text-xs font-medium ${color}`}>
+            ({dual[0]})
+          </span>
+          <span className={`ml-1 text-xs font-medium ${color}`}>
+            ({dual[1]})
+          </span>
         </>
       )}
       {!ok && !mid && (
@@ -556,15 +562,18 @@ export default function AdminListingsPage() {
               blocksCount: validBlocks,
               tip: sTip,
             },
-            storyCover: { ok: storyCoverOk, count: storyCoverOk ? 1 : 0, tip: storyCoverTip },
+            storyCover: {
+              ok: storyCoverOk,
+              count: storyCoverOk ? 1 : 0,
+              tip: storyCoverTip,
+            },
             taxonomy: { ok: tOk, tip: tTip, catCount, regCount },
             biblio: { ok: bOk, count: bCount, tip: bTip },
             article: { ok: aOk, count: articleCount, tip: aTip },
           };
         }
 
-        if (!abort.signal.aborted)
-          setIndicators(next);
+        if (!abort.signal.aborted) setIndicators(next);
       } catch (e: any) {
         if (!abort.signal.aborted)
           setError(e.message || "Failed to load indicators.");
@@ -674,23 +683,40 @@ export default function AdminListingsPage() {
         const bb = (b.title || "").toLowerCase();
         return aa.localeCompare(bb);
       }
+
       const ia = indicators[a.id];
       const ib = indicators[b.id];
+
       const get = (k: IndicatorKey) => (x?: Indicators) =>
-        x ? (x[k as keyof Indicators] as any)?.ok ? 1 : 0 : 1;
-      const keyMap: Record<typeof sortBy, IndicatorKey> = {
+        x && (x[k] as any)?.ok ? 1 : 0;
+
+      const keyMap: Record<
+        Exclude<
+          "cover" | "gallery" | "story" | "taxonomy" | "biblio" | "article",
+          never
+        >,
+        IndicatorKey
+      > = {
         cover: "cover",
         gallery: "gallery",
         story: "story",
         taxonomy: "taxonomy",
         biblio: "biblio",
         article: "article",
-        title: "cover",
       };
-      const k = keyMap[sortBy];
+
+      const k = keyMap[
+        sortBy as Exclude<
+          typeof sortBy,
+          "title"
+        >
+      ];
+
       const va = get(k)(ia);
       const vb = get(k)(ib);
+
       if (va !== vb) return va - vb;
+
       const aa = (a.title || "").toLowerCase();
       const bb = (b.title || "").toLowerCase();
       return aa.localeCompare(bb);
@@ -707,7 +733,7 @@ export default function AdminListingsPage() {
 
   function goPrev() {
     setPage((p) => Math.max(1, p - 1));
-    }
+  }
   function goNext() {
     setPage((p) => Math.min(totalPages, p + 1));
   }
@@ -962,7 +988,9 @@ export default function AdminListingsPage() {
                 className={`flex gap-2 items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 shadow-sm ${BAR_MIN_H}`}
               >
                 <input
-                  placeholder={`Search ${tab === "active" ? "active" : "recycled"} by title or slug…`}
+                  placeholder={`Search ${
+                    tab === "active" ? "active" : "recycled"
+                  } by title or slug…`}
                   className={`w-full bg-white border border-sky-200 rounded-md px-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 ${CONTROL_H}`}
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -1224,7 +1252,10 @@ export default function AdminListingsPage() {
                             {ind ? (
                               <TickCross
                                 ok={ind.taxonomy?.ok ?? false}
-                                count={(ind.taxonomy?.catCount ?? 0) + (ind.taxonomy?.regCount ?? 0)}
+                                count={
+                                  (ind.taxonomy?.catCount ?? 0) +
+                                  (ind.taxonomy?.regCount ?? 0)
+                                }
                                 title={ind.taxonomy?.tip ?? "Taxonomy status"}
                               />
                             ) : (
@@ -1236,7 +1267,9 @@ export default function AdminListingsPage() {
                               <TickCross
                                 ok={ind.biblio?.ok ?? false}
                                 count={ind.biblio?.count ?? 0}
-                                title={ind.biblio?.tip ?? "Bibliography status"}
+                                title={
+                                  ind.biblio?.tip ?? "Bibliography status"
+                                }
                               />
                             ) : (
                               <span className="text-slate-400">…</span>
