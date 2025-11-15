@@ -187,7 +187,7 @@ function CategoryDrilldownSelect({
 
       // walk up to top-level parent
       while (cur && cur.parent_id) {
-        const parent = categoryById[cur.parent_id];
+        const parent: Cat | undefined = categoryById[cur.parent_id];
         if (!parent) break;
         root = parent;
         cur = parent;
@@ -667,7 +667,7 @@ function MultiSelect({
                     className="w-3.5 h-3.5 text-white"
                   />
                 ) : (
-                  <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
+                  <span className="w-3.5 h-3.5 rounded-full bg:white/40" />
                 )}
                 <span>{item[labelKey] as string}</span>
                 <button
