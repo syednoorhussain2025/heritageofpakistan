@@ -252,7 +252,7 @@ function CategoryDrilldownSelect({
     if (!searchQuery.trim()) return visibleItems;
     const q = searchQuery.toLowerCase();
     return visibleItems.filter((item) =>
-      String(item[labelKey]).toLowerCase().includes(q)
+      String((item as any)[labelKey]).toLowerCase().includes(q)
     );
   }, [visibleItems, searchQuery, labelKey]);
 
@@ -354,7 +354,7 @@ function CategoryDrilldownSelect({
                   <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
                 )}
                 <span className="text-gray-800 truncate flex-1">
-                  {it[labelKey] as string}
+                  {(it as any)[labelKey] as string}
                 </span>
                 {hasChildren && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded-md text-gray-400 text-xs">
@@ -385,7 +385,7 @@ function CategoryDrilldownSelect({
                 <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
               )}
               <span className="text-gray-800 truncate flex-1">
-                {it[labelKey] as string}
+                {(it as any)[labelKey] as string}
               </span>
 
               {hasChildren && (
@@ -434,7 +434,7 @@ function CategoryDrilldownSelect({
                     ) : (
                       <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
                     )}
-                    <span>{item[labelKey] as string}</span>
+                    <span>{(item as any)[labelKey] as string}</span>
                     <button
                       onClick={() => toggle(item.id)}
                       className="text-indigo-100 hover:text-white font-bold"
@@ -518,7 +518,7 @@ function MultiSelect({
     if (!searchQuery.trim()) return visibleItems;
     const q = searchQuery.toLowerCase();
     return visibleItems.filter((item) =>
-      String(item[labelKey]).toLowerCase().includes(q)
+      String((item as any)[labelKey]).toLowerCase().includes(q)
     );
   }, [visibleItems, searchQuery, labelKey]);
 
@@ -623,7 +623,7 @@ function MultiSelect({
                 <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
               )}
               <span className="text-gray-800 truncate flex-1">
-                {it[labelKey] as string}
+                {(it as any)[labelKey] as string}
               </span>
 
               {hasChildren && (
@@ -667,9 +667,9 @@ function MultiSelect({
                     className="w-3.5 h-3.5 text-white"
                   />
                 ) : (
-                  <span className="w-3.5 h-3.5 rounded-full bg:white/40" />
+                  <span className="w-3.5 h-3.5 rounded-full bg-white/40" />
                 )}
-                <span>{item[labelKey] as string}</span>
+                <span>{(item as any)[labelKey] as string}</span>
                 <button
                   onClick={() => toggle(item.id)}
                   className="text-indigo-100 hover:text-white font-bold"
