@@ -1,4 +1,3 @@
-// src/components/SitePreviewCard.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -10,19 +9,20 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
-import { supabase } from "@/lib/supabaseClient"; // ← kept for lat/lng fallback
-import { buildPlacesNearbyURL } from "@/lib/placesNearby"; // ← centralized helper
+import { supabase } from "@/lib/supabaseClient";
+import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 
 type Site = {
   id: string;
   slug: string;
-  /** Primary key we want for province-aware route */
   province_slug?: string | null;
-  /** Some datasets may expose region as 'region_slug' or a string 'province' */
-  region_slug?: string | null; // optional, if present in your rows
-  province?: string | null; // optional, if present in your rows
+  region_slug?: string | null;
+  province?: string | null;
   title: string;
   cover_photo_url?: string | null;
+  cover_blur_data_url?: string | null;
+  cover_width?: number | null;
+  cover_height?: number | null;
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;
@@ -52,26 +52,9 @@ function fmtKm(v?: number | null) {
   return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
 }
 
-/** Round to a step to avoid tiny resizes that cause shimmer. */
 function roundToStep(n: number, step = 40, min = 280, max = 800) {
   const clamped = Math.max(min, Math.min(max, n));
   return Math.round(clamped / step) * step;
-}
-
-/** Optional: keep your Supabase transformer for non-Next/Image callers */
-function transformedUrl(url?: string | null, w = 800, q = 85) {
-  if (!url) return "";
-  const marker = "/storage/v1/object/public/";
-  if (!url.includes(marker)) return url;
-  const [origin] = url.split(marker);
-  const tail = url.split(marker)[1];
-  const h = Math.round(w * (2 / 3));
-  const u = new URL(`${origin}/storage/v1/render/image/public/${tail}`);
-  u.searchParams.set("width", String(w));
-  u.searchParams.set("height", String(h));
-  u.searchParams.set("resize", "cover");
-  u.searchParams.set("quality", String(q));
-  return u.toString();
 }
 
 function Portal({ children }: { children: React.ReactNode }) {
@@ -86,15 +69,12 @@ function Portal({ children }: { children: React.ReactNode }) {
 
 /** Resolve the best available province/region slug field from the card data. */
 function resolveProvinceSlug(site: Site): string | null {
-  // Preferred field
   if (site.province_slug && site.province_slug.trim().length > 0) {
     return site.province_slug.trim();
   }
-  // Alternate common naming
   if (site.region_slug && site.region_slug.trim().length > 0) {
     return site.region_slug.trim();
   }
-  // Sometimes datasets carry a plain string 'province' that is already slugified
   if (site.province && site.province.trim().length > 0) {
     return site.province.trim();
   }
@@ -116,30 +96,33 @@ export default function SitePreviewCard({
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
 
-  // Build province-aware detail href with safe fallback to legacy
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
     ? `/heritage/${regionSlug}/${site.slug}`
     : `/heritage/${site.slug}`;
 
-  // Image src resolution
-  const original = site.cover_photo_url || "";
-  const [imgSrc, setImgSrc] = useState<string>(() => original || FALLBACK_SVG);
-  const triedOriginalRef = useRef(false);
+  const [imgSrc, setImgSrc] = useState<string>(
+    site.cover_photo_url || FALLBACK_SVG
+  );
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    const orig = site.cover_photo_url || "";
-    triedOriginalRef.current = false;
-    setImgSrc(orig || FALLBACK_SVG);
-  }, [site.cover_photo_url]);
+    setImgSrc(site.cover_photo_url || FALLBACK_SVG);
+    setImgLoaded(false);
+    setImgError(false);
+  }, [site.cover_photo_url, site.id]);
 
   const handleImgError = () => {
-    // If original fails, fall back to SVG
-    if (!triedOriginalRef.current && original && imgSrc !== original) {
-      triedOriginalRef.current = true;
-      setImgSrc(original);
+    setImgError(true);
+
+    // If we have a blur, stay on blur forever (premium failure mode)
+    if (site.cover_blur_data_url) {
+      // keep imgSrc as-is; the overlaid Image will just stay invisible
       return;
     }
+
+    // Only if there is no blur at all, use SVG as a last-resort fallback
     setImgSrc(FALLBACK_SVG);
   };
 
@@ -147,7 +130,6 @@ export default function SitePreviewCard({
     site.distance_km != null && !Number.isNaN(site.distance_km);
   const distanceLabel = fmtKm(site.distance_km ?? null);
 
-  /* ---------- Places Nearby Action (centralized via helper) ---------- */
   const handlePlacesNearby = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -155,7 +137,6 @@ export default function SitePreviewCard({
     let lat = site.latitude;
     let lng = site.longitude;
 
-    // If lat/lng not provided on card, fetch once from Supabase
     if ((lat == null || lng == null) && site.id) {
       try {
         const { data, error } = await supabase
@@ -179,7 +160,6 @@ export default function SitePreviewCard({
       return;
     }
 
-    // Build the canonical URL with correct param keys: center, clat, clng, rkm
     const href = buildPlacesNearbyURL({
       siteId: site.id,
       lat,
@@ -195,7 +175,6 @@ export default function SitePreviewCard({
     }
   };
 
-  /* ---------- Next/Image sizing logic ---------- */
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState<number>(384);
 
@@ -212,10 +191,11 @@ export default function SitePreviewCard({
     return () => ro.disconnect();
   }, []);
 
-  // Stabilize the declared width so the browser picks consistent srcset candidates
   const baseW = roundToStep(containerW, 40, 280, 800);
 
-  /* ---------- Render ---------- */
+  const showBlurLayer = Boolean(site.cover_blur_data_url);
+  const useSvgAsRealImage = imgSrc === FALLBACK_SVG && !showBlurLayer;
+
   return (
     <div className="w-full max-w-sm rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
@@ -230,19 +210,43 @@ export default function SitePreviewCard({
 
       <Link href={detailHref} className="group block" prefetch={false}>
         <div className="relative" ref={containerRef}>
-          {/* Image (Next/Image with real render width via sizes) */}
-          <div className="relative aspect-[3/2] w-full">
+          {/* Image container with blur-underlay UX */}
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-none">
+            {/* Blur underlay (Option A): stays under final image with slight opacity */}
+            {showBlurLayer && (
+              <img
+                src={site.cover_blur_data_url!}
+                aria-hidden="true"
+                decoding="async"
+                className={`absolute inset-0 h-full w-full object-cover scale-105 blur-xl transition-opacity duration-700 ${
+                  imgLoaded ? "opacity-30" : "opacity-100"
+                }`}
+              />
+            )}
+
+            {/* Main image: fades in over blur when loaded */}
             <Image
               src={imgSrc}
               alt={site.title}
               fill
               sizes={`${baseW}px`}
-              className="object-cover"
               loading="lazy"
               onError={handleImgError}
-              // Keep default optimization. Hint Chrome to avoid over-sharpening artifacts.
+              onLoadingComplete={() => setImgLoaded(true)}
+              className={`object-cover transition-opacity duration-700 ${
+                imgLoaded && !imgError ? "opacity-100" : "opacity-0"
+              }`}
               style={{ imageRendering: "auto" }}
+              // We rely on our own blur-underlay; keep placeholder empty
+              placeholder="empty"
             />
+
+            {/* If no blur and using pure SVG fallback, keep it fully visible */}
+            {useSvgAsRealImage && (
+              <div className="absolute inset-0 h-full w-full">
+                {/* The SVG is already the src; this extra wrapper just ensures full coverage */}
+              </div>
+            )}
           </div>
 
           {/* Heritage type chip */}

@@ -1,4 +1,3 @@
-// src/app/explore/page.tsx
 "use client";
 
 import {
@@ -30,6 +29,10 @@ type Site = {
 
   title: string;
   cover_photo_url?: string | null;
+  cover_blur_data_url?: string | null;
+  cover_width?: number | null;
+  cover_height?: number | null;
+
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;
@@ -142,7 +145,7 @@ function buildHeadline({
   return "All Heritage Sites in Pakistan";
 }
 
-/** Build a square-ish thumbnail URL for Supabase images (public/sign). */
+/** Small thumb helper kept for banner avatar */
 function thumbUrl(input?: string | null, size = 160) {
   if (!input) return "";
   const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
@@ -178,6 +181,25 @@ function thumbUrl(input?: string | null, size = 160) {
   u.searchParams.set("resize", "cover");
   u.searchParams.set("quality", "80");
   return u.toString();
+}
+
+/** Canonical cover URL builder – mirrors detail-page behaviour */
+function buildCoverUrlFromStoragePath(storagePath: string | null) {
+  if (!storagePath) return "";
+
+  // Already an absolute URL
+  if (/^https?:\/\//i.test(storagePath)) {
+    return storagePath;
+  }
+
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  if (!SUPA_URL) return "";
+
+  const clean = storagePath.replace(/^\/+/, "");
+
+  // Same pattern you use on the detail page:
+  // `${SUPA_URL}/storage/v1/object/public/site-images/${storage_path}`
+  return `${SUPA_URL}/storage/v1/object/public/site-images/${clean}`;
 }
 
 /* ───────────────────────────── Stable banner image ───────────────────────────── */
@@ -320,6 +342,51 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
   }
 }
 
+/* ───────────────── Active covers + blur from site_covers ───────────────── */
+async function attachActiveCovers(sites: Site[]) {
+  const ids = Array.from(new Set(sites.map((s) => s.id))).filter(Boolean);
+  if (!ids.length) return;
+
+  const { data, error } = await supabase
+    .from("site_covers")
+    .select("site_id, storage_path, blur_data_url, width, height")
+    .in("site_id", ids)
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("attachActiveCovers: error fetching site_covers", error);
+    return;
+  }
+
+  if (!data?.length) {
+    return;
+  }
+
+  type CoverRow = {
+    site_id: string;
+    storage_path: string;
+    blur_data_url: string | null;
+    width: number | null;
+    height: number | null;
+  };
+
+  const bySiteId = new Map<string, CoverRow>();
+  for (const row of data as CoverRow[]) {
+    bySiteId.set(row.site_id, row);
+  }
+
+  for (const s of sites) {
+    const cover = bySiteId.get(s.id);
+    if (!cover) continue;
+
+    const url = buildCoverUrlFromStoragePath(cover.storage_path);
+    s.cover_photo_url = url || null;
+    s.cover_blur_data_url = cover.blur_data_url ?? null;
+    s.cover_width = cover.width ?? null;
+    s.cover_height = cover.height ?? null;
+  }
+}
+
 /* ───────────────────────────── Page ───────────────────────────── */
 function ExplorePageContent() {
   const router = useRouter();
@@ -336,13 +403,11 @@ function ExplorePageContent() {
     radiusKm: null,
   });
 
-  // Live snapshot to avoid stale reads when onSearch and onFilterChange fire together
   const filtersRef = useRef<Filters>(filters);
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
 
-  // Are we currently hydrating state FROM the URL? If yes, don't auto-push.
   const isHydratingRef = useRef(false);
 
   const [page, setPage] = useState(1);
@@ -356,7 +421,6 @@ function ExplorePageContent() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
-  // For headline & banner
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [centerSitePreview, setCenterSitePreview] = useState<{
     id: string;
@@ -405,7 +469,6 @@ function ExplorePageContent() {
       if (searchParams.toString() !== canonical.toString()) {
         router.replace(`/explore?${canonical.toString()}`);
       }
-      // Allow hydration window to end on next tick
       setTimeout(() => {
         isHydratingRef.current = false;
       }, 0);
@@ -446,9 +509,12 @@ function ExplorePageContent() {
     if (f.regionIds.length > 0) params.set("regs", f.regionIds.join(","));
     if (hasRadius(f)) {
       if (f.centerSiteId) params.set("center", f.centerSiteId);
-      if (typeof f.centerLat === "number") params.set("clat", String(f.centerLat));
-      if (typeof f.centerLng === "number") params.set("clng", String(f.centerLng));
-      if (typeof f.radiusKm === "number") params.set("rkm", String(f.radiusKm));
+      if (typeof f.centerLat === "number")
+        params.set("clat", String(f.centerLat));
+      if (typeof f.centerLng === "number")
+        params.set("clng", String(f.centerLng));
+      if (typeof f.radiusKm === "number")
+        params.set("rkm", String(f.radiusKm));
     }
     params.set("page", String(pageNum));
     return params;
@@ -458,7 +524,6 @@ function ExplorePageContent() {
   const debounceIdRef = useRef<number | null>(null);
   useEffect(() => {
     if (isHydratingRef.current) return;
-    // debounce 300ms
     if (debounceIdRef.current) window.clearTimeout(debounceIdRef.current);
     debounceIdRef.current = window.setTimeout(() => {
       const f = filtersRef.current;
@@ -522,17 +587,29 @@ function ExplorePageContent() {
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
           const { data: row, error: err } = await supabase
             .from("sites")
-            .select("id,title,cover_photo_url,location_free")
+            .select("id,title,location_free")
             .eq("id", nextFilters.centerSiteId)
             .maybeSingle();
 
           if (!err && row) {
+            let cover: string | null = null;
+            const { data: coverRow } = await supabase
+              .from("site_covers")
+              .select("storage_path")
+              .eq("site_id", row.id)
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (coverRow?.storage_path) {
+              cover = buildCoverUrlFromStoragePath(coverRow.storage_path);
+            }
+
             setCenterSiteTitle(row.title ?? null);
             setCenterSitePreview({
               id: row.id,
               title: row.title,
               subtitle: row.location_free ?? null,
-              cover: row.cover_photo_url ?? null,
+              cover,
             });
           } else {
             setCenterSiteTitle(null);
@@ -605,6 +682,7 @@ function ExplorePageContent() {
           if (detailsErr) throw detailsErr;
 
           await ensureProvinceSlugOnSites(details as Site[]);
+          await attachActiveCovers(details as Site[]);
 
           const distanceById = new Map<string, number | null>(
             pageRows.map((r: any) => [r.id, r.distance_km ?? null])
@@ -642,13 +720,13 @@ function ExplorePageContent() {
         const total = (data as any[])?.[0]?.total_count || 0;
 
         await ensureProvinceSlugOnSites(sites);
+        await attachActiveCovers(sites);
 
         setResults({ sites, total });
       } catch (e: any) {
         setError(e?.message || "Failed to load results");
       } finally {
         setLoading(false);
-        // End hydration window so user-driven changes can auto-push
         isHydratingRef.current = false;
       }
     })();
@@ -659,7 +737,6 @@ function ExplorePageContent() {
     [results.total]
   );
 
-  /* Manual Search button: build URL from freshest snapshot and reset to page 1 */
   const executeSearch = useCallback(() => {
     const f = filtersRef.current;
     const params = buildParamsFrom(f, 1);
@@ -668,7 +745,6 @@ function ExplorePageContent() {
     }
   }, [router, buildParamsFrom, searchParams]);
 
-  /* Pagination: only navigate if within bounds and different */
   const navigatePage = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages || newPage === page) return;
     const params = new URLSearchParams(searchParams.toString());
@@ -709,29 +785,7 @@ function ExplorePageContent() {
     ]
   );
 
-  /* Fade-in for preview card images */
   const cardsRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const root = cardsRef.current;
-    if (!root) return;
-
-    const imgs = Array.from(root.querySelectorAll("img"));
-    for (const img of imgs) {
-      img.classList.add("opacity-0");
-      img.classList.add("transition-opacity", "duration-500");
-      const reveal = () => img.classList.add("opacity-100");
-      if ((img as HTMLImageElement).complete) {
-        requestAnimationFrame(reveal);
-      } else {
-        img.addEventListener("load", reveal, { once: true });
-      }
-    }
-    return () => {
-      for (const img of imgs) {
-        img.classList.remove("transition-opacity", "duration-500", "opacity-0");
-      }
-    };
-  }, [results.sites]);
 
   /* Locked Radius Banner */
   const CenterBanner = () =>
@@ -830,7 +884,7 @@ function ExplorePageContent() {
                   {error}
                 </div>
               ) : results.sites.length === 0 ? (
-                <div className="p-6 text-[var(--espresso-brown)] sm:col-span-3">
+                <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">
                   No sites match your filters.
                 </div>
               ) : (
