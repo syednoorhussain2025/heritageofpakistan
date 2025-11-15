@@ -222,7 +222,9 @@ export default function SummaryTab({
   }
 
   // Yes/No selects → boolean
-  function bindYesNoBool(key: keyof Summary) {
+  function bindYesNoBool(
+    key: "airport_access" | "international_airport"
+  ): { value: "yes" | "no"; onChange: (v: "yes" | "no") => void } {
     const boolVal = (summary?.[key] as boolean) ?? false;
     return {
       value: boolVal ? "yes" : "no",
@@ -335,7 +337,9 @@ export default function SummaryTab({
             value={summary.spending_night_recommended ?? ""}
             onChange={(v) =>
               setSummary((s) =>
-                s ? { ...s, spending_night_recommended: (v || null) as any } : s
+                s
+                  ? { ...s, spending_night_recommended: (v || null) as any }
+                  : s
               )
             }
             options={[["", "— Select —"], ...YES_RECS]}
