@@ -177,6 +177,7 @@ type AutoGrowProps = {
   name?: string;
   id?: string;
   inputMode?: React.HTMLAttributes<HTMLTextAreaElement>["inputMode"];
+  onBlur?: (e: ChangeEvent<HTMLTextAreaElement>) => void; // added
 };
 
 function AutoGrow({
@@ -190,6 +191,7 @@ function AutoGrow({
   name,
   id,
   inputMode,
+  onBlur,
 }: AutoGrowProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const lineHeightRef = useRef<number>(20);
@@ -235,6 +237,7 @@ function AutoGrow({
         onChange(e);
         requestAnimationFrame(resize);
       }}
+      onBlur={onBlur}
       placeholder={placeholder}
       readOnly={readOnly}
       rows={minRows}
@@ -620,7 +623,7 @@ export default function TravelDetails({
               </span>
             )}
             {overridden && (
-              <span className="inline-flex items-center rounded_full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-[2px] text-[11px]">
+              <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-[2px] text-[11px]">
                 Overridden
               </span>
             )}
@@ -1170,8 +1173,7 @@ export default function TravelDetails({
                 : document.dispatchEvent(new CustomEvent("connect-guide:open"))
             }
             onRemove={
-              onRemoveLink ??
-              (() => alert("Use the “Remove Link” in the toolbar above."))
+              onRemoveLink ?? (() => alert("Use the “Remove Link” in the toolbar above."))
             }
           />
         }
@@ -1425,8 +1427,7 @@ export default function TravelDetails({
                 : document.dispatchEvent(new CustomEvent("connect-guide:open"))
             }
             onRemove={
-              onRemoveLink ??
-              (() => alert("Use the “Remove Link” in the toolbar above."))
+              onRemoveLink ?? (() => alert("Use the “Remove Link” in the toolbar above."))
             }
           />
         }
