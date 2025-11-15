@@ -694,7 +694,10 @@ function HeroCoverLibraryModal({
           ) : (
             <div className="flex flex-wrap items-start gap-3">
               {covers.map((img) => {
-                const isCurrent = currentUrl && img.url === currentUrl;
+                // FIX: force isCurrent to be a strict boolean
+                const isCurrent =
+                  !!currentUrl && img.url === currentUrl;
+
                 return (
                   <div
                     key={img.key}
@@ -1093,7 +1096,7 @@ export default function PhotoStory({
   return (
     <div className="space-y-4">
       {/* Header line with action on the right */}
-      <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="flex items-center justify_between text-sm text-gray-600">
         <div>
           Title: <b className="text-gray-900">{title}</b> ·{" "}
           <a
@@ -1150,7 +1153,7 @@ export default function PhotoStory({
                       className="w-full object-cover aspect-[16/9]"
                     />
                   ) : (
-                    <div className="aspect-[16/9] w-full grid place-items-center bg-white">
+                    <div className="aspect-[16/9] w-full grid place-items-center bg_white">
                       <button
                         className="inline-flex items-center justify-center rounded-full h-14 w-14 bg-white border border-gray-300 text-gray-400 hover:text-emerald-600 hover:border-emerald-400 shadow-sm transition transform hover:scale-110"
                         onClick={() => openLibraryFor(idx)}
