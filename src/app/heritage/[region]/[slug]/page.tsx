@@ -13,7 +13,7 @@ type HeritagePageProps = {
 
 /** Build a Supabase server client bound to request cookies. */
 async function getSupabaseServerClient() {
-  const cookieStore = await cookies(); // <- note the await here
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +28,17 @@ async function getSupabaseServerClient() {
     }
   );
 }
+
+/** Shape of the cover expected by the client component (structurally). */
+type HeroCoverForClient = {
+  url: string;
+  width?: number | null;
+  height?: number | null;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
+  caption?: string | null;
+  credit?: string | null;
+};
 
 export default async function Page({ params }: HeritagePageProps) {
   // Await the async params object
@@ -139,20 +150,28 @@ export default async function Page({ params }: HeritagePageProps) {
       ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/site-images/${path}`
       : null;
 
+  let coverForClient: HeroCoverForClient | undefined;
+
+  if (coverRow) {
+    const url = publicUrl(coverRow.storage_path);
+    if (url) {
+      coverForClient = {
+        url,
+        width: coverRow.width ?? null,
+        height: coverRow.height ?? null,
+        blurhash: coverRow.blur_hash ?? null,
+        blurDataURL: coverRow.blur_data_url ?? null,
+        caption: coverRow.caption ?? null,
+        credit: coverRow.credit ?? null,
+      };
+    }
+  }
+
   const siteDataForClient = {
     ...site,
     province_slug: provinceSlug,
-    cover: coverRow
-      ? {
-          url: publicUrl(coverRow.storage_path),
-          width: coverRow.width,
-          height: coverRow.height,
-          blurhash: coverRow.blur_hash ?? null,
-          blurDataURL: coverRow.blur_data_url ?? null,
-          caption: coverRow.caption ?? null,
-          credit: coverRow.credit ?? null,
-        }
-      : null,
+    // cover is either a proper HeroCover object or undefined
+    cover: coverForClient,
   };
 
   /* ----------------------------------------------------------------
