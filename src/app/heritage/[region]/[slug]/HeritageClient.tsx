@@ -35,20 +35,22 @@ import HeritageSection from "./heritage/HeritageSection";
 
 /* ---------------- Types for site from server ---------------- */
 
-type HeroCover = {
-  url: string | null;
-  width?: number | null;
-  height?: number | null;
-  blurhash?: string | null;
-  blurDataURL?: string | null;
-  caption?: string | null;
-  credit?: string | null;
-} | null;
+type HeroCover =
+  | {
+      url: string; // must be string (non-null) to match Site.cover
+      width?: number | null;
+      height?: number | null;
+      blurhash?: string | null;
+      blurDataURL?: string | null;
+      caption?: string | null;
+      credit?: string | null;
+    }
+  | null;
 
 type HeritageClientSite = {
   id: string;
   slug: string;
-  // Make province_slug required to match HeritageCover's prop type
+  // Keep this required so it matches Site type used by HeritageCover/Sidebar
   province_slug: string;
   title: string;
   tagline?: string | null;
@@ -99,27 +101,45 @@ export default function HeritagePage({
     const base = (fetchedSite as any) ?? initialSite;
 
     // Covers: merge SSR + hydrated, both sourced from site_covers.
-    const serverCover = initialSite?.cover || null;
-    const clientCover = (fetchedSite as any)?.cover || null;
+    const serverCover = (initialSite?.cover || null) as any;
+    const clientCover = ((fetchedSite as any)?.cover || null) as any;
 
-    const mergedCover: HeroCover =
-      serverCover || clientCover
-        ? {
-            // Start with SSR, then hydrate with client-fetched values
-            ...(serverCover || {}),
-            ...(clientCover || {}),
-            // Prefer client blurhash if present
-            blurhash:
-              (clientCover as any)?.blurhash ??
-              (serverCover as any)?.blurhash ??
-              null,
-            // Prefer SSR blurDataURL for first paint, then client
-            blurDataURL:
-              (serverCover as any)?.blurDataURL ??
-              (clientCover as any)?.blurDataURL ??
-              null,
-          }
-        : null;
+    let mergedCover: HeroCover = null;
+
+    if (serverCover || clientCover) {
+      const url: string | null =
+        clientCover?.url ?? serverCover?.url ?? null;
+
+      // Only create a cover object if we actually have a non-null URL
+      if (url) {
+        mergedCover = {
+          url,
+          // Prefer client dimensions if present, otherwise server
+          width: clientCover?.width ?? serverCover?.width ?? null,
+          height: clientCover?.height ?? serverCover?.height ?? null,
+          // Prefer client blurhash if present
+          blurhash:
+            clientCover?.blurhash ??
+            serverCover?.blurhash ??
+            null,
+          // Prefer SSR blurDataURL for first paint, then client
+          blurDataURL:
+            serverCover?.blurDataURL ??
+            clientCover?.blurDataURL ??
+            null,
+          caption:
+            clientCover?.caption ??
+            serverCover?.caption ??
+            null,
+          credit:
+            clientCover?.credit ??
+            serverCover?.credit ??
+            null,
+        };
+      } else {
+        mergedCover = null;
+      }
+    }
 
     return {
       ...base,
