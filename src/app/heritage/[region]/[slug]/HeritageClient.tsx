@@ -520,9 +520,9 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         site_id: siteId,
         site_slug: siteSlug,
         site_title: siteTitle,
-        // Coerce to a plain string so it matches the saveResearchNote type
+        // Coerce nullable refs to plain strings
         section_id: lastSectionIdRef.current || "",
-        section_title: lastSectionTitleRef.current,
+        section_title: lastSectionTitleRef.current || "",
         quote_text: quote,
         context_before: before,
         context_after: after,
