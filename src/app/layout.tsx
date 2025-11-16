@@ -2,14 +2,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import "@/modules/flow-layout/flow-layout.css"; // ← add this
+import "@/modules/flow-layout/flow-layout.css";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import FontLoader from "@/components/FontLoader";
 import { IconProvider } from "@/components/Icon";
 import { BookmarkProvider } from "@/components/BookmarkProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
-import { ProfileProvider } from "@/components/ProfileProvider"; // ✅ NEW: Profile context provider
+import { ProfileProvider } from "@/components/ProfileProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,12 +39,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f4f4f4]`}
       >
         <IconProvider>
-          {/* ✅ Wrap with ProfileProvider to make profile data globally available */}
           <ProfileProvider>
             <BookmarkProvider>
               <WishlistProvider>
                 <CollectionsProvider>
                   <Header />
+                  {/* Persistent bottom nav on tablet & below */}
+                  <BottomNav />
                   <main>{children}</main>
                 </CollectionsProvider>
               </WishlistProvider>
