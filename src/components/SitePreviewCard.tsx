@@ -196,7 +196,7 @@ export default function SitePreviewCard({
   };
 
   return (
-    <div className="w-full max-w-sm rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <div className="w-full rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
         <button
           onClick={onClose}
