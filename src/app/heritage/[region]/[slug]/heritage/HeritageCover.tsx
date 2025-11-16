@@ -155,10 +155,7 @@ export default function HeritageCover({
         aria-label="Hero"
         className="block md:hidden bg-white"
         style={{
-          // Pull mobile hero up under the global header,
-          // while keeping layout below in the right place.
           marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
-          paddingTop: `var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))`,
         }}
       >
         {/* Image on top, natural aspect ratio (no fullscreen crop) */}

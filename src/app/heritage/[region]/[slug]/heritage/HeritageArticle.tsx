@@ -597,6 +597,26 @@ export default function HeritageArticle({
           }
         }
 
+        /* Images: on standard phones and below, remove floats and make full width */
+        @media (max-width: 640px) {
+          .reading-article figure,
+          .reading-article .flx-img {
+            float: none !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .reading-article figure img,
+          .reading-article .flx-img img {
+            float: none !important;
+            display: block;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto;
+          }
+        }
+
         /* Keep a light layout hook only; no typography overrides */
         .reading-article .sec-quotation {
           display: grid;
