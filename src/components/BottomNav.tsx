@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
 
-const ACTIVE_COLOR = "#ff2b85"; // pink like the screenshot
+const ACTIVE_COLOR = "#ff752bff"; // pink like the screenshot
 const INACTIVE_COLOR = "#8f8f95"; // soft grey
 
 function NavItem({
@@ -31,7 +31,7 @@ function NavItem({
     >
       <Icon
         name={icon}
-        size={22}
+        size={40}
         style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
       />
       <span
