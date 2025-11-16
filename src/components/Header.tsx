@@ -16,7 +16,8 @@ const PANEL_ANIM_MS = 420;
 const HEADER_BG = "#f5f7f7";
 const SEARCH_BG = "#f5f5f5";
 const SEARCH_BORDER = "#e0e0e0";
-const BRAND_GREEN = "#004f32";
+const BRAND_GREEN = "#004f32"; // deep green for icons / search text
+const BRAND_LOGO_GREEN = "#00b5a5"; // bright logo/text green from your screenshot
 
 /* ---------- Types ---------- */
 type Site = {
@@ -428,7 +429,7 @@ export default function Header() {
     };
 
     const name = user.user_metadata?.full_name || "User";
-    const initial = name.charAt(0).toUpperCase();
+       const initial = name.charAt(0).toUpperCase();
 
     const menuItems = [
       { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
@@ -606,7 +607,7 @@ export default function Header() {
             aria-label="Open menu"
             onClick={() => setMobileMenuOpen(true)}
           >
-            <Icon name="navigator" size={20} className="text-[#004f32]" />
+            <Icon name="navigator" size={20} className="text-[${BRAND_GREEN}]" />
           </button>
 
           {/* Logo / mascot: icon on mobile, text appears from md+ */}
@@ -614,10 +615,14 @@ export default function Header() {
             href="/"
             className="flex items-center gap-2 whitespace-nowrap tracking-wide"
           >
-            <Icon name="logo" size={26} className="text-[#004f32]" />
+            <Icon
+              name="logo"
+              size={26}
+              className="text-[#00b5a5]"
+            />
             <span
               className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
-              style={{ color: BRAND_GREEN }}
+              style={{ color: BRAND_LOGO_GREEN }}
             >
               HERITAGE OF PAKISTAN
             </span>
@@ -639,7 +644,7 @@ export default function Header() {
                 setOpenSuggest(true);
               }}
             >
-              <Icon name="search" size={18} className="text-[#004f32]" />
+              <Icon name="search" size={18} className="text-[${BRAND_GREEN}]" />
               <input
                 value={q}
                 onChange={(e) => {
@@ -662,7 +667,7 @@ export default function Header() {
               {isSearching && (
                 <Icon
                   name="spinner"
-                  className="animate-spin text-[#004f32]/70"
+                  className="animate-spin text-[${BRAND_GREEN}]/70"
                   size={16}
                 />
               )}
@@ -1006,7 +1011,7 @@ export default function Header() {
                 aria-label="Open menu"
                 onClick={() => setMobileMenuOpen(true)}
               >
-                <Icon name="navigator" size={20} className="text-[#004f32]" />
+                <Icon name="navigator" size={20} className="text-[${BRAND_GREEN}]" />
               </button>
 
               {/* Logo */}
@@ -1015,10 +1020,14 @@ export default function Header() {
                 className="flex items-center gap-2 whitespace-nowrap tracking-wide"
                 onClick={() => setSearchOverlayOpen(false)}
               >
-                <Icon name="logo" size={26} className="text-[#004f32]" />
+                <Icon
+                  name="logo"
+                  size={26}
+                  className="text-[#00b5a5]"
+                />
                 <span
                   className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
-                  style={{ color: BRAND_GREEN }}
+                  style={{ color: BRAND_LOGO_GREEN }}
                 >
                   HERITAGE OF PAKISTAN
                 </span>
@@ -1036,7 +1045,7 @@ export default function Header() {
                   <Icon
                     name="search"
                     size={18}
-                    className="text-[#004f32]"
+                    className="text-[${BRAND_GREEN}]"
                   />
                   <input
                     autoFocus
@@ -1060,7 +1069,7 @@ export default function Header() {
                   {isSearching && (
                     <Icon
                       name="spinner"
-                      className="animate-spin text-[#004f32]/70"
+                      className="animate-spin text-[${BRAND_GREEN}]/70"
                       size={16}
                     />
                   )}
