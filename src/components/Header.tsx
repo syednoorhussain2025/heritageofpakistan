@@ -197,6 +197,11 @@ export default function Header() {
   const [openSuggest, setOpenSuggest] = useState(false);
   const suggestRef = useRef<HTMLDivElement | null>(null);
 
+  // Visual booleans for transparent header + search
+  const isTransparentHeader =
+    allowTransparent && !solid && !searchOverlayOpen;
+  const isSearchActive = searchOverlayOpen || isSearchFocused;
+
   // Live Supabase query – same pattern as LocationRadiusFilter.
   useEffect(() => {
     let active = true;
@@ -269,16 +274,27 @@ export default function Header() {
     setIsSearchFocused(false);
   });
 
-  // Lock body scroll when full-screen search is open
+  // Lock body scroll when overlay or mobile menu is open, without layout shift
   useEffect(() => {
-    if (searchOverlayOpen) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
+    const shouldLock = searchOverlayOpen || mobileMenuOpen;
+    if (!shouldLock) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+
+    const scrollBarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
     }
-  }, [searchOverlayOpen]);
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [searchOverlayOpen, mobileMenuOpen]);
 
   /* ------------------------------ Auth ------------------------------ */
   useEffect(() => {
@@ -420,7 +436,7 @@ export default function Header() {
 
   const panelActive = megaOpen && !!activeSub && activeSubItems.length > 0;
 
-  const textLight = solid || panelActive;
+  const textLight = solid || panelActive || searchOverlayOpen;
 
   const megaTextClass = `transition-colors duration-200 [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
     textLight ? "[color:var(--brand-grey)]" : "text-white"
@@ -596,6 +612,11 @@ export default function Header() {
 
   /* ------------------------------------------------------------------------ */
 
+  const searchInputTextClasses =
+    isTransparentHeader && !isSearchActive
+      ? "text-white placeholder-white/70"
+      : "text-[#004f32] placeholder-gray-500";
+
   return (
     <>
       <style jsx global>{`
@@ -639,6 +660,19 @@ export default function Header() {
         .animate-slideInLeft {
           animation: slideInLeft 0.3s ease-out forwards;
         }
+        @keyframes searchOverlayIn {
+          from {
+            opacity: 0;
+            transform: translateY(-12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .search-overlay-enter {
+          animation: searchOverlayIn 0.28s ease-out forwards;
+        }
       `}</style>
 
       {/* HEADER */}
@@ -650,7 +684,8 @@ export default function Header() {
             : "!bg-transparent !shadow-none !backdrop-blur-0"
         }`}
         style={{
-          backgroundColor: solid || searchOverlayOpen ? "#ffffff" : "transparent",
+          backgroundColor:
+            solid || searchOverlayOpen ? "#ffffff" : "transparent",
         }}
       >
         {/* Gradient only when transparent and no panel */}
@@ -672,7 +707,11 @@ export default function Header() {
             aria-label="Open menu"
             onClick={() => setMobileMenuOpen(true)}
           >
-            <Icon name="navigator" size={20} className="text-[${BRAND_GREEN}]" />
+            <Icon
+              name="navigator"
+              size={20}
+              style={{ color: isTransparentHeader ? "#ffffff" : BRAND_GREEN }}
+            />
           </button>
 
           {/* Logo / text */}
@@ -680,7 +719,7 @@ export default function Header() {
             href="/"
             className="flex items-center gap-2 whitespace-nowrap tracking-wide"
           >
-            <Icon name="logo" size={26} className="text-[#00b5a5]" />
+            <Icon name="logo" size={26} style={{ color: BRAND_LOGO_GREEN }} />
             <span
               className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
               style={{ color: BRAND_LOGO_GREEN }}
@@ -694,8 +733,18 @@ export default function Header() {
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out cursor-text"
               style={{
-                backgroundColor: SEARCH_BG,
-                border: `1px solid ${SEARCH_BORDER}`,
+                backgroundColor: isSearchActive
+                  ? SEARCH_BG
+                  : isTransparentHeader
+                  ? "rgba(0,0,0,0.20)"
+                  : SEARCH_BG,
+                border: `1px solid ${
+                  isSearchActive
+                    ? SEARCH_BORDER
+                    : isTransparentHeader
+                    ? "rgba(255,255,255,0.65)"
+                    : SEARCH_BORDER
+                }`,
               }}
               onMouseEnter={() => setIsSearchHovered(true)}
               onMouseLeave={() => setIsSearchHovered(false)}
@@ -705,7 +754,16 @@ export default function Header() {
                 setOpenSuggest(true);
               }}
             >
-              <Icon name="search" size={18} className="text-[${BRAND_GREEN}]" />
+              <Icon
+                name="search"
+                size={18}
+                style={{
+                  color:
+                    isTransparentHeader && !isSearchActive
+                      ? "#ffffff"
+                      : BRAND_GREEN,
+                }}
+              />
               <input
                 value={q}
                 onChange={(e) => {
@@ -719,17 +777,25 @@ export default function Header() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
                 placeholder="Search heritage sites"
-                className="w-full bg-transparent outline-none text-sm"
+                className={`w-full bg-transparent outline-none text-sm ${searchInputTextClasses}`}
                 style={{
-                  color: BRAND_GREEN,
-                  caretColor: BRAND_GREEN,
+                  caretColor:
+                    isTransparentHeader && !isSearchActive
+                      ? "#ffffff"
+                      : BRAND_GREEN,
                 }}
               />
               {searchLoading && (
                 <Icon
                   name="spinner"
-                  className="animate-spin text-[${BRAND_GREEN}]/70"
+                  className="animate-spin"
                   size={16}
+                  style={{
+                    color:
+                      isTransparentHeader && !isSearchActive
+                        ? "rgba(255,255,255,0.8)"
+                        : `${BRAND_GREEN}`,
+                  }}
                 />
               )}
             </div>
@@ -802,12 +868,16 @@ export default function Header() {
                                 decoding="async"
                                 onError={(e) => {
                                   const t = e.currentTarget as HTMLImageElement;
-                                  if (absoluteFallback && t.src !== absoluteFallback) {
+                                  if (
+                                    absoluteFallback &&
+                                    t.src !== absoluteFallback
+                                  ) {
                                     t.src = absoluteFallback;
                                     return;
                                   }
                                   t.style.display = "none";
-                                  const ph = t.nextElementSibling as HTMLElement | null;
+                                  const ph =
+                                    t.nextElementSibling as HTMLElement | null;
                                   if (ph) ph.style.display = "flex";
                                 }}
                               />
@@ -984,24 +1054,105 @@ export default function Header() {
         </div>
       </header>
 
-      {/* MOBILE SIDE MENU omitted for brevity – keep your existing implementation */}
+      {/* MOBILE SIDE MENU */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 lg:hidden">
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[80%] bg-white shadow-xl animate-slideInLeft flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Icon
+                  name="logo"
+                  size={24}
+                  style={{ color: BRAND_LOGO_GREEN }}
+                />
+                <span className="text-sm font-semibold text-gray-800">
+                  Heritage of Pakistan
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-full hover:bg-gray-100"
+                aria-label="Close menu"
+              >
+                <Icon name="times" size={18} className="text-gray-600" />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto py-2 text-sm">
+              <Link
+                href="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+              >
+                <Icon name="home" size={16} className={iconStyles} />
+                <span className="[font-family:var(--font-headermenu)] text-gray-800">
+                  Home
+                </span>
+              </Link>
+
+              <Link
+                href="/explore"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+              >
+                <Icon name="search" size={16} className={iconStyles} />
+                <span className="[font-family:var(--font-headermenu)] text-gray-800">
+                  Explore
+                </span>
+              </Link>
+
+              <Link
+                href="/map"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+              >
+                <Icon name="map" size={16} className={iconStyles} />
+                <span className="[font-family:var(--font-headermenu)] text-gray-800">
+                  Map
+                </span>
+              </Link>
+
+              <button
+                onClick={() => {
+                  if (user?.user_metadata?.username) {
+                    router.push(`/${user.user_metadata.username}/mytrips`);
+                  } else if (user?.email) {
+                    const safeSlug = user.email.split("@")[0];
+                    router.push(`/${safeSlug}/mytrips`);
+                  } else {
+                    router.push("/auth/sign-in");
+                  }
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full text-left flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+              >
+                <Icon name="route" size={16} className={iconStyles} />
+                <span className="[font-family:var(--font-headermenu)] text-gray-800">
+                  Trip Builder
+                </span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
 
       {/* FULL-SCREEN SEARCH OVERLAY */}
       {searchOverlayOpen && (
-        <div className="fixed inset-0 z-[60] bg-white flex flex-col">
+        <div className="fixed inset-0 z-[60] bg-white flex flex-col search-overlay-enter">
           {/* Top bar – white header with same layout */}
           <div className="w-full border-b border-gray-200 bg-white">
             <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
               <button
                 type="button"
-                className="p-2 -ml-1 flex items-center justify-center"
+                className="p-2 -ml-1 flex items-center justify-center lg:hidden"
                 aria-label="Open menu"
                 onClick={() => setMobileMenuOpen(true)}
               >
                 <Icon
                   name="navigator"
                   size={20}
-                  className="text-[${BRAND_GREEN}]"
+                  style={{ color: BRAND_GREEN }}
                 />
               </button>
 
@@ -1010,7 +1161,11 @@ export default function Header() {
                 className="flex items-center gap-2 whitespace-nowrap tracking-wide"
                 onClick={() => setSearchOverlayOpen(false)}
               >
-                <Icon name="logo" size={26} className="text-[#00b5a5]" />
+                <Icon
+                  name="logo"
+                  size={26}
+                  style={{ color: BRAND_LOGO_GREEN }}
+                />
                 <span
                   className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
                   style={{ color: BRAND_LOGO_GREEN }}
@@ -1030,7 +1185,7 @@ export default function Header() {
                   <Icon
                     name="search"
                     size={18}
-                    className="text-[${BRAND_GREEN}]"
+                    style={{ color: BRAND_GREEN }}
                   />
                   <input
                     autoFocus
@@ -1045,17 +1200,15 @@ export default function Header() {
                     }}
                     onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
                     placeholder="Search heritage sites"
-                    className="w-full bg-transparent outline-none text-sm"
-                    style={{
-                      color: BRAND_GREEN,
-                      caretColor: BRAND_GREEN,
-                    }}
+                    className="w-full bg-transparent outline-none text-sm text-[#004f32] placeholder-gray-500"
+                    style={{ caretColor: BRAND_GREEN }}
                   />
                   {searchLoading && (
                     <Icon
                       name="spinner"
-                      className="animate-spin text-[${BRAND_GREEN}]/70"
+                      className="animate-spin"
                       size={16}
+                      style={{ color: BRAND_GREEN }}
                     />
                   )}
                 </div>
@@ -1144,12 +1297,16 @@ export default function Header() {
                               decoding="async"
                               onError={(e) => {
                                 const t = e.currentTarget as HTMLImageElement;
-                                if (absoluteFallback && t.src !== absoluteFallback) {
+                                if (
+                                  absoluteFallback &&
+                                  t.src !== absoluteFallback
+                                ) {
                                   t.src = absoluteFallback;
                                   return;
                                 }
                                 t.style.display = "none";
-                                const ph = t.nextElementSibling as HTMLElement | null;
+                                const ph =
+                                  t.nextElementSibling as HTMLElement | null;
                                 if (ph) ph.style.display = "flex";
                               }}
                             />
@@ -1182,7 +1339,7 @@ export default function Header() {
         </div>
       )}
 
-      {/* FULL-WIDTH PANEL (mega menu) – unchanged from your previous version */}
+      {/* FULL-WIDTH PANEL (mega menu) */}
       {activeSub && activeSubItems.length > 0 && (
         <div
           ref={megaRef}
