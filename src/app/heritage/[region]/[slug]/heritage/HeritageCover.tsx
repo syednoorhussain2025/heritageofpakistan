@@ -135,6 +135,8 @@ export default function HeritageCover({
   }, []);
 
   const filled = Math.max(0, Math.min(5, Math.round(site.avg_rating ?? 0)));
+  const hasRatingInfo =
+    site.avg_rating != null || site.review_count != null;
 
   const getHeritageIcon = (type?: string | null) => {
     const t = type?.toLowerCase() ?? "";
@@ -147,218 +149,333 @@ export default function HeritageCover({
   };
 
   return (
-    <section
-      ref={heroRef}
-      aria-label="Hero"
-      style={{
-        marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
-        height: `calc(94svh + (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
-      }}
-      className="relative w-full overflow-hidden"
-    >
-      {/* IMAGE + PLACEHOLDERS */}
-      <div className="absolute inset-0">
+    <>
+      {/* ---------- MOBILE HERO (phones) ---------- */}
+      <section
+        aria-label="Hero"
+        className="block md:hidden bg-white"
+        style={{
+          marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
+        }}
+      >
+        {/* Image on top, natural aspect ratio (no fullscreen crop) */}
         {heroUrl ? (
-          <>
-            {!hasBlurDataURL &&
-              hasBlurhashFallback &&
-              activeWidth &&
-              activeHeight && (
-                <BlurhashImage
-                  hash={activeBlurhash!}
-                  width={activeWidth}
-                  height={activeHeight}
-                />
-              )}
-
+          <div className="w-full bg-black">
             <Image
               src={heroUrl}
               alt={site.title}
-              fill
+              width={activeWidth ?? 1600}
+              height={activeHeight ?? 900}
               priority
               quality={90}
               placeholder={hasBlurDataURL ? "blur" : "empty"}
               blurDataURL={activeBlurDataURL}
-              className={[
-                "object-cover object-top transition-opacity duration-700",
-                shouldFade
-                  ? imgLoaded
-                    ? "opacity-100"
-                    : "opacity-0"
-                  : "opacity-100",
-              ].join(" ")}
+              className="w-full h-auto object-cover"
               draggable={false}
-              onLoad={() => shouldFade && setImgLoaded(true)}
             />
-          </>
+          </div>
         ) : (
-          <div className="w-full h-full bg-gray-200" />
+          <div className="w-full h-56 bg-gray-200" />
         )}
-      </div>
 
-      {/* 1) DARK READABILITY GRADIENT */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
-        }}
-      />
+        {/* Info block below image */}
+        <div className="px-4 pt-4 pb-5 space-y-3">
+          <h1 className="font-hero-title text-3xl leading-tight text-black">
+            {site.title}
+          </h1>
 
-      {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK (no hard edges) */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
-        style={{
-          backdropFilter: "blur(2px)",
-          WebkitBackdropFilter: "blur(2px)",
-          WebkitMaskImage:
-            "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
-          maskImage:
-            "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
-        }}
-      />
-
-      {/* OVERLAY CONTENT */}
-      <div
-        ref={overlayRef}
-        className={`absolute inset-0 flex items-end hero-overlay ${
-          mounted ? "blocks-in" : ""
-        }`}
-      >
-        {/* RATING / REVIEWS – TOP RIGHT */}
-        {(site.avg_rating != null || site.review_count != null) && (
-          <div
-            className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
-            style={{
-              top: `calc(var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px)) + 12px)`,
-              right: "min(24px, 4vw)",
-            }}
-          >
-            <div className="flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={
-                    i < filled
-                      ? "rating-star--filled text-[22px] md:text-[24px]"
-                      : "text-white/60 text-[22px] md:text-[24px]"
-                  }
-                >
-                  ★
-                </span>
-              ))}
+          {hasRatingInfo && (
+            <div className="flex items-center gap-2 text-[15px] text-slate-800">
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={
+                      i < filled
+                        ? "rating-star--filled text-[18px]"
+                        : "text-slate-300 text-[18px]"
+                    }
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+              <span className="font-medium">
+                {site.avg_rating?.toFixed(1)} • {site.review_count} reviews
+              </span>
             </div>
-            <span className="text-sm md:text-base font-medium">
-              {site.avg_rating?.toFixed(1)} • {site.review_count} reviews
-            </span>
-          </div>
-        )}
+          )}
 
-        <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
-          {/* LEFT */}
-          <div className="text-white hero-left">
-            <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
-              {site.title}
-            </h1>
+          {site.tagline && (
+            <p className="text-[15px] leading-relaxed text-slate-700">
+              {site.tagline}
+            </p>
+          )}
 
-            {site.tagline && (
-              <p className="mt-4 max-w-2xl font-hero-tagline">
-                {site.tagline}
-              </p>
-            )}
-          </div>
+          {site.heritage_type && (
+            <div className="pt-1">
+              <div className="uppercase text-slate-500 text-[11px]">
+                Heritage Type
+              </div>
+              <div className="flex items-center gap-1.5 font-semibold text-[15px] text-slate-900">
+                <Icon
+                  name={getHeritageIcon(site.heritage_type)}
+                  className="text-slate-500"
+                  size={16}
+                />
+                <span>{site.heritage_type}</span>
+              </div>
+            </div>
+          )}
 
-          {/* RIGHT */}
-         <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
+          {site.location_free && (
+            <div className="pt-1">
+              <div className="uppercase text-slate-500 text-[11px]">
+                Location
+              </div>
+              <div className="flex items-center gap-1.5 font-semibold text-[15px] text-slate-900">
+                <Icon
+                  name="map-marker-alt"
+                  className="text-slate-500"
+                  size={16}
+                />
+                <span>{site.location_free}</span>
+              </div>
+            </div>
+          )}
 
-            {hasPhotoStory && (
+          {hasPhotoStory && (
+            <div className="pt-3">
               <a
                 href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-lg"
+                className="inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-md"
                 style={{ background: "var(--brand-orange, #F78300)" }}
               >
                 <Icon name="play" className="text-white text-lg" />
                 <span>Photo Story</span>
               </a>
-            )}
+            </div>
+          )}
+        </div>
+      </section>
 
-            {site.heritage_type && (
-              <div>
-                <div className="uppercase text-white/80 text-xs">
-                  Heritage Type
-                </div>
-                <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                  <Icon
-                    name={getHeritageIcon(site.heritage_type)}
-                    className="text-white/60"
+      {/* ---------- DESKTOP/TABLET HERO (existing design) ---------- */}
+      <section
+        ref={heroRef}
+        aria-label="Hero"
+        style={{
+          marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
+          height: `calc(94svh + (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
+        }}
+        className="relative w-full overflow-hidden hidden md:block"
+      >
+        {/* IMAGE + PLACEHOLDERS */}
+        <div className="absolute inset-0">
+          {heroUrl ? (
+            <>
+              {!hasBlurDataURL &&
+                hasBlurhashFallback &&
+                activeWidth &&
+                activeHeight && (
+                  <BlurhashImage
+                    hash={activeBlurhash!}
+                    width={activeWidth}
+                    height={activeHeight}
                   />
-                  <span>{site.heritage_type}</span>
-                </div>
-              </div>
-            )}
+                )}
 
-            {site.location_free && (
-              <div>
-                <div className="uppercase text-white/80 text-xs">Location</div>
-                <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                  <Icon name="map-marker-alt" className="text-white/60" />
-                  <span>{site.location_free}</span>
-                </div>
+              <Image
+                src={heroUrl}
+                alt={site.title}
+                fill
+                priority
+                quality={90}
+                placeholder={hasBlurDataURL ? "blur" : "empty"}
+                blurDataURL={activeBlurDataURL}
+                className={[
+                  "object-cover object-top transition-opacity duration-700",
+                  shouldFade
+                    ? imgLoaded
+                      ? "opacity-100"
+                      : "opacity-0"
+                    : "opacity-100",
+                ].join(" ")}
+                draggable={false}
+                onLoad={() => shouldFade && setImgLoaded(true)}
+              />
+            </>
+          ) : (
+            <div className="w-full h-full bg-gray-200" />
+          )}
+        </div>
+
+        {/* 1) DARK READABILITY GRADIENT */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
+          }}
+        />
+
+        {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK (no hard edges) */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
+          style={{
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+            WebkitMaskImage:
+              "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
+            maskImage:
+              "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
+          }}
+        />
+
+        {/* OVERLAY CONTENT */}
+        <div
+          ref={overlayRef}
+          className={`absolute inset-0 flex items-end hero-overlay ${
+            mounted ? "blocks-in" : ""
+          }`}
+        >
+          {/* RATING / REVIEWS – TOP RIGHT */}
+          {hasRatingInfo && (
+            <div
+              className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
+              style={{
+                top: `calc(var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px)) + 12px)`,
+                right: "min(24px, 4vw)",
+              }}
+            >
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={
+                      i < filled
+                        ? "rating-star--filled text-[22px] md:text-[24px]"
+                        : "text-white/60 text-[22px] md:text-[24px]"
+                    }
+                  >
+                    ★
+                  </span>
+                ))}
               </div>
-            )}
+              <span className="text-sm md:text-base font-medium">
+                {site.avg_rating?.toFixed(1)} • {site.review_count} reviews
+              </span>
+            </div>
+          )}
+
+          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+            {/* LEFT */}
+            <div className="text-white hero-left">
+              <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
+                {site.title}
+              </h1>
+
+              {site.tagline && (
+                <p className="mt-4 max-w-2xl font-hero-tagline">
+                  {site.tagline}
+                </p>
+              )}
+            </div>
+
+            {/* RIGHT */}
+            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
+              {hasPhotoStory && (
+                <a
+                  href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-lg"
+                  style={{ background: "var(--brand-orange, #F78300)" }}
+                >
+                  <Icon name="play" className="text-white text-lg" />
+                  <span>Photo Story</span>
+                </a>
+              )}
+
+              {site.heritage_type && (
+                <div>
+                  <div className="uppercase text-white/80 text-xs">
+                    Heritage Type
+                  </div>
+                  <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                    <Icon
+                      name={getHeritageIcon(site.heritage_type)}
+                      className="text-white/60"
+                    />
+                    <span>{site.heritage_type}</span>
+                  </div>
+                </div>
+              )}
+
+              {site.location_free && (
+                <div>
+                  <div className="uppercase text-white/80 text-xs">
+                    Location
+                  </div>
+                  <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                    <Icon name="map-marker-alt" className="text-white/60" />
+                    <span>{site.location_free}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* STYLES */}
-      <style jsx>{`
-        @media (prefers-reduced-motion: reduce) {
-          .hero-overlay,
+        {/* STYLES */}
+        <style jsx>{`
+          @media (prefers-reduced-motion: reduce) {
+            .hero-overlay,
+            .hero-left,
+            .hero-right {
+              animation: none !important;
+              transition: none !important;
+              transform: none !important;
+            }
+          }
+
+          .hero-overlay {
+            --exit: 0;
+            opacity: calc(1 - var(--exit));
+          }
+
           .hero-left,
           .hero-right {
-            animation: none !important;
-            transition: none !important;
-            transform: none !important;
+            opacity: 0;
+            will-change: transform, opacity;
           }
-        }
 
-        .hero-overlay {
-          --exit: 0;
-          opacity: calc(1 - var(--exit));
-        }
+          .hero-left {
+            --initial-tx: -32px;
+            transform: translateX(var(--initial-tx));
+            transition: opacity 600ms ease-out 150ms,
+              transform 600ms ease-out 150ms;
+          }
 
-        .hero-left,
-        .hero-right {
-          opacity: 0;
-          will-change: transform, opacity;
-        }
+          .hero-right {
+            --initial-tx: 32px;
+            transform: translateX(var(--initial-tx));
+            transition: opacity 600ms ease-out 250ms,
+              transform 600ms ease-out 250ms;
+          }
 
-        .hero-left {
-          --initial-tx: -32px;
-          transform: translateX(var(--initial-tx));
-          transition: opacity 600ms ease-out 150ms,
-            transform 600ms ease-out 150ms;
-        }
+          .hero-overlay.blocks-in .hero-left,
+          .hero-overlay.blocks-in .hero-right {
+            opacity: 1;
+            transform: translateX(0px);
+          }
 
-        .hero-right {
-          --initial-tx: 32px;
-          transform: translateX(var(--initial-tx));
-          transition: opacity 600ms ease-out 250ms,
-            transform 600ms ease-out 250ms;
-        }
-
-        .hero-overlay.blocks-in .hero-left,
-        .hero-overlay.blocks-in .hero-right {
-          opacity: 1;
-          transform: translateX(0px);
-        }
-
-        .rating-star--filled {
-          color: var(--brand-amber, #ffc107);
-        }
-      `}</style>
-    </section>
+          .rating-star--filled {
+            color: var(--brand-amber, #ffc107);
+          }
+        `}</style>
+      </section>
+    </>
   );
 }

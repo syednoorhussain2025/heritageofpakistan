@@ -205,7 +205,7 @@ export default function HeritagePage({
         )}
 
         {/* Content layout */}
-        <div className="max-w-screen-2xl mx-auto my-6 px-[54px] md:px-[82px] lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+        <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
           {/* LEFT SIDEBAR */}
           <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
             {!site || loading ? (
