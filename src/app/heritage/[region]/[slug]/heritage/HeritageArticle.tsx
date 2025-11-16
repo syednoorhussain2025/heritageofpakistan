@@ -316,9 +316,8 @@ export default function HeritageArticle({
     const host = hostRef.current;
     if (!host) return;
 
-    // Targets
-    const imgs = Array.from(host.querySelectorAll<HTMLImageElement>("img"));
-    const caps = Array.from(host.querySelectorAll<HTMLElement>("figcaption"));
+    // Treat each figure as a single reveal unit (image + caption together)
+    const figures = Array.from(host.querySelectorAll<HTMLElement>("figure"));
     const quotes = Array.from(
       host.querySelectorAll<HTMLElement>(".sec-quotation, blockquote")
     );
@@ -331,21 +330,18 @@ export default function HeritageArticle({
 
     // Tag classes for initial state
     host.classList.add("reveal-ready");
-    imgs.forEach((el) => el.classList.add("reveal-img"));
-    caps.forEach((el) => el.classList.add("reveal-cap"));
+    figures.forEach((el) => el.classList.add("reveal-img"));
     quotes.forEach((el) => el.classList.add("reveal-quote"));
     texts.forEach((el) => el.classList.add("reveal-text"));
 
-    // Apply small per-element delays for richness (without JS reflow storms)
-    // Images/quotes get a tad more delay than text.
+    // Apply small per-element delays
     const setDelay = (el: HTMLElement, baseMs: number) =>
       el.style.setProperty("--reveal-delay", `${baseMs}ms`);
-    imgs.forEach((el) => setDelay(el, 140));
-    caps.forEach((el) => setDelay(el, 160));
+    figures.forEach((el) => setDelay(el, 140));
     quotes.forEach((el) => setDelay(el, 160));
     texts.forEach((el) => setDelay(el, 90));
 
-    // Observer fires when ~20% visible; elements must enter a bit before triggering.
+    // Observer fires when ~20% visible
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -364,7 +360,7 @@ export default function HeritageArticle({
       { rootMargin: "0px 0px -12% 0px", threshold: 0.2 }
     );
 
-    [...imgs, ...caps, ...quotes, ...texts].forEach((el) => io.observe(el));
+    [...figures, ...quotes, ...texts].forEach((el) => io.observe(el));
 
     // Arm after paint to avoid initial flash
     const arm = requestAnimationFrame(() =>
@@ -375,7 +371,7 @@ export default function HeritageArticle({
       io.disconnect();
       cancelAnimationFrame(arm);
       host.classList.remove("reveal-ready", "reveal-armed");
-      const all = [...imgs, ...caps, ...quotes, ...texts];
+      const all = [...figures, ...quotes, ...texts];
       all.forEach((el) => {
         el.classList.remove(
           "reveal-img",
@@ -440,7 +436,6 @@ export default function HeritageArticle({
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              // Defer one frame so initial styles apply before toggling class
               requestAnimationFrame(() => {
                 strip.classList.add("hop-seq-in");
               });
@@ -786,24 +781,20 @@ export default function HeritageArticle({
 
         /* ========= Scroll reveal (images, captions, quotes, text) ========= */
         @media (prefers-reduced-motion: no-preference) {
+          /* Figures (image + caption together) and quotes: fade + subtle slide */
           .reading-article.reveal-ready .reveal-img,
-          .reading-article.reveal-ready .reveal-cap,
-          .reading-article.reveal-ready .reveal-quote,
-          .reading-article.reveal-ready .reveal-text {
+          .reading-article.reveal-ready .reveal-quote {
             opacity: 0;
-            transform: translateY(12px);
+            transform: translate3d(0, 10px, 0);
           }
 
-          /* Quotes and photos lift slightly more for emphasis */
-          .reading-article.reveal-ready .reveal-quote,
-          .reading-article.reveal-ready .reveal-img {
-            transform: translateY(14px);
+          /* Text blocks: fade only (no movement to avoid pixel jitter) */
+          .reading-article.reveal-ready .reveal-text {
+            opacity: 0;
           }
 
           .reading-article.reveal-armed .reveal-img,
-          .reading-article.reveal-armed .reveal-cap,
-          .reading-article.reveal-armed .reveal-quote,
-          .reading-article.reveal-armed .reveal-text {
+          .reading-article.reveal-armed .reveal-quote {
             will-change: opacity, transform;
             transition: opacity 460ms cubic-bezier(0.2, 0.7, 0.2, 1)
                 var(--reveal-delay, 60ms),
@@ -811,16 +802,22 @@ export default function HeritageArticle({
                 var(--reveal-delay, 60ms);
           }
 
+          .reading-article.reveal-armed .reveal-text {
+            will-change: opacity;
+            transition: opacity 420ms cubic-bezier(0.2, 0.7, 0.2, 1)
+              var(--reveal-delay, 60ms);
+          }
+
           .reading-article .reveal-img.in,
-          .reading-article .reveal-cap.in,
-          .reading-article .reveal-quote.in,
-          .reading-article .reveal-text.in {
+          .reading-article .reveal-quote.in {
             opacity: 1;
             transform: none;
           }
+          .reading-article .reveal-text.in {
+            opacity: 1;
+          }
 
           .reading-article .reveal-img.in-done,
-          .reading-article .reveal-cap.in-done,
           .reading-article .reveal-quote.in-done,
           .reading-article .reveal-text.in-done {
             will-change: auto;
