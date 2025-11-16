@@ -210,7 +210,7 @@ export default function SitePreviewCard({
       <Link href={detailHref} className="group block" prefetch={false}>
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-none">
+          <div className="relative aspect-[18/9] w-full overflow-hidden rounded-none">
             {/* Blur layer – always fades out once we decide we're "done" */}
             {hasBlur && (
               <Image
