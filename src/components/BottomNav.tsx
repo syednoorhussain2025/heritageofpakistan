@@ -7,8 +7,8 @@ import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]"; // pink like screenshot
-const INACTIVE_COLOR_CLASS = "text-[#8f8f95]"; // soft grey
-const ICON_SIZE = 28; // 👈 change this to make all bottom-nav icons bigger/smaller
+const INACTIVE_COLOR_CLASS = "text-[#CFCFCF]"; // soft grey
+const ICON_SIZE = 23; // 👈 change this to make all bottom-nav icons bigger/smaller
 
 function NavItem({
   label,
