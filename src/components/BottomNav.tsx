@@ -6,8 +6,9 @@ import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
 
-const ACTIVE_COLOR = "#ff752bff"; // pink like the screenshot
-const INACTIVE_COLOR = "#8f8f95"; // soft grey
+const ACTIVE_COLOR_CLASS = "text-[#ff752bff]"; // pink like screenshot
+const INACTIVE_COLOR_CLASS = "text-[#8f8f95]"; // soft grey
+const ICON_SIZE = 28; // 👈 change this to make all bottom-nav icons bigger/smaller
 
 function NavItem({
   label,
@@ -31,12 +32,13 @@ function NavItem({
     >
       <Icon
         name={icon}
-        size={40}
-        style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
+        size={ICON_SIZE}
+        className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
       />
       <span
-        className="text-[11px] font-medium"
-        style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
+        className={`text-[11px] font-medium ${
+          isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS
+        }`}
       >
         {label}
       </span>
@@ -80,10 +82,10 @@ export default function BottomNav() {
 
   return (
     <>
-      {/* Spacer to avoid content being hidden behind the bar on small screens */}
-      <div className="lg:hidden h-[64px]" />
+      {/* Spacer so content isn't hidden behind the bar on small screens */}
+      <div className="lg:hidden h-[72px]" />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-lg lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[70] border-t border-gray-200 bg-white/95 backdrop-blur-lg lg:hidden">
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
           {/* Home */}
           <NavItem
@@ -94,10 +96,10 @@ export default function BottomNav() {
             onClick={() => go("/")}
           />
 
-          {/* Heritage (all heritage content) */}
+          {/* Heritage */}
           <NavItem
             label="Heritage"
-            icon="map-marker-alt" // reuse an existing icon from your set
+            icon="map-marker-alt"
             href="/heritage"
             isActive={isHeritageActive}
             onClick={() => go("/heritage")}
@@ -121,7 +123,7 @@ export default function BottomNav() {
             onClick={() => go("/map")}
           />
 
-          {/* Dashboard (or sign in) */}
+          {/* Dashboard / Sign in */}
           <NavItem
             label="Dashboard"
             icon="dashboard"
