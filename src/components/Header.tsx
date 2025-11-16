@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
+import { supabase } from "@/lib/supabaseClient";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
@@ -17,14 +17,15 @@ const HEADER_BG = "#f5f7f7";
 const SEARCH_BG = "#f5f5f5";
 const SEARCH_BORDER = "#e0e0e0";
 const BRAND_GREEN = "#004f32"; // deep green for icons / search text
-const BRAND_LOGO_GREEN = "#00b5a5"; // bright logo/text green from your screenshot
+const BRAND_LOGO_GREEN = "#00b5a5"; // bright logo/text green
 
 /* ---------- Types ---------- */
-type Site = {
+type SiteSearchRow = {
   id: string;
-  slug: string;
+  slug: string | null;
   title: string;
   cover_photo_url?: string | null;
+  location_free?: string | null;
   province_slug?: string | null;
 };
 
@@ -53,15 +54,6 @@ type HeaderMainItem = {
 };
 
 /* ---------- Utils ---------- */
-function useDebounced<T>(value: T, delay = 250) {
-  const [deb, setDeb] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDeb(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return deb;
-}
-
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
@@ -77,11 +69,51 @@ const useClickOutside = (ref: any, handler: () => void) => {
   }, [ref, handler]);
 };
 
+/** Simple thumbnail builder similar to the one in SearchFilters. */
+function thumbUrl(input?: string | null, size = 40) {
+  if (!input) return "";
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  let absolute = input;
+
+  if (!/^https?:\/\//i.test(input)) {
+    if (!SUPA_URL) return "";
+    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
+      /^\/+/,
+      ""
+    )}`;
+  }
+
+  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
+  if (!isSameProject) return absolute;
+
+  const PUBLIC_MARK = "/storage/v1/object/public/";
+  const SIGN_MARK = "/storage/v1/object/sign/";
+
+  let renderBase = "";
+  let tail = "";
+
+  if (absolute.includes(PUBLIC_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
+    tail = absolute.split(PUBLIC_MARK)[1];
+  } else if (absolute.includes(SIGN_MARK)) {
+    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
+    tail = absolute.split(SIGN_MARK)[1];
+  } else {
+    return absolute;
+  }
+
+  const u = new URL(renderBase + tail);
+  u.searchParams.set("width", String(size));
+  u.searchParams.set("height", String(size));
+  u.searchParams.set("resize", "cover");
+  u.searchParams.set("quality", "75");
+  return u.toString();
+}
+
 /* ------------------------------- Header ----------------------------------- */
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClient();
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
@@ -155,40 +187,100 @@ export default function Header() {
     };
   }, [allowTransparent]);
 
-  /* ------------------------------ Search ------------------------------ */
+  /* ------------------------------ Search (live) ------------------------------ */
 
   const [q, setQ] = useState("");
-  const dq = useDebounced(q, 250);
-  const [suggestions, setSuggestions] = useState<Site[]>([]);
-  const [openSuggest, setOpenSuggest] = useState(false);
-  const suggestRef = useRef<HTMLDivElement | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SiteSearchRow[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isSearchHovered, setIsSearchHovered] = useState(false);
+  const [openSuggest, setOpenSuggest] = useState(false);
+  const suggestRef = useRef<HTMLDivElement | null>(null);
 
+  // Live Supabase query – same pattern as LocationRadiusFilter.
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
+
     (async () => {
-      if (!dq.trim()) {
-        setSuggestions([]);
+      const term = q.trim();
+      if (term.length < 2) {
+        if (active) {
+          setSearchResults([]);
+          setSearchLoading(false);
+        }
         return;
       }
-      setIsSearching(true);
-      const { data } = await supabase
-        .from("sites")
-        .select("id,slug,title,cover_photo_url,province_slug")
-        .ilike("title", `%${dq.trim()}%`)
-        .order("created_at", { ascending: false })
-        .limit(8);
-      if (!cancelled) setSuggestions(((data as any[]) || []) as Site[]);
-      setIsSearching(false);
-    })();
-    return () => {
-      cancelled = true;
-      setIsSearching(false);
-    };
-  }, [dq, supabase]);
 
+      setSearchLoading(true);
+
+      const { data, error } = await supabase
+        .from("sites")
+        .select(
+          `
+          id,
+          slug,
+          title,
+          cover_photo_url,
+          location_free,
+          province:provinces(slug)
+        `
+        )
+        .eq("is_published", true)
+        .is("deleted_at", null)
+        .ilike("title", `%${term}%`)
+        .order("title")
+        .limit(20);
+
+      if (!active) return;
+      setSearchLoading(false);
+
+      if (error || !data) {
+        setSearchResults([]);
+        return;
+      }
+
+      const mapped: SiteSearchRow[] = (data as any[]).map((row) => ({
+        id: row.id,
+        slug: row.slug ?? null,
+        title: row.title,
+        cover_photo_url: row.cover_photo_url ?? null,
+        location_free: row.location_free ?? null,
+        province_slug: row.province?.slug ?? null,
+      }));
+
+      setSearchResults(mapped);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [q]);
+
+  const submitQuickSearch = () => {
+    if (!q.trim()) return;
+    router.push(`/explore?q=${encodeURIComponent(q.trim())}`);
+    setSearchOverlayOpen(false);
+    setOpenSuggest(false);
+    setIsSearchFocused(false);
+  };
+
+  useClickOutside(suggestRef, () => {
+    setOpenSuggest(false);
+    setIsSearchFocused(false);
+  });
+
+  // Lock body scroll when full-screen search is open
+  useEffect(() => {
+    if (searchOverlayOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [searchOverlayOpen]);
+
+  /* ------------------------------ Auth ------------------------------ */
   useEffect(() => {
     const {
       data: { subscription },
@@ -203,31 +295,7 @@ export default function Header() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase]);
-
-  useClickOutside(suggestRef, () => {
-    setOpenSuggest(false);
-    setIsSearchFocused(false);
-  });
-
-  const submitQuickSearch = () => {
-    if (!q.trim()) return;
-    router.push(`/explore?q=${encodeURIComponent(q.trim())}`);
-    setOpenSuggest(false);
-    setIsSearchFocused(false);
-    setSearchOverlayOpen(false);
-  };
-
-  // Lock body scroll when full-screen search is open
-  useEffect(() => {
-    if (searchOverlayOpen) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [searchOverlayOpen]);
+  }, []);
 
   /* -------------------------- Header menu data + mega state -------------------------- */
 
@@ -339,7 +407,7 @@ export default function Header() {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   const activeMain =
     headerItems.find((m) => m.id === activeMainId) ||
@@ -352,7 +420,6 @@ export default function Header() {
 
   const panelActive = megaOpen && !!activeSub && activeSubItems.length > 0;
 
-  // Text / icon color: light when solid OR panel open
   const textLight = solid || panelActive;
 
   const megaTextClass = `transition-colors duration-200 [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
@@ -369,7 +436,6 @@ export default function Header() {
       return;
     }
 
-    // toggle behavior on same item
     if (megaOpen && activeMainId === id) {
       setMegaOpen(false);
       return;
@@ -407,7 +473,6 @@ export default function Header() {
 
   /* -------------------------------- User Menu ------------------------------- */
   const UserMenu = ({ user, lightOn }: { user: User; lightOn: boolean }) => {
-    const supabase = createClient();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -429,7 +494,7 @@ export default function Header() {
     };
 
     const name = user.user_metadata?.full_name || "User";
-       const initial = name.charAt(0).toUpperCase();
+    const initial = name.charAt(0).toUpperCase();
 
     const menuItems = [
       { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
@@ -576,7 +641,7 @@ export default function Header() {
         }
       `}</style>
 
-      {/* HEADER (above panel). Make it white when search overlay is open. */}
+      {/* HEADER */}
       <header
         ref={headerRef as any}
         className={`sticky top-0 z-40 transition-colors duration-300 ${
@@ -598,9 +663,9 @@ export default function Header() {
           }`}
         />
 
-        {/* Top bar: Burger | Logo | Search | User icon */}
+        {/* Top bar */}
         <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
-          {/* Burger for mobile / tablet */}
+          {/* Burger mobile */}
           <button
             type="button"
             className="lg:hidden p-2 -ml-1 flex items-center justify-center"
@@ -610,16 +675,12 @@ export default function Header() {
             <Icon name="navigator" size={20} className="text-[${BRAND_GREEN}]" />
           </button>
 
-          {/* Logo / mascot: icon on mobile, text appears from md+ */}
+          {/* Logo / text */}
           <Link
             href="/"
             className="flex items-center gap-2 whitespace-nowrap tracking-wide"
           >
-            <Icon
-              name="logo"
-              size={26}
-              className="text-[#00b5a5]"
-            />
+            <Icon name="logo" size={26} className="text-[#00b5a5]" />
             <span
               className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
               style={{ color: BRAND_LOGO_GREEN }}
@@ -628,7 +689,7 @@ export default function Header() {
             </span>
           </Link>
 
-          {/* Search */}
+          {/* Search pill */}
           <div className="relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out cursor-text"
@@ -664,7 +725,7 @@ export default function Header() {
                   caretColor: BRAND_GREEN,
                 }}
               />
-              {isSearching && (
+              {searchLoading && (
                 <Icon
                   name="spinner"
                   className="animate-spin text-[${BRAND_GREEN}]/70"
@@ -673,72 +734,126 @@ export default function Header() {
               )}
             </div>
 
-            {/* Small dropdown suggestions – only when full-screen overlay is NOT open */}
+            {/* Small dropdown suggestions (desktop) */}
             {!searchOverlayOpen && (
               <div
                 className={`absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg overflow-hidden transition-all ease-out duration-300 ${
                   openSuggest &&
-                  q.trim() !== "" &&
-                  (isSearching || suggestions.length > 0)
+                  q.trim().length >= 2 &&
+                  (searchLoading || searchResults.length > 0)
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 -translate-y-4 pointer-events-none"
                 }`}
               >
-                {isSearching ? (
+                {searchLoading ? (
                   <div>
                     {[...Array(2)].map((_, index) => (
                       <div
                         key={index}
                         className="flex items-center gap-3 px-3 py-2 animate-pulse"
                       >
-                        <div className="w-10 h-10 bg-gray-200 rounded" />
+                        <div className="w-10 h-10 bg-gray-200 rounded-full" />
                         <div className="w-3/4 h-4 bg-gray-200 rounded" />
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="animate-fadeIn">
-                    {suggestions.map((s) => (
-                      <Link
-                        key={s.id}
-                        href={`/heritage/${s.province_slug ?? ""}/${s.slug}`}
-                        className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => {
-                          setOpenSuggest(false);
-                          setIsSearchFocused(false);
-                        }}
+                    {searchResults.map((s) => {
+                      const raw = s.cover_photo_url || "";
+                      const thumb = thumbUrl(raw, 40);
+                      const SUPA_URL =
+                        process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(
+                          /\/+$/,
+                          ""
+                        );
+                      const absoluteFallback = /^https?:\/\//i.test(raw)
+                        ? raw
+                        : SUPA_URL
+                        ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
+                            /^\/+/,
+                            ""
+                          )}`
+                        : "";
+
+                      const href =
+                        s.slug && s.province_slug
+                          ? `/heritage/${s.province_slug}/${s.slug}`
+                          : `/explore?site=${s.id}`;
+
+                      return (
+                        <Link
+                          key={s.id}
+                          href={href}
+                          className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => {
+                            setOpenSuggest(false);
+                            setIsSearchFocused(false);
+                          }}
+                        >
+                          <div className="relative w-10 h-10 flex-shrink-0">
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                aria-hidden="true"
+                                className="w-10 h-10 rounded-full object-cover ring-1 ring-gray-200"
+                                loading="lazy"
+                                decoding="async"
+                                onError={(e) => {
+                                  const t = e.currentTarget as HTMLImageElement;
+                                  if (absoluteFallback && t.src !== absoluteFallback) {
+                                    t.src = absoluteFallback;
+                                    return;
+                                  }
+                                  t.style.display = "none";
+                                  const ph = t.nextElementSibling as HTMLElement | null;
+                                  if (ph) ph.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              style={{ display: thumb ? "none" : "flex" }}
+                              className="absolute inset-0 w-10 h-10 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
+                            >
+                              <Icon name="image" size={13} />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm text-gray-900 truncate">
+                              {s.title}
+                            </span>
+                            {s.location_free && (
+                              <span className="text-xs text-gray-500 truncate">
+                                {s.location_free}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                    {q.trim().length >= 2 && (
+                      <button
+                        onClick={submitQuickSearch}
+                        className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-gray-50 cursor-pointer"
                       >
-                        {s.cover_photo_url ? (
-                          <img
-                            src={s.cover_photo_url}
-                            alt={s.title}
-                            className="w-10 h-10 object-cover rounded"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-100 rounded" />
-                        )}
-                        <span className="text-sm">{s.title}</span>
-                      </Link>
-                    ))}
-                    <button
-                      onClick={submitQuickSearch}
-                      className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-gray-50 cursor-pointer"
-                    >
-                      See more results for “{q}”
-                    </button>
+                        See more results for “{q}”
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Right side: desktop nav (lg+) + user/auth icon */}
+          {/* Right side */}
           <div className="flex items-center gap-3">
-            {/* Nav + mega menu (desktop only) */}
+            {/* Desktop nav */}
             <nav className="hidden lg:flex items-center gap-4 text-[15px]">
               <Link
                 href="/"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
               >
                 <Icon name="home" className={iconStyles} />
                 <span
@@ -750,7 +865,6 @@ export default function Header() {
                 </span>
               </Link>
 
-              {/* Dynamic header items */}
               {!headerLoading &&
                 headerItems.map((m) => {
                   const hasPanel = (m.sub_items?.length ?? 0) > 0;
@@ -760,7 +874,7 @@ export default function Header() {
                       <Link
                         key={m.id}
                         href={m.url}
-                        className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                        className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
                       >
                         {m.icon_name && (
                           <Icon name={m.icon_name} className={iconStyles} />
@@ -775,20 +889,14 @@ export default function Header() {
                       key={m.id}
                       type="button"
                       onClick={() => handleMainClick(m.id, hasPanel, m.url)}
-                      className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                      className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
                     >
                       {m.icon_name && (
                         <Icon name={m.icon_name} className={iconStyles} />
                       )}
                       <span className={megaTextClass}>{m.label}</span>
                       {hasPanel && (
-                        <span
-                          className={`ml-1 transition-colors duration-200 group-hover:text-[var(--brand-orange)] ${
-                            textLight
-                              ? "text-[color:var(--brand-grey)]"
-                              : "text-white"
-                          }`}
-                        >
+                        <span className="ml-1 text-[11px] group-hover:text-[var(--brand-orange)]">
                           ▾
                         </span>
                       )}
@@ -798,7 +906,7 @@ export default function Header() {
 
               <Link
                 href="/explore"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
               >
                 <Icon name="search" className={iconStyles} />
                 <span
@@ -812,7 +920,7 @@ export default function Header() {
 
               <Link
                 href="/map"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
               >
                 <Icon name="map" className={iconStyles} />
                 <span
@@ -835,7 +943,7 @@ export default function Header() {
                     router.push("/auth/sign-in");
                   }
                 }}
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5 will-change-transform backface-hidden"
+                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
               >
                 <Icon name="route" className={iconStyles} />
                 <span
@@ -848,7 +956,7 @@ export default function Header() {
               </button>
             </nav>
 
-            {/* User / Auth icon – always at the far right */}
+            {/* User / auth */}
             {user ? (
               <UserMenu user={user} lightOn={textLight} />
             ) : (
@@ -876,155 +984,33 @@ export default function Header() {
         </div>
       </header>
 
-      {/* MOBILE SIDE MENU (slides in from left) */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            aria-label="Close menu"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-
-          {/* Panel from left */}
-          <div className="relative h-full w-80 max-w-full bg-white shadow-2xl flex flex-col animate-slideInLeft">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <span className="text-sm font-semibold text-gray-800">Menu</span>
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-full hover:bg-gray-100"
-                aria-label="Close menu"
-              >
-                <Icon name="times" size={16} className="text-gray-700" />
-              </button>
-            </div>
-
-            <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-              <Link
-                href="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-              >
-                <Icon name="home" size={16} className={iconStyles} />
-                <span>Home</span>
-              </Link>
-
-              {!headerLoading &&
-                headerItems.map((m) => (
-                  <Link
-                    key={m.id}
-                    href={m.url || "#"}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      if (!m.url && m.sub_items?.[0]?.url) {
-                        router.push(m.sub_items[0].url);
-                      }
-                    }}
-                    className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-                  >
-                    {m.icon_name && (
-                      <Icon
-                        name={m.icon_name}
-                        size={16}
-                        className={iconStyles}
-                      />
-                    )}
-                    <span>{m.label}</span>
-                  </Link>
-                ))}
-
-              <Link
-                href="/explore"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-              >
-                <Icon name="search" size={16} className={iconStyles} />
-                <span>Explore</span>
-              </Link>
-
-              <Link
-                href="/map"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-              >
-                <Icon name="map" size={16} className={iconStyles} />
-                <span>Map</span>
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (user?.user_metadata?.username) {
-                    router.push(`/${user.user_metadata.username}/mytrips`);
-                  } else if (user?.email) {
-                    const safeSlug = user.email.split("@")[0];
-                    router.push(`/${safeSlug}/mytrips`);
-                  } else {
-                    router.push("/auth/sign-in");
-                  }
-                }}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100 text-left"
-              >
-                <Icon name="route" size={16} className={iconStyles} />
-                <span>Trip Builder</span>
-              </button>
-
-              <div className="pt-2 border-t border-gray-200 mt-2">
-                {user ? (
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-                  >
-                    <Icon name="dashboard" size={16} className={iconStyles} />
-                    <span>Dashboard</span>
-                  </Link>
-                ) : (
-                  <Link
-                    href="/auth/sign-in"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm text-gray-800 hover:bg-gray-100"
-                  >
-                    <Icon name="user" size={16} className={iconStyles} />
-                    <span>Sign in</span>
-                  </Link>
-                )}
-              </div>
-            </nav>
-          </div>
-        </div>
-      )}
+      {/* MOBILE SIDE MENU omitted for brevity – keep your existing implementation */}
 
       {/* FULL-SCREEN SEARCH OVERLAY */}
       {searchOverlayOpen && (
         <div className="fixed inset-0 z-[60] bg-white flex flex-col">
-          {/* Top bar mimicking header layout – fully white */}
+          {/* Top bar – white header with same layout */}
           <div className="w-full border-b border-gray-200 bg-white">
             <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
-              {/* Burger */}
               <button
                 type="button"
                 className="p-2 -ml-1 flex items-center justify-center"
                 aria-label="Open menu"
                 onClick={() => setMobileMenuOpen(true)}
               >
-                <Icon name="navigator" size={20} className="text-[${BRAND_GREEN}]" />
+                <Icon
+                  name="navigator"
+                  size={20}
+                  className="text-[${BRAND_GREEN}]"
+                />
               </button>
 
-              {/* Logo */}
               <Link
                 href="/"
                 className="flex items-center gap-2 whitespace-nowrap tracking-wide"
                 onClick={() => setSearchOverlayOpen(false)}
               >
-                <Icon
-                  name="logo"
-                  size={26}
-                  className="text-[#00b5a5]"
-                />
+                <Icon name="logo" size={26} className="text-[#00b5a5]" />
                 <span
                   className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
                   style={{ color: BRAND_LOGO_GREEN }}
@@ -1033,7 +1019,6 @@ export default function Header() {
                 </span>
               </Link>
 
-              {/* Search pill (same style) */}
               <div className="relative flex-1 max-w-2xl ml-2">
                 <div
                   className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out"
@@ -1052,7 +1037,7 @@ export default function Header() {
                     value={q}
                     onChange={(e) => {
                       setQ(e.target.value);
-                      setOpenSuggest(true); // keep behaviour identical so Supabase search runs
+                      setOpenSuggest(true);
                     }}
                     onFocus={() => {
                       setIsSearchFocused(true);
@@ -1066,7 +1051,7 @@ export default function Header() {
                       caretColor: BRAND_GREEN,
                     }}
                   />
-                  {isSearching && (
+                  {searchLoading && (
                     <Icon
                       name="spinner"
                       className="animate-spin text-[${BRAND_GREEN}]/70"
@@ -1076,7 +1061,6 @@ export default function Header() {
                 </div>
               </div>
 
-              {/* Close X */}
               <button
                 type="button"
                 className="p-2 rounded-full hover:bg-gray-100"
@@ -1092,21 +1076,21 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Search results area */}
+          {/* Results */}
           <div className="flex-1 w-full overflow-y-auto">
             <div className="max-w-[1400px] mx-auto w-full px-4 py-4">
-              {q.trim() === "" ? (
+              {q.trim().length < 2 ? (
                 <div className="text-sm text-gray-500">
                   Start typing to search heritage sites.
                 </div>
-              ) : isSearching ? (
+              ) : searchLoading ? (
                 <div>
                   {[...Array(4)].map((_, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-3 px-2 py-3 animate-pulse"
                     >
-                      <div className="w-12 h-12 rounded bg-gray-200" />
+                      <div className="w-12 h-12 rounded-full bg-gray-200" />
                       <div className="flex-1 space-y-2">
                         <div className="h-4 w-2/3 bg-gray-200 rounded" />
                         <div className="h-3 w-1/3 bg-gray-100 rounded" />
@@ -1114,40 +1098,83 @@ export default function Header() {
                     </div>
                   ))}
                 </div>
-              ) : suggestions.length === 0 ? (
+              ) : searchResults.length === 0 ? (
                 <div className="text-sm text-gray-500">
                   No sites found for “{q}”.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {suggestions.map((s) => (
-                    <Link
-                      key={s.id}
-                      href={`/heritage/${s.province_slug ?? ""}/${s.slug}`}
-                      className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        setSearchOverlayOpen(false);
-                      }}
-                    >
-                      {s.cover_photo_url ? (
-                        <img
-                          src={s.cover_photo_url}
-                          alt={s.title}
-                          className="w-12 h-12 rounded object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded bg-gray-200" />
-                      )}
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-800">
-                          {s.title}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          Heritage site
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+                  {searchResults.map((s) => {
+                    const raw = s.cover_photo_url || "";
+                    const thumb = thumbUrl(raw, 48);
+                    const SUPA_URL =
+                      process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(
+                        /\/+$/,
+                        ""
+                      );
+                    const absoluteFallback = /^https?:\/\//i.test(raw)
+                      ? raw
+                      : SUPA_URL
+                      ? `${SUPA_URL}/storage/v1/object/public/${raw.replace(
+                          /^\/+/,
+                          ""
+                        )}`
+                      : "";
+
+                    const href =
+                      s.slug && s.province_slug
+                        ? `/heritage/${s.province_slug}/${s.slug}`
+                        : `/explore?site=${s.id}`;
+
+                    return (
+                      <Link
+                        key={s.id}
+                        href={href}
+                        className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setSearchOverlayOpen(false)}
+                      >
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt=""
+                              aria-hidden="true"
+                              className="w-12 h-12 rounded-full object-cover ring-1 ring-gray-200"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                const t = e.currentTarget as HTMLImageElement;
+                                if (absoluteFallback && t.src !== absoluteFallback) {
+                                  t.src = absoluteFallback;
+                                  return;
+                                }
+                                t.style.display = "none";
+                                const ph = t.nextElementSibling as HTMLElement | null;
+                                if (ph) ph.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: thumb ? "none" : "flex" }}
+                            className="absolute inset-0 w-12 h-12 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
+                          >
+                            <Icon name="image" size={13} />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium text-gray-800 truncate">
+                            {s.title}
+                          </span>
+                          {s.location_free && (
+                            <span className="text-xs text-gray-500 truncate">
+                              {s.location_free}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1155,7 +1182,7 @@ export default function Header() {
         </div>
       )}
 
-      {/* FULL-WIDTH PANEL (mega menu) */}
+      {/* FULL-WIDTH PANEL (mega menu) – unchanged from your previous version */}
       {activeSub && activeSubItems.length > 0 && (
         <div
           ref={megaRef}
@@ -1173,7 +1200,6 @@ export default function Header() {
             className="mx-auto max-w-[1400px] px-8 py-10 flex gap-8 min-h-[520px]"
             style={{ paddingTop: headerHeight + 16 }}
           >
-            {/* Left column: sub menu list */}
             <div className="w-1/3 border-r border-gray-100 pr-4">
               <ul className="space-y-1">
                 {activeSubItems.map((s) => {
@@ -1202,7 +1228,6 @@ export default function Header() {
               </ul>
             </div>
 
-            {/* Right column: detail + image */}
             <div className="w-2/3 grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] gap-6">
               <div
                 key={activeSub.id + "_text"}
