@@ -80,10 +80,16 @@ export default function BottomNav() {
 
   const dashboardHref = user ? "/dashboard" : "/auth/sign-in";
 
+  // 🔎 Detect a heritage *detail* page: /heritage/<province>/<slug>
+  const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
+  const isHeritageDetail = heritageDetailRe.test(pathname || "");
+
   return (
     <>
-      {/* Spacer so content isn't hidden behind the bar on small screens */}
-      <div className="lg:hidden h-[72px]" />
+      {/* Spacer so content isn't hidden behind the bar on small screens.
+          Skip it on heritage detail pages so the hero image can sit
+          directly under the header. */}
+      {!isHeritageDetail && <div className="lg:hidden h-[72px]" />}
 
       <div className="fixed inset-x-0 bottom-0 z-[70] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden">
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">

@@ -33,7 +33,7 @@ body {
 
   /* --- General Font Definitions --- */
   --font-body: "Lato-regular", sans-serif;
-  --font-heading: "FuturaCyrillicBold", sans-serif;
+  --font-heading: "Poppins", sans-serif;
   --font-headerhelvetica: "HelveticaNeueMedium", sans-serif;
 
   /* Retaining your existing Geist fonts */
@@ -76,7 +76,7 @@ body {
   /* Main Content Articles */
   --font-article-text: 1.15rem/1.6 "lato-regular" !important; /* 16px */
   --color-article-text: #3e3e3e;
-  --font-article-heading: 600 1rem var(--font-heading);
+  --font-article-heading: 600 1rem "var(--font-heading)";
   --color-article-heading: var(--color-text);
 
   /* Captions */
