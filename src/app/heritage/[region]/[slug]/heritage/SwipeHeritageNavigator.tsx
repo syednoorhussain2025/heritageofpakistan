@@ -56,11 +56,32 @@ export default function SwipeHeritageNavigator({
 
   /**
    * Gesture only counts if the swipe starts INSIDE the hero area.
+   * We accept `any` here because `react-swipeable` passes React synthetic events,
+   * not DOM `TouchEvent | MouseEvent`.
    */
-  const gestureAllowed = (evt: TouchEvent | MouseEvent | undefined) => {
+  const gestureAllowed = (evt: any) => {
     if (!heroRef.current || !evt) return false;
+
     const rect = heroRef.current.getBoundingClientRect();
-    const y = "touches" in evt ? evt.touches[0].clientY : evt.clientY;
+
+    let y: number | null = null;
+    // React TouchEvent-style
+    if ("touches" in evt && evt.touches && evt.touches.length > 0) {
+      y = evt.touches[0].clientY;
+    } else if (typeof evt.clientY === "number") {
+      // React MouseEvent-style
+      y = evt.clientY;
+    } else if (evt.nativeEvent) {
+      // Fallback to nativeEvent if wrapped
+      const ne = evt.nativeEvent as any;
+      if (ne.touches && ne.touches.length > 0) {
+        y = ne.touches[0].clientY;
+      } else if (typeof ne.clientY === "number") {
+        y = ne.clientY;
+      }
+    }
+
+    if (y == null) return false;
     return y >= rect.top && y <= rect.bottom;
   };
 
@@ -73,6 +94,7 @@ export default function SwipeHeritageNavigator({
         resetSwipe();
         return;
       }
+
       setIsSwiping(true);
 
       const signed = dir === "Left" ? -deltaX : deltaX;
@@ -103,13 +125,26 @@ export default function SwipeHeritageNavigator({
    * Slide the hero fully out, THEN navigate.
    */
   function animateAndNavigate(target: string) {
-    if (!heroRef.current) return;
+    if (!heroRef.current) {
+      router.push(target);
+      return;
+    }
+
     const direction = target === next?.href ? -1 : 1;
+
+    setIsSwiping(false);
     setSwipeOffset(0);
-    setTimeout(() => {
+
+    // Kick off animation in the next frame
+    requestAnimationFrame(() => {
+      setIsSwiping(true);
       setSwipeOffset(240 * direction);
-      setTimeout(() => router.push(target), 200); // after animation
-    }, 0);
+
+      setTimeout(() => {
+        setIsSwiping(false);
+        router.push(target);
+      }, 200);
+    });
   }
 
   const translate = enabled ? swipeOffset : 0;
@@ -122,7 +157,9 @@ export default function SwipeHeritageNavigator({
         ref={heroRef}
         style={{
           transform: `translateX(${translate}px)`,
-          transition: isSwiping ? "none" : "transform 220ms cubic-bezier(.18,.89,.32,1.28)",
+          transition: isSwiping
+            ? "none"
+            : "transform 220ms cubic-bezier(.18,.89,.32,1.28)",
           willChange: "transform",
         }}
       >
