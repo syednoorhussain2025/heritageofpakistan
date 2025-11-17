@@ -1,4 +1,3 @@
-// src/app/heritage/[region]/[slug]/HeritageClient.tsx
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -33,7 +32,7 @@ import {
   ReviewsSkeleton,
 } from "./heritage/HeritageSkeletons";
 import HeritageSection from "./heritage/HeritageSection";
-import SwipeHeritageNavigator from "./heritage/SwipeHeritageNavigator";
+import HeritageNeighborNav from "./heritage/HeritageNeighborNav";
 
 /* ---------------- Types for site from server ---------------- */
 
@@ -195,49 +194,19 @@ export default function HeritagePage({
 
   return (
     <CollectionsProvider>
-      {/* Outer wrapper keeps your original page background & height */}
       <div className="min-h-screen bg-[#f8f8f8]">
-        {/* HERO (SSR → client-hydrated) wrapped in swipe navigator ONLY */}
-        <SwipeHeritageNavigator
-          prev={
-            prevHref && neighbors?.prev
-              ? {
-                  href: prevHref,
-                  title: neighbors.prev.title,
-                  tagline: neighbors.prev.tagline,
-                  cover:
-                    neighbors.prev.cover && neighbors.prev.cover.url
-                      ? (neighbors.prev.cover as NonNullable<HeroCover>)
-                      : null,
-                }
-              : null
-          }
-          next={
-            nextHref && neighbors?.next
-              ? {
-                  href: nextHref,
-                  title: neighbors.next.title,
-                  tagline: neighbors.next.tagline,
-                  cover:
-                    neighbors.next.cover && neighbors.next.cover.url
-                      ? (neighbors.next.cover as NonNullable<HeroCover>)
-                      : null,
-                }
-              : null
-          }
-        >
-          {!site ? (
-            <HeroSkeleton />
-          ) : (
-            <HeritageCover
-              site={site}
-              hasPhotoStory={hasPhotoStory}
-              fadeImage={false}
-            />
-          )}
-        </SwipeHeritageNavigator>
+        {/* HERO (SSR → client-hydrated) */}
+        {!site ? (
+          <HeroSkeleton />
+        ) : (
+          <HeritageCover
+            site={site}
+            hasPhotoStory={hasPhotoStory}
+            fadeImage={false}
+          />
+        )}
 
-        {/* Sticky header (unchanged, NOT swipable) */}
+        {/* Sticky header */}
         {!loading && site && (
           <StickyHeader
             site={{ id: site.id, slug: site.slug, title: site.title }}
@@ -261,7 +230,15 @@ export default function HeritagePage({
           />
         )}
 
-        {/* Content layout (unchanged) */}
+        {/* Neighbor navigation bar (separate component) */}
+        <HeritageNeighborNav
+          prevHref={prevHref}
+          nextHref={nextHref}
+          prevTitle={neighbors?.prev?.title ?? null}
+          nextTitle={neighbors?.next?.title ?? null}
+        />
+
+        {/* Content layout */}
         <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
           {/* LEFT SIDEBAR */}
           <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
@@ -362,7 +339,10 @@ export default function HeritagePage({
                       key={`climate-${site.climate_layout_html.length}`}
                       html={site.climate_layout_html}
                       site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{ id: "climate", title: "Climate & Environment" }}
+                      section={{
+                        id: "climate",
+                        title: "Climate & Environment",
+                      }}
                       highlightQuote={
                         highlight.section_id === "climate"
                           ? highlight.quote
@@ -577,7 +557,6 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         site_id: siteId,
         site_slug: siteSlug,
         site_title: siteTitle,
-        // Coerce nullable refs to plain strings
         section_id: lastSectionIdRef.current || "",
         section_title: lastSectionTitleRef.current || "",
         quote_text: quote,
