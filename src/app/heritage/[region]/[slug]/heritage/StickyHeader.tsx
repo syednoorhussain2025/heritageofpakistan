@@ -7,6 +7,7 @@ type Site = {
   id: string;
   slug: string;
   title: string;
+  /** Prefer passing this from the page; header will still derive it if missing */
   province_slug?: string;
 };
 
@@ -38,6 +39,8 @@ const EDGE_WIDTH_PX = 18;
 const CHEVRON_SIZE = 36;
 const RESEARCH_LS_KEY = "researchMode";
 
+/* ---------------- small UI helpers ---------------- */
+
 function ActionButton({
   children,
   onClick,
@@ -54,7 +57,8 @@ function ActionButton({
   rel?: string;
 }) {
   const base =
-    "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium bg-white text-slate-800 cursor-pointer transition-colors whitespace-nowrap";
+    "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium " +
+    "bg-white text-slate-800 cursor-pointer transition-colors whitespace-nowrap";
   const hoverClass = "hover:text-[var(--brand-orange,#F78300)]";
   const cls = `${base} ${hoverClass}`;
 
@@ -96,6 +100,8 @@ function IconBadge({ name, size = 14 }: { name: string; size?: number }) {
   );
 }
 
+/* ---------------- sidebar items ---------------- */
+
 type TocItem = {
   id: string;
   title: string;
@@ -106,12 +112,32 @@ type TocItem = {
 const FIXED_ITEMS: TocItem[] = [
   { id: "overview", title: "Overview", level: 2, iconName: "home" },
   { id: "location", title: "Location", level: 2, iconName: "location" },
-  { id: "general", title: "General Information", level: 2, iconName: "general-info" },
-  { id: "history", title: "History and Background", level: 2, iconName: "history-background" },
-  { id: "architecture", title: "Architecture & Design", level: 2, iconName: "architecture-design" },
+  {
+    id: "general",
+    title: "General Information",
+    level: 2,
+    iconName: "general-info",
+  },
+  {
+    id: "history",
+    title: "History and Background",
+    level: 2,
+    iconName: "history-background",
+  },
+  {
+    id: "architecture",
+    title: "Architecture & Design",
+    level: 2,
+    iconName: "architecture-design",
+  },
   { id: "gallery", title: "Gallery", level: 2, iconName: "gallery" },
   { id: "travel", title: "Travel Guide", level: 2, iconName: "travel-guide" },
-  { id: "bibliography", title: "Bibliography & Sources", level: 2, iconName: "bibliography-sources" },
+  {
+    id: "bibliography",
+    title: "Bibliography & Sources",
+    level: 2,
+    iconName: "bibliography-sources",
+  },
   { id: "reviews", title: "Traveler Reviews", level: 2, iconName: "star" },
   { id: "nearby", title: "Places Nearby", level: 2, iconName: "regiontax" },
 ];
@@ -189,21 +215,27 @@ function scrollToId(id: string) {
   window.scrollTo({ top: target, behavior: "smooth" });
 }
 
+/* ---------------- helpers for routes ---------------- */
+
+/** Derive province slug from props or current path: /heritage/<region>/<slug>(/...) */
 function deriveProvinceSlug(site: Site): string | null {
   if (site.province_slug) return site.province_slug;
   if (typeof window !== "undefined") {
-    const parts = window.location.pathname.split("/").filter(Boolean);
+    const parts = window.location.pathname.split("/").filter(Boolean); // ["heritage","punjab","chauburji", ...]
     const idx = parts.indexOf("heritage");
     if (idx >= 0 && parts.length > idx + 1) return parts[idx + 1] || null;
   }
   return null;
 }
 
+/** Fallback: build relative link from current page if region is unknown */
 function buildFallbackPath(suffix: "gallery" | "photo-story") {
   if (typeof window === "undefined") return "#";
   const base = window.location.pathname.replace(/\/(gallery|photo-story)$/, "");
   return `${base}/${suffix}`;
 }
+
+/* ---------------- main component ---------------- */
 
 export default function StickyHeader({
   site,
@@ -225,7 +257,9 @@ export default function StickyHeader({
   const stickyRef = useRef<HTMLDivElement | null>(null);
   const [isStuck, setIsStuck] = useState(false);
 
-  const [headerHeight, setHeaderHeight] = useState<number>(DEFAULT_STICKY_OFFSET);
+  const [headerHeight, setHeaderHeight] = useState<number>(
+    DEFAULT_STICKY_OFFSET
+  );
   useEffect(() => {
     if (!stickyRef.current) return;
     const el = stickyRef.current;
@@ -259,6 +293,29 @@ export default function StickyHeader({
   const activeId = useScrollSpy(tocItems);
 
   useEffect(() => {
+    let ticking = false;
+    const measure = () => {
+      if (!stickyRef.current) return;
+      const rect = stickyRef.current.getBoundingClientRect();
+      setIsStuck(rect.top <= 0);
+      ticking = false;
+    };
+    const handler = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(measure);
+      }
+    };
+    measure();
+    window.addEventListener("scroll", handler, { passive: true });
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler);
+      window.removeEventListener("resize", handler);
+    };
+  }, []);
+
+  useEffect(() => {
     const shouldOpen = hoverBtn || hoverEdge || hoverPanel;
     if (openTimer.current) window.clearTimeout(openTimer.current);
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -272,7 +329,8 @@ export default function StickyHeader({
     }
   }, [hoverBtn, hoverEdge, hoverPanel, openedOnce]);
 
-  const [researchModeInternal, setResearchModeInternal] = useState<boolean>(true);
+  const [researchModeInternal, setResearchModeInternal] =
+    useState<boolean>(true);
 
   useEffect(() => {
     try {
@@ -281,6 +339,7 @@ export default function StickyHeader({
         localStorage.setItem(RESEARCH_LS_KEY, "1");
         setResearchModeInternal(true);
       } else {
+        // FIXED: ensure this is a pure boolean, not `true | "true"`
         setResearchModeInternal(raw === "1" || raw === "true");
       }
     } catch {}
@@ -293,12 +352,14 @@ export default function StickyHeader({
 
   useEffect(() => {
     onChangeResearchMode?.(researchModeInternal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [researchModeInternal]);
 
   const [showTripModal, setShowTripModal] = useState(false);
 
   if (!site) return null;
 
+  // Robust route building
   const provinceSlug = deriveProvinceSlug(site);
   const galleryHref = provinceSlug
     ? `/heritage/${provinceSlug}/${site.slug}/gallery`
@@ -400,6 +461,7 @@ export default function StickyHeader({
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
               </ActionButton>
 
+              {/* Gallery (uses provinceSlug or falls back to current path) */}
               <ActionButton
                 href={galleryHref}
                 target="_blank"
@@ -409,6 +471,7 @@ export default function StickyHeader({
                 <span>Gallery</span>
               </ActionButton>
 
+              {/* Photo Story */}
               <ActionButton
                 href={storyHref}
                 target="_blank"
@@ -429,7 +492,7 @@ export default function StickyHeader({
         </div>
       </div>
 
-      {/* Left-edge hotzone */}
+      {/* Left-edge hotzone (slim) */}
       <div
         className="fixed left-0 z-[41] pointer-events-auto"
         style={{
@@ -442,9 +505,9 @@ export default function StickyHeader({
         aria-hidden
       />
 
-      {/* ⬇ ICON UPDATED HERE — now hidden on mobile */}
+      {/* Chevron indicator – hidden on mobile */}
       <div
-        className="hidden lg:block fixed left-1 z-[41] pointer-events-none select-none"
+        className="fixed left-1 z-[41] pointer-events-none select-none hidden sm:block"
         style={{ top: "50vh", transform: "translateY(-50%)" }}
         aria-hidden
       >
