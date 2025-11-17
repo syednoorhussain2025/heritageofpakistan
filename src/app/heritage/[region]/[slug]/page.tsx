@@ -40,6 +40,12 @@ type HeroCoverForClient = {
   credit?: string | null;
 };
 
+type NeighborLink = {
+  slug: string;
+  province_slug: string | null;
+  title: string;
+};
+
 export default async function Page({ params }: HeritagePageProps) {
   // Await the async params object (Next 15)
   const { region, slug } = await params;
@@ -61,6 +67,7 @@ export default async function Page({ params }: HeritagePageProps) {
         location_free,
         avg_rating,
         review_count,
+        province_id,
         province:provinces!sites_province_id_fkey ( slug )
       `
     )
@@ -169,6 +176,50 @@ export default async function Page({ params }: HeritagePageProps) {
     }
   }
 
+  /* ----------------------------------------------------------------
+     4. Compute previous / next neighbours within same province
+        (ordered by title, only published + not deleted)
+  ----------------------------------------------------------------- */
+  let prevNeighbor: NeighborLink | null = null;
+  let nextNeighbor: NeighborLink | null = null;
+
+  if (site.province_id != null) {
+    const { data: siblings, error: siblingsErr } = await supabase
+      .from("sites")
+      .select(`id, slug, title`)
+      .eq("province_id", site.province_id)
+      .eq("is_published", true)
+      .is("deleted_at", null)
+      .order("title", { ascending: true });
+
+    if (!siblingsErr && siblings && siblings.length) {
+      const idx = siblings.findIndex((s) => s.id === site.id);
+
+      if (idx > 0) {
+        const prev = siblings[idx - 1];
+        prevNeighbor = {
+          slug: prev.slug,
+          province_slug: provinceSlug,
+          title: prev.title,
+        };
+      }
+
+      if (idx >= 0 && idx < siblings.length - 1) {
+        const next = siblings[idx + 1];
+        nextNeighbor = {
+          slug: next.slug,
+          province_slug: provinceSlug,
+          title: next.title,
+        };
+      }
+    }
+  }
+
+  const neighborsForClient = {
+    prev: prevNeighbor,
+    next: nextNeighbor,
+  };
+
   const siteDataForClient = {
     ...site,
     province_slug: provinceSlug,
@@ -176,9 +227,10 @@ export default async function Page({ params }: HeritagePageProps) {
   };
 
   /* ----------------------------------------------------------------
-     4. Render the client page with SSR site (incl. cover + blur)
+     5. Render the client page with SSR site (incl. cover + blur)
+        + neighbours for swipe navigation
   ----------------------------------------------------------------- */
-  return <HeritageClient site={siteDataForClient} />;
+  return <HeritageClient site={siteDataForClient} neighbors={neighborsForClient} />;
 }
 
 /* ----------------------------- SEO ----------------------------- */

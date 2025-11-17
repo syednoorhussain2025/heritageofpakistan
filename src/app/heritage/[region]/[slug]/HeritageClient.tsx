@@ -32,6 +32,7 @@ import {
   ReviewsSkeleton,
 } from "./heritage/HeritageSkeletons";
 import HeritageSection from "./heritage/HeritageSection";
+import SwipeHeritageNavigator from "./heritage/SwipeHeritageNavigator";
 
 /* ---------------- Types for site from server ---------------- */
 
@@ -64,10 +65,23 @@ type HeritageClientSite = {
   [key: string]: any;
 };
 
+type NeighborLinkForClient = {
+  slug: string;
+  province_slug: string | null;
+  title: string;
+};
+
+type NeighborProps = {
+  prev: NeighborLinkForClient | null;
+  next: NeighborLinkForClient | null;
+};
+
 export default function HeritagePage({
   site: initialSite,
+  neighbors,
 }: {
   site: HeritageClientSite;
+  neighbors?: NeighborProps;
 }) {
   const searchParams = useSearchParams();
   const deepLinkNoteId = searchParams?.get("note") || null;
@@ -135,6 +149,16 @@ export default function HeritagePage({
     };
   })();
 
+  const prevHref =
+    neighbors?.prev && neighbors.prev.province_slug
+      ? `/heritage/${neighbors.prev.province_slug}/${neighbors.prev.slug}`
+      : null;
+
+  const nextHref =
+    neighbors?.next && neighbors.next.province_slug
+      ? `/heritage/${neighbors.next.province_slug}/${neighbors.next.slug}`
+      : null;
+
   /* ---------------- UI State ---------------- */
 
   const [wishlisted, setWishlisted] = useState(false);
@@ -168,7 +192,19 @@ export default function HeritagePage({
 
   return (
     <CollectionsProvider>
-      <div className="min-h-screen bg-[#f8f8f8]">
+      <SwipeHeritageNavigator
+        prev={
+          prevHref
+            ? { href: prevHref, title: neighbors?.prev?.title }
+            : null
+        }
+        next={
+          nextHref
+            ? { href: nextHref, title: neighbors?.next?.title }
+            : null
+        }
+        className="min-h-screen bg-[#f8f8f8]"
+      >
         {/* HERO (SSR → client-hydrated) */}
         {!site ? (
           <HeroSkeleton />
@@ -412,7 +448,7 @@ export default function HeritagePage({
             scroll-margin-top: var(--sticky-offset);
           }
         `}</style>
-      </div>
+      </SwipeHeritageNavigator>
     </CollectionsProvider>
   );
 }

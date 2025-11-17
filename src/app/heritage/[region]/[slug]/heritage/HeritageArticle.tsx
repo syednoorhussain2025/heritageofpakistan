@@ -1,4 +1,4 @@
-// src/modules/heritage/HeritageArticle.tsx
+
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
 import DOMPurify from "isomorphic-dompurify";
