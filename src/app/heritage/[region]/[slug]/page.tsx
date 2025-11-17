@@ -52,6 +52,7 @@ export default async function Page({ params }: HeritagePageProps) {
         location_free,
         avg_rating,
         review_count,
+        province_id,                                  -- 🔥 required for neighbors
         province:provinces!sites_province_id_fkey ( slug )
       `
     )
@@ -119,63 +120,56 @@ export default async function Page({ params }: HeritagePageProps) {
     cover: coverForClient ?? null,
   };
 
-  /* 3. Fetch neighbors (sorted by title; you can change sort logic later) */
-  const { data: neighborRows } = await supabase
-    .rpc("fn_get_neighbors", { p_site_id: site.id }); // if you already have a stored procedure, keep this
-
-  // Fallback if neighbor RPC doesn't exist → compute sequential neighbors by alphabet
+  /* 3. Fetch neighbors (alphabetical inside same province) */
   let neighbors: any = { prev: null, next: null };
 
-  if (!neighborRows) {
-    const { data: list } = await supabase
-      .from("sites")
-      .select(
-        `
-          slug,
-          title,
-          tagline,
-          provinces ( slug ),
-          site_covers (
-            storage_path,
-            width,
-            height,
-            blur_hash,
-            blur_data_url
-          )
-        `
-      )
-      .eq("province_id", site.province_id)
-      .order("title", { ascending: true });
+  const { data: list } = await supabase
+    .from("sites")
+    .select(
+      `
+        slug,
+        title,
+        tagline,
+        province_id,
+        provinces ( slug ),
+        site_covers (
+          storage_path,
+          width,
+          height,
+          blur_hash,
+          blur_data_url
+        )
+      `
+    )
+    .eq("province_id", site.province_id)
+    .order("title", { ascending: true });
 
-    if (list) {
-      const index = list.findIndex((s) => s.slug === slug);
+  if (list) {
+    const index = list.findIndex((s) => s.slug === slug);
 
-      const hydrate = (row: any) =>
-        row
-          ? {
-              slug: row.slug,
-              title: row.title,
-              tagline: row.tagline ?? null,
-              province_slug: row.provinces?.slug ?? null,
-              cover: row.site_covers?.[0]
-                ? {
-                    url: publicUrl(row.site_covers[0].storage_path)!,
-                    width: row.site_covers[0].width,
-                    height: row.site_covers[0].height,
-                    blurhash: row.site_covers[0].blur_hash,
-                    blurDataURL: row.site_covers[0].blur_data_url,
-                  }
-                : null,
-            }
-          : null;
+    const hydrate = (row: any) =>
+      row
+        ? {
+            slug: row.slug,
+            title: row.title,
+            tagline: row.tagline ?? null,
+            province_slug: row.provinces?.slug ?? null,
+            cover: row.site_covers?.[0]
+              ? {
+                  url: publicUrl(row.site_covers[0].storage_path)!,
+                  width: row.site_covers[0].width,
+                  height: row.site_covers[0].height,
+                  blurhash: row.site_covers[0].blur_hash,
+                  blurDataURL: row.site_covers[0].blur_data_url,
+                }
+              : null,
+          }
+        : null;
 
-      neighbors = {
-        prev: hydrate(list[index - 1] ?? null),
-        next: hydrate(list[index + 1] ?? null),
-      };
-    }
-  } else {
-    neighbors = neighborRows;
+    neighbors = {
+      prev: hydrate(list[index - 1] ?? null),
+      next: hydrate(list[index + 1] ?? null),
+    };
   }
 
   /* 4. Render */
