@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -52,7 +53,7 @@ export default async function Page({ params }: HeritagePageProps) {
         location_free,
         avg_rating,
         review_count,
-        province_id,                                  -- 🔥 required for neighbors
+        province_id,
         province:provinces!sites_province_id_fkey ( slug )
       `
     )
