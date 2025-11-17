@@ -29,6 +29,10 @@ export default function SwipeHeritageNavigator({
   // Only enable on mobile-ish widths
   const [enabled, setEnabled] = useState(false);
 
+  // Visual feedback state
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0); // px
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mql = window.matchMedia("(max-width: 768px)");
@@ -40,17 +44,60 @@ export default function SwipeHeritageNavigator({
     return () => mql.removeEventListener("change", handleChange);
   }, []);
 
+  const resetSwipe = () => {
+    setIsSwiping(false);
+    setSwipeOffset(0);
+  };
+
   const handlers = useSwipeable({
-    onSwipedLeft: () => {
+    onSwiping: (eventData) => {
       if (!enabled) return;
+
+      const { dir, deltaX } = eventData;
+      // Only show horizontal drag feedback for left/right swipes
+      if (dir !== "Left" && dir !== "Right") {
+        resetSwipe();
+        return;
+      }
+
+      setIsSwiping(true);
+
+      // deltaX is always positive; apply sign based on direction
+      const signedDelta = dir === "Left" ? -deltaX : deltaX;
+      const MAX_OFFSET = 80; // clamp so it never moves too far
+      const clamped =
+        signedDelta > 0
+          ? Math.min(signedDelta, MAX_OFFSET)
+          : Math.max(signedDelta, -MAX_OFFSET);
+
+      setSwipeOffset(clamped);
+    },
+
+    onSwipedLeft: () => {
+      if (!enabled) {
+        resetSwipe();
+        return;
+      }
+      resetSwipe();
       if (next?.href) router.push(next.href);
     },
+
     onSwipedRight: () => {
-      if (!enabled) return;
+      if (!enabled) {
+        resetSwipe();
+        return;
+      }
+      resetSwipe();
       if (prev?.href) router.push(prev.href);
     },
-    delta: 40, // minimum px for swipe
-    preventScrollOnSwipe: false, // keep vertical scrolling natural
+
+    onSwiped: () => {
+      // Any completed swipe that didn't navigate should still snap back
+      resetSwipe();
+    },
+
+    delta: 40, // minimum px before a swipe is recognized
+    preventScrollOnSwipe: false, // keep vertical scroll natural
     trackTouch: true,
     trackMouse: false,
   });
@@ -58,10 +105,23 @@ export default function SwipeHeritageNavigator({
   const swipeBindings = enabled ? handlers : {};
   const showHint = enabled && (prev?.href || next?.href);
 
-  return (
-    <div {...swipeBindings} className={className}>
-      {children}
+  const translateX = enabled ? swipeOffset : 0;
 
+  return (
+    <div className={className}>
+      {/* The swipe listener is attached to this inner shell so we can animate it */}
+      <div
+        {...swipeBindings}
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: isSwiping ? "none" : "transform 180ms ease-out",
+          willChange: "transform",
+        }}
+      >
+        {children}
+      </div>
+
+      {/* Bottom hint – mobile only */}
       {showHint && (
         <div className="fixed bottom-4 inset-x-0 flex justify-center pointer-events-none z-40 md:hidden">
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 text-[11px] text-white shadow-sm pointer-events-auto">
