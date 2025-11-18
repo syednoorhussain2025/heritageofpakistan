@@ -85,7 +85,7 @@ export function GlobalSimpleLoaderProvider({
       {children}
 
       {visible && (
-        <div className="fixed inset-0 z-[20] overflow-hidden bg-white">
+        <div className="fixed inset-0 z-[25] overflow-hidden bg-white">
           <div
             className={`
               w-full h-full flex items-center justify-center
@@ -96,7 +96,7 @@ export function GlobalSimpleLoaderProvider({
             {/* Blank white card with a faster spinner in the center */}
             <div
               className="h-12 w-12 rounded-full border-2 border-neutral-300 border-t-transparent animate-spin"
-              style={{ animationDuration: "0.5s" }} // faster spin
+              style={{ animationDuration: "0.6s" }} // faster spin
             />
           </div>
         </div>
