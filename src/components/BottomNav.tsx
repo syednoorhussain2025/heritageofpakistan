@@ -91,7 +91,7 @@ export default function BottomNav() {
           directly under the header. */}
       {!isHeritageDetail && <div className="lg:hidden h-[72px]" />}
 
-      <div className="fixed inset-x-0 bottom-0 z-[70] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden">
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
           {/* Home */}
           <NavItem
