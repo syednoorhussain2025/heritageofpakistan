@@ -11,6 +11,7 @@ import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { supabase } from "@/lib/supabaseClient";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
+import { useListingTransition } from "@/components/ListingTransitionProvider"; // ⬅️ NEW
 
 type Site = {
   id: string;
@@ -93,6 +94,7 @@ export default function SitePreviewCard({
   index?: number;
 }) {
   const router = useRouter();
+  const { navigateWithListingTransition } = useListingTransition(); // ⬅️ use loader
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
@@ -195,6 +197,17 @@ export default function SitePreviewCard({
     }
   };
 
+  /** Main card click: trigger global listing transition loader */
+  const handleCardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Allow middle-click / Cmd+click / Ctrl+click etc. to behave like a normal link
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+      return;
+    }
+
+    e.preventDefault();
+    navigateWithListingTransition(detailHref, "forward");
+  };
+
   return (
     <div className="w-full rounded-xl overflow-hidden bg-white shadow-lg relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {onClose && (
@@ -207,7 +220,12 @@ export default function SitePreviewCard({
         </button>
       )}
 
-      <Link href={detailHref} className="group block" prefetch={false}>
+      <Link
+        href={detailHref}
+        className="group block"
+        prefetch={false}
+        onClick={handleCardClick} // ⬅️ use loader navigation
+      >
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
           <div className="relative aspect-[18/9] w-full overflow-hidden rounded-none">
