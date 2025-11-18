@@ -34,7 +34,7 @@ const EARTH_RADIUS_KM = 6371;
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLon = toRad(lat2 - lon1);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
@@ -347,24 +347,26 @@ export default function HeritageNearby({
                 <SitePreviewCard
                   key={r.id}
                   index={index}
-                  site={{
-                    id: r.id,
-                    slug: r.slug,
-                    province_id: r.province_id ?? null,
-                    province_slug: r.province_slug ?? null,
-                    title: r.title,
-                    cover_photo_url: r.cover_photo_url ?? null,
-                    cover_blur_data_url: r.cover_blur_data_url ?? null,
-                    cover_width: r.cover_width ?? null,
-                    cover_height: r.cover_height ?? null,
-                    location_free: r.location_free ?? null,
-                    heritage_type: r.heritage_type ?? null,
-                    avg_rating: r.avg_rating ?? null,
-                    review_count: r.review_count ?? null,
-                    distance_km: r.distance_km ?? null,
-                    latitude: r.latitude ?? null,
-                    longitude: r.longitude ?? null,
-                  }}
+                  site={
+                    {
+                      id: r.id,
+                      slug: r.slug,
+                      province_id: r.province_id ?? null,
+                      province_slug: r.province_slug ?? null,
+                      title: r.title,
+                      cover_photo_url: r.cover_photo_url ?? null,
+                      cover_blur_data_url: r.cover_blur_data_url ?? null,
+                      cover_width: r.cover_width ?? null,
+                      cover_height: r.cover_height ?? null,
+                      location_free: r.location_free ?? null,
+                      heritage_type: r.heritage_type ?? null,
+                      avg_rating: r.avg_rating ?? null,
+                      review_count: r.review_count ?? null,
+                      distance_km: r.distance_km ?? null,
+                      latitude: r.latitude ?? null,
+                      longitude: r.longitude ?? null,
+                    } as any
+                  }
                 />
               ))}
             </div>
