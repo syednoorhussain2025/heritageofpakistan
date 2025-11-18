@@ -10,8 +10,15 @@ import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 type NearbySite = {
   id: string;
   slug: string;
+  province_id?: number | null;
+  province_slug?: string | null;
+
   title: string;
   cover_photo_url?: string | null;
+  cover_blur_data_url?: string | null;
+  cover_width?: number | null;
+  cover_height?: number | null;
+
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;
@@ -47,6 +54,126 @@ function bboxAround(lat: number, lng: number, radiusKm: number) {
   };
 }
 
+/* ───────────────── Province slug helpers ───────────────── */
+
+async function buildProvinceSlugMapForSites(siteIds: string[]) {
+  const out = new Map<string, string | null>();
+  if (!siteIds.length) return out;
+
+  const { data: siteRows, error: siteErr } = await supabase
+    .from("sites")
+    .select("id, province_id")
+    .in("id", siteIds);
+
+  if (siteErr || !siteRows?.length) return out;
+
+  const bySiteId = new Map<string, number | null>();
+  const provinceIds = new Set<number>();
+  for (const r of siteRows as { id: string; province_id: number | null }[]) {
+    bySiteId.set(r.id, r.province_id ?? null);
+    if (r.province_id != null) provinceIds.add(r.province_id);
+  }
+
+  let slugByProvinceId = new Map<number, string>();
+  if (provinceIds.size > 0) {
+    const { data: provs } = await supabase
+      .from("provinces")
+      .select("id, slug")
+      .in("id", Array.from(provinceIds));
+    slugByProvinceId = new Map(
+      (provs || []).map((p: any) => [
+        p.id as number,
+        String(p.slug ?? "").trim(),
+      ])
+    );
+  }
+
+  for (const id of siteIds) {
+    const pid = bySiteId.get(id);
+    const slug = pid != null ? slugByProvinceId.get(pid) ?? null : null;
+    out.set(id, slug && slug.length > 0 ? slug : null);
+  }
+  return out;
+}
+
+async function ensureProvinceSlugOnSites(sites: NearbySite[]) {
+  const missing = sites.filter(
+    (s) => !s.province_slug || s.province_slug.trim() === ""
+  );
+  if (missing.length === 0) return;
+
+  const ids = missing.map((s) => s.id);
+  const slugMap = await buildProvinceSlugMapForSites(ids);
+
+  for (const s of sites) {
+    if (!s.province_slug || s.province_slug.trim() === "") {
+      s.province_slug = slugMap.get(s.id) ?? null;
+    }
+  }
+}
+
+/* ───────────────── Active covers ───────────────── */
+
+function buildCoverUrlFromStoragePath(storagePath: string | null) {
+  if (!storagePath) return "";
+
+  if (/^https?:\/\//i.test(storagePath)) {
+    return storagePath;
+  }
+
+  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  if (!SUPA_URL) return "";
+
+  const clean = storagePath.replace(/^\/+/, "");
+  return `${SUPA_URL}/storage/v1/object/public/site-images/${clean}`;
+}
+
+async function attachActiveCovers(sites: NearbySite[]) {
+  const ids = Array.from(new Set(sites.map((s) => s.id))).filter(Boolean);
+  if (!ids.length) return;
+
+  const { data, error } = await supabase
+    .from("site_covers")
+    .select("site_id, storage_path, blur_data_url, width, height")
+    .in("site_id", ids)
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("attachActiveCovers: error fetching site_covers", error);
+    return;
+  }
+
+  if (!data?.length) {
+    return;
+  }
+
+  type CoverRow = {
+    site_id: string;
+    storage_path: string;
+    blur_data_url: string | null;
+    width: number | null;
+    height: number | null;
+  };
+
+  const bySiteId = new Map<string, CoverRow>();
+  for (const row of data as CoverRow[]) {
+    bySiteId.set(row.site_id, row);
+  }
+
+  for (const s of sites) {
+    const cover = bySiteId.get(s.id);
+    if (!cover) continue;
+
+    const url = buildCoverUrlFromStoragePath(cover.storage_path);
+    s.cover_photo_url = url || null;
+    s.cover_blur_data_url = cover.blur_data_url ?? null;
+    s.cover_width = cover.width ?? null;
+    s.cover_height = cover.height ?? null;
+  }
+}
+
+/* ───────────────── Component ───────────────── */
+
 export default function HeritageNearby({
   siteId,
   siteTitle,
@@ -63,7 +190,6 @@ export default function HeritageNearby({
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
 
-  // Build Explore deep-link: /explore?center=...&clat=...&clng=...&rkm=25
   const exploreHref = useMemo(() => {
     if (!hasCoords) return null;
     return buildPlacesNearbyURL({
@@ -88,12 +214,23 @@ export default function HeritageNearby({
           return;
         }
 
-        // 1) Fetch candidates within a 50 km bounding box
         const box50 = bboxAround(lat!, lng!, 50);
         const { data, error } = await supabase
           .from("sites")
           .select(
-            "id,slug,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count,latitude,longitude"
+            `
+            id,
+            slug,
+            province_id,
+            title,
+            cover_photo_url,
+            location_free,
+            heritage_type,
+            avg_rating,
+            review_count,
+            latitude,
+            longitude
+          `
           )
           .neq("id", siteId)
           .not("latitude", "is", null)
@@ -111,10 +248,12 @@ export default function HeritageNearby({
             s.latitude != null && s.longitude != null
               ? haversineKm(lat!, lng!, Number(s.latitude), Number(s.longitude))
               : Number.POSITIVE_INFINITY;
-          return { ...s, distance_km: Number.isFinite(d) ? d : null };
+          return {
+            ...s,
+            distance_km: Number.isFinite(d) ? d : null,
+          };
         });
 
-        // 2) Primary: within 25 km
         let within25 = withDistance
           .filter((s) => (s.distance_km ?? Infinity) <= 25)
           .sort(
@@ -124,7 +263,6 @@ export default function HeritageNearby({
           )
           .slice(0, 6);
 
-        // 3) Top-up from <= 50 km if needed
         if (within25.length < 6) {
           const need = 6 - within25.length;
           const within50 = withDistance
@@ -142,6 +280,9 @@ export default function HeritageNearby({
 
           within25 = [...within25, ...within50];
         }
+
+        await ensureProvinceSlugOnSites(within25);
+        await attachActiveCovers(within25);
 
         if (!active) return;
         setRows(within25);
@@ -173,18 +314,35 @@ export default function HeritageNearby({
         </div>
       ) : (
         <>
-          {/* Grid of nearby cards */}
           {err ? (
             <div className="text-sm text-red-600">{err}</div>
           ) : rows == null ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
-                />
-              ))}
-            </div>
+            // ─── Loading skeletons ───
+            <>
+              {/* Mobile: horizontal carousel skeleton */}
+              <div className="-mx-4 px-4 md:hidden">
+                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="min-w-[260px] max-w-[320px] flex-[0_0_80%] snap-start"
+                    >
+                      <div className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop / tablet: grid skeleton */}
+              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
+                  />
+                ))}
+              </div>
+            </>
           ) : rows.length === 0 ? (
             <div
               className="text-[13px]"
@@ -193,29 +351,71 @@ export default function HeritageNearby({
               No nearby places found within 50 km.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rows.map((r) => (
-                <SitePreviewCard
-                  key={r.id}
-                  site={{
-                    id: r.id,
-                    slug: r.slug,
-                    title: r.title,
-                    cover_photo_url: r.cover_photo_url ?? null,
-                    location_free: r.location_free ?? null,
-                    heritage_type: r.heritage_type ?? null,
-                    avg_rating: r.avg_rating ?? null,
-                    review_count: r.review_count ?? null,
-                    distance_km: r.distance_km ?? null,
-                    latitude: r.latitude ?? null,
-                    longitude: r.longitude ?? null,
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              {/* Mobile: horizontal carousel of cards */}
+              <div className="-mx-4 px-4 md:hidden">
+                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2">
+                  {rows.map((r, index) => (
+                    <div
+                      key={r.id}
+                      className="min-w-[260px] max-w-[320px] flex-[0_0_80%] snap-start"
+                    >
+                      <SitePreviewCard
+                        index={index}
+                        site={{
+                          id: r.id,
+                          slug: r.slug,
+                          province_id: r.province_id ?? null,
+                          province_slug: r.province_slug ?? null,
+                          title: r.title,
+                          cover_photo_url: r.cover_photo_url ?? null,
+                          cover_blur_data_url: r.cover_blur_data_url ?? null,
+                          cover_width: r.cover_width ?? null,
+                          cover_height: r.cover_height ?? null,
+                          location_free: r.location_free ?? null,
+                          heritage_type: r.heritage_type ?? null,
+                          avg_rating: r.avg_rating ?? null,
+                          review_count: r.review_count ?? null,
+                          distance_km: r.distance_km ?? null,
+                          latitude: r.latitude ?? null,
+                          longitude: r.longitude ?? null,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop / tablet: existing grid layout */}
+              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {rows.map((r, index) => (
+                  <SitePreviewCard
+                    key={r.id}
+                    index={index}
+                    site={{
+                      id: r.id,
+                      slug: r.slug,
+                      province_id: r.province_id ?? null,
+                      province_slug: r.province_slug ?? null,
+                      title: r.title,
+                      cover_photo_url: r.cover_photo_url ?? null,
+                      cover_blur_data_url: r.cover_blur_data_url ?? null,
+                      cover_width: r.cover_width ?? null,
+                      cover_height: r.cover_height ?? null,
+                      location_free: r.location_free ?? null,
+                      heritage_type: r.heritage_type ?? null,
+                      avg_rating: r.avg_rating ?? null,
+                      review_count: r.review_count ?? null,
+                      distance_km: r.distance_km ?? null,
+                      latitude: r.latitude ?? null,
+                      longitude: r.longitude ?? null,
+                    }}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
-          {/* Explore Nearby Sites CTA (centered, dark blue, square corners, padded) */}
           {exploreHref && (
             <div className="mt-5 flex justify-center">
               <Link
