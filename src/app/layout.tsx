@@ -12,6 +12,7 @@ import { WishlistProvider } from "@/components/WishlistProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
 import { ListingTransitionProvider } from "@/components/ListingTransitionProvider";
+import { GlobalSimpleLoaderProvider } from "@/components/GlobalSimpleLoaderProvider"; // ⬅ import
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,10 +46,11 @@ export default function RootLayout({
               <WishlistProvider>
                 <CollectionsProvider>
                   <ListingTransitionProvider>
-                    <Header />
-                    {/* Persistent bottom nav on tablet & below */}
-                    <BottomNav />
-                    <main>{children}</main>
+                    <GlobalSimpleLoaderProvider>
+                      <Header />
+                      <BottomNav />
+                      <main>{children}</main>
+                    </GlobalSimpleLoaderProvider>
                   </ListingTransitionProvider>
                 </CollectionsProvider>
               </WishlistProvider>

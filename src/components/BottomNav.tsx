@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
+import { useSimpleLoader } from "@/components/GlobalSimpleLoaderProvider"; // ⬅ added
 
-const ACTIVE_COLOR_CLASS = "text-[#ff752bff]"; // pink like screenshot
-const INACTIVE_COLOR_CLASS = "text-[#A8A8A8]"; // soft grey
-const ICON_SIZE = 23; // 👈 change this to make all bottom-nav icons bigger/smaller
+const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
+const INACTIVE_COLOR_CLASS = "text-[#A8A8A8]";
+const ICON_SIZE = 23;
 
 function NavItem({
   label,
@@ -50,8 +51,8 @@ export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const { showSimpleLoader } = useSimpleLoader(); // ⬅ added
 
-  // Keep this in sync with Header auth
   useEffect(() => {
     const {
       data: { subscription },
@@ -69,6 +70,8 @@ export default function BottomNav() {
   }, []);
 
   const go = (href: string) => {
+    if (!href || href === pathname) return;
+    showSimpleLoader();          // ⬅ loader fires on any navigation
     router.push(href);
   };
 
@@ -80,20 +83,15 @@ export default function BottomNav() {
 
   const dashboardHref = user ? "/dashboard" : "/auth/sign-in";
 
-  // 🔎 Detect a heritage *detail* page: /heritage/<province>/<slug>
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
 
   return (
     <>
-      {/* Spacer so content isn't hidden behind the bar on small screens.
-          Skip it on heritage detail pages so the hero image can sit
-          directly under the header. */}
       {!isHeritageDetail && <div className="lg:hidden h-[72px]" />}
 
       <div className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden">
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
-          {/* Home */}
           <NavItem
             label="Home"
             icon="home"
@@ -102,7 +100,6 @@ export default function BottomNav() {
             onClick={() => go("/")}
           />
 
-          {/* Heritage */}
           <NavItem
             label="Heritage"
             icon="map-marker-alt"
@@ -111,7 +108,6 @@ export default function BottomNav() {
             onClick={() => go("/heritage")}
           />
 
-          {/* Explore */}
           <NavItem
             label="Explore"
             icon="search"
@@ -120,7 +116,6 @@ export default function BottomNav() {
             onClick={() => go("/explore")}
           />
 
-          {/* Map */}
           <NavItem
             label="Map"
             icon="map"
@@ -129,7 +124,6 @@ export default function BottomNav() {
             onClick={() => go("/map")}
           />
 
-          {/* Dashboard / Sign in */}
           <NavItem
             label="Dashboard"
             icon="dashboard"
