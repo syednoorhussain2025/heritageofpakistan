@@ -76,7 +76,7 @@ export default function HeritageNeighborNav({
           onClick={handlePrevClick}
           aria-label={prevTitle ? `Previous: ${prevTitle}` : "Previous site"}
           className="
-            fixed left-2 top-1/2 -translate-y-1/2 z-[60]
+            fixed left-2 bottom-[60px] -translate-y-1/2 z-[60]
             inline-flex items-center justify-center
             rounded-full bg-white shadow-md border border-black/10
             w-9 h-9 hover:bg-black/5 transition
@@ -92,7 +92,7 @@ export default function HeritageNeighborNav({
           onClick={handleNextClick}
           aria-label={nextTitle ? `Next: ${nextTitle}` : "Next site"}
           className="
-            fixed right-2 top-1/2 -translate-y-1/2 z-[60]
+            fixed right-2 bottom-[60px] -translate-y-1/2 z-[60]
             inline-flex items-center justify-center
             rounded-full bg-white shadow-md border border-black/10
             w-9 h-9 hover:bg-black/5 transition
@@ -118,7 +118,7 @@ export default function HeritageNeighborNav({
               {/* INFO SECTION */}
               <div className="px-4 pt-4 pb-8 space-y-5">
                 {/* Title */}
-                <div className="h-8 w-4/5 rounded-md bg-neutral-200 animate-pulse" />
+                <div className="h-10 w-4/5 rounded-md bg-neutral-200 animate-pulse" />
 
                 {/* Ratings row — STARS ONLY (circular) */}
                 <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export default function HeritageNeighborNav({
                     {Array.from({ length: 5 }).map((_, i) => (
                       <div
                         key={i}
-                        className="h-4 w-4 rounded-full bg-neutral-200 animate-pulse"
+                        className="h-5 w-5 rounded-full bg-neutral-200 animate-pulse"
                       />
                     ))}
                   </div>
