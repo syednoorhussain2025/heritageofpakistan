@@ -308,77 +308,90 @@ export default function HeritageNearby({
   }, [siteId, lat, lng, hasCoords]);
 
   return (
-    <HeritageSection
-      id="nearby"
-      title={`Places to Explore near ${siteTitle}`}
-      iconName="nearby"
-    >
-      {!hasCoords ? (
-        <div
-          className="text-[13px]"
-          style={{ color: "var(--muted-foreground, #5b6b84)" }}
-        >
-          Location coordinates are missing for this site.
-        </div>
-      ) : (
-        <>
-          {/* Grid / carousel of nearby cards */}
-          {err ? (
-            <div className="text-sm text-red-600">{err}</div>
-          ) : rows == null ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
-                />
-              ))}
-            </div>
-          ) : rows.length === 0 ? (
-            <div
-              className="text-[13px]"
-              style={{ color: "var(--muted-foreground, #5b6b84)" }}
-            >
-              No nearby places found within 50 km.
-            </div>
-          ) : (
-            <>
-              {/* Mobile: horizontal carousel */}
-              <div className="sm:hidden -mx-4 px-4">
-                <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
-                  {rows.map((r, index) => (
-                    <div key={r.id} className="min-w-[85%] snap-start">
-                      <SitePreviewCard site={r} index={index} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tablet / Desktop: existing grid */}
-              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rows.map((r, index) => (
-                  <SitePreviewCard key={r.id} site={r} index={index} />
+    <>
+      <HeritageSection
+        id="nearby"
+        title={`Places to Explore near ${siteTitle}`}
+        iconName="nearby"
+      >
+        {!hasCoords ? (
+          <div
+            className="text-[13px]"
+            style={{ color: "var(--muted-foreground, #5b6b84)" }}
+          >
+            Location coordinates are missing for this site.
+          </div>
+        ) : (
+          <>
+            {/* Grid / carousel of nearby cards */}
+            {err ? (
+              <div className="text-sm text-red-600">{err}</div>
+            ) : rows == null ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
+                  />
                 ))}
               </div>
-            </>
-          )}
+            ) : rows.length === 0 ? (
+              <div
+                className="text-[13px]"
+                style={{ color: "var(--muted-foreground, #5b6b84)" }}
+              >
+                No nearby places found within 50 km.
+              </div>
+            ) : (
+              <>
+                {/* Mobile: horizontal carousel */}
+                <div className="sm:hidden -mx-4 px-4">
+                  <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
+                    {rows.map((r, index) => (
+                      <div key={r.id} className="min-w-[85%] snap-start">
+                        <SitePreviewCard site={r} index={index} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-          {/* Explore Nearby Sites CTA */}
-          {exploreHref && (
-            <div className="mt-5 flex justify-center">
-              <Link
-                href={exploreHref}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold
+                {/* Tablet / Desktop: existing grid */}
+                <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rows.map((r, index) => (
+                    <SitePreviewCard key={r.id} site={r} index={index} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Explore Nearby Sites CTA */}
+            {exploreHref && (
+              <div className="mt-5 flex justify-center">
+                <Link
+                  href={exploreHref}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold
                            bg-[var(--navy-deep,#0f2746)] text-white hover:brightness-110
                            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--navy-deep,#0f2746)]
                            rounded-none"
-              >
-                Explore Nearby Sites
-              </Link>
-            </div>
-          )}
-        </>
-      )}
-    </HeritageSection>
+                >
+                  Explore Nearby Sites
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </HeritageSection>
+
+      {/* Global scrollbar hiding helper for horizontal carousels */}
+      <style jsx global>{`
+        .scrollbar-none {
+          -ms-overflow-style: none; /* IE + Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none; /* Chrome/Safari/WebKit */
+        }
+      `}</style>
+    </>
   );
 }
