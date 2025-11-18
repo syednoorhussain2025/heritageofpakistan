@@ -57,7 +57,7 @@ function BlurhashImage({
 export default function HeritageCover({
   site,
   hasPhotoStory,
-  fadeImage = false,
+  fadeImage = false, // kept for signature compatibility
 }: {
   site: {
     id: string;
@@ -94,13 +94,7 @@ export default function HeritageCover({
   const hasBlurhashFallback =
     !!activeBlurhash && !!activeWidth && !!activeHeight;
 
-  const shouldFade = fadeImage && !hasBlurDataURL && !!heroUrl;
-
-  // Desktop image fade state
-  const [imgLoaded, setImgLoaded] = useState(!shouldFade);
-  // Logical "image finished loading"
   const [heroLoaded, setHeroLoaded] = useState(false);
-  // Visual spinner control to guarantee visibility
   const [showSpinner, setShowSpinner] = useState(true);
 
   const heroRef = useRef<HTMLElement | null>(null);
@@ -141,10 +135,8 @@ export default function HeritageCover({
     };
   }, []);
 
-  // When the real image loads, mark it and then hide spinner slightly later
   const handleHeroLoad = () => {
     setHeroLoaded(true);
-    if (shouldFade) setImgLoaded(true);
   };
 
   useEffect(() => {
@@ -177,7 +169,6 @@ export default function HeritageCover({
           marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
         }}
       >
-        {/* Fixed 5:4 image area with blur + spinner + final image */}
         {heroUrl ? (
           <div className="relative w-full bg-black aspect-[5/4] overflow-hidden">
             {/* Spinner on top of everything */}
@@ -187,19 +178,19 @@ export default function HeritageCover({
               </div>
             )}
 
-            {/* Blurhash fallback if no blurDataURL */}
-            {!hasBlurDataURL &&
-              hasBlurhashFallback &&
-              activeWidth &&
-              activeHeight && (
-                <BlurhashImage
-                  hash={activeBlurhash!}
-                  width={activeWidth}
-                  height={activeHeight}
-                />
-              )}
+            {/* Blur layer from blurDataURL only (no Blurhash on mobile) */}
+            {hasBlurDataURL && (
+              <img
+                src={activeBlurDataURL}
+                alt={site.title}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                  heroLoaded ? "opacity-10" : "opacity-100"
+                }`}
+                draggable={false}
+              />
+            )}
 
-            {/* Final hero image */}
+            {/* Final hero image – fades in over the blur */}
             <Image
               src={heroUrl}
               alt={site.title}
@@ -207,9 +198,10 @@ export default function HeritageCover({
               height={activeHeight ?? 900}
               priority
               quality={90}
-              placeholder={hasBlurDataURL ? "blur" : "empty"}
-              blurDataURL={activeBlurDataURL}
-              className="absolute inset-0 w-full h-full object-cover"
+              placeholder="empty"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                heroLoaded ? "opacity-100" : "opacity-0"
+              }`}
               draggable={false}
               onLoad={handleHeroLoad}
             />
@@ -301,7 +293,7 @@ export default function HeritageCover({
         </div>
       </section>
 
-      {/* ---------- DESKTOP/TABLET HERO (existing design) ---------- */}
+      {/* ---------- DESKTOP/TABLET HERO ---------- */}
       <section
         ref={heroRef}
         aria-label="Hero"
@@ -322,34 +314,49 @@ export default function HeritageCover({
                 </div>
               )}
 
-              {/* Blurhash fallback if no blurDataURL */}
+              {/* Blur layer:
+                  - blurDataURL if present
+                  - otherwise Blurhash fallback
+                 Both fade to 10% when final image is loaded */}
+              {hasBlurDataURL && (
+                <img
+                  src={activeBlurDataURL}
+                  alt={site.title}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                    heroLoaded ? "opacity-10" : "opacity-100"
+                  }`}
+                  draggable={false}
+                />
+              )}
+
               {!hasBlurDataURL &&
                 hasBlurhashFallback &&
                 activeWidth &&
                 activeHeight && (
-                  <BlurhashImage
-                    hash={activeBlurhash!}
-                    width={activeWidth}
-                    height={activeHeight}
-                  />
+                  <div
+                    className={`absolute inset-0 transition-opacity duration-700 ${
+                      heroLoaded ? "opacity-10" : "opacity-100"
+                    }`}
+                  >
+                    <BlurhashImage
+                      hash={activeBlurhash!}
+                      width={activeWidth}
+                      height={activeHeight}
+                    />
+                  </div>
                 )}
 
+              {/* Final hero image – fades in over the blur */}
               <Image
                 src={heroUrl}
                 alt={site.title}
                 fill
                 priority
                 quality={90}
-                placeholder={hasBlurDataURL ? "blur" : "empty"}
-                blurDataURL={activeBlurDataURL}
-                className={[
-                  "object-cover object-top transition-opacity duration-700",
-                  shouldFade
-                    ? imgLoaded
-                      ? "opacity-100"
-                      : "opacity-0"
-                    : "opacity-100",
-                ].join(" ")}
+                placeholder="empty"
+                className={`object-cover object-top transition-opacity duration-700 ${
+                  heroLoaded ? "opacity-100" : "opacity-0"
+                }`}
                 draggable={false}
                 onLoad={handleHeroLoad}
               />
