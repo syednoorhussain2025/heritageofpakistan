@@ -85,7 +85,7 @@ export function GlobalSimpleLoaderProvider({
       {children}
 
       {visible && (
-        <div className="fixed inset-0 z-[9999] overflow-hidden bg-white">
+        <div className="fixed inset-0 z-[20] overflow-hidden bg-white">
           <div
             className={`
               w-full h-full flex items-center justify-center
