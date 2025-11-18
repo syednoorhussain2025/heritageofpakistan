@@ -11,6 +11,7 @@ import { BookmarkProvider } from "@/components/BookmarkProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
+import { ListingTransitionProvider } from "@/components/ListingTransitionProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,10 +44,12 @@ export default function RootLayout({
             <BookmarkProvider>
               <WishlistProvider>
                 <CollectionsProvider>
-                  <Header />
-                  {/* Persistent bottom nav on tablet & below */}
-                  <BottomNav />
-                  <main>{children}</main>
+                  <ListingTransitionProvider>
+                    <Header />
+                    {/* Persistent bottom nav on tablet & below */}
+                    <BottomNav />
+                    <main>{children}</main>
+                  </ListingTransitionProvider>
                 </CollectionsProvider>
               </WishlistProvider>
             </BookmarkProvider>
