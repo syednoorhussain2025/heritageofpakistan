@@ -95,7 +95,14 @@ export default function HeritageCover({
     !!activeBlurhash && !!activeWidth && !!activeHeight;
 
   const shouldFade = fadeImage && !hasBlurDataURL && !!heroUrl;
+
+  // Desktop image fade state
   const [imgLoaded, setImgLoaded] = useState(!shouldFade);
+  // Logical "image finished loading"
+  const [heroLoaded, setHeroLoaded] = useState(false);
+  // Visual spinner control to guarantee visibility
+  const [showSpinner, setShowSpinner] = useState(true);
+
   const heroRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -134,6 +141,18 @@ export default function HeritageCover({
     };
   }, []);
 
+  // When the real image loads, mark it and then hide spinner slightly later
+  const handleHeroLoad = () => {
+    setHeroLoaded(true);
+    if (shouldFade) setImgLoaded(true);
+  };
+
+  useEffect(() => {
+    if (!heroLoaded) return;
+    const t = setTimeout(() => setShowSpinner(false), 200);
+    return () => clearTimeout(t);
+  }, [heroLoaded]);
+
   const filled = Math.max(0, Math.min(5, Math.round(site.avg_rating ?? 0)));
   const hasRatingInfo =
     site.avg_rating != null || site.review_count != null;
@@ -158,9 +177,29 @@ export default function HeritageCover({
           marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
         }}
       >
-        {/* Image on top, natural aspect ratio (no fullscreen crop) */}
+        {/* Fixed 5:4 image area with blur + spinner + final image */}
         {heroUrl ? (
-          <div className="w-full bg-black">
+          <div className="relative w-full bg-black aspect-[5/4] overflow-hidden">
+            {/* Spinner on top of everything */}
+            {showSpinner && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+              </div>
+            )}
+
+            {/* Blurhash fallback if no blurDataURL */}
+            {!hasBlurDataURL &&
+              hasBlurhashFallback &&
+              activeWidth &&
+              activeHeight && (
+                <BlurhashImage
+                  hash={activeBlurhash!}
+                  width={activeWidth}
+                  height={activeHeight}
+                />
+              )}
+
+            {/* Final hero image */}
             <Image
               src={heroUrl}
               alt={site.title}
@@ -170,12 +209,13 @@ export default function HeritageCover({
               quality={90}
               placeholder={hasBlurDataURL ? "blur" : "empty"}
               blurDataURL={activeBlurDataURL}
-              className="w-full h-auto object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               draggable={false}
+              onLoad={handleHeroLoad}
             />
           </div>
         ) : (
-          <div className="w-full h-56 bg-gray-200" />
+          <div className="w-full aspect-[5/4] bg-gray-200" />
         )}
 
         {/* Info block below image */}
@@ -275,6 +315,14 @@ export default function HeritageCover({
         <div className="absolute inset-0">
           {heroUrl ? (
             <>
+              {/* Spinner on top of blur + final image */}
+              {showSpinner && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                  <div className="h-11 w-11 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                </div>
+              )}
+
+              {/* Blurhash fallback if no blurDataURL */}
               {!hasBlurDataURL &&
                 hasBlurhashFallback &&
                 activeWidth &&
@@ -303,7 +351,7 @@ export default function HeritageCover({
                     : "opacity-100",
                 ].join(" ")}
                 draggable={false}
-                onLoad={() => shouldFade && setImgLoaded(true)}
+                onLoad={handleHeroLoad}
               />
             </>
           ) : (
