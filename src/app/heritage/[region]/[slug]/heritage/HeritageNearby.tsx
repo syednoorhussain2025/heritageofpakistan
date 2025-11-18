@@ -34,7 +34,7 @@ const EARTH_RADIUS_KM = 6371;
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lat2 - lon1);
+  const dLon = toRad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
@@ -54,7 +54,7 @@ function bboxAround(lat: number, lng: number, radiusKm: number) {
   };
 }
 
-/* ───────────────── Province slug helpers ───────────────── */
+/* ───────────────── Province slug helpers (copied from ExplorePage) ───────────────── */
 
 async function buildProvinceSlugMapForSites(siteIds: string[]) {
   const out = new Map<string, string | null>();
@@ -112,11 +112,12 @@ async function ensureProvinceSlugOnSites(sites: NearbySite[]) {
   }
 }
 
-/* ───────────────── Active covers ───────────────── */
+/* ───────────────── Active covers + blur from site_covers (same as Explore) ───────────────── */
 
 function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!storagePath) return "";
 
+  // Already an absolute URL
   if (/^https?:\/\//i.test(storagePath)) {
     return storagePath;
   }
@@ -125,6 +126,8 @@ function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!SUPA_URL) return "";
 
   const clean = storagePath.replace(/^\/+/, "");
+
+  // `${SUPA_URL}/storage/v1/object/public/site-images/${storage_path}`
   return `${SUPA_URL}/storage/v1/object/public/site-images/${clean}`;
 }
 
@@ -172,7 +175,7 @@ async function attachActiveCovers(sites: NearbySite[]) {
   }
 }
 
-/* ───────────────── Component ───────────────── */
+/* ───────────────────────────── Component ───────────────────────────── */
 
 export default function HeritageNearby({
   siteId,
@@ -190,6 +193,7 @@ export default function HeritageNearby({
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
 
+  // Build Explore deep-link: /explore?center=...&clat=...&clng=...&rkm=25
   const exploreHref = useMemo(() => {
     if (!hasCoords) return null;
     return buildPlacesNearbyURL({
@@ -214,6 +218,7 @@ export default function HeritageNearby({
           return;
         }
 
+        // 1) Fetch candidates within a 50 km bounding box
         const box50 = bboxAround(lat!, lng!, 50);
         const { data, error } = await supabase
           .from("sites")
@@ -254,6 +259,7 @@ export default function HeritageNearby({
           };
         });
 
+        // 2) Primary: within 25 km
         let within25 = withDistance
           .filter((s) => (s.distance_km ?? Infinity) <= 25)
           .sort(
@@ -263,6 +269,7 @@ export default function HeritageNearby({
           )
           .slice(0, 6);
 
+        // 3) Top-up from <= 50 km if needed
         if (within25.length < 6) {
           const need = 6 - within25.length;
           const within50 = withDistance
@@ -281,6 +288,7 @@ export default function HeritageNearby({
           within25 = [...within25, ...within50];
         }
 
+        // Derive province_slug and cover info, just like ExplorePage
         await ensureProvinceSlugOnSites(within25);
         await attachActiveCovers(within25);
 
@@ -314,35 +322,18 @@ export default function HeritageNearby({
         </div>
       ) : (
         <>
+          {/* Grid of nearby cards */}
           {err ? (
             <div className="text-sm text-red-600">{err}</div>
           ) : rows == null ? (
-            // ─── Loading skeletons ───
-            <>
-              {/* Mobile: horizontal carousel skeleton */}
-              <div className="-mx-4 px-4 md:hidden">
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="min-w-[260px] max-w-[320px] flex-[0_0_80%] snap-start"
-                    >
-                      <div className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Desktop / tablet: grid skeleton */}
-              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
-                  />
-                ))}
-              </div>
-            </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
+                />
+              ))}
+            </div>
           ) : rows.length === 0 ? (
             <div
               className="text-[13px]"
@@ -351,71 +342,35 @@ export default function HeritageNearby({
               No nearby places found within 50 km.
             </div>
           ) : (
-            <>
-              {/* Mobile: horizontal carousel of cards */}
-              <div className="-mx-4 px-4 md:hidden">
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2">
-                  {rows.map((r, index) => (
-                    <div
-                      key={r.id}
-                      className="min-w-[260px] max-w-[320px] flex-[0_0_80%] snap-start"
-                    >
-                      <SitePreviewCard
-                        index={index}
-                        site={{
-                          id: r.id,
-                          slug: r.slug,
-                          // province_id removed to satisfy Site type
-                          province_slug: r.province_slug ?? null,
-                          title: r.title,
-                          cover_photo_url: r.cover_photo_url ?? null,
-                          cover_blur_data_url: r.cover_blur_data_url ?? null,
-                          cover_width: r.cover_width ?? null,
-                          cover_height: r.cover_height ?? null,
-                          location_free: r.location_free ?? null,
-                          heritage_type: r.heritage_type ?? null,
-                          avg_rating: r.avg_rating ?? null,
-                          review_count: r.review_count ?? null,
-                          distance_km: r.distance_km ?? null,
-                          latitude: r.latitude ?? null,
-                          longitude: r.longitude ?? null,
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Desktop / tablet: existing grid layout */}
-              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {rows.map((r, index) => (
-                  <SitePreviewCard
-                    key={r.id}
-                    index={index}
-                    site={{
-                      id: r.id,
-                      slug: r.slug,
-                      // province_id removed to satisfy Site type
-                      province_slug: r.province_slug ?? null,
-                      title: r.title,
-                      cover_photo_url: r.cover_photo_url ?? null,
-                      cover_blur_data_url: r.cover_blur_data_url ?? null,
-                      cover_width: r.cover_width ?? null,
-                      cover_height: r.cover_height ?? null,
-                      location_free: r.location_free ?? null,
-                      heritage_type: r.heritage_type ?? null,
-                      avg_rating: r.avg_rating ?? null,
-                      review_count: r.review_count ?? null,
-                      distance_km: r.distance_km ?? null,
-                      latitude: r.latitude ?? null,
-                      longitude: r.longitude ?? null,
-                    }}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {rows.map((r, index) => (
+                <SitePreviewCard
+                  key={r.id}
+                  index={index}
+                  site={{
+                    id: r.id,
+                    slug: r.slug,
+                    province_id: r.province_id ?? null,
+                    province_slug: r.province_slug ?? null,
+                    title: r.title,
+                    cover_photo_url: r.cover_photo_url ?? null,
+                    cover_blur_data_url: r.cover_blur_data_url ?? null,
+                    cover_width: r.cover_width ?? null,
+                    cover_height: r.cover_height ?? null,
+                    location_free: r.location_free ?? null,
+                    heritage_type: r.heritage_type ?? null,
+                    avg_rating: r.avg_rating ?? null,
+                    review_count: r.review_count ?? null,
+                    distance_km: r.distance_km ?? null,
+                    latitude: r.latitude ?? null,
+                    longitude: r.longitude ?? null,
+                  }}
+                />
+              ))}
+            </div>
           )}
 
+          {/* Explore Nearby Sites CTA */}
           {exploreHref && (
             <div className="mt-5 flex justify-center">
               <Link
