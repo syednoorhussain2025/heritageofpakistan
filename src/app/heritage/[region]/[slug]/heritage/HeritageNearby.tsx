@@ -34,7 +34,7 @@ const EARTH_RADIUS_KM = 6371;
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLon = toRad(lat2 - lon1);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
@@ -322,7 +322,7 @@ export default function HeritageNearby({
         </div>
       ) : (
         <>
-          {/* Grid of nearby cards */}
+          {/* Grid / carousel of nearby cards */}
           {err ? (
             <div className="text-sm text-red-600">{err}</div>
           ) : rows == null ? (
@@ -342,15 +342,28 @@ export default function HeritageNearby({
               No nearby places found within 50 km.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rows.map((r, index) => (
-                <SitePreviewCard
-                  key={r.id}
-                  index={index}
-                  site={r}   
-                />
-              ))}
-            </div>
+            <>
+              {/* Mobile: horizontal carousel */}
+              <div className="sm:hidden -mx-4 px-4">
+                <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                  {rows.map((r, index) => (
+                    <div
+                      key={r.id}
+                      className="min-w-[85%] snap-start"
+                    >
+                      <SitePreviewCard site={r} index={index} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tablet / Desktop: existing grid */}
+              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rows.map((r, index) => (
+                  <SitePreviewCard key={r.id} site={r} index={index} />
+                ))}
+              </div>
+            </>
           )}
 
           {/* Explore Nearby Sites CTA */}
