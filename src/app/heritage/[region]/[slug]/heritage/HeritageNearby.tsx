@@ -34,7 +34,7 @@ const EARTH_RADIUS_KM = 6371;
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLon = toRad(lat2 - lon1);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
@@ -365,7 +365,7 @@ export default function HeritageNearby({
                         site={{
                           id: r.id,
                           slug: r.slug,
-                          province_id: r.province_id ?? null,
+                          // province_id removed to satisfy Site type
                           province_slug: r.province_slug ?? null,
                           title: r.title,
                           cover_photo_url: r.cover_photo_url ?? null,
@@ -395,7 +395,7 @@ export default function HeritageNearby({
                     site={{
                       id: r.id,
                       slug: r.slug,
-                      province_id: r.province_id ?? null,
+                      // province_id removed to satisfy Site type
                       province_slug: r.province_slug ?? null,
                       title: r.title,
                       cover_photo_url: r.cover_photo_url ?? null,

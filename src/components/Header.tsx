@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
+import { useListingTransition } from "@/components/ListingTransitionProvider";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -110,10 +111,80 @@ function thumbUrl(input?: string | null, size = 40) {
   return u.toString();
 }
 
+/* Per-result avatar with spinner + fallback */
+function SearchThumbCircle({
+  thumb,
+  absoluteFallback,
+  sizeClass, // e.g. "w-10 h-10" or "w-12 h-12"
+}: {
+  thumb: string;
+  absoluteFallback: string;
+  sizeClass: string;
+}) {
+  const [loading, setLoading] = useState<boolean>(!!thumb);
+  const [errored, setErrored] = useState<boolean>(false);
+
+  const showImage = !!thumb && !errored;
+
+  return (
+    <div className={`relative ${sizeClass} flex-shrink-0`}>
+      {showImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumb}
+          alt=""
+          aria-hidden="true"
+          className={`${sizeClass} rounded-full object-cover ring-1 ring-gray-200`}
+          loading="lazy"
+          decoding="async"
+          style={{ opacity: loading ? 0 : 1, transition: "opacity 150ms ease-out" }}
+          onLoad={() => setLoading(false)}
+          onError={(e) => {
+            const t = e.currentTarget as HTMLImageElement;
+            if (absoluteFallback && t.src !== absoluteFallback) {
+              t.src = absoluteFallback;
+              return;
+            }
+            setErrored(true);
+            setLoading(false);
+          }}
+        />
+      )}
+
+      {/* Spinner while loading an image */}
+      {loading && showImage && (
+        <div className={`absolute inset-0 ${sizeClass} rounded-full bg-gray-100 ring-1 ring-gray-200 flex items-center justify-center`}>
+          <span
+            className="inline-block rounded-full animate-spin"
+            style={{
+              width: 16,
+              height: 16,
+              borderWidth: "2px",
+              borderStyle: "solid",
+              borderColor: "#d1d5db",
+              borderTopColor: "transparent",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Fallback icon when no thumb or error */}
+      {(!thumb || errored) && !loading && (
+        <div
+          className={`absolute inset-0 ${sizeClass} rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400 flex`}
+        >
+          <Icon name="image" size={13} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------- Header ----------------------------------- */
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const { navigateWithListingTransition } = useListingTransition();
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
@@ -852,43 +923,19 @@ export default function Header() {
                           key={s.id}
                           href={href}
                           className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
                             setOpenSuggest(false);
                             setIsSearchFocused(false);
+                            setSearchOverlayOpen(false);
+                            navigateWithListingTransition(href, "forward");
                           }}
                         >
-                          <div className="relative w-10 h-10 flex-shrink-0">
-                            {thumb ? (
-                              <img
-                                src={thumb}
-                                alt=""
-                                aria-hidden="true"
-                                className="w-10 h-10 rounded-full object-cover ring-1 ring-gray-200"
-                                loading="lazy"
-                                decoding="async"
-                                onError={(e) => {
-                                  const t = e.currentTarget as HTMLImageElement;
-                                  if (
-                                    absoluteFallback &&
-                                    t.src !== absoluteFallback
-                                  ) {
-                                    t.src = absoluteFallback;
-                                    return;
-                                  }
-                                  t.style.display = "none";
-                                  const ph =
-                                    t.nextElementSibling as HTMLElement | null;
-                                  if (ph) ph.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              style={{ display: thumb ? "none" : "flex" }}
-                              className="absolute inset-0 w-10 h-10 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
-                            >
-                              <Icon name="image" size={13} />
-                            </div>
-                          </div>
+                          <SearchThumbCircle
+                            thumb={thumb}
+                            absoluteFallback={absoluteFallback}
+                            sizeClass="w-10 h-10"
+                          />
 
                           <div className="flex flex-col min-w-0">
                             <span className="text-sm text-gray-900 truncate">
@@ -1284,40 +1331,19 @@ export default function Header() {
                         key={s.id}
                         href={href}
                         className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setSearchOverlayOpen(false)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSearchOverlayOpen(false);
+                          setIsSearchFocused(false);
+                          setOpenSuggest(false);
+                          navigateWithListingTransition(href, "forward");
+                        }}
                       >
-                        <div className="relative w-12 h-12 flex-shrink-0">
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt=""
-                              aria-hidden="true"
-                              className="w-12 h-12 rounded-full object-cover ring-1 ring-gray-200"
-                              loading="lazy"
-                              decoding="async"
-                              onError={(e) => {
-                                const t = e.currentTarget as HTMLImageElement;
-                                if (
-                                  absoluteFallback &&
-                                  t.src !== absoluteFallback
-                                ) {
-                                  t.src = absoluteFallback;
-                                  return;
-                                }
-                                t.style.display = "none";
-                                const ph =
-                                  t.nextElementSibling as HTMLElement | null;
-                                if (ph) ph.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            style={{ display: thumb ? "none" : "flex" }}
-                            className="absolute inset-0 w-12 h-12 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
-                          >
-                            <Icon name="image" size={13} />
-                          </div>
-                        </div>
+                        <SearchThumbCircle
+                          thumb={thumb}
+                          absoluteFallback={absoluteFallback}
+                          sizeClass="w-12 h-12"
+                        />
 
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-medium text-gray-800 truncate">
