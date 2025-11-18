@@ -113,7 +113,7 @@ export default function HeritageNeighborNav({
           >
             <div className="w-full h-full bg-white flex flex-col">
               {/* COVER IMAGE SKELETON */}
-              <div className="w-full bg-neutral-200 animate-pulse pt-[60%]" />
+              <div className="w-full bg-neutral-200 animate-pulse pt-[70%]" />
 
               {/* INFO SECTION */}
               <div className="px-4 pt-4 pb-8 space-y-5">
