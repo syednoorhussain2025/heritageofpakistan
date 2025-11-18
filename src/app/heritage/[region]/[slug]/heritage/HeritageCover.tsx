@@ -135,7 +135,7 @@ export default function HeritageCover({
     };
   }, []);
 
-  const handleHeroLoad = () => {
+  const handleHeroLoadComplete = () => {
     setHeroLoaded(true);
   };
 
@@ -178,17 +178,34 @@ export default function HeritageCover({
               </div>
             )}
 
-            {/* Blur layer from blurDataURL only (no Blurhash on mobile) */}
+            {/* Blurred placeholder layer */}
             {hasBlurDataURL && (
               <img
                 src={activeBlurDataURL}
                 alt={site.title}
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-                  heroLoaded ? "opacity-10" : "opacity-100"
+                className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
+                  heroLoaded ? "opacity-0" : "opacity-100"
                 }`}
                 draggable={false}
               />
             )}
+
+            {!hasBlurDataURL &&
+              hasBlurhashFallback &&
+              activeWidth &&
+              activeHeight && (
+                <div
+                  className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
+                    heroLoaded ? "opacity-0" : "opacity-100"
+                  }`}
+                >
+                  <BlurhashImage
+                    hash={activeBlurhash!}
+                    width={activeWidth}
+                    height={activeHeight}
+                  />
+                </div>
+              )}
 
             {/* Final hero image – fades in over the blur */}
             <Image
@@ -203,7 +220,7 @@ export default function HeritageCover({
                 heroLoaded ? "opacity-100" : "opacity-0"
               }`}
               draggable={false}
-              onLoad={handleHeroLoad}
+              onLoadingComplete={handleHeroLoadComplete}
             />
           </div>
         ) : (
@@ -314,16 +331,13 @@ export default function HeritageCover({
                 </div>
               )}
 
-              {/* Blur layer:
-                  - blurDataURL if present
-                  - otherwise Blurhash fallback
-                 Both fade to 10% when final image is loaded */}
+              {/* Blurred placeholder from blurDataURL or Blurhash */}
               {hasBlurDataURL && (
                 <img
                   src={activeBlurDataURL}
                   alt={site.title}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-                    heroLoaded ? "opacity-10" : "opacity-100"
+                  className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
+                    heroLoaded ? "opacity-0" : "opacity-100"
                   }`}
                   draggable={false}
                 />
@@ -334,8 +348,8 @@ export default function HeritageCover({
                 activeWidth &&
                 activeHeight && (
                   <div
-                    className={`absolute inset-0 transition-opacity duration-700 ${
-                      heroLoaded ? "opacity-10" : "opacity-100"
+                    className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
+                      heroLoaded ? "opacity-0" : "opacity-100"
                     }`}
                   >
                     <BlurhashImage
@@ -358,7 +372,7 @@ export default function HeritageCover({
                   heroLoaded ? "opacity-100" : "opacity-0"
                 }`}
                 draggable={false}
-                onLoad={handleHeroLoad}
+                onLoadingComplete={handleHeroLoadComplete}
               />
             </>
           ) : (
