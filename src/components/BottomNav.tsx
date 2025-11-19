@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
-import { useSimpleLoader } from "@/components/GlobalSimpleLoaderProvider"; // ⬅ added
+import { useSimpleLoader } from "@/components/GlobalSimpleLoaderProvider";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#A8A8A8]";
@@ -51,7 +51,7 @@ export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
-  const { showSimpleLoader } = useSimpleLoader(); // ⬅ added
+  const { showSimpleLoader } = useSimpleLoader();
 
   useEffect(() => {
     const {
@@ -64,14 +64,17 @@ export default function BottomNav() {
       setUser(session?.user ?? null);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const go = (href: string) => {
     if (!href || href === pathname) return;
-    showSimpleLoader();          // ⬅ loader fires on any navigation
+
+    // ⬅ disable loader only for Explore
+    if (href !== "/explore") {
+      showSimpleLoader();
+    }
+
     router.push(href);
   };
 
@@ -82,7 +85,6 @@ export default function BottomNav() {
   const isDashboardActive = pathname.startsWith("/dashboard");
 
   const dashboardHref = user ? "/dashboard" : "/auth/sign-in";
-
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
 
@@ -92,45 +94,11 @@ export default function BottomNav() {
 
       <div className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden">
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
-          <NavItem
-            label="Home"
-            icon="home"
-            href="/"
-            isActive={isHomeActive}
-            onClick={() => go("/")}
-          />
-
-          <NavItem
-            label="Heritage"
-            icon="map-marker-alt"
-            href="/heritage"
-            isActive={isHeritageActive}
-            onClick={() => go("/heritage")}
-          />
-
-          <NavItem
-            label="Explore"
-            icon="search"
-            href="/explore"
-            isActive={isExploreActive}
-            onClick={() => go("/explore")}
-          />
-
-          <NavItem
-            label="Map"
-            icon="map"
-            href="/map"
-            isActive={isMapActive}
-            onClick={() => go("/map")}
-          />
-
-          <NavItem
-            label="Dashboard"
-            icon="dashboard"
-            href={dashboardHref}
-            isActive={isDashboardActive}
-            onClick={() => go(dashboardHref)}
-          />
+          <NavItem label="Home" icon="home" href="/" isActive={isHomeActive} onClick={() => go("/")} />
+          <NavItem label="Heritage" icon="map-marker-alt" href="/heritage" isActive={isHeritageActive} onClick={() => go("/heritage")} />
+          <NavItem label="Explore" icon="search" href="/explore" isActive={isExploreActive} onClick={() => go("/explore")} />
+          <NavItem label="Map" icon="map" href="/map" isActive={isMapActive} onClick={() => go("/map")} />
+          <NavItem label="Dashboard" icon="dashboard" href={dashboardHref} isActive={isDashboardActive} onClick={() => go(dashboardHref)} />
         </nav>
       </div>
     </>
