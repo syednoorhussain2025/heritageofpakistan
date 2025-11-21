@@ -68,7 +68,7 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-/** Resolve the best available province or region slug field from the card data. */
+/** Resolve the best available province/region slug field from the card data. */
 function resolveProvinceSlug(site: Site): string | null {
   if (site.province_slug && site.province_slug.trim().length > 0) {
     return site.province_slug.trim();
@@ -90,7 +90,7 @@ export default function SitePreviewCard({
 }: {
   site: Site;
   onClose?: () => void;
-  /** Index from ExplorePage - used to prioritise first two rows */
+  /** Index from ExplorePage – used to prioritise first two rows */
   index?: number;
 }) {
   const router = useRouter();
@@ -131,7 +131,7 @@ export default function SitePreviewCard({
   const hasBlur = Boolean(site.cover_blur_data_url);
   const sharpSrc = site.cover_photo_url || FALLBACK_SVG;
 
-  // Reset load and error when the image changes
+  // Reset load/error when the image changes
   useEffect(() => {
     setIsSharpLoaded(false);
     setHasError(false);
@@ -140,7 +140,7 @@ export default function SitePreviewCard({
   // Prioritise first two rows in the Explore grid
   const isPriority = index < 6;
 
-  // For priority cards, force browser to start image download
+  // Preload for priority cards
   useEffect(() => {
     if (!isPriority || !sharpSrc || sharpSrc === FALLBACK_SVG) return;
     if (typeof window === "undefined") return;
@@ -199,7 +199,6 @@ export default function SitePreviewCard({
 
   /** Main card click: trigger engine with listing loader */
   const handleCardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Allow middle-click / Cmd+click / Ctrl+click etc. to behave like a normal link
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
       return;
     }
@@ -212,8 +211,7 @@ export default function SitePreviewCard({
   };
 
   return (
-    <div className="w-full rounded-xl overflow-hidden bg-white relative transition-all duration-300 hover:-translate-y-1 border border-[#e5e5e5]">
-
+    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative transition-all duration-300 hover:-translate-y-1 border border-[#e5e5e5]">
       {onClose && (
         <button
           onClick={onClose}
@@ -233,7 +231,7 @@ export default function SitePreviewCard({
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
           <div className="relative aspect-[5/4] md:aspect-[18/9] w-full overflow-hidden rounded-none">
-            {/* Blur layer - always fades out once we decide we are done */}
+            {/* Blur layer */}
             {hasBlur && (
               <Image
                 src={site.cover_blur_data_url!}
@@ -249,7 +247,7 @@ export default function SitePreviewCard({
               />
             )}
 
-            {/* Sharp image - eager + priority for first two rows */}
+            {/* Sharp image */}
             <Image
               key={sharpSrc}
               src={sharpSrc}
@@ -261,7 +259,7 @@ export default function SitePreviewCard({
               onLoadingComplete={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);
-                setIsSharpLoaded(true); // ensure we never stay stuck on blur
+                setIsSharpLoaded(true);
               }}
               className={`object-cover transition-opacity duration-700 ${
                 isSharpLoaded || !hasBlur ? "opacity-100" : "opacity-0"
@@ -285,7 +283,7 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Rating and reviews pills - rating on top, reviews below, both smaller */}
+          {/* Rating and reviews pills – rating on top, reviews below */}
           <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5">
             {site.avg_rating != null && (
               <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
@@ -313,7 +311,7 @@ export default function SitePreviewCard({
           {/* Title and location gradient */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/70 to-transparent rounded-b-xl -m-3 p-3 pt-10">
-              <h3 className="text-white text-lg sm:text-xl font-extrabold drop-shadow">
+              <h3 className="text-white text-lg sm:text-xl font-extrabold">
                 {site.title}
               </h3>
               {site.location_free && (
@@ -325,13 +323,13 @@ export default function SitePreviewCard({
           </div>
         </div>
 
-        {/* Footer: info row + separate actions row */}
+        {/* Footer */}
         <div
           className="px-4 py-3"
           onClick={(e) => e.preventDefault()}
         >
-          {/* Info row - hidden on mobile, visible on md+ */}
-          <div className="hidden md:flex items-center gap-2 mb-2">
+          {/* Desktop / tablet: type left, actions right (original layout) */}
+          <div className="hidden md:flex items-center gap-2 text-gray-700">
             <span className="inline-flex items-center gap-2 text-sm font-medium">
               <Icon
                 name="university"
@@ -340,12 +338,8 @@ export default function SitePreviewCard({
               />
               {site.heritage_type || "—"}
             </span>
-          </div>
 
-          {/* Actions row on its own line */}
-          <div className="flex items-center justify-center md:justify-between text-gray-700 gap-3">
-            <div className="hidden md:block flex-1" />
-            <div className="flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-3">
               {/* Places Nearby */}
               <button
                 type="button"
@@ -421,6 +415,84 @@ export default function SitePreviewCard({
                 />
               </button>
             </div>
+          </div>
+
+          {/* Mobile: actions on their own centered row, no type label */}
+          <div className="flex md:hidden items-center justify-center gap-3 text-gray-700">
+            {/* Places Nearby */}
+            <button
+              type="button"
+              title="Places Nearby"
+              onClick={handlePlacesNearby}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <Icon
+                name="nearby"
+                size={14}
+                className="text-[var(--brand-orange)]"
+              />
+            </button>
+
+            {/* Bookmark */}
+            <button
+              type="button"
+              title="Bookmark"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleBookmark(site.id);
+              }}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                isBookmarked
+                  ? "bg-[var(--brand-orange)] hover:brightness-90"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+              disabled={!isLoaded}
+            >
+              <Icon
+                name="heart"
+                size={14}
+                className={
+                  isBookmarked ? "text-white" : "text-[var(--brand-orange)]"
+                }
+              />
+            </button>
+
+            {/* Wishlist */}
+            <button
+              type="button"
+              title="Add to Wishlist"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowWishlistModal(true);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <Icon
+                name="list-ul"
+                size={14}
+                className="text-[var(--brand-orange)]"
+              />
+            </button>
+
+            {/* Trip */}
+            <button
+              type="button"
+              title="Add to Trip"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowTripModal(true);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <Icon
+                name="route"
+                size={14}
+                className="text-[var(--brand-orange)]"
+              />
+            </button>
           </div>
         </div>
       </Link>
