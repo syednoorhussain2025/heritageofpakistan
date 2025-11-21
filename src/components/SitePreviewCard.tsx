@@ -330,7 +330,7 @@ export default function SitePreviewCard({
           onClick={(e) => e.preventDefault()}
         >
 {/* Mobile title + location inside white card */}
-<div className="md:hidden text-gray-900 px-0 pt-0 pb-8">
+<div className="md:hidden text-gray-900 px-0 pt-0 pb-4">
   <h3 className="text-[15px] font-extrabold leading-tight">
     {site.title}
   </h3>
