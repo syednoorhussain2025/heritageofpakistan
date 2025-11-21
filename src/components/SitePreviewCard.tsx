@@ -91,7 +91,7 @@ export default function SitePreviewCard({
 }: {
   site: Site;
   onClose?: () => void;
-  /** Index from ExplorePage – used to prioritise first two rows */
+  /** Index from ExplorePage used to prioritise first two rows */
   index?: number;
 }) {
   const router = useRouter();
@@ -284,7 +284,7 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Rating and reviews pills – rating on top, reviews below */}
+          {/* Rating and reviews pills rating on top, reviews below */}
           <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5">
             {site.avg_rating != null && (
               <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
@@ -292,10 +292,9 @@ export default function SitePreviewCard({
               </span>
             )}
             {site.review_count != null && (
-<span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
-    {site.review_count} Reviews
-</span>
-
+              <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
+                {site.review_count} Reviews
+              </span>
             )}
           </div>
 
@@ -310,7 +309,7 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Title and location gradient (desktop / tablet only) */}
+          {/* Title and location gradient desktop / tablet only */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/70 to-transparent rounded-b-xl -m-3 p-3 pt-10">
               <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold">
@@ -330,27 +329,19 @@ export default function SitePreviewCard({
           className="px-2 py-2"
           onClick={(e) => e.preventDefault()}
         >
-{/* Mobile title + location inside white card */}
-<div className="md:hidden text-gray-900 px-0 pt-0 pb-4">
-  <h3 className="text-[15px] font-extrabold leading-tight">
-    {site.title}
-  </h3>
-  {site.location_free && (
-    <div className="mt-[4px] flex items-center gap-1 text-[11px] text-gray-700 truncate">
-      <Icon
-        name="map-marker-alt"
-        size={11}
-        className="text-[var(--brand-orange)] flex-shrink-0"
-      />
-      <span className="truncate">{site.location_free}</span>
-    </div>
-  )}
-</div>
+          {/* Mobile title + location inside white card, no pin */}
+          <div className="md:hidden text-gray-900 px-0 pt-0 pb-4">
+            <h3 className="text-[16px] font-extrabold leading-tight">
+              {site.title}
+            </h3>
+            {site.location_free && (
+              <div className="mt-[1px] text-[11px] text-gray-400 truncate">
+                {site.location_free}
+              </div>
+            )}
+          </div>
 
-
-
-
-          {/* Desktop / tablet: type left, actions right (original layout) */}
+          {/* Desktop / tablet type left, actions right */}
           <div className="hidden md:flex items-center gap-2 text-gray-700">
             <span className="inline-flex items-center gap-2 text-sm font-medium">
               <Icon
@@ -439,7 +430,7 @@ export default function SitePreviewCard({
             </div>
           </div>
 
-          {/* Mobile: actions on their own centered row, no type label */}
+          {/* Mobile actions row */}
           <div className="flex md:hidden items-center justify-center gap-3 text-gray-700">
             {/* Places Nearby */}
             <button
