@@ -7,6 +7,7 @@ import {
   useCallback,
   useRef,
   useLayoutEffect,
+  Suspense,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
@@ -1039,7 +1040,6 @@ function ExplorePageContent() {
               <div
                 ref={cardsRef}
                 className="grid grid-cols-2 xl:grid-cols-3 gap-5"
-
               >
                 {loading && results.sites.length === 0 ? (
                   Array.from({ length: 6 }).map((_, i) => (
@@ -1077,6 +1077,19 @@ function ExplorePageContent() {
   );
 }
 
+/* Force dynamic rendering so cookies usage in the tree does not break static generation */
+export const dynamic = "force-dynamic";
+
 export default function ExplorePage() {
-  return <ExplorePageContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--ivory-cream)] flex items-center justify-center">
+          <Spinner size={40} />
+        </div>
+      }
+    >
+      <ExplorePageContent />
+    </Suspense>
+  );
 }
