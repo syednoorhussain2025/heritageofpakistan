@@ -11,8 +11,7 @@ import { BookmarkProvider } from "@/components/BookmarkProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
-import { ListingTransitionProvider } from "@/components/ListingTransitionProvider";
-import { GlobalSimpleLoaderProvider } from "@/components/GlobalSimpleLoaderProvider"; // ⬅ import
+import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,13 +44,11 @@ export default function RootLayout({
             <BookmarkProvider>
               <WishlistProvider>
                 <CollectionsProvider>
-                  <ListingTransitionProvider>
-                    <GlobalSimpleLoaderProvider>
-                      <Header />
-                      <BottomNav />
-                      <main>{children}</main>
-                    </GlobalSimpleLoaderProvider>
-                  </ListingTransitionProvider>
+                  <LoaderEngineProvider>
+                    <Header />
+                    <BottomNav />
+                    <main>{children}</main>
+                  </LoaderEngineProvider>
                 </CollectionsProvider>
               </WishlistProvider>
             </BookmarkProvider>

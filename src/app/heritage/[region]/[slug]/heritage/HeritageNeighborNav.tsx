@@ -3,7 +3,7 @@
 
 import React from "react";
 import Icon from "@/components/Icon";
-import { useListingTransition } from "@/components/ListingTransitionProvider";
+import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 type HeritageNeighborNavProps = {
   prevHref?: string | null;
@@ -18,22 +18,24 @@ export default function HeritageNeighborNav({
   prevTitle,
   nextTitle,
 }: HeritageNeighborNavProps) {
-  const { navigateWithListingTransition } = useListingTransition();
+  const { startNavigation } = useLoaderEngine();
 
   if (!prevHref && !nextHref) return null;
 
   const handlePrevClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (prevHref) {
-      navigateWithListingTransition(prevHref, "prev");
-    }
+    if (!prevHref) return;
+
+    // Use listing loader + slide from left
+    startNavigation(prevHref, { direction: "prev" });
   };
 
   const handleNextClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (nextHref) {
-      navigateWithListingTransition(nextHref, "next");
-    }
+    if (!nextHref) return;
+
+    // Use listing loader + slide from right
+    startNavigation(nextHref, { direction: "next" });
   };
 
   return (

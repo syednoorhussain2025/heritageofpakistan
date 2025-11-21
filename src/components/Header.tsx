@@ -1,3 +1,4 @@
+// src/components/Header.tsx
 "use client";
 
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
-import { useListingTransition } from "@/components/ListingTransitionProvider";
+import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -184,7 +185,7 @@ function SearchThumbCircle({
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { navigateWithListingTransition } = useListingTransition();
+  const { startNavigation } = useLoaderEngine();
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
@@ -770,7 +771,7 @@ export default function Header() {
         />
 
         {/* Top bar */}
-        <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
+        <div className="relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
           {/* Burger mobile */}
           <button
             type="button"
@@ -928,7 +929,10 @@ export default function Header() {
                             setOpenSuggest(false);
                             setIsSearchFocused(false);
                             setSearchOverlayOpen(false);
-                            navigateWithListingTransition(href, "forward");
+                            startNavigation(href, {
+                              direction: "forward",
+                              variantOverride: "listing",
+                            });
                           }}
                         >
                           <SearchThumbCircle
@@ -1336,7 +1340,10 @@ export default function Header() {
                           setSearchOverlayOpen(false);
                           setIsSearchFocused(false);
                           setOpenSuggest(false);
-                          navigateWithListingTransition(href, "forward");
+                          startNavigation(href, {
+                            direction: "forward",
+                            variantOverride: "listing",
+                          });
                         }}
                       >
                         <SearchThumbCircle

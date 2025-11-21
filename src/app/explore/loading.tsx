@@ -4,6 +4,13 @@
 export default function ExploreLoading() {
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
+      {/* DEBUG BADGE – remove once you're done testing */}
+      <div className="fixed top-2 right-2 z-[9999]">
+        <span className="rounded-full bg-black/80 text-white text-xs px-3 py-1 shadow-lg">
+          Explore loading.tsx
+        </span>
+      </div>
+
       <div className="relative z-10">
         <div className="lg:flex">
           {/* LEFT: Filters panel skeleton */}
