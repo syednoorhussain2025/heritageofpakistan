@@ -53,6 +53,7 @@ export default function BottomNav() {
   const { startNavigation } = useLoaderEngine();
 
   const [activePath, setActivePath] = useState(pathname);
+  const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
 
   useEffect(() => {
     setActivePath(pathname);
@@ -71,6 +72,13 @@ export default function BottomNav() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load and keep last heritage path in sync whenever the route changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("lastHeritagePath");
+    setLastHeritagePath(stored);
+  }, [pathname]);
 
   const go = (href: string) => {
     if (!href || href === pathname) return;
@@ -91,6 +99,12 @@ export default function BottomNav() {
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
 
+  // Use last opened heritage page if available, otherwise fall back to Lahore Fort
+  const heritageHref =
+    lastHeritagePath && lastHeritagePath.startsWith("/heritage/")
+      ? lastHeritagePath
+      : "/heritage/punjab/lahore-fort";
+
   return (
     <>
       {!isHeritageDetail && <div className="lg:hidden h-[72px]" />}
@@ -107,9 +121,9 @@ export default function BottomNav() {
           <NavItem
             label="Heritage"
             icon="map-marker-alt"
-            href="/heritage"
+            href={heritageHref}
             isActive={isHeritageActive}
-            onClick={() => go("/heritage")}
+            onClick={() => go(heritageHref)}
           />
           <NavItem
             label="Explore"

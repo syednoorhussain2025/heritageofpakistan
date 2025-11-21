@@ -961,11 +961,5 @@ function ExplorePageContent() {
 }
 
 export default function ExplorePage() {
-  return (
-    <Suspense
-      fallback={<div className="min-h-screen bg-[var(--ivory-cream)]" />}
-    >
-      <ExplorePageContent />
-    </Suspense>
-  );
+  return <ExplorePageContent />; // no suspense fallback
 }

@@ -232,7 +232,7 @@ export default function SitePreviewCard({
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
           <div className="relative aspect-[18/9] w-full overflow-hidden rounded-none">
-            {/* Blur layer – always fades out once we decide we're "done" */}
+            {/* Blur layer – always fades out once we decide we are done */}
             {hasBlur && (
               <Image
                 src={site.cover_blur_data_url!}
@@ -250,13 +250,14 @@ export default function SitePreviewCard({
 
             {/* Sharp image – eager + priority for first two rows */}
             <Image
+              key={sharpSrc}
               src={sharpSrc}
               alt={site.title}
               fill
               sizes={`${baseW}px`}
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
-              onLoadingComplete={() => setIsSharpLoaded(true)}
+              onLoad={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);
                 setIsSharpLoaded(true); // ensure we never stay stuck on blur
@@ -267,6 +268,13 @@ export default function SitePreviewCard({
               style={{ imageRendering: "auto" }}
               placeholder="empty"
             />
+
+            {/* Small spinner overlay until final image is loaded */}
+            {!isSharpLoaded && !hasError && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
+              </div>
+            )}
           </div>
 
           {/* Heritage type chip */}

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useRef, useState, useEffect } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
 import StickyHeader from "./heritage/StickyHeader";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -86,10 +86,21 @@ export default function HeritagePage({
   neighbors?: NeighborProps;
 }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const deepLinkNoteId = searchParams?.get("note") || null;
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
 
   const slug = initialSite?.slug ?? "";
+
+  // Remember last opened heritage page for mobile Heritage tab
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
+    if (heritageDetailRe.test(pathname || "")) {
+      window.localStorage.setItem("lastHeritagePath", pathname);
+    }
+  }, [pathname]);
 
   /* ---------------- Fetch hydrated content ---------------- */
   const {
