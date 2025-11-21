@@ -750,7 +750,7 @@ export default function Header() {
       {/* HEADER */}
       <header
         ref={headerRef as any}
-        className={`sticky top-0 z-40 transition-colors duration-300 ${
+        className={`fixed lg:sticky top-0 z-[120] w-full transition-colors duration-300 ${
           solid || searchOverlayOpen
             ? "backdrop-blur shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
