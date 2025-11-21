@@ -69,19 +69,19 @@ export default function HeritageCover({
     location_free?: string | null;
     avg_rating?: number | null;
     review_count?: number | null;
-    cover?: {
-      url: string | null;
-      width?: number | null;
-      height?: number | null;
-      blurhash?: string | null;
-      blurDataURL?: string | null;
-    } | null;
+    cover?:
+      | {
+          url: string | null;
+          width?: number | null;
+          height?: number | null;
+          blurhash?: string | null;
+          blurDataURL?: string | null;
+        }
+      | null;
   };
   hasPhotoStory: boolean;
   fadeImage?: boolean;
 }) {
-  const HEADER_FALLBACK_PX = 72;
-
   const cover = site.cover ?? null;
   const heroUrl = cover?.url ?? null;
 
@@ -166,7 +166,9 @@ export default function HeritageCover({
         aria-label="Hero"
         className="block md:hidden bg-white"
         style={{
-          marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
+          // Pull mobile hero up so the image starts at the very top,
+          // behind the transparent fixed header on listing pages
+          marginTop: "calc(-1 * var(--sticky-offset, 72px))",
         }}
       >
         {heroUrl ? (
@@ -315,8 +317,8 @@ export default function HeritageCover({
         ref={heroRef}
         aria-label="Hero"
         style={{
-          marginTop: `calc(-1 * (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
-          height: `calc(94svh + (var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px))))`,
+          marginTop: "calc(-1 * var(--sticky-offset, 72px))",
+          height: "calc(94svh + var(--sticky-offset, 72px))",
         }}
         className="relative w-full overflow-hidden hidden md:block"
       >
@@ -324,14 +326,12 @@ export default function HeritageCover({
         <div className="absolute inset-0">
           {heroUrl ? (
             <>
-              {/* Spinner on top of blur + final image */}
               {showSpinner && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                   <div className="h-11 w-11 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
                 </div>
               )}
 
-              {/* Blurred placeholder from blurDataURL or Blurhash */}
               {hasBlurDataURL && (
                 <img
                   src={activeBlurDataURL}
@@ -360,7 +360,6 @@ export default function HeritageCover({
                   </div>
                 )}
 
-              {/* Final hero image – fades in over the blur */}
               <Image
                 src={heroUrl}
                 alt={site.title}
@@ -389,7 +388,7 @@ export default function HeritageCover({
           }}
         />
 
-        {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK (no hard edges) */}
+        {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK */}
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
           style={{
@@ -409,12 +408,11 @@ export default function HeritageCover({
             mounted ? "blocks-in" : ""
           }`}
         >
-          {/* RATING / REVIEWS – TOP RIGHT */}
           {hasRatingInfo && (
             <div
               className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
               style={{
-                top: `calc(var(--header-offset, var(--header-height, ${HEADER_FALLBACK_PX}px)) + 12px)`,
+                top: "calc(var(--sticky-offset, 72px) + 12px)",
                 right: "min(24px, 4vw)",
               }}
             >
@@ -439,7 +437,6 @@ export default function HeritageCover({
           )}
 
           <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
-            {/* LEFT */}
             <div className="text-white hero-left">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
                 {site.title}
@@ -452,7 +449,6 @@ export default function HeritageCover({
               )}
             </div>
 
-            {/* RIGHT */}
             <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
               {hasPhotoStory && (
                 <a
@@ -497,7 +493,6 @@ export default function HeritageCover({
           </div>
         </div>
 
-        {/* STYLES */}
         <style jsx>{`
           @media (prefers-reduced-motion: reduce) {
             .hero-overlay,
