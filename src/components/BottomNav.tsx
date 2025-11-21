@@ -29,7 +29,7 @@ function NavItem({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-150 active:scale-105"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-300 ease-out active:scale-110"
     >
       <Icon
         name={icon}
@@ -52,10 +52,8 @@ export default function BottomNav() {
   const [user, setUser] = useState<User | null>(null);
   const { startNavigation } = useLoaderEngine();
 
-  // Optimistic active path for instant visual feedback
   const [activePath, setActivePath] = useState(pathname);
 
-  // Sync optimistic state whenever the actual route changes
   useEffect(() => {
     setActivePath(pathname);
   }, [pathname]);
@@ -77,10 +75,7 @@ export default function BottomNav() {
   const go = (href: string) => {
     if (!href || href === pathname) return;
 
-    // Instant optimistic feedback
     setActivePath(href);
-
-    // Central engine handles loader and actual navigation
     startNavigation(href);
   };
 
