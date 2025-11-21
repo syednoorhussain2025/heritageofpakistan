@@ -29,7 +29,7 @@ function NavItem({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-300 ease-out active:scale-140"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-500 ease-out active:scale-140"
     >
       <Icon
         name={icon}
