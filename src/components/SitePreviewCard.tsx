@@ -292,9 +292,10 @@ export default function SitePreviewCard({
               </span>
             )}
             {site.review_count != null && (
-              <span className="px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
-                {site.review_count} Reviews
-              </span>
+<span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
+    {site.review_count} Reviews
+</span>
+
             )}
           </div>
 
