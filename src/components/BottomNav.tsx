@@ -29,7 +29,7 @@ function NavItem({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-150 active:scale-105"
     >
       <Icon
         name={icon}
@@ -52,6 +52,14 @@ export default function BottomNav() {
   const [user, setUser] = useState<User | null>(null);
   const { startNavigation } = useLoaderEngine();
 
+  // Optimistic active path for instant visual feedback
+  const [activePath, setActivePath] = useState(pathname);
+
+  // Sync optimistic state whenever the actual route changes
+  useEffect(() => {
+    setActivePath(pathname);
+  }, [pathname]);
+
   useEffect(() => {
     const {
       data: { subscription },
@@ -68,15 +76,21 @@ export default function BottomNav() {
 
   const go = (href: string) => {
     if (!href || href === pathname) return;
-    // Central engine handles which loader to show and when to hide
+
+    // Instant optimistic feedback
+    setActivePath(href);
+
+    // Central engine handles loader and actual navigation
     startNavigation(href);
   };
 
-  const isHomeActive = pathname === "/";
-  const isHeritageActive = pathname.startsWith("/heritage");
-  const isExploreActive = pathname.startsWith("/explore");
-  const isMapActive = pathname.startsWith("/map");
-  const isDashboardActive = pathname.startsWith("/dashboard");
+  const currentPath = activePath || pathname;
+
+  const isHomeActive = currentPath === "/";
+  const isHeritageActive = currentPath.startsWith("/heritage");
+  const isExploreActive = currentPath.startsWith("/explore");
+  const isMapActive = currentPath.startsWith("/map");
+  const isDashboardActive = currentPath.startsWith("/dashboard");
 
   const dashboardHref = user ? "/dashboard" : "/auth/sign-in";
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
