@@ -144,7 +144,8 @@ export function LoaderEngineProvider({
     if (variant === "listing") {
       return <ListingLoader direction={direction} phase={phase} />;
     }
-    return <SimpleLoader phase={phase} />;
+    // SimpleLoader currently does not accept props, so do not pass phase
+    return <SimpleLoader />;
   };
 
   return (
