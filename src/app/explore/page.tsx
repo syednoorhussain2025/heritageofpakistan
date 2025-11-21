@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Suspense,
   useEffect,
   useMemo,
   useState,
@@ -36,15 +35,14 @@ function Spinner({
         height: size,
         borderWidth: "3px",
         borderStyle: "solid",
-        borderColor: "grey",              // deep dark blue
-        borderTopColor: "transparent",                // makes rotation visible
+        borderColor: "grey",
+        borderTopColor: "transparent",
       }}
       role="status"
       aria-label="Loading"
     />
   );
 }
-
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type Site = {
@@ -120,7 +118,7 @@ function titleForRegions(regions: string[]) {
   return humanJoin(regions);
 }
 
-/** Headline builder — includes categories when radius mode is active. */
+/** Headline builder, includes categories when radius mode is active. */
 function buildHeadline({
   query,
   categoryNames,
@@ -209,11 +207,10 @@ function thumbUrl(input?: string | null, size = 160) {
   return u.toString();
 }
 
-/** Canonical cover URL builder – mirrors detail-page behaviour */
+/** Canonical cover URL builder mirrors detail page behaviour */
 function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!storagePath) return "";
 
-  // Already an absolute URL
   if (/^https?:\/\//i.test(storagePath)) {
     return storagePath;
   }
@@ -222,9 +219,6 @@ function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!SUPA_URL) return "";
 
   const clean = storagePath.replace(/^\/+/, "");
-
-  // Same pattern you use on the detail page:
-  // `${SUPA_URL}/storage/v1/object/public/site-images/${storage_path}`
   return `${SUPA_URL}/storage/v1/object/public/site-images/${clean}`;
 }
 
@@ -442,7 +436,11 @@ function ExplorePageContent() {
     total: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* For radius mode, keep full ordered list client side for infinite scroll */
+  const [radiusAllRows, setRadiusAllRows] = useState<any[] | null>(null);
 
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
@@ -463,7 +461,7 @@ function ExplorePageContent() {
     });
   };
 
-  /* Deep-link canonicalization for Places Nearby */
+  /* Deep link canonicalization for Places Nearby */
   useEffect(() => {
     const centerSiteId = searchParams.get("centerSiteId");
     const lat = searchParams.get("centerLat");
@@ -527,8 +525,8 @@ function ExplorePageContent() {
     })();
   }, []);
 
-  /* Helper to build URL params from filters + page */
-  const buildParamsFrom = useCallback((f: Filters, pageNum: number) => {
+  /* Helper to build URL params from filters, page is now internal only */
+  const buildParamsFrom = useCallback((f: Filters) => {
     const params = new URLSearchParams();
     if (f.name) params.set("q", f.name);
     if (f.categoryIds.length > 0) params.set("cats", f.categoryIds.join(","));
@@ -542,18 +540,17 @@ function ExplorePageContent() {
       if (typeof f.radiusKm === "number")
         params.set("rkm", String(f.radiusKm));
     }
-    params.set("page", String(pageNum));
     return params;
   }, []);
 
-  /* Debounced auto-search when filters change (user input), not during URL hydration */
+  /* Debounced auto search when filters change, not during URL hydration */
   const debounceIdRef = useRef<number | null>(null);
   useEffect(() => {
     if (isHydratingRef.current) return;
     if (debounceIdRef.current) window.clearTimeout(debounceIdRef.current);
     debounceIdRef.current = window.setTimeout(() => {
       const f = filtersRef.current;
-      const params = buildParamsFrom(f, 1);
+      const params = buildParamsFrom(f);
       if (searchParams.toString() !== params.toString()) {
         router.push(`/explore?${params.toString()}`);
       }
@@ -563,11 +560,12 @@ function ExplorePageContent() {
     };
   }, [filters, buildParamsFrom, router, searchParams]);
 
-  /* Read URL → fetch data + banner info */
+  /* Read URL → fetch first page + banner info */
   useEffect(() => {
     setLoading(true);
+    setIsLoadingMore(false);
+    setPage(1);
 
-    const currentPage = Number(searchParams.get("page") || 1);
     const nameQuery = searchParams.get("q") || "";
     const catsQuery = parseMulti(searchParams.get("cats"));
     const regsQuery = parseMulti(searchParams.get("regs"));
@@ -604,12 +602,11 @@ function ExplorePageContent() {
     isHydratingRef.current = true;
     setFilters(nextFilters);
     filtersRef.current = nextFilters;
-    setPage(currentPage);
 
     (async () => {
       setError(null);
       try {
-        // Headline & banner in radius mode
+        /* Headline and banner in radius mode */
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
           const { data: row, error: err } = await supabase
             .from("sites")
@@ -646,7 +643,7 @@ function ExplorePageContent() {
           setCenterSitePreview(null);
         }
 
-        /* ───── Radius mode ───── */
+        /* ───── Radius mode, first page ───── */
         if (hasRadius(nextFilters)) {
           const radiusRows = await fetchSitesByFilters(nextFilters);
           let distanceOrdered = [...radiusRows].sort(
@@ -657,7 +654,7 @@ function ExplorePageContent() {
 
           const allIds = distanceOrdered.map((r: any) => r.id);
 
-          // Category filter via join table
+          /* Category filter via join table */
           if (allIds.length && nextFilters.categoryIds?.length) {
             const { data: pairs, error: joinErr } = await supabase
               .from("site_categories")
@@ -671,7 +668,7 @@ function ExplorePageContent() {
             );
           }
 
-          // Heritage type filter
+          /* Heritage type filter */
           const selectedTypes = new Set(getSelectedTypes(nextFilters));
           if (allIds.length && selectedTypes.size > 0) {
             const { data: attrs } = await supabase
@@ -687,10 +684,11 @@ function ExplorePageContent() {
             });
           }
 
-          // Paginate AFTER all filtering
           const total = distanceOrdered.length;
-          const start = (currentPage - 1) * PAGE_SIZE;
-          const end = start + PAGE_SIZE;
+          setRadiusAllRows(distanceOrdered);
+
+          const start = 0;
+          const end = PAGE_SIZE;
           const pageRows = distanceOrdered.slice(start, end);
 
           const ids = pageRows.map((r: any) => r.id);
@@ -730,14 +728,16 @@ function ExplorePageContent() {
           return;
         }
 
-        /* ───── Non-radius mode ───── */
+        /* ───── Non radius mode, first page ───── */
+        setRadiusAllRows(null);
+
         const orderQuery = "latest";
         const { data, error: rpcError } = await supabase.rpc("search_sites", {
           p_name_query: nameQuery.trim() || null,
           p_category_ids: catsQuery.length > 0 ? catsQuery : null,
           p_region_ids: regsQuery.length > 0 ? regsQuery : null,
           p_order_by: orderQuery,
-          p_page: currentPage,
+          p_page: 1,
           p_page_size: PAGE_SIZE,
         });
         if (rpcError) throw rpcError;
@@ -751,32 +751,14 @@ function ExplorePageContent() {
         setResults({ sites, total });
       } catch (e: any) {
         setError(e?.message || "Failed to load results");
+        setResults({ sites: [], total: 0 });
+        setRadiusAllRows(null);
       } finally {
         setLoading(false);
         isHydratingRef.current = false;
       }
     })();
   }, [searchParams]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(results.total / PAGE_SIZE)),
-    [results.total]
-  );
-
-  const executeSearch = useCallback(() => {
-    const f = filtersRef.current;
-    const params = buildParamsFrom(f, 1);
-    if (searchParams.toString() !== params.toString()) {
-      router.push(`/explore?${params.toString()}`);
-    }
-  }, [router, buildParamsFrom, searchParams]);
-
-  const navigatePage = (newPage: number) => {
-    if (newPage < 1 || newPage > totalPages || newPage === page) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", String(newPage));
-    router.push(`/explore?${params.toString()}`);
-  };
 
   const [categoryMapState, regionMapState] = [categoryMap, regionMap];
 
@@ -813,8 +795,151 @@ function ExplorePageContent() {
   );
 
   const cardsRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  /* Locked Radius Banner */
+  const executeSearch = useCallback(() => {
+    const f = filtersRef.current;
+    const params = buildParamsFrom(f);
+    if (searchParams.toString() !== params.toString()) {
+      router.push(`/explore?${params.toString()}`);
+    }
+  }, [router, buildParamsFrom, searchParams]);
+
+  const hasMore = results.sites.length < results.total;
+
+  /* Load next page when sentinel is visible */
+  const loadMore = useCallback(async () => {
+    if (loading || isLoadingMore) return;
+    if (!hasMore) return;
+
+    const currentFilters = filtersRef.current;
+    setIsLoadingMore(true);
+
+    try {
+      /* Radius mode, use in memory distance ordered list */
+      if (hasRadius(currentFilters)) {
+        if (!radiusAllRows || radiusAllRows.length === 0) {
+          setIsLoadingMore(false);
+          return;
+        }
+
+        const nextPage = page + 1;
+        const start = (nextPage - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const pageRows = radiusAllRows.slice(start, end);
+        if (!pageRows.length) {
+          setIsLoadingMore(false);
+          return;
+        }
+
+        const ids = pageRows.map((r: any) => r.id);
+        const { data: details, error: detailsErr } = await supabase
+          .from("sites")
+          .select(
+            "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
+          )
+          .in("id", ids);
+        if (detailsErr) throw detailsErr;
+
+        await ensureProvinceSlugOnSites(details as Site[]);
+        await attachActiveCovers(details as Site[]);
+
+        const distanceById = new Map<string, number | null>(
+          pageRows.map((r: any) => [r.id, r.distance_km ?? null])
+        );
+        const byId = new Map<string, Site>(
+          (details as Site[]).map((d) => [d.id, d])
+        );
+
+        const ordered: Site[] = ids
+          .map((id) => {
+            const base = byId.get(id);
+            if (!base) return null;
+            return { ...base, distance_km: distanceById.get(id) ?? null };
+          })
+          .filter(Boolean) as Site[];
+
+        setResults((prev) => ({
+          sites: [...prev.sites, ...ordered],
+          total: prev.total,
+        }));
+        setPage(nextPage);
+        setIsLoadingMore(false);
+        return;
+      }
+
+      /* Non radius mode, ask RPC for next page */
+      const nextPage = page + 1;
+
+      const nameQuery = searchParams.get("q") || "";
+      const catsQuery = parseMulti(searchParams.get("cats"));
+      const regsQuery = parseMulti(searchParams.get("regs"));
+
+      const orderQuery = "latest";
+      const { data, error: rpcError } = await supabase.rpc("search_sites", {
+        p_name_query: nameQuery.trim() || null,
+        p_category_ids: catsQuery.length > 0 ? catsQuery : null,
+        p_region_ids: regsQuery.length > 0 ? regsQuery : null,
+        p_order_by: orderQuery,
+        p_page: nextPage,
+        p_page_size: PAGE_SIZE,
+      });
+      if (rpcError) throw rpcError;
+
+      const newSites = ((data as any[]) || []) as Site[];
+      const newTotal =
+        (data as any[])?.[0]?.total_count || results.total || 0;
+
+      if (!newSites.length) {
+        setResults((prev) => ({ ...prev, total: newTotal }));
+        setIsLoadingMore(false);
+        return;
+      }
+
+      await ensureProvinceSlugOnSites(newSites);
+      await attachActiveCovers(newSites);
+
+      setResults((prev) => ({
+        sites: [...prev.sites, ...newSites],
+        total: newTotal || prev.total,
+      }));
+      setPage(nextPage);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load results");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    loading,
+    isLoadingMore,
+    hasMore,
+    radiusAllRows,
+    page,
+    searchParams,
+    results.total,
+  ]);
+
+  /* IntersectionObserver for infinite scroll */
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  /* Locked radius banner */
   const CenterBanner = () =>
     hasRadius(filters) && centerSitePreview ? (
       <div
@@ -890,17 +1015,22 @@ function ExplorePageContent() {
                 {headline}
               </h1>
               <div className="mt-2 text-sm text-[var(--espresso-brown)]/80 font-explore-results-count">
-                Showing <strong>{loading ? 0 : results.sites.length}</strong> of{" "}
-                <strong>{loading ? 0 : results.total}</strong> results
+                Showing{" "}
+                <strong>
+                  {loading && results.sites.length === 0
+                    ? 0
+                    : results.sites.length}
+                </strong>{" "}
+                of <strong>{results.total}</strong> results
               </div>
               <div className="mt-2 h-[3px] w-20 bg-[var(--mustard-accent)] rounded" />
 
               <CenterBanner />
             </div>
 
-            {/* Grid + centered spinner overlay */}
+            {/* Grid + centered spinner overlay for first load only */}
             <div className="relative">
-              {loading && (
+              {loading && results.sites.length === 0 && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
                   <Spinner size={40} />
                 </div>
@@ -908,9 +1038,10 @@ function ExplorePageContent() {
 
               <div
                 ref={cardsRef}
-                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+                className="grid grid-cols-2 xl:grid-cols-3 gap-5"
+
               >
-                {loading ? (
+                {loading && results.sites.length === 0 ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <PreviewCardSkeleton key={i} />
                   ))
@@ -928,31 +1059,17 @@ function ExplorePageContent() {
                   ))
                 )}
               </div>
+
+              {/* Infinite scroll sentinel and bottom spinner */}
+              {results.sites.length > 0 && (
+                <div
+                  ref={loadMoreRef}
+                  className="flex items-center justify-center py-6"
+                >
+                  {hasMore && isLoadingMore && <Spinner size={32} />}
+                </div>
+              )}
             </div>
-
-            {results.total > PAGE_SIZE && (
-              <div className="flex items-center justify-center gap-3 mt-8">
-                <button
-                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
-                  onClick={() => navigatePage(page - 1)}
-                  disabled={page <= 1}
-                >
-                  Prev
-                </button>
-
-                <span className="text-sm font-explore-pagination text-[var(--espresso-brown)]/80">
-                  Page {page} of {totalPages}
-                </span>
-
-                <button
-                  className="px-4 py-2 rounded-lg bg-white text-[var(--dark-grey)] ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] disabled:opacity-50"
-                  onClick={() => navigatePage(page + 1)}
-                  disabled={page >= totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            )}
           </main>
         </div>
       </div>
@@ -961,5 +1078,5 @@ function ExplorePageContent() {
 }
 
 export default function ExplorePage() {
-  return <ExplorePageContent />; // no suspense fallback
+  return <ExplorePageContent />;
 }

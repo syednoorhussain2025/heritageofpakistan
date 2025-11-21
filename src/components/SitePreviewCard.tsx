@@ -68,7 +68,7 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-/** Resolve the best available province/region slug field from the card data. */
+/** Resolve the best available province or region slug field from the card data. */
 function resolveProvinceSlug(site: Site): string | null {
   if (site.province_slug && site.province_slug.trim().length > 0) {
     return site.province_slug.trim();
@@ -90,7 +90,7 @@ export default function SitePreviewCard({
 }: {
   site: Site;
   onClose?: () => void;
-  /** Index from ExplorePage – used to prioritise first two rows */
+  /** Index from ExplorePage - used to prioritise first two rows */
   index?: number;
 }) {
   const router = useRouter();
@@ -131,7 +131,7 @@ export default function SitePreviewCard({
   const hasBlur = Boolean(site.cover_blur_data_url);
   const sharpSrc = site.cover_photo_url || FALLBACK_SVG;
 
-  // Reset load/error when the image changes
+  // Reset load and error when the image changes
   useEffect(() => {
     setIsSharpLoaded(false);
     setHasError(false);
@@ -140,7 +140,7 @@ export default function SitePreviewCard({
   // Prioritise first two rows in the Explore grid
   const isPriority = index < 6;
 
-  // Extra safety: for priority cards, force browser to start image download
+  // For priority cards, force browser to start image download
   useEffect(() => {
     if (!isPriority || !sharpSrc || sharpSrc === FALLBACK_SVG) return;
     if (typeof window === "undefined") return;
@@ -231,8 +231,8 @@ export default function SitePreviewCard({
       >
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
-          <div className="relative aspect-[18/9] w-full overflow-hidden rounded-none">
-            {/* Blur layer – always fades out once we decide we are done */}
+          <div className="relative aspect-[5/4] md:aspect-[18/9] w-full overflow-hidden rounded-none">
+            {/* Blur layer - always fades out once we decide we are done */}
             {hasBlur && (
               <Image
                 src={site.cover_blur_data_url!}
@@ -248,7 +248,7 @@ export default function SitePreviewCard({
               />
             )}
 
-            {/* Sharp image – eager + priority for first two rows */}
+            {/* Sharp image - eager + priority for first two rows */}
             <Image
               key={sharpSrc}
               src={sharpSrc}
@@ -257,7 +257,7 @@ export default function SitePreviewCard({
               sizes={`${baseW}px`}
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
-              onLoad={() => setIsSharpLoaded(true)}
+              onLoadingComplete={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);
                 setIsSharpLoaded(true); // ensure we never stay stuck on blur
@@ -277,23 +277,23 @@ export default function SitePreviewCard({
             )}
           </div>
 
-          {/* Heritage type chip */}
+          {/* Heritage type chip (slightly smaller) */}
           {site.heritage_type && (
-            <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#F78300]/90 text-white text-xs font-semibold shadow">
+            <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[#F78300]/90 text-white text-[10px] sm:text-xs font-semibold shadow">
               {site.heritage_type}
             </div>
           )}
 
-          {/* Reviews & rating */}
-          <div className="absolute top-3 right-3 flex items-center gap-2">
-            {site.review_count != null && (
-              <span className="px-2 py-1 rounded-full bg-white/90 text-gray-800 text-xs font-medium shadow">
-                {site.review_count} Reviews
+          {/* Rating and reviews pills - rating on top, reviews below, both smaller */}
+          <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5">
+            {site.avg_rating != null && (
+              <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
+                <Icon name="star" size={11} /> {site.avg_rating.toFixed(1)}
               </span>
             )}
-            {site.avg_rating != null && (
-              <span className="px-2 py-1 rounded-full bg-[#00b78b] text-white text-xs font-semibold shadow inline-flex items-center gap-1">
-                <Icon name="star" size={12} /> {site.avg_rating.toFixed(1)}
+            {site.review_count != null && (
+              <span className="px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
+                {site.review_count} Reviews
               </span>
             )}
           </div>
@@ -301,7 +301,7 @@ export default function SitePreviewCard({
           {/* Distance badge */}
           {hasDistance && (
             <div
-              className="absolute bottom-3 right-3 w-12 h-12 rounded-full bg-[#00b87b] text-white shadow-xl flex items-center justify-center font-extrabold text-xs z-20"
+              className="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-[#00b87b] text-white shadow-xl flex items-center justify-center font-extrabold text-[10px] z-20"
               title={distanceLabel}
               aria-label={distanceLabel}
             >
@@ -309,14 +309,14 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Title & location gradient */}
+          {/* Title and location gradient */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/70 to-transparent rounded-b-xl -m-3 p-3 pt-10">
-              <h3 className="text-white text-xl font-extrabold drop-shadow">
+              <h3 className="text-white text-lg sm:text-xl font-extrabold drop-shadow">
                 {site.title}
               </h3>
               {site.location_free && (
-                <div className="mt-1 flex items-center gap-1 text-white/90 text-sm">
+                <div className="mt-0.5 md:mt-1 flex items-center gap-1 text-white/90 text-xs sm:text-sm">
                   <Icon name="map-marker-alt" size={12} /> {site.location_free}
                 </div>
               )}
@@ -324,12 +324,13 @@ export default function SitePreviewCard({
           </div>
         </div>
 
-        {/* Footer actions */}
+        {/* Footer: info row + separate actions row */}
         <div
-          className="flex items-center justify-between px-4 py-3"
+          className="px-4 py-3"
           onClick={(e) => e.preventDefault()}
         >
-          <div className="flex items-center gap-2">
+          {/* Info row - hidden on mobile, visible on md+ */}
+          <div className="hidden md:flex items-center gap-2 mb-2">
             <span className="inline-flex items-center gap-2 text-sm font-medium">
               <Icon
                 name="university"
@@ -340,81 +341,85 @@ export default function SitePreviewCard({
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-gray-700">
-            {/* Places Nearby */}
-            <button
-              type="button"
-              title="Places Nearby"
-              onClick={handlePlacesNearby}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon
-                name="nearby"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
-            </button>
+          {/* Actions row on its own line */}
+          <div className="flex items-center justify-center md:justify-between text-gray-700 gap-3">
+            <div className="hidden md:block flex-1" />
+            <div className="flex items-center gap-3">
+              {/* Places Nearby */}
+              <button
+                type="button"
+                title="Places Nearby"
+                onClick={handlePlacesNearby}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                <Icon
+                  name="nearby"
+                  size={14}
+                  className="text-[var(--brand-orange)]"
+                />
+              </button>
 
-            {/* Bookmark */}
-            <button
-              type="button"
-              title="Bookmark"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleBookmark(site.id);
-              }}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                isBookmarked
-                  ? "bg-[var(--brand-orange)] hover:brightness-90"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-              disabled={!isLoaded}
-            >
-              <Icon
-                name="heart"
-                size={14}
-                className={
-                  isBookmarked ? "text-white" : "text-[var(--brand-orange)]"
-                }
-              />
-            </button>
+              {/* Bookmark */}
+              <button
+                type="button"
+                title="Bookmark"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleBookmark(site.id);
+                }}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                  isBookmarked
+                    ? "bg-[var(--brand-orange)] hover:brightness-90"
+                    : "bg-gray-100 hover:bg-gray-200"
+                }`}
+                disabled={!isLoaded}
+              >
+                <Icon
+                  name="heart"
+                  size={14}
+                  className={
+                    isBookmarked ? "text-white" : "text-[var(--brand-orange)]"
+                  }
+                />
+              </button>
 
-            {/* Wishlist */}
-            <button
-              type="button"
-              title="Add to Wishlist"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowWishlistModal(true);
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon
-                name="list-ul"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
-            </button>
+              {/* Wishlist */}
+              <button
+                type="button"
+                title="Add to Wishlist"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowWishlistModal(true);
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                <Icon
+                  name="list-ul"
+                  size={14}
+                  className="text-[var(--brand-orange)]"
+                />
+              </button>
 
-            {/* Trip */}
-            <button
-              type="button"
-              title="Add to Trip"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowTripModal(true);
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon
-                name="route"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
-            </button>
+              {/* Trip */}
+              <button
+                type="button"
+                title="Add to Trip"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowTripModal(true);
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                <Icon
+                  name="route"
+                  size={14}
+                  className="text-[var(--brand-orange)]"
+                />
+              </button>
+            </div>
           </div>
         </div>
       </Link>
