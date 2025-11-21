@@ -330,12 +330,12 @@ export default function SitePreviewCard({
           onClick={(e) => e.preventDefault()}
         >
 {/* Mobile title + location inside white card */}
-<div className="md:hidden text-gray-900 px-0 pt-0 pb-1">
+<div className="md:hidden text-gray-900 px-0 pt-0 pb-8">
   <h3 className="text-[15px] font-extrabold leading-tight">
     {site.title}
   </h3>
   {site.location_free && (
-    <div className="mt-[2px] flex items-center gap-1 text-[11px] text-gray-700 truncate">
+    <div className="mt-[4px] flex items-center gap-1 text-[11px] text-gray-700 truncate">
       <Icon
         name="map-marker-alt"
         size={11}
