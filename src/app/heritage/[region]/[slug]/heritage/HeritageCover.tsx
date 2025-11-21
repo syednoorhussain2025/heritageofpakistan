@@ -162,25 +162,15 @@ export default function HeritageCover({
   return (
     <>
       {/* ---------- MOBILE HERO (phones) ---------- */}
-      <section
-        aria-label="Hero"
-        className="block md:hidden bg-white"
-        style={{
-          // Pull mobile hero up so the image starts at the very top,
-          // behind the transparent fixed header on listing pages
-          marginTop: "calc(-1 * var(--sticky-offset, 72px))",
-        }}
-      >
+      <section aria-label="Hero" className="block md:hidden bg-white">
         {heroUrl ? (
           <div className="relative w-full bg-black aspect-[5/4] overflow-hidden">
-            {/* Spinner on top of everything */}
             {showSpinner && (
               <div className="absolute inset-0 z-20 flex items-center justify-center">
                 <div className="h-10 w-10 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
               </div>
             )}
 
-            {/* Blurred placeholder layer */}
             {hasBlurDataURL && (
               <img
                 src={activeBlurDataURL}
@@ -209,7 +199,6 @@ export default function HeritageCover({
                 </div>
               )}
 
-            {/* Final hero image – fades in over the blur */}
             <Image
               src={heroUrl}
               alt={site.title}
@@ -295,8 +284,9 @@ export default function HeritageCover({
             </div>
           )}
 
-          {hasPhotoStory && (
-            <div className="pt-3">
+          {/* Reserved space for Photo Story button to avoid layout shift */}
+          <div className="pt-3 min-h-[52px]">
+            {hasPhotoStory && (
               <a
                 href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
                 target="_blank"
@@ -307,8 +297,8 @@ export default function HeritageCover({
                 <Icon name="play" className="text-white text-lg" />
                 <span>Photo Story</span>
               </a>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 
@@ -316,11 +306,10 @@ export default function HeritageCover({
       <section
         ref={heroRef}
         aria-label="Hero"
-        style={{
-          marginTop: "calc(-1 * var(--sticky-offset, 72px))",
-          height: "calc(94svh + var(--sticky-offset, 72px))",
-        }}
         className="relative w-full overflow-hidden hidden md:block"
+        style={{
+          height: "94svh",
+        }}
       >
         {/* IMAGE + PLACEHOLDERS */}
         <div className="absolute inset-0">
