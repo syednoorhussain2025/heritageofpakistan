@@ -34,11 +34,73 @@ import {
 import HeritageSection from "./heritage/HeritageSection";
 import HeritageNeighborNav from "./heritage/HeritageNeighborNav";
 
+/* ---------------- LazySection helper (section-level progressive mount) ---------------- */
+
+type LazySectionProps = {
+  children: React.ReactNode;
+  skeleton?: React.ReactNode;
+  /**
+   * How early to pre-load relative to viewport.
+   * Default: "200px 0px"
+   */
+  rootMargin?: string;
+};
+
+function LazySection({
+  children,
+  skeleton = null,
+  rootMargin = "200px 0px",
+}: LazySectionProps) {
+  const [visible, setVisible] = useState(false);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (visible) return;
+    const el = hostRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            obs.disconnect();
+            break;
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin,
+        threshold: 0.15,
+      }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [visible, rootMargin]);
+
+  return (
+    <div ref={hostRef}>
+      {!visible && (
+        <>
+          {/* Per section spinner */}
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+          </div>
+          {skeleton}
+        </>
+      )}
+      {visible && children}
+    </div>
+  );
+}
+
 /* ---------------- Types for site from server ---------------- */
 
 type HeroCover =
   | {
-      url: string; // non-null to match Site.cover
+      url: string;
       width?: number | null;
       height?: number | null;
       blurhash?: string | null;
@@ -58,10 +120,7 @@ type HeritageClientSite = {
   location_free?: string | null;
   avg_rating?: number | null;
   review_count?: number | null;
-
-  /** Unified cover coming from site_covers */
   cover?: HeroCover;
-
   [key: string]: any;
 };
 
@@ -232,7 +291,7 @@ export default function HeritagePage({
             doShare={doShare}
             setShowReviewModal={setShowReviewModal}
             researchMode={researchEnabled}
-            onChangeResearchMode={(v) => {
+            onChangeResearchMode={v => {
               setResearchEnabled(v);
               try {
                 localStorage.setItem("researchMode", v ? "1" : "0");
@@ -241,7 +300,7 @@ export default function HeritagePage({
           />
         )}
 
-        {/* Neighbor navigation bar (separate component) */}
+        {/* Neighbor navigation bar */}
         <HeritageNeighborNav
           prevHref={prevHref}
           nextHref={nextHref}
@@ -264,13 +323,23 @@ export default function HeritagePage({
                 <SidebarCardSkeleton lines={4} />
               </>
             ) : (
-              <HeritageSidebar
-                site={site}
-                provinceName={provinceName}
-                regions={regions}
-                maps={maps}
-                travelGuideSummary={travelGuideSummary}
-              />
+              <LazySection
+                skeleton={
+                  <>
+                    <SidebarCardSkeleton lines={7} />
+                    <SidebarCardSkeleton lines={5} />
+                    <SidebarCardSkeleton lines={6} />
+                  </>
+                }
+              >
+                <HeritageSidebar
+                  site={site}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                />
+              </LazySection>
             )}
           </aside>
 
@@ -288,81 +357,110 @@ export default function HeritagePage({
               </>
             ) : (
               <>
+                {/* Top categories / overview stays eager */}
                 <HeritageUpperArticle
                   site={{ slug: site.slug }}
                   categories={categories}
                   hasPhotoStory={hasPhotoStory}
                 />
 
+                {/* History */}
                 {site.history_layout_html && (
                   <HeritageSection
                     id="history"
                     title="History and Background"
                     iconName="history-background"
                   >
-                    <HeritageArticle
-                      key={`history-${site.history_layout_html.length}`}
-                      html={site.history_layout_html}
-                      site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{
-                        id: "history",
-                        title: "History and Background",
-                      }}
-                      highlightQuote={
-                        highlight.section_id === "history"
-                          ? highlight.quote
-                          : null
-                      }
-                    />
+                    <LazySection
+                      skeleton={<SidebarCardSkeleton lines={7} />}
+                    >
+                      <HeritageArticle
+                        key={`history-${site.history_layout_html.length}`}
+                        html={site.history_layout_html}
+                        site={{
+                          id: site.id,
+                          slug: site.slug,
+                          title: site.title,
+                        }}
+                        section={{
+                          id: "history",
+                          title: "History and Background",
+                        }}
+                        highlightQuote={
+                          highlight.section_id === "history"
+                            ? highlight.quote
+                            : null
+                        }
+                      />
+                    </LazySection>
                   </HeritageSection>
                 )}
 
+                {/* Architecture */}
                 {site.architecture_layout_html && (
                   <HeritageSection
                     id="architecture"
                     title="Architecture and Design"
                     iconName="architecture-design"
                   >
-                    <HeritageArticle
-                      key={`architecture-${site.architecture_layout_html.length}`}
-                      html={site.architecture_layout_html}
-                      site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{
-                        id: "architecture",
-                        title: "Architecture and Design",
-                      }}
-                      highlightQuote={
-                        highlight.section_id === "architecture"
-                          ? highlight.quote
-                          : null
-                      }
-                    />
+                    <LazySection
+                      skeleton={<SidebarCardSkeleton lines={7} />}
+                    >
+                      <HeritageArticle
+                        key={`architecture-${site.architecture_layout_html.length}`}
+                        html={site.architecture_layout_html}
+                        site={{
+                          id: site.id,
+                          slug: site.slug,
+                          title: site.title,
+                        }}
+                        section={{
+                          id: "architecture",
+                          title: "Architecture and Design",
+                        }}
+                        highlightQuote={
+                          highlight.section_id === "architecture"
+                            ? highlight.quote
+                            : null
+                        }
+                      />
+                    </LazySection>
                   </HeritageSection>
                 )}
 
+                {/* Climate */}
                 {site.climate_layout_html && (
                   <HeritageSection
                     id="climate"
                     title="Climate & Environment"
                     iconName="climate-topography"
                   >
-                    <HeritageArticle
-                      key={`climate-${site.climate_layout_html.length}`}
-                      html={site.climate_layout_html}
-                      site={{ id: site.id, slug: site.slug, title: site.title }}
-                      section={{
-                        id: "climate",
-                        title: "Climate & Environment",
-                      }}
-                      highlightQuote={
-                        highlight.section_id === "climate"
-                          ? highlight.quote
-                          : null
-                      }
-                    />
+                    <LazySection
+                      skeleton={<SidebarCardSkeleton lines={7} />}
+                    >
+                      <HeritageArticle
+                        key={`climate-${site.climate_layout_html.length}`}
+                        html={site.climate_layout_html}
+                        site={{
+                          id: site.id,
+                          slug: site.slug,
+                          title: site.title,
+                        }}
+                        section={{
+                          id: "climate",
+                          title: "Climate & Environment",
+                        }}
+                        highlightQuote={
+                          highlight.section_id === "climate"
+                            ? highlight.quote
+                            : null
+                        }
+                      />
+                    </LazySection>
                   </HeritageSection>
                 )}
 
+                {/* Custom sections */}
                 {Array.isArray(site.custom_sections_json) &&
                   site.custom_sections_json
                     .filter((cs: any) => !!cs.layout_html?.trim())
@@ -373,43 +471,96 @@ export default function HeritagePage({
                         title={cs.title}
                         iconName="history-background"
                       >
-                        <HeritageArticle
-                          key={`custom-${cs.id}-${(cs.layout_html || "").length}`}
-                          html={cs.layout_html}
-                          site={{
-                            id: site.id,
-                            slug: site.slug,
-                            title: site.title,
-                          }}
-                          section={{ id: cs.id, title: cs.title }}
-                          highlightQuote={
-                            highlight.section_id === cs.id
-                              ? highlight.quote
-                              : null
-                          }
-                        />
+                        <LazySection
+                          skeleton={<SidebarCardSkeleton lines={7} />}
+                        >
+                          <HeritageArticle
+                            key={`custom-${cs.id}-${
+                              (cs.layout_html || "").length
+                            }`}
+                            html={cs.layout_html}
+                            site={{
+                              id: site.id,
+                              slug: site.slug,
+                              title: site.title,
+                            }}
+                            section={{ id: cs.id, title: cs.title }}
+                            highlightQuote={
+                              highlight.section_id === cs.id
+                                ? highlight.quote
+                                : null
+                            }
+                          />
+                        </LazySection>
                       </HeritageSection>
                     ))}
 
-                <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
+                {/* Gallery */}
+                <LazySection skeleton={<GallerySkeleton count={6} />}>
+                  <HeritageGalleryLink
+                    siteSlug={site.slug}
+                    gallery={gallery}
+                  />
+                </LazySection>
 
-                <HeritageNearby
-                  siteId={site.id}
-                  siteTitle={site.title}
-                  lat={site.latitude ? Number(site.latitude) : null}
-                  lng={site.longitude ? Number(site.longitude) : null}
-                />
+                {/* Nearby */}
+                <LazySection
+                  skeleton={
+                    <HeritageSection
+                      id="nearby"
+                      title="Places Nearby"
+                      iconName="regiontax"
+                    >
+                      <div className="space-y-2">
+                        <div className="h-4 w-2/3 rounded bg-gray-200 animate-pulse" />
+                        <div className="h-4 w-5/6 rounded bg-gray-200 animate-pulse" />
+                        <div className="h-4 w-3/4 rounded bg-gray-200 animate-pulse" />
+                      </div>
+                    </HeritageSection>
+                  }
+                >
+                  <HeritageNearby
+                    siteId={site.id}
+                    siteTitle={site.title}
+                    lat={site.latitude ? Number(site.latitude) : null}
+                    lng={site.longitude ? Number(site.longitude) : null}
+                  />
+                </LazySection>
 
+                {/* Photo rights */}
                 <HeritagePhotoRights />
 
-                <HeritageBibliography items={bibliography} styleId={styleId} />
+                {/* Bibliography */}
+                <LazySection skeleton={<BibliographySkeleton rows={4} />}>
+                  <HeritageBibliography
+                    items={bibliography}
+                    styleId={styleId}
+                  />
+                </LazySection>
 
+                {/* Reviews */}
                 <HeritageSection
                   id="reviews"
                   title="Traveler Reviews"
                   iconName="star"
                 >
-                  <ReviewsTab siteId={site.id} />
+                  <LazySection
+                    skeleton={
+                      <div className="space-y-4">
+                        <div className="border rounded-lg p-3">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse" />
+                            <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                          </div>
+                          <div className="h-4 w-full rounded bg-gray-200 animate-pulse mb-2" />
+                          <div className="h-4 w-5/6 rounded bg-gray-200 animate-pulse mb-2" />
+                          <div className="h-4 w-2/3 rounded bg-gray-200 animate-pulse" />
+                        </div>
+                      </div>
+                    }
+                  >
+                    <ReviewsTab siteId={site.id} />
+                  </LazySection>
                 </HeritageSection>
               </>
             )}
@@ -478,7 +629,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
   const lastContextTextRef = useRef<string | null>(null);
 
   const clearAll = () => {
-    setBubble((b) => ({ ...b, visible: false }));
+    setBubble(b => ({ ...b, visible: false }));
     setRects([]);
     lastSelectionRef.current = "";
     lastSectionIdRef.current = null;
@@ -498,7 +649,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
     const range = sel.getRangeAt(0);
     const r = range.getBoundingClientRect();
 
-    const clientRects = Array.from(range.getClientRects()).map((cr) => ({
+    const clientRects = Array.from(range.getClientRects()).map(cr => ({
       top: cr.top,
       left: cr.left,
       width: cr.width,
@@ -616,7 +767,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         >
           <div className="note-callout">
             <button
-              onMouseDown={(e) => {
+              onMouseDown={e => {
                 e.preventDefault();
                 handleSaveSelection();
               }}
