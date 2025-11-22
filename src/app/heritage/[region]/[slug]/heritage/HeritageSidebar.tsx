@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import HeritageSection from "./HeritageSection";
 import { Site, Taxonomy } from "./heritagedata";
-import { supabase } from "@/lib/supabaseClient";
 import Icon from "@/components/Icon";
 
 /** Minimal shape for the guide summary we may receive from server */
