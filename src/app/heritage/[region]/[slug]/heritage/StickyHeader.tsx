@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/heritage/StickyHeader.tsx
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import AddToTripModal from "@/components/AddToTripModal";
@@ -150,12 +151,22 @@ function getStickyOffset(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_STICKY_OFFSET;
 }
 
-function useScrollSpy(items: TocItem[]) {
+function useScrollSpy(items: TocItem[], enabled: boolean) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activated, setActivated] = useState(false);
 
-  // Activate scroll spy only after first scroll (TBT friendly)
+  // Reset when disabled
   useEffect(() => {
+    if (!enabled) {
+      setActiveId(null);
+      setActivated(false);
+    }
+  }, [enabled]);
+
+  // Activate scroll spy only after first scroll, desktop only
+  useEffect(() => {
+    if (!enabled) return;
+
     const onFirstScroll = () => {
       setActivated(true);
       window.removeEventListener("scroll", onFirstScroll);
@@ -164,10 +175,10 @@ function useScrollSpy(items: TocItem[]) {
     return () => {
       window.removeEventListener("scroll", onFirstScroll);
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!activated || !items.length) return;
+    if (!enabled || !activated || !items.length) return;
 
     const stickyOffset = getStickyOffset();
     const hasOverview = items.some(i => i.id === "overview");
@@ -214,7 +225,7 @@ function useScrollSpy(items: TocItem[]) {
     targets.forEach(h => obs.observe(h));
 
     return () => obs.disconnect();
-  }, [items, activated]);
+  }, [items, activated, enabled]);
 
   return activeId;
 }
@@ -279,6 +290,21 @@ export default function StickyHeader({
     DEFAULT_STICKY_OFFSET
   );
 
+  // Track desktop vs mobile so scroll spy only runs on desktop
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   // Defer header height measurement and remove scroll listener for TBT
   useEffect(() => {
     if (!stickyRef.current) return;
@@ -322,7 +348,7 @@ export default function StickyHeader({
   const closeTimer = useRef<number | null>(null);
 
   const tocItems = FIXED_ITEMS;
-  const activeId = useScrollSpy(tocItems);
+  const activeId = useScrollSpy(tocItems, isDesktop);
 
   useEffect(() => {
     let ticking = false;
