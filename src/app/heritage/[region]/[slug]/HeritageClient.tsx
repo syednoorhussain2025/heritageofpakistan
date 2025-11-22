@@ -29,27 +29,18 @@ import {
 
 /* ---------------- Dynamic imports for heavy client chunks ---------------- */
 
-const HeritageArticle = dynamic(
-  () => import("./heritage/HeritageArticle"),
-  {
-    ssr: true,
-  }
-);
+const HeritageArticle = dynamic(() => import("./heritage/HeritageArticle"), {
+  ssr: true,
+});
 
-const HeritageSidebar = dynamic(
-  () => import("./heritage/HeritageSidebar"),
-  {
-    ssr: false,
-  }
-);
+const HeritageSidebar = dynamic(() => import("./heritage/HeritageSidebar"), {
+  ssr: false,
+});
 
-const HeritageNearby = dynamic(
-  () => import("./heritage/HeritageNearby"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
+const HeritageNearby = dynamic(() => import("./heritage/HeritageNearby"), {
+  ssr: false,
+  loading: () => null,
+});
 
 const HeritageBibliography = dynamic(
   () => import("./heritage/HeritageBibliography"),
@@ -59,13 +50,10 @@ const HeritageBibliography = dynamic(
   }
 );
 
-const ReviewsTab = dynamic(
-  () => import("@/components/reviews/ReviewsTab"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
+const ReviewsTab = dynamic(() => import("@/components/reviews/ReviewsTab"), {
+  ssr: false,
+  loading: () => null,
+});
 
 const ReviewModal = dynamic(
   () => import("@/components/reviews/ReviewModal"),
@@ -107,7 +95,7 @@ function LazySection({
     if (!el) return;
 
     const obs = new IntersectionObserver(
-      entries => {
+      (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             setVisible(true);
@@ -395,7 +383,7 @@ export default function HeritagePage({
             doShare={doShare}
             setShowReviewModal={setShowReviewModal}
             researchMode={researchEnabled}
-            onChangeResearchMode={v => {
+            onChangeResearchMode={(v) => {
               setResearchEnabled(v);
               try {
                 localStorage.setItem("researchMode", v ? "1" : "0");
@@ -437,7 +425,6 @@ export default function HeritagePage({
                 }
               >
                 <HeritageSidebar
-                  // props unchanged
                   site={site as any}
                   provinceName={provinceName}
                   regions={regions}
@@ -734,7 +721,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
   const lastContextTextRef = useRef<string | null>(null);
 
   const clearAll = () => {
-    setBubble(b => ({ ...b, visible: false }));
+    setBubble((b) => ({ ...b, visible: false }));
     setRects([]);
     lastSelectionRef.current = "";
     lastSectionIdRef.current = null;
@@ -754,7 +741,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
     const range = sel.getRangeAt(0);
     const r = range.getBoundingClientRect();
 
-    const clientRects = Array.from(range.getClientRects()).map(cr => ({
+    const clientRects = Array.from(range.getClientRects()).map((cr) => ({
       top: cr.top,
       left: cr.left,
       width: cr.width,
@@ -872,7 +859,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         >
           <div className="note-callout">
             <button
-              onMouseDown={e => {
+              onMouseDown={(e) => {
                 e.preventDefault();
                 handleSaveSelection();
               }}
