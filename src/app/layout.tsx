@@ -12,6 +12,7 @@ import { WishlistProvider } from "@/components/WishlistProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
