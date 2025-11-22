@@ -2,6 +2,8 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { Cite } from "@citation-js/core";
+import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
 
 type Params = { region: string; slug: string };
@@ -394,6 +396,44 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
   const styleId = await loadGlobalCitationStyle(supabase);
   const bibliography = await loadBibliographyForPublic(supabase, site.id);
 
+  // New: preformat bibliography entries on the server
+  let bibliographyEntries: string[] = [];
+  if (bibliography.length) {
+    try {
+      const cite = new Cite(bibliography.map(b => b.csl));
+      const html = cite.format("bibliography", {
+        format: "html",
+        template: styleId,
+        lang: "en-US",
+      }) as string;
+
+      let formatted = html
+        .split(/<\/div>\s*/i)
+        .map(chunk => chunk.trim())
+        .filter(Boolean)
+        .map(chunk =>
+          chunk.replace(
+            /^.*?<div[^>]*class="csl-entry"[^>]*>/i,
+            ""
+          )
+        );
+
+      if (formatted.length > bibliography.length) {
+        formatted = formatted.slice(0, bibliography.length);
+      }
+      if (formatted.length < bibliography.length) {
+        formatted = formatted.concat(
+          Array(bibliography.length - formatted.length).fill("")
+        );
+      }
+
+      bibliographyEntries = formatted;
+    } catch (e) {
+      console.error("Failed to format bibliography", e);
+      bibliographyEntries = Array(bibliography.length).fill("");
+    }
+  }
+
   /* 7. Photo story presence */
   const { data: ps } = await supabase
     .from("photo_stories")
@@ -509,6 +549,7 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
       regions={regions}
       gallery={gallery}
       bibliography={bibliography}
+      bibliographyEntries={bibliographyEntries}
       styleId={styleId}
       hasPhotoStory={hasPhotoStory}
       highlight={highlight}

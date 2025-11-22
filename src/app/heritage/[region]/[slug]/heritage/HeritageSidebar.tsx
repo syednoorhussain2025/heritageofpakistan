@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+// src/app/heritage/[region]/[slug]/heritage/HeritageSidebar.tsx
+
 import HeritageSection from "./HeritageSection";
 import { Site, Taxonomy } from "./heritagedata";
-import { supabase } from "@/lib/supabaseClient";
 import Icon from "@/components/Icon";
 
 /** Minimal shape for the guide summary we may receive from server */
@@ -31,7 +31,7 @@ type TravelGuideSummary = {
     | "winter_and_spring"
     | null;
 
-  /** NEW: free text long description */
+  /** free text long description */
   best_time_to_visit_long?: string | null;
 
   hotels_available?: "yes" | "no" | "limited_options" | null;
@@ -101,14 +101,12 @@ const YES_RECS_MAP: Record<"yes" | "not_recommended" | "not_suitable", string> =
     not_recommended: "Not Recommended",
     not_suitable: "Not Suitable",
   };
-const CAMPING_MAP: Record<
-  "possible" | "not_suitable" | "with_caution",
-  string
-> = {
-  possible: "Possible",
-  not_suitable: "Not Suitable",
-  with_caution: "With Caution",
-};
+const CAMPING_MAP: Record<"possible" | "not_suitable" | "with_caution", string> =
+  {
+    possible: "Possible",
+    not_suitable: "Not Suitable",
+    with_caution: "With Caution",
+  };
 const LANDFORM_MAP: Record<
   NonNullable<TravelGuideSummary["landform"]>,
   string
@@ -201,55 +199,8 @@ export default function HeritageSidebar({
   maps: { embed: string | null; link: string | null };
   travelGuideSummary?: TravelGuideSummary | null;
 }) {
-  // Dynamically fetch summary if not provided, only for published guides
-  const [tgs, setTgs] = useState<TravelGuideSummary | null>(
-    travelGuideSummary ?? null
-  );
-
-  useEffect(() => {
-    let alive = true;
-
-    async function fetchIfPublished(guideId: string) {
-      const { data: g } = await supabase
-        .from("region_travel_guides")
-        .select("status")
-        .eq("id", guideId)
-        .maybeSingle();
-
-      if (!alive) return;
-      if (!g || g.status !== "published") {
-        setTgs(null);
-        return;
-      }
-
-      const { data: s } = await supabase
-        .from("region_travel_guide_summary")
-        .select(
-          `location, how_to_reach, nearest_major_city,
-           airport_access, access_options,
-           road_type_condition, best_time_to_visit, best_time_to_visit_long,
-           hotels_available, spending_night_recommended, camping, places_to_eat,
-           altitude, landform, mountain_range, climate_type, temp_winter, temp_summers`
-        )
-        .eq("guide_id", guideId)
-        .maybeSingle();
-
-      if (!alive) return;
-      setTgs((s || null) as any);
-    }
-
-    if (travelGuideSummary !== undefined) {
-      setTgs(travelGuideSummary ?? null);
-    } else if ((site as any).region_travel_guide_id) {
-      fetchIfPublished((site as any).region_travel_guide_id as string);
-    } else {
-      setTgs(null);
-    }
-
-    return () => {
-      alive = false;
-    };
-  }, [site, travelGuideSummary]);
+  // use server-provided summary directly, no client Supabase calls
+  const tgs: TravelGuideSummary | null = travelGuideSummary ?? null;
 
   /* ---------- Merge (respect overrides) ---------- */
   const ov = (site as any).overrides || {};
@@ -342,7 +293,7 @@ export default function HeritageSidebar({
     ov
   );
 
-  // NEW: Long best time (free text) with override-aware merge
+  // Long best time (free text) with override-aware merge
   const mergedBestTimeLong = pick(
     "travel_best_time_long",
     tgs?.best_time_to_visit_long ?? null,
@@ -456,7 +407,7 @@ export default function HeritageSidebar({
       <HeritageSection title="Regions" iconName="regions">
         {regions.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
-            {regions.map((r) => (
+            {regions.map(r => (
               <IconChip
                 key={r.id}
                 id={r.id}
@@ -599,7 +550,7 @@ export default function HeritageSidebar({
         )}
       </HeritageSection>
 
-      {/* NEW: Long best time card */}
+      {/* Best time to visit (long) */}
       <HeritageSection title="Best Time to Visit" iconName="best-time-to-visit">
         {mergedBestTimeLong ? (
           <div

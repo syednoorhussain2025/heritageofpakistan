@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/HeritageClient.tsx
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
@@ -19,6 +20,7 @@ import HeritageGalleryLink from "./heritage/HeritageGalleryLink";
 import HeritagePhotoRights from "./heritage/HeritagePhotoRights";
 import HeritageSection from "./heritage/HeritageSection";
 import HeritageNeighborNav from "./heritage/HeritageNeighborNav";
+import HeritageBibliography from "./heritage/HeritageBibliography";
 import {
   HeroSkeleton,
   SidebarCardSkeleton,
@@ -41,14 +43,6 @@ const HeritageNearby = dynamic(() => import("./heritage/HeritageNearby"), {
   ssr: false,
   loading: () => null,
 });
-
-const HeritageBibliography = dynamic(
-  () => import("./heritage/HeritageBibliography"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
 
 const ReviewsTab = dynamic(() => import("@/components/reviews/ReviewsTab"), {
   ssr: false,
@@ -95,7 +89,7 @@ function LazySection({
     if (!el) return;
 
     const obs = new IntersectionObserver(
-      (entries) => {
+      entries => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             setVisible(true);
@@ -260,6 +254,7 @@ type HeritagePageProps = {
   regions: Taxonomy[];
   gallery: ImageRow[];
   bibliography: BiblioItem[];
+  bibliographyEntries: string[];
   styleId: string;
   hasPhotoStory: boolean;
   highlight: Highlight;
@@ -274,6 +269,7 @@ export default function HeritagePage({
   regions,
   gallery,
   bibliography,
+  bibliographyEntries,
   styleId,
   hasPhotoStory,
   highlight,
@@ -383,7 +379,7 @@ export default function HeritagePage({
             doShare={doShare}
             setShowReviewModal={setShowReviewModal}
             researchMode={researchEnabled}
-            onChangeResearchMode={(v) => {
+            onChangeResearchMode={v => {
               setResearchEnabled(v);
               try {
                 localStorage.setItem("researchMode", v ? "1" : "0");
@@ -627,6 +623,7 @@ export default function HeritagePage({
                   <HeritageBibliography
                     items={bibliography}
                     styleId={styleId}
+                    entries={bibliographyEntries}
                   />
                 </LazySection>
 
@@ -721,7 +718,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
   const lastContextTextRef = useRef<string | null>(null);
 
   const clearAll = () => {
-    setBubble((b) => ({ ...b, visible: false }));
+    setBubble(b => ({ ...b, visible: false }));
     setRects([]);
     lastSelectionRef.current = "";
     lastSectionIdRef.current = null;
@@ -741,7 +738,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
     const range = sel.getRangeAt(0);
     const r = range.getBoundingClientRect();
 
-    const clientRects = Array.from(range.getClientRects()).map((cr) => ({
+    const clientRects = Array.from(range.getClientRects()).map(cr => ({
       top: cr.top,
       left: cr.left,
       width: cr.width,
@@ -859,7 +856,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         >
           <div className="note-callout">
             <button
-              onMouseDown={(e) => {
+              onMouseDown={e => {
                 e.preventDefault();
                 handleSaveSelection();
               }}
