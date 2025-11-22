@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import AddToTripModal from "@/components/AddToTripModal";
@@ -153,20 +152,35 @@ function getStickyOffset(): number {
 
 function useScrollSpy(items: TocItem[]) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activated, setActivated] = useState(false);
+
+  // Activate scroll spy only after first scroll (TBT friendly)
+  useEffect(() => {
+    const onFirstScroll = () => {
+      setActivated(true);
+      window.removeEventListener("scroll", onFirstScroll);
+    };
+    window.addEventListener("scroll", onFirstScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onFirstScroll);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!items.length) return;
+    if (!activated || !items.length) return;
+
     const stickyOffset = getStickyOffset();
-    const hasOverview = items.some((i) => i.id === "overview");
+    const hasOverview = items.some(i => i.id === "overview");
 
     const targets = items
-      .filter((i) => i.id !== "overview")
-      .map((i) => document.getElementById(i.id))
+      .filter(i => i.id !== "overview")
+      .map(i => document.getElementById(i.id))
       .filter(Boolean) as HTMLElement[];
+
     if (!targets.length && !hasOverview) return;
 
     const obs = new IntersectionObserver(
-      (entries) => {
+      entries => {
         if (hasOverview) {
           const topThreshold = stickyOffset + 8;
           if (window.scrollY <= topThreshold) {
@@ -174,13 +188,15 @@ function useScrollSpy(items: TocItem[]) {
             return;
           }
         }
+
         const visible = entries
-          .filter((e) => e.isIntersecting)
+          .filter(e => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
         if (visible.length) {
           setActiveId((visible[0].target as HTMLElement).id);
         } else if (targets.length) {
-          const tops = targets.map((h) => ({
+          const tops = targets.map(h => ({
             id: h.id,
             y: Math.abs(h.getBoundingClientRect().top - stickyOffset),
           }));
@@ -194,9 +210,11 @@ function useScrollSpy(items: TocItem[]) {
         threshold: [0, 0.25, 0.5, 0.75, 1],
       }
     );
-    targets.forEach((h) => obs.observe(h));
+
+    targets.forEach(h => obs.observe(h));
+
     return () => obs.disconnect();
-  }, [items]);
+  }, [items, activated]);
 
   return activeId;
 }
@@ -221,7 +239,7 @@ function scrollToId(id: string) {
 function deriveProvinceSlug(site: Site): string | null {
   if (site.province_slug) return site.province_slug;
   if (typeof window !== "undefined") {
-    const parts = window.location.pathname.split("/").filter(Boolean); // ["heritage","punjab","chauburji", ...]
+    const parts = window.location.pathname.split("/").filter(Boolean);
     const idx = parts.indexOf("heritage");
     if (idx >= 0 && parts.length > idx + 1) return parts[idx + 1] || null;
   }
@@ -260,23 +278,37 @@ export default function StickyHeader({
   const [headerHeight, setHeaderHeight] = useState<number>(
     DEFAULT_STICKY_OFFSET
   );
+
+  // Defer header height measurement and remove scroll listener for TBT
   useEffect(() => {
     if (!stickyRef.current) return;
     const el = stickyRef.current;
+
     const update = () => {
       const h = el.offsetHeight || DEFAULT_STICKY_OFFSET;
       setHeaderHeight(h);
       document.documentElement.style.setProperty("--sticky-offset", `${h}px`);
     };
-    update();
-    const ro = new ResizeObserver(update);
+
+    if (typeof (window as any).requestIdleCallback === "function") {
+      (window as any).requestIdleCallback(update);
+    } else {
+      setTimeout(update, 0);
+    }
+
+    const ro = new ResizeObserver(() => {
+      update();
+    });
     ro.observe(el);
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+
+    const onResize = () => {
+      update();
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
       ro.disconnect();
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 
@@ -294,21 +326,29 @@ export default function StickyHeader({
 
   useEffect(() => {
     let ticking = false;
+
     const measure = () => {
-      if (!stickyRef.current) return;
+      if (!stickyRef.current) {
+        ticking = false;
+        return;
+      }
       const rect = stickyRef.current.getBoundingClientRect();
-      setIsStuck(rect.top <= 0);
+      const stuckNow = rect.top <= 0;
+      setIsStuck(prev => (prev === stuckNow ? prev : stuckNow));
       ticking = false;
     };
+
     const handler = () => {
       if (!ticking) {
         ticking = true;
         requestAnimationFrame(measure);
       }
     };
+
     measure();
     window.addEventListener("scroll", handler, { passive: true });
     window.addEventListener("resize", handler);
+
     return () => {
       window.removeEventListener("scroll", handler);
       window.removeEventListener("resize", handler);
@@ -332,6 +372,7 @@ export default function StickyHeader({
   const [researchModeInternal, setResearchModeInternal] =
     useState<boolean>(true);
 
+  // Local storage initial read
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RESEARCH_LS_KEY);
@@ -339,22 +380,22 @@ export default function StickyHeader({
         localStorage.setItem(RESEARCH_LS_KEY, "1");
         setResearchModeInternal(true);
       } else {
-        // FIXED: ensure this is a pure boolean, not `true | "true"`
         setResearchModeInternal(raw === "1" || raw === "true");
       }
     } catch {}
   }, []);
 
-useEffect(() => {
-  if (
-    typeof researchMode === "boolean" &&
-    researchMode !== researchModeInternal
-  ) {
-    setResearchModeInternal(researchMode);
-  }
-}, [researchMode, researchModeInternal]);
+  // Sync from prop to internal without loops
+  useEffect(() => {
+    if (
+      typeof researchMode === "boolean" &&
+      researchMode !== researchModeInternal
+    ) {
+      setResearchModeInternal(researchMode);
+    }
+  }, [researchMode, researchModeInternal]);
 
-
+  // Notify parent when internal changes
   useEffect(() => {
     onChangeResearchMode?.(researchModeInternal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -571,7 +612,7 @@ useEffect(() => {
                   "pt-3 pb-5",
                 ].join(" ")}
               >
-                {FIXED_ITEMS.map((item) => {
+                {FIXED_ITEMS.map(item => {
                   const textIndent =
                     item.level === 4
                       ? "pl-20"
