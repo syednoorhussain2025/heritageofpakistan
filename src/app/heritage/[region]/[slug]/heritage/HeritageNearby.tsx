@@ -25,16 +25,15 @@ type NearbySite = {
   review_count?: number | null;
   latitude: number | null;
   longitude: number | null;
-  distance_km?: number | null; // computed client-side
+  distance_km?: number | null;
 };
 
 const EARTH_RADIUS_KM = 6371;
 
-/** Haversine distance in km */
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1); // ✅ correct again
+  const dLon = toRad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
@@ -42,9 +41,8 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return EARTH_RADIUS_KM * c;
 }
 
-/** Quick bounding box (in degrees) for a given radius (km) around a lat/lng */
 function bboxAround(lat: number, lng: number, radiusKm: number) {
-  const dLat = radiusKm / 111.32; // ~1 deg lat ≈ 111.32 km
+  const dLat = radiusKm / 111.32;
   const dLng = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
   return {
     minLat: lat - dLat,
@@ -54,18 +52,16 @@ function bboxAround(lat: number, lng: number, radiusKm: number) {
   };
 }
 
-/* ───────────────── Province slug helpers (copied from ExplorePage) ───────────────── */
-
 async function buildProvinceSlugMapForSites(siteIds: string[]) {
   const out = new Map<string, string | null>();
   if (!siteIds.length) return out;
 
-  const { data: siteRows, error: siteErr } = await supabase
+  const { data: siteRows } = await supabase
     .from("sites")
     .select("id, province_id")
     .in("id", siteIds);
 
-  if (siteErr || !siteRows?.length) return out;
+  if (!siteRows?.length) return out;
 
   const bySiteId = new Map<string, number | null>();
   const provinceIds = new Set<number>();
@@ -81,10 +77,7 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
       .select("id, slug")
       .in("id", Array.from(provinceIds));
     slugByProvinceId = new Map(
-      (provs || []).map((p: any) => [
-        p.id as number,
-        String(p.slug ?? "").trim(),
-      ])
+      (provs || []).map((p: any) => [p.id as number, String(p.slug ?? "").trim()])
     );
   }
 
@@ -104,7 +97,6 @@ async function ensureProvinceSlugOnSites(sites: NearbySite[]) {
 
   const ids = missing.map((s) => s.id);
   const slugMap = await buildProvinceSlugMapForSites(ids);
-
   for (const s of sites) {
     if (!s.province_slug || s.province_slug.trim() === "") {
       s.province_slug = slugMap.get(s.id) ?? null;
@@ -112,61 +104,32 @@ async function ensureProvinceSlugOnSites(sites: NearbySite[]) {
   }
 }
 
-/* ───────────────── Active covers + blur from site_covers (same as Explore) ───────────────── */
-
 function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!storagePath) return "";
-
-  // Already an absolute URL
-  if (/^https?:\/\//i.test(storagePath)) {
-    return storagePath;
-  }
-
+  if (/^https?:\/\//i.test(storagePath)) return storagePath;
   const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
   if (!SUPA_URL) return "";
-
   const clean = storagePath.replace(/^\/+/, "");
-
-  // `${SUPA_URL}/storage/v1/object/public/site-images/${storage_path}`
   return `${SUPA_URL}/storage/v1/object/public/site-images/${clean}`;
 }
 
 async function attachActiveCovers(sites: NearbySite[]) {
   const ids = Array.from(new Set(sites.map((s) => s.id))).filter(Boolean);
   if (!ids.length) return;
-
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("site_covers")
     .select("site_id, storage_path, blur_data_url, width, height")
     .in("site_id", ids)
     .eq("is_active", true);
 
-  if (error) {
-    console.error("attachActiveCovers: error fetching site_covers", error);
-    return;
-  }
+  if (!data?.length) return;
 
-  if (!data?.length) {
-    return;
-  }
-
-  type CoverRow = {
-    site_id: string;
-    storage_path: string;
-    blur_data_url: string | null;
-    width: number | null;
-    height: number | null;
-  };
-
-  const bySiteId = new Map<string, CoverRow>();
-  for (const row of data as CoverRow[]) {
-    bySiteId.set(row.site_id, row);
-  }
+  const bySiteId = new Map<string, any>();
+  for (const row of data) bySiteId.set(row.site_id, row);
 
   for (const s of sites) {
     const cover = bySiteId.get(s.id);
     if (!cover) continue;
-
     const url = buildCoverUrlFromStoragePath(cover.storage_path);
     s.cover_photo_url = url || null;
     s.cover_blur_data_url = cover.blur_data_url ?? null;
@@ -174,8 +137,6 @@ async function attachActiveCovers(sites: NearbySite[]) {
     s.cover_height = cover.height ?? null;
   }
 }
-
-/* ───────────────────────────── Component ───────────────────────────── */
 
 export default function HeritageNearby({
   siteId,
@@ -193,7 +154,6 @@ export default function HeritageNearby({
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
 
-  // Build Explore deep-link: /explore?center=...&clat=...&clng=...&rkm=25
   const exploreHref = useMemo(() => {
     if (!hasCoords) return null;
     return buildPlacesNearbyURL({
@@ -207,7 +167,6 @@ export default function HeritageNearby({
 
   useEffect(() => {
     let active = true;
-
     async function run() {
       try {
         setErr(null);
@@ -218,23 +177,14 @@ export default function HeritageNearby({
           return;
         }
 
-        // 1) Fetch candidates within a 50 km bounding box
         const box50 = bboxAround(lat!, lng!, 50);
         const { data, error } = await supabase
           .from("sites")
           .select(
             `
-            id,
-            slug,
-            province_id,
-            title,
-            cover_photo_url,
-            location_free,
-            heritage_type,
-            avg_rating,
-            review_count,
-            latitude,
-            longitude
+            id, slug, province_id, title, cover_photo_url,
+            location_free, heritage_type, avg_rating, review_count,
+            latitude, longitude
           `
           )
           .neq("id", siteId)
@@ -248,28 +198,19 @@ export default function HeritageNearby({
 
         if (error) throw error;
 
-        const withDistance: NearbySite[] = (data || []).map((s: any) => {
+        const withDistance = (data || []).map((s: any) => {
           const d =
             s.latitude != null && s.longitude != null
               ? haversineKm(lat!, lng!, Number(s.latitude), Number(s.longitude))
               : Number.POSITIVE_INFINITY;
-          return {
-            ...s,
-            distance_km: Number.isFinite(d) ? d : null,
-          };
+          return { ...s, distance_km: Number.isFinite(d) ? d : null };
         });
 
-        // 2) Primary: within 25 km
         let within25 = withDistance
           .filter((s) => (s.distance_km ?? Infinity) <= 25)
-          .sort(
-            (a, b) =>
-              (a.distance_km ?? Number.POSITIVE_INFINITY) -
-              (b.distance_km ?? Number.POSITIVE_INFINITY)
-          )
+          .sort((a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity))
           .slice(0, 6);
 
-        // 3) Top-up from <= 50 km if needed
         if (within25.length < 6) {
           const need = 6 - within25.length;
           const within50 = withDistance
@@ -280,15 +221,12 @@ export default function HeritageNearby({
             )
             .sort(
               (a, b) =>
-                (a.distance_km ?? Number.POSITIVE_INFINITY) -
-                (b.distance_km ?? Number.POSITIVE_INFINITY)
+                (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity)
             )
             .slice(0, need);
-
           within25 = [...within25, ...within50];
         }
 
-        // Derive province_slug and cover info, just like ExplorePage
         await ensureProvinceSlugOnSites(within25);
         await attachActiveCovers(within25);
 
@@ -315,36 +253,40 @@ export default function HeritageNearby({
         iconName="nearby"
       >
         {!hasCoords ? (
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--muted-foreground, #5b6b84)" }}
-          >
+          <div className="text-[13px]" style={{ color: "var(--muted-foreground,#5b6b84)" }}>
             Location coordinates are missing for this site.
           </div>
         ) : (
           <>
-            {/* Grid / carousel of nearby cards */}
-            {err ? (
+            {/* Loading */}
+            {rows == null && !err && (
+              <>
+                <div className="flex justify-center py-3">
+                  <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Error */}
+            {err && (
               <div className="text-sm text-red-600">{err}</div>
-            ) : rows == null ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-48 bg-[var(--ivory-cream)] rounded-xl animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : rows.length === 0 ? (
-              <div
-                className="text-[13px]"
-                style={{ color: "var(--muted-foreground, #5b6b84)" }}
-              >
+            )}
+
+            {/* No results */}
+            {rows && !err && rows.length === 0 && (
+              <div className="text-[13px]" style={{ color: "var(--muted-foreground,#5b6b84)" }}>
                 No nearby places found within 50 km.
               </div>
-            ) : (
+            )}
+
+            {/* Results */}
+            {rows && rows.length > 0 && (
               <>
-                {/* Mobile: horizontal carousel */}
                 <div className="sm:hidden -mx-4 px-4">
                   <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
                     {rows.map((r, index) => (
@@ -355,7 +297,6 @@ export default function HeritageNearby({
                   </div>
                 </div>
 
-                {/* Tablet / Desktop: existing grid */}
                 <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rows.map((r, index) => (
                     <SitePreviewCard key={r.id} site={r} index={index} />
@@ -364,15 +305,14 @@ export default function HeritageNearby({
               </>
             )}
 
-            {/* Explore Nearby Sites CTA */}
             {exploreHref && (
               <div className="mt-5 flex justify-center">
                 <Link
                   href={exploreHref}
                   className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold
-                           bg-[var(--navy-deep,#0f2746)] text-white hover:brightness-110
-                           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--navy-deep,#0f2746)]
-                           rounded-none"
+                             bg-[var(--navy-deep,#0f2746)] text-white hover:brightness-110
+                             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--navy-deep,#0f2746)]
+                             rounded-none"
                 >
                   Explore Nearby Sites
                 </Link>
@@ -382,14 +322,13 @@ export default function HeritageNearby({
         )}
       </HeritageSection>
 
-      {/* Global scrollbar hiding helper for horizontal carousels */}
       <style jsx global>{`
         .scrollbar-none {
-          -ms-overflow-style: none; /* IE + Edge */
-          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
         .scrollbar-none::-webkit-scrollbar {
-          display: none; /* Chrome/Safari/WebKit */
+          display: none;
         }
       `}</style>
     </>

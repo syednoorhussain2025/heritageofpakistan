@@ -18,14 +18,14 @@ function storagePublicUrl(bucket: string, path?: string | null) {
   return data.publicUrl;
 }
 
-/** Avatar resolver: absolute URL stays; otherwise treat as path in "avatars" */
+/** Avatar resolver: absolute URL stays, otherwise treat as path in "avatars" */
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
   return storagePublicUrl("avatars", avatar_url);
 }
 
-// ✅ Review row with joined profile fields (from your view)
+// Review row with joined profile fields (from your view)
 type ReviewWithProfile = {
   id: string;
   site_id: string;
@@ -52,7 +52,6 @@ type SiteInfo = {
   id: string;
   title: string;
   location_free: string | null;
-  // If you want to enable GPS later, add latitude/longitude here
 };
 
 type Props = { siteId: string };
@@ -64,7 +63,7 @@ export default function ReviewsTab({ siteId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Reviews + photos + helpful votes
+  // Reviews, photos, helpful votes
   const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
   const [photosByReview, setPhotosByReview] = useState<
     Record<string, ReviewPhoto[]>
@@ -76,7 +75,7 @@ export default function ReviewsTab({ siteId }: Props) {
   // Site info (for Lightbox right panel)
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
 
-  // —— Lightbox state ——
+  // Lightbox state
   const [lightboxPhotos, setLightboxPhotos] = useState<LightboxPhoto[] | null>(
     null
   );
@@ -88,7 +87,7 @@ export default function ReviewsTab({ siteId }: Props) {
         setLoading(true);
         setError(null);
 
-        // Site info (name + location shown in Lightbox panel)
+        // Site info (name and location shown in Lightbox panel)
         const { data: siteRow, error: sErr } = await supabase
           .from("sites")
           .select("id, title, location_free")
@@ -127,7 +126,7 @@ export default function ReviewsTab({ siteId }: Props) {
             });
             return pMap;
           })(),
-          // Helpful counts + user vote state
+          // Helpful counts and user vote state
           (async () => {
             if (!reviewIds.length)
               return { counts: {}, voted: new Set<string>() };
@@ -234,24 +233,22 @@ export default function ReviewsTab({ siteId }: Props) {
       const siteName = siteInfo?.title || "";
       const siteLocation = siteInfo?.location_free || "";
 
-      // Map review photos -> LightboxPhoto[]
       const lbPhotos = album
         .map((p): LightboxPhoto | null => {
           const url = storagePublicUrl("user-photos", p.storage_path);
-          if (!url) return null; // skip if cannot resolve
+          if (!url) return null;
           return {
             id: p.id,
             url,
             storagePath: p.storage_path,
             caption: p.caption,
-            isBookmarked: false, // no bookmark UI in reviews lightbox
+            isBookmarked: false,
             site: {
               id: r.site_id,
               name: siteName,
               location: siteLocation,
               region: "",
               categories: [],
-              // Keep GPS hidden for reviews (no Maps pin) — must be null (not undefined)
               latitude: null,
               longitude: null,
             },
@@ -272,10 +269,41 @@ export default function ReviewsTab({ siteId }: Props) {
     setLightboxPhotos(null);
   }, []);
 
-  if (loading) return <div className="p-4">Loading reviews…</div>;
-  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
-  if (!rows.length)
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-center py-3">
+          <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+        </div>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-gray-200 shadow-sm p-4 animate-pulse"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-14 h-14 rounded-full bg-gray-200" />
+              <div className="space-y-2 flex-1">
+                <div className="h-4 w-32 bg-gray-200 rounded" />
+                <div className="h-3 w-20 bg-gray-200 rounded" />
+              </div>
+            </div>
+            <div className="h-4 w-24 bg-gray-200 rounded mb-2" />
+            <div className="h-4 w-full bg-gray-200 rounded mb-2" />
+            <div className="h-4 w-5/6 bg-gray-200 rounded mb-2" />
+            <div className="h-4 w-2/3 bg-gray-200 rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-4 text-red-600">Error: {error}</div>;
+  }
+
+  if (!rows.length) {
     return <div className="p-4 text-gray-600">No reviews yet.</div>;
+  }
 
   return (
     <>
@@ -322,7 +350,7 @@ export default function ReviewsTab({ siteId }: Props) {
                 </time>
               </div>
 
-              {/* Rating + text */}
+              {/* Rating and text */}
               <div className="mt-3">
                 <div className="flex items-center gap-2">
                   <div className="text-amber-500 text-lg leading-none">
@@ -341,7 +369,7 @@ export default function ReviewsTab({ siteId }: Props) {
                 )}
               </div>
 
-              {/* Photos -> open Lightbox (zoom hover + no focus ring/border) */}
+              {/* Photos with Lightbox */}
               {album.length ? (
                 <div className="mt-3 grid grid-cols-3 gap-3">
                   {album.slice(0, 3).map((p, idx) => {
@@ -398,13 +426,12 @@ export default function ReviewsTab({ siteId }: Props) {
         })}
       </div>
 
-      {/* —— Universal Lightbox (per-review albums) —— */}
+      {/* Universal Lightbox (per review albums) */}
       {lightboxPhotos && lightboxIndex !== null && (
         <Lightbox
           photos={lightboxPhotos}
           startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          // No bookmark/collection/GPS here. We pass site name/location only.
+          onClose={closeLightbox}
         />
       )}
     </>
