@@ -1,7 +1,10 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import HeritageSection from "./HeritageSection";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+import { supabase } from "@/lib/supabaseClient";
 
 /** Minimal shape for the guide summary we may receive from server */
 type TravelGuideSummary = {
@@ -421,7 +424,7 @@ export default function HeritageSidebar({
             href={maps.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-[15px]"
+            className="mt-3 inline-block px-3 py-2 rounded-lg bg.black text-white text-[15px]"
           >
             Open Location
           </a>
@@ -561,7 +564,7 @@ export default function HeritageSidebar({
       <HeritageSection title="Did you Know" iconName="did-you-know">
         {site.did_you_know ? (
           <div
-            className="whitespace-pre-wrap text-[15px] overflow-x-visible"
+            className="whitespace-pre-wrap text-[15px] overflow-x.visible"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
             {site.did_you_know}
