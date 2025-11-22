@@ -1,7 +1,6 @@
-
+// src/app/heritage/[region]/[slug]/heritage/HeritageArticle.tsx
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
-import DOMPurify from "isomorphic-dompurify";
 import parse, { domToReact } from "html-react-parser";
 import CollectHeart from "@/components/CollectHeart";
 
@@ -127,92 +126,9 @@ export default function HeritageArticle({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
 
-  /* ---------------- sanitize once ---------------- */
-  const safe = useMemo(() => {
-    const allowed = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        "p",
-        "img",
-        "hr",
-        "strong",
-        "em",
-        "u",
-        "ul",
-        "ol",
-        "li",
-        "blockquote",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "br",
-        "span",
-        "a",
-        "figure",
-        "figcaption",
-        "div",
-        "section",
-        "mark",
-        "picture",
-        "source",
-      ],
-      ALLOWED_ATTR: [
-        "src",
-        "srcset",
-        "alt",
-        "title",
-        "style", // keep inline style from FlowComposer
-        "href",
-        "target",
-        "rel",
-        "class", // keep classes from FlowComposer
-        "width",
-        "height",
-        "loading",
-        "id",
-        "draggable",
-        "data-text-lock",
-        "data-src",
-        "data-original",
-        "data-lazy-src",
-        // inline-figure hints
-        "data-width",
-        "data-align",
-        "data-caption",
-        "data-gallery-caption",
-      ],
-      ALLOWED_URI_REGEXP:
-        /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-    });
-
-    const div = document.createElement("div");
-    div.innerHTML = allowed;
-
-    const KILL = [
-      ".tiptap-bubble-menu",
-      ".tiptap-floating-menu",
-      ".ProseMirror-menubar",
-      ".ProseMirror-menu",
-      ".ProseMirror-tooltip",
-      ".ProseMirror-prompt",
-      "[data-bubble-menu]",
-      "[data-floating-menu]",
-      "[role='toolbar']",
-    ];
-    KILL.forEach((sel) => div.querySelectorAll(sel).forEach((n) => n.remove()));
-    div.querySelectorAll<HTMLElement>("*").forEach((el) => {
-      const st = (el.getAttribute("style") || "").toLowerCase();
-      if (st.includes("position:fixed")) el.remove();
-    });
-
-    return div.innerHTML;
-  }, [html]);
-
-  /* ---------------- parse → React ---------------- */
+  /* ---------------- parse → React (no DOMPurify, assume CMS-trusted HTML) ---------------- */
   const content = useMemo(() => {
-    return parse(safe, {
+    return parse(html, {
       replace: (node: any) => {
         if (node.type !== "tag") return;
 
@@ -309,39 +225,34 @@ export default function HeritageArticle({
         return;
       },
     });
-  }, [safe, site.id]);
+  }, [html, site.id]);
 
   /* ---------------- scroll reveal (images, captions, quotes, text) ---------------- */
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
-    // Treat each figure as a single reveal unit (image + caption together)
     const figures = Array.from(host.querySelectorAll<HTMLElement>("figure"));
     const quotes = Array.from(
       host.querySelectorAll<HTMLElement>(".sec-quotation, blockquote")
     );
-    // Typical text blocks (composer & prose)
     const texts = Array.from(
       host.querySelectorAll<HTMLElement>(
         "p, li, h1, h2, h3, h4, h5, h6, .hop-text, .flx-text"
       )
     );
 
-    // Tag classes for initial state
     host.classList.add("reveal-ready");
     figures.forEach((el) => el.classList.add("reveal-img"));
     quotes.forEach((el) => el.classList.add("reveal-quote"));
     texts.forEach((el) => el.classList.add("reveal-text"));
 
-    // Apply small per-element delays
     const setDelay = (el: HTMLElement, baseMs: number) =>
       el.style.setProperty("--reveal-delay", `${baseMs}ms`);
     figures.forEach((el) => setDelay(el, 140));
     quotes.forEach((el) => setDelay(el, 160));
     texts.forEach((el) => setDelay(el, 90));
 
-    // Observer fires when ~20% visible
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -362,7 +273,6 @@ export default function HeritageArticle({
 
     [...figures, ...quotes, ...texts].forEach((el) => io.observe(el));
 
-    // Arm after paint to avoid initial flash
     const arm = requestAnimationFrame(() =>
       requestAnimationFrame(() => host.classList.add("reveal-armed"))
     );
@@ -415,23 +325,21 @@ export default function HeritageArticle({
 
       strip.classList.add("hop-carousel-strip");
 
-      // --- PRONOUNCED SEQUENTIAL ENTRANCE ---
       const items = Array.from(strip.children).filter(
         (n): n is HTMLElement => n instanceof HTMLElement
       );
-      const baseStart = 160; // ms (noticeable initial pause)
-      const perItemStep = 300; // ms (clear stagger, great for 2–3 items)
-      const maxDelay = 1100; // cap to avoid excessive totals
+      const baseStart = 160;
+      const perItemStep = 300;
+      const maxDelay = 1100;
 
       items.forEach((el, i) => {
         el.classList.add("hop-seq-item");
         const delay = Math.min(baseStart + i * perItemStep, maxDelay);
         el.style.setProperty("--seq-delay", `${delay}ms`);
-        const micro = i % 2 === 0 ? 0 : 20; // tiny irregularity
+        const micro = i % 2 === 0 ? 0 : 20;
         el.style.setProperty("--seq-micro", `${micro}ms`);
       });
 
-      // Observe carousel visibility; then arm the sequence exactly once
       const seqIO = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
@@ -447,11 +355,9 @@ export default function HeritageArticle({
         { rootMargin: "0px 0px -10% 0px", threshold: 0.25 }
       );
 
-      // Prepare initial state before observing
       strip.classList.add("hop-seq-ready");
       seqIO.observe(strip);
 
-      // --- NAV ---
       const calcStep = () => {
         const children = Array.from(strip.children).filter(
           (n): n is HTMLElement => n instanceof HTMLElement
@@ -459,7 +365,8 @@ export default function HeritageArticle({
         const item =
           children.find((c) => c.offsetWidth > 0) || (children[0] as any);
         if (!item) return 0;
-        const gapPx = parseFloat(getComputedStyle(strip).columnGap || "0") || 0;
+        const gapPx =
+          parseFloat(getComputedStyle(strip).columnGap || "0") || 0;
         return item.offsetWidth + gapPx;
       };
       const step = () => Math.max(1, Math.round(calcStep()));
@@ -781,14 +688,12 @@ export default function HeritageArticle({
 
         /* ========= Scroll reveal (images, captions, quotes, text) ========= */
         @media (prefers-reduced-motion: no-preference) {
-          /* Figures (image + caption together) and quotes: fade + subtle slide */
           .reading-article.reveal-ready .reveal-img,
           .reading-article.reveal-ready .reveal-quote {
             opacity: 0;
             transform: translate3d(0, 10px, 0);
           }
 
-          /* Text blocks: fade only (no movement to avoid pixel jitter) */
           .reading-article.reveal-ready .reveal-text {
             opacity: 0;
           }
@@ -829,8 +734,6 @@ export default function HeritageArticle({
           .hop-seq-ready .hop-seq-item {
             opacity: 0;
             transform: translateY(24px) scale(0.985);
-            /* Uncomment for a soft-focus arrival:
-               filter: blur(2px); */
           }
           .hop-seq-in .hop-seq-item {
             will-change: opacity, transform, filter;
@@ -842,7 +745,6 @@ export default function HeritageArticle({
                 calc(var(--seq-delay, 120ms) + var(--seq-micro, 0ms));
             opacity: 1;
             transform: none;
-            /* filter: none; */
           }
         }
       `}</style>
