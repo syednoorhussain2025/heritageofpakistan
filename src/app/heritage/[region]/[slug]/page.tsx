@@ -2,7 +2,9 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+// @ts-ignore 3p library without TS types
 import { Cite } from "@citation-js/core";
+// @ts-ignore 3p library without TS types
 import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
 
