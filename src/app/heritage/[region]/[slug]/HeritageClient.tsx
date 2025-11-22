@@ -1,7 +1,12 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+} from "react";
+import { usePathname } from "next/navigation";
 import StickyHeader from "./heritage/StickyHeader";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -15,7 +20,6 @@ import { createPortal } from "react-dom";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 
 // Page-local imports
-import { useHeritageData } from "./heritage/heritagedata";
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageSidebar from "./heritage/HeritageSidebar";
 import HeritageUpperArticle from "./heritage/HeritageUpperArticle";
@@ -96,7 +100,7 @@ function LazySection({
   );
 }
 
-/* ---------------- Types for site from server ---------------- */
+/* ---------------- Types for site + props from server ---------------- */
 
 type HeroCover =
   | {
@@ -137,19 +141,117 @@ type NeighborProps = {
   next: NeighborLinkForClient | null;
 };
 
+type TravelGuideSummary = {
+  location?: string | null;
+  how_to_reach?: string | null;
+  nearest_major_city?: string | null;
+  airport_access?: boolean | null;
+  access_options?:
+    | "by_road_only"
+    | "by_trek_only"
+    | "by_jeep_and_trek_only"
+    | "by_road_and_railway"
+    | "by_road_and_airport"
+    | "by_road_railway_airport"
+    | null;
+  road_type_condition?: string | null;
+  best_time_to_visit?:
+    | "year_long"
+    | "winters"
+    | "summers"
+    | "spring"
+    | "spring_and_summers"
+    | "winter_and_spring"
+    | null;
+  hotels_available?: "yes" | "no" | "limited_options" | null;
+  spending_night_recommended?:
+    | "yes"
+    | "not_recommended"
+    | "not_suitable"
+    | null;
+  camping?: "possible" | "not_suitable" | "with_caution" | null;
+  places_to_eat?: "yes" | "no" | "limited_options" | null;
+  altitude?: string | null;
+  landform?:
+    | "mountains"
+    | "plains"
+    | "river"
+    | "plateau"
+    | "mountain_peak"
+    | "valley"
+    | "desert"
+    | "coastal"
+    | "wetlands"
+    | "forest"
+    | "canyon_gorge"
+    | "glacier"
+    | "lake_basin"
+    | "steppe"
+    | null;
+  mountain_range?: string | null;
+  climate_type?: string | null;
+  temp_winter?: string | null;
+  temp_summers?: string | null;
+};
+
+type Taxonomy = { id: string; name: string; icon_key: string | null };
+
+type ImageRow = {
+  id: string;
+  site_id: string;
+  storage_path: string;
+  alt_text?: string | null;
+  caption?: string | null;
+  credit?: string | null;
+  is_cover?: boolean | null;
+  sort_order: number;
+  publicUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
+};
+
+type BiblioItem = {
+  id: string;
+  csl: any;
+  note?: string | null;
+  sort_order: number;
+};
+
+type Highlight = { quote: string | null; section_id: string | null };
+
+type HeritagePageProps = {
+  site: HeritageClientSite;
+  neighbors?: NeighborProps;
+  provinceName: string | null;
+  categories: Taxonomy[];
+  regions: Taxonomy[];
+  gallery: ImageRow[];
+  bibliography: BiblioItem[];
+  styleId: string;
+  hasPhotoStory: boolean;
+  highlight: Highlight;
+  travelGuideSummary: TravelGuideSummary | null;
+};
+
 export default function HeritagePage({
   site: initialSite,
   neighbors,
-}: {
-  site: HeritageClientSite;
-  neighbors?: NeighborProps;
-}) {
-  const searchParams = useSearchParams();
+  provinceName,
+  categories,
+  regions,
+  gallery,
+  bibliography,
+  styleId,
+  hasPhotoStory,
+  highlight,
+  travelGuideSummary,
+}: HeritagePageProps) {
   const pathname = usePathname();
-  const deepLinkNoteId = searchParams?.get("note") || null;
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
 
-  const slug = initialSite?.slug ?? "";
+  const site: HeritageClientSite | null = initialSite ?? null;
 
   // Remember last opened heritage page for mobile Heritage tab
   useEffect(() => {
@@ -161,65 +263,20 @@ export default function HeritagePage({
     }
   }, [pathname]);
 
-  /* ---------------- Fetch hydrated content ---------------- */
-  const {
-    loading,
-    site: fetchedSite,
-    provinceName,
-    categories,
-    regions,
-    gallery,
-    bibliography,
-    styleId,
-    hasPhotoStory,
-    highlight,
-    setHighlight,
-    maps,
-    travelGuideSummary,
-  } = useHeritageData(slug, deepLinkNoteId);
-
-  /* ---------------- Merge SSR + Client site data ---------------- */
-
-  const site: HeritageClientSite | null = (() => {
-    if (!initialSite && !fetchedSite) return null;
-
-    const base = (fetchedSite as any) ?? initialSite;
-
-    const serverCover = (initialSite?.cover || null) as any;
-    const clientCover = ((fetchedSite as any)?.cover || null) as any;
-
-    let mergedCover: HeroCover = null;
-
-    if (serverCover || clientCover) {
-      const url: string | null =
-        clientCover?.url ?? serverCover?.url ?? null;
-
-      if (url) {
-        mergedCover = {
-          url,
-          width: clientCover?.width ?? serverCover?.width ?? null,
-          height: clientCover?.height ?? serverCover?.height ?? null,
-          blurhash:
-            clientCover?.blurhash ?? serverCover?.blurhash ?? null,
-          blurDataURL:
-            serverCover?.blurDataURL ?? clientCover?.blurDataURL ?? null,
-          caption:
-            clientCover?.caption ?? serverCover?.caption ?? null,
-          credit:
-            clientCover?.credit ?? serverCover?.credit ?? null,
-        };
-      } else {
-        mergedCover = null;
-      }
-    }
-
-    return {
-      ...base,
-      province_slug:
-        base.province_slug ?? initialSite?.province_slug ?? "",
-      cover: mergedCover,
-    };
-  })();
+  // Maps helper (client side, very cheap)
+  const maps = useMemo(() => {
+    const lat = site?.latitude ? Number(site.latitude) : null;
+    const lng = site?.longitude ? Number(site.longitude) : null;
+    const embed =
+      lat != null && lng != null
+        ? `https://www.google.com/maps?q=${lat},${lng}&z=12&output=embed`
+        : null;
+    const link =
+      lat != null && lng != null
+        ? `https://www.google.com/maps?q=${lat},${lng}`
+        : null;
+    return { embed, link };
+  }, [site?.latitude, site?.longitude]);
 
   const prevHref =
     neighbors?.prev && neighbors.prev.province_slug
@@ -247,14 +304,18 @@ export default function HeritagePage({
     }
   });
 
-  const isBookmarked = isLoaded && site ? bookmarkedIds.has(site.id) : false;
+  const isBookmarked =
+    isLoaded && site ? bookmarkedIds.has(site.id) : false;
   const contentRef = useRef<HTMLElement>(null);
 
   function doShare() {
     const url = typeof window !== "undefined" ? window.location.href : "";
-    if ((navigator as any).share)
-      (navigator as any).share({ title: site?.title || "Heritage", url });
-    else {
+    if ((navigator as any).share) {
+      (navigator as any).share({
+        title: site?.title || "Heritage",
+        url,
+      });
+    } else {
       navigator.clipboard.writeText(url);
       alert("Link copied!");
     }
@@ -277,7 +338,7 @@ export default function HeritagePage({
         )}
 
         {/* Sticky header */}
-        {!loading && site && (
+        {site && (
           <StickyHeader
             site={{ id: site.id, slug: site.slug, title: site.title }}
             isBookmarked={isBookmarked}
@@ -312,7 +373,7 @@ export default function HeritagePage({
         <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
           {/* LEFT SIDEBAR */}
           <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
-            {!site || loading ? (
+            {!site ? (
               <>
                 <SidebarCardSkeleton lines={7} />
                 <SidebarCardSkeleton lines={5} />
@@ -345,7 +406,7 @@ export default function HeritagePage({
 
           {/* RIGHT MAIN CONTENT */}
           <main ref={contentRef} className="space-y-5 w-full lg:flex-1">
-            {!site || loading ? (
+            {!site ? (
               <>
                 <SidebarCardSkeleton lines={6} />
                 <SidebarCardSkeleton lines={6} />
