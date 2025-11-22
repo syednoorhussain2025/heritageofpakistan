@@ -106,7 +106,11 @@ export default function HeritageCover({
     return () => cancelAnimationFrame(id);
   }, []);
 
+  // Scroll-driven overlay fade only on desktop and larger
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
+
     const hero = heroRef.current;
     const overlay = overlayRef.current;
     if (!hero || !overlay) return;
@@ -204,8 +208,9 @@ export default function HeritageCover({
               alt={site.title}
               width={activeWidth ?? 1600}
               height={activeHeight ?? 900}
+              sizes="100vw"
               priority
-              quality={90}
+              quality={75}
               placeholder="empty"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
                 heroLoaded ? "opacity-100" : "opacity-0"
@@ -353,8 +358,10 @@ export default function HeritageCover({
                 src={heroUrl}
                 alt={site.title}
                 fill
-                priority
-                quality={90}
+                sizes="100vw"
+                quality={75}
+                priority={false}
+                loading="lazy"
                 placeholder="empty"
                 className={`object-cover object-top transition-opacity duration-700 ${
                   heroLoaded ? "opacity-100" : "opacity-0"
@@ -393,7 +400,7 @@ export default function HeritageCover({
         {/* OVERLAY CONTENT */}
         <div
           ref={overlayRef}
-          className={`absolute inset-0 flex items-end hero-overlay ${
+          className={`absolute inset-0 flex items.end hero-overlay ${
             mounted ? "blocks-in" : ""
           }`}
         >
@@ -454,7 +461,7 @@ export default function HeritageCover({
 
               {site.heritage_type && (
                 <div>
-                  <div className="uppercase text-white/80 text-xs">
+                  <div className="uppercase text.white/80 text-xs">
                     Heritage Type
                   </div>
                   <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
@@ -507,15 +514,15 @@ export default function HeritageCover({
           .hero-left {
             --initial-tx: -32px;
             transform: translateX(var(--initial-tx));
-            transition: opacity 600ms ease-out 150ms,
-              transform 600ms ease-out 150ms;
+            transition: opacity 600ms ease.out 150ms,
+              transform 600ms ease.out 150ms;
           }
 
           .hero-right {
             --initial-tx: 32px;
             transform: translateX(var(--initial-tx));
-            transition: opacity 600ms ease-out 250ms,
-              transform 600ms ease-out 250ms;
+            transition: opacity 600ms ease.out 250ms,
+              transform 600ms ease.out 250ms;
           }
 
           .hero-overlay.blocks-in .hero-left,
