@@ -400,7 +400,7 @@ export default function HeritageCover({
         {/* OVERLAY CONTENT */}
         <div
           ref={overlayRef}
-          className={`absolute inset-0 flex items.end hero-overlay ${
+          className={`absolute inset-0 flex items-end hero-overlay ${
             mounted ? "blocks-in" : ""
           }`}
         >
@@ -461,7 +461,7 @@ export default function HeritageCover({
 
               {site.heritage_type && (
                 <div>
-                  <div className="uppercase text.white/80 text-xs">
+                  <div className="uppercase text-white/80 text-xs">
                     Heritage Type
                   </div>
                   <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
@@ -514,15 +514,15 @@ export default function HeritageCover({
           .hero-left {
             --initial-tx: -32px;
             transform: translateX(var(--initial-tx));
-            transition: opacity 600ms ease.out 150ms,
-              transform 600ms ease.out 150ms;
+            transition: opacity 600ms ease-out 150ms,
+              transform 600ms ease-out 150ms;
           }
 
           .hero-right {
             --initial-tx: 32px;
             transform: translateX(var(--initial-tx));
-            transition: opacity 600ms ease.out 250ms,
-              transform 600ms ease.out 250ms;
+            transition: opacity 600ms ease-out 250ms,
+              transform 600ms ease-out 250ms;
           }
 
           .hero-overlay.blocks-in .hero-left,
