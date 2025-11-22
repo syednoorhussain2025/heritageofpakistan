@@ -1,4 +1,4 @@
-// src/components/StickyHeader.tsx
+
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import AddToTripModal from "@/components/AddToTripModal";
@@ -345,10 +345,15 @@ export default function StickyHeader({
     } catch {}
   }, []);
 
-  useEffect(() => {
-    if (typeof researchMode === "boolean")
-      setResearchModeInternal(researchMode);
-  }, [researchMode]);
+useEffect(() => {
+  if (
+    typeof researchMode === "boolean" &&
+    researchMode !== researchModeInternal
+  ) {
+    setResearchModeInternal(researchMode);
+  }
+}, [researchMode, researchModeInternal]);
+
 
   useEffect(() => {
     onChangeResearchMode?.(researchModeInternal);
