@@ -1,16 +1,9 @@
 "use client";
 
-import React, {
-  useRef,
-  useState,
-  useEffect,
-  useMemo,
-} from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import StickyHeader from "./heritage/StickyHeader";
-import AddToWishlistModal from "@/components/AddToWishlistModal";
-import ReviewModal from "@/components/reviews/ReviewModal";
-import ReviewsTab from "@/components/reviews/ReviewsTab";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
@@ -23,7 +16,6 @@ import { CollectionsProvider } from "@/components/CollectionsProvider";
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageSidebar from "./heritage/HeritageSidebar";
 import HeritageUpperArticle from "./heritage/HeritageUpperArticle";
-import HeritageArticle from "./heritage/HeritageArticle";
 import HeritageGalleryLink from "./heritage/HeritageGalleryLink";
 import HeritagePhotoRights from "./heritage/HeritagePhotoRights";
 import HeritageBibliography from "./heritage/HeritageBibliography";
@@ -37,6 +29,37 @@ import {
 } from "./heritage/HeritageSkeletons";
 import HeritageSection from "./heritage/HeritageSection";
 import HeritageNeighborNav from "./heritage/HeritageNeighborNav";
+
+/* ---------------- Dynamic imports for heavy client chunks ---------------- */
+
+const HeritageArticle = dynamic(
+  () => import("./heritage/HeritageArticle"),
+  {
+    ssr: true,
+  }
+);
+
+const ReviewsTab = dynamic(
+  () => import("@/components/reviews/ReviewsTab"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
+
+const ReviewModal = dynamic(
+  () => import("@/components/reviews/ReviewModal"),
+  {
+    ssr: false,
+  }
+);
+
+const AddToWishlistModal = dynamic(
+  () => import("@/components/AddToWishlistModal"),
+  {
+    ssr: false,
+  }
+);
 
 /* ---------------- LazySection helper (section-level progressive mount) ---------------- */
 
@@ -64,7 +87,7 @@ function LazySection({
     if (!el) return;
 
     const obs = new IntersectionObserver(
-      entries => {
+      (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             setVisible(true);
@@ -352,7 +375,7 @@ export default function HeritagePage({
             doShare={doShare}
             setShowReviewModal={setShowReviewModal}
             researchMode={researchEnabled}
-            onChangeResearchMode={v => {
+            onChangeResearchMode={(v) => {
               setResearchEnabled(v);
               try {
                 localStorage.setItem("researchMode", v ? "1" : "0");
@@ -432,9 +455,7 @@ export default function HeritagePage({
                     title="History and Background"
                     iconName="history-background"
                   >
-                    <LazySection
-                      skeleton={<SidebarCardSkeleton lines={7} />}
-                    >
+                    <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                       <HeritageArticle
                         key={`history-${site.history_layout_html.length}`}
                         html={site.history_layout_html}
@@ -464,9 +485,7 @@ export default function HeritagePage({
                     title="Architecture and Design"
                     iconName="architecture-design"
                   >
-                    <LazySection
-                      skeleton={<SidebarCardSkeleton lines={7} />}
-                    >
+                    <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                       <HeritageArticle
                         key={`architecture-${site.architecture_layout_html.length}`}
                         html={site.architecture_layout_html}
@@ -496,9 +515,7 @@ export default function HeritagePage({
                     title="Climate & Environment"
                     iconName="climate-topography"
                   >
-                    <LazySection
-                      skeleton={<SidebarCardSkeleton lines={7} />}
-                    >
+                    <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                       <HeritageArticle
                         key={`climate-${site.climate_layout_html.length}`}
                         html={site.climate_layout_html}
@@ -532,9 +549,7 @@ export default function HeritagePage({
                         title={cs.title}
                         iconName="history-background"
                       >
-                        <LazySection
-                          skeleton={<SidebarCardSkeleton lines={7} />}
-                        >
+                        <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                           <HeritageArticle
                             key={`custom-${cs.id}-${
                               (cs.layout_html || "").length
@@ -558,10 +573,7 @@ export default function HeritagePage({
 
                 {/* Gallery */}
                 <LazySection skeleton={<GallerySkeleton count={6} />}>
-                  <HeritageGalleryLink
-                    siteSlug={site.slug}
-                    gallery={gallery}
-                  />
+                  <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
                 </LazySection>
 
                 {/* Nearby */}
@@ -593,10 +605,7 @@ export default function HeritagePage({
 
                 {/* Bibliography */}
                 <LazySection skeleton={<BibliographySkeleton rows={4} />}>
-                  <HeritageBibliography
-                    items={bibliography}
-                    styleId={styleId}
-                  />
+                  <HeritageBibliography items={bibliography} styleId={styleId} />
                 </LazySection>
 
                 {/* Reviews */}
@@ -690,7 +699,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
   const lastContextTextRef = useRef<string | null>(null);
 
   const clearAll = () => {
-    setBubble(b => ({ ...b, visible: false }));
+    setBubble((b) => ({ ...b, visible: false }));
     setRects([]);
     lastSelectionRef.current = "";
     lastSectionIdRef.current = null;
@@ -710,7 +719,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
     const range = sel.getRangeAt(0);
     const r = range.getBoundingClientRect();
 
-    const clientRects = Array.from(range.getClientRects()).map(cr => ({
+    const clientRects = Array.from(range.getClientRects()).map((cr) => ({
       top: cr.top,
       left: cr.left,
       width: cr.width,
@@ -828,7 +837,7 @@ function GlobalResearchDebug({ enabled, siteId, siteSlug, siteTitle }: any) {
         >
           <div className="note-callout">
             <button
-              onMouseDown={e => {
+              onMouseDown={(e) => {
                 e.preventDefault();
                 handleSaveSelection();
               }}
