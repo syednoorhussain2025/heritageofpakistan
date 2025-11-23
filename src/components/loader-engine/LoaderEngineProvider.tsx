@@ -101,7 +101,7 @@ export function LoaderEngineProvider({
       setVisible(false);
       setVariant(null);
       setPhase("active");
-    }, 220);
+    }, 10);
   }, [visible]);
 
   const startNavigation = useCallback(
@@ -117,7 +117,7 @@ export function LoaderEngineProvider({
       clearNavTimeout();
       navTimeoutRef.current = window.setTimeout(() => {
         router.push(href);
-      }, 260);
+      }, 10);
     },
     [pathname, router, showLoader]
   );
