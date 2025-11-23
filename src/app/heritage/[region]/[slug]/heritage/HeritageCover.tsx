@@ -210,6 +210,7 @@ export default function HeritageCover({
               height={activeHeight ?? 900}
               sizes="100vw"
               priority
+              fetchPriority="high"
               quality={75}
               placeholder="empty"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
@@ -358,10 +359,10 @@ export default function HeritageCover({
                 src={heroUrl}
                 alt={site.title}
                 fill
-                sizes="100vw"
+                sizes="(min-width: 1536px) 1280px, (min-width: 1024px) 1024px, 100vw"
                 quality={75}
-                priority={false}
-                loading="lazy"
+                priority
+                fetchPriority="high"
                 placeholder="empty"
                 className={`object-cover object-top transition-opacity duration-700 ${
                   heroLoaded ? "opacity-100" : "opacity-0"
