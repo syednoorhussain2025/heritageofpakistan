@@ -210,8 +210,7 @@ export default function HeritageCover({
               height={activeHeight ?? 900}
               sizes="100vw"
               priority
-              fetchPriority="high"
-              quality={60} // lower quality for mobile
+              quality={75}
               placeholder="empty"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
                 heroLoaded ? "opacity-100" : "opacity-0"
@@ -219,34 +218,17 @@ export default function HeritageCover({
               draggable={false}
               onLoadingComplete={handleHeroLoadComplete}
             />
-
-            {/* Bottom gradient to make title readable */}
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 100%)",
-              }}
-            />
-
-            {/* Title + optional tagline overlay on image */}
-            <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-6 text-white">
-              <h1 className="font-hero-title text-3xl leading-tight">
-                {site.title}
-              </h1>
-              {site.tagline && (
-                <p className="mt-1 text-[13px] leading-snug text-white/90 line-clamp-2">
-                  {site.tagline}
-                </p>
-              )}
-            </div>
           </div>
         ) : (
           <div className="w-full aspect-[5/4] bg-gray-200" />
         )}
 
         {/* Info block below image */}
-        <div className="px-4 pt-3 pb-5 space-y-3">
+        <div className="px-4 pt-4 pb-5 space-y-3">
+          <h1 className="font-hero-title text-3xl leading-tight text-black">
+            {site.title}
+          </h1>
+
           {hasRatingInfo && (
             <div className="flex items-center gap-2 text-[15px] text-slate-800">
               <div className="flex items-center gap-0.5">
@@ -267,6 +249,12 @@ export default function HeritageCover({
                 {site.avg_rating?.toFixed(1)} • {site.review_count} reviews
               </span>
             </div>
+          )}
+
+          {site.tagline && (
+            <p className="text-[15px] leading-relaxed text-slate-700">
+              {site.tagline}
+            </p>
           )}
 
           {site.heritage_type && (
@@ -325,8 +313,7 @@ export default function HeritageCover({
         aria-label="Hero"
         className="relative w-full overflow-hidden hidden md:block"
         style={{
-          height: "calc(100svh + var(--sticky-offset, 72px))",
-          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
+          height: "94svh",
         }}
       >
         {/* IMAGE + PLACEHOLDERS */}
@@ -371,10 +358,10 @@ export default function HeritageCover({
                 src={heroUrl}
                 alt={site.title}
                 fill
-                sizes="(min-width: 1536px) 1280px, (min-width: 1024px) 1024px, 100vw"
+                sizes="100vw"
                 quality={75}
-                priority
-                fetchPriority="high"
+                priority={false}
+                loading="lazy"
                 placeholder="empty"
                 className={`object-cover object-top transition-opacity duration-700 ${
                   heroLoaded ? "opacity-100" : "opacity-0"
