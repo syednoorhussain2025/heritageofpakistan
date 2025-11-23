@@ -313,7 +313,7 @@ export default function HeritageCover({
         aria-label="Hero"
         className="relative w-full overflow-hidden hidden md:block"
         style={{
-          height: "94svh",
+          height: "99svh",
           // pull hero up so it starts from screen top behind sticky header
           marginTop: "calc(-1 * var(--sticky-offset, 72px))",
         }}
