@@ -30,10 +30,10 @@ export function ListingLoader({
   const opacityClass = exiting ? "opacity-0" : "opacity-100";
 
   const durationClass = entering
-    ? "duration-150"
+    ? "duration-100"
     : exiting
-    ? "duration-200"
-    : "duration-150";
+    ? "duration-100"
+    : "duration-100";
 
   return (
     <div className="fixed inset-0 z-[10] pointer-events-none">

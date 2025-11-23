@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/heritage/HeritageCover.tsx
 "use client";
 
 import Image from "next/image";
@@ -93,6 +94,14 @@ export default function HeritageCover({
   const hasBlurDataURL = !!activeBlurDataURL;
   const hasBlurhashFallback =
     !!activeBlurhash && !!activeWidth && !!activeHeight;
+
+  // clamp intrinsic size for mobile to keep bytes down, preserve aspect ratio
+  const targetWidth =
+    activeWidth != null ? Math.min(activeWidth, 1500) : 1500;
+  const targetHeight =
+    activeWidth != null && activeHeight != null
+      ? Math.round((activeHeight / activeWidth) * targetWidth)
+      : 1200;
 
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [showSpinner, setShowSpinner] = useState(true);
@@ -206,12 +215,12 @@ export default function HeritageCover({
             <Image
               src={heroUrl}
               alt={site.title}
-              width={activeWidth ?? 1600}
-              height={activeHeight ?? 900}
+              width={targetWidth}
+              height={targetHeight}
               sizes="100vw"
               priority
               fetchPriority="high"
-              quality={75}
+              quality={60} // reduced mobile quality
               placeholder="empty"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
                 heroLoaded ? "opacity-100" : "opacity-0"

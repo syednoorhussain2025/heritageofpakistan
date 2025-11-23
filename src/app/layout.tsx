@@ -35,8 +35,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* ---- LCP PERFORMANCE BOOST ---- */}
+        <link
+          rel="preconnect"
+          href="https://fopkndnjdeartooxhmfsr.supabase.co"
+          crossOrigin=""
+        />
+        <link
+          rel="preconnect"
+          href="https://heritageofpakistan.vercel.app"
+        />
+        {/* ------------------------------ */}
+
         <FontLoader />
       </head>
+
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f4f4f4]`}
       >
