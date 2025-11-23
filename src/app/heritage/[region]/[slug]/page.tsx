@@ -683,103 +683,98 @@ export async function generateMetadata({
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
   const canonical = `${baseUrl}/heritage/${region}/${slug}`;
 
-  const supabase = await getSupabaseServerClient();
+  // Fallback title from slug if DB lookup fails
+  const slugTitle = slug
+    .split("-")
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 
-  const { data: site } = await supabase
-    .from("sites")
-    .select(
-      `
+  let title = slugTitle;
+  let description: string | undefined;
+  let coverUrl: string | null = null;
+
+  try {
+    const supabase = await getSupabaseServerClient();
+
+    const { data: site } = await supabase
+      .from("sites")
+      .select(
+        `
         id,
         title,
         tagline,
         summary,
         cover_photo_url,
-        province:provinces!sites_province_id_fkey ( name, slug )
+        province:provinces!sites_province_id_fkey ( name )
       `
-    )
-    .eq("slug", slug)
-    .maybeSingle();
-
-  // If site not found or region mismatch, return non-indexable metadata
-  if (!site) {
-    return {
-      title: "Heritage site not found",
-      description: "This heritage site could not be found.",
-      alternates: { canonical },
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const provinceRel: any = (site as any).province;
-  const provinceSlug: string | null = Array.isArray(provinceRel)
-    ? provinceRel[0]?.slug ?? null
-    : provinceRel?.slug ?? null;
-  const provinceName: string | null = Array.isArray(provinceRel)
-    ? provinceRel[0]?.name ?? null
-    : provinceRel?.name ?? null;
-
-  if (!provinceSlug || region !== provinceSlug) {
-    return {
-      title: "Heritage site not found",
-      description: "This heritage site could not be found.",
-      alternates: { canonical },
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const baseTitle: string = (site as any).title ?? "Heritage site";
-
-  const description: string =
-    (site as any).summary ??
-    (site as any).tagline ??
-    (provinceName
-      ? `Learn about ${baseTitle} in ${provinceName}, including history, architecture and travel tips.`
-      : `Learn about ${baseTitle} with history, architecture and travel tips.`);
-
-  // Prefer site_covers for OG image, fall back to cover_photo_url
-  let coverUrl: string | null = null;
-
-  try {
-    const { data: coverRow } = await supabase
-      .from("site_covers")
-      .select("storage_path, is_active, created_at")
-      .eq("site_id", (site as any).id)
-      .order("is_active", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1)
+      )
+      .eq("slug", slug)
       .maybeSingle();
 
-    if (coverRow?.storage_path) {
-      coverUrl = buildPublicImageUrl(coverRow.storage_path);
+    if (site) {
+      title = site.title ?? slugTitle;
+
+      const provinceRel: any = (site as any).province;
+      const provinceName: string | null = Array.isArray(provinceRel)
+        ? provinceRel[0]?.name ?? null
+        : provinceRel?.name ?? null;
+
+      description =
+        site.summary ??
+        site.tagline ??
+        (provinceName
+          ? `Learn about ${title} in ${provinceName}, including history, architecture and travel tips.`
+          : `Learn about ${title} with history, architecture and travel tips.`);
+
+      // Prefer site_covers for OG image, fall back to cover_photo_url
+      try {
+        const { data: coverRow } = await supabase
+          .from("site_covers")
+          .select("storage_path, is_active, created_at")
+          .eq("site_id", site.id)
+          .order("is_active", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (coverRow?.storage_path) {
+          coverUrl = buildPublicImageUrl(coverRow.storage_path);
+        }
+      } catch {
+        // ignore cover lookup errors
+      }
+
+      if (!coverUrl && site.cover_photo_url) {
+        coverUrl = site.cover_photo_url as string;
+      }
     }
   } catch {
-    // ignore, metadata should still resolve
+    // On any error we fall back to slug based metadata
   }
 
-  if (!coverUrl && (site as any).cover_photo_url) {
-    coverUrl = (site as any).cover_photo_url as string;
-  }
+  const finalDescription =
+    description ??
+    `Discover heritage site ${title} on Heritage of Pakistan with history, architecture and travel insights.`;
 
-  const ogTitle = `${baseTitle} | Heritage of Pakistan`;
+  const ogTitle = `${title} | Heritage of Pakistan`;
 
   return {
-    // This will be wrapped by the layout title template
-    title: baseTitle,
-    description,
+    title, // layout template will wrap this
+    description: finalDescription,
     alternates: {
       canonical,
     },
     openGraph: {
       url: canonical,
       title: ogTitle,
-      description,
+      description: finalDescription,
       images: coverUrl
         ? [
             {
               url: coverUrl,
               width: 1200,
               height: 900,
-              alt: baseTitle,
+              alt: title,
             },
           ]
         : undefined,
@@ -787,7 +782,7 @@ export async function generateMetadata({
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
-      description,
+      description: finalDescription,
       images: coverUrl ? [coverUrl] : undefined,
     },
   };

@@ -40,7 +40,6 @@ const geistMono = Geist_Mono({
 
 /* ---------------- SEO ---------------- */
 
-// You may set NEXT_PUBLIC_SITE_URL in env, otherwise fallback used
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
 
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
       "Discover and explore heritage sites across Pakistan with history, architecture and travel insights.",
     images: [
       {
-        url: "/og-default.jpg", // add this 1200x630 image to /public
+        url: "/og-default.jpg", // 1200x630 image in /public
         width: 1200,
         height: 630,
         alt: "Heritage of Pakistan",
@@ -91,9 +90,9 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      maxSnippet: -1,
-      maxImagePreview: "large",
-      maxVideoPreview: -1,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
     },
   },
 };
