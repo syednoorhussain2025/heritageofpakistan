@@ -325,7 +325,8 @@ export default function HeritageCover({
         aria-label="Hero"
         className="relative w-full overflow-hidden hidden md:block"
         style={{
-          height: "94svh",
+          height: "calc(100svh + var(--sticky-offset, 72px))",
+          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
         }}
       >
         {/* IMAGE + PLACEHOLDERS */}
