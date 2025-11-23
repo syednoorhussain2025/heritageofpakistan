@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lato } from "next/font/google";
-import localFont from "next/font/local"; // Import localFont loader
+import localFont from "next/font/local";
 import "./globals.css";
 import "@/modules/flow-layout/flow-layout.css";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
-// Removed FontLoader as it causes render blocking
-// import FontLoader from "@/components/FontLoader";
 import { IconProvider } from "@/components/Icon";
 import { BookmarkProvider } from "@/components/BookmarkProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
@@ -15,21 +13,19 @@ import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-// 1. Setup Google Font (Lato)
+/* ---------------- Fonts ---------------- */
 const lato = Lato({
   weight: ["100", "300", "400", "700", "900"],
   subsets: ["latin"],
   variable: "--font-lato",
-  display: "swap", // CRITICAL: Allows text to show immediately
+  display: "swap",
 });
 
-// 2. Setup Local Font (Futura)
-// Make sure to put the .ttf file in src/app/fonts/
 const futura = localFont({
   src: "./fonts/FuturaCyrillicMedium.ttf",
   variable: "--font-futura",
   display: "swap",
-  weight: "500", // Adjust based on the actual font weight
+  weight: "500",
 });
 
 const geistSans = Geist({
@@ -42,10 +38,67 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/* ---------------- SEO ---------------- */
+
+// You may set NEXT_PUBLIC_SITE_URL in env, otherwise fallback used
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+
 export const metadata: Metadata = {
-  title: "Heritage of Pakistan",
-  description: "Discover, Explore, Preserve — a guide to Pakistan’s heritage.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Heritage of Pakistan",
+    template: "%s | Heritage of Pakistan",
+  },
+  description:
+    "Discover heritage sites across Pakistan, explore history, architecture and culture with photos, maps and travel guidance.",
+  keywords: [
+    "Pakistan heritage",
+    "heritage sites",
+    "historical places Pakistan",
+    "tourist attractions Pakistan",
+    "UNESCO Pakistan",
+  ],
+  alternates: {
+    canonical: siteUrl,
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "Heritage of Pakistan",
+    title: "Heritage of Pakistan",
+    description:
+      "Discover and explore heritage sites across Pakistan with history, architecture and travel insights.",
+    images: [
+      {
+        url: "/og-default.jpg", // add this 1200x630 image to /public
+        width: 1200,
+        height: 630,
+        alt: "Heritage of Pakistan",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Heritage of Pakistan",
+    description:
+      "Explore cultural and historical heritage sites across Pakistan.",
+    images: ["/og-default.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      maxSnippet: -1,
+      maxImagePreview: "large",
+      maxVideoPreview: -1,
+    },
+  },
 };
+
+/* ---------------- Layout ---------------- */
 
 export default function RootLayout({
   children,
@@ -53,9 +106,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* LCP Preconnects */}
-        {/* Kept Supabase preconnect if you load IMAGES from there. 
-            If you only used it for fonts, you can remove this link. */}
         <link
           rel="preconnect"
           href="https://fopkndnjdeartooxhmfsr.supabase.co"
@@ -64,7 +114,6 @@ export default function RootLayout({
       </head>
 
       <body
-        // 3. Apply all font variables here
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>

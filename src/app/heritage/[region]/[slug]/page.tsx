@@ -1,4 +1,5 @@
 // src/app/heritage/[region]/[slug]/page.tsx
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -232,6 +233,97 @@ async function loadBibliographyForPublic(
     note: src?.notes ?? null,
     sort_order: src?.sort_order ?? i,
   }));
+}
+
+/* ---------- JSON-LD helpers ---------- */
+
+function cleanJsonLd(value: any): any {
+  if (Array.isArray(value)) {
+    const arr = value
+      .map(cleanJsonLd)
+      .filter(
+        v =>
+          v !== undefined &&
+          v !== null &&
+          (!(typeof v === "object") || Object.keys(v).length > 0)
+      );
+    return arr.length ? arr : undefined;
+  }
+  if (value && typeof value === "object") {
+    const out: any = {};
+    Object.entries(value).forEach(([key, val]) => {
+      const cleaned = cleanJsonLd(val);
+      if (
+        cleaned !== undefined &&
+        cleaned !== null &&
+        (!(typeof cleaned === "object") || Object.keys(cleaned).length > 0)
+      ) {
+        out[key] = cleaned;
+      }
+    });
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value;
+}
+
+function buildJsonLdForSite(args: {
+  site: any;
+  provinceName: string | null;
+  region: string;
+  slug: string;
+  cover: HeroCoverForClient | null;
+  gallery: ImageRow[];
+  categories: Taxonomy[];
+}) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+
+  const pageUrl = `${baseUrl}/heritage/${args.region}/${args.slug}`;
+
+  const images: string[] = [];
+  if (args.cover?.url) {
+    images.push(args.cover.url);
+  }
+  for (const img of args.gallery) {
+    if (img.publicUrl && !images.includes(img.publicUrl)) {
+      images.push(img.publicUrl);
+    }
+    if (images.length >= 5) break;
+  }
+
+  const tourismCategories = args.categories
+    .map(c => c?.name)
+    .filter(Boolean) as string[];
+
+  const jsonLd: any = {
+    "@context": "https://schema.org",
+    "@type": "TouristAttraction",
+    "@id": pageUrl,
+    url: pageUrl,
+    name: args.site.title || undefined,
+    description: args.site.summary || args.site.tagline || undefined,
+    image: images.length ? images : undefined,
+    geo:
+      args.site.latitude && args.site.longitude
+        ? {
+            "@type": "GeoCoordinates",
+            latitude: args.site.latitude,
+            longitude: args.site.longitude,
+          }
+        : undefined,
+    address:
+      args.provinceName || args.site.location_free
+        ? {
+            "@type": "PostalAddress",
+            addressRegion: args.provinceName || undefined,
+            addressLocality: args.site.location_free || undefined,
+            addressCountry: "Pakistan",
+          }
+        : undefined,
+    touristType: tourismCategories.length ? tourismCategories : undefined,
+  };
+
+  return cleanJsonLd(jsonLd);
 }
 
 /* ---------- Page component ---------- */
@@ -541,34 +633,162 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     };
   }
 
-  /* 11. Render */
+  /* 11. Build JSON-LD for this site */
+  const jsonLd = buildJsonLdForSite({
+    site,
+    provinceName,
+    region,
+    slug,
+    cover: coverForClient,
+    gallery,
+    categories,
+  });
+
+  /* 12. Render */
   return (
-    <HeritageClient
-      site={siteDataForClient}
-      neighbors={neighbors}
-      provinceName={provinceName}
-      categories={categories}
-      regions={regions}
-      gallery={gallery}
-      bibliography={bibliography}
-      bibliographyEntries={bibliographyEntries}
-      styleId={styleId}
-      hasPhotoStory={hasPhotoStory}
-      highlight={highlight}
-      travelGuideSummary={travelGuideSummary}
-    />
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <HeritageClient
+        site={siteDataForClient}
+        neighbors={neighbors}
+        provinceName={provinceName}
+        categories={categories}
+        regions={regions}
+        gallery={gallery}
+        bibliography={bibliography}
+        bibliographyEntries={bibliographyEntries}
+        styleId={styleId}
+        hasPhotoStory={hasPhotoStory}
+        highlight={highlight}
+        travelGuideSummary={travelGuideSummary}
+      />
+    </>
   );
 }
 
 /* ---------------- SEO ---------------- */
 
-export async function generateMetadata({ params }: HeritagePageProps) {
+export async function generateMetadata({
+  params,
+}: HeritagePageProps): Promise<Metadata> {
   const { region, slug } = await params;
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "";
-  const canonical = `${base}/heritage/${region}/${slug}`;
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+  const canonical = `${baseUrl}/heritage/${region}/${slug}`;
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: site } = await supabase
+    .from("sites")
+    .select(
+      `
+        id,
+        title,
+        tagline,
+        summary,
+        cover_photo_url,
+        province:provinces!sites_province_id_fkey ( name, slug )
+      `
+    )
+    .eq("slug", slug)
+    .maybeSingle();
+
+  // If site not found or region mismatch, return non-indexable metadata
+  if (!site) {
+    return {
+      title: "Heritage site not found",
+      description: "This heritage site could not be found.",
+      alternates: { canonical },
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const provinceRel: any = (site as any).province;
+  const provinceSlug: string | null = Array.isArray(provinceRel)
+    ? provinceRel[0]?.slug ?? null
+    : provinceRel?.slug ?? null;
+  const provinceName: string | null = Array.isArray(provinceRel)
+    ? provinceRel[0]?.name ?? null
+    : provinceRel?.name ?? null;
+
+  if (!provinceSlug || region !== provinceSlug) {
+    return {
+      title: "Heritage site not found",
+      description: "This heritage site could not be found.",
+      alternates: { canonical },
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const baseTitle: string = (site as any).title ?? "Heritage site";
+
+  const description: string =
+    (site as any).summary ??
+    (site as any).tagline ??
+    (provinceName
+      ? `Learn about ${baseTitle} in ${provinceName}, including history, architecture and travel tips.`
+      : `Learn about ${baseTitle} with history, architecture and travel tips.`);
+
+  // Prefer site_covers for OG image, fall back to cover_photo_url
+  let coverUrl: string | null = null;
+
+  try {
+    const { data: coverRow } = await supabase
+      .from("site_covers")
+      .select("storage_path, is_active, created_at")
+      .eq("site_id", (site as any).id)
+      .order("is_active", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (coverRow?.storage_path) {
+      coverUrl = buildPublicImageUrl(coverRow.storage_path);
+    }
+  } catch {
+    // ignore, metadata should still resolve
+  }
+
+  if (!coverUrl && (site as any).cover_photo_url) {
+    coverUrl = (site as any).cover_photo_url as string;
+  }
+
+  const ogTitle = `${baseTitle} | Heritage of Pakistan`;
 
   return {
-    alternates: { canonical },
-    openGraph: { url: canonical },
+    // This will be wrapped by the layout title template
+    title: baseTitle,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      url: canonical,
+      title: ogTitle,
+      description,
+      images: coverUrl
+        ? [
+            {
+              url: coverUrl,
+              width: 1200,
+              height: 900,
+              alt: baseTitle,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: coverUrl ? [coverUrl] : undefined,
+    },
   };
 }
