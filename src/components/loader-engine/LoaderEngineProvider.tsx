@@ -1,3 +1,4 @@
+// src/components/loader-engine/LoaderEngineProvider.tsx
 "use client";
 
 import React, {
@@ -9,19 +10,8 @@ import React, {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-
-// PERFORMANCE OPTIMIZATION:
-// Use dynamic imports so these loader components (which might have heavy SVGs/animations)
-// are NOT included in the initial JavaScript bundle. This lowers TBT (Total Blocking Time).
-const ListingLoader = dynamic(
-  () => import("./ListingLoader").then((mod) => mod.ListingLoader),
-  { ssr: false }
-);
-const SimpleLoader = dynamic(
-  () => import("./SimpleLoader").then((mod) => mod.SimpleLoader),
-  { ssr: false }
-);
+import { ListingLoader } from "./ListingLoader";
+import { SimpleLoader } from "./SimpleLoader";
 
 type Direction = "prev" | "next" | "forward" | "back" | null;
 type LoaderVariant = "listing" | "simple";

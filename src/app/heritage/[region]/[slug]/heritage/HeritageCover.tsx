@@ -203,13 +203,14 @@ export default function HeritageCover({
                 </div>
               )}
 
+            {/* MOBILE IMAGE: Already had priority, kept as is */}
             <Image
               src={heroUrl}
               alt={site.title}
               width={activeWidth ?? 1600}
               height={activeHeight ?? 900}
               sizes="100vw"
-              priority
+              priority={true}
               quality={75}
               placeholder="empty"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
@@ -356,14 +357,15 @@ export default function HeritageCover({
                   </div>
                 )}
 
+              {/* DESKTOP IMAGE: PERFORMANCE FIX APPLIED HERE */}
               <Image
                 src={heroUrl}
                 alt={site.title}
                 fill
                 sizes="100vw"
                 quality={75}
-                priority={false}
-                loading="lazy"
+                priority={true} // <--- CHANGED FROM FALSE TO TRUE
+                // loading="lazy" <--- REMOVED (Priority handles this)
                 placeholder="empty"
                 className={`object-cover object-top transition-opacity duration-700 ${
                   heroLoaded ? "opacity-100" : "opacity-0"
