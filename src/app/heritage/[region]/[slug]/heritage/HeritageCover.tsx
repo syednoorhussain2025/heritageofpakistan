@@ -314,6 +314,8 @@ export default function HeritageCover({
         className="relative w-full overflow-hidden hidden md:block"
         style={{
           height: "94svh",
+          // pull hero up so it starts from screen top behind sticky header
+          marginTop: "calc(-1 * var(--sticky-offset, 72px))",
         }}
       >
         {/* IMAGE + PLACEHOLDERS */}
