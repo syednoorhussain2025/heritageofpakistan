@@ -276,7 +276,7 @@ function buildJsonLdForSite(args: {
   categories: Taxonomy[];
 }) {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.org";
 
   const pageUrl = `${baseUrl}/heritage/${args.region}/${args.slug}`;
 
