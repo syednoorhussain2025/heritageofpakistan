@@ -206,7 +206,7 @@ const MasonryTile = memo(function MasonryTile({
         title="Open"
       >
         {/* Placeholder layer:
-            - stays mounted, fades out when the image is ready
+            stays mounted, fades out when the image is ready
         */}
         <div
           className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${
@@ -220,10 +220,10 @@ const MasonryTile = memo(function MasonryTile({
           )}
         </div>
 
-        {/* Small spinner while image is loading */}
+        {/* Small grey spinner while image is loading */}
         {!loaded && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <span className="h-5 w-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-sm" />
+            <span className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin shadow-sm" />
           </div>
         )}
 
@@ -311,7 +311,8 @@ function GridSkeleton() {
     <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
       <div
         className="
-          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4
+          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
+          gap-2 sm:gap-4
         "
       >
         {placeholders.map((_, i) => (
@@ -554,7 +555,8 @@ export default function SiteGalleryPage() {
             <>
               <div
                 className="
-                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4
+                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
+                  gap-2 sm:gap-4
                   auto-rows-[8px] grid-flow-row
                 "
               >
@@ -581,7 +583,7 @@ export default function SiteGalleryPage() {
                   >
                     {isBatchLoading && (
                       <div className="flex items-center gap-2 text-gray-500 text-sm">
-                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
+                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
                         <span>Loading more photos</span>
                       </div>
                     )}
