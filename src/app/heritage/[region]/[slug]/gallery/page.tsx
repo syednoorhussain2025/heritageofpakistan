@@ -51,7 +51,7 @@ type SiteHeaderInfo = {
   tagline?: string | null;
 };
 
-/** LightboxPhoto plus optional server-provided extras. */
+/** LightboxPhoto plus optional server provided extras. */
 type PhotoWithExtras = LightboxPhoto & {
   width?: number | null;
   height?: number | null;
@@ -73,7 +73,7 @@ const photoCache = new Map<string, LightboxPhoto[]>();
 const BATCH_SIZE = 20;
 
 /**
- * On mobile you have a 3-column grid. Top 3 rows = 9 images.
+ * On mobile you have a 3 column grid. Top 3 rows = 9 images.
  * These are prioritized to be fetched and displayed early.
  */
 const MOBILE_COLS = 3;
@@ -137,10 +137,8 @@ type MasonryTileProps = {
   photo: LightboxPhoto;
   onOpen: () => void;
   siteId: string;
-  /** Uses Next Image priority + high fetchPriority for top-of-grid images */
+  /** Uses Next Image priority + high fetchPriority for top of grid images */
   isPriority: boolean;
-  /** Only first N tiles use blurhash to avoid heavy decode on all tiles */
-  useBlurhash: boolean;
 };
 
 const MasonryTile = memo(function MasonryTile({
@@ -148,12 +146,40 @@ const MasonryTile = memo(function MasonryTile({
   onOpen,
   siteId,
   isPriority,
-  useBlurhash,
 }: MasonryTileProps) {
   const extras = photo as PhotoWithExtras;
 
-  // Blur data from DB if present and enabled
-  const blurHash = useBlurhash ? extras.blurHash : undefined;
+  // Visibility based gating for blurhash decode
+  const [isNearViewport, setIsNearViewport] = useState(false);
+  const tileRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = tileRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsNearViewport(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // Blur data from DB if present and tile is near viewport
+  const blurHash =
+    isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
   // Only care whether the image has loaded
@@ -162,6 +188,7 @@ const MasonryTile = memo(function MasonryTile({
   return (
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
       <div
+        ref={tileRef}
         className="relative w-full overflow-hidden group rounded-xl aspect-[4/3]"
         onClick={onOpen}
         title="Open"
@@ -389,7 +416,7 @@ export default function SiteGalleryPage() {
     [photos, visibleCount]
   );
 
-  // Incremental loading on scroll using IntersectionObserver
+  // Incremental loading on scroll using IntersectionObserver for batches
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
@@ -555,8 +582,6 @@ export default function SiteGalleryPage() {
                     onOpen={() => setLightboxIndex(idx)}
                     // Prioritize top rows (first 9 items based on mobile 3x3)
                     isPriority={idx < TOP_ROWS_PRIORITY_COUNT}
-                    // Only first tiles use blurhash decode
-                    useBlurhash={idx < TOP_ROWS_PRIORITY_COUNT + 3}
                   />
                 ))}
               </div>
