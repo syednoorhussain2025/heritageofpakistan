@@ -53,6 +53,12 @@ const ROW_PX = 8; // must match auto-rows value
 const GAP_PX = 16; // must match gap-4
 const FALLBACK_RATIO = 4 / 3;
 
+/**
+ * How many photos to show at a time in the grid.
+ * First batch renders immediately, later batches stream in while scrolling.
+ */
+const BATCH_SIZE = 20;
+
 /* ---------- Blurhash Placeholder ---------- */
 
 function BlurhashPlaceholder({ hash }: { hash: string }) {
@@ -193,7 +199,7 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
           placeholder={blurDataURL ? "blur" : "empty"}
           blurDataURL={blurDataURL}
           onLoadingComplete={(img) => {
-            // Only recompute ratio if we didn't already have good server dimensions
+            // Only recompute ratio if we did not already have good server dimensions
             if (
               (!extras.width || !extras.height) &&
               img.naturalWidth > 0 &&
@@ -205,7 +211,7 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
           }}
         />
 
-        {/* Bookmark heart overlay (click doesn’t open lightbox) */}
+        {/* Bookmark heart overlay (click does not open lightbox) */}
         <div
           className="absolute top-2 right-2 z-10"
           onClick={(e) => e.stopPropagation()}
@@ -283,6 +289,11 @@ export default function SiteGalleryPage() {
   const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Incremental grid state
+  const [visibleCount, setVisibleCount] = useState<number>(BATCH_SIZE);
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
   // Lightbox & modal state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -323,6 +334,13 @@ export default function SiteGalleryPage() {
     if (slug) loadData();
   }, [slug, loadData]);
 
+  // Reset visibleCount when a new photo set loads
+  useEffect(() => {
+    if (!loading) {
+      setVisibleCount(BATCH_SIZE);
+    }
+  }, [loading]);
+
   const categories: string[] = useMemo(() => {
     const set = new Set<string>();
     photos.forEach((p) =>
@@ -330,6 +348,50 @@ export default function SiteGalleryPage() {
     );
     return Array.from(set);
   }, [photos]);
+
+  const visiblePhotos = useMemo(
+    () => photos.slice(0, visibleCount),
+    [photos, visibleCount]
+  );
+
+  // Incremental loading on scroll using IntersectionObserver
+  useEffect(() => {
+    const el = loaderRef.current;
+    if (!el) return;
+    if (visibleCount >= photos.length) return;
+
+    let timeoutId: number | undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry.isIntersecting) return;
+
+        // Trigger next batch load with a small delay
+        setIsBatchLoading(true);
+        timeoutId = window.setTimeout(() => {
+          setVisibleCount((prev) =>
+            Math.min(prev + BATCH_SIZE, photos.length)
+          );
+          setIsBatchLoading(false);
+        }, 250);
+      },
+      {
+        root: null,
+        rootMargin: "200px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [visibleCount, photos.length]);
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
@@ -439,23 +501,40 @@ export default function SiteGalleryPage() {
               No photos uploaded yet for this site.
             </div>
           ) : (
-            <div
-              className="
-                grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
-                auto-rows-[8px] grid-flow-row
-              "
-            >
-              {photos.map((photo, idx) => (
-                <MasonryTile
-                  key={photo.id}
-                  photo={photo}
-                  siteId={site!.id}
-                  onOpen={() => setLightboxIndex(idx)}
-                  // First N images eager/high priority for snappy above-the-fold feel
-                  isPriority={idx < 10}
-                />
-              ))}
-            </div>
+            <>
+              <div
+                className="
+                  grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
+                  auto-rows-[8px] grid-flow-row
+                "
+              >
+                {visiblePhotos.map((photo, idx) => (
+                  <MasonryTile
+                    key={photo.id}
+                    photo={photo}
+                    siteId={site!.id}
+                    onOpen={() => setLightboxIndex(idx)}
+                    // First N images eager/high priority for snappy above-the-fold feel
+                    isPriority={idx < 6}
+                  />
+                ))}
+              </div>
+
+              {/* Infinite scroll sentinel + spinner */}
+              {visiblePhotos.length > 0 && visiblePhotos.length < photos.length && (
+                <div
+                  ref={loaderRef}
+                  className="mt-6 flex justify-center items-center py-4"
+                >
+                  {isBatchLoading && (
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <span className="inline-flex h-5 w-5 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
+                      <span>Loading more photos</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

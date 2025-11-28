@@ -9,6 +9,11 @@ import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
 
+/** Page-level caching: revalidate once per day */
+export const revalidate = 60 * 60 * 24; // 24 hours
+/** Page-level caching: revalidate once per day */
+
+
 type Params = { region: string; slug: string };
 
 type HeritagePageProps = {
@@ -680,7 +685,7 @@ export async function generateMetadata({
   const { region, slug } = await params;
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.org";
   const canonical = `${baseUrl}/heritage/${region}/${slug}`;
 
   // Fallback title from slug if DB lookup fails
