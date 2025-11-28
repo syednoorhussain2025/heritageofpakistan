@@ -9,10 +9,9 @@ import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
 
-/** Page-level caching: revalidate once per day */
-export const revalidate = 60 * 60 * 24; // 24 hours
-/** Page-level caching: revalidate once per day */
-
+// **Static revalidation: 3600 seconds (1 hour)**
+// Important: must be a literal, not an expression like 60 * 60
+export const revalidate = 3600;
 
 type Params = { region: string; slug: string };
 
@@ -728,7 +727,7 @@ export async function generateMetadata({
         site.summary ??
         site.tagline ??
         (provinceName
-          ? `Learn about ${title} in ${provinceName}, including history, architecture and travel tips.`
+          ? `Learn about ${title} in ${provinceName} including history, architecture and travel tips.`
           : `Learn about ${title} with history, architecture and travel tips.`);
 
       // Prefer site_covers for OG image, fall back to cover_photo_url
