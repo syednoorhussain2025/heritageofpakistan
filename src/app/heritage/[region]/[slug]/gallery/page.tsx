@@ -7,9 +7,11 @@ import {
   useState,
   useCallback,
   useRef,
-  useLayoutEffect,
+  memo,
 } from "react";
+import type { CSSProperties } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabaseClient";
@@ -18,10 +20,18 @@ import { decode } from "blurhash";
 // Collections
 import { useCollections } from "@/components/CollectionsProvider";
 import CollectHeart from "@/components/CollectHeart";
-import AddToCollectionModal from "@/components/AddToCollectionModal";
 
-// Universal Lightbox
-import { Lightbox } from "@/components/ui/Lightbox";
+// Universal Lightbox (code split to reduce initial bundle)
+const Lightbox = dynamic(
+  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
+  { ssr: false }
+);
+
+const AddToCollectionModal = dynamic(
+  () => import("@/components/AddToCollectionModal"),
+  { ssr: false }
+);
+
 import type { LightboxPhoto } from "@/types/lightbox";
 import { getSiteGalleryPhotosForLightbox } from "@/lib/db/lightbox";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -60,22 +70,46 @@ const FALLBACK_RATIO = 4 / 3;
 const BATCH_SIZE = 20;
 
 /* ---------- Blurhash Placeholder ---------- */
-
+/**
+ * Runs decode work in requestIdleCallback or a timeout so it does not block
+ * initial render. This helps TBT when many tiles are on screen.
+ */
 function BlurhashPlaceholder({ hash }: { hash: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!hash || !canvasRef.current) return;
 
-    const width = 32;
-    const height = 32;
-    const pixels = decode(hash, width, height);
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
+    const draw = () => {
+      const width = 32;
+      const height = 32;
+      const pixels = decode(hash, width, height);
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) return;
 
-    const imageData = ctx.createImageData(width, height);
-    imageData.data.set(pixels);
-    ctx.putImageData(imageData, 0, 0);
+      const imageData = ctx.createImageData(width, height);
+      imageData.data.set(pixels);
+      ctx.putImageData(imageData, 0, 0);
+    };
+
+    let idleId: number | null = null;
+    let timeoutId: number | null = null;
+
+    const w = window as any;
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(draw);
+    } else {
+      timeoutId = window.setTimeout(draw, 0);
+    }
+
+    return () => {
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [hash]);
 
   return (
@@ -93,9 +127,17 @@ type MasonryTileProps = {
   onOpen: () => void;
   siteId: string;
   isPriority: boolean;
+  /** Only first N tiles use blurhash to avoid heavy decode on all tiles */
+  useBlurhash: boolean;
 };
 
-function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
+const MasonryTile = memo(function MasonryTile({
+  photo,
+  onOpen,
+  siteId,
+  isPriority,
+  useBlurhash,
+}: MasonryTileProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [span, setSpan] = useState(1);
 
@@ -109,8 +151,8 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
 
   const [aspectRatio, setAspectRatio] = useState(initialRatio);
 
-  // Blur data from DB if present
-  const blurHash = extras.blurHash;
+  // Blur data from DB if present and enabled
+  const blurHash = useBlurhash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
   const recomputeSpan = useCallback(() => {
@@ -123,8 +165,8 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
     setSpan(rows);
   }, [aspectRatio]);
 
-  // Initial + whenever aspectRatio changes
-  useLayoutEffect(() => {
+  // Use useEffect not useLayoutEffect to avoid blocking paint.
+  useEffect(() => {
     recomputeSpan();
   }, [recomputeSpan]);
 
@@ -148,8 +190,14 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
   // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
 
+  const figureStyle: CSSProperties = {
+    gridRowEnd: `span ${span}`,
+    contentVisibility: "auto",
+    containIntrinsicSize: "300px 225px",
+  };
+
   return (
-    <figure className="relative" style={{ gridRowEnd: `span ${span}` }}>
+    <figure className="relative" style={figureStyle}>
       <div
         ref={wrapperRef}
         className="relative w-full overflow-hidden group rounded-xl"
@@ -228,7 +276,7 @@ function MasonryTile({ photo, onOpen, siteId, isPriority }: MasonryTileProps) {
       </div>
     </figure>
   );
-}
+});
 
 /* ---------- Skeletons ---------- */
 
@@ -514,8 +562,10 @@ export default function SiteGalleryPage() {
                     photo={photo}
                     siteId={site!.id}
                     onOpen={() => setLightboxIndex(idx)}
-                    // First N images eager/high priority for snappy above-the-fold feel
+                    // Keep priority tight for TBT and LCP
                     isPriority={idx < 6}
+                    // Only first tiles use blurhash decode
+                    useBlurhash={idx < 10}
                   />
                 ))}
               </div>
@@ -555,11 +605,7 @@ export default function SiteGalleryPage() {
         <AddToCollectionModal
           open={collectionModalOpen}
           onClose={() => setCollectionModalOpen(false)}
-          // Adjust bucket if your component expects a specific one; or omit if not needed
-          // bucket="site-images"
           onInsert={(_items) => {
-            // You can integrate with your collections system here,
-            // using `selectedPhoto` and whatever data `_items` holds.
             setCollectionModalOpen(false);
           }}
         />
