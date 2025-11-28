@@ -398,7 +398,7 @@ export default function SiteGalleryPage() {
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) return alert("Please sign in to save photos.");
+      if (!viewerId) return alert("Please sign in to save photos..");
       await toggleCollect({
         siteImageId: photo.id,
         storagePath: photo.storagePath,
