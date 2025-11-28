@@ -1,6 +1,9 @@
 // src/app/heritage/[region]/[slug]/gallery/page.tsx
 "use client";
 
+// Tell Next this route is fully static so the shell can be cached
+export const dynamic = "force-static";
+
 import {
   useEffect,
   useMemo,
@@ -10,7 +13,7 @@ import {
   memo,
 } from "react";
 import Image from "next/image";
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 import { useParams } from "next/navigation";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabaseClient";
@@ -21,12 +24,12 @@ import { useCollections } from "@/components/CollectionsProvider";
 import CollectHeart from "@/components/CollectHeart";
 
 // Universal Lightbox (code split to reduce initial bundle)
-const Lightbox = dynamic(
+const Lightbox = dynamicImport(
   () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
   { ssr: false }
 );
 
-const AddToCollectionModal = dynamic(
+const AddToCollectionModal = dynamicImport(
   () => import("@/components/AddToCollectionModal"),
   { ssr: false }
 );
@@ -55,6 +58,11 @@ type PhotoWithExtras = LightboxPhoto & {
   blurHash?: string | null;
   blurDataURL?: string | null;
 };
+
+/* ---------- Simple in-memory cache (per browser tab) ---------- */
+
+const siteCache = new Map<string, SiteHeaderInfo>();
+const photoCache = new Map<string, LightboxPhoto[]>();
 
 /* ---------- Grid / loading helpers ---------- */
 
@@ -285,6 +293,8 @@ export default function SiteGalleryPage() {
   // region param exists in the new route but we only need slug to load the site
   const slug = (params.slug as string) ?? "";
   const { userId: viewerId } = useAuthUserId();
+  const cacheKey = `${slug}|${viewerId ?? "anon"}`;
+
   const { toggleCollect } = useCollections();
   const supabase = createClient();
 
@@ -305,6 +315,21 @@ export default function SiteGalleryPage() {
   );
 
   const loadData = useCallback(async () => {
+    if (!slug) return;
+
+    // 1. Try in-memory cache first
+    const cachedSite = siteCache.get(cacheKey) || null;
+    const cachedPhotos = photoCache.get(cacheKey) || null;
+
+    if (cachedSite && cachedPhotos) {
+      setSite(cachedSite);
+      setPhotos(cachedPhotos);
+      setLoading(false);
+      setVisibleCount(BATCH_SIZE);
+      return;
+    }
+
+    // 2. Fallback to Supabase fetch
     try {
       setLoading(true);
 
@@ -318,26 +343,33 @@ export default function SiteGalleryPage() {
         .single();
       if (sErr) throw sErr;
       if (!siteData) throw new Error("Site not found.");
-      setSite(siteData as SiteHeaderInfo);
+      const typedSite = siteData as SiteHeaderInfo;
+      setSite(typedSite);
 
       // Photos for Lightbox
       const photoData = await getSiteGalleryPhotosForLightbox(
-        siteData.id,
+        typedSite.id,
         viewerId
       );
       setPhotos(photoData);
+
+      // Save into in-memory cache
+      siteCache.set(cacheKey, typedSite);
+      photoCache.set(cacheKey, photoData);
+
+      setVisibleCount(BATCH_SIZE);
     } catch (error) {
       console.error("Failed to load gallery:", error);
     } finally {
       setLoading(false);
     }
-  }, [slug, viewerId, supabase]);
+  }, [cacheKey, slug, supabase, viewerId]);
 
   useEffect(() => {
     if (slug) loadData();
   }, [slug, loadData]);
 
-  // Reset visibleCount when a new photo set loads
+  // Reset visibleCount when a new photo set loads via loading flag
   useEffect(() => {
     if (!loading) {
       setVisibleCount(BATCH_SIZE);
@@ -398,18 +430,22 @@ export default function SiteGalleryPage() {
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) return alert("Please sign in to save photos..");
+      if (!viewerId) return alert("Please sign in to save photos.");
       await toggleCollect({
         siteImageId: photo.id,
         storagePath: photo.storagePath,
       });
-      setPhotos((arr) =>
-        arr.map((p) =>
+
+      setPhotos((arr) => {
+        const next = arr.map((p) =>
           p.id === photo.id ? { ...p, isBookmarked: !p.isBookmarked } : p
-        )
-      );
+        );
+        // Keep cache in sync with updated bookmark state
+        photoCache.set(cacheKey, next);
+        return next;
+      });
     },
-    [viewerId, toggleCollect]
+    [viewerId, toggleCollect, cacheKey]
   );
 
   const handleOpenCollectionModal = useCallback((photo: LightboxPhoto) => {
