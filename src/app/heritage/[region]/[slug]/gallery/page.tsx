@@ -9,7 +9,6 @@ import {
   useRef,
   memo,
 } from "react";
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
@@ -56,12 +55,6 @@ type PhotoWithExtras = LightboxPhoto & {
   blurHash?: string | null;
   blurDataURL?: string | null;
 };
-
-/* ---------- Masonry (row-major) helpers ---------- */
-
-const ROW_PX = 8; // must match auto-rows value
-const GAP_PX = 16; // must match gap-4
-const FALLBACK_RATIO = 4 / 3;
 
 /**
  * How many photos to show at a time in the grid.
@@ -138,70 +131,19 @@ const MasonryTile = memo(function MasonryTile({
   isPriority,
   useBlurhash,
 }: MasonryTileProps) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [span, setSpan] = useState(1);
-
   const extras = photo as PhotoWithExtras;
-
-  // Prefer server-cached dimensions if available
-  const initialRatio =
-    extras.width && extras.height && extras.width > 0 && extras.height > 0
-      ? extras.width / extras.height
-      : FALLBACK_RATIO;
-
-  const [aspectRatio, setAspectRatio] = useState(initialRatio);
 
   // Blur data from DB if present and enabled
   const blurHash = useBlurhash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
-  const recomputeSpan = useCallback(() => {
-    if (!wrapperRef.current || !aspectRatio) return;
-    const w = wrapperRef.current.clientWidth;
-    if (w <= 0) return;
-
-    const imgH = w / aspectRatio;
-    const rows = Math.ceil((imgH + GAP_PX) / (ROW_PX + GAP_PX));
-    setSpan(rows);
-  }, [aspectRatio]);
-
-  // Use useEffect not useLayoutEffect to avoid blocking paint.
-  useEffect(() => {
-    recomputeSpan();
-  }, [recomputeSpan]);
-
-  // Recompute on wrapper resize and window resize
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver(() => recomputeSpan());
-    ro.observe(el);
-
-    const onResize = () => recomputeSpan();
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", onResize);
-    };
-  }, [recomputeSpan]);
-
   // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
 
-  const figureStyle: CSSProperties = {
-    gridRowEnd: `span ${span}`,
-    contentVisibility: "auto",
-    containIntrinsicSize: "300px 225px",
-  };
-
   return (
-    <figure className="relative" style={figureStyle}>
+    <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
       <div
-        ref={wrapperRef}
-        className="relative w-full overflow-hidden group rounded-xl"
-        style={{ aspectRatio: String(aspectRatio) }}
+        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3]"
         onClick={onOpen}
         title="Open"
       >
@@ -248,15 +190,7 @@ const MasonryTile = memo(function MasonryTile({
           fetchPriority={isPriority ? "high" : "low"}
           placeholder={blurDataURL ? "blur" : "empty"}
           blurDataURL={blurDataURL}
-          onLoadingComplete={(img) => {
-            // Only recompute ratio if we did not already have good server dimensions
-            if (
-              (!extras.width || !extras.height) &&
-              img.naturalWidth > 0 &&
-              img.naturalHeight > 0
-            ) {
-              setAspectRatio(img.naturalWidth / img.naturalHeight);
-            }
+          onLoadingComplete={() => {
             setLoaded(true);
           }}
         />
@@ -557,7 +491,6 @@ export default function SiteGalleryPage() {
                 className="
                   grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
                   gap-2 sm:gap-4
-                  auto-rows-[8px] grid-flow-row
                 "
               >
                 {visiblePhotos.map((photo, idx) => (
