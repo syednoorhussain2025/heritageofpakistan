@@ -66,7 +66,7 @@ const BATCH_SIZE = 20;
 
 /**
  * On mobile you have a 3-column grid. Top 3 rows = 9 images.
- * We prioritize these to be fetched and displayed early.
+ * These are prioritized to be fetched and displayed early.
  */
 const MOBILE_COLS = 3;
 const MOBILE_TOP_ROWS = 3;
@@ -188,13 +188,20 @@ const MasonryTile = memo(function MasonryTile({
           className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110 transition-opacity duration-500 ease-out ${
             loaded ? "opacity-100" : "opacity-0"
           }`}
+          /*
+            Sizes aligned to your grid:
+            - <640px: 3 columns -> each around 32vw
+            - ≥640px: still 3 columns, inside padded container -> about 30vw
+            - ≥768px (md, 4 cols): ~22vw
+            - ≥1024px (lg, 5 cols): ~18vw
+            - ≥1280px (xl, 5 cols in max-w container): ~16vw
+          */
           sizes="
-            (min-width: 1600px) 18vw,
-            (min-width: 1280px) 22vw,
-            (min-width: 1024px) 28vw,
-            (min-width: 768px)  34vw,
-            (min-width: 640px)  48vw,
-            100vw
+            (min-width: 1280px) 16vw,
+            (min-width: 1024px) 18vw,
+            (min-width: 768px) 22vw,
+            (min-width: 640px) 30vw,
+            32vw
           "
           priority={isPriority}
           loading={isPriority ? "eager" : "lazy"}
@@ -391,7 +398,7 @@ export default function SiteGalleryPage() {
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) return alert("Please sign in to save photos..");
+      if (!viewerId) return alert("Please sign in to save photos.");
       await toggleCollect({
         siteImageId: photo.id,
         storagePath: photo.storagePath,
