@@ -209,11 +209,9 @@ const MasonryTile = memo(function MasonryTile({
             - stays mounted, fades out when the image is ready
         */}
         <div
-          className={`
-            absolute inset-0 pointer-events-none
-            transition-opacity duration-500 ease-out
-            ${loaded ? "opacity-0" : "opacity-100"}
-          `}
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${
+            loaded ? "opacity-0" : "opacity-100"
+          }`}
         >
           {blurHash ? (
             <BlurhashPlaceholder hash={blurHash} />
@@ -222,17 +220,21 @@ const MasonryTile = memo(function MasonryTile({
           )}
         </div>
 
+        {/* Small spinner while image is loading */}
+        {!loaded && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <span className="h-5 w-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-sm" />
+          </div>
+        )}
+
         {/* Actual image, fading in over the placeholder */}
         <Image
           src={photo.url}
           alt={photo.caption ?? ""}
           fill
-          className={`
-            object-cover w-full h-full transform-gpu will-change-transform
-            transition-transform duration-200 ease-out group-hover:scale-110
-            transition-opacity duration-500 ease-out
-            ${loaded ? "opacity-100" : "opacity-0"}
-          `}
+          className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110 transition-opacity duration-500 ease-out ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
           sizes="
             (min-width: 1600px) 18vw,
             (min-width: 1280px) 22vw,
@@ -261,7 +263,7 @@ const MasonryTile = memo(function MasonryTile({
 
         {/* Bookmark heart overlay (click does not open lightbox) */}
         <div
-          className="absolute top-2 right-2 z-10"
+          className="absolute top-2 right-2 z-20"
           onClick={(e) => e.stopPropagation()}
         >
           <CollectHeart
@@ -309,7 +311,7 @@ function GridSkeleton() {
     <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
       <div
         className="
-          grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
+          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4
         "
       >
         {placeholders.map((_, i) => (
@@ -342,7 +344,7 @@ export default function SiteGalleryPage() {
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  // Lightbox & modal state
+  // Lightbox and modal state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<LightboxPhoto | null>(
@@ -552,7 +554,7 @@ export default function SiteGalleryPage() {
             <>
               <div
                 className="
-                  grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4
+                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4
                   auto-rows-[8px] grid-flow-row
                 "
               >
@@ -571,19 +573,20 @@ export default function SiteGalleryPage() {
               </div>
 
               {/* Infinite scroll sentinel + spinner */}
-              {visiblePhotos.length > 0 && visiblePhotos.length < photos.length && (
-                <div
-                  ref={loaderRef}
-                  className="mt-6 flex justify-center items-center py-4"
-                >
-                  {isBatchLoading && (
-                    <div className="flex items-center gap-2 text-gray-500 text-sm">
-                      <span className="inline-flex h-5 w-5 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
-                      <span>Loading more photos</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {visiblePhotos.length > 0 &&
+                visiblePhotos.length < photos.length && (
+                  <div
+                    ref={loaderRef}
+                    className="mt-6 flex justify-center items-center py-4"
+                  >
+                    {isBatchLoading && (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
+                        <span>Loading more photos</span>
+                      </div>
+                    )}
+                  </div>
+                )}
             </>
           )}
         </section>
