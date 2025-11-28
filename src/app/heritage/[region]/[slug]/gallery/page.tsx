@@ -56,11 +56,21 @@ type PhotoWithExtras = LightboxPhoto & {
   blurDataURL?: string | null;
 };
 
+/* ---------- Grid / loading helpers ---------- */
+
 /**
  * How many photos to show at a time in the grid.
  * First batch renders immediately, later batches stream in while scrolling.
  */
 const BATCH_SIZE = 20;
+
+/**
+ * On mobile you have a 3-column grid. Top 3 rows = 9 images.
+ * We prioritize these to be fetched and displayed early.
+ */
+const MOBILE_COLS = 3;
+const MOBILE_TOP_ROWS = 3;
+const TOP_ROWS_PRIORITY_COUNT = MOBILE_COLS * MOBILE_TOP_ROWS; // 9
 
 /* ---------- Blurhash Placeholder ---------- */
 /**
@@ -119,6 +129,7 @@ type MasonryTileProps = {
   photo: LightboxPhoto;
   onOpen: () => void;
   siteId: string;
+  /** Uses Next Image priority + high fetchPriority for top-of-grid images */
   isPriority: boolean;
   /** Only first N tiles use blurhash to avoid heavy decode on all tiles */
   useBlurhash: boolean;
@@ -380,7 +391,7 @@ export default function SiteGalleryPage() {
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) return alert("Please sign in to save photos..");
+      if (!viewerId) return alert("Please sign in to save photos.");
       await toggleCollect({
         siteImageId: photo.id,
         storagePath: photo.storagePath,
@@ -499,10 +510,10 @@ export default function SiteGalleryPage() {
                     photo={photo}
                     siteId={site!.id}
                     onOpen={() => setLightboxIndex(idx)}
-                    // Keep priority tight for TBT and LCP
-                    isPriority={idx < 6}
+                    // Prioritize top rows (first 9 items based on mobile 3x3)
+                    isPriority={idx < TOP_ROWS_PRIORITY_COUNT}
                     // Only first tiles use blurhash decode
-                    useBlurhash={idx < 10}
+                    useBlurhash={idx < TOP_ROWS_PRIORITY_COUNT + 3}
                   />
                 ))}
               </div>
