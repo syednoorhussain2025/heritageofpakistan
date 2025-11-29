@@ -273,7 +273,7 @@ function HeaderSkeleton() {
   return (
     <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 animate-pulse">
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-300/40 bg-gray-200" />
+        <div className="relative w-24 h-24 sm:w-28 h-28 rounded-full overflow-hidden ring-4 ring-orange-300/40 bg-gray-200" />
         <div className="flex-1 w-full">
           <div className="flex flex-wrap items-center gap-2">
             <div className="h-7 w-56 rounded bg-gray-200" />
@@ -504,6 +504,8 @@ export default function SiteGalleryPage() {
                 className="object-cover"
                 sizes="112px"
                 priority
+                loading="eager"
+                fetchPriority="high"
                 placeholder={(site as any).cover_blurDataURL ? "blur" : "empty"}
                 blurDataURL={(site as any).cover_blurDataURL || undefined}
               />
