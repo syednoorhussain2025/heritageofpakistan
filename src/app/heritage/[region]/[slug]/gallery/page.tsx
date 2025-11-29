@@ -139,6 +139,8 @@ type MasonryTileProps = {
   siteId: string;
   /** Uses Next Image priority + high fetchPriority for top of grid images */
   isPriority: boolean;
+  /** Notifies parent once when this image has fully loaded */
+  onLoaded: () => void;
 };
 
 const MasonryTile = memo(function MasonryTile({
@@ -146,6 +148,7 @@ const MasonryTile = memo(function MasonryTile({
   onOpen,
   siteId,
   isPriority,
+  onLoaded,
 }: MasonryTileProps) {
   const extras = photo as PhotoWithExtras;
 
@@ -184,6 +187,7 @@ const MasonryTile = memo(function MasonryTile({
 
   // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
+  const reportedLoadedRef = useRef(false);
 
   return (
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
@@ -246,6 +250,10 @@ const MasonryTile = memo(function MasonryTile({
           quality={60}
           onLoadingComplete={() => {
             setLoaded(true);
+            if (!reportedLoadedRef.current) {
+              reportedLoadedRef.current = true;
+              onLoaded();
+            }
           }}
         />
 
@@ -335,6 +343,9 @@ export default function SiteGalleryPage() {
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
+  // Tracks how many tiles in the *current batch* have fully loaded
+  const [loadedInBatch, setLoadedInBatch] = useState(0);
+
   // Lightbox and modal state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -397,12 +408,18 @@ export default function SiteGalleryPage() {
     if (slug) loadData();
   }, [slug, loadData]);
 
-  // Reset visibleCount when a new photo set loads via loading flag
+  // Reset visibleCount and loadedInBatch when a new photo set loads
   useEffect(() => {
     if (!loading) {
       setVisibleCount(BATCH_SIZE);
+      setLoadedInBatch(0);
     }
   }, [loading]);
+
+  // Whenever visibleCount changes (new batch), reset loaded counter
+  useEffect(() => {
+    setLoadedInBatch(0);
+  }, [visibleCount]);
 
   const categories: string[] = useMemo(() => {
     const set = new Set<string>();
@@ -417,11 +434,18 @@ export default function SiteGalleryPage() {
     [photos, visibleCount]
   );
 
-  // Incremental loading on scroll using IntersectionObserver for batches
+  const handleTileLoaded = useCallback(() => {
+    setLoadedInBatch((prev) => prev + 1);
+  }, []);
+
+  // Incremental loading on scroll using IntersectionObserver for batches,
+  // but only when *all* currently visible tiles have finished loading.
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
     if (visibleCount >= photos.length) return;
+
+    const totalInBatch = Math.min(visibleCount, photos.length);
 
     let timeoutId: number | undefined;
 
@@ -430,7 +454,11 @@ export default function SiteGalleryPage() {
         const [entry] = entries;
         if (!entry.isIntersecting) return;
 
-        // Trigger next batch load with a small delay
+        // Do not load next batch until current batch fully loaded
+        if (loadedInBatch < totalInBatch) {
+          return;
+        }
+
         setIsBatchLoading(true);
         timeoutId = window.setTimeout(() => {
           setVisibleCount((prev) =>
@@ -454,7 +482,7 @@ export default function SiteGalleryPage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [visibleCount, photos.length]);
+  }, [visibleCount, photos.length, loadedInBatch]);
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
@@ -586,6 +614,7 @@ export default function SiteGalleryPage() {
                     onOpen={() => setLightboxIndex(idx)}
                     // Prioritize top rows (first 9 items based on mobile 3x3)
                     isPriority={idx < TOP_ROWS_PRIORITY_COUNT}
+                    onLoaded={handleTileLoaded}
                   />
                 ))}
               </div>
