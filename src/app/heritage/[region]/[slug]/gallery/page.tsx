@@ -73,12 +73,10 @@ const photoCache = new Map<string, LightboxPhoto[]>();
 const BATCH_SIZE = 20;
 
 /**
- * On mobile you have a 3 column grid. Top 3 rows = 9 images.
- * These are prioritized to be fetched and displayed early.
+ * Limit how many tiles are treated as high priority.
+ * This avoids many concurrent high priority fetches.
  */
-const MOBILE_COLS = 3;
-const MOBILE_TOP_ROWS = 3;
-const TOP_ROWS_PRIORITY_COUNT = MOBILE_COLS * MOBILE_TOP_ROWS; // 9
+const TOP_PRIORITY_COUNT = 4;
 
 /* ---------- Blurhash Placeholder ---------- */
 /**
@@ -137,7 +135,7 @@ type MasonryTileProps = {
   photo: LightboxPhoto;
   onOpen: () => void;
   siteId: string;
-  /** Uses Next Image priority + high fetchPriority for top of grid images */
+  /** Uses Next Image priority and high fetchPriority for top of grid images */
   isPriority: boolean;
   /** Notifies parent once when this image has fully loaded */
   onLoaded: () => void;
@@ -247,7 +245,6 @@ const MasonryTile = memo(function MasonryTile({
           fetchPriority={isPriority ? "high" : "low"}
           placeholder={blurDataURL ? "blur" : "empty"}
           blurDataURL={blurDataURL}
-          quality={60}
           onLoadingComplete={() => {
             setLoaded(true);
             if (!reportedLoadedRef.current) {
@@ -343,7 +340,7 @@ export default function SiteGalleryPage() {
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  // Tracks how many tiles in the *current batch* have fully loaded
+  // Tracks how many tiles in the current batch have fully loaded
   const [loadedInBatch, setLoadedInBatch] = useState(0);
 
   // Lightbox and modal state
@@ -439,7 +436,7 @@ export default function SiteGalleryPage() {
   }, []);
 
   // Incremental loading on scroll using IntersectionObserver for batches,
-  // but only when *all* currently visible tiles have finished loading.
+  // but only when all currently visible tiles have finished loading.
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
@@ -532,10 +529,7 @@ export default function SiteGalleryPage() {
                 fill
                 className="object-cover"
                 sizes="112px"
-                priority
-                loading="eager"
-                fetchPriority="high"
-                quality={60}
+                loading="lazy"
                 placeholder={(site as any).cover_blurDataURL ? "blur" : "empty"}
                 blurDataURL={(site as any).cover_blurDataURL || undefined}
               />
@@ -612,14 +606,14 @@ export default function SiteGalleryPage() {
                     photo={photo}
                     siteId={site!.id}
                     onOpen={() => setLightboxIndex(idx)}
-                    // Prioritize top rows (first 9 items based on mobile 3x3)
-                    isPriority={idx < TOP_ROWS_PRIORITY_COUNT}
+                    // Prioritize only a few top tiles to avoid many high priority fetches
+                    isPriority={idx < TOP_PRIORITY_COUNT}
                     onLoaded={handleTileLoaded}
                   />
                 ))}
               </div>
 
-              {/* Infinite scroll sentinel + spinner */}
+              {/* Infinite scroll sentinel and spinner */}
               {visiblePhotos.length > 0 &&
                 visiblePhotos.length < photos.length && (
                   <div
