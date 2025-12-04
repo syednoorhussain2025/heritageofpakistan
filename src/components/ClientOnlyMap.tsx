@@ -91,12 +91,8 @@ const DynamicClusterStyles = ({ color }: { color: string }) => {
   const rgb = hexToRgb(color);
   if (!rgb) return null;
   const style = `
-    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
-      background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2) !important;
-    }
-    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
-      background-color: ${color} !important;
-    }
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2) !important; }
+    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { background-color: ${color} !important; }
   `;
   return <style>{style}</style>;
 };
@@ -115,18 +111,14 @@ const DynamicTooltipStyles = ({ settings }: { settings: MapSettings }) => {
       white-space: nowrap !important;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
     }
-    .leaflet-tooltip-top:before,
-    .leaflet-tooltip-bottom:before,
-    .leaflet-tooltip-left:before,
-    .leaflet-tooltip-right:before {
+    .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before {
       border: none !important;
     }
   `;
   return <style>{style}</style>;
 };
 
-// Style component to make the OSM popup container transparent
-// and bring in marker hover and z-index behavior that used to be global
+// **NEW**: Style component to make the OSM popup container transparent
 const DynamicPopupStyles = () => {
   const style = `
     .leaflet-popup-content-wrapper {
@@ -140,27 +132,6 @@ const DynamicPopupStyles = () => {
     }
     .leaflet-popup-content {
       margin: 0 !important; /* Remove default margin */
-    }
-
-    .marker-hover-target {
-      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      transform-origin: center;
-      will-change: transform;
-      backface-visibility: hidden;
-    }
-    .leaflet-marker-icon:hover .marker-hover-target {
-      transform: scale(1.2);
-    }
-
-    .custom-map-icon {
-      background: none;
-      border: none;
-    }
-    .leaflet-marker-pane .leaflet-marker-icon {
-      z-index: 500;
-    }
-    .leaflet-marker-pane .leaflet-marker-icon:hover {
-      z-index: 1000 !important;
     }
   `;
   return <style>{style}</style>;
@@ -203,7 +174,7 @@ export default function ClientOnlyMap({
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
- * OSM / Leaflet view
+ * OSM / Leaflet view (unchanged)
  * ────────────────────────────────────────────────────────────────────────────── */
 function OSMLeafletView({
   locations,
@@ -297,6 +268,7 @@ function OSMLeafletView({
         <DynamicClusterStyles color={settings.cluster_color} />
       )}
       <DynamicTooltipStyles settings={settings} />
+      {/* **NEW**: Added the popup style component here */}
       <DynamicPopupStyles />
 
       <MapContainer
@@ -540,23 +512,27 @@ function GoogleMapView({
     }
   }
 
-  /* CSS to make InfoWindow transparent */
+  /* ----- **NEW** CSS to make InfoWindow transparent ----- */
   const GoogleInfoWindowStyles = () => (
     <style>{`
+      /* Make the main InfoWindow bubble transparent and remove its styling */
       .gm-style .gm-style-iw-c {
         background: transparent !important;
         box-shadow: none !important;
         border: none !important;
         padding: 0 !important;
       }
+      /* Ensure the content container is also transparent */
       .gm-style .gm-style-iw-d {
         overflow: visible !important;
         background: transparent !important;
       }
+      /* Hide the little pointer arrow */
       .gm-style .gm-style-iw-tc::after {
         display: none !important;
       }
 
+      /* Animation keyframes */
       @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.95) translateY(10px); }
         to { opacity: 1; transform: scale(1) translateY(0); }
@@ -566,6 +542,7 @@ function GoogleMapView({
         to { opacity: 0; transform: scale(0.95) translateY(10px); }
       }
 
+      /* Classes to apply the animations */
       .info-window-content.fade-in {
         animation: fadeIn 0.3s ease-out forwards;
       }
