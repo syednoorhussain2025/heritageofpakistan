@@ -7,8 +7,9 @@ import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
-const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
-const INACTIVE_COLOR_CLASS = "text-[#A8A8A8]";
+// WCAG-compliant contrast on white background
+const ACTIVE_COLOR_CLASS = "text-[#B45F00]"; // darker brand orange, ~4.6:1
+const INACTIVE_COLOR_CLASS = "text-[#6B6B6B]"; // darker gray, ~5.3:1
 const ICON_SIZE = 23;
 
 function NavItem({
