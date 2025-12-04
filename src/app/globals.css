@@ -218,3 +218,52 @@ pre,
 code {
   font-family: var(--font-geist-mono);
 }
+
+/* --- Leaflet Map Customizations --- */
+.leaflet-popup-content-wrapper {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 12px;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-tip-container {
+  display: none;
+}
+.custom-map-icon {
+  background: none;
+  border: none;
+}
+.leaflet-marker-pane .leaflet-marker-icon {
+  z-index: 500;
+}
+.leaflet-marker-pane .leaflet-marker-icon:hover {
+  z-index: 1000 !important;
+}
+.marker-hover-target {
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: center;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.leaflet-marker-icon:hover .marker-hover-target {
+  transform: scale(1.2);
+}
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(247, 131, 0, 0.2) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--brand-orange) !important;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
