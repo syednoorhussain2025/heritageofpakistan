@@ -18,11 +18,12 @@ const nextConfig: NextConfig = {
     deviceSizes: [360, 640, 768, 1024, 1280, 1536, 1920],
     imageSizes: [16, 24, 32, 48, 64, 96, 128, 256],
 
-    // Serve modern formats when the browser supports them.
-    formats: ["image/avif", "image/webp"],
+    // Serve a single modern format to reduce the number of transformations.
+    formats: ["image/webp"],
 
-    // Keep optimization ON (do not set unoptimized: true).
-    // unoptimized: false, // (false by default)
+    // Keep optimized variants in the edge cache for about 3 months.
+    // 60 seconds * 60 minutes * 24 hours * 90 days
+    minimumCacheTTL: 60 * 60 * 24 * 90,
   },
 
   // Optional: keep strict defaults elsewhere
