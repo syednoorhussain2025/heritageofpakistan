@@ -221,7 +221,7 @@ const MasonryTile = memo(function MasonryTile({
     () =>
       getSupabaseTransformedUrl(photo.url, {
         width: 300,
-        quality: 60,
+        quality: 0,
         format: "webp",
       }), 
     [photo.url]
