@@ -1,4 +1,3 @@
-// src/app/heritage/[region]/[slug]/gallery/page.tsx
 "use client";
 
 // Tell Next this route is fully static so the shell can be cached
@@ -77,6 +76,43 @@ const BATCH_SIZE = 20;
  * This avoids many concurrent high priority fetches.
  */
 const TOP_PRIORITY_COUNT = 4;
+
+/* ---------- Supabase image helper ---------- */
+
+/**
+ * Build a Supabase render URL that:
+ * - Resizes to the requested width
+ * - Uses WebP with moderate quality
+ * If the URL is not a Supabase storage URL, it is returned unchanged.
+ */
+function buildSupabaseThumbUrl(originalUrl: string, width: number): string {
+  if (!originalUrl) return originalUrl;
+  try {
+    const url = new URL(originalUrl);
+
+    const isSupabase =
+      url.hostname.includes("supabase.co") &&
+      url.pathname.includes("/storage/v1/object");
+
+    if (!isSupabase) {
+      return originalUrl;
+    }
+
+    // /storage/v1/object/public/... -> /storage/v1/render/image/public/...
+    url.pathname = url.pathname.replace(
+      "/storage/v1/object",
+      "/storage/v1/render/image"
+    );
+
+    url.searchParams.set("width", String(width));
+    url.searchParams.set("quality", "70");
+    url.searchParams.set("format", "webp");
+
+    return url.toString();
+  } catch {
+    return originalUrl;
+  }
+}
 
 /* ---------- Blurhash Placeholder ---------- */
 /**
@@ -183,6 +219,13 @@ const MasonryTile = memo(function MasonryTile({
     isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
+  // Use a resized WebP thumbnail instead of the full original
+  // Grid tiles are roughly 200 to 260px wide on desktop so 480px is safe
+  const thumbUrl = useMemo(
+    () => buildSupabaseThumbUrl(photo.url, 480),
+    [photo.url]
+  );
+
   // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
   const reportedLoadedRef = useRef(false);
@@ -219,7 +262,7 @@ const MasonryTile = memo(function MasonryTile({
 
         {/* Actual image, fading in over the placeholder */}
         <Image
-          src={photo.url}
+          src={thumbUrl}
           alt={photo.caption ?? ""}
           fill
           unoptimized
@@ -515,6 +558,12 @@ export default function SiteGalleryPage() {
   const circlePreview =
     site?.cover_photo_url || photos[0]?.url || "/placeholder.png";
 
+  // Use a smaller WebP for the circular avatar too
+  const circlePreviewThumb = useMemo(
+    () => buildSupabaseThumbUrl(circlePreview, 256),
+    [circlePreview]
+  );
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -525,7 +574,7 @@ export default function SiteGalleryPage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
               <Image
-                src={circlePreview}
+                src={circlePreviewThumb}
                 alt={site.title}
                 fill
                 unoptimized
