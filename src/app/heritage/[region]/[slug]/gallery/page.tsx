@@ -59,6 +59,39 @@ type PhotoWithExtras = LightboxPhoto & {
   blurDataURL?: string | null;
 };
 
+/* ---------- Supabase image helper ---------- */
+
+function getSupabaseTransformedUrl(
+  src: string,
+  opts: {
+    width?: number;
+    quality?: number;
+    format?: "webp" | "png" | "jpeg";
+  } = {}
+) {
+  if (!src.includes("supabase.co/storage")) return src;
+
+  try {
+    const url = new URL(src);
+
+    if (opts.width && !url.searchParams.has("width")) {
+      url.searchParams.set("width", String(opts.width));
+    }
+    if (opts.quality && !url.searchParams.has("quality")) {
+      url.searchParams.set("quality", String(opts.quality));
+    }
+    if (opts.format && !url.searchParams.has("format")) {
+      url.searchParams.set("format", opts.format);
+    }
+    // You can also add resize mode if you like:
+    // if (!url.searchParams.has("resize")) url.searchParams.set("resize", "cover");
+
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
+
 /* ---------- Simple in-memory cache (per browser tab) ---------- */
 
 const siteCache = new Map<string, SiteHeaderInfo>();
@@ -77,46 +110,6 @@ const BATCH_SIZE = 20;
  * This avoids many concurrent high priority fetches.
  */
 const TOP_PRIORITY_COUNT = 4;
-
-/* ---------- Supabase / optimization helpers ---------- */
-
-const SUPABASE_RENDER_ENABLED =
-  process.env.NEXT_PUBLIC_SUPABASE_RENDER_ENABLED === "true";
-
-/**
- * Returns an "optimized" src for thumbnails:
- * - Tries to detect Supabase storage URLs
- * - Optionally rewrites to /render/image when explicitly enabled
- * - Adds width / quality / format hints
- * - Always falls back to the original URL if anything fails
- */
-function getOptimizedSrc(urlString: string, width: number): string {
-  try {
-    const url = new URL(urlString);
-
-    const isSupabaseStorage =
-      url.hostname.endsWith(".supabase.co") &&
-      url.pathname.includes("/storage/v1/object/public");
-
-    // Only rewrite the path when you explicitly enable transformations
-    if (isSupabaseStorage && SUPABASE_RENDER_ENABLED) {
-      url.pathname = url.pathname.replace(
-        "/storage/v1/object",
-        "/storage/v1/render/image"
-      );
-    }
-
-    // These are safe: if the backend ignores them, you still get the original file
-    url.searchParams.set("width", String(width));
-    url.searchParams.set("quality", "70");
-    url.searchParams.set("format", "webp");
-
-    return url.toString();
-  } catch {
-    // If URL constructor fails for any reason, just return original string
-    return urlString;
-  }
-}
 
 /* ---------- Blurhash Placeholder ---------- */
 /**
@@ -223,12 +216,20 @@ const MasonryTile = memo(function MasonryTile({
     isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
+  // Optimized grid source from Supabase
+  const optimizedGridSrc = useMemo(
+    () =>
+      getSupabaseTransformedUrl(photo.url, {
+        width: 800,
+        quality: 70,
+        format: "webp",
+      }),
+    [photo.url]
+  );
+
   // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
   const reportedLoadedRef = useRef(false);
-
-  // Use the optimized thumbnail URL, but this always falls back to photo.url
-  const optimizedThumbSrc = getOptimizedSrc(photo.url, 640);
 
   return (
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
@@ -262,7 +263,7 @@ const MasonryTile = memo(function MasonryTile({
 
         {/* Actual image, fading in over the placeholder */}
         <Image
-          src={optimizedThumbSrc}
+          src={optimizedGridSrc}
           alt={photo.caption ?? ""}
           fill
           unoptimized
@@ -555,16 +556,18 @@ export default function SiteGalleryPage() {
     ? `https://www.google.com/maps/search/?api=1&query=${site?.latitude},${site?.longitude}`
     : null;
 
-  // For the circular header:
-  // - If cover_photo_url exists, send it through the optimizer with a small width
-  // - Otherwise use the first photo URL, also optimized
-  // - Finally fall back to a local placeholder
   const circlePreview =
-    site?.cover_photo_url
-      ? getOptimizedSrc(site.cover_photo_url, 256)
-      : photos[0]?.url
-      ? getOptimizedSrc(photos[0].url, 256)
-      : "/placeholder.png";
+    site?.cover_photo_url || photos[0]?.url || "/placeholder.png";
+
+  const optimizedCirclePreview = useMemo(
+    () =>
+      getSupabaseTransformedUrl(circlePreview, {
+        width: 256,
+        quality: 70,
+        format: "webp",
+      }),
+    [circlePreview]
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -576,7 +579,7 @@ export default function SiteGalleryPage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
               <Image
-                src={circlePreview}
+                src={optimizedCirclePreview}
                 alt={site.title}
                 fill
                 unoptimized
