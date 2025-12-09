@@ -502,8 +502,6 @@ export default function SiteGalleryPage() {
     if (!el) return;
     if (visibleCount >= photos.length) return;
 
-    const totalInBatch = Math.min(visibleCount, photos.length);
-
     let timeoutId: number | undefined;
 
     const observer = new IntersectionObserver(
@@ -511,8 +509,14 @@ export default function SiteGalleryPage() {
         const [entry] = entries;
         if (!entry.isIntersecting) return;
 
-        // Do not load next batch until current batch fully loaded
-        if (loadedInBatch < totalInBatch) {
+        // Only require the current batch of images to be loaded
+        const batchStart = visibleCount - BATCH_SIZE;
+        const imagesInThisBatch = photos.slice(
+          Math.max(0, batchStart),
+          visibleCount
+        ).length;
+
+        if (loadedInBatch < imagesInThisBatch) {
           return;
         }
 
