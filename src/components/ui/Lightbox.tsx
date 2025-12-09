@@ -27,19 +27,16 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
   useEffect(() => {
     if (!hash) return;
 
-    // We generate a tiny bitmap that roughly matches the photo’s aspect ratio
-    // to avoid distortion / weird edges.
+    // Generate a tiny bitmap that roughly matches the photo aspect ratio
     const BASE = 32;
     let width = BASE;
     let height = BASE;
 
     if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
       if (aspectRatio >= 1) {
-        // wider than tall
         width = BASE;
         height = Math.max(1, Math.round(BASE / aspectRatio));
       } else {
-        // taller than wide
         height = BASE;
         width = Math.max(1, Math.round(BASE * aspectRatio));
       }
@@ -127,7 +124,7 @@ export function Lightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, photos.length]);
 
-  /* ---------- Use server-set dimensions ---------- */
+  /* ---------- Use server dimensions if present ---------- */
   const nat = useMemo(
     () => ({
       w: photo.width && photo.width > 0 ? photo.width : 4,
@@ -163,9 +160,7 @@ export function Lightbox({
     const imgTop = Math.round((vh - imgH) / 2);
 
     const panelLeft = isMdUp ? imgLeft + imgW + GAP : pad;
-    const panelTop = isMdUp
-      ? imgTop + imgH / 2
-      : imgTop + imgH + 16;
+    const panelTop = isMdUp ? imgTop + imgH / 2 : imgTop + imgH + 16;
 
     return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
   }, [isMdUp, isLgUp, nat, win]);
@@ -194,7 +189,7 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[100] bg-black/90"
+        className="fixed inset-0 z-[1200] bg-black/90"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -248,7 +243,7 @@ export function Lightbox({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="absolute inset-0"
             >
-              {/* BlurHash background (matches aspect ratio) */}
+              {/* BlurHash background */}
               {photo.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
@@ -258,11 +253,12 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top, object-contain */}
+              {/* Full image on top, loaded directly from Supabase and not optimized by Vercel */}
               <NextImage
                 src={photo.url}
                 alt={photo.caption ?? ""}
                 fill
+                unoptimized
                 sizes="100vw"
                 className="w-full h-full object-contain"
                 priority
@@ -334,7 +330,7 @@ export function Lightbox({
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
               {onBookmarkToggle && (
                 <button
-                  className="p-2 rounded-full bg-white/10 hover:bg:white/20"
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
                   onClick={() => onBookmarkToggle(photo)}
                 >
                   <Icon
