@@ -234,8 +234,8 @@ const MasonryTile = memo(function MasonryTile({
   const optimizedGridSrc = useMemo(
     () =>
       getSupabaseTransformedUrl(photo.url, {
-        width: 300,
-        height: 300,
+        width: 450,
+        height: 338,
         quality: 70,
         resize: "cover",
       }),
