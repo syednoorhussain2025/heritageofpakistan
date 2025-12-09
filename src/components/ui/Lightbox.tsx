@@ -14,6 +14,52 @@ const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
+/* ---------- Supabase image helper ---------- */
+
+function getSupabaseTransformedUrl(
+  src: string,
+  opts: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    resize?: "cover" | "contain" | "fill";
+  } = {}
+) {
+  // Only touch Supabase storage URLs
+  if (!src.includes("supabase.co/storage/v1")) return src;
+
+  try {
+    const url = new URL(src);
+
+    // Switch to image render endpoint so transformations apply
+    if (url.pathname.includes("/storage/v1/object/")) {
+      url.pathname = url.pathname.replace(
+        "/storage/v1/object/",
+        "/storage/v1/render/image/"
+      );
+    }
+
+    const { width, height, quality, resize } = opts;
+
+    if (width && !url.searchParams.has("width")) {
+      url.searchParams.set("width", String(width));
+    }
+    if (height && !url.searchParams.has("height")) {
+      url.searchParams.set("height", String(height));
+    }
+    if (quality && !url.searchParams.has("quality")) {
+      url.searchParams.set("quality", String(quality));
+    }
+    if (resize && !url.searchParams.has("resize")) {
+      url.searchParams.set("resize", resize);
+    }
+
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
+
 /* ---------- BlurHash Component (matches aspect ratio) ---------- */
 
 type BlurhashPlaceholderProps = {
@@ -165,12 +211,26 @@ export function Lightbox({
     return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
   }, [isMdUp, isLgUp, nat, win]);
 
+  /* ---------- Optimized URL for current photo ---------- */
+  // Use a reasonably large width for full screen, but still much smaller than original
+  const optimizedPhotoUrl = useMemo(
+    () =>
+      getSupabaseTransformedUrl(photo.url, {
+        width: 1600,
+        quality: 80,
+      }),
+    [photo.url]
+  );
+
   /* ---------- Prefetch neighbours for snappy nav ---------- */
   useEffect(() => {
     const preload = (p?: LightboxPhoto) => {
       if (!p) return;
       const img = new window.Image();
-      img.src = p.url;
+      img.src = getSupabaseTransformedUrl(p.url, {
+        width: 1600,
+        quality: 80,
+      });
     };
     preload(photos[(currentIndex + 1) % photos.length]);
     preload(photos[(currentIndex - 1 + photos.length) % photos.length]);
@@ -253,9 +313,9 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top, loaded directly from Supabase and not optimized by Vercel */}
+              {/* Full image on top, now transformed by Supabase */}
               <NextImage
-                src={photo.url}
+                src={optimizedPhotoUrl}
                 alt={photo.caption ?? ""}
                 fill
                 unoptimized
