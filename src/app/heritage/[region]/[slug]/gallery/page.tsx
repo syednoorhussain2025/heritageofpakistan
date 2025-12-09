@@ -220,10 +220,10 @@ const MasonryTile = memo(function MasonryTile({
   const optimizedGridSrc = useMemo(
     () =>
       getSupabaseTransformedUrl(photo.url, {
-        width: 800,
-        quality: 70,
+        width: 300,
+        quality: 60,
         format: "webp",
-      }),
+      }), 
     [photo.url]
   );
 
