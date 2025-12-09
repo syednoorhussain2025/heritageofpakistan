@@ -222,6 +222,7 @@ const MasonryTile = memo(function MasonryTile({
           src={photo.url}
           alt={photo.caption ?? ""}
           fill
+          unoptimized
           className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110 transition-opacity duration-500 ease-out ${
             loaded ? "opacity-100" : "opacity-0"
           }`}
@@ -527,6 +528,7 @@ export default function SiteGalleryPage() {
                 src={circlePreview}
                 alt={site.title}
                 fill
+                unoptimized
                 className="object-cover"
                 sizes="112px"
                 loading="lazy"
