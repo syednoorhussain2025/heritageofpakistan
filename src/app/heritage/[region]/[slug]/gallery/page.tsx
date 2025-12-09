@@ -65,26 +65,39 @@ function getSupabaseTransformedUrl(
   src: string,
   opts: {
     width?: number;
+    height?: number;
     quality?: number;
-    format?: "webp" | "png" | "jpeg";
+    resize?: "cover" | "contain" | "fill";
   } = {}
 ) {
-  if (!src.includes("supabase.co/storage")) return src;
+  // Only touch Supabase storage URLs
+  if (!src.includes("supabase.co/storage/v1")) return src;
 
   try {
     const url = new URL(src);
 
-    if (opts.width && !url.searchParams.has("width")) {
-      url.searchParams.set("width", String(opts.width));
+    // Switch to the image render endpoint so transformations apply
+    if (url.pathname.includes("/storage/v1/object/")) {
+      url.pathname = url.pathname.replace(
+        "/storage/v1/object/",
+        "/storage/v1/render/image/"
+      );
     }
-    if (opts.quality && !url.searchParams.has("quality")) {
-      url.searchParams.set("quality", String(opts.quality));
+
+    const { width, height, quality, resize } = opts;
+
+    if (width && !url.searchParams.has("width")) {
+      url.searchParams.set("width", String(width));
     }
-    if (opts.format && !url.searchParams.has("format")) {
-      url.searchParams.set("format", opts.format);
+    if (height && !url.searchParams.has("height")) {
+      url.searchParams.set("height", String(height));
     }
-    // You can also add resize mode if you like:
-    // if (!url.searchParams.has("resize")) url.searchParams.set("resize", "cover");
+    if (quality && !url.searchParams.has("quality")) {
+      url.searchParams.set("quality", String(quality));
+    }
+    if (resize && !url.searchParams.has("resize")) {
+      url.searchParams.set("resize", resize);
+    }
 
     return url.toString();
   } catch {
@@ -216,14 +229,16 @@ const MasonryTile = memo(function MasonryTile({
     isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
-  // Optimized grid source from Supabase
+  // Optimized grid source from Supabase using image transformations
+  // 4:3 aspect ratio with resize=cover
   const optimizedGridSrc = useMemo(
     () =>
       getSupabaseTransformedUrl(photo.url, {
         width: 300,
-        quality: 0,
-        format: "webp",
-      }), 
+        height: 300,
+        quality: 70,
+        resize: "cover",
+      }),
     [photo.url]
   );
 
@@ -563,8 +578,9 @@ export default function SiteGalleryPage() {
     () =>
       getSupabaseTransformedUrl(circlePreview, {
         width: 256,
+        height: 256,
         quality: 70,
-        format: "webp",
+        resize: "cover",
       }),
     [circlePreview]
   );
