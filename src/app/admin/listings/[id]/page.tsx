@@ -118,7 +118,6 @@ function Section({
 }) {
   const iconKey = SECTION_ICONS[id];
 
-  // Frameless sections (no outer card/header/tools)
   const isFrameless = id === "articles" || id === "photo";
   if (isFrameless) {
     return (
@@ -128,7 +127,6 @@ function Section({
     );
   }
 
-  // Default (carded) sections
   return (
     <section
       id={id}
@@ -205,19 +203,21 @@ async function publicUrl(bucket: string, key: string) {
   return data.publicUrl;
 }
 
-function parseStoragePathFromPublicUrl(url: string | undefined | null) {
-  if (!url) return null;
-  const marker = "/storage/v1/object/public/";
-  const i = url.indexOf(marker);
-  if (i === -1) return null;
-  const rest = url.slice(i + marker.length);
-  const [bucket, ...pathParts] = rest.split("/");
-  return { bucket, path: pathParts.join("/") };
+/** Build hero / thumb paths like ".../file_hero.jpg" and ".../file_thumb.jpg" */
+function makeVariantPath(
+  storagePath: string,
+  variant: "hero" | "thumb"
+): string {
+  const dotIndex = storagePath.lastIndexOf(".");
+  if (dotIndex === -1) return `${storagePath}_${variant}`;
+  const base = storagePath.slice(0, dotIndex);
+  const ext = storagePath.slice(dotIndex);
+  return `${base}_${variant}${ext}`;
 }
 
 /**
- * Extract width, height, blurhash and blurDataURL from a File (client-side).
- * Used for cover uploads before saving metadata.
+ * Extract width, height, blurhash and blurDataURL from a File (client side).
+ * Kept here in case you want to reuse for other admin tools.
  */
 async function extractImageMetaFromFile(file: File): Promise<{
   width: number | null;
@@ -234,7 +234,6 @@ async function extractImageMetaFromFile(file: File): Promise<{
         const width = img.naturalWidth || null;
         const height = img.naturalHeight || null;
 
-        // Fallback result in case canvas / encode fails
         let blurHash: string | null = null;
         let blurDataUrl: string | null = null;
 
@@ -250,7 +249,6 @@ async function extractImageMetaFromFile(file: File): Promise<{
           if (ctx) {
             ctx.drawImage(img, 0, 0, targetW, targetH);
             const imageData = ctx.getImageData(0, 0, targetW, targetH);
-            // encode expects RGBA data
             try {
               blurHash = encode(
                 imageData.data,
@@ -269,7 +267,6 @@ async function extractImageMetaFromFile(file: File): Promise<{
             }
           }
         } catch {
-          // ignore, keep nulls
         }
 
         resolve({ width, height, blurHash, blurDataUrl });
@@ -307,8 +304,7 @@ async function extractImageMetaFromFile(file: File): Promise<{
 }
 
 /**
- * Resize an image file on the client to a medium size (max 1600x1600),
- * and compute blurhash + blurDataUrl from the resized version.
+ * Resize an image file client side.
  */
 async function resizeImageForUpload(
   file: File,
@@ -331,7 +327,6 @@ async function resizeImageForUpload(
         let height = img.naturalHeight || 0;
 
         if (!width || !height) {
-          // Fallback: just return original file
           resolve({
             blob: file,
             width: null,
@@ -342,11 +337,10 @@ async function resizeImageForUpload(
           return;
         }
 
-        // Constrain to max dimensions while preserving aspect ratio
         const ratio = Math.min(
           maxWidth / width,
           maxHeight / height,
-          1 // never upscale
+          1
         );
         const targetW = Math.round(width * ratio);
         const targetH = Math.round(height * ratio);
@@ -435,7 +429,7 @@ export default function EditListing() {
   );
 }
 
-/* Small bottom-right toast for auto-save */
+/* Small bottom right toast for auto save */
 function SavingToast({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (
@@ -482,7 +476,7 @@ function SidebarControls({
   onTogglePublished: (v: boolean) => void;
   onSave: (opts?: { silent?: boolean }) => void | Promise<void>;
   saving: boolean;
-  uploaderSlot?: React.ReactNode; // 👈 slot rendered below Save
+  uploaderSlot?: React.ReactNode;
   autoSaveEnabled: boolean;
   onToggleAutoSave: (v: boolean) => void;
   lastSavedAt: Date | null;
@@ -523,7 +517,6 @@ function SidebarControls({
           </div>
         </div>
 
-        {/* Uploader lives here */}
         {uploaderSlot ? (
           <div className="pt-2 border-t border-gray-200">{uploaderSlot}</div>
         ) : null}
@@ -532,28 +525,22 @@ function SidebarControls({
   );
 }
 
-/* ---------------- CSV canonicalization & mapping (shared) ---------------- */
+/* ---------------- CSV canonicalization and mapping (shared) ---------------- */
 
 type CanonicalKV = Record<string, any>;
 
-/** Headers including Cover + Travel Details (descriptive for template) */
 const TEMPLATE_HEADERS = [
-  // Cover
-  "title (Site Name, no brackets)", // Site Name
+  "title (Site Name, no brackets)",
   "slug (matching the title)",
   "heritage_type (e.g Colonial Era Building, Lake, Mughal Era Garden)",
   "cover_location (City/town, Province)(e.g Lahore, Punjab)",
   "tagline (around 50 words introduction of the site)",
-
-  // Location block
   "latitude",
   "longitude",
   "town_city_village",
   "tehsil",
   "district (e.g Lahore, Islamabad, Faisalabad)",
   "province (e.g Punjab, Gilgit Baltistan) ",
-
-  // General info
   "architectural_style (e.g Mughal Architecture, Sikh Architecture, Indo Saracenic)",
   "construction_materials (e.g Brick, plaster, marble)",
   "local_name (e.g Shahi Qila for Lahore Fort)",
@@ -574,41 +561,29 @@ const TEMPLATE_HEADERS = [
   "excavation_status (e.g Excavated in 1922)",
   "excavated_by (e.g John Marshal)",
   "administered_by (e.g Punjab Archaeology Department)",
-
-  // UNESCO
   "unesco_status",
   "unesco_line",
   "protected_under (e.g Antiquities Act 1975)",
-
-  // Climate
   "landform (e.g Mountains, Land, Lake)",
   "altitude (e.g 2300 meters (5333 feet) above sea level)",
   "mountain_range (e.g Karakoram)",
   "weather_type (e.g Moderate Summers, Extreme Cold Winters)",
   "avg_temp_summers (e.g Ranges from 8°C to 23°C)",
   "avg_temp_winters",
-
-  // Travel
   "travel_location (City, Province)(e.g Malam Jabba, Khyber Pakhtunkhwa )",
   "travel_how_to_reach (e.g 45 km from Mingora (1.5 Hours Drive)",
   "travel_nearest_major_city (e.g Mingora, Khyber Pakhtunkhwa)",
   "travel_airport_access (Yes/No)",
   "travel_international_flight",
-  "travel_access_options (etc By Road Only, By Road & Airport), By Road, Railway and Airport",
+  "travel_access_options (etc By Road Only, By Road & Airport), By Road, Railway and Airport)",
   "travel_road_type_condition (etc Metalled Road)",
   "travel_best_time_free (e.g Summers)",
   "travel_full_guide_url",
-
-  // Best time
   "best_time_option_key (e.g The Best Time to Visit mountain regions of Khyberpakhtunkhwa is Summers. Preferably from April to September. Winters are Extremely Cold and Snowfall blocks most of access. Hence Winters are not recommended.)",
-
-  // Stay
   "stay_hotels_available (Yes/No/limited options)",
   "stay_spending_night_recommended (Yes/No or Good Place to stay)",
   "stay_camping_possible (Not recommended, Not suitable, Yes)",
   "stay_places_to_eat_available (Yes, No, Limited Options)",
-
-  // Misc
   "did_you_know (One line interesting fact e.g The Jahanabad Buddha near Malam Jabba is one of the largest carved Buddha reliefs in Pakistan)",
 ] as const;
 
@@ -620,10 +595,6 @@ function normHeader(h: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-/** IMPORTANT:
- * Coerce to the exact lowercase enum values that satisfy the DB CHECK constraint.
- * We assume the constraint allows only: 'none' | 'inscribed' | 'tentative'.
- */
 function normalizeUnescoStatus(v: any): "none" | "inscribed" | "tentative" {
   if (v == null) return "none";
   const s = String(v).trim().toLowerCase();
@@ -651,9 +622,7 @@ function normalizeSlug(s: string): string {
     .replace(/^-|-$/g, "");
 }
 
-/** Map common header variants → canonical keys */
 const HEADER_TO_FIELD: Record<string, string> = {
-  // Cover
   title: "title",
   name: "title",
   site_name: "title",
@@ -666,7 +635,6 @@ const HEADER_TO_FIELD: Record<string, string> = {
   place: "cover_location",
   tagline: "tagline",
 
-  // Location
   latitude: "latitude",
   lat: "latitude",
   longitude: "longitude",
@@ -682,7 +650,6 @@ const HEADER_TO_FIELD: Record<string, string> = {
   region: "province_name",
   region_province: "province_name",
 
-  // General info
   architectural_style: "architectural_style",
   construction_materials: "construction_materials",
   local_name: "local_name",
@@ -704,12 +671,10 @@ const HEADER_TO_FIELD: Record<string, string> = {
   excavated_by: "excavated_by",
   administered_by: "administered_by",
 
-  // UNESCO
   unesco_status: "unesco_status",
   unesco_line: "unesco_line",
   protected_under: "protected_under",
 
-  // Climate
   landform: "landform",
   altitude: "altitude",
   mountain_range: "mountain_range",
@@ -719,7 +684,6 @@ const HEADER_TO_FIELD: Record<string, string> = {
   avg_temp_winters: "avg_temp_winters",
   average_temp_winters: "avg_temp_winters",
 
-  // Travel
   travel_location: "travel_location",
   location_travel_guide: "travel_location",
   travel_how_to_reach: "travel_how_to_reach",
@@ -738,10 +702,8 @@ const HEADER_TO_FIELD: Record<string, string> = {
   best_time_free: "travel_best_time_free",
   travel_full_guide_url: "travel_full_guide_url",
 
-  // Best time
   best_time_option_key: "best_time_option_key",
 
-  // Stay
   stay_hotels_available: "stay_hotels_available",
   hotels_available: "stay_hotels_available",
   stay_spending_night_recommended: "stay_spending_night_recommended",
@@ -751,7 +713,6 @@ const HEADER_TO_FIELD: Record<string, string> = {
   stay_places_to_eat_available: "stay_places_to_eat_available",
   places_to_eat_available: "stay_places_to_eat_available",
 
-  // Misc
   did_you_know: "did_you_know",
 };
 
@@ -762,17 +723,14 @@ function EditContent({ id }: { id: string }) {
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
 
-  // NEW: auto-save state (default ON) + last saved timestamp
   const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [autoSaving, setAutoSaving] = useState<boolean>(false); // controls bottom-right toast
+  const [autoSaving, setAutoSaving] = useState<boolean>(false);
 
-  // Registerable save function ref (now accepts {silent})
   const saveListingRef = useRef<
     ((opts?: { silent?: boolean }) => Promise<void> | void) | undefined
   >(undefined);
 
-  // Uploader plumbing (shared cache + appliers registered by ListingForm)
   const [uploadCache, setUploadCache] = useState<CanonicalKV | null>(null);
   const [lastUploadName, setLastUploadName] = useState<string | null>(null);
   const applyCoverRef = useRef<((p: CanonicalKV) => void) | null>(null);
@@ -784,7 +742,6 @@ function EditContent({ id }: { id: string }) {
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
 
-  // NEW: Guide linking UI state
   const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [linkedGuideMeta, setLinkedGuideMeta] = useState<{
     id: string;
@@ -808,7 +765,6 @@ function EditContent({ id }: { id: string }) {
     })();
   }, [id]);
 
-  // When site is loaded or its region_travel_guide_id changes, fetch linked guide meta
   useEffect(() => {
     async function loadLinked() {
       if (!site?.region_travel_guide_id) {
@@ -830,7 +786,6 @@ function EditContent({ id }: { id: string }) {
         return;
       }
 
-      // regions comes back as an array; safely read first item
       const regionName =
         (Array.isArray((data as any).regions) &&
           (data as any).regions[0]?.name) ||
@@ -845,20 +800,16 @@ function EditContent({ id }: { id: string }) {
     loadLinked();
   }, [site?.region_travel_guide_id]);
 
-  // 🔗 LISTEN for TravelDetails' fallback event to open the modal
   useEffect(() => {
     const handler = () => setGuideModalOpen(true);
-    // Some TS setups need a generic EventListener; cast to any to avoid DOM lib mismatch.
     document.addEventListener("connect-guide:open", handler as any);
     return () =>
       document.removeEventListener("connect-guide:open", handler as any);
   }, []);
 
-  // ---------- sanitize payload before saving ----------
   function sanitizeForSave(payload: any) {
     const next = { ...payload };
 
-    // Coerce numeric fields and empty strings to null
     for (const k of Object.keys(next)) {
       if (NUMERIC_DETAIL_KEYS.has(k as any)) {
         if (next[k] === "" || next[k] === undefined) {
@@ -870,19 +821,16 @@ function EditContent({ id }: { id: string }) {
       }
     }
 
-    // Province select can be "", coerce to null/number
     if (next.province_id === "") next.province_id = null;
     if (next.province_id != null && next.province_id !== "") {
       const pid = Number(next.province_id);
       next.province_id = Number.isFinite(pid) ? pid : null;
     }
 
-    // 🔒 Canonicalize UNESCO status (lowercase) to satisfy DB check constraint.
     next.unesco_status = normalizeUnescoStatus(next.unesco_status ?? "none");
 
     return next;
   }
-  // ---------------------------------------------------
 
   async function saveSite(next: any) {
     setSaving(true);
@@ -896,7 +844,7 @@ function EditContent({ id }: { id: string }) {
     setSaving(false);
     if (error) return alert(error.message);
     setSite(data);
-    setLastSavedAt(new Date()); // record save time
+    setLastSavedAt(new Date());
   }
 
   const loadTaxonomies = useCallback(async () => {
@@ -933,7 +881,6 @@ function EditContent({ id }: { id: string }) {
     loadTaxonomies();
   }, [loadTaxonomies]);
 
-  // NEW: periodic auto-save every 30s when enabled
   useEffect(() => {
     if (!autoSaveEnabled) return;
     const timer = setInterval(async () => {
@@ -959,14 +906,12 @@ function EditContent({ id }: { id: string }) {
       </div>
     );
 
-  // Sidebar importer slot (desktop & mobile)
   const uploaderSlot = (
     <SidebarImporter
       provinces={provinces}
       onParsed={(payload, fname) => {
         setUploadCache(payload);
         setLastUploadName(fname || null);
-        // Auto-apply to both sections once on upload
         if (applyCoverRef.current) applyCoverRef.current(payload);
         if (applyDetailsRef.current) applyDetailsRef.current(payload);
       }}
@@ -974,9 +919,6 @@ function EditContent({ id }: { id: string }) {
     />
   );
 
-  /* -------- travel guide: helpers -------- */
-
-  // Transform region_travel_guide_summary → partial site fields
   function mapSummaryToSiteFields(s: any): Partial<Record<string, any>> {
     if (!s) return {};
     const accessOptionsMap: Record<string, string> = {
@@ -997,7 +939,6 @@ function EditContent({ id }: { id: string }) {
     };
 
     return {
-      // Climate / topo
       landform: s.landform ?? null,
       altitude: s.altitude ?? null,
       mountain_range: s.mountain_range ?? null,
@@ -1005,7 +946,6 @@ function EditContent({ id }: { id: string }) {
       avg_temp_winters: s.temp_winter ?? null,
       avg_temp_summers: s.temp_summers ?? null,
 
-      // Travel summary
       travel_location: s.location ?? null,
       travel_how_to_reach: s.how_to_reach ?? null,
       travel_nearest_major_city: s.nearest_major_city ?? null,
@@ -1018,7 +958,6 @@ function EditContent({ id }: { id: string }) {
         ? bestTimeMap[s.best_time_to_visit] || ""
         : "",
 
-      // Stay
       stay_hotels_available: s.hotels_available
         ? titleCase(s.hotels_available.replace(/_/g, " "))
         : null,
@@ -1041,7 +980,6 @@ function EditContent({ id }: { id: string }) {
   }
 
   async function attachGuide(g: SelectedGuide) {
-    // 1) persist on site
     const { data, error } = await supabase
       .from("sites")
       .update({
@@ -1064,14 +1002,12 @@ function EditContent({ id }: { id: string }) {
       status: g.status,
     });
 
-    // 2) (preview) fetch summary → compute inherited mapping (kept for future use)
     const { data: s, error: sErr } = await supabase
       .from("region_travel_guide_summary")
       .select("*")
       .eq("guide_id", g.id)
       .maybeSingle();
     if (!sErr && s) {
-      // const mapped = mapSummaryToSiteFields(s);
     }
   }
 
@@ -1099,7 +1035,6 @@ function EditContent({ id }: { id: string }) {
       className="text-gray-900 min-h-screen"
       style={{ backgroundColor: "#f4f4f4" }}
     >
-      {/* Top bar */}
       <div className="sticky top-0 z-40 bg-gray-50/95 backdrop-blur border-b border-gray-200">
         <div className="px-3 sm:px-4 lg:px-6 py-2">
           <div className="flex items-center gap-3 sm:gap-4 whitespace-nowrap overflow-x-auto no-scrollbar">
@@ -1140,7 +1075,6 @@ function EditContent({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Body */}
       <div className="relative">
         <div className="hidden lg:block">
           <SidebarControls
@@ -1194,7 +1128,6 @@ function EditContent({ id }: { id: string }) {
                 applyCoverRef.current = applyCover;
                 applyDetailsRef.current = applyDetails;
               }}
-              /* NEW props for toolbar buttons */
               onOpenGuideModal={() => setGuideModalOpen(true)}
               linkedGuideMeta={linkedGuideMeta}
               onUnlinkGuide={detachGuide}
@@ -1203,10 +1136,8 @@ function EditContent({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Bottom-right auto-save indicator */}
       <SavingToast visible={autoSaving} />
 
-      {/* Connect Guide Modal */}
       <ConnectTravelGuideModal
         isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
@@ -1220,7 +1151,7 @@ function EditContent({ id }: { id: string }) {
   );
 }
 
-/* inputs & helpers */
+/* inputs and helpers */
 const inputStyles =
   "w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500";
 const readOnlyInputStyles =
@@ -1249,7 +1180,6 @@ const sectionFields: Record<string, string[]> = {
   articles: ["history_content"],
 };
 
-// Cover + TravelDetails field groups for apply/clear
 const COVER_KEYS = [
   "title",
   "slug",
@@ -1310,7 +1240,6 @@ const DETAIL_KEYS = [
   "did_you_know",
 ] as const;
 
-/* numeric columns we must null instead of sending "" */
 const NUMERIC_DETAIL_KEYS = new Set<string>(["latitude", "longitude"]);
 
 function ListingForm({
@@ -1330,7 +1259,6 @@ function ListingForm({
   onTaxonomyChanged,
   uploadCache,
   onRegisterUploadAppliers,
-  // NEW:
   onOpenGuideModal,
   linkedGuideMeta,
   onUnlinkGuide,
@@ -1355,7 +1283,6 @@ function ListingForm({
     applyDetails: (p: CanonicalKV) => void
   ) => void;
 
-  // NEW props for travel guide linking controls in toolbar
   onOpenGuideModal: () => void;
   linkedGuideMeta: { id: string; regionName: string; status: string } | null;
   onUnlinkGuide: () => Promise<void> | void;
@@ -1405,38 +1332,25 @@ function ListingForm({
     };
   }, [form.cover_photo_url]);
 
-  // New: just unset active cover in site_covers + clear sites.cover_photo_url
+  // Clear cover selection in form; will persist on save
   async function deleteCover() {
-    if (!form.cover_photo_url) return;
+    if (
+      !form.cover_photo_url &&
+      !form.cover_image_id &&
+      !form.cover_photo_thumb_url
+    )
+      return;
     setDeletingCover(true);
     try {
-      await supabase
-        .from("site_covers")
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("site_id", site.id);
-
-      await supabase
-        .from("sites")
-        .update({
-          cover_photo_url: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", site.id);
-
       set("cover_photo_url", "");
+      set("cover_photo_thumb_url", "");
+      set("cover_image_id", null);
       setCoverMeta({});
-    } catch (e) {
-      console.error(e);
-      alert("Could not clear cover.");
     } finally {
       setDeletingCover(false);
     }
   }
 
-  // 🔔 Update: always request PhotoStory to save silently to avoid duplicate success alerts
   const requestPhotoStorySave = useCallback(() => {
     document.dispatchEvent(
       new CustomEvent("photostory:save", { detail: { silent: true } })
@@ -1445,7 +1359,6 @@ function ListingForm({
 
   const saveAll = useCallback(
     async (opts?: { silent?: boolean }) => {
-      // Ensure the in-form value is normalized too, so user sees what will be saved
       setForm((prev: any) => ({
         ...prev,
         unesco_status: normalizeUnescoStatus(prev.unesco_status ?? "none"),
@@ -1457,7 +1370,6 @@ function ListingForm({
       await saveCategoryJoins();
       await saveRegionJoins();
 
-      // ✅ Trigger PhotoStory save silently (manual & autosave)
       requestPhotoStorySave();
 
       if (!opts?.silent) alert("Saved.");
@@ -1473,7 +1385,6 @@ function ListingForm({
     setForm((prev: any) => ({ ...prev, [key]: value }));
   }
 
-  // Apply / Clear helpers
   const applyCover = useCallback((payload: CanonicalKV) => {
     COVER_KEYS.forEach((k) => {
       if (payload[k] !== undefined) set(k as any, payload[k]);
@@ -1500,14 +1411,13 @@ function ListingForm({
       } else if (k === "unesco_status") {
         set(k as any, "none");
       } else if (NUMERIC_DETAIL_KEYS.has(k as string)) {
-        set(k as any, null); // numeric fields -> null
+        set(k as any, null);
       } else {
         set(k as any, "");
       }
     });
   }, []);
 
-  // Expose appliers to parent so sidebar uploader can auto-apply once
   useEffect(() => {
     onRegisterUploadAppliers(applyCover, applyDetails);
   }, [applyCover, applyDetails, onRegisterUploadAppliers]);
@@ -1562,7 +1472,6 @@ function ListingForm({
     return new Set(tabCfg.sections);
   }, [listingTab]);
 
-  // Small chip for linked guide status
   const linkedChip = linkedGuideMeta && (
     <span className="inline-flex items-center gap-2 text-xs rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-1">
       <Icon name="book" className="w-3.5 h-3.5 text-emerald-700" />
@@ -1575,7 +1484,6 @@ function ListingForm({
 
   return (
     <div className="space-y-8">
-      {/* Cover */}
       {visibleSections.has("hero") && (
         <Section
           title="Cover"
@@ -1681,7 +1589,7 @@ function ListingForm({
                   </div>
                 ) : (
                   <div className="grid place-items-center h-full text-sm text-gray-500">
-                    No cover uploaded
+                    No cover selected
                   </div>
                 )}
               </div>
@@ -1704,8 +1612,8 @@ function ListingForm({
                       onClick={deleteCover}
                       disabled={deletingCover}
                       className="inline-flex items-center justify-center p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-60"
-                      title="Remove image"
-                      aria-label="Remove image"
+                      title="Remove cover"
+                      aria-label="Remove cover"
                     >
                       <FaTrash className="w-4 h-4" />
                     </button>
@@ -1713,6 +1621,13 @@ function ListingForm({
                   <CoverUploader
                     value={form.cover_photo_url}
                     onChange={(url) => set("cover_photo_url", url)}
+                    onSelect={(img) => {
+                      set("cover_image_id", img.id);
+                      set(
+                        "cover_photo_thumb_url",
+                        img.thumbUrl || img.url
+                      );
+                    }}
                     siteId={form.id}
                     showPreview={false}
                   />
@@ -1734,7 +1649,6 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Taxonomy */}
       {visibleSections.has("categories-regions") && (
         <Section title="Taxanomy (multi-select)" id="categories-regions">
           <CategoriesRegionsSelector
@@ -1749,14 +1663,12 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Site Details */}
       {visibleSections.has("location") && (
         <Section
           title="Site Details"
           id="location"
           tools={
             <div className="flex items-center gap-2">
-              {/* NEW: connect / change guide */}
               {linkedChip}
               <Btn
                 onClick={onOpenGuideModal}
@@ -1780,7 +1692,6 @@ function ListingForm({
                 </Btn>
               )}
 
-              {/* existing tools */}
               <Btn
                 onClick={() => uploadCache && applyDetails(uploadCache)}
                 disabled={!uploadCache}
@@ -1812,7 +1723,6 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Article */}
       {visibleSections.has("articles") && (
         <Section title="Article" id="articles">
           <ArticlesSection
@@ -1831,21 +1741,18 @@ function ListingForm({
         </Section>
       )}
 
-      {/* Gallery */}
       {visibleSections.has("gallery") && (
         <Section title="Gallery" id="gallery">
           <GalleryUploader siteId={form.id} />
         </Section>
       )}
 
-      {/* Bibliography */}
       {visibleSections.has("bibliography") && (
         <Section title="Bibliography" id="bibliography">
           <Bibliography siteId={form.id} />
         </Section>
       )}
 
-      {/* Photo Story (frameless; PhotoStory owns its layout) */}
       {visibleSections.has("photo") && (
         <Section title="Photo Story" id="photo">
           <PhotoStory siteId={form.id} slug={form.slug} title={form.title} />
@@ -1855,15 +1762,26 @@ function ListingForm({
   );
 }
 
-/* CoverUploader: opens a modal to choose/upload/delete covers (covers/<siteId>) */
+/* CoverUploader: selects from gallery and writes into form */
+type LibraryImage = {
+  id: string; // site_images.id
+  storage_path: string;
+  url: string; // original
+  heroUrl: string; // hero variant
+  thumbUrl: string; // thumbnail variant
+  name: string;
+};
+
 function CoverUploader({
   value,
   onChange,
+  onSelect,
   siteId,
   showPreview = true,
 }: {
   value?: string;
   onChange: (url: string) => void;
+  onSelect?: (img: LibraryImage) => void;
   siteId: string | number;
   showPreview?: boolean;
 }) {
@@ -1898,7 +1816,8 @@ function CoverUploader({
         currentUrl={value ?? null}
         onClose={() => setOpen(false)}
         onPick={(img) => {
-          onChange(img.url);
+          onChange(img.heroUrl || img.url);
+          if (onSelect) onSelect(img);
           setOpen(false);
         }}
       />
@@ -1906,17 +1825,7 @@ function CoverUploader({
   );
 }
 
-/* -------- Cover library modal (outside click closes) -------- */
-
-type LibraryImage = {
-  id: string; // site_covers.id
-  key: string; // storage_path
-  url: string; // public URL
-  name: string;
-  size?: number | null;
-  created_at?: string | null;
-  isActive?: boolean;
-};
+/* -------- Cover library modal using site_images (outside click closes) -------- */
 
 function CoverLibraryModal({
   siteId,
@@ -1932,13 +1841,9 @@ function CoverLibraryModal({
   onPick: (img: LibraryImage) => void;
 }) {
   const BUCKET = "site-images";
-  const PATH = `covers/${siteId}`;
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<LibraryImage[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Close on ESC
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1948,35 +1853,41 @@ function CoverLibraryModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // Load covers from site_covers
   const refresh = useCallback(async () => {
     if (!open) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("site_covers")
-        .select("id, storage_path, is_active, created_at")
+        .from("site_images")
+        .select("id, storage_path")
         .eq("site_id", siteId)
-        .order("created_at", { ascending: false });
+        .order("sort_order", { ascending: true });
 
       if (error) throw error;
 
       const rows = data ?? [];
       const mapped: LibraryImage[] = await Promise.all(
         rows.map(async (row: any) => {
-          const url = await publicUrl(BUCKET, row.storage_path as string);
+          const storagePath = row.storage_path as string;
+
+          const originalUrl = await publicUrl(BUCKET, storagePath);
+
+          const heroPath = makeVariantPath(storagePath, "hero");
+          const thumbPath = makeVariantPath(storagePath, "thumb");
+
+          const heroUrl = await publicUrl(BUCKET, heroPath);
+          const thumbUrl = await publicUrl(BUCKET, thumbPath);
+
           const name =
-            (row.storage_path as string).split("/").pop() ||
-            (row.storage_path as string);
+            storagePath.split("/").pop() || storagePath;
 
           return {
             id: row.id,
-            key: row.storage_path,
-            url,
+            storage_path: storagePath,
+            url: originalUrl,
+            heroUrl,
+            thumbUrl,
             name,
-            size: null,
-            created_at: row.created_at,
-            isActive: !!row.is_active,
           };
         })
       );
@@ -1984,7 +1895,7 @@ function CoverLibraryModal({
       setImages(mapped);
     } catch (e) {
       console.error(e);
-      alert("Failed to load cover images.");
+      alert("Failed to load gallery images.");
     } finally {
       setLoading(false);
     }
@@ -1993,238 +1904,6 @@ function CoverLibraryModal({
   useEffect(() => {
     if (open) void refresh();
   }, [open, refresh]);
-
-  // Helper: set one cover as active and sync sites.cover_photo_url
-  async function setActiveCover(img: LibraryImage) {
-    try {
-      // Clear previous active
-      await supabase
-        .from("site_covers")
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq("site_id", siteId);
-
-      // Set chosen as active
-      await supabase
-        .from("site_covers")
-        .update({ is_active: true, updated_at: new Date().toISOString() })
-        .eq("id", img.id);
-
-      // Update sites.cover_photo_url for convenience / preview
-      await supabase
-        .from("sites")
-        .update({
-          cover_photo_url: img.url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", siteId);
-
-      setImages((prev) =>
-        prev.map((x) => ({ ...x, isActive: x.id === img.id }))
-      );
-    } catch (e) {
-      console.error(e);
-      alert("Could not set cover as active.");
-    }
-  }
-
-  async function onUpload(files?: FileList | null) {
-    if (!files || !files.length) return;
-    setUploading(true);
-    try {
-      const queue = Array.from(files).filter((f) =>
-        f.type.startsWith("image/")
-      );
-
-      // Check if there's already an active cover
-      const { data: existingActive } = await supabase
-        .from("site_covers")
-        .select("id")
-        .eq("site_id", siteId)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      let hasActive = !!existingActive;
-
-      for (const [index, f] of queue.entries()) {
-        // Resize client-side to medium size and compute meta
-        let prepared:
-          | {
-              blob: Blob;
-              width: number | null;
-              height: number | null;
-              blurHash: string | null;
-              blurDataUrl: string | null;
-            }
-          | null = null;
-
-        try {
-          prepared = await resizeImageForUpload(f, 1600, 1600);
-        } catch (err) {
-          console.error("Resize failed, falling back to original file.", err);
-          const meta = await extractImageMetaFromFile(f);
-          prepared = {
-            blob: f,
-            width: meta.width,
-            height: meta.height,
-            blurHash: meta.blurHash,
-            blurDataUrl: meta.blurDataUrl,
-          };
-        }
-
-        const { blob, width, height, blurHash, blurDataUrl } = prepared;
-
-        const safeName = f.name.replace(/\s+/g, "-");
-        const ext = ".jpg"; // we are uploading JPEG from canvas
-        const key = `${PATH}/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}-${safeName.replace(/\.[^.]+$/, "")}${ext}`;
-
-        // Upload medium-sized blob to storage
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET)
-          .upload(key, blob, {
-    upsert: false,
-    cacheControl: "31536000", // 1 year in seconds
-    contentType: (blob as any).type || "image/jpeg",
-  });
-        if (uploadError) throw uploadError;
-
-        const makeActive = !hasActive && index === 0;
-
-        // Insert into site_covers
-        const { data: inserted, error: dbError } = await supabase
-          .from("site_covers")
-          .insert({
-            site_id: siteId,
-            storage_path: key,
-            width,
-            height,
-            blur_hash: blurHash,
-            blur_data_url: blurDataUrl,
-            is_active: makeActive,
-          } as any)
-          .select("id, storage_path, is_active")
-          .single();
-
-        if (dbError) {
-          console.error("Failed to insert into site_covers", dbError);
-          continue;
-        }
-
-        const url = await publicUrl(BUCKET, inserted.storage_path as string);
-
-        if (makeActive && inserted) {
-          hasActive = true;
-
-          // Update sites.cover_photo_url
-          await supabase
-            .from("sites")
-            .update({
-              cover_photo_url: url,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", siteId);
-
-          // Immediately update parent form + preview
-          const activeImg: LibraryImage = {
-            id: inserted.id,
-            key: inserted.storage_path,
-            url,
-            name:
-              (inserted.storage_path as string).split("/").pop() ||
-              (inserted.storage_path as string),
-            size: null,
-            created_at: null,
-            isActive: true,
-          };
-          onPick(activeImg);
-        }
-      }
-
-      await refresh();
-    } catch (e) {
-      console.error(e);
-      alert("Upload failed.");
-    } finally {
-      setUploading(false);
-      // allow re-upload of the same file
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  async function deleteOne(img: LibraryImage) {
-    if (!confirm("Delete this image permanently?")) return;
-    try {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .remove([img.key]);
-      if (error) throw error;
-
-      await supabase.from("site_covers").delete().eq("id", img.id);
-
-      if (img.isActive) {
-        await supabase
-          .from("sites")
-          .update({
-            cover_photo_url: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", siteId);
-
-        // also clear parent preview
-        onPick({
-          ...img,
-          url: "",
-          isActive: false,
-        });
-      }
-
-      setImages((prev) => prev.filter((x) => x.id !== img.id));
-    } catch (e) {
-      console.error(e);
-      alert("Delete failed.");
-    }
-  }
-
-  async function deleteAll() {
-    if (!images.length) return;
-    if (
-      !confirm(
-        `Delete ALL ${images.length} cover images for this site permanently? This cannot be undone.`
-      )
-    )
-      return;
-    try {
-      const keys = images.map((x) => x.key);
-      const { error } = await supabase.storage.from(BUCKET).remove(keys);
-      if (error) throw error;
-
-      await supabase.from("site_covers").delete().eq("site_id", siteId);
-
-      await supabase
-        .from("sites")
-        .update({
-          cover_photo_url: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", siteId);
-
-      setImages([]);
-      // clear parent preview
-      if (currentUrl) {
-        onPick({
-          id: "",
-          key: "",
-          url: "",
-          name: "",
-          isActive: false,
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Bulk delete failed.");
-    }
-  }
 
   if (!open) return null;
 
@@ -2242,35 +1921,13 @@ function CoverLibraryModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <div className="font-semibold text-gray-900">Cover Photos</div>
-          <div className="flex items-center gap-2">
-            <label className="inline-flex items-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => onUpload(e.currentTarget.files)}
-                className="hidden"
-              />
-              <button
-                type="button"
-                className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                {uploading ? "Uploading…" : "Upload images"}
-              </button>
-            </label>
-
-            <button
-              type="button"
-              className="px-3 py-2 rounded-md bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
-              onClick={deleteAll}
-              disabled={!images.length}
-            >
-              Delete all
-            </button>
+          <div className="font-semibold text-gray-900">
+            Choose Cover from Gallery
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="hidden sm:inline">
+              To add or remove photos use the Gallery tab.
+            </span>
             <button
               type="button"
               className="px-3 py-2 rounded-md bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
@@ -2283,18 +1940,17 @@ function CoverLibraryModal({
 
         <div className="p-4 overflow-y-auto flex-1">
           {loading ? (
-            <div className="text-sm text-gray-600">Loading covers…</div>
+            <div className="text-sm text-gray-600">Loading photos…</div>
           ) : images.length === 0 ? (
             <div className="text-sm text-gray-600">
-              No cover photos yet. Use “Upload images” to add some.
+              No gallery photos yet. Add images in the Gallery section first.
             </div>
           ) : (
             <div className="flex flex-wrap items-start gap-3">
               {images.map((img) => {
-                // strict boolean to satisfy aria-disabled type
-                const isCurrent = !!(
-                  img.isActive || (currentUrl && img.url === currentUrl)
-                );
+                const isCurrent =
+                  !!currentUrl &&
+                  (img.heroUrl === currentUrl || img.url === currentUrl);
 
                 const imageClass = isCurrent
                   ? "opacity-90"
@@ -2306,9 +1962,8 @@ function CoverLibraryModal({
                     className={`relative rounded-lg border ${
                       isCurrent ? "border-indigo-500" : "border-gray-200"
                     } bg-white overflow-hidden`}
-                    onClick={async () => {
+                    onClick={() => {
                       if (isCurrent) return;
-                      await setActiveCover(img);
                       onPick(img);
                     }}
                     role="button"
@@ -2318,17 +1973,14 @@ function CoverLibraryModal({
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         if (!isCurrent) {
-                          void (async () => {
-                            await setActiveCover(img);
-                            onPick(img);
-                          })();
+                          onPick(img);
                         }
                       }
                     }}
                   >
                     <div className="relative h-44 w-72">
                       <NextImage
-                        src={img.url}
+                        src={img.heroUrl || img.url}
                         alt={img.name}
                         fill
                         className={`object-cover ${imageClass}`}
@@ -2344,17 +1996,6 @@ function CoverLibraryModal({
                         Current cover
                       </div>
                     ) : null}
-                    <div className="absolute top-2 right-2">
-                      <button
-                        className="px-2 py-1 rounded bg-white text-red-600 text-xs border border-red-200 shadow-sm hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void deleteOne(img);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
                   </div>
                 );
               })}
@@ -2366,7 +2007,7 @@ function CoverLibraryModal({
   );
 }
 
-/* ---------------- Sidebar Importer (CSV-only, client-side) ---------------- */
+/* ---------------- Sidebar Importer (CSV only, client side) ---------------- */
 
 function SidebarImporter({
   provinces,
@@ -2379,7 +2020,6 @@ function SidebarImporter({
 }) {
   const [status, setStatus] = useState<string | null>(null);
 
-  // Quote each header (many contain commas/parentheses)
   const templateHref = useMemo(() => {
     const headerLine = TEMPLATE_HEADERS.map(
       (h) => `"${String(h).replace(/"/g, '""')}"`
@@ -2418,7 +2058,6 @@ function SidebarImporter({
           setStatus("No rows found in the CSV.");
           return;
         }
-        // Use first row
         const src = rows[0];
         const kv: CanonicalKV = {};
         let applied = 0;
@@ -2430,7 +2069,6 @@ function SidebarImporter({
 
           let val: any = rawVal;
 
-          // Normalizations
           if (target === "unesco_status") val = normalizeUnescoStatus(val);
           if (
             target === "travel_airport_access" ||
@@ -2450,13 +2088,11 @@ function SidebarImporter({
             continue;
           }
 
-          // Numbers for lat/lng only (others coerced on save if needed)
           if (["latitude", "longitude"].includes(target) && val != null) {
             const num = Number(String(val).replace(/,/g, ""));
             if (!Number.isNaN(num)) val = num;
           }
 
-          // Cover specific
           if (target === "cover_location") {
             kv["location_free"] = val;
             applied++;
@@ -2477,7 +2113,6 @@ function SidebarImporter({
         setStatus(`Error: ${err?.message || "unknown error"}`),
     });
 
-    // allow re-upload of same file
     e.currentTarget.value = "";
   }
 

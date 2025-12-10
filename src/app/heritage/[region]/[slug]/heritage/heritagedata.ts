@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-// ---- Public page needs this to merge with site fields ----
+/* -------------------------------------------------------
+   TRAVEL GUIDE SUMMARY
+-------------------------------------------------------- */
 export type TravelGuideSummary = {
   location?: string | null;
   how_to_reach?: string | null;
@@ -61,34 +63,35 @@ export type TravelGuideSummary = {
   temp_summers?: string | null;
 };
 
-// Types kept here to avoid a separate file
+/* -------------------------------------------------------
+   SITE TYPE
+-------------------------------------------------------- */
 export type Site = {
   id: string;
   slug: string;
   title: string;
   tagline?: string | null;
 
-  /** Legacy URL, kept for backward compatibility / fallback */
   cover_photo_url?: string | null;
+  cover_photo_hero_url?: string | null;
+  cover_photo_thumb_url?: string | null;
 
   avg_rating?: number | null;
   review_count?: number | null;
   heritage_type?: string | null;
   location_free?: string | null;
+
   latitude?: string | null;
   longitude?: string | null;
+
   town_city_village?: string | null;
   tehsil?: string | null;
   district?: string | null;
   province_id?: number | null;
 
-  // NEW for routing
   province_slug?: string | null;
-
-  // NEW: link to region guide
   region_travel_guide_id?: string | null;
 
-  // Legacy relational cover reference (not used now that site_covers is the source of truth)
   cover_image_id?: string | null;
 
   architectural_style?: string | null;
@@ -155,18 +158,27 @@ export type Site = {
   stay_camping_possible?: string | null;
   stay_places_to_eat_available?: string | null;
 
-  /** Unified cover object built from site_covers (if present) */
-  cover?: {
-    url: string;
-    width?: number | null;
-    height?: number | null;
-    blurhash?: string | null;
-    blurDataURL?: string | null;
-  } | null;
+  cover?:
+    | {
+        url: string;
+        heroUrl?: string | null;
+        thumbUrl?: string | null;
+        width?: number | null;
+        height?: number | null;
+        blurhash?: string | null;
+        blurDataURL?: string | null;
+      }
+    | null;
 };
 
 export type Taxonomy = { id: string; name: string; icon_key: string | null };
 
+const BUCKET = "site-images";
+type Variant = "thumb" | "sm" | "md" | "lg" | "hero";
+
+/* -------------------------------------------------------
+   IMAGE ROW
+-------------------------------------------------------- */
 export type ImageRow = {
   id: string;
   site_id: string;
@@ -174,17 +186,22 @@ export type ImageRow = {
   alt_text?: string | null;
   caption?: string | null;
   credit?: string | null;
-  is_cover?: boolean | null; // legacy flag, safe to ignore now
+  is_cover?: boolean | null;
   sort_order: number;
-  publicUrl?: string | null;
 
-  // metadata from site_images table
+  publicUrl?: string | null;
+  heroUrl?: string | null;
+  thumbUrl?: string | null;
+
   width?: number | null;
   height?: number | null;
   blurhash?: string | null;
   blurDataURL?: string | null;
 };
 
+/* -------------------------------------------------------
+   BIBLIOGRAPHY
+-------------------------------------------------------- */
 export type BiblioItem = {
   id: string;
   csl: any;
@@ -194,12 +211,12 @@ export type BiblioItem = {
 
 async function loadGlobalCitationStyle(): Promise<string> {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("app_settings")
       .select("value")
       .eq("key", "citation")
       .maybeSingle();
-    if (!error && data?.value?.style) return data.value.style as string;
+    if (data?.value?.style) return data.value.style;
   } catch {}
   return "apa";
 }
@@ -234,7 +251,7 @@ function buildFallbackCSL(src: any): any {
 async function loadBibliographyForPublic(
   siteId: string
 ): Promise<BiblioItem[]> {
-  const { data: links, error: e1 } = await supabase
+  const { data: links } = await supabase
     .from("listing_bibliography")
     .select(
       `
@@ -245,8 +262,8 @@ async function loadBibliographyForPublic(
     .eq("listing_id", siteId)
     .order("sort_order", { ascending: true });
 
-  if (!e1 && Array.isArray(links) && links.length) {
-    return (links as any[]).map((row) => {
+  if (Array.isArray(links) && links.length) {
+    return links.map((row: any) => {
       const src = row.bibliography_sources || {};
       const csl =
         src?.csl && typeof src.csl === "object"
@@ -257,7 +274,7 @@ async function loadBibliographyForPublic(
         csl,
         note: row?.note ?? src?.notes ?? null,
         sort_order: row?.sort_order ?? 0,
-      } as BiblioItem;
+      };
     });
   }
 
@@ -276,6 +293,9 @@ async function loadBibliographyForPublic(
   }));
 }
 
+/* -------------------------------------------------------
+   MAIN HOOK
+-------------------------------------------------------- */
 export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
   const [loading, setLoading] = useState(true);
   const [site, setSite] = useState<Site | null>(null);
@@ -291,7 +311,6 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     section_id: string | null;
   }>({ quote: null, section_id: null });
 
-  // NEW: travel guide summary for the linked (published) guide
   const [travelGuideSummary, setTravelGuideSummary] =
     useState<TravelGuideSummary | null>(null);
 
@@ -301,8 +320,10 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
       try {
         setLoading(true);
 
-        // 1) Load site + province
-        const { data: s, error: siteErr } = await supabase
+        /* -------------------------------------------------------
+           1) LOAD SITE
+        -------------------------------------------------------- */
+        const { data: s } = await supabase
           .from("sites")
           .select(
             `
@@ -317,7 +338,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .eq("slug", slug)
           .maybeSingle();
 
-        if (siteErr || !s) {
+        if (!s) {
           setSite(null);
           setTravelGuideSummary(null);
           setProvinceName(null);
@@ -333,11 +354,15 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
         setProvinceName(rawSite?.province?.name ?? null);
 
-        // 2) Citation style
+        /* -------------------------------------------------------
+           2) CITATION STYLE
+        -------------------------------------------------------- */
         const style = await loadGlobalCitationStyle();
         setStyleId(style);
 
-        // 3) Categories
+        /* -------------------------------------------------------
+           3) CATEGORIES
+        -------------------------------------------------------- */
         const { data: sc } = await supabase
           .from("site_categories")
           .select("categories(id, name, icon_key)")
@@ -346,14 +371,18 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           (sc || []).map((row: any) => row.categories).filter(Boolean)
         );
 
-        // 4) Regions
+        /* -------------------------------------------------------
+           4) REGIONS
+        -------------------------------------------------------- */
         const { data: sr } = await supabase
           .from("site_regions")
           .select("regions(id, name, icon_key)")
           .eq("site_id", siteBase.id);
         setRegions((sr || []).map((row: any) => row.regions).filter(Boolean));
 
-        // 5) Gallery: still from site_images
+        /* -------------------------------------------------------
+           5) GALLERY
+        -------------------------------------------------------- */
         const { data: imgs } = await supabase
           .from("site_images")
           .select(
@@ -375,78 +404,70 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .eq("site_id", siteBase.id)
           .order("sort_order", { ascending: true });
 
-        const galleryWithUrls: ImageRow[] = (imgs || []).map((r: any) => ({
-          id: r.id,
-          site_id: r.site_id,
-          storage_path: r.storage_path,
-          alt_text: r.alt_text,
-          caption: r.caption,
-          credit: r.credit,
-          is_cover: r.is_cover,
-          sort_order: r.sort_order ?? 0,
-          width: r.width,
-          height: r.height,
-          blurhash: r.blur_hash ?? null,
-          blurDataURL: r.blur_data_url ?? null,
-          publicUrl: r.storage_path
-            ? supabase.storage
-                .from("site-images")
-                .getPublicUrl(r.storage_path).data.publicUrl
-            : null,
-        }));
+        const galleryWithUrls: ImageRow[] = (imgs || []).map((r: any) => {
+          const basePublic =
+            r.storage_path && BUCKET
+              ? supabase.storage.from(BUCKET).getPublicUrl(r.storage_path)
+                  .data.publicUrl
+              : null;
+
+          let heroPublic: string | null = null;
+          let thumbPublic: string | null = null;
+
+          if (r.storage_path) {
+            const lastDot = r.storage_path.lastIndexOf(".");
+            if (lastDot !== -1) {
+              const name = r.storage_path.slice(0, lastDot);
+              const ext = r.storage_path.slice(lastDot);
+
+              const heroPath = `${name}_hero${ext}`;
+              heroPublic =
+                supabase.storage.from(BUCKET).getPublicUrl(heroPath).data
+                  .publicUrl || basePublic;
+
+              const thumbPath = `${name}_thumb${ext}`;
+              thumbPublic =
+                supabase.storage.from(BUCKET).getPublicUrl(thumbPath).data
+                  .publicUrl || basePublic;
+            }
+          }
+
+          return {
+            id: r.id,
+            site_id: r.site_id,
+            storage_path: r.storage_path,
+            alt_text: r.alt_text,
+            caption: r.caption,
+            credit: r.credit,
+            is_cover: r.is_cover,
+            sort_order: r.sort_order ?? 0,
+            width: r.width,
+            height: r.height,
+            blurhash: r.blur_hash ?? null,
+            blurDataURL: r.blur_data_url ?? null,
+            publicUrl: basePublic,
+            heroUrl: heroPublic,
+            thumbUrl: thumbPublic,
+          };
+        });
 
         setGallery(galleryWithUrls);
 
-        // 6) Cover: source of truth = site_covers
+        /* -------------------------------------------------------
+           6) COVER SELECTION (use stored hero and thumb urls)
+        -------------------------------------------------------- */
         let cover: Site["cover"] = null;
 
-        try {
-          // Prefer active cover; otherwise, latest record
-          const { data: coverRow } = await supabase
-            .from("site_covers")
-            .select(
-              `
-              id,
-              storage_path,
-              width,
-              height,
-              blur_hash,
-              blur_data_url,
-              is_active,
-              created_at
-            `
-            )
-            .eq("site_id", siteBase.id)
-            .order("is_active", { ascending: false })
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        if (siteBase.cover_photo_hero_url || siteBase.cover_photo_url) {
+          const heroUrl =
+            siteBase.cover_photo_hero_url ||
+            siteBase.cover_photo_url ||
+            null;
 
-          if (coverRow && coverRow.storage_path) {
-            const { data: pub } = supabase.storage
-              .from("site-images")
-              .getPublicUrl(coverRow.storage_path as string);
-            const url = pub?.publicUrl || null;
-
-            if (url) {
-              cover = {
-                url,
-                width: coverRow.width ?? null,
-                height: coverRow.height ?? null,
-                blurhash: coverRow.blur_hash ?? null,
-                blurDataURL: coverRow.blur_data_url ?? null,
-              };
-            }
-          }
-        } catch (e) {
-          // Non-fatal: we fall back to legacy field below
-          console.error("Failed to load cover from site_covers", e);
-        }
-
-        // Legacy fallback: if there is no site_covers row but cover_photo_url exists
-        if (!cover && siteBase.cover_photo_url) {
           cover = {
-            url: siteBase.cover_photo_url,
+            url: heroUrl || siteBase.cover_photo_url || "",
+            heroUrl,
+            thumbUrl: siteBase.cover_photo_thumb_url ?? null,
             width: null,
             height: null,
             blurhash: null,
@@ -454,17 +475,20 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           };
         }
 
-        // 7) Set final site with cover attached
         setSite({
           ...siteBase,
           cover,
         });
 
-        // 8) Bibliography
+        /* -------------------------------------------------------
+           7) BIBLIOGRAPHY
+        -------------------------------------------------------- */
         const b = await loadBibliographyForPublic(siteBase.id);
         setBibliography(b);
 
-        // 9) Photo story
+        /* -------------------------------------------------------
+           8) PHOTO STORY
+        -------------------------------------------------------- */
         const { data: ps } = await supabase
           .from("photo_stories")
           .select("site_id")
@@ -472,7 +496,9 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .maybeSingle();
         setHasPhotoStory(!!ps);
 
-        // 10) Linked travel guide summary (published only)
+        /* -------------------------------------------------------
+           9) TRAVEL GUIDE SUMMARY
+        -------------------------------------------------------- */
         if (siteBase.region_travel_guide_id) {
           const { data: tgs } = await supabase
             .from("region_travel_guide_summary")
@@ -491,7 +517,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
             .maybeSingle();
 
           if (tgs) {
-            const { region_travel_guides: _joined, ...summary } =
+            const { region_travel_guides: _unused, ...summary } =
               (tgs as any) || {};
             setTravelGuideSummary(summary as TravelGuideSummary);
           } else {
@@ -501,17 +527,20 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           setTravelGuideSummary(null);
         }
 
-        // 11) Deep-link highlight (research note)
+        /* -------------------------------------------------------
+           10) DEEP LINKS
+        -------------------------------------------------------- */
         if (deepLinkNoteId) {
           const { data: rn } = await supabase
             .from("research_notes")
             .select("id, quote_text, section_id")
             .eq("id", deepLinkNoteId)
             .maybeSingle();
+
           if (rn?.quote_text) {
             setHighlight({
-              quote: rn.quote_text as string,
-              section_id: (rn.section_id as string) || null,
+              quote: rn.quote_text,
+              section_id: rn.section_id || null,
             });
           }
         }
@@ -521,6 +550,9 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     })();
   }, [slug, deepLinkNoteId]);
 
+  /* -------------------------------------------------------
+     GOOGLE MAPS HANDLING
+  -------------------------------------------------------- */
   const maps = useMemo(() => {
     const lat = site?.latitude ? Number(site.latitude) : null;
     const lng = site?.longitude ? Number(site.longitude) : null;
@@ -537,7 +569,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
   return {
     loading,
-    site, // includes province_slug + cover (from site_covers)
+    site,
     provinceName,
     categories,
     regions,
@@ -548,7 +580,6 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
     highlight,
     setHighlight,
     maps,
-    // For sidebar / details
     travelGuideSummary,
   };
 }

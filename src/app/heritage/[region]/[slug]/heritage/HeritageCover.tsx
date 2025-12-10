@@ -53,11 +53,12 @@ function BlurhashImage({
 
 /* -------------------------------------------------------
    MAIN COMPONENT
+   Rule: hero comes from sites.cover_photo_url only.
+   cover object is only for blur metadata / fallback.
 --------------------------------------------------------*/
 export default function HeritageCover({
   site,
   hasPhotoStory,
-  fadeImage = false, // kept for signature compatibility
 }: {
   site: {
     id: string;
@@ -69,9 +70,14 @@ export default function HeritageCover({
     location_free?: string | null;
     avg_rating?: number | null;
     review_count?: number | null;
+
+    cover_photo_url?: string | null;
+
     cover?:
       | {
-          url: string | null;
+          url: string;
+          heroUrl?: string | null;
+          thumbUrl?: string | null;
           width?: number | null;
           height?: number | null;
           blurhash?: string | null;
@@ -80,11 +86,16 @@ export default function HeritageCover({
       | null;
   };
   hasPhotoStory: boolean;
-  fadeImage?: boolean;
 }) {
   const cover = site.cover ?? null;
-  const heroUrl = cover?.url ?? null;
 
+  // 1) sites.cover_photo_url (author-controlled hero file)
+  // 2) legacy cover.heroUrl
+  // 3) legacy cover.url
+  const heroUrl: string | null =
+    site.cover_photo_url || cover?.heroUrl || cover?.url || null;
+
+  // Blur metadata only from cover if available
   const activeBlurDataURL = cover?.blurDataURL ?? undefined;
   const activeBlurhash = cover?.blurhash ?? null;
   const activeWidth = cover?.width ?? null;
@@ -210,8 +221,8 @@ export default function HeritageCover({
               height={activeHeight ?? 900}
               sizes="100vw"
               priority
-              quality={75}
               placeholder="empty"
+              unoptimized
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
                 heroLoaded ? "opacity-100" : "opacity-0"
               }`}
@@ -314,7 +325,6 @@ export default function HeritageCover({
         className="relative w-full overflow-hidden hidden md:block"
         style={{
           height: "99svh",
-          // pull hero up so it starts from screen top behind sticky header
           marginTop: "calc(-1 * var(--sticky-offset, 72px))",
         }}
       >
@@ -361,10 +371,10 @@ export default function HeritageCover({
                 alt={site.title}
                 fill
                 sizes="100vw"
-                quality={75}
                 priority={false}
                 loading="lazy"
                 placeholder="empty"
+                unoptimized
                 className={`object-cover object-top transition-opacity duration-700 ${
                   heroLoaded ? "opacity-100" : "opacity-0"
                 }`}
