@@ -14,50 +14,44 @@ const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
-/* ---------- Supabase image helper ---------- */
+/* ---------- Public URL helpers for stored variants ---------- */
 
-function getSupabaseTransformedUrl(
-  src: string,
-  opts: {
-    width?: number;
-    height?: number;
-    quality?: number;
-    resize?: "cover" | "contain" | "fill";
-  } = {}
-) {
-  // Only touch Supabase storage URLs
-  if (!src.includes("supabase.co/storage/v1")) return src;
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(
+  /\/+$/,
+  ""
+);
 
-  try {
-    const url = new URL(src);
+function encodeRFC3986(seg: string) {
+  return encodeURIComponent(seg).replace(
+    /[!'()*]/g,
+    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
+  );
+}
 
-    // Switch to image render endpoint so transformations apply
-    if (url.pathname.includes("/storage/v1/object/")) {
-      url.pathname = url.pathname.replace(
-        "/storage/v1/object/",
-        "/storage/v1/render/image/"
-      );
-    }
+function storagePathToPublicUrl(bucket: string, key: string): string {
+  const encodedKey = key
+    .split("/")
+    .map((seg) => encodeRFC3986(seg.trim()))
+    .join("/");
 
-    const { width, height, quality, resize } = opts;
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${encodedKey}`;
+}
 
-    if (width && !url.searchParams.has("width")) {
-      url.searchParams.set("width", String(width));
-    }
-    if (height && !url.searchParams.has("height")) {
-      url.searchParams.set("height", String(height));
-    }
-    if (quality && !url.searchParams.has("quality")) {
-      url.searchParams.set("quality", String(quality));
-    }
-    if (resize && !url.searchParams.has("resize")) {
-      url.searchParams.set("resize", resize);
-    }
+type Variant = "thumb" | "sm" | "md";
 
-    return url.toString();
-  } catch {
-    return src;
+function makeVariantPath(baseKey: string, variant: Variant): string {
+  const lastDot = baseKey.lastIndexOf(".");
+  if (lastDot === -1) {
+    return `${baseKey}_${variant}`;
   }
+  const name = baseKey.slice(0, lastDot);
+  const ext = baseKey.slice(lastDot);
+  return `${name}_${variant}${ext}`;
+}
+
+function getVariantPublicUrl(storagePath: string, variant: Variant): string {
+  const variantPath = makeVariantPath(storagePath, variant);
+  return storagePathToPublicUrl("site-images", variantPath);
 }
 
 /* ---------- BlurHash Component (matches aspect ratio) ---------- */
@@ -211,26 +205,33 @@ export function Lightbox({
     return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
   }, [isMdUp, isLgUp, nat, win]);
 
-  /* ---------- Optimized URL for current photo ---------- */
-  // Use a reasonably large width for full screen, but still much smaller than original
-  const optimizedPhotoUrl = useMemo(
-    () =>
-      getSupabaseTransformedUrl(photo.url, {
-        width: 1600,
-        quality: 80,
-      }),
-    [photo.url]
-  );
+  /* ---------- Medium variant URL for current photo ---------- */
+  const mediumPhotoUrl = useMemo(() => {
+    if (photo.storagePath) {
+      try {
+        return getVariantPublicUrl(photo.storagePath, "md");
+      } catch {
+        return photo.url;
+      }
+    }
+    return photo.url;
+  }, [photo.storagePath, photo.url]);
 
-  /* ---------- Prefetch neighbours for snappy nav ---------- */
+  /* ---------- Prefetch neighbours using medium variant ---------- */
   useEffect(() => {
     const preload = (p?: LightboxPhoto) => {
       if (!p) return;
-      const img = new window.Image();
-      img.src = getSupabaseTransformedUrl(p.url, {
-        width: 1600,
-        quality: 80,
-      });
+      try {
+        const src =
+          p.storagePath != null
+            ? getVariantPublicUrl(p.storagePath, "md")
+            : p.url;
+        const img = new window.Image();
+        img.src = src;
+      } catch {
+        const img = new window.Image();
+        img.src = p.url;
+      }
     };
     preload(photos[(currentIndex + 1) % photos.length]);
     preload(photos[(currentIndex - 1 + photos.length) % photos.length]);
@@ -313,9 +314,9 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top, now transformed by Supabase */}
+              {/* Full image on top using medium variant */}
               <NextImage
-                src={optimizedPhotoUrl}
+                src={mediumPhotoUrl}
                 alt={photo.caption ?? ""}
                 fill
                 unoptimized

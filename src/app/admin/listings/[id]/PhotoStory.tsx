@@ -388,7 +388,11 @@ function PhotoLibraryModal({
           const key = uniqueKey("story", siteId, f.name);
           const { error } = await supabase.storage
             .from("photo-story")
-            .upload(key, f, { upsert: false, cacheControl: "3600" });
+            .upload(key, f, {
+    upsert: false,
+    cacheControl: "31536000", // 1 year in seconds
+    contentType: f.type || "image/jpeg",
+  });
           if (error) throw error;
         }
       }

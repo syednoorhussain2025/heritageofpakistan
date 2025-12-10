@@ -2082,7 +2082,11 @@ function CoverLibraryModal({
         // Upload medium-sized blob to storage
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
-          .upload(key, blob, { upsert: false, cacheControl: "3600" });
+          .upload(key, blob, {
+    upsert: false,
+    cacheControl: "31536000", // 1 year in seconds
+    contentType: (blob as any).type || "image/jpeg",
+  });
         if (uploadError) throw uploadError;
 
         const makeActive = !hasActive && index === 0;

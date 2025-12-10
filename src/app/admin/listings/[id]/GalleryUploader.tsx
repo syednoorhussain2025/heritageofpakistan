@@ -183,6 +183,37 @@ type ActionReturn =
       usdEstimate?: number | null;
     };
 
+/* ---------------- Variant key helper ---------------- */
+
+function allVariantKeys(originalPath: string): string[] {
+  if (!originalPath) return [];
+
+  const lastDot = originalPath.lastIndexOf(".");
+  if (lastDot === -1) {
+    // no extension, just append suffixes
+    return [
+      originalPath,              // original
+      `${originalPath}_thumb`,
+      `${originalPath}_sm`,
+      `${originalPath}_md`,
+      `${originalPath}_lg`,
+      `${originalPath}_hero`,
+    ];
+  }
+
+  const base = originalPath.slice(0, lastDot);
+  const ext = originalPath.slice(lastDot);
+
+  return [
+    originalPath,               // original
+    `${base}_thumb${ext}`,
+    `${base}_sm${ext}`,
+    `${base}_md${ext}`,
+    `${base}_lg${ext}`,
+    `${base}_hero${ext}`,
+  ];
+}
+
 /* ---------------- Blur + Dimension helpers (client-side) ---------------- */
 
 async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -446,16 +477,30 @@ export default function GalleryUploader({
           blurDataURL,
         } = await extractImageMetaFromFile(file);
 
-        // 2) Upload to Supabase Storage
-        const { error: uploadErr } = await supabase.storage
-          .from("site-images")
-          .upload(thisKey, file, {
-            upsert: false,
-          });
-        if (uploadErr) {
-          alert(uploadErr.message);
+        // 2) Call API route that generates all variants with sharp
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("siteId", String(siteId));
+        formData.append("key", thisKey);
+
+        const res = await fetch("/api/gallery/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          let msg = "Upload failed";
+          try {
+            const data = await res.json();
+            if (data?.error) msg = data.error;
+          } catch {
+            // ignore JSON parse error
+          }
+          alert(msg);
           setUploads((prev) =>
-            prev.map((u) => (u.key === thisKey ? { ...u, done: true } : u))
+            prev.map((u) =>
+              u.key === thisKey ? { ...u, done: true } : u
+            )
           );
           continue;
         }
@@ -463,7 +508,7 @@ export default function GalleryUploader({
         // 3) Insert DB row with dimensions + blur info
         const { error: dbErr } = await supabase.from("site_images").insert({
           site_id: siteId,
-          storage_path: thisKey,
+          storage_path: thisKey, // original path
           sort_order: order++,
           width: width ?? null,
           height: height ?? null,
@@ -502,7 +547,12 @@ export default function GalleryUploader({
   async function removeRow(id: string, storage_path: string) {
     const { error } = await supabase.from("site_images").delete().eq("id", id);
     if (error) return alert(error.message);
-    await supabase.storage.from("site-images").remove([storage_path]);
+
+    const keys = allVariantKeys(storage_path);
+    if (keys.length) {
+      await supabase.storage.from("site-images").remove(keys);
+    }
+
     setRows((prev) => prev.filter((r) => r.id !== id));
     setMetaMap((prev) => {
       const next = { ...prev };
@@ -528,7 +578,7 @@ export default function GalleryUploader({
 
     const meta: Meta = { ...baseMeta };
 
-    // Only fetch dimensions from image if DB doesn't have them
+    // Only fetch dimensions from image if DB does not have them
     if (!meta.w || !meta.h) {
       try {
         const img = new Image();
@@ -660,8 +710,9 @@ export default function GalleryUploader({
     try {
       const ids = Array.from(selectedIds);
       const selectedRows = rows.filter((r) => ids.includes(r.id));
+
       const storageKeys = selectedRows
-        .map((r) => r.storage_path)
+        .flatMap((r) => allVariantKeys(r.storage_path))
         .filter(Boolean);
 
       const { error: dbErr } = await supabase
