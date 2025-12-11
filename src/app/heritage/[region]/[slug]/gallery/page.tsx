@@ -14,12 +14,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default async function Page({
-  params,
-}: {
-  params: { region: string; slug: string };
-}) {
-  const { region, slug } = params;
+// Do not type params here to avoid conflict with Next's generated PageProps
+export default async function Page(props: any) {
+  const { region, slug } = props.params as { region: string; slug: string };
 
   // 1. Site header from Supabase
   const { data: site, error: siteError } = await supabase
