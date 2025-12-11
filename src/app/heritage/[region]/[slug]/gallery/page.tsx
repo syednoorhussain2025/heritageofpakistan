@@ -18,12 +18,9 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 /* ------------------------------------------------------------------
    Professional SEO metadata for gallery page
 -------------------------------------------------------------------*/
-export async function generateMetadata({
-  params,
-}: {
-  params: { region: string; slug: string };
-}): Promise<Metadata> {
-  const { region, slug } = params;
+export async function generateMetadata(props: any): Promise<Metadata> {
+  // ❗ FIX: Next.js 15 requires awaiting params because params is a Promise
+  const { region, slug } = await props.params;
 
   let siteTitle = slug.replace(/-/g, " ");
   let locationFree: string | null = null;
@@ -42,7 +39,7 @@ export async function generateMetadata({
     locationFree = data?.location_free ?? null;
     tagline = data?.tagline ?? null;
   } catch {
-    // If Supabase metadata fetch fails, fall back to slug based values
+    // fallback if metadata cannot be fetched
   }
 
   const readableRegion = region.replace(/-/g, " ");
@@ -60,7 +57,7 @@ export async function generateMetadata({
 
   const canonicalPath = `/heritage/${region}/${slug}/gallery`;
 
-  // This path will be handled by a dedicated OG image route we create next
+  // Will be handled by /socialsharingcard route
   const ogImagePath = `/heritage/${region}/${slug}/gallery/socialsharingcard`;
 
   return {
