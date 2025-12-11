@@ -122,7 +122,6 @@ type MasonryTileProps = {
   onOpen: () => void;
   siteId: string;
   isPriority: boolean;
-  onLoaded: () => void;
 };
 
 const MasonryTile = memo(function MasonryTile({
@@ -130,7 +129,6 @@ const MasonryTile = memo(function MasonryTile({
   onOpen,
   siteId,
   isPriority,
-  onLoaded,
 }: MasonryTileProps) {
   const extras = photo as PhotoWithExtras;
 
@@ -175,22 +173,6 @@ const MasonryTile = memo(function MasonryTile({
   }, [photo.storagePath, photo.url]);
 
   const [loaded, setLoaded] = useState(false);
-  const reportedLoadedRef = useRef(false);
-
-  // Handle cached images that are already complete when the component mounts
-  useEffect(() => {
-    const img = tileRef.current?.querySelector("img") as
-      | HTMLImageElement
-      | undefined
-      | null;
-    if (img && img.complete) {
-      setLoaded(true);
-      if (!reportedLoadedRef.current) {
-        reportedLoadedRef.current = true;
-        onLoaded();
-      }
-    }
-  }, [onLoaded]);
 
   return (
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
@@ -240,10 +222,6 @@ const MasonryTile = memo(function MasonryTile({
           blurDataURL={blurDataURL}
           onLoadingComplete={() => {
             setLoaded(true);
-            if (!reportedLoadedRef.current) {
-              reportedLoadedRef.current = true;
-              onLoaded();
-            }
           }}
         />
 
@@ -330,8 +308,6 @@ export default function GalleryClient({
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  const [loadedInBatch, setLoadedInBatch] = useState(0);
-
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<LightboxPhoto | null>(
@@ -340,12 +316,7 @@ export default function GalleryClient({
 
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
-    setLoadedInBatch(0);
   }, [slug]);
-
-  useEffect(() => {
-    setLoadedInBatch(0);
-  }, [visibleCount]);
 
   const categories: string[] = useMemo(() => {
     const set = new Set<string>();
@@ -360,10 +331,6 @@ export default function GalleryClient({
     [photos, visibleCount]
   );
 
-  const handleTileLoaded = useCallback(() => {
-    setLoadedInBatch((prev) => prev + 1);
-  }, []);
-
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
@@ -375,16 +342,6 @@ export default function GalleryClient({
       (entries) => {
         const [entry] = entries;
         if (!entry.isIntersecting) return;
-
-        const batchStart = visibleCount - BATCH_SIZE;
-        const imagesInThisBatch = photos.slice(
-          Math.max(0, batchStart),
-          visibleCount
-        ).length;
-
-        if (loadedInBatch < imagesInThisBatch) {
-          return;
-        }
 
         setIsBatchLoading(true);
         timeoutId = window.setTimeout(() => {
@@ -409,7 +366,7 @@ export default function GalleryClient({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [visibleCount, photos.length, loadedInBatch, photos]);
+  }, [visibleCount, photos.length]);
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
@@ -548,7 +505,6 @@ export default function GalleryClient({
                     siteId={site!.id}
                     onOpen={() => setLightboxIndex(idx)}
                     isPriority={idx < TOP_PRIORITY_COUNT}
-                    onLoaded={handleTileLoaded}
                   />
                 ))}
               </div>
