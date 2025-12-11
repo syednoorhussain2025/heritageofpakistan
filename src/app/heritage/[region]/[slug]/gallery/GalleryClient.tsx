@@ -177,6 +177,21 @@ const MasonryTile = memo(function MasonryTile({
   const [loaded, setLoaded] = useState(false);
   const reportedLoadedRef = useRef(false);
 
+  // Handle cached images that are already complete when the component mounts
+  useEffect(() => {
+    const img = tileRef.current?.querySelector("img") as
+      | HTMLImageElement
+      | undefined
+      | null;
+    if (img && img.complete) {
+      setLoaded(true);
+      if (!reportedLoadedRef.current) {
+        reportedLoadedRef.current = true;
+        onLoaded();
+      }
+    }
+  }, [onLoaded]);
+
   return (
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
       <div
