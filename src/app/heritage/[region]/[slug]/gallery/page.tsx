@@ -3,6 +3,7 @@
 export const dynamic = "force-static";
 export const revalidate = 31536000;
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import GalleryClient, { SiteHeaderInfo } from "./GalleryClient";
 import type { LightboxPhoto } from "@/types/lightbox";
@@ -13,6 +14,89 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+/* ------------------------------------------------------------------
+   Professional SEO metadata for gallery page
+-------------------------------------------------------------------*/
+export async function generateMetadata({
+  params,
+}: {
+  params: { region: string; slug: string };
+}): Promise<Metadata> {
+  const { region, slug } = params;
+
+  let siteTitle = slug.replace(/-/g, " ");
+  let locationFree: string | null = null;
+  let tagline: string | null = null;
+
+  try {
+    const { data } = await supabase
+      .from("sites")
+      .select("title, location_free, tagline")
+      .eq("slug", slug)
+      .single();
+
+    if (data?.title) {
+      siteTitle = data.title;
+    }
+    locationFree = data?.location_free ?? null;
+    tagline = data?.tagline ?? null;
+  } catch {
+    // If Supabase metadata fetch fails, fall back to slug based values
+  }
+
+  const readableRegion = region.replace(/-/g, " ");
+  const pageTitle = `${siteTitle} photo gallery | Heritage of Pakistan`;
+
+  const descriptionParts: string[] = [
+    `Explore a curated gallery of high quality photographs of ${siteTitle}.`,
+    locationFree
+      ? `Located in ${locationFree} (${readableRegion}).`
+      : `Located in ${readableRegion}.`,
+    tagline ||
+      "Discover architecture, landscape and cultural details through detailed images.",
+  ];
+  const description = descriptionParts.join(" ");
+
+  const canonicalPath = `/heritage/${region}/${slug}/gallery`;
+
+  // This path will be handled by a dedicated OG image route we create next
+  const ogImagePath = `/heritage/${region}/${slug}/gallery/socialsharingcard`;
+
+  return {
+    title: pageTitle,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      maxImagePreview: "large",
+    },
+    openGraph: {
+      title: pageTitle,
+      description,
+      url: canonicalPath,
+      type: "website",
+      siteName: "Heritage of Pakistan",
+      images: [
+        {
+          url: ogImagePath,
+          width: 1200,
+          height: 630,
+          alt: `${siteTitle} gallery social sharing card`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description,
+      images: [ogImagePath],
+    },
+  };
+}
 
 // Do not type params here to avoid conflict with Next's generated PageProps
 export default async function Page(props: any) {

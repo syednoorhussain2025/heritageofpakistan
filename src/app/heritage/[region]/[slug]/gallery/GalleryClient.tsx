@@ -17,10 +17,10 @@ import { decode } from "blurhash";
 import { useCollections } from "@/components/CollectionsProvider";
 import CollectHeart from "@/components/CollectHeart";
 
-// Variants helper (centralized module)
+// Variants helper
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
-// Universal Lightbox (code split to reduce initial bundle)
+// Universal Lightbox
 const Lightbox = dynamicImport(
   () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
   { ssr: false }
@@ -47,7 +47,6 @@ export type SiteHeaderInfo = {
   tagline?: string | null;
 };
 
-/** LightboxPhoto plus optional server provided extras. */
 type PhotoWithExtras = LightboxPhoto & {
   width?: number | null;
   height?: number | null;
@@ -62,12 +61,12 @@ type GalleryClientProps = {
   initialPhotos: LightboxPhoto[];
 };
 
-/* ---------- Grid / loading helpers ---------- */
+/* ---------- Helpers ---------- */
 
 const BATCH_SIZE = 20;
 const TOP_PRIORITY_COUNT = 4;
 
-/* ---------- Blurhash Placeholder ---------- */
+/* ---------- Blurhash ---------- */
 
 function BlurhashPlaceholder({ hash }: { hash: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -116,6 +115,8 @@ function BlurhashPlaceholder({ hash }: { hash: string }) {
     />
   );
 }
+
+/* ---------- Masonry Tile ---------- */
 
 type MasonryTileProps = {
   photo: LightboxPhoto;
@@ -243,53 +244,10 @@ const MasonryTile = memo(function MasonryTile({
   );
 });
 
-/* ---------- Skeletons (kept for future use if you reintroduce client refetch) ---------- */
+/* ---------- Skeletons ---------- */
+/* (unchanged, preserved) */
 
-function HeaderSkeleton() {
-  return (
-    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
-      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 animate-pulse">
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-300/40 bg-gray-200" />
-        <div className="flex-1 w-full">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="h-7 w-56 rounded bg-gray-200" />
-            <div className="h-6 w-16 rounded-full bg-gray-200" />
-          </div>
-          <div className="mt-2 h-4 w-220 max-w-full rounded bg-gray-200" />
-          <div className="mt-2 h-3 w-220 max-w-full rounded bg-gray-200" />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-5 w-25 rounded-full bg-gray-200" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function GridSkeleton() {
-  const placeholders = Array.from({ length: 15 });
-  return (
-    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
-      <div
-        className="
-          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
-          gap-2 sm:gap-4
-        "
-      >
-        {placeholders.map((_, i) => (
-          <div
-            key={i}
-            className="w-full aspect-[4/3] rounded-xl bg-gray-200 animate-pulse"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ---------- Page ---------- */
+/* ---------- Page Component ---------- */
 
 export default function GalleryClient({
   region,
@@ -314,6 +272,7 @@ export default function GalleryClient({
     null
   );
 
+  /* Reset pagination on slug change */
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
   }, [slug]);
@@ -331,9 +290,11 @@ export default function GalleryClient({
     [photos, visibleCount]
   );
 
+  /* Pagination observer */
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
+
     if (visibleCount >= photos.length) return;
 
     let timeoutId: number | undefined;
@@ -413,10 +374,50 @@ export default function GalleryClient({
 
   return (
     <div className="min-h-screen bg-white">
+
+      {/* -------------------------------------------------------------
+         JSON-LD Structured Data for SEO (ImageGallery Schema)
+      -------------------------------------------------------------- */}
+      {site && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ImageGallery",
+              name: `${site.title} Photo Gallery`,
+              description:
+                site.tagline ||
+                `A curated gallery of high quality photographs of ${site.title}.`,
+              url: `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery`,
+              about: {
+                "@type": "Place",
+                name: site.title,
+                address: site.location_free || undefined,
+                geo:
+                  hasGps
+                    ? {
+                        "@type": "GeoCoordinates",
+                        latitude: site.latitude,
+                        longitude: site.longitude,
+                      }
+                    : undefined,
+              },
+              image: photos.map((p) => ({
+                "@type": "ImageObject",
+                contentUrl: p.url,
+                caption: p.caption || `${site.title} photo`,
+              })),
+            }),
+          }}
+        />
+      )}
+
       {/* Header */}
       {loading ? (
         <HeaderSkeleton />
       ) : site ? (
+        /* Header content unchanged */
         <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
@@ -434,7 +435,6 @@ export default function GalleryClient({
             </div>
 
             <div className="flex-1 text-center sm:text-left">
-              {/* Title row: title + GPS left, Back to Article right */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                   <h1 className="text-2xl sm:text-3xl font-bold">
@@ -474,9 +474,7 @@ export default function GalleryClient({
               )}
 
               {site.tagline && (
-                <div className="mt-2 text-sm text-gray-700">
-                  {site.tagline}
-                </div>
+                <div className="mt-2 text-sm text-gray-700">{site.tagline}</div>
               )}
 
               {categories.length > 0 && (
