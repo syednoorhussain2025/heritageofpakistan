@@ -216,11 +216,7 @@ export default function HeritageClient({
       {!site ? (
         <HeroSkeleton />
       ) : (
-        <HeritageCover
-          site={site}
-          hasPhotoStory={hasPhotoStory}
-          fadeImage={false}
-        />
+        <HeritageCover site={site} hasPhotoStory={hasPhotoStory} />
       )}
 
       {/* Sticky header, bookmarks, modals, research bubble (client island) */}
