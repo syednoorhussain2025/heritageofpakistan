@@ -147,7 +147,7 @@ function IconChip({
   href,
 }: {
   iconName: string | null;
-  label: string;
+  label: string | null;
   id: string;
   href: string;
 }) {
@@ -160,7 +160,7 @@ function IconChip({
         {iconName && <Icon name={iconName} size={16} className="text-white" />}
       </div>
       <span className="font-category-chip transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
-        {label}
+        {label ?? ""}
       </span>
     </a>
   );
