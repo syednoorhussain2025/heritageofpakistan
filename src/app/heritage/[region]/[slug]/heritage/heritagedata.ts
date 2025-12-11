@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* -------------------------------------------------------
    TRAVEL GUIDE SUMMARY
@@ -72,7 +73,10 @@ export type Site = {
   title: string;
   tagline?: string | null;
 
+  // Original storage path or URL for the cover
   cover_photo_url?: string | null;
+
+  // Legacy fields; kept for backward compatibility
   cover_photo_hero_url?: string | null;
   cover_photo_thumb_url?: string | null;
 
@@ -160,6 +164,7 @@ export type Site = {
 
   cover?:
     | {
+        // hero variant URL computed from cover_photo_url using imagevariants
         url: string;
         heroUrl?: string | null;
         thumbUrl?: string | null;
@@ -171,10 +176,7 @@ export type Site = {
     | null;
 };
 
-export type Taxonomy = { id: string; name: string; icon_key: string | null };
-
-const BUCKET = "site-images";
-type Variant = "thumb" | "sm" | "md" | "lg" | "hero";
+export type Taxonomy = { id: string; name: string | null; icon_key: string | null };
 
 /* -------------------------------------------------------
    IMAGE ROW
@@ -230,10 +232,10 @@ function buildFallbackCSL(src: any): any {
   if (src?.authors) {
     out.author = String(src.authors)
       .split(";")
-      .map((s) => s.trim())
+      .map(s => s.trim())
       .filter(Boolean)
       .map((full: string) => {
-        const [family, given] = full.split(",").map((x) => x.trim());
+        const [family, given] = full.split(",").map(x => x.trim());
         return family || given
           ? { family: family || undefined, given }
           : { literal: full };
@@ -382,6 +384,7 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
 
         /* -------------------------------------------------------
            5) GALLERY
+           Use centralized variants instead of manual _hero/_thumb
         -------------------------------------------------------- */
         const { data: imgs } = await supabase
           .from("site_images")
@@ -405,30 +408,26 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
           .order("sort_order", { ascending: true });
 
         const galleryWithUrls: ImageRow[] = (imgs || []).map((r: any) => {
-          const basePublic =
-            r.storage_path && BUCKET
-              ? supabase.storage.from(BUCKET).getPublicUrl(r.storage_path)
-                  .data.publicUrl
-              : null;
-
-          let heroPublic: string | null = null;
-          let thumbPublic: string | null = null;
+          let publicUrl: string | null = null;
+          let heroUrl: string | null = null;
+          let thumbUrl: string | null = null;
 
           if (r.storage_path) {
-            const lastDot = r.storage_path.lastIndexOf(".");
-            if (lastDot !== -1) {
-              const name = r.storage_path.slice(0, lastDot);
-              const ext = r.storage_path.slice(lastDot);
-
-              const heroPath = `${name}_hero${ext}`;
-              heroPublic =
-                supabase.storage.from(BUCKET).getPublicUrl(heroPath).data
-                  .publicUrl || basePublic;
-
-              const thumbPath = `${name}_thumb${ext}`;
-              thumbPublic =
-                supabase.storage.from(BUCKET).getPublicUrl(thumbPath).data
-                  .publicUrl || basePublic;
+            try {
+              // medium for general inline usage
+              publicUrl = getVariantPublicUrl(r.storage_path, "md");
+            } catch {
+              publicUrl = null;
+            }
+            try {
+              heroUrl = getVariantPublicUrl(r.storage_path, "hero");
+            } catch {
+              heroUrl = publicUrl;
+            }
+            try {
+              thumbUrl = getVariantPublicUrl(r.storage_path, "thumb");
+            } catch {
+              thumbUrl = publicUrl;
             }
           }
 
@@ -445,29 +444,41 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
             height: r.height,
             blurhash: r.blur_hash ?? null,
             blurDataURL: r.blur_data_url ?? null,
-            publicUrl: basePublic,
-            heroUrl: heroPublic,
-            thumbUrl: thumbPublic,
+            publicUrl,
+            heroUrl,
+            thumbUrl,
           };
         });
 
         setGallery(galleryWithUrls);
 
         /* -------------------------------------------------------
-           6) COVER SELECTION (use stored hero and thumb urls)
+           6) COVER SELECTION
+           Hero and thumb from centralized variants
         -------------------------------------------------------- */
         let cover: Site["cover"] = null;
 
-        if (siteBase.cover_photo_hero_url || siteBase.cover_photo_url) {
-          const heroUrl =
-            siteBase.cover_photo_hero_url ||
-            siteBase.cover_photo_url ||
-            null;
+        if (siteBase.cover_photo_url) {
+          let heroUrl: string | null = null;
+          let thumbUrl: string | null = null;
+
+          try {
+            heroUrl = getVariantPublicUrl(siteBase.cover_photo_url, "hero");
+          } catch {
+            heroUrl =
+              siteBase.cover_photo_hero_url || siteBase.cover_photo_url || null;
+          }
+
+          try {
+            thumbUrl = getVariantPublicUrl(siteBase.cover_photo_url, "thumb");
+          } catch {
+            thumbUrl = siteBase.cover_photo_thumb_url ?? null;
+          }
 
           cover = {
             url: heroUrl || siteBase.cover_photo_url || "",
             heroUrl,
-            thumbUrl: siteBase.cover_photo_thumb_url ?? null,
+            thumbUrl,
             width: null,
             height: null,
             blurhash: null,
