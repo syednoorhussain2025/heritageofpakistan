@@ -1,137 +1,138 @@
+// src/app/heritage/[region]/[slug]/gallery/page.tsx
+
+export const dynamic = "force-static";
+export const revalidate = 31536000;
+
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Lato } from "next/font/google";
-import localFont from "next/font/local";
-import "./globals.css";
-import "@/modules/flow-layout/flow-layout.css";
-import Header from "@/components/Header";
-import BottomNav from "@/components/BottomNav";
-import { IconProvider } from "@/components/Icon";
-import { BookmarkProvider } from "@/components/BookmarkProvider";
-import { WishlistProvider } from "@/components/WishlistProvider";
-import { CollectionsProvider } from "@/components/CollectionsProvider";
-import { ProfileProvider } from "@/components/ProfileProvider";
-import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { notFound } from "next/navigation";
+import GalleryClient, { SiteHeaderInfo } from "./GalleryClient";
+import type { LightboxPhoto } from "@/types/lightbox";
+import { createClient } from "@supabase/supabase-js";
+import { getSiteGalleryPhotosForLightbox } from "@/lib/db/lightbox";
 
-/* ---------------- Fonts ---------------- */
-const lato = Lato({
-  weight: ["100", "300", "400", "700", "900"],
-  subsets: ["latin"],
-  variable: "--font-lato",
-  display: "swap",
-});
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const futura = localFont({
-  src: "./fonts/FuturaCyrillicMedium.ttf",
-  variable: "--font-futura",
-  display: "swap",
-  weight: "500",
-});
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+/* ------------------------------------------------------------------
+   Professional SEO metadata for gallery page
+-------------------------------------------------------------------*/
+export async function generateMetadata(props: any): Promise<Metadata> {
+  // ❗ FIX: Next.js 15 requires awaiting params because params is a Promise
+  const { region, slug } = await props.params;
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  let siteTitle = slug.replace(/-/g, " ");
+  let locationFree: string | null = null;
+  let tagline: string | null = null;
 
-/* ---------------- SEO ---------------- */
+  try {
+    const { data } = await supabase
+      .from("sites")
+      .select("title, location_free, tagline")
+      .eq("slug", slug)
+      .single();
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
+    if (data?.title) {
+      siteTitle = data.title;
+    }
+    locationFree = data?.location_free ?? null;
+    tagline = data?.tagline ?? null;
+  } catch {
+    // fallback if metadata cannot be fetched
+  }
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "Heritage of Pakistan",
-    template: "%s | Heritage of Pakistan",
-  },
-  description:
-    "Discover heritage sites across Pakistan, explore history, architecture and culture with photos, maps and travel guidance.",
-  keywords: [
-    "Pakistan heritage",
-    "heritage sites",
-    "historical places Pakistan",
-    "tourist attractions Pakistan",
-    "UNESCO Pakistan",
-  ],
-  alternates: {
-    canonical: siteUrl,
-  },
-  openGraph: {
-    type: "website",
-    url: siteUrl,
-    siteName: "Heritage of Pakistan",
-    title: "Heritage of Pakistan",
-    description:
-      "Discover and explore heritage sites across Pakistan with history, architecture and travel insights.",
-    images: [
-      {
-        url: "/og-default.jpg", // 1200x630 image in /public
-        width: 1200,
-        height: 630,
-        alt: "Heritage of Pakistan",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Heritage of Pakistan",
-    description:
-      "Explore cultural and historical heritage sites across Pakistan.",
-    images: ["/og-default.jpg"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+  const readableRegion = region.replace(/-/g, " ");
+  const pageTitle = `${siteTitle} photo gallery | Heritage of Pakistan`;
+
+  const descriptionParts: string[] = [
+    `Explore a curated gallery of high quality photographs of ${siteTitle}.`,
+    locationFree
+      ? `Located in ${locationFree} (${readableRegion}).`
+      : `Located in ${readableRegion}.`,
+    tagline ||
+      "Discover architecture, landscape and cultural details through detailed images.",
+  ];
+  const description = descriptionParts.join(" ");
+
+  const canonicalPath = `/heritage/${region}/${slug}/gallery`;
+
+  // Will be handled by /socialsharingcard route
+  const ogImagePath = `/heritage/${region}/${slug}/gallery/socialsharingcard`;
+
+  return {
+    title: pageTitle,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-snippet": -1,
-      "max-image-preview": "large",
-      "max-video-preview": -1,
+      maxImagePreview: "large",
     },
-  },
-};
+    openGraph: {
+      title: pageTitle,
+      description,
+      url: canonicalPath,
+      type: "website",
+      siteName: "Heritage of Pakistan",
+      images: [
+        {
+          url: ogImagePath,
+          width: 1200,
+          height: 630,
+          alt: `${siteTitle} gallery social sharing card`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description,
+      images: [ogImagePath],
+    },
+  };
+}
 
-/* ---------------- Layout ---------------- */
+// Do not type params here to avoid conflict with Next's generated PageProps
+export default async function Page(props: any) {
+  const { region, slug } = props.params as { region: string; slug: string };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+  // 1. Site header from Supabase
+  const { data: site, error: siteError } = await supabase
+    .from("sites")
+    .select(
+      "id, slug, title, cover_photo_url, location_free, latitude, longitude, tagline"
+    )
+    .eq("slug", slug)
+    .single();
+
+  if (siteError || !site) {
+    return notFound();
+  }
+
+  const typedSite: SiteHeaderInfo = {
+    id: site.id,
+    slug: site.slug,
+    title: site.title,
+    cover_photo_url: site.cover_photo_url,
+    location_free: site.location_free,
+    latitude: site.latitude,
+    longitude: site.longitude,
+    tagline: site.tagline,
+  };
+
+  // 2. Photos via existing helper, keeps LightboxPhoto shape and categories
+  const photos: LightboxPhoto[] =
+    (await getSiteGalleryPhotosForLightbox(site.id, null)) ?? [];
+
   return (
-    <html lang="en">
-      <head>
-        <link
-          rel="preconnect"
-          href="https://fopkndnjdeartooxhmfsr.supabase.co"
-          crossOrigin="anonymous"
-        />
-      </head>
-
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
-      >
-        <IconProvider>
-          <ProfileProvider>
-            <BookmarkProvider>
-              <WishlistProvider>
-                <CollectionsProvider>
-                  <LoaderEngineProvider>
-                    <Header />
-                    <BottomNav />
-                    <main>{children}</main>
-                    <SpeedInsights />
-                  </LoaderEngineProvider>
-                </CollectionsProvider>
-              </WishlistProvider>
-            </BookmarkProvider>
-          </ProfileProvider>
-        </IconProvider>
-      </body>
-    </html>
+    <GalleryClient
+      region={region}
+      slug={slug}
+      initialSite={typedSite}
+      initialPhotos={photos}
+    />
   );
 }
