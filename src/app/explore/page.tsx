@@ -53,7 +53,10 @@ type Site = {
   province_id?: number | null;
 
   title: string;
-  cover_photo_url?: string | null;
+
+  // Thumbnail URL stored directly in sites table, full URL
+  cover_photo_thumb_url?: string | null;
+
   cover_blur_data_url?: string | null;
   cover_width?: number | null;
   cover_height?: number | null;
@@ -170,7 +173,7 @@ function buildHeadline({
   return "All Heritage Sites in Pakistan";
 }
 
-/** Small thumb helper kept for banner avatar */
+/** Small thumb helper kept for banner avatar only */
 function thumbUrl(input?: string | null, size = 160) {
   if (!input) return "";
   const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
@@ -208,7 +211,7 @@ function thumbUrl(input?: string | null, size = 160) {
   return u.toString();
 }
 
-/** Canonical cover URL builder mirrors detail page behaviour */
+/** Canonical cover URL builder used only for radius banner preview */
 function buildCoverUrlFromStoragePath(storagePath: string | null) {
   if (!storagePath) return "";
 
@@ -288,9 +291,8 @@ function StableBannerImage({
   }, [src]);
 
   if (!src) {
-    return (
-      <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />
-    );
+    return
+      <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />;
   }
 
   return (
@@ -363,48 +365,39 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
   }
 }
 
-/* ───────────────── Active covers + blur from site_covers ───────────────── */
+/* ────────────── Active cover thumbs from sites table ────────────── */
 async function attachActiveCovers(sites: Site[]) {
   const ids = Array.from(new Set(sites.map((s) => s.id))).filter(Boolean);
   if (!ids.length) return;
 
-  const { data, error } = await supabase
-    .from("site_covers")
-    .select("site_id, storage_path, blur_data_url, width, height")
-    .in("site_id", ids)
-    .eq("is_active", true);
+  try {
+    const { data, error } = await supabase
+      .from("sites")
+      .select("id, cover_photo_thumb_url")
+      .in("id", ids);
 
-  if (error) {
-    console.error("attachActiveCovers: error fetching site_covers", error);
-    return;
-  }
+    if (error || !data?.length) {
+      if (error) {
+        console.error(
+          "attachActiveCovers: error fetching thumb urls from sites",
+          error
+        );
+      }
+      return;
+    }
 
-  if (!data?.length) {
-    return;
-  }
+    type Row = { id: string; cover_photo_thumb_url: string | null };
 
-  type CoverRow = {
-    site_id: string;
-    storage_path: string;
-    blur_data_url: string | null;
-    width: number | null;
-    height: number | null;
-  };
+    const byId = new Map<string, string | null>();
+    for (const row of data as Row[]) {
+      byId.set(row.id, row.cover_photo_thumb_url ?? null);
+    }
 
-  const bySiteId = new Map<string, CoverRow>();
-  for (const row of data as CoverRow[]) {
-    bySiteId.set(row.site_id, row);
-  }
-
-  for (const s of sites) {
-    const cover = bySiteId.get(s.id);
-    if (!cover) continue;
-
-    const url = buildCoverUrlFromStoragePath(cover.storage_path);
-    s.cover_photo_url = url || null;
-    s.cover_blur_data_url = cover.blur_data_url ?? null;
-    s.cover_width = cover.width ?? null;
-    s.cover_height = cover.height ?? null;
+    for (const s of sites) {
+      s.cover_photo_thumb_url = byId.get(s.id) ?? null;
+    }
+  } catch (e) {
+    console.error("attachActiveCovers: unexpected error", e);
   }
 }
 

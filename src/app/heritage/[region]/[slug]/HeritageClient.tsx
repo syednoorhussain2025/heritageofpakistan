@@ -33,6 +33,7 @@ import { CollectionsProvider } from "@/components/CollectionsProvider";
 
 type HeroCover =
   | {
+      // hero variant URL from server (sites.cover_photo_url passed through imagevariants)
       url: string;
       width?: number | null;
       height?: number | null;

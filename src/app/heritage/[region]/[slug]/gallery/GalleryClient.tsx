@@ -19,6 +19,9 @@ import { decode } from "blurhash";
 import { useCollections } from "@/components/CollectionsProvider";
 import CollectHeart from "@/components/CollectHeart";
 
+// Variants helper (centralized module)
+import { getVariantPublicUrl } from "@/lib/imagevariants";
+
 // Universal Lightbox (code split to reduce initial bundle)
 const Lightbox = dynamicImport(
   () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
@@ -55,47 +58,7 @@ type PhotoWithExtras = LightboxPhoto & {
   blurDataURL?: string | null;
 };
 
-/* ---------- Public URL helpers for stored variants ---------- */
-
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(
-  /\/+$/,
-  ""
-);
-
-function encodeRFC3986(seg: string) {
-  return encodeURIComponent(seg).replace(
-    /[!'()*]/g,
-    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
-  );
-}
-
-function storagePathToPublicUrl(bucket: string, key: string): string {
-  const encodedKey = key
-    .split("/")
-    .map((seg) => encodeRFC3986(seg.trim()))
-    .join("/");
-
-  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${encodedKey}`;
-}
-
-type Variant = "thumb" | "sm" | "md";
-
-function makeVariantPath(baseKey: string, variant: Variant): string {
-  const lastDot = baseKey.lastIndexOf(".");
-  if (lastDot === -1) {
-    return `${baseKey}_${variant}`;
-  }
-  const name = baseKey.slice(0, lastDot);
-  const ext = baseKey.slice(lastDot);
-  return `${name}_${variant}${ext}`;
-}
-
-function getVariantPublicUrl(storagePath: string, variant: Variant): string {
-  const variantPath = makeVariantPath(storagePath, variant);
-  return storagePathToPublicUrl("site-images", variantPath);
-}
-
-/* ---------- Simple in-memory cache (per browser tab) ---------- */
+/* ---------- Simple in memory cache (per browser tab) ---------- */
 
 const siteCache = new Map<string, SiteHeaderInfo>();
 const photoCache = new Map<string, LightboxPhoto[]>();
@@ -219,13 +182,12 @@ const MasonryTile = memo(function MasonryTile({
     isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
-  // Use stored thumbnail variant instead of Supabase transforms
+  // Use stored thumbnail variant through centralized helper
   const thumbUrl = useMemo(() => {
     if (photo.storagePath) {
       try {
         return getVariantPublicUrl(photo.storagePath, "thumb");
       } catch {
-        // fall back to whatever url is stored if something is off
         return photo.url;
       }
     }
@@ -365,7 +327,6 @@ function GridSkeleton() {
 
 export default function SiteGalleryPage() {
   const params = useParams() as { region?: string; slug?: string };
-  // region param exists in the new route but we only need slug to load the site
   const slug = (params.slug as string) ?? "";
   const { userId: viewerId } = useAuthUserId();
   const cacheKey = `${slug}|${viewerId ?? "anon"}`;
@@ -395,7 +356,6 @@ export default function SiteGalleryPage() {
   const loadData = useCallback(async () => {
     if (!slug) return;
 
-    // 1. Try in-memory cache first
     const cachedSite = siteCache.get(cacheKey) || null;
     const cachedPhotos = photoCache.get(cacheKey) || null;
 
@@ -407,11 +367,9 @@ export default function SiteGalleryPage() {
       return;
     }
 
-    // 2. Fallback to Supabase fetch
     try {
       setLoading(true);
 
-      // Site info for compact header
       const { data: siteData, error: sErr } = await supabase
         .from("sites")
         .select(
@@ -424,14 +382,12 @@ export default function SiteGalleryPage() {
       const typedSite = siteData as SiteHeaderInfo;
       setSite(typedSite);
 
-      // Photos for Lightbox
       const photoData = await getSiteGalleryPhotosForLightbox(
         typedSite.id,
         viewerId
       );
       setPhotos(photoData);
 
-      // Save into in-memory cache
       siteCache.set(cacheKey, typedSite);
       photoCache.set(cacheKey, photoData);
 
@@ -447,7 +403,6 @@ export default function SiteGalleryPage() {
     if (slug) loadData();
   }, [slug, loadData]);
 
-  // Reset visibleCount and loadedInBatch when a new photo set loads
   useEffect(() => {
     if (!loading) {
       setVisibleCount(BATCH_SIZE);
@@ -455,7 +410,6 @@ export default function SiteGalleryPage() {
     }
   }, [loading]);
 
-  // Whenever visibleCount changes (new batch), reset loaded counter
   useEffect(() => {
     setLoadedInBatch(0);
   }, [visibleCount]);
@@ -477,8 +431,6 @@ export default function SiteGalleryPage() {
     setLoadedInBatch((prev) => prev + 1);
   }, []);
 
-  // Incremental loading on scroll using IntersectionObserver for batches,
-  // but only when all images in the current batch have finished loading.
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
@@ -491,7 +443,6 @@ export default function SiteGalleryPage() {
         const [entry] = entries;
         if (!entry.isIntersecting) return;
 
-        // Only require the current batch of images to be loaded
         const batchStart = visibleCount - BATCH_SIZE;
         const imagesInThisBatch = photos.slice(
           Math.max(0, batchStart),
@@ -539,7 +490,6 @@ export default function SiteGalleryPage() {
         const next = arr.map((p) =>
           p.id === photo.id ? { ...p, isBookmarked: !p.isBookmarked } : p
         );
-        // Keep cache in sync with updated bookmark state
         photoCache.set(cacheKey, next);
         return next;
       });
@@ -562,10 +512,9 @@ export default function SiteGalleryPage() {
   const circlePreview = useMemo(() => {
     if (photos[0]?.storagePath) {
       try {
-        // use a slightly larger small variant for the circle
-        return getVariantPublicUrl(photos[0].storagePath, "sm");
+        // use the thumbnail variant for the circle
+        return getVariantPublicUrl(photos[0].storagePath, "thumb");
       } catch {
-        // fall back to original url if something is off
         return photos[0].url;
       }
     }

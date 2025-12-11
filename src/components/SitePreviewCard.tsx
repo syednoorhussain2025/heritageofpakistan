@@ -21,10 +21,15 @@ type Site = {
   region_slug?: string | null;
   province?: string | null;
   title: string;
-  cover_photo_url?: string | null;
+
+  // new thumbnail column coming from sites table
+  cover_photo_thumb_url?: string | null;
+
+  // existing blur + meta
   cover_blur_data_url?: string | null;
   cover_width?: number | null;
   cover_height?: number | null;
+
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;
@@ -130,7 +135,9 @@ export default function SitePreviewCard({
   const baseW = roundToStep(containerW, 40, 280, 800);
 
   const hasBlur = Boolean(site.cover_blur_data_url);
-  const sharpSrc = site.cover_photo_url || FALLBACK_SVG;
+
+  // use only the thumbnail URL from the table, no transformations, no fallback to cover_photo_url
+  const sharpSrc = site.cover_photo_thumb_url || FALLBACK_SVG;
 
   // Reset load/error when the image changes
   useEffect(() => {
@@ -141,7 +148,7 @@ export default function SitePreviewCard({
   // Prioritise first two rows in the Explore grid
   const isPriority = index < 6;
 
-  // Preload for priority cards
+  // Simple preload for priority cards (uses the thumb URL as is)
   useEffect(() => {
     if (!isPriority || !sharpSrc || sharpSrc === FALLBACK_SVG) return;
     if (typeof window === "undefined") return;
@@ -232,7 +239,7 @@ export default function SitePreviewCard({
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
           <div className="relative aspect-[5/4] md:aspect-[18/9] w-full overflow-hidden rounded-none">
-            {/* Blur layer */}
+            {/* Blur layer (uses stored data URL only, no transformations) */}
             {hasBlur && (
               <Image
                 src={site.cover_blur_data_url!}
@@ -248,7 +255,7 @@ export default function SitePreviewCard({
               />
             )}
 
-            {/* Sharp image */}
+            {/* Sharp thumbnail image from cover_photo_thumb_url */}
             <Image
               key={sharpSrc}
               src={sharpSrc}
@@ -257,6 +264,7 @@ export default function SitePreviewCard({
               sizes={`${baseW}px`}
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
+              unoptimized
               onLoadingComplete={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);

@@ -8,6 +8,7 @@ import { Cite } from "@citation-js/core";
 // @ts-ignore 3p library without TS types
 import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 // **Static revalidation: 3600 seconds (1 hour)**
 // Important: must be a literal, not an expression like 60 * 60
@@ -150,6 +151,28 @@ function buildPublicImageUrl(path: string | null) {
   if (!base) return null;
   const clean = path.replace(/^\/+/, "");
   return `${base}/storage/v1/object/public/site-images/${clean}`;
+}
+
+/**
+ * Helper to derive the hero image URL from a cover value.
+ *
+ * If the value looks like a storage path (no http/https), use the hero variant.
+ * If it looks like a full URL (legacy data), return it as is.
+ */
+function getCoverVariantUrl(
+  cover: string | null | undefined
+): string | null {
+  if (!cover) return null;
+  const trimmed = cover.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    // Legacy full URL, cannot apply variants safely
+    return trimmed;
+  }
+  try {
+    return getVariantPublicUrl(trimmed, "hero");
+  } catch {
+    return buildPublicImageUrl(trimmed);
+  }
 }
 
 function buildFallbackCSL(src: any): any {
@@ -426,55 +449,14 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     publicUrl: buildPublicImageUrl(r.storage_path),
   }));
 
-  /* 5. Cover for main hero (site_covers as source of truth, legacy fallback) */
+  /* 5. Cover for main hero (sites.cover_photo_url as source of truth) */
 
   let coverForClient: HeroCoverForClient | null = null;
 
-  try {
-    const { data: coverRow } = await supabase
-      .from("site_covers")
-      .select(
-        `
-          storage_path,
-          width,
-          height,
-          blur_hash,
-          blur_data_url,
-          caption,
-          credit,
-          is_active,
-          created_at
-        `
-      )
-      .eq("site_id", site.id)
-      .order("is_active", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (coverRow && coverRow.storage_path) {
-      const url = buildPublicImageUrl(coverRow.storage_path);
-      if (url) {
-        coverForClient = {
-          url,
-          width: coverRow.width ?? null,
-          height: coverRow.height ?? null,
-          blurhash: coverRow.blur_hash ?? null,
-          blurDataURL: coverRow.blur_data_url ?? null,
-          caption: coverRow.caption ?? null,
-          credit: coverRow.credit ?? null,
-        };
-      }
-    }
-  } catch (e) {
-    console.error("Failed to load cover from site_covers", e);
-  }
-
-  // Legacy fallback if no site_covers row but cover_photo_url exists
-  if (!coverForClient && (site as any).cover_photo_url) {
-    const url = (site as any).cover_photo_url as string;
+  const coverUrl = getCoverVariantUrl((site as any).cover_photo_url || null);
+  if (coverUrl) {
     coverForClient = {
-      url,
+      url: coverUrl,
       width: null,
       height: null,
       blurhash: null,
@@ -592,14 +574,8 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
         title,
         tagline,
         province_id,
-        provinces ( slug ),
-        site_covers (
-          storage_path,
-          width,
-          height,
-          blur_hash,
-          blur_data_url
-        )
+        cover_photo_url,
+        provinces ( slug )
       `
     )
     .eq("province_id", site.province_id)
@@ -615,19 +591,20 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
             title: row.title,
             tagline: row.tagline ?? null,
             province_slug: row.provinces?.slug ?? null,
-            cover: row.site_covers?.[0]
-              ? {
-                  url: buildPublicImageUrl(
-                    row.site_covers[0].storage_path
-                  ) as string,
-                  width: row.site_covers[0].width,
-                  height: row.site_covers[0].height,
-                  blurhash: row.site_covers[0].blur_hash,
-                  blurDataURL: row.site_covers[0].blur_data_url,
-                  caption: null,
-                  credit: null,
-                }
-              : null,
+            cover: (() => {
+              const url = getCoverVariantUrl(row.cover_photo_url || null);
+              return url
+                ? {
+                    url,
+                    width: null,
+                    height: null,
+                    blurhash: null,
+                    blurDataURL: null,
+                    caption: null,
+                    credit: null,
+                  }
+                : null;
+            })(),
           }
         : null;
 
@@ -730,27 +707,7 @@ export async function generateMetadata({
           ? `Learn about ${title} in ${provinceName} including history, architecture and travel tips.`
           : `Learn about ${title} with history, architecture and travel tips.`);
 
-      // Prefer site_covers for OG image, fall back to cover_photo_url
-      try {
-        const { data: coverRow } = await supabase
-          .from("site_covers")
-          .select("storage_path, is_active, created_at")
-          .eq("site_id", site.id)
-          .order("is_active", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (coverRow?.storage_path) {
-          coverUrl = buildPublicImageUrl(coverRow.storage_path);
-        }
-      } catch {
-        // ignore cover lookup errors
-      }
-
-      if (!coverUrl && site.cover_photo_url) {
-        coverUrl = site.cover_photo_url as string;
-      }
+      coverUrl = getCoverVariantUrl((site as any).cover_photo_url || null);
     }
   } catch {
     // On any error we fall back to slug based metadata

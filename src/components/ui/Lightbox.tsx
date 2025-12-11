@@ -7,52 +7,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { LightboxPhoto } from "../../types/lightbox";
 import Icon from "../Icon";
 import { decode } from "blurhash";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* ---------- CONFIG ---------- */
 const PANEL_W = 264;
 const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
-
-/* ---------- Public URL helpers for stored variants ---------- */
-
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(
-  /\/+$/,
-  ""
-);
-
-function encodeRFC3986(seg: string) {
-  return encodeURIComponent(seg).replace(
-    /[!'()*]/g,
-    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
-  );
-}
-
-function storagePathToPublicUrl(bucket: string, key: string): string {
-  const encodedKey = key
-    .split("/")
-    .map((seg) => encodeRFC3986(seg.trim()))
-    .join("/");
-
-  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${encodedKey}`;
-}
-
-type Variant = "thumb" | "sm" | "md";
-
-function makeVariantPath(baseKey: string, variant: Variant): string {
-  const lastDot = baseKey.lastIndexOf(".");
-  if (lastDot === -1) {
-    return `${baseKey}_${variant}`;
-  }
-  const name = baseKey.slice(0, lastDot);
-  const ext = baseKey.slice(lastDot);
-  return `${name}_${variant}${ext}`;
-}
-
-function getVariantPublicUrl(storagePath: string, variant: Variant): string {
-  const variantPath = makeVariantPath(storagePath, variant);
-  return storagePathToPublicUrl("site-images", variantPath);
-}
 
 /* ---------- BlurHash Component (matches aspect ratio) ---------- */
 
