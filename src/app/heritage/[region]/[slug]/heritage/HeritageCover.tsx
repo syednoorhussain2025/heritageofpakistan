@@ -53,8 +53,8 @@ function BlurhashImage({
 
 /* -------------------------------------------------------
    MAIN COMPONENT
-   Rule: hero comes from sites.cover_photo_url only.
-   cover object is only for blur metadata / fallback.
+   Rule: hero comes from site.cover.url (hero variant from
+   cover_photo_url), cover_photo_url is a fallback.
 --------------------------------------------------------*/
 export default function HeritageCover({
   site,
@@ -89,11 +89,12 @@ export default function HeritageCover({
 }) {
   const cover = site.cover ?? null;
 
-  // 1) sites.cover_photo_url (author-controlled hero file)
-  // 2) legacy cover.heroUrl
-  // 3) legacy cover.url
+  // Priority:
+  // 1) cover.url (hero variant from imagevariants)
+  // 2) cover.heroUrl (legacy)
+  // 3) sites.cover_photo_url (raw path or public URL fallback)
   const heroUrl: string | null =
-    site.cover_photo_url || cover?.heroUrl || cover?.url || null;
+    cover?.url || cover?.heroUrl || site.cover_photo_url || null;
 
   // Blur metadata only from cover if available
   const activeBlurDataURL = cover?.blurDataURL ?? undefined;
