@@ -1,4 +1,3 @@
-// src/app/heritage/[region]/[slug]/gallery/GalleryClient.tsx
 "use client";
 
 import {
@@ -21,6 +20,17 @@ import CollectHeart from "@/components/CollectHeart";
 // Variants helper (centralized module)
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
+// Universal Lightbox (code split to reduce initial bundle)
+const Lightbox = dynamicImport(
+  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
+  { ssr: false }
+);
+
+const AddToCollectionModal = dynamicImport(
+  () => import("@/components/AddToCollectionModal"),
+  { ssr: false }
+);
+
 import type { LightboxPhoto } from "@/types/lightbox";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 
@@ -37,6 +47,7 @@ export type SiteHeaderInfo = {
   tagline?: string | null;
 };
 
+/** LightboxPhoto plus optional server provided extras. */
 type PhotoWithExtras = LightboxPhoto & {
   width?: number | null;
   height?: number | null;
@@ -47,33 +58,13 @@ type PhotoWithExtras = LightboxPhoto & {
 type GalleryClientProps = {
   region: string;
   slug: string;
-  initialSite: SiteHeaderInfo;
+  initialSite: SiteHeaderInfo | null;
   initialPhotos: LightboxPhoto[];
 };
 
-// Universal Lightbox (code split to reduce initial bundle)
-const Lightbox = dynamicImport(
-  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
-  { ssr: false }
-);
-
-const AddToCollectionModal = dynamicImport(
-  () => import("@/components/AddToCollectionModal"),
-  { ssr: false }
-);
-
 /* ---------- Grid / loading helpers ---------- */
 
-/**
- * How many photos to show at a time in the grid.
- * First batch renders immediately, later batches stream in while scrolling.
- */
 const BATCH_SIZE = 20;
-
-/**
- * Limit how many tiles are treated as high priority.
- * This avoids many concurrent high priority fetches.
- */
 const TOP_PRIORITY_COUNT = 4;
 
 /* ---------- Blurhash Placeholder ---------- */
@@ -130,9 +121,7 @@ type MasonryTileProps = {
   photo: LightboxPhoto;
   onOpen: () => void;
   siteId: string;
-  /** Uses Next Image priority and high fetchPriority for top of grid images */
   isPriority: boolean;
-  /** Notifies parent once when this image has fully loaded */
   onLoaded: () => void;
 };
 
@@ -145,7 +134,6 @@ const MasonryTile = memo(function MasonryTile({
 }: MasonryTileProps) {
   const extras = photo as PhotoWithExtras;
 
-  // Visibility based gating for blurhash decode
   const [isNearViewport, setIsNearViewport] = useState(false);
   const tileRef = useRef<HTMLDivElement | null>(null);
 
@@ -168,17 +156,13 @@ const MasonryTile = memo(function MasonryTile({
     );
 
     observer.observe(el);
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
-  // Blur data from DB if present and tile is near viewport
   const blurHash =
     isNearViewport && extras.blurHash ? extras.blurHash : undefined;
   const blurDataURL = extras.blurDataURL ?? undefined;
 
-  // Use stored thumbnail variant through centralized helper
   const thumbUrl = useMemo(() => {
     if (photo.storagePath) {
       try {
@@ -190,7 +174,6 @@ const MasonryTile = memo(function MasonryTile({
     return photo.url;
   }, [photo.storagePath, photo.url]);
 
-  // Only care whether the image has loaded
   const [loaded, setLoaded] = useState(false);
   const reportedLoadedRef = useRef(false);
 
@@ -202,7 +185,6 @@ const MasonryTile = memo(function MasonryTile({
         onClick={onOpen}
         title="Open"
       >
-        {/* Placeholder layer, fades out when the image is ready */}
         <div
           className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${
             loaded ? "opacity-0" : "opacity-100"
@@ -215,14 +197,12 @@ const MasonryTile = memo(function MasonryTile({
           )}
         </div>
 
-        {/* Small grey spinner while image is loading */}
         {!loaded && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <span className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin shadow-sm" />
           </div>
         )}
 
-        {/* Actual image, fading in over the placeholder */}
         <Image
           src={thumbUrl}
           alt={photo.caption ?? ""}
@@ -252,7 +232,6 @@ const MasonryTile = memo(function MasonryTile({
           }}
         />
 
-        {/* Bookmark heart overlay (click does not open lightbox) */}
         <div
           className="absolute top-2 right-2 z-20"
           onClick={(e) => e.stopPropagation()}
@@ -271,6 +250,54 @@ const MasonryTile = memo(function MasonryTile({
   );
 });
 
+/* ---------- Skeletons (kept for future use if you reintroduce client refetch) ---------- */
+
+function HeaderSkeleton() {
+  return (
+    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 animate-pulse">
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-300/40 bg-gray-200" />
+        <div className="flex-1 w-full">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="h-7 w-56 rounded bg-gray-200" />
+            <div className="h-6 w-16 rounded-full bg-gray-200" />
+          </div>
+          <div className="mt-2 h-4 w-220 max-w-full rounded bg-gray-200" />
+          <div className="mt-2 h-3 w-220 max-w-full rounded bg-gray-200" />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-5 w-25 rounded-full bg-gray-200" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GridSkeleton() {
+  const placeholders = Array.from({ length: 15 });
+  return (
+    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
+      <div
+        className="
+          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
+          gap-2 sm:gap-4
+        "
+      >
+        {placeholders.map((_, i) => (
+          <div
+            key={i}
+            className="w-full aspect-[4/3] rounded-xl bg-gray-200 animate-pulse"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ---------- Page ---------- */
+
 export default function GalleryClient({
   region,
   slug,
@@ -280,26 +307,22 @@ export default function GalleryClient({
   const { userId: viewerId } = useAuthUserId();
   const { toggleCollect } = useCollections();
 
-  // Base state comes from server rendered HTML
-  const [site] = useState<SiteHeaderInfo | null>(initialSite ?? null);
+  const [site] = useState<SiteHeaderInfo | null>(initialSite);
   const [photos, setPhotos] = useState<LightboxPhoto[]>(initialPhotos);
+  const [loading] = useState(false);
 
-  // Incremental grid state
   const [visibleCount, setVisibleCount] = useState<number>(BATCH_SIZE);
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  // Tracks how many tiles in the current batch have fully loaded
   const [loadedInBatch, setLoadedInBatch] = useState(0);
 
-  // Lightbox and modal state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<LightboxPhoto | null>(
     null
   );
 
-  // Reset visible photos when slug changes
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
     setLoadedInBatch(0);
@@ -404,12 +427,9 @@ export default function GalleryClient({
     ? `https://www.google.com/maps/search/?api=1&query=${site?.latitude},${site?.longitude}`
     : null;
 
-  // Header circle preview:
-  // prefer a stored gallery image variant, then fall back to cover_photo_url, then placeholder
   const circlePreview = useMemo(() => {
     if (photos[0]?.storagePath) {
       try {
-        // use the thumbnail variant for the circle
         return getVariantPublicUrl(photos[0].storagePath, "thumb");
       } catch {
         return photos[0].url;
@@ -422,7 +442,9 @@ export default function GalleryClient({
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      {site ? (
+      {loading ? (
+        <HeaderSkeleton />
+      ) : site ? (
         <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
@@ -488,49 +510,52 @@ export default function GalleryClient({
       )}
 
       {/* Photos grid */}
-      <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
-        {photos.length === 0 ? (
-          <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600">
-            No photos uploaded yet for this site.
-          </div>
-        ) : (
-          <>
-            <div
-              className="
-                grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
-                gap-2 sm:gap-4
-              "
-            >
-              {visiblePhotos.map((photo, idx) => (
-                <MasonryTile
-                  key={photo.id}
-                  photo={photo}
-                  siteId={site!.id}
-                  onOpen={() => setLightboxIndex(idx)}
-                  isPriority={idx < TOP_PRIORITY_COUNT}
-                  onLoaded={handleTileLoaded}
-                />
-              ))}
+      {loading ? (
+        <GridSkeleton />
+      ) : (
+        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
+          {photos.length === 0 ? (
+            <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600">
+              No photos uploaded yet for this site.
             </div>
+          ) : (
+            <>
+              <div
+                className="
+                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
+                  gap-2 sm:gap-4
+                "
+              >
+                {visiblePhotos.map((photo, idx) => (
+                  <MasonryTile
+                    key={photo.id}
+                    photo={photo}
+                    siteId={site!.id}
+                    onOpen={() => setLightboxIndex(idx)}
+                    isPriority={idx < TOP_PRIORITY_COUNT}
+                    onLoaded={handleTileLoaded}
+                  />
+                ))}
+              </div>
 
-            {/* Infinite scroll sentinel and spinner */}
-            {visiblePhotos.length > 0 &&
-              visiblePhotos.length < photos.length && (
-                <div
-                  ref={loaderRef}
-                  className="mt-6 flex justify-center items-center py-4"
-                >
-                  {isBatchLoading && (
-                    <div className="flex items-center gap-2 text-gray-500 text-sm">
-                      <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
-                      <span>Loading more photos</span>
-                    </div>
-                  )}
-                </div>
-              )}
-          </>
-        )}
-      </section>
+              {visiblePhotos.length > 0 &&
+                visiblePhotos.length < photos.length && (
+                  <div
+                    ref={loaderRef}
+                    className="mt-6 flex justify-center items-center py-4"
+                  >
+                    {isBatchLoading && (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                        <span>Loading more photos</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+            </>
+          )}
+        </section>
+      )}
 
       {/* Universal Lightbox */}
       {lightboxIndex !== null && (
