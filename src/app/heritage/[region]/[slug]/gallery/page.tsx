@@ -1,4 +1,4 @@
-// Server component wrapper for the gallery page.
+// src/app/heritage/[region]/[slug]/gallery/page.tsx
 
 export const dynamic = "force-static";
 export const revalidate = 31536000;
@@ -14,14 +14,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-type PageProps = {
-  params: {
-    region: string;
-    slug: string;
-  };
-};
-
-export default async function Page({ params }: PageProps) {
+export default async function Page({
+  params,
+}: {
+  params: { region: string; slug: string };
+}) {
   const { region, slug } = params;
 
   // 1. Site header from Supabase
@@ -48,7 +45,7 @@ export default async function Page({ params }: PageProps) {
     tagline: site.tagline,
   };
 
-  // 2. Photos via your existing helper, so LightboxPhoto shape (including site.categories) is preserved
+  // 2. Photos via existing helper, keeps LightboxPhoto shape and categories
   const photos: LightboxPhoto[] =
     (await getSiteGalleryPhotosForLightbox(site.id, null)) ?? [];
 
