@@ -434,20 +434,39 @@ export default function GalleryClient({
             </div>
 
             <div className="flex-1 text-center sm:text-left">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold">{site.title}</h1>
-                {googleMapsUrl && (
-                  <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition"
-                    title="Open in Google Maps"
-                  >
-                    <Icon name="map-marker-alt" />
-                    <span>GPS</span>
-                  </a>
-                )}
+              {/* Title row: title + GPS left, Back to Article right */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    <a
+                      href={`/heritage/${region}/${slug}`}
+                      className="hover:text-orange-600 transition"
+                    >
+                      {site.title}
+                    </a>
+                  </h1>
+
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                      title="Open in Google Maps"
+                    >
+                      <Icon name="map-marker-alt" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
+
+                <a
+                  href={`/heritage/${region}/${slug}`}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                >
+                  <Icon name="arrow-left" />
+                  <span>Back to Article</span>
+                </a>
               </div>
 
               {site.location_free && (
