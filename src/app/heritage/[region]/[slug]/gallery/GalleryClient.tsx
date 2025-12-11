@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/gallery/GalleryClient.tsx
 "use client";
 
 import {
@@ -10,9 +11,7 @@ import {
 } from "react";
 import Image from "next/image";
 import dynamicImport from "next/dynamic";
-import { useParams } from "next/navigation";
 import Icon from "@/components/Icon";
-import { createClient } from "@/lib/supabaseClient";
 import { decode } from "blurhash";
 
 // Collections
@@ -21,6 +20,36 @@ import CollectHeart from "@/components/CollectHeart";
 
 // Variants helper (centralized module)
 import { getVariantPublicUrl } from "@/lib/imagevariants";
+
+import type { LightboxPhoto } from "@/types/lightbox";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
+
+/* ---------- Types ---------- */
+
+export type SiteHeaderInfo = {
+  id: string;
+  slug: string;
+  title: string;
+  cover_photo_url?: string | null;
+  location_free?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  tagline?: string | null;
+};
+
+type PhotoWithExtras = LightboxPhoto & {
+  width?: number | null;
+  height?: number | null;
+  blurHash?: string | null;
+  blurDataURL?: string | null;
+};
+
+type GalleryClientProps = {
+  region: string;
+  slug: string;
+  initialSite: SiteHeaderInfo;
+  initialPhotos: LightboxPhoto[];
+};
 
 // Universal Lightbox (code split to reduce initial bundle)
 const Lightbox = dynamicImport(
@@ -32,36 +61,6 @@ const AddToCollectionModal = dynamicImport(
   () => import("@/components/AddToCollectionModal"),
   { ssr: false }
 );
-
-import type { LightboxPhoto } from "@/types/lightbox";
-import { getSiteGalleryPhotosForLightbox } from "@/lib/db/lightbox";
-import { useAuthUserId } from "@/hooks/useAuthUserId";
-
-/* ---------- Types ---------- */
-
-type SiteHeaderInfo = {
-  id: string;
-  slug: string;
-  title: string;
-  cover_photo_url?: string | null;
-  location_free?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  tagline?: string | null;
-};
-
-/** LightboxPhoto plus optional server provided extras. */
-type PhotoWithExtras = LightboxPhoto & {
-  width?: number | null;
-  height?: number | null;
-  blurHash?: string | null;
-  blurDataURL?: string | null;
-};
-
-/* ---------- Simple in memory cache (per browser tab) ---------- */
-
-const siteCache = new Map<string, SiteHeaderInfo>();
-const photoCache = new Map<string, LightboxPhoto[]>();
 
 /* ---------- Grid / loading helpers ---------- */
 
@@ -78,10 +77,7 @@ const BATCH_SIZE = 20;
 const TOP_PRIORITY_COUNT = 4;
 
 /* ---------- Blurhash Placeholder ---------- */
-/**
- * Runs decode work in requestIdleCallback or a timeout so it does not block
- * initial render. This helps TBT when many tiles are on screen.
- */
+
 function BlurhashPlaceholder({ hash }: { hash: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -206,9 +202,7 @@ const MasonryTile = memo(function MasonryTile({
         onClick={onOpen}
         title="Open"
       >
-        {/* Placeholder layer:
-            stays mounted, fades out when the image is ready
-        */}
+        {/* Placeholder layer, fades out when the image is ready */}
         <div
           className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${
             loaded ? "opacity-0" : "opacity-100"
@@ -277,66 +271,18 @@ const MasonryTile = memo(function MasonryTile({
   );
 });
 
-/* ---------- Skeletons ---------- */
-
-function HeaderSkeleton() {
-  return (
-    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
-      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 animate-pulse">
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-300/40 bg-gray-200" />
-        <div className="flex-1 w-full">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="h-7 w-56 rounded bg-gray-200" />
-            <div className="h-6 w-16 rounded-full bg-gray-200" />
-          </div>
-          <div className="mt-2 h-4 w-220 max-w-full rounded bg-gray-200" />
-          <div className="mt-2 h-3 w-220 max-w-full rounded bg-gray-200" />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-5 w-25 rounded-full bg-gray-200" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function GridSkeleton() {
-  const placeholders = Array.from({ length: 15 });
-  return (
-    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
-      <div
-        className="
-          grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
-          gap-2 sm:gap-4
-        "
-      >
-        {placeholders.map((_, i) => (
-          <div
-            key={i}
-            className="w-full aspect-[4/3] rounded-xl bg-gray-200 animate-pulse"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ---------- Page ---------- */
-
-export default function SiteGalleryPage() {
-  const params = useParams() as { region?: string; slug?: string };
-  const slug = (params.slug as string) ?? "";
+export default function GalleryClient({
+  region,
+  slug,
+  initialSite,
+  initialPhotos,
+}: GalleryClientProps) {
   const { userId: viewerId } = useAuthUserId();
-  const cacheKey = `${slug}|${viewerId ?? "anon"}`;
-
   const { toggleCollect } = useCollections();
-  const supabase = createClient();
 
-  const [site, setSite] = useState<SiteHeaderInfo | null>(null);
-  const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Base state comes from server rendered HTML
+  const [site] = useState<SiteHeaderInfo | null>(initialSite ?? null);
+  const [photos, setPhotos] = useState<LightboxPhoto[]>(initialPhotos);
 
   // Incremental grid state
   const [visibleCount, setVisibleCount] = useState<number>(BATCH_SIZE);
@@ -353,62 +299,11 @@ export default function SiteGalleryPage() {
     null
   );
 
-  const loadData = useCallback(async () => {
-    if (!slug) return;
-
-    const cachedSite = siteCache.get(cacheKey) || null;
-    const cachedPhotos = photoCache.get(cacheKey) || null;
-
-    if (cachedSite && cachedPhotos) {
-      setSite(cachedSite);
-      setPhotos(cachedPhotos);
-      setLoading(false);
-      setVisibleCount(BATCH_SIZE);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const { data: siteData, error: sErr } = await supabase
-        .from("sites")
-        .select(
-          "id, slug, title, cover_photo_url, location_free, latitude, longitude, tagline"
-        )
-        .eq("slug", slug)
-        .single();
-      if (sErr) throw sErr;
-      if (!siteData) throw new Error("Site not found.");
-      const typedSite = siteData as SiteHeaderInfo;
-      setSite(typedSite);
-
-      const photoData = await getSiteGalleryPhotosForLightbox(
-        typedSite.id,
-        viewerId
-      );
-      setPhotos(photoData);
-
-      siteCache.set(cacheKey, typedSite);
-      photoCache.set(cacheKey, photoData);
-
-      setVisibleCount(BATCH_SIZE);
-    } catch (error) {
-      console.error("Failed to load gallery:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [cacheKey, slug, supabase, viewerId]);
-
+  // Reset visible photos when slug changes
   useEffect(() => {
-    if (slug) loadData();
-  }, [slug, loadData]);
-
-  useEffect(() => {
-    if (!loading) {
-      setVisibleCount(BATCH_SIZE);
-      setLoadedInBatch(0);
-    }
-  }, [loading]);
+    setVisibleCount(BATCH_SIZE);
+    setLoadedInBatch(0);
+  }, [slug]);
 
   useEffect(() => {
     setLoadedInBatch(0);
@@ -476,25 +371,27 @@ export default function SiteGalleryPage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [visibleCount, photos.length, loadedInBatch]);
+  }, [visibleCount, photos.length, loadedInBatch, photos]);
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) return alert("Please sign in to save photos.");
+      if (!viewerId) {
+        alert("Please sign in to save photos.");
+        return;
+      }
+
       await toggleCollect({
         siteImageId: photo.id,
         storagePath: photo.storagePath,
       });
 
-      setPhotos((arr) => {
-        const next = arr.map((p) =>
+      setPhotos((arr) =>
+        arr.map((p) =>
           p.id === photo.id ? { ...p, isBookmarked: !p.isBookmarked } : p
-        );
-        photoCache.set(cacheKey, next);
-        return next;
-      });
+        )
+      );
     },
-    [viewerId, toggleCollect, cacheKey]
+    [viewerId, toggleCollect]
   );
 
   const handleOpenCollectionModal = useCallback((photo: LightboxPhoto) => {
@@ -525,9 +422,7 @@ export default function SiteGalleryPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      {loading ? (
-        <HeaderSkeleton />
-      ) : site ? (
+      {site ? (
         <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
@@ -593,56 +488,52 @@ export default function SiteGalleryPage() {
       )}
 
       {/* Photos grid */}
-      {loading ? (
-        <GridSkeleton />
-      ) : (
-        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
-          {photos.length === 0 ? (
-            <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600">
-              No photos uploaded yet for this site.
+      <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
+        {photos.length === 0 ? (
+          <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600">
+            No photos uploaded yet for this site.
+          </div>
+        ) : (
+          <>
+            <div
+              className="
+                grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
+                gap-2 sm:gap-4
+              "
+            >
+              {visiblePhotos.map((photo, idx) => (
+                <MasonryTile
+                  key={photo.id}
+                  photo={photo}
+                  siteId={site!.id}
+                  onOpen={() => setLightboxIndex(idx)}
+                  isPriority={idx < TOP_PRIORITY_COUNT}
+                  onLoaded={handleTileLoaded}
+                />
+              ))}
             </div>
-          ) : (
-            <>
-              <div
-                className="
-                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
-                  gap-2 sm:gap-4
-                "
-              >
-                {visiblePhotos.map((photo, idx) => (
-                  <MasonryTile
-                    key={photo.id}
-                    photo={photo}
-                    siteId={site!.id}
-                    onOpen={() => setLightboxIndex(idx)}
-                    isPriority={idx < TOP_PRIORITY_COUNT}
-                    onLoaded={handleTileLoaded}
-                  />
-                ))}
-              </div>
 
-              {/* Infinite scroll sentinel and spinner */}
-              {visiblePhotos.length > 0 &&
-                visiblePhotos.length < photos.length && (
-                  <div
-                    ref={loaderRef}
-                    className="mt-6 flex justify-center items-center py-4"
-                  >
-                    {isBatchLoading && (
-                      <div className="flex items-center gap-2 text-gray-500 text-sm">
-                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
-                        <span>Loading more photos</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-            </>
-          )}
-        </section>
-      )}
+            {/* Infinite scroll sentinel and spinner */}
+            {visiblePhotos.length > 0 &&
+              visiblePhotos.length < photos.length && (
+                <div
+                  ref={loaderRef}
+                  className="mt-6 flex justify-center items-center py-4"
+                >
+                  {isBatchLoading && (
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                      <span>Loading more photos</span>
+                    </div>
+                  )}
+                </div>
+              )}
+          </>
+        )}
+      </section>
 
       {/* Universal Lightbox */}
-      {!loading && lightboxIndex !== null && (
+      {lightboxIndex !== null && (
         <Lightbox
           photos={photos}
           startIndex={lightboxIndex}
@@ -653,7 +544,7 @@ export default function SiteGalleryPage() {
       )}
 
       {/* Add to Collection Modal */}
-      {!loading && collectionModalOpen && selectedPhoto && (
+      {collectionModalOpen && selectedPhoto && (
         <AddToCollectionModal
           open={collectionModalOpen}
           onClose={() => setCollectionModalOpen(false)}
