@@ -15,11 +15,12 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-type RouteParams = {
-  params: { region: string; slug: string };
-};
+// Removed RouteParams alias, Next 15 does not accept custom types here
 
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { region: string; slug: string } }
+) {
   const { region, slug } = params;
 
   let title = slug.replace(/-/g, " ");
