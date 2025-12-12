@@ -1,3 +1,4 @@
+// src/app/heritage/[region]/[slug]/gallery/GalleryClient.tsx
 "use client";
 
 import {
@@ -245,7 +246,36 @@ const MasonryTile = memo(function MasonryTile({
 });
 
 /* ---------- Skeletons ---------- */
-/* (unchanged, preserved) */
+
+function HeaderSkeleton() {
+  return (
+    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
+      <div className="animate-pulse flex items-center gap-4">
+        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-3">
+          <div className="h-6 w-48 bg-gray-200 rounded" />
+          <div className="h-4 w-72 bg-gray-200 rounded" />
+          <div className="h-4 w-40 bg-gray-200 rounded" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GridSkeleton() {
+  return (
+    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
+      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 sm:gap-4 animate-pulse">
+        {Array.from({ length: 15 }).map((_, i) => (
+          <div
+            key={i}
+            className="aspect-[4/3] bg-gray-200 rounded-xl"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 /* ---------- Page Component ---------- */
 
@@ -374,7 +404,6 @@ export default function GalleryClient({
 
   return (
     <div className="min-h-screen bg-white">
-
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}
@@ -394,14 +423,13 @@ export default function GalleryClient({
                 "@type": "Place",
                 name: site.title,
                 address: site.location_free || undefined,
-                geo:
-                  hasGps
-                    ? {
-                        "@type": "GeoCoordinates",
-                        latitude: site.latitude,
-                        longitude: site.longitude,
-                      }
-                    : undefined,
+                geo: hasGps
+                  ? {
+                      "@type": "GeoCoordinates",
+                      latitude: site.latitude,
+                      longitude: site.longitude,
+                    }
+                  : undefined,
               },
               image: photos.map((p) => ({
                 "@type": "ImageObject",
