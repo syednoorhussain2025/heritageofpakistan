@@ -4,7 +4,6 @@ import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
-export const contentType = "image/png";
 
 const size = {
   width: 1200,
@@ -40,7 +39,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     tagline = data?.tagline ?? null;
     coverPhotoUrl = data?.cover_photo_url ?? null;
   } catch {
-    // Fallback to slug based values if Supabase fails
+    // fallback
   }
 
   const readableRegion = region.replace(/-/g, " ");
@@ -51,7 +50,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  // Basic background image style if cover image exists
   const backgroundImageStyle =
     coverPhotoUrl != null
       ? {
@@ -114,7 +112,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
             <span>Photo gallery</span>
           </div>
 
-          {/* Center title block */}
+          {/* Center title */}
           <div style={{ maxWidth: "80%" }}>
             <div
               style={{
@@ -154,7 +152,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
             )}
           </div>
 
-          {/* Footer brand */}
+          {/* Footer */}
           <div
             style={{
               display: "flex",
@@ -176,7 +174,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
                   width: 32,
                   height: 32,
                   borderRadius: 999,
-                  background: "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
+                  background:
+                    "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
                   boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
                 }}
               />
@@ -208,6 +207,11 @@ export async function GET(_req: Request, { params }: RouteParams) {
     {
       width: size.width,
       height: size.height,
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control":
+          "public, s-maxage=604800, stale-while-revalidate=86400",
+      },
     }
   );
 }
