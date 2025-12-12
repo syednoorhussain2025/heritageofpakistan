@@ -62,7 +62,7 @@ export async function generateMetadata(props: any): Promise<Metadata> {
     robots: {
       index: true,
       follow: true,
-      maxImagePreview: "large",
+      "max-image-preview": "large",
     },
     openGraph: {
       title: pageTitle,
