@@ -12,14 +12,12 @@ import { getSiteGalleryPhotosForLightbox } from "@/lib/db/lightbox";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /* ------------------------------------------------------------------
    Professional SEO metadata for gallery page
 -------------------------------------------------------------------*/
 export async function generateMetadata(props: any): Promise<Metadata> {
-  // ❗ FIX: Next.js 15 requires awaiting params because params is a Promise
   const { region, slug } = await props.params;
 
   let siteTitle = slug.replace(/-/g, " ");
@@ -33,19 +31,15 @@ export async function generateMetadata(props: any): Promise<Metadata> {
       .eq("slug", slug)
       .single();
 
-    if (data?.title) {
-      siteTitle = data.title;
-    }
+    if (data?.title) siteTitle = data.title;
     locationFree = data?.location_free ?? null;
     tagline = data?.tagline ?? null;
-  } catch {
-    // fallback if metadata cannot be fetched
-  }
+  } catch {}
 
   const readableRegion = region.replace(/-/g, " ");
   const pageTitle = `${siteTitle} photo gallery | Heritage of Pakistan`;
 
-  const descriptionParts: string[] = [
+  const descriptionParts = [
     `Explore a curated gallery of high quality photographs of ${siteTitle}.`,
     locationFree
       ? `Located in ${locationFree} (${readableRegion}).`
@@ -53,11 +47,10 @@ export async function generateMetadata(props: any): Promise<Metadata> {
     tagline ||
       "Discover architecture, landscape and cultural details through detailed images.",
   ];
-  const description = descriptionParts.join(" ");
 
+  const description = descriptionParts.join(" ");
   const canonicalPath = `/heritage/${region}/${slug}/gallery`;
 
-  // Will be handled by /socialsharingcard route
   const ogImagePath = `/heritage/${region}/${slug}/gallery/socialsharingcard`;
 
   return {
@@ -95,11 +88,17 @@ export async function generateMetadata(props: any): Promise<Metadata> {
   };
 }
 
-// Do not type params here to avoid conflict with Next's generated PageProps
-export default async function Page(props: any) {
-  const { region, slug } = props.params as { region: string; slug: string };
+/* ------------------------------------------------------------------
+   PAGE (SERVER COMPONENT)
+-------------------------------------------------------------------*/
 
-  // 1. Site header from Supabase
+export default async function Page(props: any) {
+  const { region, slug } = (await props.params) as {
+    region: string;
+    slug: string;
+  };
+
+  // Fetch site info
   const { data: site, error: siteError } = await supabase
     .from("sites")
     .select(
@@ -108,9 +107,7 @@ export default async function Page(props: any) {
     .eq("slug", slug)
     .single();
 
-  if (siteError || !site) {
-    return notFound();
-  }
+  if (siteError || !site) return notFound();
 
   const typedSite: SiteHeaderInfo = {
     id: site.id,
@@ -123,16 +120,58 @@ export default async function Page(props: any) {
     tagline: site.tagline,
   };
 
-  // 2. Photos via existing helper, keeps LightboxPhoto shape and categories
+  // photos
   const photos: LightboxPhoto[] =
     (await getSiteGalleryPhotosForLightbox(site.id, null)) ?? [];
 
+  /* ------------------------------------------------------------------
+     ⭐ SERVER-RENDERED JSON-LD (Best SEO Practice)
+  -------------------------------------------------------------------*/
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ImageGallery",
+    name: `${site.title} Photo Gallery`,
+    description:
+      site.tagline ||
+      `A curated gallery of high quality photographs of ${site.title}.`,
+    url: `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery`,
+    about: {
+      "@type": "Place",
+      name: site.title,
+      address: site.location_free || undefined,
+      geo:
+        site.latitude && site.longitude
+          ? {
+              "@type": "GeoCoordinates",
+              latitude: site.latitude,
+              longitude: site.longitude,
+            }
+          : undefined,
+    },
+    image: photos.map((p) => ({
+      "@type": "ImageObject",
+      contentUrl: p.url,
+      caption: p.caption || `${site.title} photo`,
+    })),
+  };
+
   return (
-    <GalleryClient
-      region={region}
-      slug={slug}
-      initialSite={typedSite}
-      initialPhotos={photos}
-    />
+    <>
+      {/* ★ SSR JSON-LD (Google Preferred) ★ */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd),
+        }}
+      />
+
+      <GalleryClient
+        region={region}
+        slug={slug}
+        initialSite={typedSite}
+        initialPhotos={photos}
+      />
+    </>
   );
 }
