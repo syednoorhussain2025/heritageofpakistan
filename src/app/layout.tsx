@@ -38,64 +38,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/* ---------------- SEO ---------------- */
+/* ---------------- Removed ALL SEO ---------------- */
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.com";
-
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "Heritage of Pakistan",
-    template: "%s | Heritage of Pakistan",
-  },
-  description:
-    "Discover heritage sites across Pakistan, explore history, architecture and culture with photos, maps and travel guidance.",
-  keywords: [
-    "Pakistan heritage",
-    "heritage sites",
-    "historical places Pakistan",
-    "tourist attractions Pakistan",
-    "UNESCO Pakistan",
-  ],
-  alternates: {
-    canonical: siteUrl,
-  },
-  openGraph: {
-    type: "website",
-    url: siteUrl,
-    siteName: "Heritage of Pakistan",
-    title: "Heritage of Pakistan",
-    description:
-      "Discover and explore heritage sites across Pakistan with history, architecture and travel insights.",
-    images: [
-      {
-        url: "/og-default.jpg", // 1200x630 image in /public
-        width: 1200,
-        height: 630,
-        alt: "Heritage of Pakistan",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Heritage of Pakistan",
-    description:
-      "Explore cultural and historical heritage sites across Pakistan.",
-    images: ["/og-default.jpg"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-snippet": -1,
-      "max-image-preview": "large",
-      "max-video-preview": -1,
-    },
-  },
-};
+export const metadata: Metadata = {};
 
 /* ---------------- Layout ---------------- */
 
