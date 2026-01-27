@@ -49,9 +49,12 @@ export async function generateMetadata(props: any): Promise<Metadata> {
   ];
 
   const description = descriptionParts.join(" ");
-  const canonicalPath = `/heritage/${region}/${slug}/gallery`;
 
-  const ogImagePath = `/heritage/${region}/${slug}/gallery/socialsharingcard`;
+  // ✅ FIX: Canonical must be an absolute URL (Lighthouse requirement)
+  const canonicalPath = `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery`;
+
+  // ✅ FIX: OpenGraph image URL should also be absolute for best compatibility
+  const ogImagePath = `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery/socialsharingcard`;
 
   return {
     title: pageTitle,
