@@ -44,16 +44,17 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
   const readableRegion = region.replace(/-/g, " ");
   const subtitle =
-    locationFree != null
-      ? `${locationFree} • ${readableRegion}`
-      : readableRegion;
+    locationFree != null ? `${locationFree} • ${readableRegion}` : readableRegion;
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
+  // ✅ FIX: Encode and quote URL so spaces/parentheses do not break CSS url()
+  const safeCoverUrl = coverPhotoUrl != null ? encodeURI(coverPhotoUrl) : null;
+
   const backgroundImageStyle =
-    coverPhotoUrl != null
+    safeCoverUrl != null
       ? ({
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9)), url(${coverPhotoUrl})`,
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9)), url("${safeCoverUrl}")`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         } as const)
