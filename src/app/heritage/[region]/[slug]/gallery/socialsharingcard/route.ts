@@ -26,6 +26,20 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
   return btoa(binary);
 }
 
+async function fetchWithTimeout(url: string, ms: number) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      // do not hang on cache weirdness
+      cache: "no-store",
+    });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export async function GET(_req: Request, ctx: RouteContext) {
   const { region, slug } = await ctx.params;
 
@@ -59,20 +73,28 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  // ✅ FIX: Pre-fetch the remote image and embed it as a data URL.
-  // This avoids next/og edge runtime failures with CSS url(...) and remote fetch/render issues.
+  // ✅ Always return an image, even if cover fetch fails or hangs
   let coverDataUrl: string | null = null;
 
   if (coverPhotoUrl) {
     try {
       const safeUrl = encodeURI(coverPhotoUrl);
-      const res = await fetch(safeUrl, { cache: "no-store" });
+
+      // ⛑️ Hard timeout so the route never hangs
+      const res = await fetchWithTimeout(safeUrl, 2500);
 
       if (res.ok) {
         const contentType = res.headers.get("content-type") || "image/jpeg";
+
+        // ⛑️ Read as arrayBuffer. If it is massive and slow, timeout above prevents hang.
         const buf = await res.arrayBuffer();
-        const b64 = arrayBufferToBase64(buf);
-        coverDataUrl = `data:${contentType};base64,${b64}`;
+
+        // ⛑️ Guardrail: if image is huge, skip embedding and fall back
+        // 2.5MB cap keeps OG rendering reliable
+        if (buf.byteLength <= 2_500_000) {
+          const b64 = arrayBufferToBase64(buf);
+          coverDataUrl = `data:${contentType};base64,${b64}`;
+        }
       }
     } catch {
       coverDataUrl = null;
@@ -102,7 +124,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
               : undefined,
         },
       },
-      // Background image layer (embedded)
       coverDataUrl
         ? h("img", {
             src: coverDataUrl,
@@ -115,8 +136,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
             },
           })
         : null,
-
-      // Gradient overlay (always)
       h("div", {
         style: {
           position: "absolute",
@@ -125,8 +144,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
             "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9))",
         },
       }),
-
-      // Content
       h(
         "div",
         {
@@ -141,7 +158,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
             boxSizing: "border-box",
           },
         },
-
         h(
           "div",
           {
@@ -167,7 +183,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
           }),
           h("span", null, "Photo gallery")
         ),
-
         h(
           "div",
           { style: { maxWidth: "80%" } },
@@ -212,7 +227,6 @@ export async function GET(_req: Request, ctx: RouteContext) {
               )
             : null
         ),
-
         h(
           "div",
           {
