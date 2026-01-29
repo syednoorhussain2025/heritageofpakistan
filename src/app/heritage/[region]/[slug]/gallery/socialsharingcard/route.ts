@@ -4,18 +4,17 @@ import React from "react";
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs"; // ← THIS IS THE FIX
+export const runtime = "nodejs";
 
 const size = { width: 1200, height: 630 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-type RouteContext = {
-  params: { region: string; slug: string };
-};
-
-export async function GET(_req: Request, ctx: RouteContext) {
+export async function GET(
+  _req: Request,
+  ctx: { params: { region: string; slug: string } }
+) {
   const { region, slug } = ctx.params;
 
   let title = slug.replace(/-/g, " ");
@@ -36,7 +35,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
     locationFree = data?.location_free ?? null;
     tagline = data?.tagline ?? null;
     coverPhotoUrl = data?.cover_photo_url ?? null;
-  } catch {}
+  } catch {
+    // fallback
+  }
 
   const readableRegion = region.replace(/-/g, " ");
   const subtitle =
@@ -56,7 +57,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
           display: "flex",
           position: "relative",
           overflow: "hidden",
-          color: "white",
+          color: "#f9fafb",
           fontFamily:
             "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         },
@@ -80,7 +81,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.85))",
+            "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.88))",
         },
       }),
 
@@ -95,6 +96,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
             justifyContent: "space-between",
             padding: "48px 72px",
             width: "100%",
+            boxSizing: "border-box",
           },
         },
 
@@ -109,29 +111,61 @@ export async function GET(_req: Request, ctx: RouteContext) {
               borderRadius: 999,
               backgroundColor: "rgba(15,23,42,0.8)",
               fontSize: 18,
+              letterSpacing: 1,
               textTransform: "uppercase",
             },
           },
-          "Photo gallery"
+          h("div", {
+            style: {
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              backgroundColor: "#f97316",
+            },
+          }),
+          h("span", null, "Photo gallery")
         ),
 
         h(
           "div",
-          null,
+          { style: { maxWidth: "80%" } },
           h(
             "div",
-            { style: { fontSize: 52, fontWeight: 700 } },
+            {
+              style: {
+                fontSize: 52,
+                lineHeight: 1.1,
+                fontWeight: 750,
+                letterSpacing: "-0.04em",
+                textShadow: "0 10px 40px rgba(0,0,0,0.8)",
+              },
+            },
             title
           ),
           h(
             "div",
-            { style: { marginTop: 16, fontSize: 24, opacity: 0.9 } },
+            {
+              style: {
+                marginTop: 16,
+                fontSize: 24,
+                opacity: 0.9,
+                textShadow: "0 6px 24px rgba(0,0,0,0.8)",
+              },
+            },
             subtitle
           ),
           tagline
             ? h(
                 "div",
-                { style: { marginTop: 18, fontSize: 20 } },
+                {
+                  style: {
+                    marginTop: 18,
+                    fontSize: 20,
+                    maxWidth: "90%",
+                    color: "#e5e7eb",
+                    textShadow: "0 4px 18px rgba(0,0,0,0.75)",
+                  },
+                },
                 tagline
               )
             : null
@@ -139,14 +173,68 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
         h(
           "div",
-          { style: { fontSize: 20, letterSpacing: "0.08em" } },
-          "Heritage of Pakistan"
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 32,
+            },
+          },
+          h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              },
+            },
+            h("div", {
+              style: {
+                width: 32,
+                height: 32,
+                borderRadius: 999,
+                background:
+                  "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
+                boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+              },
+            }),
+            h(
+              "div",
+              {
+                style: {
+                  fontSize: 22,
+                  fontWeight: 650,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                },
+              },
+              "Heritage of Pakistan"
+            )
+          ),
+          h(
+            "div",
+            {
+              style: {
+                fontSize: 18,
+                color: "#e5e7eb",
+                opacity: 0.9,
+              },
+            },
+            "Heritage of Pakistan • Photo gallery"
+          )
         )
       )
     ),
     {
       width: size.width,
       height: size.height,
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
+      },
     }
   );
 }
