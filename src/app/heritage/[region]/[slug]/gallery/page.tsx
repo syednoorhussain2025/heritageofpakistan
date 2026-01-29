@@ -139,7 +139,7 @@ export default async function Page(props: any) {
     (await getSiteGalleryPhotosForLightbox(site.id, null)) ?? [];
 
   /* ------------------------------------------------------------------
-     ⭐ SERVER-RENDERED JSON-LD (Best SEO Practice)
+     ⭐ SERVER-RENDERED JSON-LD (Best SEO Practice)s
   -------------------------------------------------------------------*/
 
   const jsonLd = {
