@@ -11,10 +11,12 @@ const size = { width: 1200, height: 630 };
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-type RouteParams = { region: string; slug: string };
+type RouteContext = {
+  params: Promise<{ region: string; slug: string }>;
+};
 
-export async function GET(_req: Request, ctx: { params: RouteParams }) {
-  const { region, slug } = ctx.params;
+export async function GET(_req: Request, ctx: RouteContext) {
+  const { region, slug } = await ctx.params;
 
   let title = slug.replace(/-/g, " ");
   let locationFree: string | null = null;
@@ -91,7 +93,6 @@ export async function GET(_req: Request, ctx: { params: RouteParams }) {
           },
         },
 
-        // Top label
         h(
           "div",
           {
@@ -118,7 +119,6 @@ export async function GET(_req: Request, ctx: { params: RouteParams }) {
           h("span", null, "Photo gallery")
         ),
 
-        // Center title
         h(
           "div",
           { style: { maxWidth: "80%" } },
@@ -164,7 +164,6 @@ export async function GET(_req: Request, ctx: { params: RouteParams }) {
             : null
         ),
 
-        // Footer
         h(
           "div",
           {
