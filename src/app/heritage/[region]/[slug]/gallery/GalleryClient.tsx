@@ -180,7 +180,7 @@ const MasonryTile = memo(function MasonryTile({
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
       <div
         ref={tileRef}
-        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3]"
+        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3] cursor-pointer"
         onClick={onOpen}
         title="Open"
       >
@@ -267,10 +267,7 @@ function GridSkeleton() {
     <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
       <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 sm:gap-4 animate-pulse">
         {Array.from({ length: 15 }).map((_, i) => (
-          <div
-            key={i}
-            className="aspect-[4/3] bg-gray-200 rounded-xl"
-          />
+          <div key={i} className="aspect-[4/3] bg-gray-200 rounded-xl" />
         ))}
       </div>
     </section>
@@ -336,9 +333,7 @@ export default function GalleryClient({
 
         setIsBatchLoading(true);
         timeoutId = window.setTimeout(() => {
-          setVisibleCount((prev) =>
-            Math.min(prev + BATCH_SIZE, photos.length)
-          );
+          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, photos.length));
           setIsBatchLoading(false);
         }, 250);
       },
@@ -463,12 +458,12 @@ export default function GalleryClient({
             </div>
 
             <div className="flex-1 text-center sm:text-left">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center justify-center sm:justify-between gap-2">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                   <h1 className="text-2xl sm:text-3xl font-bold">
                     <a
                       href={`/heritage/${region}/${slug}`}
-                      className="hover:text-orange-600 transition"
+                      className="hover:text-blue-900 transition"
                     >
                       {site.title}
                     </a>
@@ -490,7 +485,7 @@ export default function GalleryClient({
 
                 <a
                   href={`/heritage/${region}/${slug}`}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                  className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-gray-100 hover:bg-gray-200 transition"
                 >
                   <Icon name="arrow-left" />
                   <span>Back to Article</span>
@@ -498,7 +493,16 @@ export default function GalleryClient({
               </div>
 
               {site.location_free && (
-                <div className="mt-1 text-gray-600">{site.location_free}</div>
+                <div className="mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2 text-gray-600">
+                  <a
+                    href={`/heritage/${region}/${slug}`}
+                    className="inline-flex sm:hidden items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                  >
+                    <Icon name="arrow-left" />
+                    <span>Back to Article</span>
+                  </a>
+                  <span>{site.location_free}</span>
+                </div>
               )}
 
               {site.tagline && (
