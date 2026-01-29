@@ -15,6 +15,17 @@ type RouteContext = {
   params: Promise<{ region: string; slug: string }>;
 };
 
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 export async function GET(_req: Request, ctx: RouteContext) {
   const { region, slug } = await ctx.params;
 
@@ -48,20 +59,25 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  // ✅ FIX: Encode and quote URL so spaces/parentheses do not break CSS url()
-  const safeCoverUrl = coverPhotoUrl != null ? encodeURI(coverPhotoUrl) : null;
+  // ✅ FIX: Pre-fetch the remote image and embed it as a data URL.
+  // This avoids next/og edge runtime failures with CSS url(...) and remote fetch/render issues.
+  let coverDataUrl: string | null = null;
 
-  const backgroundImageStyle =
-    safeCoverUrl != null
-      ? ({
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9)), url("${safeCoverUrl}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        } as const)
-      : ({
-          backgroundImage:
-            "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)",
-        } as const);
+  if (coverPhotoUrl) {
+    try {
+      const safeUrl = encodeURI(coverPhotoUrl);
+      const res = await fetch(safeUrl, { cache: "no-store" });
+
+      if (res.ok) {
+        const contentType = res.headers.get("content-type") || "image/jpeg";
+        const buf = await res.arrayBuffer();
+        const b64 = arrayBufferToBase64(buf);
+        coverDataUrl = `data:${contentType};base64,${b64}`;
+      }
+    } catch {
+      coverDataUrl = null;
+    }
+  }
 
   const h = React.createElement;
 
@@ -75,16 +91,48 @@ export async function GET(_req: Request, ctx: RouteContext) {
           display: "flex",
           alignItems: "stretch",
           justifyContent: "center",
-          ...backgroundImageStyle,
+          position: "relative",
+          overflow: "hidden",
           color: "#f9fafb",
           fontFamily:
             "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          backgroundImage:
+            coverDataUrl == null
+              ? "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)"
+              : undefined,
         },
       },
+      // Background image layer (embedded)
+      coverDataUrl
+        ? h("img", {
+            src: coverDataUrl,
+            style: {
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            },
+          })
+        : null,
+
+      // Gradient overlay (always)
+      h("div", {
+        style: {
+          position: "absolute",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9))",
+        },
+      }),
+
+      // Content
       h(
         "div",
         {
           style: {
+            position: "relative",
+            zIndex: 2,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
