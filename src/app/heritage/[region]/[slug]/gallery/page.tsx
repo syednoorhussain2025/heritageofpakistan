@@ -50,11 +50,12 @@ export async function generateMetadata(props: any): Promise<Metadata> {
 
   const description = descriptionParts.join(" ");
 
-  // ✅ Vercel-aware base URL
+  // ✅ Base URL (prod via NEXT_PUBLIC_SITE_URL, preview via VERCEL_URL, dev via localhost)
   const siteBase =
-    process.env.VERCEL_URL
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : "https://heritageofpakistan.vercel.app";
+      : "http://localhost:3000");
 
   const canonicalPath = `${siteBase}/heritage/${region}/${slug}/gallery`;
   const ogImagePath = `${siteBase}/heritage/${region}/${slug}/gallery/socialsharingcard`;
@@ -104,6 +105,13 @@ export default async function Page(props: any) {
     slug: string;
   };
 
+  // ✅ Base URL (same logic as metadata)
+  const siteBase =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
+
   // Fetch site info
   const { data: site, error: siteError } = await supabase
     .from("sites")
@@ -141,7 +149,7 @@ export default async function Page(props: any) {
     description:
       site.tagline ||
       `A curated gallery of high quality photographs of ${site.title}.`,
-    url: `https://heritageofpakistan.vercel.app/heritage/${region}/${slug}/gallery`,
+    url: `${siteBase}/heritage/${region}/${slug}/gallery`,
     about: {
       "@type": "Place",
       name: site.title,
