@@ -50,11 +50,14 @@ export async function generateMetadata(props: any): Promise<Metadata> {
 
   const description = descriptionParts.join(" ");
 
-  // ✅ FIX: Canonical must be an absolute URL (Lighthouse requirement)
-  const canonicalPath = `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery`;
+  // ✅ Vercel-aware base URL
+  const siteBase =
+    process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "https://heritageofpakistan.vercel.app";
 
-  // ✅ FIX: OpenGraph image URL should also be absolute for best compatibility
-  const ogImagePath = `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery/socialsharingcard`;
+  const canonicalPath = `${siteBase}/heritage/${region}/${slug}/gallery`;
+  const ogImagePath = `${siteBase}/heritage/${region}/${slug}/gallery/socialsharingcard`;
 
   return {
     title: pageTitle,
@@ -138,7 +141,7 @@ export default async function Page(props: any) {
     description:
       site.tagline ||
       `A curated gallery of high quality photographs of ${site.title}.`,
-    url: `https://heritageofpakistan.com/heritage/${region}/${slug}/gallery`,
+    url: `https://heritageofpakistan.vercel.app/heritage/${region}/${slug}/gallery`,
     about: {
       "@type": "Place",
       name: site.title,
