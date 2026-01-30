@@ -11,28 +11,27 @@ const size = { width: 1200, height: 630 };
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+function normalizeText(value: string | null | undefined) {
+  return (value ?? "").trim();
+}
+
 export async function GET(_req: Request, ctx: any) {
-  const { region, slug } = (ctx?.params ?? {}) as {
-    region?: string;
-    slug?: string;
-  };
+  const region = normalizeText(ctx?.params?.region);
+  const slug = normalizeText(ctx?.params?.slug);
 
-  const safeRegion = region ?? "";
-  const safeSlug = slug ?? "";
-
-  let title = safeSlug.replace(/-/g, " ");
+  let title = slug ? slug.replace(/-/g, " ") : "Photo gallery";
   let locationFree: string | null = null;
   let tagline: string | null = null;
   let coverPhotoUrl: string | null = null;
 
-  if (supabaseUrl && supabaseAnonKey && safeSlug) {
+  if (supabaseUrl && supabaseAnonKey && slug) {
     try {
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       const { data } = await supabase
         .from("sites")
         .select("title, location_free, tagline, cover_photo_url")
-        .eq("slug", safeSlug)
+        .eq("slug", slug)
         .single();
 
       if (data?.title) title = data.title;
@@ -40,213 +39,213 @@ export async function GET(_req: Request, ctx: any) {
       tagline = data?.tagline ?? null;
       coverPhotoUrl = data?.cover_photo_url ?? null;
     } catch {
-      // fallback
+      // keep fallbacks
     }
   }
 
-  const readableRegion = safeRegion.replace(/-/g, " ");
+  const readableRegion = region ? region.replace(/-/g, " ") : "";
   const subtitle =
-    locationFree != null
+    locationFree != null && readableRegion
       ? `${locationFree} • ${readableRegion}`
-      : readableRegion;
+      : locationFree != null
+      ? locationFree
+      : readableRegion || "Heritage of Pakistan";
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  const safeCoverUrl = coverPhotoUrl != null ? encodeURI(coverPhotoUrl) : null;
+  // Encode spaces and other unsafe chars
+  const safeCoverUrl = coverPhotoUrl ? encodeURI(coverPhotoUrl) : null;
 
   const h = React.createElement;
 
-  return new ImageResponse(
-    h(
-      "div",
-      {
-        style: {
-          width: size.width,
-          height: size.height,
-          display: "flex",
-          position: "relative",
-          overflow: "hidden",
-          color: "#f9fafb",
-          fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          background:
-            safeCoverUrl == null
-              ? "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)"
-              : undefined,
-        },
-      },
+  const renderCard = (useCover: boolean) => {
+    const backgroundStyle = useCover && safeCoverUrl
+      ? ({
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9)), url("${safeCoverUrl}")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        } as const)
+      : ({
+          backgroundImage:
+            "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)",
+        } as const);
 
-      safeCoverUrl
-        ? h("img", {
-            src: safeCoverUrl,
-            style: {
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            },
-          })
-        : null,
-
-      h("div", {
-        style: {
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9))",
-        },
-      }),
-
+    return new ImageResponse(
       h(
         "div",
         {
           style: {
-            position: "relative",
-            zIndex: 2,
+            width: size.width,
+            height: size.height,
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            padding: "48px 72px",
-            width: "100%",
-            boxSizing: "border-box",
+            alignItems: "stretch",
+            justifyContent: "center",
+            color: "#f9fafb",
+            fontFamily:
+              "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            ...backgroundStyle,
           },
         },
-
-        h(
-          "div",
-          {
-            style: {
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              borderRadius: 999,
-              backgroundColor: "rgba(15, 23, 42, 0.75)",
-              fontSize: 18,
-              letterSpacing: 1,
-              textTransform: "uppercase",
-            },
-          },
-          h("div", {
-            style: {
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              backgroundColor: "#f97316",
-            },
-          }),
-          h("span", null, "Photo gallery")
-        ),
-
-        h(
-          "div",
-          { style: { maxWidth: "80%" } },
-          h(
-            "div",
-            {
-              style: {
-                fontSize: 52,
-                lineHeight: 1.1,
-                fontWeight: 750,
-                letterSpacing: "-0.04em",
-                textShadow: "0 10px 40px rgba(0,0,0,0.8)",
-              },
-            },
-            title
-          ),
-          h(
-            "div",
-            {
-              style: {
-                marginTop: 16,
-                fontSize: 24,
-                opacity: 0.9,
-                textShadow: "0 6px 24px rgba(0,0,0,0.8)",
-              },
-            },
-            subtitle
-          ),
-          tagline
-            ? h(
-                "div",
-                {
-                  style: {
-                    marginTop: 18,
-                    fontSize: 20,
-                    maxWidth: "90%",
-                    color: "#e5e7eb",
-                    textShadow: "0 4px 18px rgba(0,0,0,0.75)",
-                  },
-                },
-                tagline
-              )
-            : null
-        ),
-
         h(
           "div",
           {
             style: {
               display: "flex",
+              flexDirection: "column",
               justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 32,
+              padding: "48px 72px",
+              width: "100%",
+              boxSizing: "border-box",
             },
           },
+
+          // Top label
+          h(
+            "div",
+            {
+              style: {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 14px",
+                borderRadius: 999,
+                backgroundColor: "rgba(15, 23, 42, 0.75)",
+                fontSize: 18,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+              },
+            },
+            h("div", {
+              style: {
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                backgroundColor: "#f97316",
+              },
+            }),
+            h("span", null, "Photo gallery")
+          ),
+
+          // Center
+          h(
+            "div",
+            { style: { maxWidth: "80%" } },
+            h(
+              "div",
+              {
+                style: {
+                  fontSize: 52,
+                  lineHeight: 1.1,
+                  fontWeight: 750,
+                  letterSpacing: "-0.04em",
+                  textShadow: "0 10px 40px rgba(0,0,0,0.8)",
+                },
+              },
+              title
+            ),
+            h(
+              "div",
+              {
+                style: {
+                  marginTop: 16,
+                  fontSize: 24,
+                  opacity: 0.9,
+                  textShadow: "0 6px 24px rgba(0,0,0,0.8)",
+                },
+              },
+              subtitle
+            ),
+            tagline
+              ? h(
+                  "div",
+                  {
+                    style: {
+                      marginTop: 18,
+                      fontSize: 20,
+                      maxWidth: "90%",
+                      color: "#e5e7eb",
+                      textShadow: "0 4px 18px rgba(0,0,0,0.75)",
+                    },
+                  },
+                  tagline
+                )
+              : null
+          ),
+
+          // Footer
           h(
             "div",
             {
               style: {
                 display: "flex",
-                flexDirection: "row",
+                justifyContent: "space-between",
                 alignItems: "center",
-                gap: 12,
+                marginTop: 32,
               },
             },
-            h("div", {
-              style: {
-                width: 32,
-                height: 32,
-                borderRadius: 999,
-                background:
-                  "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
-                boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
-              },
-            }),
             h(
               "div",
               {
                 style: {
-                  fontSize: 22,
-                  fontWeight: 650,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
                 },
               },
-              "Heritage of Pakistan"
-            )
-          ),
-          h(
-            "div",
-            {
-              style: {
-                fontSize: 18,
-                color: "#e5e7eb",
-                opacity: 0.9,
+              h("div", {
+                style: {
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  background:
+                    "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+                },
+              }),
+              h(
+                "div",
+                {
+                  style: {
+                    fontSize: 22,
+                    fontWeight: 650,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  },
+                },
+                "Heritage of Pakistan"
+              )
+            ),
+            h(
+              "div",
+              {
+                style: {
+                  fontSize: 18,
+                  color: "#e5e7eb",
+                  opacity: 0.9,
+                },
               },
-            },
-            footerText
+              footerText
+            )
           )
         )
-      )
-    ),
-    {
-      width: size.width,
-      height: size.height,
-      headers: {
-        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
-      },
-    }
-  );
+      ),
+      {
+        width: size.width,
+        height: size.height,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control":
+            "public, s-maxage=604800, stale-while-revalidate=86400",
+        },
+      }
+    );
+  };
+
+  // Important: if cover image rendering throws, return the gradient card instead
+  try {
+    return renderCard(true);
+  } catch {
+    return renderCard(false);
+  }
 }
