@@ -11,26 +11,28 @@ const size = { width: 1200, height: 630 };
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export async function GET(
-  _req: Request,
-  context: { params: Record<string, string> }
-) {
-  const region = context.params.region ?? "";
-  const slug = context.params.slug ?? "";
+export async function GET(_req: Request, ctx: any) {
+  const { region, slug } = (ctx?.params ?? {}) as {
+    region?: string;
+    slug?: string;
+  };
 
-  let title = slug.replace(/-/g, " ");
+  const safeRegion = region ?? "";
+  const safeSlug = slug ?? "";
+
+  let title = safeSlug.replace(/-/g, " ");
   let locationFree: string | null = null;
   let tagline: string | null = null;
   let coverPhotoUrl: string | null = null;
 
-  if (supabaseUrl && supabaseAnonKey && slug) {
+  if (supabaseUrl && supabaseAnonKey && safeSlug) {
     try {
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       const { data } = await supabase
         .from("sites")
         .select("title, location_free, tagline, cover_photo_url")
-        .eq("slug", slug)
+        .eq("slug", safeSlug)
         .single();
 
       if (data?.title) title = data.title;
@@ -42,7 +44,7 @@ export async function GET(
     }
   }
 
-  const readableRegion = region.replace(/-/g, " ");
+  const readableRegion = safeRegion.replace(/-/g, " ");
   const subtitle =
     locationFree != null
       ? `${locationFree} • ${readableRegion}`
@@ -50,7 +52,6 @@ export async function GET(
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  // Encode for safety if you end up using it in URLs or CSS
   const safeCoverUrl = coverPhotoUrl != null ? encodeURI(coverPhotoUrl) : null;
 
   const h = React.createElement;
@@ -75,7 +76,7 @@ export async function GET(
         },
       },
 
-      // Background image (best reliability for next/og is <img> not CSS url())
+      // Background image (more reliable in next/og than CSS url())
       safeCoverUrl
         ? h("img", {
             src: safeCoverUrl,
@@ -89,7 +90,7 @@ export async function GET(
           })
         : null,
 
-      // Dark overlay for text readability
+      // Overlay for contrast
       h("div", {
         style: {
           position: "absolute",
@@ -114,7 +115,6 @@ export async function GET(
           },
         },
 
-        // Top label
         h(
           "div",
           {
@@ -141,7 +141,6 @@ export async function GET(
           h("span", null, "Photo gallery")
         ),
 
-        // Center title
         h(
           "div",
           { style: { maxWidth: "80%" } },
@@ -187,7 +186,6 @@ export async function GET(
             : null
         ),
 
-        // Footer
         h(
           "div",
           {
