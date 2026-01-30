@@ -4,39 +4,42 @@ import React from "react";
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const size = { width: 1200, height: 630 };
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET(
   _req: Request,
-  ctx: { params: { region: string; slug: string } }
+  context: { params: Record<string, string> }
 ) {
-  const { region, slug } = ctx.params;
+  const region = context.params.region ?? "";
+  const slug = context.params.slug ?? "";
 
   let title = slug.replace(/-/g, " ");
   let locationFree: string | null = null;
   let tagline: string | null = null;
   let coverPhotoUrl: string | null = null;
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (supabaseUrl && supabaseAnonKey && slug) {
+    try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  try {
-    const { data } = await supabase
-      .from("sites")
-      .select("title, location_free, tagline, cover_photo_url")
-      .eq("slug", slug)
-      .single();
+      const { data } = await supabase
+        .from("sites")
+        .select("title, location_free, tagline, cover_photo_url")
+        .eq("slug", slug)
+        .single();
 
-    if (data?.title) title = data.title;
-    locationFree = data?.location_free ?? null;
-    tagline = data?.tagline ?? null;
-    coverPhotoUrl = data?.cover_photo_url ?? null;
-  } catch {
-    // fallback
+      if (data?.title) title = data.title;
+      locationFree = data?.location_free ?? null;
+      tagline = data?.tagline ?? null;
+      coverPhotoUrl = data?.cover_photo_url ?? null;
+    } catch {
+      // fallback
+    }
   }
 
   const readableRegion = region.replace(/-/g, " ");
@@ -44,6 +47,11 @@ export async function GET(
     locationFree != null
       ? `${locationFree} • ${readableRegion}`
       : readableRegion;
+
+  const footerText = "Heritage of Pakistan • Photo gallery";
+
+  // Encode for safety if you end up using it in URLs or CSS
+  const safeCoverUrl = coverPhotoUrl != null ? encodeURI(coverPhotoUrl) : null;
 
   const h = React.createElement;
 
@@ -60,12 +68,17 @@ export async function GET(
           color: "#f9fafb",
           fontFamily:
             "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          background:
+            safeCoverUrl == null
+              ? "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)"
+              : undefined,
         },
       },
 
-      coverPhotoUrl
+      // Background image (best reliability for next/og is <img> not CSS url())
+      safeCoverUrl
         ? h("img", {
-            src: coverPhotoUrl,
+            src: safeCoverUrl,
             style: {
               position: "absolute",
               inset: 0,
@@ -76,12 +89,13 @@ export async function GET(
           })
         : null,
 
+      // Dark overlay for text readability
       h("div", {
         style: {
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.88))",
+            "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.9))",
         },
       }),
 
@@ -100,6 +114,7 @@ export async function GET(
           },
         },
 
+        // Top label
         h(
           "div",
           {
@@ -109,7 +124,7 @@ export async function GET(
               gap: 8,
               padding: "6px 14px",
               borderRadius: 999,
-              backgroundColor: "rgba(15,23,42,0.8)",
+              backgroundColor: "rgba(15, 23, 42, 0.75)",
               fontSize: 18,
               letterSpacing: 1,
               textTransform: "uppercase",
@@ -126,6 +141,7 @@ export async function GET(
           h("span", null, "Photo gallery")
         ),
 
+        // Center title
         h(
           "div",
           { style: { maxWidth: "80%" } },
@@ -171,6 +187,7 @@ export async function GET(
             : null
         ),
 
+        // Footer
         h(
           "div",
           {
@@ -223,7 +240,7 @@ export async function GET(
                 opacity: 0.9,
               },
             },
-            "Heritage of Pakistan • Photo gallery"
+            footerText
           )
         )
       )
