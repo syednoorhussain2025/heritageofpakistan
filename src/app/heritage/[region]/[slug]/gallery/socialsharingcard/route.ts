@@ -2,70 +2,56 @@
 
 import React from "react";
 import { ImageResponse } from "next/og";
-import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 
 const size = { width: 1200, height: 630 };
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 function toThumbVariant(url: string): string {
-  // If it's already a variant, force it to _thumb
-  // Handles .jpg .jpeg .png .webp and existing suffixes like _md _lg _hero
   return url
     .replace(/(_thumb|_sm|_md|_lg|_hero)(\.(jpe?g|png|webp))$/i, "_thumb$2")
     .replace(/(\.(jpe?g|png|webp))$/i, "_thumb$1");
 }
 
 export async function GET(_req: Request, ctx: any) {
-  const { region, slug } = (ctx?.params ?? {}) as {
-    region?: string;
-    slug?: string;
-  };
+  const { region, slug } = ctx.params;
 
-  const safeRegion = region ?? "";
-  const safeSlug = slug ?? "";
-
-  let title = safeSlug.replace(/-/g, " ");
+  let title = slug.replace(/-/g, " ");
   let locationFree: string | null = null;
   let tagline: string | null = null;
   let coverPhotoUrl: string | null = null;
 
-  if (supabaseUrl && supabaseAnonKey && safeSlug) {
-    try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      const { data } = await supabase
-        .from("sites")
-        .select("title, location_free, tagline, cover_photo_url")
-        .eq("slug", safeSlug)
-        .single();
-
-      if (data?.title) title = data.title;
-      locationFree = data?.location_free ?? null;
-      tagline = data?.tagline ?? null;
-      coverPhotoUrl = data?.cover_photo_url ?? null;
-    } catch {
-      // fallback
+  // ✅ EDGE-SAFE: use REST API
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/sites?slug=eq.${slug}&select=title,location_free,tagline,cover_photo_url`,
+    {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
     }
-  }
+  );
 
-  const readableRegion = safeRegion.replace(/-/g, " ");
+  const rows = await res.json();
+  const data = rows?.[0];
+
+  if (data?.title) title = data.title;
+  locationFree = data?.location_free ?? null;
+  tagline = data?.tagline ?? null;
+  coverPhotoUrl = data?.cover_photo_url ?? null;
+
   const subtitle =
     locationFree != null
-      ? `${locationFree} • ${readableRegion}`
-      : readableRegion;
+      ? `${locationFree} • ${region.replace(/-/g, " ")}`
+      : region.replace(/-/g, " ");
 
   const footerText = "Heritage of Pakistan • Photo gallery";
 
-  // ✅ Use thumbnail variant for OG reliability
   const thumbUrl =
-    coverPhotoUrl != null ? toThumbVariant(coverPhotoUrl) : null;
-
-  // ✅ Encode for spaces/parentheses
-  const safeThumbUrl = thumbUrl != null ? encodeURI(thumbUrl) : null;
+    coverPhotoUrl != null ? encodeURI(toThumbVariant(coverPhotoUrl)) : null;
 
   const h = React.createElement;
 
@@ -83,16 +69,15 @@ export async function GET(_req: Request, ctx: any) {
           fontFamily:
             "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           background:
-            safeThumbUrl == null
+            thumbUrl == null
               ? "linear-gradient(135deg, #111827 0%, #1f2937 40%, #f97316 100%)"
               : undefined,
         },
       },
 
-      // Background image via <img> (more reliable than CSS url() in next/og)
-      safeThumbUrl
+      thumbUrl
         ? h("img", {
-            src: safeThumbUrl,
+            src: thumbUrl,
             style: {
               position: "absolute",
               inset: 0,
@@ -103,7 +88,6 @@ export async function GET(_req: Request, ctx: any) {
           })
         : null,
 
-      // Overlay for contrast
       h("div", {
         style: {
           position: "absolute",
@@ -124,136 +108,22 @@ export async function GET(_req: Request, ctx: any) {
             justifyContent: "space-between",
             padding: "48px 72px",
             width: "100%",
-            boxSizing: "border-box",
           },
         },
 
-        h(
-          "div",
-          {
-            style: {
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              borderRadius: 999,
-              backgroundColor: "rgba(15, 23, 42, 0.75)",
-              fontSize: 18,
-              letterSpacing: 1,
-              textTransform: "uppercase",
-            },
-          },
-          h("div", {
-            style: {
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              backgroundColor: "#f97316",
-            },
-          }),
-          h("span", null, "Photo gallery")
-        ),
+        h("div", null, "Photo gallery"),
 
         h(
           "div",
-          { style: { maxWidth: "80%" } },
-          h(
-            "div",
-            {
-              style: {
-                fontSize: 52,
-                lineHeight: 1.1,
-                fontWeight: 750,
-                letterSpacing: "-0.04em",
-                textShadow: "0 10px 40px rgba(0,0,0,0.8)",
-              },
-            },
-            title
-          ),
-          h(
-            "div",
-            {
-              style: {
-                marginTop: 16,
-                fontSize: 24,
-                opacity: 0.9,
-                textShadow: "0 6px 24px rgba(0,0,0,0.8)",
-              },
-            },
-            subtitle
-          ),
+          null,
+          h("div", { style: { fontSize: 52, fontWeight: 700 } }, title),
+          h("div", { style: { fontSize: 24, marginTop: 12 } }, subtitle),
           tagline
-            ? h(
-                "div",
-                {
-                  style: {
-                    marginTop: 18,
-                    fontSize: 20,
-                    maxWidth: "90%",
-                    color: "#e5e7eb",
-                    textShadow: "0 4px 18px rgba(0,0,0,0.75)",
-                  },
-                },
-                tagline
-              )
+            ? h("div", { style: { fontSize: 20, marginTop: 16 } }, tagline)
             : null
         ),
 
-        h(
-          "div",
-          {
-            style: {
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 32,
-            },
-          },
-          h(
-            "div",
-            {
-              style: {
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              },
-            },
-            h("div", {
-              style: {
-                width: 32,
-                height: 32,
-                borderRadius: 999,
-                background:
-                  "radial-gradient(circle at 30% 30%, #fed7aa, #f97316)",
-                boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
-              },
-            }),
-            h(
-              "div",
-              {
-                style: {
-                  fontSize: 22,
-                  fontWeight: 650,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                },
-              },
-              "Heritage of Pakistan"
-            )
-          ),
-          h(
-            "div",
-            {
-              style: {
-                fontSize: 18,
-                color: "#e5e7eb",
-                opacity: 0.9,
-              },
-            },
-            footerText
-          )
-        )
+        h("div", null, footerText)
       )
     ),
     {
@@ -261,7 +131,7 @@ export async function GET(_req: Request, ctx: any) {
       height: size.height,
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
+        "Cache-Control": "public, s-maxage=604800",
       },
     }
   );
