@@ -4,7 +4,7 @@ import React from "react";
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const size = { width: 1200, height: 630 };
 
@@ -76,7 +76,6 @@ export async function GET(_req: Request, ctx: any) {
         },
       },
 
-      // Background image (more reliable in next/og than CSS url())
       safeCoverUrl
         ? h("img", {
             src: safeCoverUrl,
@@ -90,7 +89,6 @@ export async function GET(_req: Request, ctx: any) {
           })
         : null,
 
-      // Overlay for contrast
       h("div", {
         style: {
           position: "absolute",
@@ -247,7 +245,6 @@ export async function GET(_req: Request, ctx: any) {
       width: size.width,
       height: size.height,
       headers: {
-        "Content-Type": "image/png",
         "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400",
       },
     }
