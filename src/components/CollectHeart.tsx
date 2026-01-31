@@ -52,7 +52,7 @@ export default function CollectHeart({
 
   // MODIFIED: Conditionally choose icon name for filled or outline style
   const iconName = isOn ? "heart" : "heart-outline";
-  const color = isOn ? "text-[var(--brand-orange)]" : "text-gray-700";
+  const color = isOn ? "text-[var(--brand-orange)]" : "white";
   const hover = isOn ? "" : "hover:text-[var(--brand-orange)]";
   const base =
     "cursor-pointer transition-transform duration-150 hover:scale-110 select-none";
