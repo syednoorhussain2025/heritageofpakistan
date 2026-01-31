@@ -28,7 +28,6 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
   useEffect(() => {
     if (!hash) return;
 
-    // Generate a tiny bitmap that roughly matches the photo aspect ratio
     const BASE = 32;
     let width = BASE;
     let height = BASE;
@@ -71,10 +70,18 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
 
 /* ---------- Types ---------- */
 
+type SiteTaxonomy = {
+  heritageTypes?: string[] | null;
+  architecturalStyles?: string[] | null;
+  architecturalFeatures?: string[] | null;
+  historicalPeriods?: string[] | null;
+};
+
 type LightboxPhotoWithExtras = LightboxPhoto & {
   width?: number | null;
   height?: number | null;
   blurHash?: string | null;
+  site?: LightboxPhoto["site"] & { taxonomy?: SiteTaxonomy };
 };
 
 type LightboxProps = {
@@ -101,6 +108,7 @@ export function Lightbox({
 
   /* ---------- Window size ---------- */
   const [win, setWin] = useState({ w: 0, h: 0 });
+
   useEffect(() => {
     const setSize = () =>
       setWin({ w: window.innerWidth, h: window.innerHeight });
@@ -184,25 +192,55 @@ export function Lightbox({
       if (!p) return;
       try {
         const src =
-          p.storagePath != null
-            ? getVariantPublicUrl(p.storagePath, "md")
-            : p.url;
+          (p as any).storagePath != null
+            ? getVariantPublicUrl((p as any).storagePath, "md")
+            : (p as any).url;
         const img = new window.Image();
         img.src = src;
       } catch {
         const img = new window.Image();
-        img.src = p.url;
+        img.src = (p as any).url;
       }
     };
+
     preload(photos[(currentIndex + 1) % photos.length]);
     preload(photos[(currentIndex - 1 + photos.length) % photos.length]);
   }, [currentIndex, photos]);
 
   /* ---------- Google Maps link ---------- */
   const googleMapsUrl =
-    photo.site.latitude != null && photo.site.longitude != null
+    photo.site?.latitude != null && photo.site?.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${photo.site.latitude},${photo.site.longitude}`
       : null;
+
+  /* ---------- Pills helpers ---------- */
+  const pill = (text: string) => (
+    <span
+      key={text}
+      className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+    >
+      {text}
+    </span>
+  );
+
+  const taxonomy = photo.site?.taxonomy;
+
+  const fallbackPills: string[] = useMemo(() => {
+    const region = photo.site?.region ? [photo.site.region] : [];
+    const cats = Array.isArray(photo.site?.categories) ? photo.site!.categories : [];
+    return [...region, ...cats].filter(Boolean) as string[];
+  }, [photo.site]);
+
+  const heritageTypes = taxonomy?.heritageTypes ?? null;
+  const architecturalStyles = taxonomy?.architecturalStyles ?? null;
+  const architecturalFeatures = taxonomy?.architecturalFeatures ?? null;
+  const historicalPeriods = taxonomy?.historicalPeriods ?? null;
+
+  const hasStructuredTaxonomy =
+    (heritageTypes?.length ?? 0) > 0 ||
+    (architecturalStyles?.length ?? 0) > 0 ||
+    (architecturalFeatures?.length ?? 0) > 0 ||
+    (historicalPeriods?.length ?? 0) > 0;
 
   /* =======================================================
      RENDER
@@ -211,7 +249,8 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[1200] bg-black/90"
+        className="fixed inset-0 z-[2147483647] bg-black/90"
+        style={{ zIndex: 2147483647 }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -219,14 +258,19 @@ export function Lightbox({
       >
         {/* Controls */}
         <button
-          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
-          onClick={onClose}
+          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
+          style={{ zIndex: 2147483647 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
         >
           <Icon name="xmark" />
         </button>
 
         <button
-          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
+          style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
             setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
@@ -236,7 +280,8 @@ export function Lightbox({
         </button>
 
         <button
-          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
+          style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
             setCurrentIndex((p) => (p + 1) % photos.length);
@@ -253,6 +298,7 @@ export function Lightbox({
             top: geom.imgTop,
             width: geom.imgW,
             height: geom.imgH,
+            zIndex: 2147483647,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -293,28 +339,29 @@ export function Lightbox({
         <div
           className={
             geom.isMdUp
-              ? "absolute z-20"
-              : "absolute z-20 w-[min(92vw,620px)]"
+              ? "absolute z-[2147483647]"
+              : "absolute z-[2147483647] w-[min(92vw,620px)]"
           }
           style={{
             left: geom.panelLeft,
             top: geom.panelTop,
             transform: geom.isMdUp ? "translateY(-50%)" : "none",
             width: geom.isMdUp ? PANEL_W : undefined,
+            zIndex: 2147483647,
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-4">
             <div>
-              <h3 className="font-bold text-xl">{photo.site.name}</h3>
+              <h3 className="font-bold text-xl">{photo.site?.name}</h3>
 
-              {photo.site.location && (
+              {photo.site?.location && (
                 <p className="text-sm text-gray-300">{photo.site.location}</p>
               )}
 
               <p className="text-sm text-gray-400 mt-1">
                 Photo by{" "}
-                {photo.author.profileUrl ? (
+                {photo.author?.profileUrl ? (
                   <Link
                     href={photo.author.profileUrl}
                     className="hover:underline"
@@ -322,7 +369,7 @@ export function Lightbox({
                     {photo.author.name}
                   </Link>
                 ) : (
-                  <span>{photo.author.name}</span>
+                  <span>{photo.author?.name}</span>
                 )}
               </p>
 
@@ -333,21 +380,57 @@ export function Lightbox({
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {photo.site.region && (
-                <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80">
-                  {photo.site.region}
-                </span>
-              )}
-              {photo.site.categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
-                >
-                  {cat}
-                </span>
-              ))}
-            </div>
+            {/* Pills: structured taxonomy if available, otherwise fallback */}
+            {hasStructuredTaxonomy ? (
+              <div className="space-y-3">
+                {(heritageTypes?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Heritage Type</p>
+                    <div className="flex flex-wrap gap-2">
+                      {heritageTypes!.map(pill)}
+                    </div>
+                  </div>
+                )}
+
+                {(architecturalStyles?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">
+                      Architectural Style
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {architecturalStyles!.map(pill)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Requirement 1: hide architectural features on mobile */}
+                {(architecturalFeatures?.length ?? 0) > 0 && (
+                  <div className="hidden md:block">
+                    <p className="text-xs text-gray-400 mb-1">
+                      Architectural Features
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {architecturalFeatures!.map(pill)}
+                    </div>
+                  </div>
+                )}
+
+                {(historicalPeriods?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">
+                      Historical Period
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {historicalPeriods!.map(pill)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {fallbackPills.map(pill)}
+              </div>
+            )}
 
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
               {onBookmarkToggle && (
