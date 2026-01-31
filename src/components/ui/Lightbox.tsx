@@ -8,6 +8,7 @@ import type { LightboxPhoto } from "../../types/lightbox";
 import Icon from "../Icon";
 import { decode } from "blurhash";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
+import CollectHeart from "@/components/CollectHeart";
 
 /* ---------- CONFIG ---------- */
 const PANEL_W = 264;
@@ -370,20 +371,20 @@ export function Lightbox({
                 )}
               </div>
 
-              {/* MOBILE ONLY: Heart/Bookmark Button (Inline with title) */}
-              {onBookmarkToggle && (
-                <button
-                  className="md:hidden p-2 -mr-2 text-white/90 hover:text-white shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onBookmarkToggle(photo);
-                  }}
-                >
-                  <Icon
-                    name={photo?.isBookmarked ? "bookmark-solid" : "bookmark"}
-                  />
-                </button>
-              )}
+              {/* MOBILE ONLY: CollectHeart (Inline with title) */}
+              <div
+                className="md:hidden shrink-0 -mr-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CollectHeart
+                  variant="overlay"
+                  siteImageId={photo.id}
+                  storagePath={photo.storagePath}
+                  siteId={photo.site?.id ?? ""}
+                  caption={photo.caption}
+                  credit={photo.author?.name}
+                />
+              </div>
             </div>
 
             <div className="hidden md:block">
@@ -442,17 +443,20 @@ export function Lightbox({
 
             {/* Bottom Actions Bar */}
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {/* DESKTOP ONLY: Bookmark Button (Bottom Bar) */}
-              {onBookmarkToggle && (
-                <button
-                  className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  onClick={() => onBookmarkToggle(photo)}
-                >
-                  <Icon
-                    name={photo?.isBookmarked ? "bookmark-solid" : "bookmark"}
-                  />
-                </button>
-              )}
+              {/* DESKTOP ONLY: CollectHeart (Bottom Bar) */}
+              <div
+                className="hidden md:block"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CollectHeart
+                  variant="overlay"
+                  siteImageId={photo.id}
+                  storagePath={photo.storagePath}
+                  siteId={photo.site?.id ?? ""}
+                  caption={photo.caption}
+                  credit={photo.author?.name}
+                />
+              </div>
 
               {/* DESKTOP ONLY: Add to Collection (Bottom Bar) */}
               {onAddToCollection && (
