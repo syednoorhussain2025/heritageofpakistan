@@ -57,7 +57,7 @@ export async function generateMetadata(props: any): Promise<Metadata> {
 
   const description = descriptionParts.join(" ");
 
-  // ✅ Base- URL (prod via NEXT_PUBLIC_SITE_URL, preview via VERCEL_URL, dev via localhost)
+  // ✅ Base- URL -(prod via NEXT_PUBLIC_SITE_URL, preview via VERCEL_URL, dev via localhost)
   const siteBase =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_URL
