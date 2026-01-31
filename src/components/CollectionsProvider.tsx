@@ -164,7 +164,7 @@ export function CollectionsProvider({
           role="status"
           aria-live="polite"
           // UPDATED: bottom-24 to move up, z-[2147483647] to be in front of everything
-          className="fixed bottom-30 right-5 z-[2147483647] px-4 py-2 rounded-lg bg-black text-white shadow-lg"
+          className="fixed bottom-15 right-5 z-[2147483647] px-4 py-2 rounded-lg bg-black text-white shadow-lg"
           title="Dismiss"
         >
           <div className="flex items-center gap-2">
