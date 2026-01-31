@@ -278,6 +278,19 @@ export function Lightbox({
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* MOBILE ONLY: Add to Collection (Top Right Overlay) */}
+          {onAddToCollection && (
+            <button
+              className="md:hidden absolute top-3 right-3 z-30 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition-colors border border-white/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCollection(photo);
+              }}
+            >
+              Add to Collection
+            </button>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={photo?.id}
@@ -327,31 +340,49 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-4">
-            <div>
-              <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
+            {/* Header Area: Flex container for Mobile Heart placement */}
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex-1">
+                <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
 
-              {photo?.site?.location && (
-                <p className="text-sm text-gray-300">{photo.site.location}</p>
-              )}
-
-              <p className="text-sm text-gray-400 mt-1">
-                Photo by{" "}
-                {photo?.author?.profileUrl ? (
-                  <Link
-                    href={photo.author.profileUrl}
-                    className="hover:underline"
-                  >
-                    {photo.author.name}
-                  </Link>
-                ) : (
-                  <span>{photo?.author?.name}</span>
+                {photo?.site?.location && (
+                  <p className="text-sm text-gray-300">{photo.site.location}</p>
                 )}
-              </p>
 
-              {photo?.caption && (
-                <p className="text-sm text-gray-200 mt-2 italic">
-                  {photo.caption}
+                <p className="text-sm text-gray-400 mt-1">
+                  Photo by{" "}
+                  {photo?.author?.profileUrl ? (
+                    <Link
+                      href={photo.author.profileUrl}
+                      className="hover:underline"
+                    >
+                      {photo.author.name}
+                    </Link>
+                  ) : (
+                    <span>{photo?.author?.name}</span>
+                  )}
                 </p>
+
+                {photo?.caption && (
+                  <p className="text-sm text-gray-200 mt-2 italic">
+                    {photo.caption}
+                  </p>
+                )}
+              </div>
+
+              {/* MOBILE ONLY: Heart/Bookmark Button (Inline with title) */}
+              {onBookmarkToggle && (
+                <button
+                  className="md:hidden p-2 -mr-2 text-white/90 hover:text-white shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBookmarkToggle(photo);
+                  }}
+                >
+                  <Icon
+                    name={photo?.isBookmarked ? "bookmark-solid" : "bookmark"}
+                  />
+                </button>
               )}
             </div>
 
@@ -360,7 +391,9 @@ export function Lightbox({
                 <div className="space-y-3">
                   {(heritageTypes?.length ?? 0) > 0 && (
                     <div>
-                      <p className="text-xs text-gray-400 mb-1">Heritage Type</p>
+                      <p className="text-xs text-gray-400 mb-1">
+                        Heritage Type
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {heritageTypes!.map(pill)}
                       </div>
@@ -407,10 +440,12 @@ export function Lightbox({
               )}
             </div>
 
+            {/* Bottom Actions Bar */}
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+              {/* DESKTOP ONLY: Bookmark Button (Bottom Bar) */}
               {onBookmarkToggle && (
                 <button
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
                   onClick={() => onBookmarkToggle(photo)}
                 >
                   <Icon
@@ -419,9 +454,10 @@ export function Lightbox({
                 </button>
               )}
 
+              {/* DESKTOP ONLY: Add to Collection (Bottom Bar) */}
               {onAddToCollection && (
                 <button
-                  className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                  className="hidden md:block flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
                   onClick={() => onAddToCollection(photo)}
                 >
                   Add to Collection
