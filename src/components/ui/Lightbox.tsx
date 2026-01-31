@@ -119,6 +119,7 @@ export function Lightbox({
 
   const isMdUp = win.w >= 768;
   const isLgUp = win.w >= 1024;
+  const isMobile = !isMdUp;
 
   /* ---------- Keyboard nav ---------- */
   useEffect(() => {
@@ -169,9 +170,9 @@ export function Lightbox({
     const imgTop = Math.round((vh - imgH) / 2);
 
     const panelLeft = isMdUp ? imgLeft + imgW + GAP : pad;
-    const panelTop = isMdUp ? imgTop + imgH / 2 : imgTop + imgH + 16;
+    const panelTop = isMdUp ? imgTop + imgH / 2 : imgTop + imgH + 12;
 
-    return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
+    return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp, pad };
   }, [isMdUp, isLgUp, nat, win]);
 
   /* ---------- Medium variant URL for current photo ---------- */
@@ -217,7 +218,7 @@ export function Lightbox({
   const pill = (text: string) => (
     <span
       key={text}
-      className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80"
+      className="px-2 py-0.5 text-xs rounded-full bg-gray-700/80 whitespace-nowrap"
     >
       {text}
     </span>
@@ -227,7 +228,9 @@ export function Lightbox({
 
   const fallbackPills: string[] = useMemo(() => {
     const region = photo.site?.region ? [photo.site.region] : [];
-    const cats = Array.isArray(photo.site?.categories) ? photo.site!.categories : [];
+    const cats = Array.isArray(photo.site?.categories)
+      ? photo.site!.categories
+      : [];
     return [...region, ...cats].filter(Boolean) as string[];
   }, [photo.site]);
 
@@ -241,6 +244,98 @@ export function Lightbox({
     (architecturalStyles?.length ?? 0) > 0 ||
     (architecturalFeatures?.length ?? 0) > 0 ||
     (historicalPeriods?.length ?? 0) > 0;
+
+  /* ---------- Mobile pills: above photo, two rows, scroll left ---------- */
+  const mobilePills: string[] = useMemo(() => {
+    if (hasStructuredTaxonomy) {
+      const arr = [
+        ...(heritageTypes ?? []),
+        ...(architecturalStyles ?? []),
+        ...(historicalPeriods ?? []),
+      ];
+      return Array.from(new Set(arr.filter(Boolean)));
+    }
+    return Array.from(new Set(fallbackPills.filter(Boolean)));
+  }, [
+    hasStructuredTaxonomy,
+    heritageTypes,
+    architecturalStyles,
+    historicalPeriods,
+    fallbackPills,
+  ]);
+
+  const mobilePillsBar = useMemo(() => {
+    if (!isMobile) return null;
+    if (mobilePills.length === 0) return null;
+
+    const BAR_H = 74; // tuned for 2 rows of chips
+    const GAP_Y = 10;
+    const top = Math.max(10, geom.imgTop - BAR_H - GAP_Y);
+
+    return (
+      <div
+        className="absolute z-[2147483647]"
+        style={{
+          left: geom.imgLeft,
+          top,
+          width: geom.imgW,
+          zIndex: 2147483647,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rounded-xl bg-black/35 backdrop-blur-sm p-2">
+          <div
+            className={[
+              "grid grid-rows-2 grid-flow-col auto-cols-max gap-x-2 gap-y-2",
+              "overflow-x-auto overflow-y-hidden",
+              "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            ].join(" ")}
+            style={{ height: BAR_H - 16 }}
+          >
+            {mobilePills.map(pill)}
+          </div>
+        </div>
+      </div>
+    );
+  }, [isMobile, mobilePills, geom.imgLeft, geom.imgTop, geom.imgW, pill]);
+
+  /* ---------- Actions block (mobile below photo, right side) ---------- */
+  const MobileActions = () => (
+    <div className="flex items-center justify-end gap-2">
+      {onBookmarkToggle && (
+        <button
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+          onClick={() => onBookmarkToggle(photo)}
+          aria-label="Bookmark"
+          title="Bookmark"
+        >
+          <Icon name={photo.isBookmarked ? "bookmark-solid" : "bookmark"} />
+        </button>
+      )}
+
+      {onAddToCollection && (
+        <button
+          className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+          onClick={() => onAddToCollection(photo)}
+        >
+          Add
+        </button>
+      )}
+
+      {googleMapsUrl && (
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+          title="View on Google Maps"
+          aria-label="View on Google Maps"
+        >
+          <Icon name="map-marker-alt" />
+        </a>
+      )}
+    </div>
+  );
 
   /* =======================================================
      RENDER
@@ -284,11 +379,14 @@ export function Lightbox({
           style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((p) => (p + 1) % photos.length);
+            setCurrentIndex((p) => (p + 1) % photos.length) % photos.length;
           }}
         >
           <Icon name="chevron-right" />
         </button>
+
+        {/* Mobile pills above photo */}
+        {mobilePillsBar}
 
         {/* ---------- IMAGE CONTAINER WITH CROSSFADE ---------- */}
         <div
@@ -351,7 +449,14 @@ export function Lightbox({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="text-white space-y-4">
+          <div className="text-white space-y-3">
+            {/* Mobile actions row below photo, aligned right */}
+            {isMobile && (
+              <div className="flex items-center justify-end">
+                <MobileActions />
+              </div>
+            )}
+
             <div>
               <h3 className="font-bold text-xl">{photo.site?.name}</h3>
 
@@ -380,91 +485,100 @@ export function Lightbox({
               )}
             </div>
 
-            {/* Pills: structured taxonomy if available, otherwise fallback */}
-            {hasStructuredTaxonomy ? (
-              <div className="space-y-3">
-                {(heritageTypes?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Heritage Type</p>
-                    <div className="flex flex-wrap gap-2">
-                      {heritageTypes!.map(pill)}
-                    </div>
+            {/* Pills stay in side panel for md+, mobile pills are above photo */}
+            {geom.isMdUp && (
+              <>
+                {hasStructuredTaxonomy ? (
+                  <div className="space-y-3">
+                    {(heritageTypes?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">
+                          Heritage Type
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {heritageTypes!.map(pill)}
+                        </div>
+                      </div>
+                    )}
+
+                    {(architecturalStyles?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">
+                          Architectural Style
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {architecturalStyles!.map(pill)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* hide architectural features on mobile */}
+                    {(architecturalFeatures?.length ?? 0) > 0 && (
+                      <div className="hidden md:block">
+                        <p className="text-xs text-gray-400 mb-1">
+                          Architectural Features
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {architecturalFeatures!.map(pill)}
+                        </div>
+                      </div>
+                    )}
+
+                    {(historicalPeriods?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">
+                          Historical Period
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {historicalPeriods!.map(pill)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {fallbackPills.map(pill)}
                   </div>
                 )}
 
-                {(architecturalStyles?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">
-                      Architectural Style
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {architecturalStyles!.map(pill)}
-                    </div>
-                  </div>
-                )}
+                {/* Desktop actions remain in panel bottom */}
+                <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                  {onBookmarkToggle && (
+                    <button
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                      onClick={() => onBookmarkToggle(photo)}
+                    >
+                      <Icon
+                        name={
+                          photo.isBookmarked ? "bookmark-solid" : "bookmark"
+                        }
+                      />
+                    </button>
+                  )}
 
-                {/* Requirement 1: hide architectural features on mobile */}
-                {(architecturalFeatures?.length ?? 0) > 0 && (
-                  <div className="hidden md:block">
-                    <p className="text-xs text-gray-400 mb-1">
-                      Architectural Features
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {architecturalFeatures!.map(pill)}
-                    </div>
-                  </div>
-                )}
+                  {onAddToCollection && (
+                    <button
+                      className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                      onClick={() => onAddToCollection(photo)}
+                    >
+                      Add to Collection
+                    </button>
+                  )}
 
-                {(historicalPeriods?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">
-                      Historical Period
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {historicalPeriods!.map(pill)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {fallbackPills.map(pill)}
-              </div>
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                      title="View on Google Maps"
+                    >
+                      <Icon name="map-marker-alt" />
+                    </a>
+                  )}
+                </div>
+              </>
             )}
-
-            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {onBookmarkToggle && (
-                <button
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  onClick={() => onBookmarkToggle(photo)}
-                >
-                  <Icon
-                    name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
-                  />
-                </button>
-              )}
-
-              {onAddToCollection && (
-                <button
-                  className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
-                  onClick={() => onAddToCollection(photo)}
-                >
-                  Add to Collection
-                </button>
-              )}
-
-              {googleMapsUrl && (
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  title="View on Google Maps"
-                >
-                  <Icon name="map-marker-alt" />
-                </a>
-              )}
-            </div>
           </div>
         </div>
       </motion.div>
