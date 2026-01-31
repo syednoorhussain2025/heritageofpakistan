@@ -227,7 +227,9 @@ export function Lightbox({
 
   const fallbackPills: string[] = useMemo(() => {
     const region = photo.site?.region ? [photo.site.region] : [];
-    const cats = Array.isArray(photo.site?.categories) ? photo.site!.categories : [];
+    const cats = Array.isArray(photo.site?.categories)
+      ? photo.site!.categories
+      : [];
     return [...region, ...cats].filter(Boolean) as string[];
   }, [photo.site]);
 
@@ -284,7 +286,7 @@ export function Lightbox({
           style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((p) => (p + 1) % photos.length);
+            setCurrentIndex((p) => (p + 1) % photos.length) % photos.length;
           }}
         >
           <Icon name="chevron-right" />
@@ -380,57 +382,56 @@ export function Lightbox({
               )}
             </div>
 
-            {/* Pills: structured taxonomy if available, otherwise fallback */}
-            {hasStructuredTaxonomy ? (
-              <div className="space-y-3">
-                {(heritageTypes?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Heritage Type</p>
-                    <div className="flex flex-wrap gap-2">
-                      {heritageTypes!.map(pill)}
+            {/* Pills: hidden on mobile, visible from md up */}
+            <div className="hidden md:block">
+              {hasStructuredTaxonomy ? (
+                <div className="space-y-3">
+                  {(heritageTypes?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">Heritage Type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {heritageTypes!.map(pill)}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {(architecturalStyles?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">
-                      Architectural Style
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {architecturalStyles!.map(pill)}
+                  {(architecturalStyles?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">
+                        Architectural Style
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {architecturalStyles!.map(pill)}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Requirement 1: hide architectural features on mobile */}
-                {(architecturalFeatures?.length ?? 0) > 0 && (
-                  <div className="hidden md:block">
-                    <p className="text-xs text-gray-400 mb-1">
-                      Architectural Features
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {architecturalFeatures!.map(pill)}
+                  {(architecturalFeatures?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">
+                        Architectural Features
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {architecturalFeatures!.map(pill)}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {(historicalPeriods?.length ?? 0) > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">
-                      Historical Period
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {historicalPeriods!.map(pill)}
+                  {(historicalPeriods?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">
+                        Historical Period
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {historicalPeriods!.map(pill)}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {fallbackPills.map(pill)}
-              </div>
-            )}
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">{fallbackPills.map(pill)}</div>
+              )}
+            </div>
 
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
               {onBookmarkToggle && (
