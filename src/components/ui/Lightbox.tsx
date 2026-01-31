@@ -280,8 +280,9 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Heart Button: Always visible on the image (top-right) for all screen sizes */}
+          {/* UPDATED: Increased size (w-10 h-10) and set default outline color (text-white) */}
           <div
-            className="absolute top-3 right-3 z-30"
+            className="absolute top-3 right-3 z-30 w-10 h-10 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
             onClick={(e) => e.stopPropagation()}
           >
             <CollectHeart
