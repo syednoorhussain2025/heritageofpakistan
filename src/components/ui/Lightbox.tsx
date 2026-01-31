@@ -268,7 +268,7 @@ export function Lightbox({
     if (!isMobile) return null;
     if (mobilePills.length === 0) return null;
 
-    const BAR_H = 74; // tuned for 2 rows of chips
+    const BAR_H = 74;
     const GAP_Y = 10;
     const top = Math.max(10, geom.imgTop - BAR_H - GAP_Y);
 
@@ -297,7 +297,7 @@ export function Lightbox({
         </div>
       </div>
     );
-  }, [isMobile, mobilePills, geom.imgLeft, geom.imgTop, geom.imgW, pill]);
+  }, [isMobile, mobilePills, geom.imgLeft, geom.imgTop, geom.imgW]);
 
   /* ---------- Actions block (mobile below photo, right side) ---------- */
   const MobileActions = () => (
@@ -337,10 +337,6 @@ export function Lightbox({
     </div>
   );
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
   return (
     <AnimatePresence>
       <motion.div
@@ -351,7 +347,6 @@ export function Lightbox({
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* Controls */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
           style={{ zIndex: 2147483647 }}
@@ -379,16 +374,14 @@ export function Lightbox({
           style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((p) => (p + 1) % photos.length) % photos.length;
+            setCurrentIndex((p) => (p + 1) % photos.length);
           }}
         >
           <Icon name="chevron-right" />
         </button>
 
-        {/* Mobile pills above photo */}
         {mobilePillsBar}
 
-        {/* ---------- IMAGE CONTAINER WITH CROSSFADE ---------- */}
         <div
           className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
           style={{
@@ -409,7 +402,6 @@ export function Lightbox({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="absolute inset-0"
             >
-              {/* BlurHash background */}
               {photo.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
@@ -419,7 +411,6 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top using medium variant */}
               <NextImage
                 src={mediumPhotoUrl}
                 alt={photo.caption ?? ""}
@@ -433,7 +424,6 @@ export function Lightbox({
           </AnimatePresence>
         </div>
 
-        {/* ---------- INFO PANEL ---------- */}
         <div
           className={
             geom.isMdUp
@@ -450,7 +440,6 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-3">
-            {/* Mobile actions row below photo, aligned right */}
             {isMobile && (
               <div className="flex items-center justify-end">
                 <MobileActions />
@@ -485,7 +474,6 @@ export function Lightbox({
               )}
             </div>
 
-            {/* Pills stay in side panel for md+, mobile pills are above photo */}
             {geom.isMdUp && (
               <>
                 {hasStructuredTaxonomy ? (
@@ -512,7 +500,6 @@ export function Lightbox({
                       </div>
                     )}
 
-                    {/* hide architectural features on mobile */}
                     {(architecturalFeatures?.length ?? 0) > 0 && (
                       <div className="hidden md:block">
                         <p className="text-xs text-gray-400 mb-1">
@@ -541,7 +528,6 @@ export function Lightbox({
                   </div>
                 )}
 
-                {/* Desktop actions remain in panel bottom */}
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onBookmarkToggle && (
                     <button
