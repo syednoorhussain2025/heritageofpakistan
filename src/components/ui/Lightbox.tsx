@@ -279,18 +279,20 @@ export function Lightbox({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* MOBILE ONLY: Add to Collection (Top Right Overlay) */}
-          {onAddToCollection && (
-            <button
-              className="md:hidden absolute top-3 right-3 z-30 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition-colors border border-white/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCollection(photo);
-              }}
-            >
-              Add to Collection
-            </button>
-          )}
+          {/* Heart Button: Always visible on the image (top-right) for all screen sizes */}
+          <div
+            className="absolute top-3 right-3 z-30"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CollectHeart
+              variant="overlay"
+              siteImageId={photo.id}
+              storagePath={photo.storagePath}
+              siteId={photo.site?.id ?? ""}
+              caption={photo.caption}
+              credit={photo.author?.name}
+            />
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -341,7 +343,7 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-4">
-            {/* Header Area: Flex container for Mobile Heart placement */}
+            {/* Header Area: Flex container */}
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1">
                 <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
@@ -371,20 +373,18 @@ export function Lightbox({
                 )}
               </div>
 
-              {/* MOBILE ONLY: CollectHeart (Inline with title) */}
-              <div
-                className="md:hidden shrink-0 -mr-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <CollectHeart
-                  variant="overlay"
-                  siteImageId={photo.id}
-                  storagePath={photo.storagePath}
-                  siteId={photo.site?.id ?? ""}
-                  caption={photo.caption}
-                  credit={photo.author?.name}
-                />
-              </div>
+              {/* MOBILE ONLY: Add to Collection Button (Right of title) */}
+              {onAddToCollection && (
+                <button
+                  className="md:hidden shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCollection(photo);
+                  }}
+                >
+                  Add to Collection
+                </button>
+              )}
             </div>
 
             <div className="hidden md:block">
@@ -443,21 +443,6 @@ export function Lightbox({
 
             {/* Bottom Actions Bar */}
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {/* DESKTOP ONLY: CollectHeart (Bottom Bar) */}
-              <div
-                className="hidden md:block"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <CollectHeart
-                  variant="overlay"
-                  siteImageId={photo.id}
-                  storagePath={photo.storagePath}
-                  siteId={photo.site?.id ?? ""}
-                  caption={photo.caption}
-                  credit={photo.author?.name}
-                />
-              </div>
-
               {/* DESKTOP ONLY: Add to Collection (Bottom Bar) */}
               {onAddToCollection && (
                 <button
