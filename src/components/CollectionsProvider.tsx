@@ -136,7 +136,9 @@ export function CollectionsProvider({
 
     if (success) {
       showToast(
-        targetOn ? "Added to Collected Photos" : "Removed from Collected Photos"
+        targetOn
+          ? "Added to Collected Photos"
+          : "Removed from Collected Photos"
       );
       return;
     }
@@ -161,7 +163,8 @@ export function CollectionsProvider({
           onClick={() => setToast(null)} // click-to-dismiss (optional)
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-[1100] px-4 py-2 rounded-lg bg-black text-white shadow-lg"
+          // UPDATED: bottom-24 to move up, z-[2147483647] to be in front of everything
+          className="fixed bottom-30 right-5 z-[2147483647] px-4 py-2 rounded-lg bg-black text-white shadow-lg"
           title="Dismiss"
         >
           <div className="flex items-center gap-2">
