@@ -124,11 +124,18 @@ export function Lightbox({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight")
+
+      if (!photos.length) return;
+
+      if (e.key === "ArrowRight") {
         setCurrentIndex((p) => (p + 1) % photos.length);
-      if (e.key === "ArrowLeft")
+      }
+
+      if (e.key === "ArrowLeft") {
         setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+      }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, photos.length]);
@@ -136,10 +143,10 @@ export function Lightbox({
   /* ---------- Use server dimensions if present ---------- */
   const nat = useMemo(
     () => ({
-      w: photo.width && photo.width > 0 ? photo.width : 4,
-      h: photo.height && photo.height > 0 ? photo.height : 3,
+      w: photo?.width && photo.width > 0 ? photo.width : 4,
+      h: photo?.height && photo.height > 0 ? photo.height : 3,
     }),
-    [photo.width, photo.height]
+    [photo?.width, photo?.height]
   );
 
   const aspectRatio = nat.w / nat.h;
@@ -176,18 +183,20 @@ export function Lightbox({
 
   /* ---------- Medium variant URL for current photo ---------- */
   const mediumPhotoUrl = useMemo(() => {
-    if (photo.storagePath) {
+    if (photo?.storagePath) {
       try {
         return getVariantPublicUrl(photo.storagePath, "md");
       } catch {
         return photo.url;
       }
     }
-    return photo.url;
-  }, [photo.storagePath, photo.url]);
+    return photo?.url;
+  }, [photo?.storagePath, photo?.url]);
 
   /* ---------- Prefetch neighbours using medium variant ---------- */
   useEffect(() => {
+    if (!photos.length) return;
+
     const preload = (p?: LightboxPhoto) => {
       if (!p) return;
       try {
@@ -195,6 +204,7 @@ export function Lightbox({
           (p as any).storagePath != null
             ? getVariantPublicUrl((p as any).storagePath, "md")
             : (p as any).url;
+
         const img = new window.Image();
         img.src = src;
       } catch {
@@ -209,7 +219,7 @@ export function Lightbox({
 
   /* ---------- Google Maps link ---------- */
   const googleMapsUrl =
-    photo.site?.latitude != null && photo.site?.longitude != null
+    photo?.site?.latitude != null && photo?.site?.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${photo.site.latitude},${photo.site.longitude}`
       : null;
 
@@ -223,15 +233,15 @@ export function Lightbox({
     </span>
   );
 
-  const taxonomy = photo.site?.taxonomy;
+  const taxonomy = photo?.site?.taxonomy;
 
   const fallbackPills: string[] = useMemo(() => {
-    const region = photo.site?.region ? [photo.site.region] : [];
-    const cats = Array.isArray(photo.site?.categories)
-      ? photo.site!.categories
+    const region = photo?.site?.region ? [photo.site.region] : [];
+    const cats = Array.isArray(photo?.site?.categories)
+      ? photo!.site!.categories
       : [];
     return [...region, ...cats].filter(Boolean) as string[];
-  }, [photo.site]);
+  }, [photo?.site]);
 
   const heritageTypes = taxonomy?.heritageTypes ?? null;
   const architecturalStyles = taxonomy?.architecturalStyles ?? null;
@@ -275,6 +285,7 @@ export function Lightbox({
           style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
+            if (!photos.length) return;
             setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
           }}
         >
@@ -286,7 +297,8 @@ export function Lightbox({
           style={{ zIndex: 2147483647 }}
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((p) => (p + 1) % photos.length) % photos.length;
+            if (!photos.length) return;
+            setCurrentIndex((p) => (p + 1) % photos.length);
           }}
         >
           <Icon name="chevron-right" />
@@ -306,7 +318,7 @@ export function Lightbox({
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={photo.id}
+              key={photo?.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -314,7 +326,7 @@ export function Lightbox({
               className="absolute inset-0"
             >
               {/* BlurHash background */}
-              {photo.blurHash && (
+              {photo?.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
                     hash={photo.blurHash}
@@ -324,15 +336,17 @@ export function Lightbox({
               )}
 
               {/* Full image on top using medium variant */}
-              <NextImage
-                src={mediumPhotoUrl}
-                alt={photo.caption ?? ""}
-                fill
-                unoptimized
-                sizes="100vw"
-                className="w-full h-full object-contain"
-                priority
-              />
+              {mediumPhotoUrl && (
+                <NextImage
+                  src={mediumPhotoUrl}
+                  alt={photo?.caption ?? ""}
+                  fill
+                  unoptimized
+                  sizes="100vw"
+                  className="w-full h-full object-contain"
+                  priority
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -355,15 +369,15 @@ export function Lightbox({
         >
           <div className="text-white space-y-4">
             <div>
-              <h3 className="font-bold text-xl">{photo.site?.name}</h3>
+              <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
 
-              {photo.site?.location && (
+              {photo?.site?.location && (
                 <p className="text-sm text-gray-300">{photo.site.location}</p>
               )}
 
               <p className="text-sm text-gray-400 mt-1">
                 Photo by{" "}
-                {photo.author?.profileUrl ? (
+                {photo?.author?.profileUrl ? (
                   <Link
                     href={photo.author.profileUrl}
                     className="hover:underline"
@@ -371,18 +385,18 @@ export function Lightbox({
                     {photo.author.name}
                   </Link>
                 ) : (
-                  <span>{photo.author?.name}</span>
+                  <span>{photo?.author?.name}</span>
                 )}
               </p>
 
-              {photo.caption && (
+              {photo?.caption && (
                 <p className="text-sm text-gray-200 mt-2 italic">
                   {photo.caption}
                 </p>
               )}
             </div>
 
-            {/* Pills: hidden on mobile, visible from md up */}
+            {/* Pills: hidden on mobile, visible on md+ */}
             <div className="hidden md:block">
               {hasStructuredTaxonomy ? (
                 <div className="space-y-3">
@@ -429,7 +443,9 @@ export function Lightbox({
                   )}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">{fallbackPills.map(pill)}</div>
+                <div className="flex flex-wrap gap-2">
+                  {fallbackPills.map(pill)}
+                </div>
               )}
             </div>
 
@@ -440,7 +456,7 @@ export function Lightbox({
                   onClick={() => onBookmarkToggle(photo)}
                 >
                   <Icon
-                    name={photo.isBookmarked ? "bookmark-solid" : "bookmark"}
+                    name={photo?.isBookmarked ? "bookmark-solid" : "bookmark"}
                   />
                 </button>
               )}
