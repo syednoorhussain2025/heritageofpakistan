@@ -254,6 +254,11 @@ export function Lightbox({
     (architecturalFeatures?.length ?? 0) > 0 ||
     (historicalPeriods?.length ?? 0) > 0;
 
+  /* ---------- Nav button placement (centered on image) ---------- */
+  const navTop = Math.round(geom.imgTop + geom.imgH / 2);
+  const navPrevLeft = Math.round(geom.imgLeft + 10);
+  const navNextLeft = Math.round(geom.imgLeft + geom.imgW - 54);
+
   /* =======================================================
      RENDER
   ======================================================= */
@@ -268,7 +273,7 @@ export function Lightbox({
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* Controls */}
+        {/* Close */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
           style={{ zIndex: 2147483647 }}
@@ -280,9 +285,10 @@ export function Lightbox({
           <Icon name="xmark" />
         </button>
 
+        {/* Prev / Next centered on the image so they stay clickable on mobile */}
         <button
-          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
-          style={{ zIndex: 2147483647 }}
+          className="absolute -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
+          style={{ zIndex: 2147483647, top: navTop, left: navPrevLeft }}
           onClick={(e) => {
             e.stopPropagation();
             if (!photos.length) return;
@@ -293,8 +299,8 @@ export function Lightbox({
         </button>
 
         <button
-          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
-          style={{ zIndex: 2147483647 }}
+          className="absolute -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
+          style={{ zIndex: 2147483647, top: navTop, left: navNextLeft }}
           onClick={(e) => {
             e.stopPropagation();
             if (!photos.length) return;
@@ -325,7 +331,6 @@ export function Lightbox({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="absolute inset-0"
             >
-              {/* BlurHash background */}
               {photo?.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
@@ -335,7 +340,6 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top using medium variant */}
               {mediumPhotoUrl && (
                 <NextImage
                   src={mediumPhotoUrl}
@@ -368,6 +372,32 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-4">
+            {/* Mobile actions row: right aligned below photo */}
+            {(onBookmarkToggle || onAddToCollection) && (
+              <div className="md:hidden flex justify-end items-center gap-2">
+                {onBookmarkToggle && (
+                  <button
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                    onClick={() => onBookmarkToggle(photo)}
+                    aria-label="Bookmark"
+                  >
+                    <Icon
+                      name={photo?.isBookmarked ? "bookmark-solid" : "bookmark"}
+                    />
+                  </button>
+                )}
+
+                {onAddToCollection && (
+                  <button
+                    className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                    onClick={() => onAddToCollection(photo)}
+                  >
+                    Add to Collection
+                  </button>
+                )}
+              </div>
+            )}
+
             <div>
               <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
 
@@ -449,7 +479,8 @@ export function Lightbox({
               )}
             </div>
 
-            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+            {/* Desktop actions row: keep original placement and include maps */}
+            <div className="hidden md:flex pt-2 border-t border-white/10 items-center gap-2">
               {onBookmarkToggle && (
                 <button
                   className="p-2 rounded-full bg-white/10 hover:bg-white/20"
@@ -482,6 +513,8 @@ export function Lightbox({
                 </a>
               )}
             </div>
+
+            {/* Mobile: maps button removed */}
           </div>
         </div>
       </motion.div>
