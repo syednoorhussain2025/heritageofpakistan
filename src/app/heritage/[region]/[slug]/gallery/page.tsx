@@ -44,7 +44,7 @@ export async function generateMetadata(props: any): Promise<Metadata> {
   } catch {}
 
   const readableRegion = region.replace(/-/g, " ");
-  const pageTitle = `${siteTitle} photo gallery | Heritage of Pakistan`;
+  const pageTitle = `${siteTitle} High Res Photo Gallery | Heritage of Pakistan`;
 
   const descriptionParts = [
     `Explore a curated gallery of high quality photographs of ${siteTitle}.`,
