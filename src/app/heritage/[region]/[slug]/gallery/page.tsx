@@ -24,16 +24,23 @@ export async function generateMetadata(props: any): Promise<Metadata> {
   let locationFree: string | null = null;
   let tagline: string | null = null;
 
+  // ✅ NEW: Use pre-generated cover thumb for OG image (fallback to cover_photo_url, then default)
+  let coverPhotoThumbUrl: string | null = null;
+  let coverPhotoUrl: string | null = null;
+
   try {
     const { data } = await supabase
       .from("sites")
-      .select("title, location_free, tagline")
+      .select("title, location_free, tagline, cover_photo_thumb_url, cover_photo_url")
       .eq("slug", slug)
       .single();
 
     if (data?.title) siteTitle = data.title;
     locationFree = data?.location_free ?? null;
     tagline = data?.tagline ?? null;
+
+    coverPhotoThumbUrl = (data as any)?.cover_photo_thumb_url ?? null;
+    coverPhotoUrl = (data as any)?.cover_photo_url ?? null;
   } catch {}
 
   const readableRegion = region.replace(/-/g, " ");
@@ -58,7 +65,10 @@ export async function generateMetadata(props: any): Promise<Metadata> {
       : "http://localhost:3000");
 
   const canonicalPath = `${siteBase}/heritage/${region}/${slug}/gallery`;
-  const ogImagePath = `${siteBase}/heritage/${region}/${slug}/gallery/socialsharingcard`;
+
+  // ✅ NEW: Prefer stored thumb for OG image
+  const ogImageUrl =
+    coverPhotoThumbUrl || coverPhotoUrl || `${siteBase}/og-default.jpg`;
 
   return {
     title: pageTitle,
@@ -79,7 +89,7 @@ export async function generateMetadata(props: any): Promise<Metadata> {
       siteName: "Heritage of Pakistan",
       images: [
         {
-          url: ogImagePath,
+          url: ogImageUrl,
           width: 1200,
           height: 630,
           alt: `${siteTitle} gallery social sharing card`,
@@ -90,7 +100,7 @@ export async function generateMetadata(props: any): Promise<Metadata> {
       card: "summary_large_image",
       title: pageTitle,
       description,
-      images: [ogImagePath],
+      images: [ogImageUrl],
     },
   };
 }
