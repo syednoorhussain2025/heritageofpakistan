@@ -464,12 +464,13 @@ export function Lightbox({
                 </button>
               )}
 
+              {/* DESKTOP ONLY: Google Maps Button (Hidden on Mobile) */}
               {googleMapsUrl && (
                 <a
                   href={googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
                   title="View on Google Maps"
                 >
                   <Icon name="map-marker-alt" />
