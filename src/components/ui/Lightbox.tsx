@@ -255,64 +255,26 @@ export function Lightbox({
     (historicalPeriods?.length ?? 0) > 0;
 
   /* =======================================================
-     RENDER
+      RENDER
   ======================================================= */
 
   return (
     <AnimatePresence>
       <motion.div
         className="fixed inset-0 z-[2147483647] bg-black/90"
-        style={{ zIndex: 2147483647 }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* Controls */}
-        <button
-          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
-          style={{ zIndex: 2147483647 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-        >
-          <Icon name="xmark" />
-        </button>
-
-        <button
-          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
-          style={{ zIndex: 2147483647 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!photos.length) return;
-            setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
-          }}
-        >
-          <Icon name="chevron-left" />
-        </button>
-
-        <button
-          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-[2147483647]"
-          style={{ zIndex: 2147483647 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!photos.length) return;
-            setCurrentIndex((p) => (p + 1) % photos.length);
-          }}
-        >
-          <Icon name="chevron-right" />
-        </button>
-
-        {/* ---------- IMAGE CONTAINER WITH CROSSFADE ---------- */}
+        {/* ---------- IMAGE CONTAINER ---------- */}
         <div
-          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20"
+          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10"
           style={{
             left: geom.imgLeft,
             top: geom.imgTop,
             width: geom.imgW,
             height: geom.imgH,
-            zIndex: 2147483647,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -325,7 +287,6 @@ export function Lightbox({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="absolute inset-0"
             >
-              {/* BlurHash background */}
               {photo?.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
@@ -335,7 +296,6 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* Full image on top using medium variant */}
               {mediumPhotoUrl && (
                 <NextImage
                   src={mediumPhotoUrl}
@@ -355,15 +315,14 @@ export function Lightbox({
         <div
           className={
             geom.isMdUp
-              ? "absolute z-[2147483647]"
-              : "absolute z-[2147483647] w-[min(92vw,620px)]"
+              ? "absolute z-20"
+              : "absolute z-20 w-[min(92vw,620px)]"
           }
           style={{
             left: geom.panelLeft,
             top: geom.panelTop,
             transform: geom.isMdUp ? "translateY(-50%)" : "none",
             width: geom.isMdUp ? PANEL_W : undefined,
-            zIndex: 2147483647,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -396,7 +355,6 @@ export function Lightbox({
               )}
             </div>
 
-            {/* Pills: hidden on mobile, visible on md+ */}
             <div className="hidden md:block">
               {hasStructuredTaxonomy ? (
                 <div className="space-y-3">
@@ -484,6 +442,39 @@ export function Lightbox({
             </div>
           </div>
         </div>
+
+        {/* ---------- CONTROLS (Rendered last to ensure they stay on top) ---------- */}
+        <button
+          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+        >
+          <Icon name="xmark" />
+        </button>
+
+        <button
+          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!photos.length) return;
+            setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+          }}
+        >
+          <Icon name="chevron-left" />
+        </button>
+
+        <button
+          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!photos.length) return;
+            setCurrentIndex((p) => (p + 1) % photos.length);
+          }}
+        >
+          <Icon name="chevron-right" />
+        </button>
       </motion.div>
     </AnimatePresence>
   );
