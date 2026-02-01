@@ -120,8 +120,6 @@ export function Lightbox({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
-  
-  // Track if the main image (any resolution) has successfully loaded
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   /* ---------- Navigation Handlers ---------- */
@@ -298,7 +296,6 @@ export function Lightbox({
   };
 
   const onZoomUpdate = (ref: ReactZoomPanPinchRef) => {
-    // If scale > 1.01, consider it zoomed
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
@@ -471,6 +468,10 @@ export function Lightbox({
                   onZoomStart={onZoomStart}
                   onTransformed={onZoomUpdate}
                   alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+                  // Ensure minScale is 1 so image snaps back to full view
+                  minScale={1}
+                  // Keep image within bounds
+                  limitToBounds={true}
                 >
                   <TransformComponent
                     wrapperStyle={{ width: "100%", height: "100%" }}
@@ -487,9 +488,7 @@ export function Lightbox({
                         draggable={false}
                         priority
                         onLoadingComplete={() => {
-                          // Mark image as loaded to fade out blurhash
                           setIsImageLoaded(true);
-                          // Only disable loading spinner if we were waiting for high res
                           if (showHighRes) setIsHighResLoading(false);
                         }}
                       />
