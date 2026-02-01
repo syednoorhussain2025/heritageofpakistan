@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import {
+  TransformWrapper,
+  TransformComponent,
+  ReactZoomPanPinchRef,
+} from "react-zoom-pan-pinch";
 import type { LightboxPhoto } from "../../types/lightbox";
 import Icon from "../Icon";
 import { decode } from "blurhash";
@@ -17,18 +22,16 @@ const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
 /* ---------- SWIPE LOGIC ---------- */
-// Lowered threshold significantly for higher sensitivity
 const SWIPE_THRESHOLD = 600;
 
 const swipePower = (offset: number, velocity: number) => {
   return Math.abs(offset) * velocity;
 };
 
-/* ---------- BlurHash Component (matches aspect ratio) ---------- */
-
+/* ---------- BlurHash Component ---------- */
 type BlurhashPlaceholderProps = {
   hash: string;
-  aspectRatio: number; // width / height
+  aspectRatio: number;
 };
 
 function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
@@ -36,7 +39,6 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
 
   useEffect(() => {
     if (!hash) return;
-
     const BASE = 32;
     let width = BASE;
     let height = BASE;
@@ -52,7 +54,6 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
     }
 
     const pixels = decode(hash, width, height);
-
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -78,7 +79,6 @@ function BlurhashPlaceholder({ hash, aspectRatio }: BlurhashPlaceholderProps) {
 }
 
 /* ---------- Types ---------- */
-
 type SiteTaxonomy = {
   heritageTypes?: string[] | null;
   architecturalStyles?: string[] | null;
@@ -115,16 +115,33 @@ export function Lightbox({
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const photo = photos[currentIndex] as LightboxPhotoWithExtras;
 
+  // Zoom Refs and State
+  const transformRef = useRef<ReactZoomPanPinchRef>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [showHighRes, setShowHighRes] = useState(false);
+  const [isHighResLoading, setIsHighResLoading] = useState(false);
+
   /* ---------- Navigation Handlers ---------- */
+  const resetZoom = useCallback(() => {
+    if (transformRef.current) {
+      transformRef.current.resetTransform();
+    }
+    setIsZoomed(false);
+    setShowHighRes(false);
+    setIsHighResLoading(false);
+  }, []);
+
   const handleNext = useCallback(() => {
     if (!photos.length) return;
+    resetZoom();
     setCurrentIndex((p) => (p + 1) % photos.length);
-  }, [photos.length]);
+  }, [photos.length, resetZoom]);
 
   const handlePrev = useCallback(() => {
     if (!photos.length) return;
+    resetZoom();
     setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
-  }, [photos.length]);
+  }, [photos.length, resetZoom]);
 
   /* ---------- Window size ---------- */
   const [win, setWin] = useState({ w: 0, h: 0 });
@@ -144,18 +161,10 @@ export function Lightbox({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-
       if (!photos.length) return;
-
-      if (e.key === "ArrowRight") {
-        handleNext();
-      }
-
-      if (e.key === "ArrowLeft") {
-        handlePrev();
-      }
+      if (e.key === "ArrowRight") handleNext();
+      if (e.key === "ArrowLeft") handlePrev();
     };
-
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, photos.length, handleNext, handlePrev]);
@@ -171,7 +180,7 @@ export function Lightbox({
 
   const aspectRatio = nat.w / nat.h;
 
-  /* ---------- Geometry (stable, no shift) ---------- */
+  /* ---------- Geometry ---------- */
   const geom = useMemo(() => {
     const nw = nat.w;
     const nh = nat.h;
@@ -201,7 +210,9 @@ export function Lightbox({
     return { imgW, imgH, imgLeft, imgTop, panelLeft, panelTop, isMdUp };
   }, [isMdUp, isLgUp, nat, win]);
 
-  /* ---------- Medium variant URL for current photo ---------- */
+  /* ---------- IMAGE URLs ---------- */
+
+  // 1. Medium Variant (Fast Load - "md")
   const mediumPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
@@ -213,10 +224,24 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  /* ---------- Prefetch neighbours using medium variant ---------- */
+  // 2. Hero Variant (Zoom Details - "hero")
+  const heroPhotoUrl = useMemo(() => {
+    if (photo?.storagePath) {
+      try {
+        return getVariantPublicUrl(photo.storagePath, "hero");
+      } catch {
+        return photo.url;
+      }
+    }
+    return photo?.url;
+  }, [photo?.storagePath, photo?.url]);
+
+  // 3. Active URL Logic
+  const activeUrl = showHighRes ? heroPhotoUrl : mediumPhotoUrl;
+
+  /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
-
     const preload = (p?: LightboxPhoto) => {
       if (!p) return;
       try {
@@ -224,7 +249,6 @@ export function Lightbox({
           (p as any).storagePath != null
             ? getVariantPublicUrl((p as any).storagePath, "md")
             : (p as any).url;
-
         const img = new window.Image();
         img.src = src;
       } catch {
@@ -232,18 +256,59 @@ export function Lightbox({
         img.src = (p as any).url;
       }
     };
-
     preload(photos[(currentIndex + 1) % photos.length]);
     preload(photos[(currentIndex - 1 + photos.length) % photos.length]);
   }, [currentIndex, photos]);
 
-  /* ---------- Google Maps link ---------- */
+  /* ---------- Swipe Handler ---------- */
+  const onSwipe = (
+    e: MouseEvent | TouchEvent | PointerEvent,
+    { offset, velocity }: PanInfo
+  ) => {
+    if (isZoomed) return;
+
+    const swipe = swipePower(offset.x, velocity.x);
+
+    if (swipe < -SWIPE_THRESHOLD || offset.x < -100) {
+      handleNext();
+    } else if (swipe > SWIPE_THRESHOLD || offset.x > 100) {
+      handlePrev();
+    }
+  };
+
+  /* ---------- Zoom Events ---------- */
+  const triggerHighResLoad = useCallback(() => {
+    if (!showHighRes) {
+      setShowHighRes(true);
+      setIsHighResLoading(true);
+    }
+  }, [showHighRes]);
+
+  const onZoomStart = () => {
+    triggerHighResLoad();
+  };
+
+  const onZoomUpdate = (ref: ReactZoomPanPinchRef) => {
+    const isNowZoomed = ref.state.scale > 1.01;
+    if (isNowZoomed !== isZoomed) {
+      setIsZoomed(isNowZoomed);
+    }
+  };
+
+  const handleZoomIconClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHighResLoad();
+    if (transformRef.current) {
+      transformRef.current.zoomToElement("center", 2.5, 500);
+    }
+  };
+
+  /* ---------- Helpers ---------- */
   const googleMapsUrl =
     photo?.site?.latitude != null && photo?.site?.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${photo.site.latitude},${photo.site.longitude}`
       : null;
 
-  /* ---------- Pills helpers ---------- */
   const pill = (text: string) => (
     <span
       key={text}
@@ -254,7 +319,6 @@ export function Lightbox({
   );
 
   const taxonomy = photo?.site?.taxonomy;
-
   const fallbackPills: string[] = useMemo(() => {
     const region = photo?.site?.region ? [photo.site.region] : [];
     const cats = Array.isArray(photo?.site?.categories)
@@ -274,22 +338,6 @@ export function Lightbox({
     (architecturalFeatures?.length ?? 0) > 0 ||
     (historicalPeriods?.length ?? 0) > 0;
 
-  /* ---------- Swipe Handler (No movement, just detection) ---------- */
-  const onSwipe = (
-    e: MouseEvent | TouchEvent | PointerEvent,
-    { offset, velocity }: PanInfo
-  ) => {
-    const swipe = swipePower(offset.x, velocity.x);
-
-    // If swipe power is high enough OR the raw distance is significant
-    // This dual check makes it work for both "fast flicks" and "slow long drags"
-    if (swipe < -SWIPE_THRESHOLD || offset.x < -100) {
-      handleNext();
-    } else if (swipe > SWIPE_THRESHOLD || offset.x > 100) {
-      handlePrev();
-    }
-  };
-
   /* =======================================================
       RENDER
   ======================================================= */
@@ -297,8 +345,6 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        // 1. Added "touch-none" to prevent browser scrolling/gestures
-        // 2. Added onPanEnd here so it captures swipes ANYWHERE on the screen
         className="fixed inset-0 z-[2147483647] bg-black/98 touch-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -313,25 +359,20 @@ export function Lightbox({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="absolute inset-0 w-full h-full pointer-events-none"
+            className="absolute inset-0 w-full h-full"
           >
-            {/* ============================================
-              1. MOBILE HEADER (Split Left/Right)
-              ============================================
-            */}
+            {/* 1. MOBILE HEADER */}
             <div
               className="md:hidden absolute z-20 pointer-events-auto"
               style={{
                 left: geom.imgLeft,
                 width: geom.imgW,
-                // Position top edge at image top, then shift up by 100% + gap (12px)
                 top: geom.imgTop - 12,
                 transform: "translateY(-100%)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-white flex justify-between items-end gap-4">
-                {/* Left Side: Title & Location */}
                 <div>
                   <h3 className="font-bold text-xl leading-tight">
                     {photo?.site?.name}
@@ -342,8 +383,6 @@ export function Lightbox({
                     </p>
                   )}
                 </div>
-
-                {/* Right Side: Photo By (Right Aligned, Single Line) */}
                 <div className="text-right shrink-0 flex items-center justify-end">
                   <p className="text-xs text-gray-400">
                     Photo by{" "}
@@ -363,10 +402,10 @@ export function Lightbox({
             </div>
 
             {/* ============================================
-              2. IMAGE CONTAINER (Centered)
+              2. IMAGE CONTAINER
               ============================================
             */}
-            <motion.div
+            <div
               className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
               style={{
                 left: geom.imgLeft,
@@ -380,7 +419,7 @@ export function Lightbox({
               <div
                 className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
                 onClick={(e) => e.stopPropagation()}
-                onPointerDownCapture={(e) => e.stopPropagation()} // Stop propagation so clicking heart doesn't trigger swipe logic
+                onPointerDownCapture={(e) => e.stopPropagation()}
               >
                 <CollectHeart
                   variant="overlay"
@@ -392,6 +431,7 @@ export function Lightbox({
                 />
               </div>
 
+              {/* BlurHash Background */}
               {photo?.blurHash && (
                 <div className="absolute inset-0 bg-black/20 pointer-events-none">
                   <BlurhashPlaceholder
@@ -401,36 +441,92 @@ export function Lightbox({
                 </div>
               )}
 
-              {mediumPhotoUrl && (
-                <NextImage
-                  src={mediumPhotoUrl}
-                  alt={photo?.caption ?? ""}
-                  fill
-                  unoptimized
-                  sizes="100vw"
-                  // Added pointer-events-none to ensure the swipe registers on the parent container
-                  className="w-full h-full object-contain pointer-events-none select-none"
-                  draggable={false}
-                  priority
-                />
+              {/* ZOOM COMPONENT */}
+              {activeUrl && (
+                <TransformWrapper
+                  ref={transformRef}
+                  wheel={{ step: 0.2 }}
+                  doubleClick={{ disabled: false }}
+                  onZoomStart={onZoomStart}
+                  onTransformed={onZoomUpdate}
+                  alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+                >
+                  <TransformComponent
+                    wrapperStyle={{ width: "100%", height: "100%" }}
+                    contentStyle={{ width: "100%", height: "100%" }}
+                  >
+                    <div className="relative w-full h-full">
+                      <NextImage
+                        src={activeUrl}
+                        alt={photo?.caption ?? ""}
+                        fill
+                        unoptimized
+                        sizes="100vw"
+                        className="object-contain select-none"
+                        draggable={false}
+                        priority
+                        onLoadingComplete={() => {
+                          // Only disable loading state if we were waiting for high res
+                          if (showHighRes) setIsHighResLoading(false);
+                        }}
+                      />
+                    </div>
+                  </TransformComponent>
+                </TransformWrapper>
               )}
-            </motion.div>
 
-            {/* ============================================
-              3. MOBILE FOOTER (Caption + Button)
-              ============================================
-            */}
+              {/* LOADING INDICATOR */}
+              {isHighResLoading && (
+                <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+                  <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-3 rounded-lg flex flex-col items-center gap-2">
+                    <svg
+                      className="animate-spin h-6 w-6 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span className="text-xs font-medium">
+                      Loading High Res
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ZOOM ICON (Bottom Left) */}
+              <button
+                className="absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-colors backdrop-blur-md"
+                onClick={handleZoomIconClick}
+                onPointerDownCapture={(e) => e.stopPropagation()}
+                title="Zoom to high resolution"
+              >
+                <Icon name="zoom" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 3. MOBILE FOOTER */}
             <div
               className="md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4"
               style={{
                 left: geom.imgLeft,
                 width: geom.imgW,
-                // Position just below the image
                 top: geom.imgTop + geom.imgH + 12,
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Left: Caption */}
               <div className="flex-1">
                 {photo?.caption && (
                   <p className="text-sm text-gray-200 italic leading-snug">
@@ -438,8 +534,6 @@ export function Lightbox({
                   </p>
                 )}
               </div>
-
-              {/* Right: Add to Collection */}
               {onAddToCollection && (
                 <button
                   className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -453,10 +547,7 @@ export function Lightbox({
               )}
             </div>
 
-            {/* ============================================
-              4. DESKTOP INFO PANEL (Side Panel)
-              ============================================
-            */}
+            {/* 4. DESKTOP INFO PANEL */}
             <div
               className={`hidden md:block pointer-events-auto absolute z-20`}
               style={{
@@ -468,7 +559,6 @@ export function Lightbox({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-white space-y-4">
-                {/* Header Area */}
                 <div>
                   <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
                   {photo?.site?.location && (
@@ -495,7 +585,6 @@ export function Lightbox({
                     </p>
                   )}
                 </div>
-
                 {/* Taxonomy Pills */}
                 <div>
                   {hasStructuredTaxonomy ? (
@@ -510,7 +599,6 @@ export function Lightbox({
                           </div>
                         </div>
                       )}
-
                       {(architecturalStyles?.length ?? 0) > 0 && (
                         <div>
                           <p className="text-xs text-gray-400 mb-1">
@@ -521,7 +609,6 @@ export function Lightbox({
                           </div>
                         </div>
                       )}
-
                       {(architecturalFeatures?.length ?? 0) > 0 && (
                         <div>
                           <p className="text-xs text-gray-400 mb-1">
@@ -532,7 +619,6 @@ export function Lightbox({
                           </div>
                         </div>
                       )}
-
                       {(historicalPeriods?.length ?? 0) > 0 && (
                         <div>
                           <p className="text-xs text-gray-400 mb-1">
@@ -550,7 +636,6 @@ export function Lightbox({
                     </div>
                   )}
                 </div>
-
                 {/* Bottom Actions Bar */}
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onAddToCollection && (
@@ -561,7 +646,6 @@ export function Lightbox({
                       Add to Collection
                     </button>
                   )}
-
                   {googleMapsUrl && (
                     <a
                       href={googleMapsUrl}
@@ -589,7 +673,6 @@ export function Lightbox({
         >
           <Icon name="xmark" />
         </button>
-
         <button
           className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
@@ -599,7 +682,6 @@ export function Lightbox({
         >
           <Icon name="chevron-left" />
         </button>
-
         <button
           className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
