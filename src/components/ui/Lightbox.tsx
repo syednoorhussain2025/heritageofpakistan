@@ -120,6 +120,8 @@ export function Lightbox({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
+  
+  // Track if the main image (any resolution) has successfully loaded
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   /* ---------- Navigation Handlers ---------- */
@@ -218,6 +220,7 @@ export function Lightbox({
 
   /* ---------- IMAGE URLs ---------- */
 
+  // 1. Medium Variant (Fast Load - "md")
   const mediumPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
@@ -229,10 +232,12 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
+  // 2. Base Variant (Original High Res)
   const highResPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
-        return getVariantPublicUrl(photo.storagePath); // Base file (original)
+        // Omitting the variant argument fetches the original file
+        return getVariantPublicUrl(photo.storagePath);
       } catch {
         return photo.url;
       }
@@ -240,6 +245,7 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
+  // 3. Active URL Logic
   const activeUrl = showHighRes ? highResPhotoUrl : mediumPhotoUrl;
 
   /* ---------- Prefetch neighbours ---------- */
@@ -312,7 +318,8 @@ export function Lightbox({
     e.stopPropagation();
     triggerHighResLoad();
     if (transformRef.current) {
-      transformRef.current.zoomToElement("center", 2.5, 500);
+      // Zoom to center, scale 2.5x, 500ms animation
+      transformRef.current.zoomToElement("center", 2.5, 500); 
     }
   };
 
@@ -374,7 +381,7 @@ export function Lightbox({
             transition={{ duration: 0.35, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. MOBILE HEADER */}
+            {/* 1. MOBILE HEADER (Hides when zoomed) */}
             <div
               className={`md:hidden absolute z-20 pointer-events-auto transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -417,7 +424,7 @@ export function Lightbox({
             </div>
 
             {/* ============================================
-              2. IMAGE CONTAINER
+              2. IMAGE CONTAINER (Expands on Zoom)
               ============================================
             */}
             <div
@@ -432,7 +439,7 @@ export function Lightbox({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Heart Button */}
+              {/* Heart Button (Hides when zoomed) */}
               <div
                 className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -450,7 +457,7 @@ export function Lightbox({
                 />
               </div>
 
-              {/* BlurHash Background */}
+              {/* BlurHash Background - Fades out when image loads */}
               {photo?.blurHash && (
                 <div
                   className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${
@@ -485,9 +492,10 @@ export function Lightbox({
                 >
                   <TransformComponent
                     wrapperStyle={{ width: "100%", height: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%" }}
+                    // Added flex centering to contentStyle to ensure image stays midway on init
+                    contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
-                    <div className="relative w-full h-full">
+                    <div className="relative w-full h-full flex items-center justify-center">
                       <NextImage
                         src={activeUrl}
                         alt={photo?.caption ?? ""}
@@ -538,7 +546,7 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* ZOOM ICON */}
+              {/* ZOOM ICON (Hides when zoomed) */}
               <button
                 className={`absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -551,7 +559,7 @@ export function Lightbox({
               </button>
             </div>
 
-            {/* 3. MOBILE FOOTER */}
+            {/* 3. MOBILE FOOTER (Hides when zoomed) */}
             <div
               className={`md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4 transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -583,7 +591,7 @@ export function Lightbox({
               )}
             </div>
 
-            {/* 4. DESKTOP INFO PANEL */}
+            {/* 4. DESKTOP INFO PANEL (Hides when zoomed) */}
             <div
               className={`hidden md:block pointer-events-auto absolute z-20 transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -701,7 +709,7 @@ export function Lightbox({
           </motion.div>
         </AnimatePresence>
 
-        {/* ---------- CONTROLS */}
+        {/* ---------- CONTROLS (Hide nav arrows when zoomed, keep Close button) ---------- */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
