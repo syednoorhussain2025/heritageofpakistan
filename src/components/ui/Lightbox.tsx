@@ -278,10 +278,9 @@ export function Lightbox({
             className="absolute inset-0 w-full h-full pointer-events-none"
           >
             {/* ============================================
-              1. MOBILE HEADER (Title, Location, Author) 
+              1. MOBILE HEADER (Split Left/Right)
               ============================================
-              Positioned absolute ABOVE the image (using translateY(-100%)).
-              Visible only on Mobile (md:hidden).
+              Positioned absolute ABOVE the image.
             */}
             <div
               className="md:hidden absolute z-20 pointer-events-auto"
@@ -294,28 +293,37 @@ export function Lightbox({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-white">
-                <h3 className="font-bold text-xl leading-tight">
-                  {photo?.site?.name}
-                </h3>
-                {photo?.site?.location && (
-                  <p className="text-sm text-gray-300 mt-1">
-                    {photo.site.location}
-                  </p>
-                )}
-                <p className="text-xs text-gray-400 mt-2">
-                  Photo by{" "}
-                  {photo?.author?.profileUrl ? (
-                    <Link
-                      href={photo.author.profileUrl}
-                      className="hover:underline"
-                    >
-                      {photo.author.name}
-                    </Link>
-                  ) : (
-                    <span>{photo?.author?.name}</span>
+              <div className="text-white flex justify-between items-end gap-4">
+                {/* Left Side: Title & Location */}
+                <div>
+                  <h3 className="font-bold text-xl leading-tight">
+                    {photo?.site?.name}
+                  </h3>
+                  {photo?.site?.location && (
+                    <p className="text-sm text-gray-300 mt-1">
+                      {photo.site.location}
+                    </p>
                   )}
-                </p>
+                </div>
+
+                {/* Right Side: Photo By (Right Aligned) */}
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-gray-400">
+                    Photo by{" "}
+                    {photo?.author?.profileUrl ? (
+                      <Link
+                        href={photo.author.profileUrl}
+                        className="hover:underline block mt-0.5"
+                      >
+                        {photo.author.name}
+                      </Link>
+                    ) : (
+                      <span className="block mt-0.5">
+                        {photo?.author?.name}
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -373,8 +381,6 @@ export function Lightbox({
             {/* ============================================
               3. MOBILE FOOTER (Caption + Button)
               ============================================
-              Positioned absolute BELOW the image.
-              Visible only on Mobile (md:hidden).
             */}
             <div
               className="md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4"
@@ -412,7 +418,6 @@ export function Lightbox({
             {/* ============================================
               4. DESKTOP INFO PANEL (Side Panel)
               ============================================
-              Hidden on mobile (hidden md:block).
             */}
             <div
               className={`hidden md:block pointer-events-auto absolute z-20`}
