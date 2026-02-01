@@ -117,11 +117,13 @@ export function Lightbox({
 
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
-  
-  // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
   
   const [isZoomed, setIsZoomed] = useState(false);
+  
+  // New state to coordinate the zoom button animation reliability
+  const [pendingZoomRequest, setPendingZoomRequest] = useState(false);
+
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -134,6 +136,7 @@ export function Lightbox({
     setIsZoomed(false);
     setShowHighRes(false);
     setIsHighResLoading(false);
+    setPendingZoomRequest(false);
   }, []);
 
   const handleNext = useCallback(() => {
@@ -274,13 +277,9 @@ export function Lightbox({
     e: MouseEvent | TouchEvent | PointerEvent,
     { offset, velocity }: PanInfo
   ) => {
-    // 1. COOL-DOWN CHECK:
-    // Only block if a pinch/zoom happened recently (< 500ms)
     const timeSinceZoom = Date.now() - lastZoomAction.current;
     if (timeSinceZoom < 500) return;
 
-    // 2. SCALE CHECK
-    // Double check we are truly at scale 1 before allowing swipe
     if (transformRef.current) {
       const { scale } = transformRef.current.instance.transformState;
       if (scale > 1.01) return;
@@ -306,51 +305,74 @@ export function Lightbox({
   }, [showHighRes]);
 
   const onZoomStart = () => {
-    // We update the timer here because starting a zoom is an action we want to block swipes for
     lastZoomAction.current = Date.now();
     triggerHighResLoad();
   };
 
   const onTransformed = (ref: ReactZoomPanPinchRef) => {
-    // CRITICAL FIX: Only update the "block swipe" timer if we are actually zoomed in.
-    // If scale is 1, this is just a normal drag/swipe, so we SHOULD NOT update the timer.
-    if (ref.state.scale > 1.01) {
+    const scale = ref.state.scale;
+
+    // FIX 2: Snap-back logic. 
+    // If the user pinches OUT below 1 (e.g., 0.95), force a reset immediately.
+    // This prevents the "random awkward position" issue.
+    if (scale < 1) {
+      ref.resetTransform(200); // 200ms smooth animation back to center
+      setIsZoomed(false);
+      lastZoomAction.current = Date.now(); // Ensure swipe doesn't trigger immediately
+      return;
+    }
+
+    if (scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
     
-    const isNowZoomed = ref.state.scale > 1.01;
+    const isNowZoomed = scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
     }
   };
 
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
-    // CRITICAL FIX: Same here. Only block swipes if we just finished a Zoom interaction.
-    // If we just finished a normal swipe at scale 1, do not update the timer.
-    if (ref.state.scale > 1.01) {
+    const scale = ref.state.scale;
+
+    // FIX 2 (Safety net): Ensure reset happens on stop if below threshold
+    if (scale < 1.01) {
+      ref.resetTransform(200);
+      setIsZoomed(false);
+      // Don't update lastZoomAction here if it's just a tiny jitter at scale 1
+      if (scale < 0.99) lastZoomAction.current = Date.now();
+    } else {
       lastZoomAction.current = Date.now();
     }
-    
-    if (ref.state.scale <= 1.01) {
-      ref.resetTransform(200); 
-      setIsZoomed(false);
-    }
   };
 
+  // FIX 1: Reliable Button Handler
+  // Instead of setTimeout, we set a state flag pendingZoomRequest
   const handleZoomIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    lastZoomAction.current = Date.now(); // Explicit zoom action blocks swipes
+    lastZoomAction.current = Date.now();
     triggerHighResLoad();
     
-    setIsZoomed(true);
-
-    setTimeout(() => {
-      if (transformRef.current) {
-        transformRef.current.resetTransform(0); 
-        transformRef.current.zoomIn(0.6, 500); 
-      }
-    }, 320); 
+    setIsZoomed(true); // This expands the container via CSS
+    setPendingZoomRequest(true); // This tells the Effect below to perform the actual zoom
   };
+
+  // FIX 1: The Effect
+  // This waits until the component has re-rendered (and container expanded) 
+  // before triggering the transform logic.
+  useEffect(() => {
+    if (pendingZoomRequest && isZoomed && transformRef.current) {
+      // Small delay to ensure CSS transition of container size has started/stabilized
+      const timer = setTimeout(() => {
+         if (transformRef.current) {
+            transformRef.current.resetTransform(0); // Center in new container
+            transformRef.current.zoomIn(0.6, 500); // Perform zoom
+            setPendingZoomRequest(false); // Clean up
+         }
+      }, 50); // 50ms is usually enough for the DOM to acknowledge the width change
+      return () => clearTimeout(timer);
+    }
+  }, [pendingZoomRequest, isZoomed]);
 
   /* ---------- Helpers ---------- */
   const googleMapsUrl =
@@ -517,7 +539,8 @@ export function Lightbox({
                   alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
                   centerZoomedOut={true}
                   centerOnInit={true}
-                  minScale={1}
+                  // Allow pinching slightly smaller to trigger the snap-back logic
+                  minScale={0.9} 
                   limitToBounds={true}
                 >
                   <TransformComponent
