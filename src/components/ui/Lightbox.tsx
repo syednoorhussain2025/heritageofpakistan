@@ -17,7 +17,9 @@ const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
 /* ---------- SWIPE LOGIC ---------- */
-const SWIPE_THRESHOLD = 10000;
+// Lowered threshold significantly for higher sensitivity
+const SWIPE_THRESHOLD = 600;
+
 const swipePower = (offset: number, velocity: number) => {
   return Math.abs(offset) * velocity;
 };
@@ -279,11 +281,11 @@ export function Lightbox({
   ) => {
     const swipe = swipePower(offset.x, velocity.x);
 
-    if (swipe < -SWIPE_THRESHOLD) {
-      // Swiped Left -> Next
+    // If swipe power is high enough OR the raw distance is significant
+    // This dual check makes it work for both "fast flicks" and "slow long drags"
+    if (swipe < -SWIPE_THRESHOLD || offset.x < -100) {
       handleNext();
-    } else if (swipe > SWIPE_THRESHOLD) {
-      // Swiped Right -> Prev
+    } else if (swipe > SWIPE_THRESHOLD || offset.x > 100) {
       handlePrev();
     }
   };
@@ -295,11 +297,14 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[2147483647] bg-black/98"
+        // 1. Added "touch-none" to prevent browser scrolling/gestures
+        // 2. Added onPanEnd here so it captures swipes ANYWHERE on the screen
+        className="fixed inset-0 z-[2147483647] bg-black/98 touch-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
+        onPanEnd={onSwipe}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -370,8 +375,6 @@ export function Lightbox({
                 height: geom.imgH,
               }}
               onClick={(e) => e.stopPropagation()}
-              // onPanEnd detects the swipe without physically moving the element (because 'drag' is not set)
-              onPanEnd={onSwipe}
             >
               {/* Heart Button */}
               <div
@@ -405,6 +408,7 @@ export function Lightbox({
                   fill
                   unoptimized
                   sizes="100vw"
+                  // Added pointer-events-none to ensure the swipe registers on the parent container
                   className="w-full h-full object-contain pointer-events-none select-none"
                   draggable={false}
                   priority
