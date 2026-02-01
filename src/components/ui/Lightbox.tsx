@@ -272,13 +272,18 @@ export function Lightbox({
     (architecturalFeatures?.length ?? 0) > 0 ||
     (historicalPeriods?.length ?? 0) > 0;
 
-  /* ---------- Swipe Handler ---------- */
-  const onDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, { offset, velocity }: PanInfo) => {
+  /* ---------- Swipe Handler (No movement, just detection) ---------- */
+  const onSwipe = (
+    e: MouseEvent | TouchEvent | PointerEvent,
+    { offset, velocity }: PanInfo
+  ) => {
     const swipe = swipePower(offset.x, velocity.x);
 
     if (swipe < -SWIPE_THRESHOLD) {
+      // Swiped Left -> Next
       handleNext();
     } else if (swipe > SWIPE_THRESHOLD) {
+      // Swiped Right -> Prev
       handlePrev();
     }
   };
@@ -308,7 +313,6 @@ export function Lightbox({
             {/* ============================================
               1. MOBILE HEADER (Split Left/Right)
               ============================================
-              Positioned absolute ABOVE the image.
             */}
             <div
               className="md:hidden absolute z-20 pointer-events-auto"
@@ -358,26 +362,22 @@ export function Lightbox({
               ============================================
             */}
             <motion.div
-              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto cursor-grab active:cursor-grabbing"
+              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
               style={{
                 left: geom.imgLeft,
                 top: geom.imgTop,
                 width: geom.imgW,
                 height: geom.imgH,
-                x: 0 // Explicitly reset x to avoid drift on re-render
               }}
               onClick={(e) => e.stopPropagation()}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
-              onDragEnd={onDragEnd}
-              whileTap={{ cursor: "grabbing" }}
+              // onPanEnd detects the swipe without physically moving the element (because 'drag' is not set)
+              onPanEnd={onSwipe}
             >
               {/* Heart Button */}
               <div
                 className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
                 onClick={(e) => e.stopPropagation()}
-                onPointerDownCapture={(e) => e.stopPropagation()} // Prevent drag start on click
+                onPointerDownCapture={(e) => e.stopPropagation()} // Stop propagation so clicking heart doesn't trigger swipe logic
               >
                 <CollectHeart
                   variant="overlay"
