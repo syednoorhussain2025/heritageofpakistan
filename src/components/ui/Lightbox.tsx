@@ -117,6 +117,10 @@ export function Lightbox({
 
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
+  
+  // 1. ADD THIS REF: Tracks the exact time of the last zoom interaction
+  const lastZoomAction = useRef<number>(0);
+  
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
@@ -133,18 +137,14 @@ export function Lightbox({
   }, []);
 
   const handleNext = useCallback(() => {
-    // 1. Block navigation if zoomed
     if (isZoomed) return;
-    
     if (!photos.length) return;
     resetZoom();
     setCurrentIndex((p) => (p + 1) % photos.length);
   }, [photos.length, resetZoom, isZoomed]);
 
   const handlePrev = useCallback(() => {
-    // 2. Block navigation if zoomed
     if (isZoomed) return;
-
     if (!photos.length) return;
     resetZoom();
     setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
@@ -274,14 +274,17 @@ export function Lightbox({
     e: MouseEvent | TouchEvent | PointerEvent,
     { offset, velocity }: PanInfo
   ) => {
-    // 3. Double check directly against the component Ref. 
-    // This handles the "pinch out" moment where state might be transitioning.
+    // 2. COOL-DOWN CHECK:
+    // If the user interacted with zoom/pinch less than 500ms ago, ignore swipe.
+    const timeSinceZoom = Date.now() - lastZoomAction.current;
+    if (timeSinceZoom < 500) return;
+
+    // Safety check for current scale
     if (transformRef.current) {
       const { scale } = transformRef.current.instance.transformState;
       if (scale > 1.01) return;
     }
     
-    // Also check the state
     if (isZoomed) return;
 
     const swipe = swipePower(offset.x, velocity.x);
@@ -302,10 +305,14 @@ export function Lightbox({
   }, [showHighRes]);
 
   const onZoomStart = () => {
+    lastZoomAction.current = Date.now(); // Record interaction start
     triggerHighResLoad();
   };
 
+  // 3. UPDATE TIMER ON EVERY FRAME OF ZOOM/PINCH
   const onTransformed = (ref: ReactZoomPanPinchRef) => {
+    lastZoomAction.current = Date.now(); // Update timestamp constantly while moving
+    
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
@@ -313,6 +320,8 @@ export function Lightbox({
   };
 
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
+    lastZoomAction.current = Date.now(); // Update timestamp when letting go
+    
     if (ref.state.scale <= 1.01) {
       ref.resetTransform(200); 
       setIsZoomed(false);
@@ -321,16 +330,15 @@ export function Lightbox({
 
   const handleZoomIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    lastZoomAction.current = Date.now();
     triggerHighResLoad();
     
-    // 1. Force container expansion first
     setIsZoomed(true);
 
-    // 2. Wait for CSS transition (300ms) to stabilize BEFORE zooming
     setTimeout(() => {
       if (transformRef.current) {
         transformRef.current.resetTransform(0); 
-        transformRef.current.zoomIn(0.6, 500); // Kept your previous tweak (0.6)
+        transformRef.current.zoomIn(0.6, 500); 
       }
     }, 320); 
   };
