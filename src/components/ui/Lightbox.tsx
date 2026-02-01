@@ -279,22 +279,6 @@ export function Lightbox({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Heart Button: Always visible on the image (top-right) for all screen sizes */}
-          {/* UPDATED: Increased size (w-10 h-10) and set default outline color (text-white) */}
-          <div
-            className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CollectHeart
-              variant="overlay"
-              siteImageId={photo.id}
-              storagePath={photo.storagePath}
-              siteId={photo.site?.id ?? ""}
-              caption={photo.caption}
-              credit={photo.author?.name}
-            />
-          </div>
-
           <AnimatePresence mode="wait">
             <motion.div
               key={photo?.id}
@@ -304,6 +288,23 @@ export function Lightbox({
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="absolute inset-0"
             >
+              {/* Heart Button: Moved inside the motion.div so it fades 
+                  with the image transition instead of snapping in.
+              */}
+              <div
+                className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CollectHeart
+                  variant="overlay"
+                  siteImageId={photo.id}
+                  storagePath={photo.storagePath}
+                  siteId={photo.site?.id ?? ""}
+                  caption={photo.caption}
+                  credit={photo.author?.name}
+                />
+              </div>
+
               {photo?.blurHash && (
                 <div className="absolute inset-0 bg-black/20">
                   <BlurhashPlaceholder
@@ -344,7 +345,6 @@ export function Lightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-white space-y-4">
-            {/* Header Area: Flex container */}
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1">
                 <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
@@ -374,7 +374,6 @@ export function Lightbox({
                 )}
               </div>
 
-              {/* MOBILE ONLY: Add to Collection Button (Right of title) */}
               {onAddToCollection && (
                 <button
                   className="md:hidden shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -442,9 +441,7 @@ export function Lightbox({
               )}
             </div>
 
-            {/* Bottom Actions Bar */}
             <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {/* DESKTOP ONLY: Add to Collection (Bottom Bar) */}
               {onAddToCollection && (
                 <button
                   className="hidden md:block flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
@@ -454,7 +451,6 @@ export function Lightbox({
                 </button>
               )}
 
-              {/* DESKTOP ONLY: Google Maps Button (Hidden on Mobile) */}
               {googleMapsUrl && (
                 <a
                   href={googleMapsUrl}
@@ -470,7 +466,7 @@ export function Lightbox({
           </div>
         </div>
 
-        {/* ---------- CONTROLS (Rendered last to ensure they stay on top) ---------- */}
+        {/* ---------- CONTROLS ---------- */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
