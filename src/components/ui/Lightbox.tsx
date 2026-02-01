@@ -224,12 +224,11 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // 2. High Res Variant (Zoom Details - "base")
-  // We now use the BASE file (original) for highest detail
+  // 2. Base Variant (Original High Res)
   const highResPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
-        // No variant argument = base file
+        // Omitting the variant argument fetches the original file
         return getVariantPublicUrl(photo.storagePath);
       } catch {
         return photo.url;
