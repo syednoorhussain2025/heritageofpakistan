@@ -306,21 +306,19 @@ export function Lightbox({
                   )}
                 </div>
 
-                {/* Right Side: Photo By (Right Aligned) */}
-                <div className="text-right shrink-0">
+                {/* Right Side: Photo By (Right Aligned, Single Line) */}
+                <div className="text-right shrink-0 flex items-center justify-end">
                   <p className="text-xs text-gray-400">
                     Photo by{" "}
                     {photo?.author?.profileUrl ? (
                       <Link
                         href={photo.author.profileUrl}
-                        className="hover:underline block mt-0.5"
+                        className="hover:underline ml-1"
                       >
                         {photo.author.name}
                       </Link>
                     ) : (
-                      <span className="block mt-0.5">
-                        {photo?.author?.name}
-                      </span>
+                      <span className="ml-1">{photo?.author?.name}</span>
                     )}
                   </p>
                 </div>
