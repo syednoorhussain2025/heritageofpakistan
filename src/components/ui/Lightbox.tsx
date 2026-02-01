@@ -120,6 +120,9 @@ export function Lightbox({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
+  
+  // Track if the main image (any resolution) has successfully loaded
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   /* ---------- Navigation Handlers ---------- */
   const resetZoom = useCallback(() => {
@@ -156,6 +159,11 @@ export function Lightbox({
 
   const isMdUp = win.w >= 768;
   const isLgUp = win.w >= 1024;
+
+  /* ---------- Reset Loaded State on Navigation ---------- */
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [currentIndex]);
 
   /* ---------- Keyboard nav ---------- */
   useEffect(() => {
@@ -440,9 +448,13 @@ export function Lightbox({
                 />
               </div>
 
-              {/* BlurHash Background */}
+              {/* BlurHash Background - Fades out when image loads */}
               {photo?.blurHash && (
-                <div className="absolute inset-0 bg-black/20 pointer-events-none">
+                <div
+                  className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${
+                    isImageLoaded ? "opacity-0" : "opacity-100"
+                  }`}
+                >
                   <BlurhashPlaceholder
                     hash={photo.blurHash}
                     aspectRatio={aspectRatio}
@@ -475,6 +487,9 @@ export function Lightbox({
                         draggable={false}
                         priority
                         onLoadingComplete={() => {
+                          // Mark image as loaded to fade out blurhash
+                          setIsImageLoaded(true);
+                          // Only disable loading spinner if we were waiting for high res
                           if (showHighRes) setIsHighResLoading(false);
                         }}
                       />
