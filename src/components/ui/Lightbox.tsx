@@ -118,7 +118,7 @@ export function Lightbox({
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
   
-  // 1. ADD THIS REF: Tracks the exact time of the last zoom interaction
+  // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
   
   const [isZoomed, setIsZoomed] = useState(false);
@@ -274,12 +274,13 @@ export function Lightbox({
     e: MouseEvent | TouchEvent | PointerEvent,
     { offset, velocity }: PanInfo
   ) => {
-    // 2. COOL-DOWN CHECK:
-    // If the user interacted with zoom/pinch less than 500ms ago, ignore swipe.
+    // 1. COOL-DOWN CHECK:
+    // Only block if a pinch/zoom happened recently (< 500ms)
     const timeSinceZoom = Date.now() - lastZoomAction.current;
     if (timeSinceZoom < 500) return;
 
-    // Safety check for current scale
+    // 2. SCALE CHECK
+    // Double check we are truly at scale 1 before allowing swipe
     if (transformRef.current) {
       const { scale } = transformRef.current.instance.transformState;
       if (scale > 1.01) return;
@@ -305,13 +306,17 @@ export function Lightbox({
   }, [showHighRes]);
 
   const onZoomStart = () => {
-    lastZoomAction.current = Date.now(); // Record interaction start
+    // We update the timer here because starting a zoom is an action we want to block swipes for
+    lastZoomAction.current = Date.now();
     triggerHighResLoad();
   };
 
-  // 3. UPDATE TIMER ON EVERY FRAME OF ZOOM/PINCH
   const onTransformed = (ref: ReactZoomPanPinchRef) => {
-    lastZoomAction.current = Date.now(); // Update timestamp constantly while moving
+    // CRITICAL FIX: Only update the "block swipe" timer if we are actually zoomed in.
+    // If scale is 1, this is just a normal drag/swipe, so we SHOULD NOT update the timer.
+    if (ref.state.scale > 1.01) {
+      lastZoomAction.current = Date.now();
+    }
     
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
@@ -320,7 +325,11 @@ export function Lightbox({
   };
 
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
-    lastZoomAction.current = Date.now(); // Update timestamp when letting go
+    // CRITICAL FIX: Same here. Only block swipes if we just finished a Zoom interaction.
+    // If we just finished a normal swipe at scale 1, do not update the timer.
+    if (ref.state.scale > 1.01) {
+      lastZoomAction.current = Date.now();
+    }
     
     if (ref.state.scale <= 1.01) {
       ref.resetTransform(200); 
@@ -330,7 +339,7 @@ export function Lightbox({
 
   const handleZoomIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    lastZoomAction.current = Date.now();
+    lastZoomAction.current = Date.now(); // Explicit zoom action blocks swipes
     triggerHighResLoad();
     
     setIsZoomed(true);
