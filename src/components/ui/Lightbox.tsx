@@ -298,7 +298,6 @@ export function Lightbox({
     }
   };
 
-  // Force snap-back to exact center when interaction stops and scale is near 1
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
     if (ref.state.scale <= 1.01) {
       ref.resetTransform(200); 
@@ -313,14 +312,16 @@ export function Lightbox({
     // 1. Force container expansion first
     setIsZoomed(true);
 
-    // 2. Wait for layout to update (10ms) before calculating zoom center
+    // 2. Wait for CSS transition (300ms) to stabilize BEFORE zooming
+    // This prevents the "zoom to wrong center" bug by ensuring dimensions are final
     setTimeout(() => {
       if (transformRef.current) {
-        // Reset to center of new fullscreen container, then zoom in
+        // Reset to true center of the new fullscreen container
         transformRef.current.resetTransform(0); 
+        // Then animate the zoom in
         transformRef.current.zoomIn(1.5, 500); 
       }
-    }, 10);
+    }, 320); 
   };
 
   /* ---------- Helpers ---------- */
@@ -478,18 +479,22 @@ export function Lightbox({
                   wheel={{ step: 0.2 }}
                   doubleClick={{ disabled: false }}
                   onZoomStart={onZoomStart}
+                  
+                  // Update state during gesture
                   onTransformed={onTransformed}
+                  // Force snap-back when gesture ends
                   onZoomStop={onInteractionStop}
                   onPanningStop={onInteractionStop}
+                  
                   alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
-                  centerZoomedOut={true} 
+                  centerZoomedOut={true}
                   centerOnInit={true}
                   minScale={1}
                   limitToBounds={true}
                 >
                   <TransformComponent
                     wrapperStyle={{ width: "100%", height: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%" }} 
+                    contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     <div className="relative w-full h-full flex items-center justify-center">
                       <NextImage
