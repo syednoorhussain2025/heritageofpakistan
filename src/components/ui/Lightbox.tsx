@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import type { LightboxPhoto } from "../../types/lightbox";
 import Icon from "../Icon";
 import { decode } from "blurhash";
@@ -15,6 +15,12 @@ const PANEL_W = 264;
 const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
+
+/* ---------- SWIPE LOGIC ---------- */
+const SWIPE_THRESHOLD = 10000;
+const swipePower = (offset: number, velocity: number) => {
+  return Math.abs(offset) * velocity;
+};
 
 /* ---------- BlurHash Component (matches aspect ratio) ---------- */
 
@@ -107,6 +113,17 @@ export function Lightbox({
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const photo = photos[currentIndex] as LightboxPhotoWithExtras;
 
+  /* ---------- Navigation Handlers ---------- */
+  const handleNext = useCallback(() => {
+    if (!photos.length) return;
+    setCurrentIndex((p) => (p + 1) % photos.length);
+  }, [photos.length]);
+
+  const handlePrev = useCallback(() => {
+    if (!photos.length) return;
+    setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+  }, [photos.length]);
+
   /* ---------- Window size ---------- */
   const [win, setWin] = useState({ w: 0, h: 0 });
 
@@ -129,17 +146,17 @@ export function Lightbox({
       if (!photos.length) return;
 
       if (e.key === "ArrowRight") {
-        setCurrentIndex((p) => (p + 1) % photos.length);
+        handleNext();
       }
 
       if (e.key === "ArrowLeft") {
-        setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+        handlePrev();
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, photos.length]);
+  }, [onClose, photos.length, handleNext, handlePrev]);
 
   /* ---------- Use server dimensions if present ---------- */
   const nat = useMemo(
@@ -255,6 +272,17 @@ export function Lightbox({
     (architecturalFeatures?.length ?? 0) > 0 ||
     (historicalPeriods?.length ?? 0) > 0;
 
+  /* ---------- Swipe Handler ---------- */
+  const onDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, { offset, velocity }: PanInfo) => {
+    const swipe = swipePower(offset.x, velocity.x);
+
+    if (swipe < -SWIPE_THRESHOLD) {
+      handleNext();
+    } else if (swipe > SWIPE_THRESHOLD) {
+      handlePrev();
+    }
+  };
+
   /* =======================================================
       RENDER
   ======================================================= */
@@ -329,20 +357,27 @@ export function Lightbox({
               2. IMAGE CONTAINER (Centered)
               ============================================
             */}
-            <div
-              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
+            <motion.div
+              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto cursor-grab active:cursor-grabbing"
               style={{
                 left: geom.imgLeft,
                 top: geom.imgTop,
                 width: geom.imgW,
                 height: geom.imgH,
+                x: 0 // Explicitly reset x to avoid drift on re-render
               }}
               onClick={(e) => e.stopPropagation()}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={onDragEnd}
+              whileTap={{ cursor: "grabbing" }}
             >
               {/* Heart Button */}
               <div
                 className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
                 onClick={(e) => e.stopPropagation()}
+                onPointerDownCapture={(e) => e.stopPropagation()} // Prevent drag start on click
               >
                 <CollectHeart
                   variant="overlay"
@@ -355,7 +390,7 @@ export function Lightbox({
               </div>
 
               {photo?.blurHash && (
-                <div className="absolute inset-0 bg-black/20">
+                <div className="absolute inset-0 bg-black/20 pointer-events-none">
                   <BlurhashPlaceholder
                     hash={photo.blurHash}
                     aspectRatio={aspectRatio}
@@ -370,11 +405,12 @@ export function Lightbox({
                   fill
                   unoptimized
                   sizes="100vw"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain pointer-events-none select-none"
+                  draggable={false}
                   priority
                 />
               )}
-            </div>
+            </motion.div>
 
             {/* ============================================
               3. MOBILE FOOTER (Caption + Button)
@@ -554,8 +590,7 @@ export function Lightbox({
           className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
             e.stopPropagation();
-            if (!photos.length) return;
-            setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
+            handlePrev();
           }}
         >
           <Icon name="chevron-left" />
@@ -565,8 +600,7 @@ export function Lightbox({
           className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
             e.stopPropagation();
-            if (!photos.length) return;
-            setCurrentIndex((p) => (p + 1) % photos.length);
+            handleNext();
           }}
         >
           <Icon name="chevron-right" />
