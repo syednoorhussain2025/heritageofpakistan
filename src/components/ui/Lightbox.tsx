@@ -224,11 +224,13 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // 2. Hero Variant (Zoom Details - "hero")
-  const heroPhotoUrl = useMemo(() => {
+  // 2. High Res Variant (Zoom Details - "base")
+  // We now use the BASE file (original) for highest detail
+  const highResPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
-        return getVariantPublicUrl(photo.storagePath, "hero");
+        // No variant argument = base file
+        return getVariantPublicUrl(photo.storagePath);
       } catch {
         return photo.url;
       }
@@ -237,7 +239,7 @@ export function Lightbox({
   }, [photo?.storagePath, photo?.url]);
 
   // 3. Active URL Logic
-  const activeUrl = showHighRes ? heroPhotoUrl : mediumPhotoUrl;
+  const activeUrl = showHighRes ? highResPhotoUrl : mediumPhotoUrl;
 
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
