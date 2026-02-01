@@ -236,8 +236,7 @@ export function Lightbox({
   const highResPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
-        // Omitting the variant argument fetches the original file
-        return getVariantPublicUrl(photo.storagePath);
+        return getVariantPublicUrl(photo.storagePath); // Base file (original)
       } catch {
         return photo.url;
       }
@@ -318,8 +317,8 @@ export function Lightbox({
     e.stopPropagation();
     triggerHighResLoad();
     if (transformRef.current) {
-      // Zoom to center, scale 2.5x, 500ms animation
-      transformRef.current.zoomToElement("center", 2.5, 500); 
+      // Use zoomIn (step, animationTime) to zoom into the exact center
+      transformRef.current.zoomIn(1.5, 500); 
     }
   };
 
@@ -434,8 +433,8 @@ export function Lightbox({
               style={{
                 left: isZoomed ? 0 : geom.imgLeft,
                 top: isZoomed ? 0 : geom.imgTop,
-                width: isZoomed ? "100vw" : geom.imgW,
-                height: isZoomed ? "100vh" : geom.imgH,
+                width: isZoomed ? "100%" : geom.imgW, // Changed 100vw to 100% to avoid scrollbar offset
+                height: isZoomed ? "100%" : geom.imgH, // Changed 100vh to 100%
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -487,12 +486,13 @@ export function Lightbox({
                   
                   alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
                   centerZoomedOut={true} // Critical: centers image when at minScale
+                  centerOnInit={true} // Ensures initial center
                   minScale={1}
                   limitToBounds={true}
                 >
                   <TransformComponent
                     wrapperStyle={{ width: "100%", height: "100%" }}
-                    // Added flex centering to contentStyle to ensure image stays midway on init
+                    // Flex centering ensures the image originates from the exact center
                     contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     <div className="relative w-full h-full flex items-center justify-center">
