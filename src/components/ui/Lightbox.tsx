@@ -319,7 +319,7 @@ export function Lightbox({
         // Reset to true center of the new fullscreen container
         transformRef.current.resetTransform(0); 
         // Then animate the zoom in
-        transformRef.current.zoomIn(1.5, 500); 
+        transformRef.current.zoomIn(1.2, 500); 
       }
     }, 320); 
   };
