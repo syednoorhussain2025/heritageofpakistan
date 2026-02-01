@@ -318,6 +318,7 @@ export function Lightbox({
     triggerHighResLoad();
     if (transformRef.current) {
       // Use zoomIn (step, animationTime) to zoom into the exact center
+      // This zooms in by 1.5x relative to current scale (1 -> 2.5)
       transformRef.current.zoomIn(1.5, 500); 
     }
   };
@@ -433,8 +434,8 @@ export function Lightbox({
               style={{
                 left: isZoomed ? 0 : geom.imgLeft,
                 top: isZoomed ? 0 : geom.imgTop,
-                width: isZoomed ? "100%" : geom.imgW, // Changed 100vw to 100% to avoid scrollbar offset
-                height: isZoomed ? "100%" : geom.imgH, // Changed 100vh to 100%
+                width: isZoomed ? "100%" : geom.imgW, // Changed to 100% to match TransformWrapper
+                height: isZoomed ? "100%" : geom.imgH, // Changed to 100%
               }}
               onClick={(e) => e.stopPropagation()}
             >
