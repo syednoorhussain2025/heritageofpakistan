@@ -290,6 +290,7 @@ export function Lightbox({
   };
 
   const onZoomUpdate = (ref: ReactZoomPanPinchRef) => {
+    // If scale > 1.01, consider it zoomed
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
@@ -362,9 +363,11 @@ export function Lightbox({
             transition={{ duration: 0.35, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. MOBILE HEADER */}
+            {/* 1. MOBILE HEADER (Hides when zoomed) */}
             <div
-              className="md:hidden absolute z-20 pointer-events-auto"
+              className={`md:hidden absolute z-20 pointer-events-auto transition-opacity duration-300 ${
+                isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
               style={{
                 left: geom.imgLeft,
                 width: geom.imgW,
@@ -403,22 +406,27 @@ export function Lightbox({
             </div>
 
             {/* ============================================
-              2. IMAGE CONTAINER
+              2. IMAGE CONTAINER (Expands on Zoom)
               ============================================
             */}
             <div
-              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
+              className={`absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 pointer-events-auto transition-all duration-300 ${
+                isZoomed ? "z-50 rounded-none" : "z-10"
+              }`}
               style={{
-                left: geom.imgLeft,
-                top: geom.imgTop,
-                width: geom.imgW,
-                height: geom.imgH,
+                // If zoomed, expand to full screen. Else, use calculated geometry.
+                left: isZoomed ? 0 : geom.imgLeft,
+                top: isZoomed ? 0 : geom.imgTop,
+                width: isZoomed ? "100vw" : geom.imgW,
+                height: isZoomed ? "100vh" : geom.imgH,
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Heart Button */}
+              {/* Heart Button (Hides when zoomed) */}
               <div
-                className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
+                className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${
+                  isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDownCapture={(e) => e.stopPropagation()}
               >
@@ -467,7 +475,6 @@ export function Lightbox({
                         draggable={false}
                         priority
                         onLoadingComplete={() => {
-                          // Only disable loading state if we were waiting for high res
                           if (showHighRes) setIsHighResLoading(false);
                         }}
                       />
@@ -507,9 +514,11 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* ZOOM ICON (Bottom Left) */}
+              {/* ZOOM ICON (Hides when zoomed) */}
               <button
-                className="absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-colors backdrop-blur-md"
+                className={`absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
+                  isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
                 onClick={handleZoomIconClick}
                 onPointerDownCapture={(e) => e.stopPropagation()}
                 title="Zoom to high resolution"
@@ -518,9 +527,11 @@ export function Lightbox({
               </button>
             </div>
 
-            {/* 3. MOBILE FOOTER */}
+            {/* 3. MOBILE FOOTER (Hides when zoomed) */}
             <div
-              className="md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4"
+              className={`md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4 transition-opacity duration-300 ${
+                isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
               style={{
                 left: geom.imgLeft,
                 width: geom.imgW,
@@ -548,9 +559,11 @@ export function Lightbox({
               )}
             </div>
 
-            {/* 4. DESKTOP INFO PANEL */}
+            {/* 4. DESKTOP INFO PANEL (Hides when zoomed) */}
             <div
-              className={`hidden md:block pointer-events-auto absolute z-20`}
+              className={`hidden md:block pointer-events-auto absolute z-20 transition-opacity duration-300 ${
+                isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
               style={{
                 left: geom.panelLeft,
                 top: geom.panelTop,
@@ -664,7 +677,7 @@ export function Lightbox({
           </motion.div>
         </AnimatePresence>
 
-        {/* ---------- CONTROLS ---------- */}
+        {/* ---------- CONTROLS (Hide nav arrows when zoomed, keep Close button) ---------- */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
@@ -675,7 +688,9 @@ export function Lightbox({
           <Icon name="xmark" />
         </button>
         <button
-          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 transition-opacity duration-300 ${
+            isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
           onClick={(e) => {
             e.stopPropagation();
             handlePrev();
@@ -684,7 +699,9 @@ export function Lightbox({
           <Icon name="chevron-left" />
         </button>
         <button
-          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 transition-opacity duration-300 ${
+            isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
           onClick={(e) => {
             e.stopPropagation();
             handleNext();
