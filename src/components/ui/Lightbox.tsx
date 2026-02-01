@@ -218,7 +218,6 @@ export function Lightbox({
 
   /* ---------- IMAGE URLs ---------- */
 
-  // 1. Medium Variant (Fast Load - "md")
   const mediumPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
@@ -230,12 +229,10 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // 2. Base Variant (Original High Res)
   const highResPhotoUrl = useMemo(() => {
     if (photo?.storagePath) {
       try {
-        // Omitting the variant argument fetches the original file
-        return getVariantPublicUrl(photo.storagePath);
+        return getVariantPublicUrl(photo.storagePath); // Base file (original)
       } catch {
         return photo.url;
       }
@@ -243,7 +240,6 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // 3. Active URL Logic
   const activeUrl = showHighRes ? highResPhotoUrl : mediumPhotoUrl;
 
   /* ---------- Prefetch neighbours ---------- */
@@ -295,10 +291,20 @@ export function Lightbox({
     triggerHighResLoad();
   };
 
-  const onZoomUpdate = (ref: ReactZoomPanPinchRef) => {
+  // Called continuously while zooming/panning
+  const onTransformed = (ref: ReactZoomPanPinchRef) => {
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
+    }
+  };
+
+  // Called when user releases finger/mouse
+  const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
+    // If scale is close to 1, force a clean reset to center
+    if (ref.state.scale <= 1.01) {
+      ref.resetTransform(200); // Animate back to center in 200ms
+      setIsZoomed(false);
     }
   };
 
@@ -368,7 +374,7 @@ export function Lightbox({
             transition={{ duration: 0.35, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. MOBILE HEADER (Hides when zoomed) */}
+            {/* 1. MOBILE HEADER */}
             <div
               className={`md:hidden absolute z-20 pointer-events-auto transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -411,7 +417,7 @@ export function Lightbox({
             </div>
 
             {/* ============================================
-              2. IMAGE CONTAINER (Expands on Zoom)
+              2. IMAGE CONTAINER
               ============================================
             */}
             <div
@@ -419,7 +425,6 @@ export function Lightbox({
                 isZoomed ? "z-50 rounded-none" : "z-10"
               }`}
               style={{
-                // If zoomed, expand to full screen. Else, use calculated geometry.
                 left: isZoomed ? 0 : geom.imgLeft,
                 top: isZoomed ? 0 : geom.imgTop,
                 width: isZoomed ? "100vw" : geom.imgW,
@@ -427,7 +432,7 @@ export function Lightbox({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Heart Button (Hides when zoomed) */}
+              {/* Heart Button */}
               <div
                 className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -445,7 +450,7 @@ export function Lightbox({
                 />
               </div>
 
-              {/* BlurHash Background - Fades out when image loads */}
+              {/* BlurHash Background */}
               {photo?.blurHash && (
                 <div
                   className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${
@@ -466,11 +471,16 @@ export function Lightbox({
                   wheel={{ step: 0.2 }}
                   doubleClick={{ disabled: false }}
                   onZoomStart={onZoomStart}
-                  onTransformed={onZoomUpdate}
+                  
+                  // Update state during gesture
+                  onTransformed={onTransformed}
+                  // Force snap-back when gesture ends
+                  onZoomStop={onInteractionStop}
+                  onPanningStop={onInteractionStop}
+                  
                   alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
-                  // Ensure minScale is 1 so image snaps back to full view
+                  centerZoomedOut={true} // Critical: centers image when at minScale
                   minScale={1}
-                  // Keep image within bounds
                   limitToBounds={true}
                 >
                   <TransformComponent
@@ -528,7 +538,7 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* ZOOM ICON (Hides when zoomed) */}
+              {/* ZOOM ICON */}
               <button
                 className={`absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -541,7 +551,7 @@ export function Lightbox({
               </button>
             </div>
 
-            {/* 3. MOBILE FOOTER (Hides when zoomed) */}
+            {/* 3. MOBILE FOOTER */}
             <div
               className={`md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4 transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -573,7 +583,7 @@ export function Lightbox({
               )}
             </div>
 
-            {/* 4. DESKTOP INFO PANEL (Hides when zoomed) */}
+            {/* 4. DESKTOP INFO PANEL */}
             <div
               className={`hidden md:block pointer-events-auto absolute z-20 transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -691,7 +701,7 @@ export function Lightbox({
           </motion.div>
         </AnimatePresence>
 
-        {/* ---------- CONTROLS (Hide nav arrows when zoomed, keep Close button) ---------- */}
+        {/* ---------- CONTROLS */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
