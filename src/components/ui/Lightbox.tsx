@@ -268,29 +268,31 @@ export function Lightbox({
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* ---------- IMAGE CONTAINER ---------- */}
-        <div
-          className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10"
-          style={{
-            left: geom.imgLeft,
-            top: geom.imgTop,
-            width: geom.imgW,
-            height: geom.imgH,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={photo?.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="absolute inset-0"
+        {/* This inner AnimatePresence handles the transition between photos.
+           We wrap BOTH the Image and the Info Panel in a single motion.div keyed by ID.
+           This ensures they fade out/in together as a unit.
+        */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={photo?.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+          >
+            {/* ---------- IMAGE CONTAINER ---------- */}
+            <div
+              className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
+              style={{
+                left: geom.imgLeft,
+                top: geom.imgTop,
+                width: geom.imgW,
+                height: geom.imgH,
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Heart Button: Moved inside the motion.div so it fades 
-                  with the image transition instead of snapping in.
-              */}
+              {/* Heart Button */}
               <div
                 className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8"
                 onClick={(e) => e.stopPropagation()}
@@ -325,148 +327,153 @@ export function Lightbox({
                   priority
                 />
               )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+            </div>
 
-        {/* ---------- INFO PANEL ---------- */}
-        <div
-          className={
-            geom.isMdUp
-              ? "absolute z-20"
-              : "absolute z-20 w-[min(92vw,620px)]"
-          }
-          style={{
-            left: geom.panelLeft,
-            top: geom.panelTop,
-            transform: geom.isMdUp ? "translateY(-50%)" : "none",
-            width: geom.isMdUp ? PANEL_W : undefined,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="text-white space-y-4">
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex-1">
-                <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
+            {/* ---------- INFO PANEL ---------- */}
+            <div
+              className={`pointer-events-auto ${
+                geom.isMdUp
+                  ? "absolute z-20"
+                  : "absolute z-20 w-[min(92vw,620px)]"
+              }`}
+              style={{
+                left: geom.panelLeft,
+                top: geom.panelTop,
+                transform: geom.isMdUp ? "translateY(-50%)" : "none",
+                width: geom.isMdUp ? PANEL_W : undefined,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-white space-y-4">
+                {/* Header Area: Flex container */}
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
 
-                {photo?.site?.location && (
-                  <p className="text-sm text-gray-300">{photo.site.location}</p>
-                )}
+                    {photo?.site?.location && (
+                      <p className="text-sm text-gray-300">
+                        {photo.site.location}
+                      </p>
+                    )}
 
-                <p className="text-sm text-gray-400 mt-1">
-                  Photo by{" "}
-                  {photo?.author?.profileUrl ? (
-                    <Link
-                      href={photo.author.profileUrl}
-                      className="hover:underline"
+                    <p className="text-sm text-gray-400 mt-1">
+                      Photo by{" "}
+                      {photo?.author?.profileUrl ? (
+                        <Link
+                          href={photo.author.profileUrl}
+                          className="hover:underline"
+                        >
+                          {photo.author.name}
+                        </Link>
+                      ) : (
+                        <span>{photo?.author?.name}</span>
+                      )}
+                    </p>
+
+                    {photo?.caption && (
+                      <p className="text-sm text-gray-200 mt-2 italic">
+                        {photo.caption}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* MOBILE ONLY: Add to Collection Button */}
+                  {onAddToCollection && (
+                    <button
+                      className="md:hidden shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToCollection(photo);
+                      }}
                     >
-                      {photo.author.name}
-                    </Link>
+                      Add to Collection
+                    </button>
+                  )}
+                </div>
+
+                <div className="hidden md:block">
+                  {hasStructuredTaxonomy ? (
+                    <div className="space-y-3">
+                      {(heritageTypes?.length ?? 0) > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Heritage Type
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {heritageTypes!.map(pill)}
+                          </div>
+                        </div>
+                      )}
+
+                      {(architecturalStyles?.length ?? 0) > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Architectural Style
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {architecturalStyles!.map(pill)}
+                          </div>
+                        </div>
+                      )}
+
+                      {(architecturalFeatures?.length ?? 0) > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Architectural Features
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {architecturalFeatures!.map(pill)}
+                          </div>
+                        </div>
+                      )}
+
+                      {(historicalPeriods?.length ?? 0) > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Historical Period
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {historicalPeriods!.map(pill)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <span>{photo?.author?.name}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {fallbackPills.map(pill)}
+                    </div>
                   )}
-                </p>
+                </div>
 
-                {photo?.caption && (
-                  <p className="text-sm text-gray-200 mt-2 italic">
-                    {photo.caption}
-                  </p>
-                )}
+                {/* Bottom Actions Bar */}
+                <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                  {onAddToCollection && (
+                    <button
+                      className="hidden md:block flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                      onClick={() => onAddToCollection(photo)}
+                    >
+                      Add to Collection
+                    </button>
+                  )}
+
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
+                      title="View on Google Maps"
+                    >
+                      <Icon name="map-marker-alt" />
+                    </a>
+                  )}
+                </div>
               </div>
-
-              {onAddToCollection && (
-                <button
-                  className="md:hidden shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddToCollection(photo);
-                  }}
-                >
-                  Add to Collection
-                </button>
-              )}
             </div>
+          </motion.div>
+        </AnimatePresence>
 
-            <div className="hidden md:block">
-              {hasStructuredTaxonomy ? (
-                <div className="space-y-3">
-                  {(heritageTypes?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">
-                        Heritage Type
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {heritageTypes!.map(pill)}
-                      </div>
-                    </div>
-                  )}
-
-                  {(architecturalStyles?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">
-                        Architectural Style
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {architecturalStyles!.map(pill)}
-                      </div>
-                    </div>
-                  )}
-
-                  {(architecturalFeatures?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">
-                        Architectural Features
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {architecturalFeatures!.map(pill)}
-                      </div>
-                    </div>
-                  )}
-
-                  {(historicalPeriods?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">
-                        Historical Period
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {historicalPeriods!.map(pill)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {fallbackPills.map(pill)}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2 border-t border-white/10 flex items-center gap-2">
-              {onAddToCollection && (
-                <button
-                  className="hidden md:block flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
-                  onClick={() => onAddToCollection(photo)}
-                >
-                  Add to Collection
-                </button>
-              )}
-
-              {googleMapsUrl && (
-                <a
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
-                  title="View on Google Maps"
-                >
-                  <Icon name="map-marker-alt" />
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ---------- CONTROLS ---------- */}
+        {/* ---------- CONTROLS (Rendered last to ensure they stay on top) ---------- */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
