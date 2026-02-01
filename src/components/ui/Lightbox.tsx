@@ -133,16 +133,22 @@ export function Lightbox({
   }, []);
 
   const handleNext = useCallback(() => {
+    // 1. Block navigation if zoomed
+    if (isZoomed) return;
+    
     if (!photos.length) return;
     resetZoom();
     setCurrentIndex((p) => (p + 1) % photos.length);
-  }, [photos.length, resetZoom]);
+  }, [photos.length, resetZoom, isZoomed]);
 
   const handlePrev = useCallback(() => {
+    // 2. Block navigation if zoomed
+    if (isZoomed) return;
+
     if (!photos.length) return;
     resetZoom();
     setCurrentIndex((p) => (p - 1 + photos.length) % photos.length);
-  }, [photos.length, resetZoom]);
+  }, [photos.length, resetZoom, isZoomed]);
 
   /* ---------- Window size ---------- */
   const [win, setWin] = useState({ w: 0, h: 0 });
@@ -268,6 +274,14 @@ export function Lightbox({
     e: MouseEvent | TouchEvent | PointerEvent,
     { offset, velocity }: PanInfo
   ) => {
+    // 3. Double check directly against the component Ref. 
+    // This handles the "pinch out" moment where state might be transitioning.
+    if (transformRef.current) {
+      const { scale } = transformRef.current.instance.transformState;
+      if (scale > 1.01) return;
+    }
+    
+    // Also check the state
     if (isZoomed) return;
 
     const swipe = swipePower(offset.x, velocity.x);
@@ -313,13 +327,10 @@ export function Lightbox({
     setIsZoomed(true);
 
     // 2. Wait for CSS transition (300ms) to stabilize BEFORE zooming
-    // This prevents the "zoom to wrong center" bug by ensuring dimensions are final
     setTimeout(() => {
       if (transformRef.current) {
-        // Reset to true center of the new fullscreen container
         transformRef.current.resetTransform(0); 
-        // Then animate the zoom in
-        transformRef.current.zoomIn(0.6, 500); 
+        transformRef.current.zoomIn(0.6, 500); // Kept your previous tweak (0.6)
       }
     }, 320); 
   };
@@ -360,7 +371,7 @@ export function Lightbox({
     (historicalPeriods?.length ?? 0) > 0;
 
   /* =======================================================
-      RENDER
+       RENDER
   ======================================================= */
 
   return (
