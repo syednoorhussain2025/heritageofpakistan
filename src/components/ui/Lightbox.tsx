@@ -268,10 +268,6 @@ export function Lightbox({
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
-        {/* This inner AnimatePresence handles the transition between photos.
-           We wrap BOTH the Image and the Info Panel in a single motion.div keyed by ID.
-           This ensures they fade out/in together as a unit.
-        */}
         <AnimatePresence mode="wait">
           <motion.div
             key={photo?.id}
@@ -281,7 +277,52 @@ export function Lightbox({
             transition={{ duration: 0.35, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full pointer-events-none"
           >
-            {/* ---------- IMAGE CONTAINER ---------- */}
+            {/* ============================================
+              1. MOBILE HEADER (Title, Location, Author) 
+              ============================================
+              Positioned absolute ABOVE the image (using translateY(-100%)).
+              Visible only on Mobile (md:hidden).
+            */}
+            <div
+              className="md:hidden absolute z-20 pointer-events-auto"
+              style={{
+                left: geom.imgLeft,
+                width: geom.imgW,
+                // Position top edge at image top, then shift up by 100% + gap (12px)
+                top: geom.imgTop - 12,
+                transform: "translateY(-100%)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-white">
+                <h3 className="font-bold text-xl leading-tight">
+                  {photo?.site?.name}
+                </h3>
+                {photo?.site?.location && (
+                  <p className="text-sm text-gray-300 mt-1">
+                    {photo.site.location}
+                  </p>
+                )}
+                <p className="text-xs text-gray-400 mt-2">
+                  Photo by{" "}
+                  {photo?.author?.profileUrl ? (
+                    <Link
+                      href={photo.author.profileUrl}
+                      className="hover:underline"
+                    >
+                      {photo.author.name}
+                    </Link>
+                  ) : (
+                    <span>{photo?.author?.name}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* ============================================
+              2. IMAGE CONTAINER (Centered)
+              ============================================
+            */}
             <div
               className="absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 z-10 pointer-events-auto"
               style={{
@@ -329,69 +370,91 @@ export function Lightbox({
               )}
             </div>
 
-            {/* ---------- INFO PANEL ---------- */}
+            {/* ============================================
+              3. MOBILE FOOTER (Caption + Button)
+              ============================================
+              Positioned absolute BELOW the image.
+              Visible only on Mobile (md:hidden).
+            */}
             <div
-              className={`pointer-events-auto ${
-                geom.isMdUp
-                  ? "absolute z-20"
-                  : "absolute z-20 w-[min(92vw,620px)]"
-              }`}
+              className="md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4"
+              style={{
+                left: geom.imgLeft,
+                width: geom.imgW,
+                // Position just below the image
+                top: geom.imgTop + geom.imgH + 12,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Left: Caption */}
+              <div className="flex-1">
+                {photo?.caption && (
+                  <p className="text-sm text-gray-200 italic leading-snug">
+                    {photo.caption}
+                  </p>
+                )}
+              </div>
+
+              {/* Right: Add to Collection */}
+              {onAddToCollection && (
+                <button
+                  className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCollection(photo);
+                  }}
+                >
+                  Add to Collection
+                </button>
+              )}
+            </div>
+
+            {/* ============================================
+              4. DESKTOP INFO PANEL (Side Panel)
+              ============================================
+              Hidden on mobile (hidden md:block).
+            */}
+            <div
+              className={`hidden md:block pointer-events-auto absolute z-20`}
               style={{
                 left: geom.panelLeft,
                 top: geom.panelTop,
                 transform: geom.isMdUp ? "translateY(-50%)" : "none",
-                width: geom.isMdUp ? PANEL_W : undefined,
+                width: PANEL_W,
               }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-white space-y-4">
-                {/* Header Area: Flex container */}
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
-
-                    {photo?.site?.location && (
-                      <p className="text-sm text-gray-300">
-                        {photo.site.location}
-                      </p>
-                    )}
-
-                    <p className="text-sm text-gray-400 mt-1">
-                      Photo by{" "}
-                      {photo?.author?.profileUrl ? (
-                        <Link
-                          href={photo.author.profileUrl}
-                          className="hover:underline"
-                        >
-                          {photo.author.name}
-                        </Link>
-                      ) : (
-                        <span>{photo?.author?.name}</span>
-                      )}
+                {/* Header Area */}
+                <div>
+                  <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
+                  {photo?.site?.location && (
+                    <p className="text-sm text-gray-300">
+                      {photo.site.location}
                     </p>
-
-                    {photo?.caption && (
-                      <p className="text-sm text-gray-200 mt-2 italic">
-                        {photo.caption}
-                      </p>
+                  )}
+                  <p className="text-sm text-gray-400 mt-1">
+                    Photo by{" "}
+                    {photo?.author?.profileUrl ? (
+                      <Link
+                        href={photo.author.profileUrl}
+                        className="hover:underline"
+                      >
+                        {photo.author.name}
+                      </Link>
+                    ) : (
+                      <span>{photo?.author?.name}</span>
                     )}
-                  </div>
-
-                  {/* MOBILE ONLY: Add to Collection Button */}
-                  {onAddToCollection && (
-                    <button
-                      className="md:hidden shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddToCollection(photo);
-                      }}
-                    >
-                      Add to Collection
-                    </button>
+                  </p>
+                  {photo?.caption && (
+                    <p className="text-sm text-gray-200 mt-2 italic">
+                      {photo.caption}
+                    </p>
                   )}
                 </div>
 
-                <div className="hidden md:block">
+                {/* Taxonomy Pills */}
+                <div>
                   {hasStructuredTaxonomy ? (
                     <div className="space-y-3">
                       {(heritageTypes?.length ?? 0) > 0 && (
@@ -449,7 +512,7 @@ export function Lightbox({
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onAddToCollection && (
                     <button
-                      className="hidden md:block flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                      className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
                       onClick={() => onAddToCollection(photo)}
                     >
                       Add to Collection
@@ -461,7 +524,7 @@ export function Lightbox({
                       href={googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hidden md:block p-2 rounded-full bg-white/10 hover:bg-white/20"
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20"
                       title="View on Google Maps"
                     >
                       <Icon name="map-marker-alt" />
@@ -473,7 +536,7 @@ export function Lightbox({
           </motion.div>
         </AnimatePresence>
 
-        {/* ---------- CONTROLS (Rendered last to ensure they stay on top) ---------- */}
+        {/* ---------- CONTROLS ---------- */}
         <button
           className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
           onClick={(e) => {
