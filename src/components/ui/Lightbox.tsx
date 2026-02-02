@@ -344,12 +344,14 @@ export function Lightbox({
     
     setIsZoomed(true);
 
+    // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
-        transformRef.current.resetTransform(0); 
-        transformRef.current.zoomIn(0.6, 500); 
+        // Use zoomTo for absolute scaling. 2.5 is a safe "zoomed in" level.
+        // Removed resetTransform(0) to prevent race conditions.
+        transformRef.current.zoomTo(2.5, 500); 
       }
-    }, 320); 
+    }, 350); 
   };
 
   /* ---------- Helpers ---------- */
