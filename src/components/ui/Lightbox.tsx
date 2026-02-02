@@ -124,6 +124,8 @@ export function Lightbox({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
+  // Tracks if the hi-res image has finished decoding to fade it in
+  const [isHighResReady, setIsHighResReady] = useState(false); 
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   /* ---------- Navigation Handlers ---------- */
@@ -134,6 +136,7 @@ export function Lightbox({
     setIsZoomed(false);
     setShowHighRes(false);
     setIsHighResLoading(false);
+    setIsHighResReady(false); // Reset hi-res ready state
   }, []);
 
   const handleNext = useCallback(() => {
@@ -167,6 +170,7 @@ export function Lightbox({
   /* ---------- Reset Loaded State on Navigation ---------- */
   useEffect(() => {
     setIsImageLoaded(false);
+    setIsHighResReady(false); // Reset on nav
   }, [currentIndex]);
 
   /* ---------- Keyboard nav ---------- */
@@ -246,7 +250,7 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  const activeUrl = showHighRes ? highResPhotoUrl : mediumPhotoUrl;
+  // Removed activeUrl - we now use medium and highRes separately
 
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
@@ -528,52 +532,65 @@ export function Lightbox({
               )}
 
               {/* ZOOM COMPONENT */}
-              {activeUrl && (
-                <TransformWrapper
-                  ref={transformRef}
-                  wheel={{ step: 0.2 }}
-                  // DISABLE default double click to use custom handler
-                  doubleClick={{ disabled: true }} 
-                  onZoomStart={onZoomStart}
-                  
-                  // Update state during gesture
-                  onTransformed={onTransformed}
-                  // Force snap-back when gesture ends
-                  onZoomStop={onInteractionStop}
-                  onPanningStop={onInteractionStop}
-                  
-                  alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
-                  centerZoomedOut={true}
-                  centerOnInit={true}
-                  minScale={1}
-                  limitToBounds={true}
+              <TransformWrapper
+                ref={transformRef}
+                wheel={{ step: 0.2 }}
+                doubleClick={{ disabled: true }}
+                onZoomStart={onZoomStart}
+                onTransformed={onTransformed}
+                onZoomStop={onInteractionStop}
+                onPanningStop={onInteractionStop}
+                alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+                centerZoomedOut={true}
+                centerOnInit={true}
+                minScale={1}
+                limitToBounds={true}
+              >
+                <TransformComponent
+                  wrapperStyle={{ width: "100%", height: "100%" }}
+                  contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
-                  <TransformComponent
-                    wrapperStyle={{ width: "100%", height: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  <div 
+                    className="relative w-full h-full flex items-center justify-center"
+                    onDoubleClick={handleDoubleTap}
                   >
-                    <div 
-                      className="relative w-full h-full flex items-center justify-center"
-                      onDoubleClick={handleDoubleTap} // Custom Double Tap Logic
-                    >
+                    {/* LAYER 1: MEDIUM RES (Always Visible as Base) */}
+                    <NextImage
+                      src={mediumPhotoUrl || ""}
+                      alt={photo?.caption ?? ""}
+                      fill
+                      unoptimized
+                      sizes="100vw"
+                      className="object-contain select-none"
+                      draggable={false}
+                      priority
+                      onLoadingComplete={() => {
+                        setIsImageLoaded(true);
+                      }}
+                    />
+
+                    {/* LAYER 2: HIGH RES (Fades in on top) */}
+                    {showHighRes && (
                       <NextImage
-                        src={activeUrl}
+                        src={highResPhotoUrl || ""}
                         alt={photo?.caption ?? ""}
                         fill
                         unoptimized
                         sizes="100vw"
-                        className="object-contain select-none"
+                        className={`object-contain select-none absolute inset-0 transition-opacity duration-500 ease-in-out ${
+                          isHighResReady ? "opacity-100" : "opacity-0"
+                        }`}
                         draggable={false}
                         priority
                         onLoadingComplete={() => {
-                          setIsImageLoaded(true);
-                          if (showHighRes) setIsHighResLoading(false);
+                          setIsHighResReady(true);
+                          setIsHighResLoading(false);
                         }}
                       />
-                    </div>
-                  </TransformComponent>
-                </TransformWrapper>
-              )}
+                    )}
+                  </div>
+                </TransformComponent>
+              </TransformWrapper>
 
               {/* LOADING INDICATOR */}
               {isHighResLoading && (
