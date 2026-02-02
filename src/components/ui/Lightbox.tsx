@@ -350,7 +350,7 @@ export function Lightbox({
         // CORRECTION: 'zoomTo' does not exist. We use 'zoomIn'.
         // zoomIn adds the step to the current scale.
         // Current scale is 1. We want 2.5. So step is 1.5.
-        transformRef.current.zoomIn(1.5, 500); 
+        transformRef.current.zoomIn(1, 500); 
       }
     }, 350); 
   };
