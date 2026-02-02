@@ -355,6 +355,30 @@ export function Lightbox({
     }, 350); 
   };
 
+  // --- DOUBLE TAP HANDLER (WhatsApp Style) ---
+  const handleDoubleTap = useCallback((e: React.MouseEvent) => {
+    // Prevent default browser behavior if needed, though 'touch-none' handles most
+    if (transformRef.current) {
+      const { scale } = transformRef.current.instance.transformState;
+      
+      // Mark interaction to block swipes
+      lastZoomAction.current = Date.now();
+
+      // Toggle Logic
+      if (scale > 1.05) { 
+        // If already zoomed -> Reset
+        transformRef.current.resetTransform(300);
+      } else {
+        // If not zoomed -> Zoom In
+        triggerHighResLoad();
+        
+        // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
+        // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
+        transformRef.current.zoomIn(1.5, 300); 
+      }
+    }
+  }, [triggerHighResLoad]);
+
   /* ---------- Helpers ---------- */
   const googleMapsUrl =
     photo?.site?.latitude != null && photo?.site?.longitude != null
@@ -508,7 +532,8 @@ export function Lightbox({
                 <TransformWrapper
                   ref={transformRef}
                   wheel={{ step: 0.2 }}
-                  doubleClick={{ disabled: false }}
+                  // DISABLE default double click to use custom handler
+                  doubleClick={{ disabled: true }} 
                   onZoomStart={onZoomStart}
                   
                   // Update state during gesture
@@ -527,7 +552,10 @@ export function Lightbox({
                     wrapperStyle={{ width: "100%", height: "100%" }}
                     contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
-                    <div className="relative w-full h-full flex items-center justify-center">
+                    <div 
+                      className="relative w-full h-full flex items-center justify-center"
+                      onDoubleClick={handleDoubleTap} // Custom Double Tap Logic
+                    >
                       <NextImage
                         src={activeUrl}
                         alt={photo?.caption ?? ""}
@@ -578,7 +606,7 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* ZOOM ICON */}
+              {/* ZOOM ICON (Desktop Only) */}
               <button
                 className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
