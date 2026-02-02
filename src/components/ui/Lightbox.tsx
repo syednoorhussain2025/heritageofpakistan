@@ -580,7 +580,7 @@ export function Lightbox({
 
               {/* ZOOM ICON */}
               <button
-                className={`absolute bottom-3 left-3 z-30 w-9 h-9 flex items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
+                className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
                 }`}
                 onClick={handleZoomIconClick}
