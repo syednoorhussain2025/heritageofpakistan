@@ -250,8 +250,6 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // Removed activeUrl - we now use medium and highRes separately
-
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
@@ -306,7 +304,6 @@ export function Lightbox({
       }
     } else {
       // Vertical Swipe -> Close
-      // User asked for "Swipe Up to Close". 
       // Moving finger UP creates a NEGATIVE Y offset.
       if (swipeY < -SWIPE_THRESHOLD || offset.y < -100) {
         onClose();
@@ -372,7 +369,8 @@ export function Lightbox({
     }, 350); 
   };
 
-  // --- DOUBLE TAP HANDLER (WhatsApp Style) ---
+  // --- DOUBLE TAP / CLICK HANDLER ---
+  // Works for both Touch (Mobile) and Mouse (Desktop) via React's onDoubleClick
   const handleDoubleTap = useCallback((e: React.MouseEvent) => {
     // Prevent default browser behavior if needed, though 'touch-none' handles most
     if (transformRef.current) {
@@ -389,8 +387,8 @@ export function Lightbox({
         // If not zoomed -> Zoom In
         triggerHighResLoad();
         
-        // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
-        // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
+        // Zoom in substantially. 
+        // Note: zoomIn() zooms to the CENTER of the view, providing the "predictable" behavior requested.
         transformRef.current.zoomIn(1.5, 300); 
       }
     }
@@ -548,7 +546,7 @@ export function Lightbox({
               <TransformWrapper
                 ref={transformRef}
                 wheel={{ step: 0.2 }}
-                doubleClick={{ disabled: true }}
+                doubleClick={{ disabled: true }} // Disabling default to use custom center-zoom logic
                 onZoomStart={onZoomStart}
                 onTransformed={onTransformed}
                 onZoomStop={onInteractionStop}
