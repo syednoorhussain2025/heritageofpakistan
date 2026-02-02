@@ -347,9 +347,10 @@ export function Lightbox({
     // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
-        // Use zoomTo for absolute scaling. 2.5 is a safe "zoomed in" level.
-        // Removed resetTransform(0) to prevent race conditions.
-        transformRef.current.zoomTo(2.5, 500); 
+        // CORRECTION: 'zoomTo' does not exist. We use 'zoomIn'.
+        // zoomIn adds the step to the current scale.
+        // Current scale is 1. We want 2.5. So step is 1.5.
+        transformRef.current.zoomIn(1.5, 500); 
       }
     }, 350); 
   };
