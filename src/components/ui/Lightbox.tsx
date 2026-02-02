@@ -292,12 +292,25 @@ export function Lightbox({
     
     if (isZoomed) return;
 
-    const swipe = swipePower(offset.x, velocity.x);
+    // 3. DIRECTION & POWER CHECK
+    const swipeX = swipePower(offset.x, velocity.x);
+    const swipeY = swipePower(offset.y, velocity.y);
 
-    if (swipe < -SWIPE_THRESHOLD || offset.x < -100) {
-      handleNext();
-    } else if (swipe > SWIPE_THRESHOLD || offset.x > 100) {
-      handlePrev();
+    // Determine main direction of swipe (Horizontal vs Vertical)
+    if (Math.abs(offset.x) > Math.abs(offset.y)) {
+      // Horizontal Swipe -> Navigation
+      if (swipeX < -SWIPE_THRESHOLD || offset.x < -100) {
+        handleNext();
+      } else if (swipeX > SWIPE_THRESHOLD || offset.x > 100) {
+        handlePrev();
+      }
+    } else {
+      // Vertical Swipe -> Close
+      // User asked for "Swipe Up to Close". 
+      // Moving finger UP creates a NEGATIVE Y offset.
+      if (swipeY < -SWIPE_THRESHOLD || offset.y < -100) {
+        onClose();
+      }
     }
   };
 
