@@ -121,9 +121,6 @@ export function Lightbox({
   // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
   
-  // Tracks the timestamp of the last *CLICK* to simulate double-tap manually
-  const lastClickTime = useRef<number>(0);
-
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
@@ -253,6 +250,8 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
+  // Removed activeUrl - we now use medium and highRes separately
+
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
@@ -307,6 +306,7 @@ export function Lightbox({
       }
     } else {
       // Vertical Swipe -> Close
+      // User asked for "Swipe Up to Close". 
       // Moving finger UP creates a NEGATIVE Y offset.
       if (swipeY < -SWIPE_THRESHOLD || offset.y < -100) {
         onClose();
@@ -329,6 +329,8 @@ export function Lightbox({
   };
 
   const onTransformed = (ref: ReactZoomPanPinchRef) => {
+    // CRITICAL FIX: Only update the "block swipe" timer if we are actually zoomed in.
+    // If scale is 1, this is just a normal drag/swipe, so we SHOULD NOT update the timer.
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
@@ -340,6 +342,8 @@ export function Lightbox({
   };
 
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
+    // CRITICAL FIX: Same here. Only block swipes if we just finished a Zoom interaction.
+    // If we just finished a normal swipe at scale 1, do not update the timer.
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
@@ -352,48 +356,43 @@ export function Lightbox({
 
   const handleZoomIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    lastZoomAction.current = Date.now(); 
+    lastZoomAction.current = Date.now(); // Explicit zoom action blocks swipes
     triggerHighResLoad();
     
     setIsZoomed(true);
 
+    // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
+        // CORRECTION: 'zoomTo' does not exist. We use 'zoomIn'.
+        // zoomIn adds the step to the current scale.
+        // Current scale is 1. We want 2.5. So step is 1.5.
         transformRef.current.zoomIn(0.5, 500); 
       }
     }, 350); 
   };
 
-  // --- MANUAL CLICK HANDLER (Double Tap/Click Simulation) ---
-  // We use standard onClick instead of onDoubleClick because the Zoom library 
-  // can interfere with native double click events. Manual timing is safer.
-  const handleImageClick = useCallback((e: React.MouseEvent) => {
-    const now = Date.now();
-    const timeDiff = now - lastClickTime.current;
-    
-    // If second click happens within 300ms, consider it a Double Click
-    if (timeDiff < 300) {
-      e.stopPropagation(); // Stop propagation just in case
+  // --- DOUBLE TAP HANDLER (WhatsApp Style) ---
+  const handleDoubleTap = useCallback((e: React.MouseEvent) => {
+    // Prevent default browser behavior if needed, though 'touch-none' handles most
+    if (transformRef.current) {
+      const { scale } = transformRef.current.instance.transformState;
       
-      if (transformRef.current) {
-        const { scale } = transformRef.current.instance.transformState;
-        lastZoomAction.current = Date.now(); // Block swipes
+      // Mark interaction to block swipes
+      lastZoomAction.current = Date.now();
 
-        if (scale > 1.05) { 
-          // If already zoomed -> Reset
-          transformRef.current.resetTransform(300);
-        } else {
-          // If not zoomed -> Zoom In to CENTER (Predictable)
-          triggerHighResLoad();
-          transformRef.current.zoomIn(1.5, 300); 
-        }
+      // Toggle Logic
+      if (scale > 1.05) { 
+        // If already zoomed -> Reset
+        transformRef.current.resetTransform(300);
+      } else {
+        // If not zoomed -> Zoom In
+        triggerHighResLoad();
+        
+        // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
+        // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
+        transformRef.current.zoomIn(1.5, 300); 
       }
-      
-      // Reset timer so a third click doesn't trigger it again immediately
-      lastClickTime.current = 0;
-    } else {
-      // First click
-      lastClickTime.current = now;
     }
   }, [triggerHighResLoad]);
 
@@ -549,7 +548,7 @@ export function Lightbox({
               <TransformWrapper
                 ref={transformRef}
                 wheel={{ step: 0.2 }}
-                doubleClick={{ disabled: true }} // Disabling default to use custom manual detection
+                doubleClick={{ disabled: true }}
                 onZoomStart={onZoomStart}
                 onTransformed={onTransformed}
                 onZoomStop={onInteractionStop}
@@ -566,7 +565,7 @@ export function Lightbox({
                 >
                   <div 
                     className="relative w-full h-full flex items-center justify-center"
-                    onClick={handleImageClick}
+                    onDoubleClick={handleDoubleTap}
                   >
                     {/* LAYER 1: MEDIUM RES (Always Visible as Base) */}
                     <NextImage
