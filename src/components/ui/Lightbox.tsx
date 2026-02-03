@@ -250,8 +250,6 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // Removed activeUrl - we now use medium and highRes separately
-
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
@@ -364,9 +362,6 @@ export function Lightbox({
     // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
-        // CORRECTION: 'zoomTo' does not exist. We use 'zoomIn'.
-        // zoomIn adds the step to the current scale.
-        // Current scale is 1. We want 2.5. So step is 1.5.
         transformRef.current.zoomIn(0.5, 500); 
       }
     }, 350); 
@@ -638,7 +633,7 @@ export function Lightbox({
 
               {/* ZOOM ICON (Desktop Only) */}
               <button
-                className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md ${
+                className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md cursor-pointer ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
                 }`}
                 onClick={handleZoomIconClick}
@@ -670,7 +665,7 @@ export function Lightbox({
               </div>
               {onAddToCollection && (
                 <button
-                  className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     onAddToCollection(photo);
@@ -776,7 +771,7 @@ export function Lightbox({
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onAddToCollection && (
                     <button
-                      className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20"
+                      className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 cursor-pointer"
                       onClick={() => onAddToCollection(photo)}
                     >
                       Add to Collection
@@ -801,7 +796,9 @@ export function Lightbox({
 
         {/* ---------- CONTROLS */}
         <button
-          className="absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30"
+          className={`absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+            isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
           onClick={(e) => {
             e.stopPropagation();
             onClose();
@@ -810,7 +807,7 @@ export function Lightbox({
           <Icon name="xmark" />
         </button>
         <button
-          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 transition-opacity duration-300 ${
+          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           onClick={(e) => {
@@ -821,7 +818,7 @@ export function Lightbox({
           <Icon name="chevron-left" />
         </button>
         <button
-          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 transition-opacity duration-300 ${
+          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           onClick={(e) => {
