@@ -21,6 +21,9 @@ const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
+// --- CUSTOM TEXT CONFIG ---
+const PHOTO_CREDIT = "Photo by Heritage of Pakistan";
+
 /* ---------- SWIPE LOGIC ---------- */
 const SWIPE_THRESHOLD = 600;
 
@@ -500,17 +503,8 @@ export function Lightbox({
                 </div>
                 <div className="text-right shrink-0 flex items-center justify-end">
                   <p className="text-xs text-gray-400">
-                    Photo by{" "}
-                    {photo?.author?.profileUrl ? (
-                      <Link
-                        href={photo.author.profileUrl}
-                        className="hover:underline ml-1"
-                      >
-                        {photo.author.name}
-                      </Link>
-                    ) : (
-                      <span className="ml-1">{photo?.author?.name}</span>
-                    )}
+                    {/* --- SIMPLIFIED AUTHOR CREDIT --- */}
+                    {PHOTO_CREDIT}
                   </p>
                 </div>
               </div>
@@ -746,17 +740,8 @@ export function Lightbox({
                     </p>
                   )}
                   <p className="text-sm text-gray-400 mt-1">
-                    Photo by{" "}
-                    {photo?.author?.profileUrl ? (
-                      <Link
-                        href={photo.author.profileUrl}
-                        className="hover:underline"
-                      >
-                        {photo.author.name}
-                      </Link>
-                    ) : (
-                      <span>{photo?.author?.name}</span>
-                    )}
+                    {/* --- SIMPLIFIED AUTHOR CREDIT --- */}
+                    {PHOTO_CREDIT}
                   </p>
                   {photo?.caption && (
                     <p className="text-sm text-gray-200 mt-2 italic">
