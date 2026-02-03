@@ -22,7 +22,7 @@ const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
 
 // --- CUSTOM TEXT CONFIG ---
-const PHOTO_CREDIT = "Photo by Heritage of Pakistan";
+const PHOTO_CREDIT = "Photo by Heritage of Pakistan ©";
 
 /* ---------- SWIPE LOGIC ---------- */
 const SWIPE_THRESHOLD = 600;
