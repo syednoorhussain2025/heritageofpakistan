@@ -691,7 +691,7 @@ export function Lightbox({
               <div className="flex items-center gap-2">
                 {/* Download Button */}
                 <button
-                  className="shrink-0 p-2 rounded-full text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
                   onClick={handleDownload}
                   title="Download Image"
                 >
@@ -827,7 +827,7 @@ export function Lightbox({
                   )}
                   {/* Download Button */}
                   <button
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 cursor-pointer"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 cursor-pointer"
                     onClick={handleDownload}
                     title="Download Image"
                   >
