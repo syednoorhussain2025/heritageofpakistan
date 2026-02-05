@@ -21,7 +21,7 @@ type ImageIdentity = {
   altText?: string | null;
   caption?: string | null;
   credit?: string | null;
-}; 
+};
 
 function errText(e: any) {
   if (!e) return "Unknown error";
@@ -150,25 +150,63 @@ export default function AddToCollectionModal({
     const isOn = selected.has(collectionId);
     setToggling(collectionId);
 
-    // optimistic UI
+    // 1. Optimistic UI - Toggle Selection
     setSelected((prev) => {
       const next = new Set(prev);
       if (isOn) next.delete(collectionId);
       else next.add(collectionId);
       return next;
     });
-    showToast(`${isOn ? "Removed from" : "Added to"} ${collectionName}`);
+
+    // 2. Optimistic UI - Update Count immediately
+    // If isOn is true, we are removing (-1). If false, we are adding (+1).
+    setCollections((prev) =>
+      prev.map((c) => {
+        if (c.id === collectionId) {
+          const currentCount = c.itemCount || 0;
+          return {
+            ...c,
+            itemCount: isOn
+              ? Math.max(0, currentCount - 1)
+              : currentCount + 1,
+          };
+        }
+        return c;
+      })
+    );
+
+    // 3. Show Toast
+    showToast(
+      isOn
+        ? `Removed from Collection '${collectionName}'`
+        : `Added to Collection '${collectionName}'`
+    );
 
     try {
       await toggleImageInCollection(collectionId, image, isOn);
     } catch (e) {
-      // revert on error
+      // Revert selection on error
       setSelected((prev) => {
         const next = new Set(prev);
         if (isOn) next.add(collectionId);
         else next.delete(collectionId);
         return next;
       });
+
+      // Revert count on error
+      setCollections((prev) =>
+        prev.map((c) => {
+          if (c.id === collectionId) {
+            const currentCount = c.itemCount || 0;
+            return {
+              ...c,
+              itemCount: isOn ? currentCount + 1 : Math.max(0, currentCount - 1),
+            };
+          }
+          return c;
+        })
+      );
+
       console.error(e);
       showToast(`Failed to update ${collectionName}`);
     } finally {
@@ -201,7 +239,7 @@ export default function AddToCollectionModal({
 
   return (
     <>
-      {/* Overlay (same tone/blur as wishlist modal) */}
+      {/* Overlay */}
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
@@ -211,9 +249,9 @@ export default function AddToCollectionModal({
         aria-modal="true"
         role="dialog"
       >
-        {/* Card */}
+        {/* Card: Full screen on mobile (h-full, rounded-none), Modal on desktop (sm:h-auto, sm:rounded-2xl) */}
         <div
-          className={`w-full max-w-xl mx-3 rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform ${
+          className={`w-full h-full sm:h-auto sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-2xl flex flex-col ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-2"
@@ -221,35 +259,28 @@ export default function AddToCollectionModal({
           onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
                 <Icon name="images" className="text-[var(--brand-orange)]" />
               </div>
               <h2 className="text-lg font-semibold">Add to Collection</h2>
             </div>
-            <div />
+            
+            {/* Top Right Close Button */}
+            <button
+              onClick={requestClose}
+              className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Close modal"
+            >
+              <Icon name="times" size={20} />
+            </button>
           </div>
 
           {/* Body */}
-          <div className="px-5 py-4 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Icon
-                name="search"
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder="Search your collections"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full border rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40"
-              />
-            </div>
-
-            {/* Create new collection */}
+          <div className="px-5 py-4 space-y-5 flex-1 overflow-y-auto">
+            
+            {/* 1. Create new collection (Moved to top) */}
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
               <input
                 type="text"
@@ -274,12 +305,28 @@ export default function AddToCollectionModal({
                 className="px-4 py-2 rounded-lg bg-[var(--brand-orange)] text-white hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {busyCreate && <Spinner size={14} />}
-                Create collection
+                Create
               </button>
             </div>
 
+            {/* 2. Search (Moved below Create) */}
+            <div className="relative">
+              <Icon
+                name="search"
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Search your collections"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full border rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40"
+              />
+            </div>
+
             {/* Collections list */}
-            <div className="max-h-80 overflow-y-auto pr-1">
+            <div className="min-h-[200px]">
               {loading ? (
                 // Skeletons
                 <ul className="space-y-2">
@@ -317,7 +364,7 @@ export default function AddToCollectionModal({
                           isOn ? "Remove from collection" : "Add to collection"
                         }
                       >
-                        {/* Toggle icon button (list-style, like wishlist) */}
+                        {/* Toggle icon button */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -330,11 +377,6 @@ export default function AddToCollectionModal({
                               : "bg-white group-hover:bg-gray-100 text-gray-600"
                           }`}
                           aria-label={
-                            isOn
-                              ? "Remove from collection"
-                              : "Add to collection"
-                          }
-                          title={
                             isOn
                               ? "Remove from collection"
                               : "Add to collection"
@@ -384,7 +426,7 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
+          <div className="px-5 py-4 border-t flex items-center justify-end gap-2 shrink-0 bg-white sm:rounded-b-2xl">
             <button
               onClick={requestClose}
               className="px-4 py-2 rounded-lg border hover:bg-gray-50"
@@ -402,9 +444,9 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast (same style + retention as wishlist) */}
+      {/* Black toast: Positioned Right */}
       {toastMsg && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999999999] px-4 py-2 rounded-lg bg-black text-white shadow-lg transition-opacity duration-200">
+        <div className="fixed bottom-5 right-5 z-[9999999999] px-4 py-2 rounded-lg bg-black text-white shadow-lg transition-opacity duration-200">
           {toastMsg}
         </div>
       )}
