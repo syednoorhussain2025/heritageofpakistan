@@ -1,4 +1,3 @@
-// src/components/AddFromCollectionsModal.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -9,8 +8,8 @@ import { createClient } from "@/lib/supabase/browser";
 type CollectedImage = {
   id: string;
   user_id: string;
-  site_image_id?: string | null; // NEW: present in your table
-  dedupe_key?: string | null; // NEW: present if you added generated column
+  site_image_id?: string | null;
+  dedupe_key?: string | null;
   storage_path: string;
   image_url?: string | null;
   site_id?: string | null;
@@ -396,21 +395,21 @@ export default function AddFromCollectionsModal({
     loading ||
     (tab === "collections" && activeCollection && photos.length === 0);
 
-  const BODY_HEIGHT = "h-[520px]"; // stable, ~two rows
-
   return (
     <div
-      className={`fixed inset-0 z-[999] flex items-center justify-center bg-black/35 backdrop-blur-md ${
+      className={`fixed inset-0 z-[10000] flex items-center justify-center bg-black/35 backdrop-blur-md ${
         leaving ? "animate-fadeOut" : "animate-fadeIn"
       }`}
     >
       <div
-        className={`w-[95vw] max-w-5xl rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden ${
-          leaving ? "animate-popOut" : "animate-popIn"
-        }`}
+        className={`flex flex-col bg-white shadow-xl ring-1 ring-black/10 overflow-hidden 
+          w-full h-full rounded-none 
+          sm:w-[95vw] sm:max-w-5xl sm:h-auto sm:rounded-2xl
+          ${leaving ? "animate-popOut" : "animate-popIn"}
+        `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex-none flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               className={`px-3 py-1 rounded-lg text-sm ${
@@ -441,7 +440,7 @@ export default function AddFromCollectionsModal({
               Collections
             </button>
             {activeCollection && (
-              <span className="text-sm text-gray-500">
+              <span className="hidden sm:inline text-sm text-gray-500">
                 / {activeCollection.name}
               </span>
             )}
@@ -450,8 +449,8 @@ export default function AddFromCollectionsModal({
           <div className="flex items-center gap-3">
             {loading && <TinySpinner />}
             <input
-              placeholder="Search photos…"
-              className="h-9 w-56 rounded-lg border px-3 text-sm"
+              placeholder="Search..."
+              className="h-9 w-24 sm:w-56 rounded-lg border px-3 text-sm transition-all focus:w-40 sm:focus:w-56"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -463,7 +462,7 @@ export default function AddFromCollectionsModal({
                   onClose();
                 }, 200);
               }}
-              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 whitespace-nowrap"
             >
               Close
             </button>
@@ -471,7 +470,7 @@ export default function AddFromCollectionsModal({
         </div>
 
         {/* Body */}
-        <div className={`overflow-hidden ${BODY_HEIGHT}`}>
+        <div className="flex-1 overflow-hidden sm:flex-none sm:h-[520px]">
           <div className="h-full overflow-auto p-4">
             {errMsg ? (
               <div className="py-6">
@@ -581,7 +580,10 @@ export default function AddFromCollectionsModal({
                                   loaded ? "opacity-100" : "opacity-0"
                                 }`}
                                 onLoad={() =>
-                                  setImgLoaded((m) => ({ ...m, [p.id]: true }))
+                                  setImgLoaded((m) => ({
+                                    ...m,
+                                    [p.id]: true,
+                                  }))
                                 }
                               />
                             </>
@@ -607,7 +609,7 @@ export default function AddFromCollectionsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t px-4 py-3">
+        <div className="flex-none flex items-center justify-between border-t px-4 py-3">
           <div className="text-xs text-gray-500">
             {Object.values(selected).filter(Boolean).length} selected
             {activeCollection ? ` · ${activeCollection.name}` : ""}
