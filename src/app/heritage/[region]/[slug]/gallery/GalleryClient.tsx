@@ -591,11 +591,16 @@ export default function GalleryClient({
       {/* Add to Collection Modal */}
       {collectionModalOpen && selectedPhoto && (
         <AddToCollectionModal
-          open={collectionModalOpen}
-          onClose={() => setCollectionModalOpen(false)}
-          onInsert={(_items) => {
-            setCollectionModalOpen(false);
+          image={{
+            siteImageId: selectedPhoto.id,
+            storagePath: selectedPhoto.storagePath ?? null,
+            imageUrl: selectedPhoto.url ?? null,
+            siteId: site?.id ?? selectedPhoto.site?.id ?? null,
+            altText: selectedPhoto.caption ?? null,
+            caption: selectedPhoto.caption ?? null,
+            credit: selectedPhoto.author?.name ?? null,
           }}
+          onClose={() => setCollectionModalOpen(false)}
         />
       )}
     </div>
