@@ -21,7 +21,7 @@ type ImageIdentity = {
   altText?: string | null;
   caption?: string | null;
   credit?: string | null;
-};
+}; 
 
 function errText(e: any) {
   if (!e) return "Unknown error";
