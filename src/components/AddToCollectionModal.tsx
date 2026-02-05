@@ -404,7 +404,7 @@ export default function AddToCollectionModal({
 
       {/* Black toast (same style + retention as wishlist) */}
       {toastMsg && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[1300] px-4 py-2 rounded-lg bg-black text-white shadow-lg transition-opacity duration-200">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999999999] px-4 py-2 rounded-lg bg-black text-white shadow-lg transition-opacity duration-200">
           {toastMsg}
         </div>
       )}
