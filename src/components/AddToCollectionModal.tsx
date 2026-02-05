@@ -205,7 +205,7 @@ export default function AddToCollectionModal({
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[1200] flex items-center justify-center bg-black/30 backdrop-blur-[1px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[9999999999] flex items-center justify-center bg-black/30 backdrop-blur-[1px] transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
