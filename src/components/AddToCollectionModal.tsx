@@ -75,7 +75,10 @@ export default function AddToCollectionModal({
   // Membership + item UI states
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toggling, setToggling] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Delete Confirmation State
+  const [collectionToDelete, setCollectionToDelete] = useState<{id: string, name: string} | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -122,7 +125,6 @@ export default function AddToCollectionModal({
     }
 
     // 2. Sort: Selected items first
-    // We create a shallow copy to avoid mutating state directly if strict mode is on
     return [...res].sort((a, b) => {
       const aSel = selected.has(a.id);
       const bSel = selected.has(b.id);
@@ -145,12 +147,12 @@ export default function AddToCollectionModal({
       // 1. Create the collection
       const c = await createPhotoCollection(name, privacy === "public");
       
-      // 2. Automatically add the current photo to the new collection
-      await toggleImageInCollection(c.id, image, false); // false = was not in collection
+      // 2. Automatically add the current photo
+      await toggleImageInCollection(c.id, image, false);
 
-      // 3. Update state (Add new collection to list + Mark as selected)
+      // 3. Update state
       setCollections((prev) => [
-        { ...c, itemCount: 1, coverUrl: null }, // Start with 1 item
+        { ...c, itemCount: 1, coverUrl: null },
         ...prev,
       ]);
       setSelected((prev) => {
@@ -166,6 +168,14 @@ export default function AddToCollectionModal({
       alert(`Could not create collection: ${errText(e)}`);
     } finally {
       setBusyCreate(false);
+    }
+  }
+
+  // Handle Enter Key for Create
+  function handleCreateKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCreate();
     }
   }
 
@@ -241,26 +251,33 @@ export default function AddToCollectionModal({
     }
   }
 
-  async function handleDelete(collectionId: string, name: string) {
-    if (
-      !confirm(`Delete collection “${name}”? This won’t affect your library.`)
-    )
-      return;
-    setDeletingId(collectionId);
+  // Trigger Confirmation Modal
+  function requestDelete(collectionId: string, name: string) {
+    setCollectionToDelete({ id: collectionId, name });
+  }
+
+  // Execute Delete
+  async function confirmDelete() {
+    if (!collectionToDelete) return;
+    
+    setIsDeleting(true);
+    const { id, name } = collectionToDelete;
+
     try {
-      await deletePhotoCollection(collectionId);
-      setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+      await deletePhotoCollection(id);
+      setCollections((prev) => prev.filter((c) => c.id !== id));
       setSelected((prev) => {
         const next = new Set(prev);
-        next.delete(collectionId);
+        next.delete(id);
         return next;
       });
       showToast(`Deleted ${name}`);
+      setCollectionToDelete(null); // Close confirmation
     } catch (e) {
       console.error(e);
       alert(`Could not delete collection: ${errText(e)}`);
     } finally {
-      setDeletingId(null);
+      setIsDeleting(false);
     }
   }
 
@@ -277,22 +294,49 @@ export default function AddToCollectionModal({
         role="dialog"
       >
         {/* Card */}
-        {/* Fixed Height on Desktop: 
-           Added `sm:h-[600px]` (and max-h screen constraint) so the modal 
-           height remains constant during search/filter operations.
-        */}
         <div
-          className={`w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
+          className={`relative w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
           }`}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* --- Delete Confirmation Overlay (Internal) --- */}
+          {collectionToDelete && (
+             <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
+                <div className="bg-white border border-gray-100 shadow-2xl ring-1 ring-black/5 rounded-3xl p-6 w-full max-w-xs text-center transform scale-100 animate-in zoom-in-95 duration-200">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4 text-red-500">
+                        <Icon name="trash" size={20} />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Collection?</h3>
+                    <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                        Are you sure you want to delete <br/>
+                        <span className="font-semibold text-gray-800">“{collectionToDelete.name}”</span>?
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => setCollectionToDelete(null)}
+                            disabled={isDeleting}
+                            className="px-4 py-3 rounded-2xl bg-gray-50 text-gray-700 font-semibold text-sm hover:bg-gray-100 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmDelete}
+                            disabled={isDeleting}
+                            className="px-4 py-3 rounded-2xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                            {isDeleting ? <Spinner size={14} className="border-white/80"/> : "Delete"}
+                        </button>
+                    </div>
+                </div>
+             </div>
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
-              {/* Retro Icon */}
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
               </div>
@@ -301,7 +345,6 @@ export default function AddToCollectionModal({
               </h2>
             </div>
 
-            {/* Close Button */}
             <button
               onClick={requestClose}
               className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
@@ -311,10 +354,10 @@ export default function AddToCollectionModal({
             </button>
           </div>
 
-          {/* Body - Flex Column with overflow hidden to prevent global scroll */}
+          {/* Body */}
           <div className="flex-1 flex flex-col min-h-0 px-6 py-6 bg-white overflow-hidden">
             
-            {/* 1. Create new collection Section (Fixed) */}
+            {/* 1. Create new collection */}
             <div className="shrink-0 space-y-2 mb-6">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Create New
@@ -325,6 +368,7 @@ export default function AddToCollectionModal({
                   placeholder="Collection Name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={handleCreateKeyDown}
                   className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-500"
                 />
                 <select
@@ -337,29 +381,27 @@ export default function AddToCollectionModal({
                   <option value="private">Private</option>
                   <option value="public">Public</option>
                 </select>
+                {/* Fixed Width Button: w-28 */}
                 <button
                   onClick={handleCreate}
                   disabled={busyCreate}
-                  className="px-5 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                  className="w-28 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
                 >
                   {busyCreate && (
                     <Spinner size={14} className="border-white/80" />
                   )}
-                  Create
+                  {busyCreate ? "Creating" : "Create"}
                 </button>
               </div>
             </div>
 
-            {/* 2. Search & List Section Container (Takes remaining space) */}
+            {/* 2. Search & List Section */}
             <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Your Collections
               </label>
 
-              {/* Box with internal scrolling */}
               <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-50/50 overflow-hidden">
-                
-                {/* Search (Fixed inside the box) */}
                 <div className="shrink-0 p-3 pb-0">
                   <div className="relative group">
                     <Icon
@@ -377,10 +419,8 @@ export default function AddToCollectionModal({
                   </div>
                 </div>
 
-                {/* List Items (Scrollable Area) */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-4">
                   {loading ? (
-                    // Skeletons
                     <ul className="space-y-3">
                       {Array.from({ length: 4 }).map((_, i) => (
                         <li
@@ -408,7 +448,9 @@ export default function AddToCollectionModal({
                     <ul className="space-y-2">
                       {filtered.map((c) => {
                         const isOn = selected.has(c.id);
-                        const isBusy = toggling === c.id || deletingId === c.id;
+                        const isBusy = toggling === c.id; 
+                        // Note: We don't check deletingId here anymore because delete is handled via modal state
+                        
                         return (
                           <li
                             key={c.id}
@@ -419,7 +461,6 @@ export default function AddToCollectionModal({
                             }`}
                             onClick={() => toggleMembership(c.id, c.name)}
                           >
-                            {/* Toggle Icon */}
                             <div
                               className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all ${
                                 isOn
@@ -443,7 +484,6 @@ export default function AddToCollectionModal({
                               )}
                             </div>
 
-                            {/* Name + meta */}
                             <div className="flex-1 min-w-0">
                               <div
                                 className={`font-semibold text-sm truncate ${
@@ -463,24 +503,16 @@ export default function AddToCollectionModal({
                               </div>
                             </div>
 
-                            {/* Delete collection (X) */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDelete(c.id, c.name);
+                                requestDelete(c.id, c.name);
                               }}
                               disabled={isBusy}
                               className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                               title="Delete collection"
                             >
-                              {deletingId === c.id ? (
-                                <Spinner
-                                  size={14}
-                                  className="border-red-500"
-                                />
-                              ) : (
-                                <Icon name="trash" size={14} />
-                              )}
+                               <Icon name="trash" size={14} />
                             </button>
                           </li>
                         );
@@ -502,6 +534,7 @@ export default function AddToCollectionModal({
             </button>
             <Link
               href="/dashboard/mycollections"
+              target="_blank"
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium hover:bg-black transition-all shadow-lg shadow-gray-200 text-sm"
             >
