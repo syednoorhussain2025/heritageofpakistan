@@ -543,11 +543,11 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast with increased bottom gap */}
+      {/* Black toast with updated alignment: Center on Mobile, Right on Desktop */}
       {toastMsg && (
-        <div className="fixed bottom-12 right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)]" />
-          <span className="font-medium text-sm">{toastMsg}</span>
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-[90vw] sm:max-w-md w-max">
+          <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
+          <span className="font-medium text-sm truncate">{toastMsg}</span>
         </div>
       )}
     </>
