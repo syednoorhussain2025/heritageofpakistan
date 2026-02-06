@@ -114,9 +114,23 @@ export default function AddToCollectionModal({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return collections;
-    return collections.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [collections, search]);
+    
+    // 1. Filter
+    let res = collections;
+    if (q) {
+      res = collections.filter((c) => c.name?.toLowerCase().includes(q));
+    }
+
+    // 2. Sort: Selected items first
+    // We create a shallow copy to avoid mutating state directly if strict mode is on
+    return [...res].sort((a, b) => {
+      const aSel = selected.has(a.id);
+      const bSel = selected.has(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return 0; 
+    });
+  }, [collections, search, selected]);
 
   function showToast(message: string) {
     setToastMsg(message);
@@ -128,13 +142,25 @@ export default function AddToCollectionModal({
     if (!name) return;
     setBusyCreate(true);
     try {
+      // 1. Create the collection
       const c = await createPhotoCollection(name, privacy === "public");
+      
+      // 2. Automatically add the current photo to the new collection
+      await toggleImageInCollection(c.id, image, false); // false = was not in collection
+
+      // 3. Update state (Add new collection to list + Mark as selected)
       setCollections((prev) => [
+        { ...c, itemCount: 1, coverUrl: null }, // Start with 1 item
         ...prev,
-        { ...c, itemCount: 0, coverUrl: null },
       ]);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.add(c.id);
+        return next;
+      });
+
       setNewName("");
-      showToast(`Created “${name}”`);
+      showToast(`Photo added to Collection '${name}'`);
     } catch (e) {
       console.error(e);
       alert(`Could not create collection: ${errText(e)}`);
@@ -177,8 +203,8 @@ export default function AddToCollectionModal({
     // 3. Show Toast
     showToast(
       isOn
-        ? `Removed from Collection '${collectionName}'`
-        : `Added to Collection '${collectionName}'`
+        ? `Photo removed from Collection '${collectionName}'`
+        : `Photo added to Collection '${collectionName}'`
     );
 
     try {
@@ -251,8 +277,12 @@ export default function AddToCollectionModal({
         role="dialog"
       >
         {/* Card */}
+        {/* Fixed Height on Desktop: 
+           Added `sm:h-[600px]` (and max-h screen constraint) so the modal 
+           height remains constant during search/filter operations.
+        */}
         <div
-          className={`w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
+          className={`w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
@@ -267,7 +297,7 @@ export default function AddToCollectionModal({
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">
-                Add to Collection
+                Add Photo to Collection
               </h2>
             </div>
 
@@ -295,7 +325,6 @@ export default function AddToCollectionModal({
                   placeholder="Collection Name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  // Updated: border-gray-300 for contrast, placeholder:text-gray-500 for legibility
                   className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-500"
                 />
                 <select
@@ -303,7 +332,6 @@ export default function AddToCollectionModal({
                   onChange={(e) =>
                     setPrivacy(e.target.value as "private" | "public")
                   }
-                  // Updated: border-gray-300 for contrast
                   className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 cursor-pointer"
                 >
                   <option value="private">Private</option>
@@ -344,7 +372,6 @@ export default function AddToCollectionModal({
                       placeholder="Search your collections"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      // Updated: border-gray-300 for contrast, placeholder:text-gray-500 for legibility
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-full pl-11 pr-5 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/30 transition-all placeholder:text-gray-500"
                     />
                   </div>
@@ -471,7 +498,7 @@ export default function AddToCollectionModal({
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
             >
-              Cancel
+              Close
             </button>
             <Link
               href="/dashboard/mycollections"
