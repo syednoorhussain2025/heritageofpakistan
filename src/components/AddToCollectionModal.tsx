@@ -381,11 +381,11 @@ export default function AddToCollectionModal({
                   <option value="private">Private</option>
                   <option value="public">Public</option>
                 </select>
-                {/* Fixed Width Button: w-28 */}
+                {/* Create Button: w-full on mobile, w-28 on sm+ */}
                 <button
                   onClick={handleCreate}
                   disabled={busyCreate}
-                  className="w-28 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                  className="w-full sm:w-28 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
                 >
                   {busyCreate && (
                     <Spinner size={14} className="border-white/80" />
@@ -449,7 +449,6 @@ export default function AddToCollectionModal({
                       {filtered.map((c) => {
                         const isOn = selected.has(c.id);
                         const isBusy = toggling === c.id; 
-                        // Note: We don't check deletingId here anymore because delete is handled via modal state
                         
                         return (
                           <li
@@ -544,9 +543,9 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast */}
+      {/* Black toast with increased bottom gap */}
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-12 right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)]" />
           <span className="font-medium text-sm">{toastMsg}</span>
         </div>
