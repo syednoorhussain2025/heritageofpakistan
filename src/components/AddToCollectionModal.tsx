@@ -295,14 +295,16 @@ export default function AddToCollectionModal({
                   placeholder="Collection Name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="bg-white border border-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
+                  // Updated: border-gray-300 for contrast, placeholder:text-gray-500 for legibility
+                  className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-500"
                 />
                 <select
                   value={privacy}
                   onChange={(e) =>
                     setPrivacy(e.target.value as "private" | "public")
                   }
-                  className="bg-white border border-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-300 cursor-pointer"
+                  // Updated: border-gray-300 for contrast
+                  className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 cursor-pointer"
                 >
                   <option value="private">Private</option>
                   <option value="public">Public</option>
@@ -342,7 +344,8 @@ export default function AddToCollectionModal({
                       placeholder="Search your collections"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full bg-white border border-gray-100 text-gray-900 rounded-full pl-11 pr-5 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400"
+                      // Updated: border-gray-300 for contrast, placeholder:text-gray-500 for legibility
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-full pl-11 pr-5 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/30 transition-all placeholder:text-gray-500"
                     />
                   </div>
                 </div>
