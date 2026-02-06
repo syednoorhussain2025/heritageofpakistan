@@ -508,7 +508,8 @@ export default function AddToCollectionModal({
                                 requestDelete(c.id, c.name);
                               }}
                               disabled={isBusy}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              // Updated class: opacity-100 (visible) on mobile, opacity-0 (hidden) on desktop (sm:) until hover
+                              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                               title="Delete collection"
                             >
                                <Icon name="trash" size={14} />
