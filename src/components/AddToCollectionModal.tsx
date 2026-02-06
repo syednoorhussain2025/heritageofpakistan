@@ -199,7 +199,9 @@ export default function AddToCollectionModal({
             const currentCount = c.itemCount || 0;
             return {
               ...c,
-              itemCount: isOn ? currentCount + 1 : Math.max(0, currentCount - 1),
+              itemCount: isOn
+                ? currentCount + 1
+                : Math.max(0, currentCount - 1),
             };
           }
           return c;
@@ -248,12 +250,9 @@ export default function AddToCollectionModal({
         aria-modal="true"
         role="dialog"
       >
-        {/* Card: 
-            Mobile: h-[100dvh] ensures it hits the physical bottom of the screen despite address bars.
-            Desktop: sm:h-auto sm:rounded-3xl
-        */}
+        {/* Card */}
         <div
-          className={`w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-lg sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col ${
+          className={`w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
@@ -263,8 +262,9 @@ export default function AddToCollectionModal({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
+              {/* Retro Icon */}
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
-                <Icon name="images" className="text-[var(--brand-orange)]" />
+                <Icon name="retro" className="text-[var(--brand-orange)]" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">
                 Add to Collection
@@ -281,21 +281,20 @@ export default function AddToCollectionModal({
             </button>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar bg-white">
-            {/* 1. Create new collection Section */}
-            <div className="space-y-2">
+          {/* Body - Flex Column with overflow hidden to prevent global scroll */}
+          <div className="flex-1 flex flex-col min-h-0 px-6 py-6 bg-white overflow-hidden">
+            
+            {/* 1. Create new collection Section (Fixed) */}
+            <div className="shrink-0 space-y-2 mb-6">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Create New
               </label>
-              {/* Container Box for Create */}
               <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/50 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
                 <input
                   type="text"
                   placeholder="Collection Name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  // Changed bg-gray-50 to bg-white for contrast inside the box
                   className="bg-white border border-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
                 />
                 <select
@@ -303,7 +302,6 @@ export default function AddToCollectionModal({
                   onChange={(e) =>
                     setPrivacy(e.target.value as "private" | "public")
                   }
-                  // Changed bg-gray-50 to bg-white for contrast inside the box
                   className="bg-white border border-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-300 cursor-pointer"
                 >
                   <option value="private">Private</option>
@@ -322,33 +320,35 @@ export default function AddToCollectionModal({
               </div>
             </div>
 
-            {/* 2. Search & List Section */}
-            <div className="space-y-2">
+            {/* 2. Search & List Section Container (Takes remaining space) */}
+            <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Your Collections
               </label>
-              
-              {/* Container Box for Search & List */}
-              <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/50 space-y-4">
-                {/* Search (Mature Pill UI) */}
-                <div className="relative group">
-                  <Icon
-                    name="search"
-                    size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[var(--brand-orange)] transition-colors pointer-events-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search your collections"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    // Changed bg-gray-100 to bg-white for contrast inside the box
-                    className="w-full bg-white border border-gray-100 text-gray-900 rounded-full pl-11 pr-5 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400"
-                  />
+
+              {/* Box with internal scrolling */}
+              <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-50/50 overflow-hidden">
+                
+                {/* Search (Fixed inside the box) */}
+                <div className="shrink-0 p-3 pb-0">
+                  <div className="relative group">
+                    <Icon
+                      name="search"
+                      size={16}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[var(--brand-orange)] transition-colors pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search your collections"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full bg-white border border-gray-100 text-gray-900 rounded-full pl-11 pr-5 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400"
+                    />
+                  </div>
                 </div>
 
-                {/* Collections list */}
-                <div className="min-h-[150px] pl-1 pr-1">
+                {/* List Items (Scrollable Area) */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-4">
                   {loading ? (
                     // Skeletons
                     <ul className="space-y-3">
@@ -401,7 +401,9 @@ export default function AddToCollectionModal({
                                 <Spinner
                                   size={16}
                                   className={
-                                    isOn ? "border-white/70" : "border-gray-400"
+                                    isOn
+                                      ? "border-white/70"
+                                      : "border-gray-400"
                                   }
                                 />
                               ) : isOn ? (
@@ -431,7 +433,7 @@ export default function AddToCollectionModal({
                               </div>
                             </div>
 
-                            {/* Delete collection (X) - Absolute positioned to right */}
+                            {/* Delete collection (X) */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -442,7 +444,10 @@ export default function AddToCollectionModal({
                               title="Delete collection"
                             >
                               {deletingId === c.id ? (
-                                <Spinner size={14} className="border-red-500" />
+                                <Spinner
+                                  size={14}
+                                  className="border-red-500"
+                                />
                               ) : (
                                 <Icon name="trash" size={14} />
                               )}
@@ -476,7 +481,7 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast: Positioned Right */}
+      {/* Black toast */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)]" />
