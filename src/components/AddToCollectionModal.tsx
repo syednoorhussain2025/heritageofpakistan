@@ -77,6 +77,9 @@ export default function AddToCollectionModal({
   const [newName, setNewName] = useState("");
   const [privacy, setPrivacy] = useState<"private" | "public">("private");
   const [busyCreate, setBusyCreate] = useState(false);
+  
+  // New Dialog State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Membership + item UI states
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -156,6 +159,10 @@ export default function AddToCollectionModal({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (isCreateOpen) {
+          setIsCreateOpen(false);
+          return;
+        }
         if (collectionToDelete) setCollectionToDelete(null);
         else requestClose();
       }
@@ -163,7 +170,7 @@ export default function AddToCollectionModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [collectionToDelete]);
+  }, [collectionToDelete, isCreateOpen]);
 
   function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === overlayRef.current) requestClose();
@@ -231,6 +238,8 @@ export default function AddToCollectionModal({
 
       setNewName("");
       showToast(`Photo added to Collection '${name}'`);
+      // Close the create dialog
+      setIsCreateOpen(false);
     } catch (e) {
       console.error(e);
       alert(`Could not create collection: ${errText(e)}`);
@@ -516,43 +525,6 @@ export default function AddToCollectionModal({
                 </div>
               )}
 
-              {/* 1. Create new collection */}
-              <div className="shrink-0 space-y-2 mb-4">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Create New
-                </label>
-                <div className="border border-gray-200 rounded-2xl p-3 bg-gray-100 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
-                  <input
-                    type="text"
-                    placeholder="Collection Name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={handleCreateKeyDown}
-                    className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-500"
-                  />
-                  <select
-                    value={privacy}
-                    onChange={(e) =>
-                      setPrivacy(e.target.value as "private" | "public")
-                    }
-                    className="bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 cursor-pointer"
-                  >
-                    <option value="private">Private</option>
-                    <option value="public">Public</option>
-                  </select>
-                  <button
-                    onClick={handleCreate}
-                    disabled={busyCreate}
-                    className="w-full sm:w-28 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
-                  >
-                    {busyCreate && (
-                      <Spinner size={14} className="border-white/80" />
-                    )}
-                    {busyCreate ? "Creating" : "Create"}
-                  </button>
-                </div>
-              </div>
-
               {/* 2. Search & List Section */}
               <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
@@ -684,6 +656,14 @@ export default function AddToCollectionModal({
 
           {/* Footer */}
           <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
+            {/* New Button */}
+            <button
+                onClick={() => setIsCreateOpen(true)}
+                className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
+            >
+                Create New Collection
+            </button>
+
             <button
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
@@ -701,6 +681,77 @@ export default function AddToCollectionModal({
           </div>
         </div>
       </div>
+
+      {/* --- Create New Collection Modal --- */}
+      {isCreateOpen && (
+        <div 
+          className="fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+               <h3 className="text-lg font-bold text-gray-900">Create Collection</h3>
+               <button 
+                 onClick={() => setIsCreateOpen(false)}
+                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+               >
+                 <Icon name="times" size={20} />
+               </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto bg-gray-50/30">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                    Collection Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Vacation, Architecture..."
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={handleCreateKeyDown}
+                    autoFocus
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                    Privacy
+                  </label>
+                  <div className="relative">
+                    <select
+                        value={privacy}
+                        onChange={(e) => setPrivacy(e.target.value as "private" | "public")}
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
+                    >
+                        <option value="private">Private (Only you)</option>
+                        <option value="public">Public (Visible to everyone)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                        <Icon name="chevron-down" size={16} />
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 pt-0 sm:pt-4 sm:border-t sm:border-gray-100 bg-white shrink-0">
+                <button
+                    onClick={handleCreate}
+                    disabled={busyCreate || !newName.trim()}
+                    className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                >
+                    {busyCreate && <Spinner size={16} className="border-white/80" />}
+                    {busyCreate ? "Creating..." : "Create Collection"}
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Center toast with quifck slide/fade in, then quick fade out */}
       {toastMsg && (
