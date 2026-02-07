@@ -12,6 +12,8 @@ import {
   createPhotoCollection,
   deletePhotoCollection,
 } from "@/lib/photoCollections";
+// 1. IMPORT THE HELPER
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* Match the shape we pass from the Lightbox */
 type ImageIdentity = {
@@ -23,7 +25,7 @@ type ImageIdentity = {
   caption?: string | null;
   credit?: string | null;
 
-  // Optional extra data for preview (already available in Lightbox, pass through when you have it)
+  // Optional extra data for preview
   siteName?: string | null;
   locationText?: string | null;
 };
@@ -95,11 +97,26 @@ export default function AddToCollectionModal({
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
+  // 2. CALCULATE PREVIEW URL (MD VARIANT)
+  const previewUrl = useMemo(() => {
+    if (image.storagePath) {
+      try {
+        return getVariantPublicUrl(image.storagePath, "md");
+      } catch (e) {
+        // Fallback if helper fails
+        return image.imageUrl;
+      }
+    }
+    return image.imageUrl;
+  }, [image.storagePath, image.imageUrl]);
+
   const previewTitle = image.siteName?.trim() || "";
   const previewLocation = image.locationText?.trim() || "";
   const previewCaption = image.caption?.trim() || "";
   const previewAlt = image.altText?.trim() || previewTitle || "Photo preview";
-  const hasPreview = !!image.imageUrl;
+  
+  // 3. CHECK IF WE HAVE A URL
+  const hasPreview = !!previewUrl;
 
   // Fade in when mounted
   useEffect(() => {
@@ -110,16 +127,16 @@ export default function AddToCollectionModal({
   // Reset preview loading when image changes
   useEffect(() => {
     setPreviewLoaded(false);
-  }, [image?.imageUrl]);
+  }, [previewUrl]); // Watch previewUrl instead of imageUrl
 
   // Preload preview image as early as possible
   useEffect(() => {
-    if (!image?.imageUrl) return;
+    if (!previewUrl) return;
 
     const img = new window.Image();
     img.decoding = "async";
     (img as any).fetchPriority = "high";
-    img.src = image.imageUrl;
+    img.src = previewUrl; // Use derived MD url
 
     const done = () => setPreviewLoaded(true);
     img.onload = done;
@@ -129,7 +146,7 @@ export default function AddToCollectionModal({
       img.onload = null;
       img.onerror = null;
     };
-  }, [image?.imageUrl]);
+  }, [previewUrl]);
 
   function requestClose() {
     setIsOpen(false);
@@ -413,7 +430,7 @@ export default function AddToCollectionModal({
                       </div>
                     )}
                     <NextImage
-                      src={image.imageUrl as string}
+                      src={previewUrl as string} // 4. USE MD PREVIEW URL
                       alt={previewAlt}
                       fill
                       className={`object-cover transition-opacity duration-300 ${
@@ -461,7 +478,7 @@ export default function AddToCollectionModal({
                         </div>
                       )}
                       <NextImage
-                        src={image.imageUrl as string}
+                        src={previewUrl as string} // 5. USE MD PREVIEW URL
                         alt={previewAlt}
                         fill
                         className={`object-cover transition-opacity duration-300 ${
