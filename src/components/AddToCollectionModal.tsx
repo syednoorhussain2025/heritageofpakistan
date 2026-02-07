@@ -94,6 +94,24 @@ export default function AddToCollectionModal({
     setTimeout(() => onClose(), 250);
   }
 
+  // Handle Escape Key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        // If delete confirmation is open, close that first
+        if (collectionToDelete) {
+          setCollectionToDelete(null);
+        } else {
+          // Otherwise close the modal
+          requestClose();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [collectionToDelete]); // Re-bind listener if confirmation state changes
+
   function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === overlayRef.current) requestClose();
   }
