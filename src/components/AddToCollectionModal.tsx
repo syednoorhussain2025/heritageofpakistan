@@ -90,12 +90,46 @@ export default function AddToCollectionModal({
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  // Preview loading
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+
+  const previewTitle = image.siteName?.trim() || "";
+  const previewLocation = image.locationText?.trim() || "";
+  const previewCaption = image.caption?.trim() || "";
+  const previewAlt = image.altText?.trim() || previewTitle || "Photo preview";
+  const hasPreview = !!image.imageUrl;
 
   // Fade in when mounted
   useEffect(() => {
     const t = setTimeout(() => setIsOpen(true), 10);
     return () => clearTimeout(t);
   }, []);
+
+  // Reset preview loading when image changes
+  useEffect(() => {
+    setPreviewLoaded(false);
+  }, [image?.imageUrl]);
+
+  // Preload preview image as early as possible
+  useEffect(() => {
+    if (!image?.imageUrl) return;
+
+    const img = new window.Image();
+    img.decoding = "async";
+    (img as any).fetchPriority = "high";
+    img.src = image.imageUrl;
+
+    const done = () => setPreviewLoaded(true);
+    img.onload = done;
+    img.onerror = done;
+
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [image?.imageUrl]);
 
   function requestClose() {
     setIsOpen(false);
@@ -106,19 +140,14 @@ export default function AddToCollectionModal({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        // If delete confirmation is open, close that first
-        if (collectionToDelete) {
-          setCollectionToDelete(null);
-        } else {
-          // Otherwise close the modal
-          requestClose();
-        }
+        if (collectionToDelete) setCollectionToDelete(null);
+        else requestClose();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [collectionToDelete]); // Re-bind listener if confirmation state changes
+  }, [collectionToDelete]);
 
   function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === overlayRef.current) requestClose();
@@ -144,13 +173,11 @@ export default function AddToCollectionModal({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    // 1. Filter
     let res = collections;
     if (q) {
       res = collections.filter((c) => c.name?.toLowerCase().includes(q));
     }
 
-    // 2. Sort: Selected items first
     return [...res].sort((a, b) => {
       const aSel = selected.has(a.id);
       const bSel = selected.has(b.id);
@@ -162,7 +189,13 @@ export default function AddToCollectionModal({
 
   function showToast(message: string) {
     setToastMsg(message);
-    setTimeout(() => setToastMsg(null), 3500);
+
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMsg(null);
+      toastTimerRef.current = null;
+    }, 1200);
   }
 
   async function handleCreate() {
@@ -170,13 +203,9 @@ export default function AddToCollectionModal({
     if (!name) return;
     setBusyCreate(true);
     try {
-      // 1. Create the collection
       const c = await createPhotoCollection(name, privacy === "public");
-
-      // 2. Automatically add the current photo
       await toggleImageInCollection(c.id, image, false);
 
-      // 3. Update state
       setCollections((prev) => [{ ...c, itemCount: 1, coverUrl: null }, ...prev]);
       setSelected((prev) => {
         const next = new Set(prev);
@@ -194,7 +223,6 @@ export default function AddToCollectionModal({
     }
   }
 
-  // Handle Enter Key for Create
   function handleCreateKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -206,7 +234,6 @@ export default function AddToCollectionModal({
     const isOn = selected.has(collectionId);
     setToggling(collectionId);
 
-    // 1. Optimistic UI - Toggle Selection
     setSelected((prev) => {
       const next = new Set(prev);
       if (isOn) next.delete(collectionId);
@@ -214,7 +241,6 @@ export default function AddToCollectionModal({
       return next;
     });
 
-    // 2. Optimistic UI - Update Count immediately
     setCollections((prev) =>
       prev.map((c) => {
         if (c.id === collectionId) {
@@ -228,7 +254,6 @@ export default function AddToCollectionModal({
       })
     );
 
-    // 3. Show Toast
     showToast(
       isOn
         ? `Photo removed from Collection '${collectionName}'`
@@ -238,7 +263,6 @@ export default function AddToCollectionModal({
     try {
       await toggleImageInCollection(collectionId, image, isOn);
     } catch (e) {
-      // Revert selection on error
       setSelected((prev) => {
         const next = new Set(prev);
         if (isOn) next.add(collectionId);
@@ -246,7 +270,6 @@ export default function AddToCollectionModal({
         return next;
       });
 
-      // Revert count on error
       setCollections((prev) =>
         prev.map((c) => {
           if (c.id === collectionId) {
@@ -267,12 +290,10 @@ export default function AddToCollectionModal({
     }
   }
 
-  // Trigger Confirmation Modal
   function requestDelete(collectionId: string, name: string) {
     setCollectionToDelete({ id: collectionId, name });
   }
 
-  // Execute Delete
   async function confirmDelete() {
     if (!collectionToDelete) return;
 
@@ -288,7 +309,7 @@ export default function AddToCollectionModal({
         return next;
       });
       showToast(`Deleted ${name}`);
-      setCollectionToDelete(null); // Close confirmation
+      setCollectionToDelete(null);
     } catch (e) {
       console.error(e);
       alert(`Could not delete collection: ${errText(e)}`);
@@ -296,12 +317,6 @@ export default function AddToCollectionModal({
       setIsDeleting(false);
     }
   }
-
-  const previewTitle = image.siteName?.trim() || "";
-  const previewLocation = image.locationText?.trim() || "";
-  const previewCaption = image.caption?.trim() || "";
-  const previewAlt = image.altText?.trim() || previewTitle || "Photo preview";
-  const hasPreview = !!image.imageUrl;
 
   return (
     <>
@@ -317,7 +332,7 @@ export default function AddToCollectionModal({
       >
         {/* Card */}
         <div
-          className={`relative w-full h-[100dvh] sm:h-[620px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
+          className={`relative w-full h-[100dvh] sm:h-[590px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
@@ -366,7 +381,7 @@ export default function AddToCollectionModal({
           )}
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
@@ -386,60 +401,72 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 min-h-0 bg-white overflow-hidden sm:flex sm:gap-6">
+          <div className="flex-1 min-h-0 bg-white overflow-hidden sm:flex sm:gap-3">
             {/* Preview panel (desktop left) */}
             {hasPreview && (
-              <div className="hidden sm:flex sm:flex-col sm:w-[320px] sm:border-r sm:border-gray-100 sm:bg-gray-50/40 sm:px-6 sm:py-6 sm:min-h-0">
+              <div className="hidden sm:flex sm:flex-col sm:w-[300px] sm:border-r sm:border-gray-100 sm:bg-gray-50/30 sm:px-5 sm:py-5 sm:min-h-0">
                 <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
                   <div className="relative w-full aspect-square">
+                    {!previewLoaded && (
+                      <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
+                        <Spinner size={18} className="border-gray-300" />
+                      </div>
+                    )}
                     <NextImage
                       src={image.imageUrl as string}
                       alt={previewAlt}
                       fill
-                      className="object-cover"
-                      sizes="320px"
+                      className={`object-cover transition-opacity duration-300 ${
+                        previewLoaded ? "opacity-100" : "opacity-0"
+                      }`}
+                      sizes="300px"
                       priority
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-1 min-h-0">
-                  {(previewTitle || previewLocation) && (
-                    <div className="space-y-1">
-                      {previewTitle && (
-                        <div className="font-semibold text-sm text-gray-900 line-clamp-2">
-                          {previewTitle}
-                        </div>
-                      )}
-                      {previewLocation && (
-                        <div className="text-xs text-gray-500 line-clamp-2">
-                          {previewLocation}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {(previewTitle || previewLocation) && (
+                  <div className="mt-3 space-y-1">
+                    {previewTitle && (
+                      <div className="font-semibold text-sm text-gray-900 line-clamp-2">
+                        {previewTitle}
+                      </div>
+                    )}
+                    {previewLocation && (
+                      <div className="text-xs text-gray-500 line-clamp-2">
+                        {previewLocation}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                  {previewCaption && (
-                    <div className="text-xs text-gray-600 leading-relaxed line-clamp-4">
-                      {previewCaption}
-                    </div>
-                  )}
-                </div>
+                {previewCaption && (
+                  <div className="mt-2 text-xs text-gray-600 leading-relaxed line-clamp-3">
+                    {previewCaption}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Main content */}
-            <div className="flex-1 flex flex-col min-h-0 px-6 py-6 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 px-6 py-5 overflow-hidden">
               {/* Preview row (mobile top) */}
               {hasPreview && (
-                <div className="sm:hidden shrink-0 mb-5">
+                <div className="sm:hidden shrink-0 mb-4">
                   <div className="flex items-start gap-4">
                     <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm flex-shrink-0">
+                      {!previewLoaded && (
+                        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
+                          <Spinner size={18} className="border-gray-300" />
+                        </div>
+                      )}
                       <NextImage
                         src={image.imageUrl as string}
                         alt={previewAlt}
                         fill
-                        className="object-cover"
+                        className={`object-cover transition-opacity duration-300 ${
+                          previewLoaded ? "opacity-100" : "opacity-0"
+                        }`}
                         sizes="112px"
                         priority
                       />
@@ -472,7 +499,7 @@ export default function AddToCollectionModal({
               )}
 
               {/* 1. Create new collection */}
-              <div className="shrink-0 space-y-2 mb-6">
+              <div className="shrink-0 space-y-2 mb-4">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                   Create New
                 </label>
@@ -495,7 +522,6 @@ export default function AddToCollectionModal({
                     <option value="private">Private</option>
                     <option value="public">Public</option>
                   </select>
-                  {/* Create Button: w-full on mobile, w-28 on sm+ */}
                   <button
                     onClick={handleCreate}
                     disabled={busyCreate}
@@ -533,7 +559,7 @@ export default function AddToCollectionModal({
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-4">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-3">
                     {loading ? (
                       <ul className="space-y-3">
                         {Array.from({ length: 4 }).map((_, i) => (
@@ -622,7 +648,6 @@ export default function AddToCollectionModal({
                                   requestDelete(c.id, c.name);
                                 }}
                                 disabled={isBusy}
-                                // Updated class: opacity-100 (visible) on mobile, opacity-0 (hidden) on desktop (sm:) until hover
                                 className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                                 title="Delete collection"
                               >
@@ -640,7 +665,7 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
+          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
             <button
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
@@ -659,11 +684,13 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast with updated alignment: Center on Mobile, Right on Desktop */}
+      {/* Center toast with quick slide/fade in, then quick fade out */}
       {toastMsg && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-[90vw] sm:max-w-md w-max">
-          <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
-          <span className="font-medium text-sm truncate">{toastMsg}</span>
+        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
+          <div className="px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-md w-max animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
+            <span className="font-medium text-sm truncate">{toastMsg}</span>
+          </div>
         </div>
       )}
     </>
