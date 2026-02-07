@@ -120,15 +120,15 @@ export function Lightbox({
 
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
-  
+
   // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
-  
+
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
   // Tracks if the hi-res image has finished decoding to fade it in
-  const [isHighResReady, setIsHighResReady] = useState(false); 
+  const [isHighResReady, setIsHighResReady] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   /* ---------- Navigation Handlers ---------- */
@@ -253,6 +253,24 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
+  // Build the exact payload AddToCollectionModal expects
+  const addToCollectionPayload = useMemo(() => {
+    const siteName = photo?.site?.name ?? null;
+    const locationText = (photo as any)?.site?.location ?? null;
+
+    return {
+      siteImageId: photo?.id ?? null,
+      storagePath: (photo as any)?.storagePath ?? null,
+      imageUrl: mediumPhotoUrl || highResPhotoUrl || (photo as any)?.url || null,
+      siteId: photo?.site?.id ?? null,
+      altText: (photo as any)?.caption ?? siteName ?? "Photo preview",
+      caption: (photo as any)?.caption ?? null,
+      credit: (photo as any)?.author?.name ?? null,
+      siteName,
+      locationText,
+    };
+  }, [photo, mediumPhotoUrl, highResPhotoUrl]);
+
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
@@ -278,8 +296,8 @@ export function Lightbox({
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const link = document.createElement("a");
-    link.href = highResPhotoUrl || photo.url;
-    link.download = `heritage-site-${photo.id}.jpg`;
+    link.href = highResPhotoUrl || (photo as any).url;
+    link.download = `heritage-site-${(photo as any).id}.jpg`;
     link.target = "_blank";
     document.body.appendChild(link);
     link.click();
@@ -302,7 +320,7 @@ export function Lightbox({
       const { scale } = transformRef.current.instance.transformState;
       if (scale > 1.01) return;
     }
-    
+
     if (isZoomed) return;
 
     // 3. DIRECTION & POWER CHECK
@@ -319,7 +337,7 @@ export function Lightbox({
       }
     } else {
       // Vertical Swipe -> Close
-      // User asked for "Swipe Up to Close". 
+      // User asked for "Swipe Up to Close".
       // Moving finger UP creates a NEGATIVE Y offset.
       if (swipeY < -SWIPE_THRESHOLD || offset.y < -100) {
         onClose();
@@ -347,7 +365,7 @@ export function Lightbox({
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
-    
+
     const isNowZoomed = ref.state.scale > 1.01;
     if (isNowZoomed !== isZoomed) {
       setIsZoomed(isNowZoomed);
@@ -360,9 +378,9 @@ export function Lightbox({
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
-    
+
     if (ref.state.scale <= 1.01) {
-      ref.resetTransform(200); 
+      ref.resetTransform(200);
       setIsZoomed(false);
     }
   };
@@ -371,40 +389,43 @@ export function Lightbox({
     e.stopPropagation();
     lastZoomAction.current = Date.now(); // Explicit zoom action blocks swipes
     triggerHighResLoad();
-    
+
     setIsZoomed(true);
 
     // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
-        transformRef.current.zoomIn(0.5, 500); 
+        transformRef.current.zoomIn(0.5, 500);
       }
-    }, 350); 
+    }, 350);
   };
 
   // --- DOUBLE TAP HANDLER (WhatsApp Style) ---
-  const handleDoubleTap = useCallback((e: React.MouseEvent) => {
-    // Prevent default browser behavior if needed, though 'touch-none' handles most
-    if (transformRef.current) {
-      const { scale } = transformRef.current.instance.transformState;
-      
-      // Mark interaction to block swipes
-      lastZoomAction.current = Date.now();
+  const handleDoubleTap = useCallback(
+    (e: React.MouseEvent) => {
+      // Prevent default browser behavior if needed, though 'touch-none' handles most
+      if (transformRef.current) {
+        const { scale } = transformRef.current.instance.transformState;
 
-      // Toggle Logic
-      if (scale > 1.05) { 
-        // If already zoomed -> Reset
-        transformRef.current.resetTransform(300);
-      } else {
-        // If not zoomed -> Zoom In
-        triggerHighResLoad();
-        
-        // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
-        // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
-        transformRef.current.zoomIn(1.5, 300); 
+        // Mark interaction to block swipes
+        lastZoomAction.current = Date.now();
+
+        // Toggle Logic
+        if (scale > 1.05) {
+          // If already zoomed -> Reset
+          transformRef.current.resetTransform(300);
+        } else {
+          // If not zoomed -> Zoom In
+          triggerHighResLoad();
+
+          // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
+          // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
+          transformRef.current.zoomIn(1.5, 300);
+        }
       }
-    }
-  }, [triggerHighResLoad]);
+    },
+    [triggerHighResLoad]
+  );
 
   /* ---------- Helpers ---------- */
   const googleMapsUrl =
@@ -424,8 +445,8 @@ export function Lightbox({
   const taxonomy = photo?.site?.taxonomy;
   const fallbackPills: string[] = useMemo(() => {
     const region = photo?.site?.region ? [photo.site.region] : [];
-    const cats = Array.isArray(photo?.site?.categories)
-      ? photo!.site!.categories
+    const cats = Array.isArray((photo as any)?.site?.categories)
+      ? (photo as any)!.site!.categories
       : [];
     return [...region, ...cats].filter(Boolean) as string[];
   }, [photo?.site]);
@@ -457,7 +478,7 @@ export function Lightbox({
       >
         <AnimatePresence mode="wait">
           <motion.div
-            key={photo?.id}
+            key={(photo as any)?.id}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -482,9 +503,9 @@ export function Lightbox({
                   <h3 className="font-bold text-xl leading-tight">
                     {photo?.site?.name}
                   </h3>
-                  {photo?.site?.location && (
+                  {(photo as any)?.site?.location && (
                     <p className="text-sm text-gray-300 mt-1 flex items-center">
-                      {photo.site.location}
+                      {(photo as any).site.location}
                       {/* GPS Button Inline */}
                       {googleMapsUrl && (
                         <a
@@ -502,10 +523,7 @@ export function Lightbox({
                   )}
                 </div>
                 <div className="text-right shrink-0 flex items-center justify-end">
-                  <p className="text-xs text-gray-400">
-                    {/* --- SIMPLIFIED AUTHOR CREDIT --- */}
-                    {PHOTO_CREDIT}
-                  </p>
+                  <p className="text-xs text-gray-400">{PHOTO_CREDIT}</p>
                 </div>
               </div>
             </div>
@@ -536,23 +554,23 @@ export function Lightbox({
               >
                 <CollectHeart
                   variant="overlay"
-                  siteImageId={photo.id}
-                  storagePath={photo.storagePath}
+                  siteImageId={(photo as any).id}
+                  storagePath={(photo as any).storagePath}
                   siteId={photo.site?.id ?? ""}
-                  caption={photo.caption}
-                  credit={photo.author?.name}
+                  caption={(photo as any).caption}
+                  credit={(photo as any)?.author?.name}
                 />
               </div>
 
               {/* BlurHash Background */}
-              {photo?.blurHash && (
+              {(photo as any)?.blurHash && (
                 <div
                   className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${
                     isImageLoaded ? "opacity-0" : "opacity-100"
                   }`}
                 >
                   <BlurhashPlaceholder
-                    hash={photo.blurHash}
+                    hash={(photo as any).blurHash}
                     aspectRatio={aspectRatio}
                   />
                 </div>
@@ -575,16 +593,22 @@ export function Lightbox({
               >
                 <TransformComponent
                   wrapperStyle={{ width: "100%", height: "100%" }}
-                  contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  contentStyle={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <div 
+                  <div
                     className="relative w-full h-full flex items-center justify-center"
                     onDoubleClick={handleDoubleTap}
                   >
                     {/* LAYER 1: MEDIUM RES (Always Visible as Base) */}
                     <NextImage
                       src={mediumPhotoUrl || ""}
-                      alt={photo?.caption ?? ""}
+                      alt={(photo as any)?.caption ?? ""}
                       fill
                       unoptimized
                       sizes="100vw"
@@ -600,7 +624,7 @@ export function Lightbox({
                     {showHighRes && (
                       <NextImage
                         src={highResPhotoUrl || ""}
-                        alt={photo?.caption ?? ""}
+                        alt={(photo as any)?.caption ?? ""}
                         fill
                         unoptimized
                         sizes="100vw"
@@ -643,9 +667,7 @@ export function Lightbox({
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    <span className="text-xs font-medium">
-                      Loading High Res
-                    </span>
+                    <span className="text-xs font-medium">Loading High Res</span>
                   </div>
                 </div>
               )}
@@ -676,9 +698,9 @@ export function Lightbox({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex-1">
-                {photo?.caption && (
+                {(photo as any)?.caption && (
                   <p className="text-sm text-gray-200 italic leading-snug">
-                    {photo.caption}
+                    {(photo as any).caption}
                   </p>
                 )}
               </div>
@@ -696,7 +718,7 @@ export function Lightbox({
                     className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAddToCollection(photo);
+                      onAddToCollection(addToCollectionPayload as any);
                     }}
                   >
                     Add to Collection
@@ -721,9 +743,9 @@ export function Lightbox({
               <div className="text-white space-y-4">
                 <div>
                   <h3 className="font-bold text-xl">{photo?.site?.name}</h3>
-                  {photo?.site?.location && (
+                  {(photo as any)?.site?.location && (
                     <p className="text-sm text-gray-300 flex items-center">
-                      {photo.site.location}
+                      {(photo as any).site.location}
                       {/* GPS Button Inline */}
                       {googleMapsUrl && (
                         <a
@@ -739,16 +761,14 @@ export function Lightbox({
                       )}
                     </p>
                   )}
-                  <p className="text-sm text-gray-400 mt-1">
-                    {/* --- SIMPLIFIED AUTHOR CREDIT --- */}
-                    {PHOTO_CREDIT}
-                  </p>
-                  {photo?.caption && (
+                  <p className="text-sm text-gray-400 mt-1">{PHOTO_CREDIT}</p>
+                  {(photo as any)?.caption && (
                     <p className="text-sm text-gray-200 mt-2 italic">
-                      {photo.caption}
+                      {(photo as any).caption}
                     </p>
                   )}
                 </div>
+
                 {/* Taxonomy Pills */}
                 <div>
                   {hasStructuredTaxonomy ? (
@@ -800,12 +820,13 @@ export function Lightbox({
                     </div>
                   )}
                 </div>
+
                 {/* Bottom Actions Bar */}
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onAddToCollection && (
                     <button
                       className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 cursor-pointer"
-                      onClick={() => onAddToCollection(photo)}
+                      onClick={() => onAddToCollection(addToCollectionPayload as any)}
                     >
                       Add to Collection
                     </button>

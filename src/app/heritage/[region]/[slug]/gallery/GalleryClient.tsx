@@ -599,6 +599,11 @@ export default function GalleryClient({
             altText: selectedPhoto.caption ?? null,
             caption: selectedPhoto.caption ?? null,
             credit: selectedPhoto.author?.name ?? null,
+
+            // ✅ ADDED: pass through site title + location for preview
+            siteName: selectedPhoto.site?.name ?? site?.title ?? null,
+            locationText:
+              (selectedPhoto as any)?.site?.location ?? site?.location_free ?? null,
           }}
           onClose={() => setCollectionModalOpen(false)}
         />
