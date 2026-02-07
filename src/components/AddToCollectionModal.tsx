@@ -380,7 +380,7 @@ export default function AddToCollectionModal({
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Create New
               </label>
-              <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/50 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+              <div className="border border-gray-200 rounded-2xl p-3 bg-gray-100 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
                 <input
                   type="text"
                   placeholder="Collection Name"
@@ -419,7 +419,7 @@ export default function AddToCollectionModal({
                 Your Collections
               </label>
 
-              <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-50/50 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-100 overflow-hidden">
                 <div className="shrink-0 p-3 pb-0">
                   <div className="relative group">
                     <Icon
