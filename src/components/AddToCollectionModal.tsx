@@ -702,7 +702,7 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Center toast with quick slide/fade in, then quick fade out */}
+      {/* Center toast with quifck slide/fade in, then quick fade out */}
       {toastMsg && (
         <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
           <div className="px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-md w-max animate-in fade-in slide-in-from-bottom-4 duration-200">
