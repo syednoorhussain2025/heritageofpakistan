@@ -77,8 +77,8 @@ export default function AddToCollectionModal({
   const [newName, setNewName] = useState("");
   const [privacy, setPrivacy] = useState<"private" | "public">("private");
   const [busyCreate, setBusyCreate] = useState(false);
-  
-  // New Dialog State
+
+  // New Dialogue State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Membership + item UI states
@@ -160,8 +160,8 @@ export default function AddToCollectionModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (isCreateOpen) {
-          setIsCreateOpen(false);
-          return;
+            setIsCreateOpen(false);
+            return;
         }
         if (collectionToDelete) setCollectionToDelete(null);
         else requestClose();
@@ -237,9 +237,8 @@ export default function AddToCollectionModal({
       });
 
       setNewName("");
+      setIsCreateOpen(false); // Close the dialogue
       showToast(`Photo added to Collection '${name}'`);
-      // Close the create dialog
-      setIsCreateOpen(false);
     } catch (e) {
       console.error(e);
       alert(`Could not create collection: ${errText(e)}`);
@@ -525,6 +524,8 @@ export default function AddToCollectionModal({
                 </div>
               )}
 
+              {/* 1. Create New Section Removed from here */}
+
               {/* 2. Search & List Section */}
               <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
@@ -656,14 +657,12 @@ export default function AddToCollectionModal({
 
           {/* Footer */}
           <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
-            {/* New Button */}
             <button
                 onClick={() => setIsCreateOpen(true)}
                 className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
             >
                 Create New Collection
             </button>
-
             <button
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
