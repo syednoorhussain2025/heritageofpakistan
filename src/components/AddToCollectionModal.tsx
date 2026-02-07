@@ -57,27 +57,6 @@ function Spinner({
   );
 }
 
-/* -------------------- Robust identity + guards -------------------- */
-
-function normalizeIdentity(image: ImageIdentity): ImageIdentity {
-  // Ensure we never accidentally use a transformed/variant URL as identity
-  // Prefer stable keys: siteImageId > storagePath > imageUrl (stripped)
-  const cleanedUrl = image.imageUrl
-    ? image.imageUrl.split("?")[0] // drop query params to avoid signed/variant differences
-    : null;
-
-  return {
-    ...image,
-    siteImageId: image.siteImageId ?? null,
-    storagePath: image.storagePath ?? null,
-    imageUrl: cleanedUrl,
-  };
-}
-
-function hasValidIdentity(image: ImageIdentity) {
-  return !!(image.siteImageId || image.storagePath || image.imageUrl);
-}
-
 export default function AddToCollectionModal({
   image,
   onClose,
@@ -85,8 +64,6 @@ export default function AddToCollectionModal({
   image: ImageIdentity;
   onClose: () => void;
 }) {
-  const stableImage = useMemo(() => normalizeIdentity(image), [image]);
-
   // Mount/fade animation
   const [isOpen, setIsOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -122,38 +99,25 @@ export default function AddToCollectionModal({
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
-  // Prevent stale updates after unmount or image change
-  const aliveRef = useRef(true);
-  useEffect(() => {
-    aliveRef.current = true;
-    return () => {
-      aliveRef.current = false;
-    };
-  }, []);
-
-  // Sequence guard: ignore late responses from earlier loads
-  const loadSeqRef = useRef(0);
-
-  // Per-collection request guard to avoid race conditions on rapid clicks
-  const pendingByCollectionRef = useRef<Record<string, number>>({});
-
   // 2. CALCULATE PREVIEW URL (MD VARIANT)
   const previewUrl = useMemo(() => {
-    if (stableImage.storagePath) {
+    if (image.storagePath) {
       try {
-        return getVariantPublicUrl(stableImage.storagePath, "md");
-      } catch {
-        return stableImage.imageUrl;
+        return getVariantPublicUrl(image.storagePath, "md");
+      } catch (e) {
+        // Fallback if helper fails
+        return image.imageUrl;
       }
     }
-    return stableImage.imageUrl;
-  }, [stableImage.storagePath, stableImage.imageUrl]);
+    return image.imageUrl;
+  }, [image.storagePath, image.imageUrl]);
 
-  const previewTitle = stableImage.siteName?.trim() || "";
-  const previewLocation = stableImage.locationText?.trim() || "";
-  const previewCaption = stableImage.caption?.trim() || "";
-  const previewAlt = stableImage.altText?.trim() || previewTitle || "Photo preview";
-
+  const previewTitle = image.siteName?.trim() || "";
+  const previewLocation = image.locationText?.trim() || "";
+  const previewCaption = image.caption?.trim() || "";
+  const previewAlt = image.altText?.trim() || previewTitle || "Photo preview";
+  
+  // 3. CHECK IF WE HAVE A URL
   const hasPreview = !!previewUrl;
 
   // Fade in when mounted
@@ -162,17 +126,10 @@ export default function AddToCollectionModal({
     return () => clearTimeout(t);
   }, []);
 
-  // Cleanup toast timer on unmount
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    };
-  }, []);
-
   // Reset preview loading when image changes
   useEffect(() => {
     setPreviewLoaded(false);
-  }, [previewUrl]);
+  }, [previewUrl]); // Watch previewUrl instead of imageUrl
 
   // Preload preview image as early as possible
   useEffect(() => {
@@ -181,12 +138,9 @@ export default function AddToCollectionModal({
     const img = new window.Image();
     img.decoding = "async";
     (img as any).fetchPriority = "high";
-    img.src = previewUrl;
+    img.src = previewUrl; // Use derived MD url
 
-    const done = () => {
-      if (!aliveRef.current) return;
-      setPreviewLoaded(true);
-    };
+    const done = () => setPreviewLoaded(true);
     img.onload = done;
     img.onerror = done;
 
@@ -206,8 +160,8 @@ export default function AddToCollectionModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (isCreateOpen) {
-          setIsCreateOpen(false);
-          return;
+            setIsCreateOpen(false);
+            return;
         }
         if (collectionToDelete) setCollectionToDelete(null);
         else requestClose();
@@ -224,41 +178,20 @@ export default function AddToCollectionModal({
 
   // Load collections + membership for this photo
   useEffect(() => {
-    const seq = ++loadSeqRef.current;
-
     (async () => {
       setLoading(true);
-
-      // If identity is missing, do not call membership APIs
-      if (!hasValidIdentity(stableImage)) {
-        if (!aliveRef.current || loadSeqRef.current !== seq) return;
-        setCollections([]);
-        setSelected(new Set());
-        setLoading(false);
-        return;
-      }
-
       try {
         const [cols, mem] = await Promise.all([
           listPhotoCollections(),
-          getCollectionsMembership(stableImage),
+          getCollectionsMembership(image),
         ]);
-
-        if (!aliveRef.current || loadSeqRef.current !== seq) return;
         setCollections(cols);
         setSelected(mem);
-      } catch (e) {
-        console.error(e);
-        if (!aliveRef.current || loadSeqRef.current !== seq) return;
-        setCollections([]);
-        setSelected(new Set());
-        showToast("Failed to load collections");
       } finally {
-        if (!aliveRef.current || loadSeqRef.current !== seq) return;
         setLoading(false);
       }
     })();
-  }, [stableImage]);
+  }, [image]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -283,7 +216,6 @@ export default function AddToCollectionModal({
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
 
     toastTimerRef.current = window.setTimeout(() => {
-      if (!aliveRef.current) return;
       setToastMsg(null);
       toastTimerRef.current = null;
     }, 1200);
@@ -292,22 +224,10 @@ export default function AddToCollectionModal({
   async function handleCreate() {
     const name = newName.trim();
     if (!name) return;
-
-    if (!hasValidIdentity(stableImage)) {
-      showToast("Cannot add: photo identity missing");
-      return;
-    }
-
-    if (busyCreate) return;
     setBusyCreate(true);
-
     try {
       const c = await createPhotoCollection(name, privacy === "public");
-
-      // Add current photo to new collection
-      await toggleImageInCollection(c.id, stableImage, false);
-
-      if (!aliveRef.current) return;
+      await toggleImageInCollection(c.id, image, false);
 
       setCollections((prev) => [{ ...c, itemCount: 1, coverUrl: null }, ...prev]);
       setSelected((prev) => {
@@ -317,13 +237,12 @@ export default function AddToCollectionModal({
       });
 
       setNewName("");
-      setIsCreateOpen(false);
+      setIsCreateOpen(false); // Close the dialogue
       showToast(`Photo added to Collection '${name}'`);
     } catch (e) {
       console.error(e);
       alert(`Could not create collection: ${errText(e)}`);
     } finally {
-      if (!aliveRef.current) return;
       setBusyCreate(false);
     }
   }
@@ -336,22 +255,9 @@ export default function AddToCollectionModal({
   }
 
   async function toggleMembership(collectionId: string, collectionName: string) {
-    if (!hasValidIdentity(stableImage)) {
-      showToast("Cannot add: photo identity missing");
-      return;
-    }
-
-    // Prevent double toggles on the same collection
-    if (toggling === collectionId) return;
-
     const isOn = selected.has(collectionId);
     setToggling(collectionId);
 
-    // request token for this collection to avoid race conditions
-    const token = (pendingByCollectionRef.current[collectionId] || 0) + 1;
-    pendingByCollectionRef.current[collectionId] = token;
-
-    // Optimistic UI
     setSelected((prev) => {
       const next = new Set(prev);
       if (isOn) next.delete(collectionId);
@@ -379,15 +285,8 @@ export default function AddToCollectionModal({
     );
 
     try {
-      await toggleImageInCollection(collectionId, stableImage, isOn);
-
-      // Ignore late completion if a newer request exists
-      if (pendingByCollectionRef.current[collectionId] !== token) return;
+      await toggleImageInCollection(collectionId, image, isOn);
     } catch (e) {
-      // Ignore late failure if a newer request exists
-      if (pendingByCollectionRef.current[collectionId] !== token) return;
-
-      // Revert selection on error
       setSelected((prev) => {
         const next = new Set(prev);
         if (isOn) next.add(collectionId);
@@ -395,7 +294,6 @@ export default function AddToCollectionModal({
         return next;
       });
 
-      // Revert count on error
       setCollections((prev) =>
         prev.map((c) => {
           if (c.id === collectionId) {
@@ -412,12 +310,7 @@ export default function AddToCollectionModal({
       console.error(e);
       showToast(`Failed to update ${collectionName}`);
     } finally {
-      // Only clear toggling if this is the latest token
-      if (pendingByCollectionRef.current[collectionId] === token) {
-        pendingByCollectionRef.current[collectionId] = token;
-        if (!aliveRef.current) return;
-        setToggling(null);
-      }
+      setToggling(null);
     }
   }
 
@@ -428,16 +321,11 @@ export default function AddToCollectionModal({
   async function confirmDelete() {
     if (!collectionToDelete) return;
 
-    if (isDeleting) return;
     setIsDeleting(true);
-
     const { id, name } = collectionToDelete;
 
     try {
       await deletePhotoCollection(id);
-
-      if (!aliveRef.current) return;
-
       setCollections((prev) => prev.filter((c) => c.id !== id));
       setSelected((prev) => {
         const next = new Set(prev);
@@ -450,12 +338,9 @@ export default function AddToCollectionModal({
       console.error(e);
       alert(`Could not delete collection: ${errText(e)}`);
     } finally {
-      if (!aliveRef.current) return;
       setIsDeleting(false);
     }
   }
-
-  const identityOk = hasValidIdentity(stableImage);
 
   return (
     <>
@@ -525,16 +410,9 @@ export default function AddToCollectionModal({
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
               </div>
-              <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Add Photo to Collection
-                </h2>
-                {!identityOk && (
-                  <span className="text-xs text-red-500 mt-0.5">
-                    This photo cannot be added because its identity is missing
-                  </span>
-                )}
-              </div>
+              <h2 className="text-xl font-bold text-gray-900">
+                Add Photo to Collection
+              </h2>
             </div>
 
             <button
@@ -559,10 +437,10 @@ export default function AddToCollectionModal({
                       </div>
                     )}
                     <NextImage
-                      src={previewUrl as string}
+                      src={previewUrl as string} // 4. USE MD PREVIEW URL
                       alt={previewAlt}
                       fill
-                      unoptimized
+                      unoptimized // ADDED UNOPTIMIZED
                       className={`object-cover transition-opacity duration-300 ${
                         previewLoaded ? "opacity-100" : "opacity-0"
                       }`}
@@ -608,10 +486,10 @@ export default function AddToCollectionModal({
                         </div>
                       )}
                       <NextImage
-                        src={previewUrl as string}
+                        src={previewUrl as string} // 5. USE MD PREVIEW URL
                         alt={previewAlt}
                         fill
-                        unoptimized
+                        unoptimized // ADDED UNOPTIMIZED
                         className={`object-cover transition-opacity duration-300 ${
                           previewLoaded ? "opacity-100" : "opacity-0"
                         }`}
@@ -645,6 +523,8 @@ export default function AddToCollectionModal({
                   </div>
                 </div>
               )}
+
+              {/* 1. Create New Section Removed from here */}
 
               {/* 2. Search & List Section */}
               <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
@@ -708,13 +588,8 @@ export default function AddToCollectionModal({
                                 isOn
                                   ? "bg-orange-50/50 border-orange-200"
                                   : "bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm"
-                              } ${(!identityOk || isBusy) ? "opacity-90" : ""}`}
-                              onClick={() => {
-                                if (!identityOk) return;
-                                if (isBusy) return;
-                                toggleMembership(c.id, c.name);
-                              }}
-                              aria-disabled={!identityOk || isBusy}
+                              }`}
+                              onClick={() => toggleMembership(c.id, c.name)}
                             >
                               <div
                                 className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all ${
@@ -726,7 +601,11 @@ export default function AddToCollectionModal({
                                 {toggling === c.id ? (
                                   <Spinner
                                     size={16}
-                                    className={isOn ? "border-white/70" : "border-gray-400"}
+                                    className={
+                                      isOn
+                                        ? "border-white/70"
+                                        : "border-gray-400"
+                                    }
                                   />
                                 ) : isOn ? (
                                   <Icon name="check" size={16} />
@@ -738,13 +617,17 @@ export default function AddToCollectionModal({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={`font-semibold text-sm truncate ${
-                                    isOn ? "text-[var(--brand-orange)]" : "text-gray-900"
+                                    isOn
+                                      ? "text-[var(--brand-orange)]"
+                                      : "text-gray-900"
                                   }`}
                                 >
                                   {c.name}
                                 </div>
                                 <div className="text-xs text-gray-500 flex items-center gap-1">
-                                  <span>{c.is_public ? "Public" : "Private"}</span>
+                                  <span>
+                                    {c.is_public ? "Public" : "Private"}
+                                  </span>
                                   <span className="text-gray-300">•</span>
                                   <span>{c.itemCount ?? 0} items</span>
                                 </div>
@@ -775,10 +658,10 @@ export default function AddToCollectionModal({
           {/* Footer */}
           <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
             <button
-              onClick={() => setIsCreateOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
             >
-              Create New Collection
+                Create New Collection
             </button>
             <button
               onClick={requestClose}
@@ -800,89 +683,76 @@ export default function AddToCollectionModal({
 
       {/* --- Create New Collection Modal --- */}
       {isCreateOpen && (
-        <div
+        <div 
           className="fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
-          onMouseDown={(e) => {
-            // click outside closes create modal, but do not bubble into parent overlay
-            if (e.target === e.currentTarget) setIsCreateOpen(false);
-          }}
         >
-          <div
-            className="w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">Create Collection</h3>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <Icon name="times" size={20} />
-              </button>
+               <h3 className="text-lg font-bold text-gray-900">Create Collection</h3>
+               <button 
+                 onClick={() => setIsCreateOpen(false)}
+                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+               >
+                 <Icon name="times" size={20} />
+               </button>
             </div>
 
             {/* Content */}
             <div className="p-6 space-y-4 flex-1 overflow-y-auto bg-gray-50/30">
-              {!identityOk && (
-                <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  This photo cannot be added right now because it is missing a stable identity
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                    Collection Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Vacation, Architecture..."
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={handleCreateKeyDown}
+                    autoFocus
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
+                  />
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Collection Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Vacation, Architecture..."
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={handleCreateKeyDown}
-                  autoFocus
-                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Privacy
-                </label>
-                <div className="relative">
-                  <select
-                    value={privacy}
-                    onChange={(e) => setPrivacy(e.target.value as "private" | "public")}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
-                  >
-                    <option value="private">Private (Only you)</option>
-                    <option value="public">Public (Visible to everyone)</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                    <Icon name="chevron-down" size={16} />
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                    Privacy
+                  </label>
+                  <div className="relative">
+                    <select
+                        value={privacy}
+                        onChange={(e) => setPrivacy(e.target.value as "private" | "public")}
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
+                    >
+                        <option value="private">Private (Only you)</option>
+                        <option value="public">Public (Visible to everyone)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                        <Icon name="chevron-down" size={16} />
+                    </div>
                   </div>
                 </div>
-              </div>
             </div>
 
             {/* Footer */}
             <div className="p-6 pt-0 sm:pt-4 sm:border-t sm:border-gray-100 bg-white shrink-0">
-              <button
-                onClick={handleCreate}
-                disabled={busyCreate || !newName.trim() || !identityOk}
-                className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
-              >
-                {busyCreate && <Spinner size={16} className="border-white/80" />}
-                {busyCreate ? "Creating..." : "Create Collection"}
-              </button>
+                <button
+                    onClick={handleCreate}
+                    disabled={busyCreate || !newName.trim()}
+                    className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                >
+                    {busyCreate && <Spinner size={16} className="border-white/80" />}
+                    {busyCreate ? "Creating..." : "Create Collection"}
+                </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Center toast */}
+      {/* Center toast with quifck slide/fade in, then quick fade out */}
       {toastMsg && (
         <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
           <div className="px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-md w-max animate-in fade-in slide-in-from-bottom-4 duration-200">
