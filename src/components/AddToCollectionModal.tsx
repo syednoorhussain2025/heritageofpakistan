@@ -12,7 +12,6 @@ import {
   createPhotoCollection,
   deletePhotoCollection,
 } from "@/lib/photoCollections";
-// 1. IMPORT THE HELPER
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* Match the shape we pass from the Lightbox */
@@ -433,6 +432,7 @@ export default function AddToCollectionModal({
                       src={previewUrl as string} // 4. USE MD PREVIEW URL
                       alt={previewAlt}
                       fill
+                      unoptimized // ADDED UNOPTIMIZED
                       className={`object-cover transition-opacity duration-300 ${
                         previewLoaded ? "opacity-100" : "opacity-0"
                       }`}
@@ -481,6 +481,7 @@ export default function AddToCollectionModal({
                         src={previewUrl as string} // 5. USE MD PREVIEW URL
                         alt={previewAlt}
                         fill
+                        unoptimized // ADDED UNOPTIMIZED
                         className={`object-cover transition-opacity duration-300 ${
                           previewLoaded ? "opacity-100" : "opacity-0"
                         }`}
