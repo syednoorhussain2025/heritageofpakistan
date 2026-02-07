@@ -90,12 +90,37 @@ export default function AddToCollectionModal({
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  // Preview loading (show spinner until image is ready)
+  const [previewLoaded, setPreviewLoaded] = useState(false);
 
   // Fade in when mounted
   useEffect(() => {
     const t = setTimeout(() => setIsOpen(true), 10);
     return () => clearTimeout(t);
   }, []);
+
+  // Reset preview loading state whenever a new image is passed in
+  useEffect(() => {
+    setPreviewLoaded(false);
+  }, [image?.imageUrl]);
+
+  // Preload preview image as early as possible (we already have its URL from lightbox)
+  useEffect(() => {
+    if (!image?.imageUrl) return;
+    const img = new window.Image();
+    img.decoding = "async";
+    img.fetchPriority = "high" as any;
+    img.src = image.imageUrl;
+    const onDone = () => setPreviewLoaded(true);
+    img.onload = onDone;
+    img.onerror = onDone;
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [image?.imageUrl]);
 
   function requestClose() {
     setIsOpen(false);
@@ -162,7 +187,15 @@ export default function AddToCollectionModal({
 
   function showToast(message: string) {
     setToastMsg(message);
-    setTimeout(() => setToastMsg(null), 3500);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMsg(null);
+      toastTimerRef.current = null;
+    }, 1400);
   }
 
   async function handleCreate() {
@@ -317,7 +350,7 @@ export default function AddToCollectionModal({
       >
         {/* Card */}
         <div
-          className={`relative w-full h-[100dvh] sm:h-[620px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
+          className={`relative w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
@@ -366,7 +399,7 @@ export default function AddToCollectionModal({
           )}
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
@@ -386,24 +419,31 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 min-h-0 bg-white overflow-hidden sm:flex sm:gap-6">
+          <div className="flex-1 min-h-0 bg-white overflow-hidden sm:flex sm:gap-4">
             {/* Preview panel (desktop left) */}
             {hasPreview && (
-              <div className="hidden sm:flex sm:flex-col sm:w-[320px] sm:border-r sm:border-gray-100 sm:bg-gray-50/40 sm:px-6 sm:py-6 sm:min-h-0">
+              <div className="hidden sm:flex sm:flex-col sm:w-[300px] sm:border-r sm:border-gray-100 sm:bg-gray-50/30 sm:px-5 sm:py-5 sm:min-h-0">
                 <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
                   <div className="relative w-full aspect-square">
+                    {!previewLoaded && (
+                      <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
+                        <Spinner size={18} className="border-gray-300" />
+                      </div>
+                    )}
                     <NextImage
                       src={image.imageUrl as string}
                       alt={previewAlt}
                       fill
-                      className="object-cover"
-                      sizes="320px"
+                      className={`object-cover transition-opacity duration-300 ${
+                        previewLoaded ? "opacity-100" : "opacity-0"
+                      }`}
+                      sizes="300px"
                       priority
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-1 min-h-0">
+                <div className="mt-3 space-y-1 min-h-0">
                   {(previewTitle || previewLocation) && (
                     <div className="space-y-1">
                       {previewTitle && (
@@ -420,7 +460,7 @@ export default function AddToCollectionModal({
                   )}
 
                   {previewCaption && (
-                    <div className="text-xs text-gray-600 leading-relaxed line-clamp-4">
+                    <div className="text-xs text-gray-600 leading-relaxed line-clamp-3">
                       {previewCaption}
                     </div>
                   )}
@@ -429,17 +469,24 @@ export default function AddToCollectionModal({
             )}
 
             {/* Main content */}
-            <div className="flex-1 flex flex-col min-h-0 px-6 py-6 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 px-6 py-5 overflow-hidden">
               {/* Preview row (mobile top) */}
               {hasPreview && (
-                <div className="sm:hidden shrink-0 mb-5">
+                <div className="sm:hidden shrink-0 mb-4">
                   <div className="flex items-start gap-4">
                     <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm flex-shrink-0">
+                      {!previewLoaded && (
+                        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
+                          <Spinner size={18} className="border-gray-300" />
+                        </div>
+                      )}
                       <NextImage
                         src={image.imageUrl as string}
                         alt={previewAlt}
                         fill
-                        className="object-cover"
+                        className={`object-cover transition-opacity duration-300 ${
+                          previewLoaded ? "opacity-100" : "opacity-0"
+                        }`}
                         sizes="112px"
                         priority
                       />
@@ -472,7 +519,7 @@ export default function AddToCollectionModal({
               )}
 
               {/* 1. Create new collection */}
-              <div className="shrink-0 space-y-2 mb-6">
+              <div className="shrink-0 space-y-2 mb-4">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                   Create New
                 </label>
@@ -533,7 +580,7 @@ export default function AddToCollectionModal({
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-4">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-3">
                     {loading ? (
                       <ul className="space-y-3">
                         {Array.from({ length: 4 }).map((_, i) => (
@@ -585,9 +632,7 @@ export default function AddToCollectionModal({
                                   <Spinner
                                     size={16}
                                     className={
-                                      isOn
-                                        ? "border-white/70"
-                                        : "border-gray-400"
+                                      isOn ? "border-white/70" : "border-gray-400"
                                     }
                                   />
                                 ) : isOn ? (
@@ -608,9 +653,7 @@ export default function AddToCollectionModal({
                                   {c.name}
                                 </div>
                                 <div className="text-xs text-gray-500 flex items-center gap-1">
-                                  <span>
-                                    {c.is_public ? "Public" : "Private"}
-                                  </span>
+                                  <span>{c.is_public ? "Public" : "Private"}</span>
                                   <span className="text-gray-300">•</span>
                                   <span>{c.itemCount ?? 0} items</span>
                                 </div>
@@ -622,7 +665,6 @@ export default function AddToCollectionModal({
                                   requestDelete(c.id, c.name);
                                 }}
                                 disabled={isBusy}
-                                // Updated class: opacity-100 (visible) on mobile, opacity-0 (hidden) on desktop (sm:) until hover
                                 className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                                 title="Delete collection"
                               >
@@ -640,7 +682,7 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
+          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
             <button
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
@@ -659,11 +701,13 @@ export default function AddToCollectionModal({
         </div>
       </div>
 
-      {/* Black toast with updated alignment: Center on Mobile, Right on Desktop */}
+      {/* Center toast: slide + fade in from bottom, then fade out */}
       {toastMsg && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-[9999999999] px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-[90vw] sm:max-w-md w-max">
-          <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
-          <span className="font-medium text-sm truncate">{toastMsg}</span>
+        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
+          <div className="pointer-events-none px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-md w-max animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
+            <span className="font-medium text-sm truncate">{toastMsg}</span>
+          </div>
         </div>
       )}
     </>
