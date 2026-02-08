@@ -467,9 +467,9 @@ export default function AddToCollectionModal({
 
       // Toast sequencing:
       // 1) Collection created
-      // 2) After a short delay, photo added
+      // 2) After a longer delay, photo added
       showToast(`Collection '${name}' Created`);
-      await sleep(750);
+      await sleep(1150);
       showToast(`Photo added to Collection '${name}'`);
     } catch (e) {
       console.error("[AddToCollectionModal] create failed", e, {
@@ -1017,7 +1017,7 @@ export default function AddToCollectionModal({
           >
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
+              className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium cursor-pointer hover:brightness-105 transition-all shadow-sm active:scale-95 text-sm"
             >
               Create New Collection
             </button>
@@ -1026,7 +1026,7 @@ export default function AddToCollectionModal({
               href="/dashboard/mycollections"
               target="_blank"
               onClick={requestClose}
-              className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium hover:bg-black transition-all shadow-lg shadow-gray-200 text-sm"
+              className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium cursor-pointer hover:brightness-110 transition-all shadow-lg shadow-gray-200 text-sm"
             >
               My Collections
             </Link>
@@ -1122,7 +1122,7 @@ export default function AddToCollectionModal({
               <button
                 onClick={handleCreate}
                 disabled={busyCreate || !newName.trim() || !identityOk}
-                className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-105 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
               >
                 {busyCreate && <Spinner size={16} className="border-white/80" />}
                 {busyCreate ? "Creating..." : "Create Collection"}
