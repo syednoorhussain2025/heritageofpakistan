@@ -112,6 +112,34 @@ function Spinner({
   );
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isNoSwipeTarget(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+
+  // Anything inside these should not trigger swipe-to-close
+  if (el.closest("[data-noswipe='true']")) return true;
+
+  // Common interactive elements
+  if (
+    el.closest(
+      "button, a, input, textarea, select, option, label, summary, details"
+    )
+  ) {
+    return true;
+  }
+
+  // Contenteditable or role-based controls
+  if (el.closest("[contenteditable='true'], [role='button'], [role='link']")) {
+    return true;
+  }
+
+  return false;
+}
+
 export default function AddToCollectionModal({
   image,
   onClose,
@@ -121,7 +149,7 @@ export default function AddToCollectionModal({
 }) {
   const stableImage = useMemo(() => normalizeIdentity(image), [image]);
 
-  // Mount/fade animation
+  // Mount/fade animation (main modal)
   const [isOpen, setIsOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,6 +165,10 @@ export default function AddToCollectionModal({
 
   // New Dialogue State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Create modal fade animation (match main modal behavior)
+  const [isCreateVisible, setIsCreateVisible] = useState(false);
+  const [isCreateAnimatingOpen, setIsCreateAnimatingOpen] = useState(false);
 
   // Membership + item UI states
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -169,6 +201,23 @@ export default function AddToCollectionModal({
 
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
+
+  // Swipe-to-close (main modal) state
+  const swipeStartRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    startedOnNoSwipe: boolean;
+  }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    startedOnNoSwipe: false,
+  });
 
   // CALCULATE PREVIEW URL (MD VARIANT) from stableImage.storagePath
   const previewUrl = useMemo(() => {
@@ -222,11 +271,34 @@ export default function AddToCollectionModal({
     setTimeout(() => onClose(), 250);
   }
 
+  function requestCreateClose() {
+    setIsCreateAnimatingOpen(false);
+    window.setTimeout(() => {
+      setIsCreateVisible(false);
+      setIsCreateOpen(false);
+    }, 250);
+  }
+
+  // Sync create modal visibility + fade animation
+  useEffect(() => {
+    if (isCreateOpen) {
+      setIsCreateVisible(true);
+      const t = window.setTimeout(() => setIsCreateAnimatingOpen(true), 10);
+      return () => window.clearTimeout(t);
+    } else {
+      setIsCreateAnimatingOpen(false);
+      if (isCreateVisible) {
+        const t = window.setTimeout(() => setIsCreateVisible(false), 250);
+        return () => window.clearTimeout(t);
+      }
+    }
+  }, [isCreateOpen, isCreateVisible]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (isCreateOpen) {
-          setIsCreateOpen(false);
+          requestCreateClose();
           return;
         }
         if (collectionToDelete) setCollectionToDelete(null);
@@ -391,7 +463,13 @@ export default function AddToCollectionModal({
       });
 
       setNewName("");
-      setIsCreateOpen(false);
+      requestCreateClose();
+
+      // Toast sequencing:
+      // 1) Collection created
+      // 2) After a short delay, photo added
+      showToast(`Collection '${name}' Created`);
+      await sleep(750);
       showToast(`Photo added to Collection '${name}'`);
     } catch (e) {
       console.error("[AddToCollectionModal] create failed", e, {
@@ -535,6 +613,45 @@ export default function AddToCollectionModal({
     }
   }
 
+  // Swipe up to close (mobile) when starting on non functional areas
+  function onCardTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    if (e.touches.length !== 1) return;
+
+    const t = e.touches[0];
+    swipeStartRef.current = {
+      active: true,
+      startX: t.clientX,
+      startY: t.clientY,
+      lastX: t.clientX,
+      lastY: t.clientY,
+      startedOnNoSwipe: isNoSwipeTarget(e.target),
+    };
+  }
+
+  function onCardTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (!swipeStartRef.current.active) return;
+    if (e.touches.length !== 1) return;
+
+    const t = e.touches[0];
+    swipeStartRef.current.lastX = t.clientX;
+    swipeStartRef.current.lastY = t.clientY;
+  }
+
+  function onCardTouchEnd() {
+    const s = swipeStartRef.current;
+    swipeStartRef.current.active = false;
+
+    if (s.startedOnNoSwipe) return;
+
+    const dx = s.lastX - s.startX;
+    const dy = s.startY - s.lastY; // positive when swiping up
+
+    // Require mostly vertical, meaningful swipe up
+    if (dy > 90 && Math.abs(dx) < 60) {
+      requestClose();
+    }
+  }
+
   const identityOk = hasValidIdentity(stableImage);
 
   return (
@@ -557,6 +674,9 @@ export default function AddToCollectionModal({
               : "opacity-0 scale-95 translate-y-4"
           }`}
           onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={onCardTouchStart}
+          onTouchMove={onCardTouchMove}
+          onTouchEnd={onCardTouchEnd}
         >
           {/* --- Delete Confirmation Overlay (Internal) --- */}
           {collectionToDelete && (
@@ -600,7 +720,10 @@ export default function AddToCollectionModal({
           )}
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div
+            className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0"
+            data-noswipe="true"
+          >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
                 <Icon name="retro" className="text-[var(--brand-orange)]" />
@@ -679,7 +802,7 @@ export default function AddToCollectionModal({
             <div className="flex-1 flex flex-col min-h-0 px-6 py-5 overflow-hidden">
               {/* Preview row (mobile top) */}
               {hasPreview && (
-                <div className="sm:hidden shrink-0 mb-4">
+                <div className="sm:hidden shrink-0 mb-4" data-noswipe="true">
                   <div className="flex items-start gap-4">
                     <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm flex-shrink-0">
                       {!previewLoaded && (
@@ -733,7 +856,7 @@ export default function AddToCollectionModal({
                 </label>
 
                 <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-100 overflow-hidden">
-                  <div className="shrink-0 p-3 pb-0">
+                  <div className="shrink-0 p-3 pb-0" data-noswipe="true">
                     <div className="relative group">
                       <Icon
                         name="search"
@@ -750,7 +873,10 @@ export default function AddToCollectionModal({
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-scroll sm:overflow-y-auto custom-scrollbar p-3 pt-3 overscroll-contain touch-pan-y">
+                  <div
+                    className="flex-1 overflow-y-scroll sm:overflow-y-auto custom-scrollbar p-3 pt-3 overscroll-contain touch-pan-y"
+                    data-noswipe="true"
+                  >
                     {loading ? (
                       <div className="relative">
                         <ul className="space-y-3">
@@ -885,7 +1011,10 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md">
+          <div
+            className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md"
+            data-noswipe="true"
+          >
             <button
               onClick={() => setIsCreateOpen(true)}
               className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium hover:brightness-95 transition-all shadow-sm active:scale-95 text-sm"
@@ -913,25 +1042,32 @@ export default function AddToCollectionModal({
       </div>
 
       {/* --- Create New Collection Modal --- */}
-      {isCreateOpen && (
+      {isCreateVisible && (
         <div
-          className="fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
+          className={`fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 transition-opacity duration-300 ${
+            isCreateAnimatingOpen ? "opacity-100" : "opacity-0"
+          }`}
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setIsCreateOpen(false);
+            if (e.target === e.currentTarget) requestCreateClose();
           }}
         >
           <div
-            className="w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            className={`w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform ${
+              isCreateAnimatingOpen
+                ? "opacity-100 scale-100 translate-y-0"
+                : "opacity-0 scale-95 translate-y-4"
+            }`}
             onMouseDown={(e) => e.stopPropagation()}
+            data-noswipe="true"
           >
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-gray-900">
                 Create Collection
               </h3>
               <button
-                onClick={() => setIsCreateOpen(false)}
+                onClick={requestCreateClose}
                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <Icon name="times" size={20} />
