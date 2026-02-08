@@ -151,7 +151,9 @@ export default function AddToCollectionModal({
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
+  const toastCleanupRef = useRef<number | null>(null);
 
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
@@ -271,12 +273,21 @@ export default function AddToCollectionModal({
 
   function showToast(message: string) {
     setToastMsg(message);
+    setToastOpen(false);
 
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+
+    // trigger slide-in after mount
+    window.requestAnimationFrame(() => setToastOpen(true));
 
     toastTimerRef.current = window.setTimeout(() => {
-      setToastMsg(null);
-      toastTimerRef.current = null;
+      setToastOpen(false);
+      toastCleanupRef.current = window.setTimeout(() => {
+        setToastMsg(null);
+        toastTimerRef.current = null;
+        toastCleanupRef.current = null;
+      }, 220);
     }, 1200);
   }
 
@@ -526,7 +537,7 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 min-h-0 bg-white overflow-hidden sm:flex sm:gap-3">
+          <div className="flex-1 min-h-0 bg-white overflow-hidden flex flex-col sm:flex-row sm:gap-3">
             {/* Preview panel (desktop left) */}
             {hasPreview && (
               <div className="hidden sm:flex sm:flex-col sm:w-[300px] sm:border-r sm:border-gray-100 sm:bg-gray-50/30 sm:px-5 sm:py-5 sm:min-h-0">
@@ -649,22 +660,11 @@ export default function AddToCollectionModal({
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pt-3">
+                  <div className="flex-1 overflow-y-scroll sm:overflow-y-auto custom-scrollbar p-3 pt-3 overscroll-contain touch-pan-y">
                     {loading ? (
-                      <ul className="space-y-3">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                          <li
-                            key={i}
-                            className="flex items-center gap-4 p-3 border border-gray-100 rounded-2xl bg-white"
-                          >
-                            <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse" />
-                            <div className="flex-1 space-y-2">
-                              <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse" />
-                              <div className="h-2 bg-gray-100 rounded w-1/4 animate-pulse" />
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="h-full min-h-[140px] flex items-center justify-center">
+                        <Spinner size={18} className="border-gray-300" />
+                      </div>
                     ) : filtered.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                         <Icon
@@ -690,7 +690,9 @@ export default function AddToCollectionModal({
                               }`}
                               onClick={() => {
                                 if (!identityOk) {
-                                  showToast("Cannot add this photo (missing identity)");
+                                  showToast(
+                                    "Cannot add this photo (missing identity)"
+                                  );
                                   return;
                                 }
                                 if (!isBusy) toggleMembership(c.id, c.name);
@@ -706,7 +708,11 @@ export default function AddToCollectionModal({
                                 {toggling === c.id ? (
                                   <Spinner
                                     size={16}
-                                    className={isOn ? "border-white/70" : "border-gray-400"}
+                                    className={
+                                      isOn
+                                        ? "border-white/70"
+                                        : "border-gray-400"
+                                    }
                                   />
                                 ) : isOn ? (
                                   <Icon name="check" size={16} />
@@ -718,13 +724,17 @@ export default function AddToCollectionModal({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={`font-semibold text-sm truncate ${
-                                    isOn ? "text-[var(--brand-orange)]" : "text-gray-900"
+                                    isOn
+                                      ? "text-[var(--brand-orange)]"
+                                      : "text-gray-900"
                                   }`}
                                 >
                                   {c.name}
                                 </div>
                                 <div className="text-xs text-gray-500 flex items-center gap-1">
-                                  <span>{c.is_public ? "Public" : "Private"}</span>
+                                  <span>
+                                    {c.is_public ? "Public" : "Private"}
+                                  </span>
                                   <span className="text-gray-300">•</span>
                                   <span>{c.itemCount ?? 0} items</span>
                                 </div>
@@ -760,12 +770,7 @@ export default function AddToCollectionModal({
             >
               Create New Collection
             </button>
-            <button
-              onClick={requestClose}
-              className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
-            >
-              Close
-            </button>
+
             <Link
               href="/dashboard/mycollections"
               target="_blank"
@@ -774,6 +779,13 @@ export default function AddToCollectionModal({
             >
               My Collections
             </Link>
+
+            <button
+              onClick={requestClose}
+              className="hidden sm:inline-flex px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
@@ -793,7 +805,9 @@ export default function AddToCollectionModal({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">Create Collection</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                Create Collection
+              </h3>
               <button
                 onClick={() => setIsCreateOpen(false)}
                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
@@ -831,7 +845,9 @@ export default function AddToCollectionModal({
                 <div className="relative">
                   <select
                     value={privacy}
-                    onChange={(e) => setPrivacy(e.target.value as "private" | "public")}
+                    onChange={(e) =>
+                      setPrivacy(e.target.value as "private" | "public")
+                    }
                     className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
                   >
                     <option value="private">Private (Only you)</option>
@@ -860,9 +876,18 @@ export default function AddToCollectionModal({
 
       {toastMsg && (
         <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
-          <div className="px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-md w-max animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="w-2 h-2 rounded-full bg-[var(--brand-orange)] shrink-0" />
-            <span className="font-medium text-sm truncate">{toastMsg}</span>
+          <div
+            className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
+            style={{
+              transform: toastOpen ? "translateY(0)" : "translateY(16px)",
+              opacity: toastOpen ? 1 : 0,
+              transition: "transform 220ms ease, opacity 220ms ease",
+            }}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-orange)] shrink-0" />
+            <span className="font-medium text-[15px] leading-tight truncate">
+              {toastMsg}
+            </span>
           </div>
         </div>
       )}
