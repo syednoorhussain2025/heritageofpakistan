@@ -151,6 +151,9 @@ export default function AddToCollectionModal({
   const [flipAnimating, setFlipAnimating] = useState(false);
   const flipTimerRef = useRef<number | null>(null);
 
+  // Keep the "promoted" item above others during the move
+  const [movingId, setMovingId] = useState<string | null>(null);
+
   // Delete Confirmation State
   const [collectionToDelete, setCollectionToDelete] = useState<{
     id: string;
@@ -281,6 +284,7 @@ export default function AddToCollectionModal({
 
         flipTimerRef.current = window.setTimeout(() => {
           setFlipAnimating(false);
+          setMovingId(null);
           flipTimerRef.current = null;
         }, 1200);
       });
@@ -452,6 +456,7 @@ export default function AddToCollectionModal({
 
       // after a short beat, reorder with a smooth move animation
       window.setTimeout(() => {
+        setMovingId(collectionId);
         runFlipReorder(() => {
           setSortSelected(new Set(nextSelected));
         });
@@ -493,6 +498,7 @@ export default function AddToCollectionModal({
 
       // keep sort consistent with reverted selected
       setSortSelected((prev) => new Set(prev));
+      setMovingId(null);
     }
   }
 
@@ -795,10 +801,14 @@ export default function AddToCollectionModal({
                                   : "bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm"
                               }`}
                               style={{
-                                transform: dy ? `translateY(${dy}px)` : undefined,
+                                transform: dy
+                                  ? `translateY(${dy}px)`
+                                  : undefined,
                                 transition: flipAnimating
                                   ? "transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)"
                                   : "none",
+                                zIndex:
+                                  flipAnimating && movingId === c.id ? 20 : 0,
                               }}
                               onClick={() => {
                                 if (!identityOk) {
