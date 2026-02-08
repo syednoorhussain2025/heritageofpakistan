@@ -142,6 +142,15 @@ export default function AddToCollectionModal({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toggling, setToggling] = useState<string | null>(null);
 
+  // Smooth reorder: sort uses this set, not `selected` directly
+  const [sortSelected, setSortSelected] = useState<Set<string>>(new Set());
+
+  // FLIP animation state for list item movement
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [flipMap, setFlipMap] = useState<Record<string, number>>({});
+  const [flipAnimating, setFlipAnimating] = useState(false);
+  const flipTimerRef = useRef<number | null>(null);
+
   // Delete Confirmation State
   const [collectionToDelete, setCollectionToDelete] = useState<{
     id: string;
@@ -230,6 +239,54 @@ export default function AddToCollectionModal({
     if (e.target === overlayRef.current) requestClose();
   }
 
+  function runFlipReorder(updateSort: () => void) {
+    if (flipTimerRef.current) {
+      window.clearTimeout(flipTimerRef.current);
+      flipTimerRef.current = null;
+    }
+
+    const first: Record<string, number> = {};
+    Object.entries(itemRefs.current).forEach(([id, el]) => {
+      if (!el) return;
+      first[id] = el.getBoundingClientRect().top;
+    });
+
+    updateSort();
+
+    window.requestAnimationFrame(() => {
+      const last: Record<string, number> = {};
+      Object.entries(itemRefs.current).forEach(([id, el]) => {
+        if (!el) return;
+        last[id] = el.getBoundingClientRect().top;
+      });
+
+      const deltas: Record<string, number> = {};
+      Object.keys(last).forEach((id) => {
+        const a = first[id];
+        const b = last[id];
+        if (typeof a === "number" && typeof b === "number") {
+          const d = a - b;
+          if (Math.abs(d) > 0.5) deltas[id] = d;
+        }
+      });
+
+      // Apply inverted transform with no transition
+      setFlipAnimating(false);
+      setFlipMap(deltas);
+
+      // Next frame, animate back to 0
+      window.requestAnimationFrame(() => {
+        setFlipAnimating(true);
+        setFlipMap({});
+
+        flipTimerRef.current = window.setTimeout(() => {
+          setFlipAnimating(false);
+          flipTimerRef.current = null;
+        }, 280);
+      });
+    });
+  }
+
   // Load collections + membership for this photo (use stable identity)
   useEffect(() => {
     (async () => {
@@ -243,10 +300,14 @@ export default function AddToCollectionModal({
         ]);
         setCollections(cols);
         setSelected(mem as any);
+
+        // initial sort follows membership
+        setSortSelected(new Set(mem as any));
       } catch (e) {
         console.error("[AddToCollectionModal] load failed", e, { stableImage });
         setCollections([]);
         setSelected(new Set());
+        setSortSelected(new Set());
         showToast("Failed to load collections");
       } finally {
         setLoading(false);
@@ -262,14 +323,15 @@ export default function AddToCollectionModal({
       res = collections.filter((c) => c.name?.toLowerCase().includes(q));
     }
 
+    // Use sortSelected so the list does not jump immediately on click
     return [...res].sort((a, b) => {
-      const aSel = selected.has(a.id);
-      const bSel = selected.has(b.id);
+      const aSel = sortSelected.has(a.id);
+      const bSel = sortSelected.has(b.id);
       if (aSel && !bSel) return -1;
       if (!aSel && bSel) return 1;
       return 0;
     });
-  }, [collections, search, selected]);
+  }, [collections, search, sortSelected]);
 
   function showToast(message: string) {
     setToastMsg(message);
@@ -317,6 +379,13 @@ export default function AddToCollectionModal({
         return next;
       });
 
+      // new collection should be treated as selected for sorting too
+      setSortSelected((prev) => {
+        const next = new Set(prev);
+        next.add(c.id);
+        return next;
+      });
+
       setNewName("");
       setIsCreateOpen(false);
       showToast(`Photo added to Collection '${name}'`);
@@ -346,16 +415,14 @@ export default function AddToCollectionModal({
 
     if (toggling === collectionId) return;
 
-    const isOn = selected.has(collectionId);
+    const wasOn = selected.has(collectionId);
     setToggling(collectionId);
 
-    // optimistic
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (isOn) next.delete(collectionId);
-      else next.add(collectionId);
-      return next;
-    });
+    // optimistic selection (UI tick state) but DO NOT change sort yet
+    const nextSelected = new Set(selected);
+    if (wasOn) nextSelected.delete(collectionId);
+    else nextSelected.add(collectionId);
+    setSelected(nextSelected);
 
     setCollections((prev) =>
       prev.map((c) => {
@@ -363,7 +430,7 @@ export default function AddToCollectionModal({
           const currentCount = c.itemCount || 0;
           return {
             ...c,
-            itemCount: isOn ? Math.max(0, currentCount - 1) : currentCount + 1,
+            itemCount: wasOn ? Math.max(0, currentCount - 1) : currentCount + 1,
           };
         }
         return c;
@@ -371,26 +438,36 @@ export default function AddToCollectionModal({
     );
 
     showToast(
-      isOn
+      wasOn
         ? `Photo removed from Collection '${collectionName}'`
         : `Photo added to Collection '${collectionName}'`
     );
 
     try {
       // IMPORTANT: use stableImage, not raw image
-      await toggleImageInCollection(collectionId, stableImage, isOn);
+      await toggleImageInCollection(collectionId, stableImage, wasOn);
+
+      // spinner stops, tick is visible now
+      setToggling(null);
+
+      // after a short beat, reorder with a smooth move animation
+      window.setTimeout(() => {
+        runFlipReorder(() => {
+          setSortSelected(new Set(nextSelected));
+        });
+      }, 180);
     } catch (e) {
       console.error("[AddToCollectionModal] toggle failed", e, {
         collectionId,
         collectionName,
-        isOn,
+        wasOn,
         stableImage,
       });
 
       // revert selection
       setSelected((prev) => {
         const next = new Set(prev);
-        if (isOn) next.add(collectionId);
+        if (wasOn) next.add(collectionId);
         else next.delete(collectionId);
         return next;
       });
@@ -402,7 +479,7 @@ export default function AddToCollectionModal({
             const currentCount = c.itemCount || 0;
             return {
               ...c,
-              itemCount: isOn
+              itemCount: wasOn
                 ? currentCount + 1
                 : Math.max(0, currentCount - 1),
             };
@@ -412,8 +489,10 @@ export default function AddToCollectionModal({
       );
 
       showToast(`Failed to update ${collectionName}`);
-    } finally {
       setToggling(null);
+
+      // keep sort consistent with reverted selected
+      setSortSelected((prev) => new Set(prev));
     }
   }
 
@@ -431,6 +510,11 @@ export default function AddToCollectionModal({
       await deletePhotoCollection(id);
       setCollections((prev) => prev.filter((c) => c.id !== id));
       setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setSortSelected((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
@@ -697,14 +781,25 @@ export default function AddToCollectionModal({
                           const isOn = selected.has(c.id);
                           const isBusy = toggling === c.id;
 
+                          const dy = flipMap[c.id] ?? 0;
+
                           return (
                             <li
                               key={c.id}
+                              ref={(el) => {
+                                itemRefs.current[c.id] = el;
+                              }}
                               className={`group relative flex items-center gap-4 p-3 pr-12 rounded-2xl border transition-all cursor-pointer ${
                                 isOn
                                   ? "bg-orange-50/50 border-orange-200"
                                   : "bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm"
                               }`}
+                              style={{
+                                transform: dy ? `translateY(${dy}px)` : undefined,
+                                transition: flipAnimating
+                                  ? "transform 240ms ease"
+                                  : "none",
+                              }}
                               onClick={() => {
                                 if (!identityOk) {
                                   showToast(
@@ -892,7 +987,7 @@ export default function AddToCollectionModal({
       )}
 
       {toastMsg && (
-        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-14 sm:pb-14">
+        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-14 sm:pb-12">
           <div
             className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
             style={{
