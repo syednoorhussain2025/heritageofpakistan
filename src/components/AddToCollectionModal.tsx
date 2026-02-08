@@ -662,8 +662,25 @@ export default function AddToCollectionModal({
 
                   <div className="flex-1 overflow-y-scroll sm:overflow-y-auto custom-scrollbar p-3 pt-3 overscroll-contain touch-pan-y">
                     {loading ? (
-                      <div className="h-full min-h-[140px] flex items-center justify-center">
-                        <Spinner size={18} className="border-gray-300" />
+                      <div className="relative">
+                        <ul className="space-y-3">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <li
+                              key={i}
+                              className="flex items-center gap-4 p-3 border border-gray-100 rounded-2xl bg-white"
+                            >
+                              <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse" />
+                                <div className="h-2 bg-gray-100 rounded w-1/4 animate-pulse" />
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <Spinner size={18} className="border-gray-300" />
+                        </div>
                       </div>
                     ) : filtered.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-8 text-gray-400">
