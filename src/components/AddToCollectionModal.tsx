@@ -282,7 +282,7 @@ export default function AddToCollectionModal({
         flipTimerRef.current = window.setTimeout(() => {
           setFlipAnimating(false);
           flipTimerRef.current = null;
-        }, 2200);
+        }, 1800);
       });
     });
   }
@@ -797,7 +797,7 @@ export default function AddToCollectionModal({
                               style={{
                                 transform: dy ? `translateY(${dy}px)` : undefined,
                                 transition: flipAnimating
-                                  ? "transform 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
+                                  ? "transform 1700ms cubic-bezier(0.22, 1, 0.36, 1)"
                                   : "none",
                               }}
                               onClick={() => {
