@@ -288,7 +288,7 @@ export default function AddToCollectionModal({
         toastTimerRef.current = null;
         toastCleanupRef.current = null;
       }, 220);
-    }, 1200);
+    }, 1900);
   }
 
   async function handleCreate() {
@@ -875,7 +875,7 @@ export default function AddToCollectionModal({
       )}
 
       {toastMsg && (
-        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-10 sm:pb-12">
+        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-14 sm:pb-14">
           <div
             className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
             style={{
