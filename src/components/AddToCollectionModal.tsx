@@ -282,7 +282,7 @@ export default function AddToCollectionModal({
         flipTimerRef.current = window.setTimeout(() => {
           setFlipAnimating(false);
           flipTimerRef.current = null;
-        }, 280);
+        }, 2200);
       });
     });
   }
