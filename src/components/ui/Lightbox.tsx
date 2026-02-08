@@ -253,7 +253,7 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // Build the exact payload AddToCollectionModal expects
+  // Build the exact payload AddToCollectionModal expects (kept, but no longer used for callback)
   const addToCollectionPayload = useMemo(() => {
     const siteName = photo?.site?.name ?? null;
     const locationText = (photo as any)?.site?.location ?? null;
@@ -309,13 +309,9 @@ export function Lightbox({
     e: MouseEvent | TouchEvent | PointerEvent,
     { offset, velocity }: PanInfo
   ) => {
-    // 1. COOL-DOWN CHECK:
-    // Only block if a pinch/zoom happened recently (< 500ms)
     const timeSinceZoom = Date.now() - lastZoomAction.current;
     if (timeSinceZoom < 500) return;
 
-    // 2. SCALE CHECK
-    // Double check we are truly at scale 1 before allowing swipe
     if (transformRef.current) {
       const { scale } = transformRef.current.instance.transformState;
       if (scale > 1.01) return;
@@ -323,22 +319,16 @@ export function Lightbox({
 
     if (isZoomed) return;
 
-    // 3. DIRECTION & POWER CHECK
     const swipeX = swipePower(offset.x, velocity.x);
     const swipeY = swipePower(offset.y, velocity.y);
 
-    // Determine main direction of swipe (Horizontal vs Vertical)
     if (Math.abs(offset.x) > Math.abs(offset.y)) {
-      // Horizontal Swipe -> Navigation
       if (swipeX < -SWIPE_THRESHOLD || offset.x < -100) {
         handleNext();
       } else if (swipeX > SWIPE_THRESHOLD || offset.x > 100) {
         handlePrev();
       }
     } else {
-      // Vertical Swipe -> Close
-      // User asked for "Swipe Up to Close".
-      // Moving finger UP creates a NEGATIVE Y offset.
       if (swipeY < -SWIPE_THRESHOLD || offset.y < -100) {
         onClose();
       }
@@ -354,14 +344,11 @@ export function Lightbox({
   }, [showHighRes]);
 
   const onZoomStart = () => {
-    // We update the timer here because starting a zoom is an action we want to block swipes for
     lastZoomAction.current = Date.now();
     triggerHighResLoad();
   };
 
   const onTransformed = (ref: ReactZoomPanPinchRef) => {
-    // CRITICAL FIX: Only update the "block swipe" timer if we are actually zoomed in.
-    // If scale is 1, this is just a normal drag/swipe, so we SHOULD NOT update the timer.
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
@@ -373,8 +360,6 @@ export function Lightbox({
   };
 
   const onInteractionStop = (ref: ReactZoomPanPinchRef) => {
-    // CRITICAL FIX: Same here. Only block swipes if we just finished a Zoom interaction.
-    // If we just finished a normal swipe at scale 1, do not update the timer.
     if (ref.state.scale > 1.01) {
       lastZoomAction.current = Date.now();
     }
@@ -387,12 +372,11 @@ export function Lightbox({
 
   const handleZoomIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    lastZoomAction.current = Date.now(); // Explicit zoom action blocks swipes
+    lastZoomAction.current = Date.now();
     triggerHighResLoad();
 
     setIsZoomed(true);
 
-    // Wait slightly longer than the CSS transition (300ms) to ensure layout is stable
     setTimeout(() => {
       if (transformRef.current) {
         transformRef.current.zoomIn(0.5, 500);
@@ -400,26 +384,16 @@ export function Lightbox({
     }, 350);
   };
 
-  // --- DOUBLE TAP HANDLER (WhatsApp Style) ---
   const handleDoubleTap = useCallback(
     (e: React.MouseEvent) => {
-      // Prevent default browser behavior if needed, though 'touch-none' handles most
       if (transformRef.current) {
         const { scale } = transformRef.current.instance.transformState;
-
-        // Mark interaction to block swipes
         lastZoomAction.current = Date.now();
 
-        // Toggle Logic
         if (scale > 1.05) {
-          // If already zoomed -> Reset
           transformRef.current.resetTransform(300);
         } else {
-          // If not zoomed -> Zoom In
           triggerHighResLoad();
-
-          // Zoom in substantially (WhatsApp style usually zooms to fill/detail)
-          // zoomIn(step) adds to current scale. 1 + 1.5 = 2.5x scale.
           transformRef.current.zoomIn(1.5, 300);
         }
       }
@@ -506,7 +480,6 @@ export function Lightbox({
                   {(photo as any)?.site?.location && (
                     <p className="text-sm text-gray-300 mt-1 flex items-center">
                       {(photo as any).site.location}
-                      {/* GPS Button Inline */}
                       {googleMapsUrl && (
                         <a
                           href={googleMapsUrl}
@@ -528,10 +501,7 @@ export function Lightbox({
               </div>
             </div>
 
-            {/* ============================================
-              2. IMAGE CONTAINER
-              ============================================
-            */}
+            {/* 2. IMAGE CONTAINER */}
             <div
               className={`absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 pointer-events-auto transition-all duration-300 ${
                 isZoomed ? "z-50 rounded-none" : "z-10"
@@ -605,7 +575,6 @@ export function Lightbox({
                     className="relative w-full h-full flex items-center justify-center"
                     onDoubleClick={handleDoubleTap}
                   >
-                    {/* LAYER 1: MEDIUM RES (Always Visible as Base) */}
                     <NextImage
                       src={mediumPhotoUrl || ""}
                       alt={(photo as any)?.caption ?? ""}
@@ -620,7 +589,6 @@ export function Lightbox({
                       }}
                     />
 
-                    {/* LAYER 2: HIGH RES (Fades in on top) */}
                     {showHighRes && (
                       <NextImage
                         src={highResPhotoUrl || ""}
@@ -643,7 +611,6 @@ export function Lightbox({
                 </TransformComponent>
               </TransformWrapper>
 
-              {/* LOADING INDICATOR */}
               {isHighResLoading && (
                 <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
                   <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-3 rounded-lg flex flex-col items-center gap-2">
@@ -672,7 +639,6 @@ export function Lightbox({
                 </div>
               )}
 
-              {/* ZOOM ICON (Desktop Only) */}
               <button
                 className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md cursor-pointer ${
                   isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -705,7 +671,6 @@ export function Lightbox({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {/* Download Button */}
                 <button
                   className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
                   onClick={handleDownload}
@@ -718,7 +683,7 @@ export function Lightbox({
                     className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAddToCollection(addToCollectionPayload as any);
+                      onAddToCollection(photo);
                     }}
                   >
                     Add to Collection
@@ -746,7 +711,6 @@ export function Lightbox({
                   {(photo as any)?.site?.location && (
                     <p className="text-sm text-gray-300 flex items-center">
                       {(photo as any).site.location}
-                      {/* GPS Button Inline */}
                       {googleMapsUrl && (
                         <a
                           href={googleMapsUrl}
@@ -769,7 +733,6 @@ export function Lightbox({
                   )}
                 </div>
 
-                {/* Taxonomy Pills */}
                 <div>
                   {hasStructuredTaxonomy ? (
                     <div className="space-y-3">
@@ -821,17 +784,18 @@ export function Lightbox({
                   )}
                 </div>
 
-                {/* Bottom Actions Bar */}
                 <div className="pt-2 border-t border-white/10 flex items-center gap-2">
                   {onAddToCollection && (
                     <button
                       className="flex-grow text-center px-3 py-1.5 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 cursor-pointer"
-                      onClick={() => onAddToCollection(addToCollectionPayload as any)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToCollection(photo);
+                      }}
                     >
                       Add to Collection
                     </button>
                   )}
-                  {/* Download Button */}
                   <button
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 cursor-pointer"
                     onClick={handleDownload}
