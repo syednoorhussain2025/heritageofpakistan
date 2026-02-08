@@ -797,7 +797,7 @@ export default function AddToCollectionModal({
                               style={{
                                 transform: dy ? `translateY(${dy}px)` : undefined,
                                 transition: flipAnimating
-                                  ? "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)"
+                                  ? "transform 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
                                   : "none",
                               }}
                               onClick={() => {
