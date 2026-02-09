@@ -10,7 +10,6 @@ import {
   removeFromCollection,
   type CollectInput,
 } from "@/lib/collections";
-import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
 
 type Ctx = {
@@ -39,8 +38,12 @@ export function CollectionsProvider({
   const sb = createClient();
   const [collected, setCollected] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+
+  // Toast (match AddToCollectionModal)
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
+  const toastCleanupRef = useRef<number | null>(null);
 
   // Track in-flight writes per key so multiple rapid clicks don’t spawn races
   const inFlightRef = useRef<Set<string>>(new Set());
@@ -77,14 +80,30 @@ export function CollectionsProvider({
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
     };
   }, []);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
+  function showToast(message: string) {
+    setToastMsg(message);
+    setToastOpen(false);
+
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2000);
-  };
+    if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+
+    // Trigger slide-in after mount
+    window.requestAnimationFrame(() => setToastOpen(true));
+
+    // Match timing: 1900ms visible, 220ms exit, 220ms transition
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastOpen(false);
+      toastCleanupRef.current = window.setTimeout(() => {
+        setToastMsg(null);
+        toastTimerRef.current = null;
+        toastCleanupRef.current = null;
+      }, 220);
+    }, 1900);
+  }
 
   const toggleCollect = async (input: CollectInput) => {
     const key = computeDedupeKey({
@@ -136,9 +155,7 @@ export function CollectionsProvider({
 
     if (success) {
       showToast(
-        targetOn
-          ? "Added to Collected Photos"
-          : "Removed from Collected Photos"
+        targetOn ? "Added to Collected Photos" : "Removed from Collected Photos"
       );
       return;
     }
@@ -158,20 +175,24 @@ export function CollectionsProvider({
     <CollectionsCtx.Provider value={{ collected, toggleCollect, isLoaded }}>
       {children}
 
-      {toast && (
-        <button
-          onClick={() => setToast(null)} // click-to-dismiss (optional)
-          role="status"
-          aria-live="polite"
-          // UPDATED: bottom-24 to move up, z-[2147483647] to be in front of everything
-          className="fixed bottom-17 right-3 z-[2147483647] px-4 py-2 rounded-lg bg-black text-white shadow-lg"
-          title="Dismiss"
-        >
-          <div className="flex items-center gap-2">
-            <Icon name="heart" className="text-[var(--brand-orange)]" />
-            <span>{toast}</span>
+      {toastMsg && (
+        <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12">
+          <div
+            className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
+            style={{
+              transform: toastOpen ? "translateY(0)" : "translateY(16px)",
+              opacity: toastOpen ? 1 : 0,
+              transition: "transform 220ms ease, opacity 220ms ease",
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-orange)] shrink-0" />
+            <span className="font-medium text-[15px] leading-tight truncate">
+              {toastMsg}
+            </span>
           </div>
-        </button>
+        </div>
       )}
     </CollectionsCtx.Provider>
   );

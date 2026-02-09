@@ -299,38 +299,6 @@ export default function GalleryClient({
     null
   );
 
-  // Toast (match AddToCollectionModal: color, animation, position)
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [toastOpen, setToastOpen] = useState(false);
-  const toastTimerRef = useRef<number | null>(null);
-  const toastCleanupRef = useRef<number | null>(null);
-
-  function showToast(message: string) {
-    setToastMsg(message);
-    setToastOpen(false);
-
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
-
-    window.requestAnimationFrame(() => setToastOpen(true));
-
-    toastTimerRef.current = window.setTimeout(() => {
-      setToastOpen(false);
-      toastCleanupRef.current = window.setTimeout(() => {
-        setToastMsg(null);
-        toastTimerRef.current = null;
-        toastCleanupRef.current = null;
-      }, 220);
-    }, 1900);
-  }
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-      if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
-    };
-  }, []);
-
   /* Reset pagination on slug change */
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
@@ -389,7 +357,7 @@ export default function GalleryClient({
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
       if (!viewerId) {
-        showToast("Please sign in to save photos.");
+        alert("Please sign in to save photos.");
         return;
       }
 
@@ -635,31 +603,10 @@ export default function GalleryClient({
             // ✅ ADDED: pass through site title + location for preview
             siteName: selectedPhoto.site?.name ?? site?.title ?? null,
             locationText:
-              (selectedPhoto as any)?.site?.location ??
-              site?.location_free ??
-              null,
+              (selectedPhoto as any)?.site?.location ?? site?.location_free ?? null,
           }}
           onClose={() => setCollectionModalOpen(false)}
         />
-      )}
-
-      {/* Toast (matches AddToCollectionModal) */}
-      {toastMsg && (
-        <div className="fixed inset-0 z-[9999999999] pointer-events-none flex items-end justify-center pb-14 sm:pb-12">
-          <div
-            className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
-            style={{
-              transform: toastOpen ? "translateY(0)" : "translateY(16px)",
-              opacity: toastOpen ? 1 : 0,
-              transition: "transform 220ms ease, opacity 220ms ease",
-            }}
-          >
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-orange)] shrink-0" />
-            <span className="font-medium text-[15px] leading-tight truncate">
-              {toastMsg}
-            </span>
-          </div>
-        </div>
       )}
     </div>
   );
