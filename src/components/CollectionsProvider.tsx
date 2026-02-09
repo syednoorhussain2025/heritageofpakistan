@@ -42,6 +42,7 @@ export function CollectionsProvider({
   // Toast (match AddToCollectionModal)
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastOpen, setToastOpen] = useState(false);
+  const [toastId, setToastId] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
   const toastCleanupRef = useRef<number | null>(null);
 
@@ -85,14 +86,17 @@ export function CollectionsProvider({
   }, []);
 
   function showToast(message: string) {
+    setToastId((n) => n + 1); // force a fresh mount so entry always animates
     setToastMsg(message);
     setToastOpen(false);
 
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
 
-    // Trigger slide-in after mount
-    window.requestAnimationFrame(() => setToastOpen(true));
+    // Ensure the "closed" state paints before opening, so slide-in is visible
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setToastOpen(true));
+    });
 
     // Match timing: 1900ms visible, 220ms exit, 220ms transition
     toastTimerRef.current = window.setTimeout(() => {
@@ -178,6 +182,7 @@ export function CollectionsProvider({
       {toastMsg && (
         <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12">
           <div
+            key={toastId}
             className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
             style={{
               transform: toastOpen ? "translateY(0)" : "translateY(16px)",
