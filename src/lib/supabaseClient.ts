@@ -1,10 +1,8 @@
 // src/lib/supabaseClient.ts
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 
-export const supabase = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
+// Create one shared browser client instance for legacy imports
+export const supabase = createBrowserClient();
 
 // Compatibility wrapper for our other files
 export const createClient = () => supabase;

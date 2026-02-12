@@ -49,6 +49,7 @@ export function CollectionsProvider({
   // Track in-flight writes per key so multiple rapid clicks don’t spawn races
   const inFlightRef = useRef<Set<string>>(new Set());
 
+  // Fetch initial collected set (if signed in)
   useEffect(() => {
     (async () => {
       const {
@@ -75,6 +76,55 @@ export function CollectionsProvider({
         setIsLoaded(true);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep collected state in sync with auth transitions (SIGNED_OUT, SIGNED_IN)
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        // Signed out: clear client state so UI cannot behave signed-in
+        inFlightRef.current.clear();
+        setCollected(new Set());
+        setIsLoaded(true);
+
+        // Also dismiss any active toast
+        setToastOpen(false);
+        setToastMsg(null);
+        if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+        if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+        toastTimerRef.current = null;
+        toastCleanupRef.current = null;
+        return;
+      }
+
+      // Signed in: reload keys so the UI matches the account immediately
+      setIsLoaded(false);
+      try {
+        const rows = await listCollections(500);
+        const keys = new Set<string>();
+        for (const r of rows as any[]) {
+          keys.add(
+            makeCollectKeyFromRow({
+              site_image_id: r.site_image_id ?? null,
+              storage_path: r.storage_path ?? null,
+              image_url: r.image_url ?? null,
+            })
+          );
+        }
+        setCollected(keys);
+      } catch {
+        setCollected(new Set());
+      } finally {
+        setIsLoaded(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

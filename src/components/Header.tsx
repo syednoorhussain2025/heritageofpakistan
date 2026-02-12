@@ -2,9 +2,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
@@ -154,7 +154,9 @@ function SearchThumbCircle({
 
       {/* Spinner while loading an image */}
       {loading && showImage && (
-        <div className={`absolute inset-0 ${sizeClass} rounded-full bg-gray-100 ring-1 ring-gray-200 flex items-center justify-center`}>
+        <div
+          className={`absolute inset-0 ${sizeClass} rounded-full bg-gray-100 ring-1 ring-gray-200 flex items-center justify-center`}
+        >
           <span
             className="inline-block rounded-full animate-spin"
             style={{
@@ -186,6 +188,9 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useLoaderEngine();
+
+  // Use one consistent browser Supabase client throughout this component
+  const supabase = useMemo(() => createClient(), []);
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
@@ -331,7 +336,7 @@ export default function Header() {
     return () => {
       active = false;
     };
-  }, [q]);
+  }, [q, supabase]);
 
   const submitQuickSearch = () => {
     if (!q.trim()) return;
@@ -383,7 +388,7 @@ export default function Header() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   /* -------------------------- Header menu data + mega state -------------------------- */
 
@@ -495,7 +500,7 @@ export default function Header() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [supabase]);
 
   const activeMain =
     headerItems.find((m) => m.id === activeMainId) ||
@@ -577,8 +582,9 @@ export default function Header() {
 
     const handleLogout = async () => {
       await supabase.auth.signOut();
-      router.push("/");
       setIsOpen(false);
+      router.replace("/");
+      router.refresh();
     };
 
     const name = user.user_metadata?.full_name || "User";
