@@ -1,4 +1,4 @@
-// src/app/heritage/[region]/[slug]/gallery/GalleryClient.tsx
+// src/app/heritage/[region]/[slug]/gallery/GalleryClient.ts
 "use client";
 
 import {
@@ -34,6 +34,7 @@ const AddToCollectionModal = dynamicImport(
 
 import type { LightboxPhoto } from "@/types/lightbox";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useSignedInActions } from "@/hooks/useSignedInActions";
 
 /* ---------- Types ---------- */
 
@@ -284,6 +285,7 @@ export default function GalleryClient({
 }: GalleryClientProps) {
   const { userId: viewerId } = useAuthUserId();
   const { toggleCollect } = useCollections();
+  const { ensureSignedIn } = useSignedInActions();
 
   const [site] = useState<SiteHeaderInfo | null>(initialSite);
   const [photos, setPhotos] = useState<LightboxPhoto[]>(initialPhotos);
@@ -356,10 +358,8 @@ export default function GalleryClient({
 
   const handleBookmarkToggle = useCallback(
     async (photo: LightboxPhoto) => {
-      if (!viewerId) {
-        alert("Please sign in to save photos.");
-        return;
-      }
+      const ok = await ensureSignedIn();
+      if (!ok) return;
 
       await toggleCollect({
         siteImageId: photo.id,
@@ -372,13 +372,19 @@ export default function GalleryClient({
         )
       );
     },
-    [viewerId, toggleCollect]
+    [ensureSignedIn, toggleCollect]
   );
 
-  const handleOpenCollectionModal = useCallback((photo: LightboxPhoto) => {
-    setSelectedPhoto(photo);
-    setCollectionModalOpen(true);
-  }, []);
+  const handleOpenCollectionModal = useCallback(
+    async (photo: LightboxPhoto) => {
+      const ok = await ensureSignedIn();
+      if (!ok) return;
+
+      setSelectedPhoto(photo);
+      setCollectionModalOpen(true);
+    },
+    [ensureSignedIn]
+  );
 
   const hasGps = !!(site?.latitude && site?.longitude);
   const googleMapsUrl = hasGps
@@ -583,8 +589,8 @@ export default function GalleryClient({
           photos={photos}
           startIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          onBookmarkToggle={viewerId ? handleBookmarkToggle : undefined}
-          onAddToCollection={viewerId ? handleOpenCollectionModal : undefined}
+          onBookmarkToggle={handleBookmarkToggle}
+          onAddToCollection={handleOpenCollectionModal}
         />
       )}
 
@@ -603,7 +609,9 @@ export default function GalleryClient({
             // ✅ ADDED: pass through site title + location for preview
             siteName: selectedPhoto.site?.name ?? site?.title ?? null,
             locationText:
-              (selectedPhoto as any)?.site?.location ?? site?.location_free ?? null,
+              (selectedPhoto as any)?.site?.location ??
+              site?.location_free ??
+              null,
           }}
           onClose={() => setCollectionModalOpen(false)}
         />
