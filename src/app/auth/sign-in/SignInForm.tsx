@@ -7,12 +7,30 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
+function safeRedirectTo(next: string | null, fallback: string) {
+  if (!next) return fallback;
+
+  const trimmed = next.trim();
+  if (!trimmed) return fallback;
+
+  // Only allow same-origin relative paths
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.includes("://")
+  ) {
+    return trimmed;
+  }
+
+  return fallback;
+}
+
 export default function SignInForm() {
   const supabase = createClient();
   const router = useRouter();
   const sp = useSearchParams();
 
-  const redirectTo = sp.get("redirectTo") || "/dashboard";
+  const redirectTo = safeRedirectTo(sp.get("redirectTo"), "/dashboard");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -272,7 +290,9 @@ export default function SignInForm() {
               New here?{" "}
               <Link
                 className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
-                href="/auth/sign-up"
+                href={`/auth/sign-up?redirectTo=${encodeURIComponent(
+                  redirectTo
+                )}`}
               >
                 Create an account
               </Link>

@@ -1,13 +1,37 @@
 // src/app/auth/sign-up/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+
+function safeRedirectTo(next: string | null, fallback: string) {
+  if (!next) return fallback;
+
+  const trimmed = next.trim();
+  if (!trimmed) return fallback;
+
+  // Only allow same-origin relative paths
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.includes("://")
+  ) {
+    return trimmed;
+  }
+
+  return fallback;
+}
 
 export default function SignUpPage() {
   const supabase = createClient();
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const redirectTo = safeRedirectTo(sp.get("redirectTo"), "/dashboard");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -15,20 +39,39 @@ export default function SignUpPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const origin = useMemo(
+    () => (typeof window !== "undefined" ? window.location.origin : ""),
+    []
+  );
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setErr(null);
     setMsg(null);
 
-    const { error } = await supabase.auth.signUp({
+    const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
+      redirectTo
+    )}`;
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo,
+      },
     });
 
     setLoading(false);
     if (error) return setErr(error.message);
+
+    // If email confirmation is disabled, Supabase may return an active session immediately
+    if (data?.session) {
+      router.replace(redirectTo);
+      return;
+    }
+
     setMsg("Check your inbox to confirm your email.");
   }
 
@@ -110,7 +153,9 @@ export default function SignUpPage() {
             Already have an account?{" "}
             <Link
               className="underline hover:text-[var(--brand-orange)]"
-              href="/auth/sign-in"
+              href={`/auth/sign-in?redirectTo=${encodeURIComponent(
+                redirectTo
+              )}`}
             >
               Sign in
             </Link>

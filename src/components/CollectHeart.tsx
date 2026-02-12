@@ -6,6 +6,7 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import Icon from "@/components/Icon";
 import { motion } from "framer-motion";
+import { useSignedInActions } from "@/hooks/useSignedInActions";
 
 type Props = {
   siteImageId?: string | null;
@@ -35,6 +36,7 @@ export default function CollectHeart({
   size = 18,
 }: Props) {
   const { collected, toggleCollect, isLoaded } = useCollections();
+  const { ensureSignedIn } = useSignedInActions();
   const [popping, setPopping] = useState(false);
 
   // Mirrors DB: coalesce(site_image_id::text, storage_path, image_url)
@@ -64,6 +66,9 @@ export default function CollectHeart({
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+
+    // If not signed in, route to sign-in and do nothing else
+    if (!ensureSignedIn()) return;
 
     // trigger popping animation
     setPopping(true);
