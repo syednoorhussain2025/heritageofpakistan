@@ -1,3 +1,4 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lato } from "next/font/google";
 import localFont from "next/font/local";
@@ -12,6 +13,7 @@ import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import AuthPendingToast from "@/components/AuthPendingToast";
 
 /* ---------------- Fonts ---------------- */
 const lato = Lato({
@@ -66,6 +68,7 @@ export default function RootLayout({
               <WishlistProvider>
                 <CollectionsProvider>
                   <LoaderEngineProvider>
+                    <AuthPendingToast />
                     <Header />
                     <BottomNav />
                     <main>{children}</main>

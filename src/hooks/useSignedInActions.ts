@@ -1,3 +1,4 @@
+// src/hooks/useSignedInActions.ts
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,11 +6,6 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
 
-/**
- * Ensures an action only runs if the user is signed in.
- * If not signed in, redirects to /auth/sign-in with redirectTo.
- * Returns true if signed in, false otherwise.
- */
 function safeRedirectTo(next: string, fallback: string) {
   const trimmed = (next || "").trim();
   if (!trimmed) return fallback;
@@ -25,6 +21,8 @@ function safeRedirectTo(next: string, fallback: string) {
   return fallback;
 }
 
+const AUTH_RETURN_FLAG = "auth:returning";
+
 export function useSignedInActions() {
   const { userId, authLoading } = useAuthUserId();
   const router = useRouter();
@@ -33,14 +31,13 @@ export function useSignedInActions() {
 
   const sb = useMemo(() => createClient(), []);
 
-  // Fast session signal so gated clicks work immediately after redirect
+  // Fast session signal
   const [fastSignedIn, setFastSignedIn] = useState(false);
   const [fastReady, setFastReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    // 1) Quick local read
     sb.auth
       .getSession()
       .then(({ data }) => {
@@ -54,7 +51,6 @@ export function useSignedInActions() {
         setFastReady(true);
       });
 
-    // 2) Instant updates on auth events
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
@@ -76,14 +72,15 @@ export function useSignedInActions() {
   }, [pathname, sp]);
 
   function ensureSignedIn(): boolean {
-    // Prefer confirmed userId, but fall back to fast session detection
     const signedIn = !!userId || fastSignedIn;
-
     if (signedIn) return true;
 
-    // If auth is still resolving and we do not yet know, do not redirect again
-    // This prevents loops and "dead clicks" turning into repeated sign-in pushes.
+    // Avoid loops while auth is still resolving
     if (authLoading && !fastReady) return false;
+
+    try {
+      window.sessionStorage?.setItem(AUTH_RETURN_FLAG, "1");
+    } catch {}
 
     router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
     return false;
