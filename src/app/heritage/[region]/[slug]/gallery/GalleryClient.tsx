@@ -125,6 +125,7 @@ type MasonryTileProps = {
   onOpen: () => void;
   siteId: string;
   isPriority: boolean;
+  ensureSignedIn: () => boolean | Promise<boolean>;
 };
 
 const MasonryTile = memo(function MasonryTile({
@@ -132,6 +133,7 @@ const MasonryTile = memo(function MasonryTile({
   onOpen,
   siteId,
   isPriority,
+  ensureSignedIn,
 }: MasonryTileProps) {
   const extras = photo as PhotoWithExtras;
 
@@ -239,6 +241,7 @@ const MasonryTile = memo(function MasonryTile({
             siteId={siteId}
             caption={photo.caption}
             credit={photo.author?.name}
+            requireSignedIn={ensureSignedIn}
           />
         </div>
       </div>
@@ -560,6 +563,7 @@ export default function GalleryClient({
                     siteId={site!.id}
                     onOpen={() => setLightboxIndex(idx)}
                     isPriority={idx < TOP_PRIORITY_COUNT}
+                    ensureSignedIn={ensureSignedIn}
                   />
                 ))}
               </div>

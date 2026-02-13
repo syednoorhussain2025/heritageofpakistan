@@ -7,7 +7,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 declare global {
   interface Window {
     __HOP_SUPABASE__?: SupabaseClient;
-    __HOP_SUPABASE_INIT__?: boolean;
   }
 }
 
@@ -33,18 +32,8 @@ export const createClient = (): SupabaseClient => {
     });
   }
 
-  // Already created → always reuse
+  // Already created -> always reuse.
   if (window.__HOP_SUPABASE__) return window.__HOP_SUPABASE__;
-
-  // Prevent duplicate creation during parallel module execution
-  if (window.__HOP_SUPABASE_INIT__) {
-    // wait until the first initializer finishes
-    const start = Date.now();
-    while (!window.__HOP_SUPABASE__ && Date.now() - start < 50) {}
-    if (window.__HOP_SUPABASE__) return window.__HOP_SUPABASE__;
-  }
-
-  window.__HOP_SUPABASE_INIT__ = true;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -64,7 +53,5 @@ export const createClient = (): SupabaseClient => {
   });
 
   window.__HOP_SUPABASE__ = client;
-  window.__HOP_SUPABASE_INIT__ = false;
-
   return client;
 };

@@ -6,7 +6,6 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import Icon from "@/components/Icon";
 import { motion } from "framer-motion";
-import { useSignedInActions } from "@/hooks/useSignedInActions";
 
 type Props = {
   siteImageId?: string | null;
@@ -21,6 +20,7 @@ type Props = {
   variant?: "overlay" | "icon";
   className?: string;
   size?: number; // icon size
+  requireSignedIn?: () => boolean | Promise<boolean>;
 };
 
 export default function CollectHeart({
@@ -34,9 +34,9 @@ export default function CollectHeart({
   variant = "overlay",
   className = "",
   size = 18,
+  requireSignedIn,
 }: Props) {
   const { collected, toggleCollect, isLoaded } = useCollections();
-  const { ensureSignedIn } = useSignedInActions();
   const [popping, setPopping] = useState(false);
 
   // Mirrors DB: coalesce(site_image_id::text, storage_path, image_url)
@@ -67,8 +67,10 @@ export default function CollectHeart({
     e.preventDefault();
     e.stopPropagation();
 
-    // If not signed in, route to sign-in and do nothing else
-    if (!ensureSignedIn()) return;
+    if (requireSignedIn) {
+      const ok = await requireSignedIn();
+      if (!ok) return;
+    }
 
     // trigger popping animation
     setPopping(true);
