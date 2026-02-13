@@ -1,7 +1,7 @@
 // src/lib/supabase/browser.ts
-// What this does: client-side Supabase singleton using your public URL/key.
+// Client-side Supabase singleton with durable session refresh.
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
@@ -9,10 +9,24 @@ let browserClient: SupabaseClient | null = null;
 export const createClient = () => {
   if (browserClient) return browserClient;
 
-  browserClient = createBrowserClient(
+  browserClient = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    }
   );
+
+  // Ensure auto refresh is running even if the app sits open for a long time.
+  try {
+    browserClient.auth.startAutoRefresh();
+  } catch {
+    // startAutoRefresh exists in supabase-js v2, ignore if unavailable.
+  }
 
   return browserClient;
 };
