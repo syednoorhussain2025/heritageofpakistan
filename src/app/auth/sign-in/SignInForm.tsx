@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
@@ -76,19 +75,9 @@ export default function SignInForm() {
   }
 
   return (
-    <main className="h-screen w-full">
+    <main className="min-h-screen w-full bg-white">
       <style jsx global>{`
         :root {
-          --navy-deep: #1c1f4c;
-          --sand-gold: #c7a76b;
-          --espresso-brown: #4b2e05;
-          --ivory-cream: #faf7f2;
-          --taupe-grey: #d8cfc4;
-          --terracotta-red: #a9502a;
-          --mustard-accent: #e2b65c;
-          --olive-green: #7b6e3f;
-          --dark-grey: #2b2b2b;
-
           --ok-bg: #ecfdf5;
           --ok-border: #a7f3d0;
           --ok-text: #065f46;
@@ -102,129 +91,121 @@ export default function SignInForm() {
         }
       `}</style>
 
-      <div className="grid h-full w-full grid-cols-1 md:grid-cols-2">
-        {/* LEFT IMAGE */}
-        <div className="relative hidden md:block">
-          <Image
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/miniature.jpeg"
-            alt="Heritage of Pakistan"
-            fill
-            priority
-            sizes="50vw"
-            className="object-cover"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(90deg, rgba(169,80,42,0.28) 0%, rgba(250,247,242,0) 55%)",
-            }}
-          />
-        </div>
-
-        {/* RIGHT FORM */}
-        <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
-            alt=""
-            className="pointer-events-none absolute -top-6 -left-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(-6deg)" }}
-          />
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(2).png"
-            alt=""
-            className="pointer-events-none absolute -top-8 -right-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(6deg)" }}
-          />
-
-          <div className="relative z-10 w-full max-w-md">
-            <header className="mb-6 text-center md:text-left">
-              <h1 className="text-4xl font-black leading-tight text-[var(--dark-grey)]">
-                Welcome back
-              </h1>
-              <p className="mt-1 text-sm text-[var(--espresso-brown)]/80">
-                Sign in to continue exploring Pakistan’s heritage.
-              </p>
-              <div className="mt-3 h-[3px] w-16 rounded bg-[var(--sand-gold)]" />
-            </header>
-
-            <form onSubmit={onEmailPassword} className="space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-[var(--navy-deep)]">
-                  Email
-                </span>
-                <input
-                  className="w-full rounded-lg border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[15px] text-[var(--dark-grey)] transition focus-visible:border-[var(--mustard-accent)] focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)]"
-                  type="email"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-[var(--navy-deep)]">
-                  Password
-                </span>
-                <input
-                  className="w-full rounded-lg border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[15px] text-[var(--dark-grey)] transition focus-visible:border-[var(--mustard-accent)] focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)]"
-                  type="password"
-                  placeholder="Password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </label>
-
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <button
-                  type="submit"
-                  disabled={loadingPwd}
-                  className="inline-flex w-[min(18rem,60%)] items-center justify-center rounded-lg bg-[var(--terracotta-red)] px-4 py-2.5 font-semibold text-white transition hover:opacity-95 active:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loadingPwd ? "Signing in…" : "Sign in"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onForgotPassword}
-                  disabled={loadingReset}
-                  className="whitespace-nowrap text-sm font-medium text-[var(--navy-deep)] underline transition hover:text-[var(--terracotta-red)] focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)] disabled:opacity-60"
-                >
-                  {loadingReset ? "Sending…" : "Forgot password?"}
-                </button>
+      <div className="min-h-screen w-full flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-[520px]">
+          <div className="rounded-[22px] border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.12)] overflow-hidden">
+            {/* Header bar, similar visual weight to your modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-orange-50 flex items-center justify-center">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-orange)]" />
+                </div>
+                <div className="leading-tight">
+                  <h1 className="text-lg font-semibold text-gray-900">
+                    Sign in
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    Continue exploring Pakistan’s heritage
+                  </p>
+                </div>
               </div>
-            </form>
 
-            {(err || msg) && (
-              <div
-                className={`mt-6 rounded-md border p-3 text-sm ${
-                  err
-                    ? "border-[var(--err-border)] bg-[var(--err-bg)] text-[var(--err-text)]"
-                    : "border-[var(--ok-border)] bg-[var(--ok-bg)] text-[var(--ok-text)]"
-                }`}
-              >
-                {err ?? msg}
-              </div>
-            )}
-
-            <div className="mt-6 text-sm text-[var(--espresso-brown)]">
-              New here?{" "}
               <Link
-                className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
-                href="/auth/sign-up"
+                href="/"
+                className="text-sm text-gray-500 hover:text-gray-800 transition"
+                aria-label="Close"
               >
-                Create an account
+                ✕
               </Link>
             </div>
 
-            <p className="mt-2 text-[12px] text-[var(--espresso-brown)]/70">
-              By continuing you agree to our Terms and acknowledge our Privacy
-              Policy.
-            </p>
+            <div className="px-6 py-6">
+              <form onSubmit={onEmailPassword} className="space-y-4">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                    Email
+                  </span>
+                  <input
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[15px] text-gray-900 transition
+                               focus-visible:border-[var(--brand-orange)] focus-visible:ring-2 focus-visible:ring-[var(--brand-orange)]/25"
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                    Password
+                  </span>
+                  <input
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[15px] text-gray-900 transition
+                               focus-visible:border-[var(--brand-orange)] focus-visible:ring-2 focus-visible:ring-[var(--brand-orange)]/25"
+                    type="password"
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </label>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={loadingPwd}
+                    className="inline-flex w-full sm:w-auto sm:flex-1 items-center justify-center rounded-2xl bg-[var(--brand-orange)] px-5 py-3 font-semibold text-white transition
+                               hover:brightness-95 active:brightness-90
+                               focus-visible:ring-2 focus-visible:ring-[var(--brand-orange)]/35
+                               disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingPwd ? "Signing in…" : "Sign in"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onForgotPassword}
+                    disabled={loadingReset}
+                    className="inline-flex w-full sm:w-auto sm:flex-1 items-center justify-center rounded-2xl bg-black px-5 py-3 font-semibold text-white transition
+                               hover:opacity-95 active:opacity-90
+                               focus-visible:ring-2 focus-visible:ring-black/30
+                               disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingReset ? "Sending…" : "Forgot password"}
+                  </button>
+                </div>
+              </form>
+
+              {(err || msg) && (
+                <div
+                  className={`mt-5 rounded-2xl border p-4 text-sm ${
+                    err
+                      ? "border-[var(--err-border)] bg-[var(--err-bg)] text-[var(--err-text)]"
+                      : "border-[var(--ok-border)] bg-[var(--ok-bg)] text-[var(--ok-text)]"
+                  }`}
+                >
+                  {err ?? msg}
+                </div>
+              )}
+
+              <div className="mt-6 text-sm text-gray-600">
+                New here?{" "}
+                <Link
+                  className="font-semibold text-[var(--brand-orange)] hover:opacity-90 underline underline-offset-2"
+                  href="/auth/sign-up"
+                >
+                  Create an account
+                </Link>
+              </div>
+
+              <p className="mt-2 text-[12px] text-gray-500">
+                By continuing you agree to our Terms and acknowledge our Privacy
+                Policy.
+              </p>
+            </div>
           </div>
         </div>
       </div>
