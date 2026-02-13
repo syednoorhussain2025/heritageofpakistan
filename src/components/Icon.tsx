@@ -1,13 +1,7 @@
 // src/components/Icon.tsx
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useMemo,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 // --- Types ---
@@ -21,6 +15,68 @@ type IconContextType = {
   isLoaded: boolean;
 };
 
+// --- Cache keys ---
+const ICONS_CACHE_KEY = "hop:icons:cache:v1";
+const ICONS_CACHE_HASH_KEY = "hop:icons:cachehash:v1";
+const ICONS_CACHE_TIME_KEY = "hop:icons:cachedat:v1";
+
+// Revalidate interval for DB refresh (in ms)
+const REVALIDATE_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
+
+// --- Utils ---
+function safeParseJson<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function stableHashFromPairs(pairs: Array<[string, string]>) {
+  // Small deterministic hash so we can compare cached vs fetched quickly
+  // Not cryptographic, just a change detector.
+  let h = 2166136261;
+  for (const [k, v] of pairs) {
+    const s = `${k}\u0000${v}\u0001`;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+  }
+  // Force unsigned
+  return String(h >>> 0);
+}
+
+function loadCachedIconPairs(): Array<[string, string]> | null {
+  if (typeof window === "undefined") return null;
+  const pairs = safeParseJson<Array<[string, string]>>(window.localStorage.getItem(ICONS_CACHE_KEY));
+  if (!pairs || !Array.isArray(pairs)) return null;
+  // Basic sanity check
+  for (const p of pairs) {
+    if (!Array.isArray(p) || typeof p[0] !== "string" || typeof p[1] !== "string") return null;
+  }
+  return pairs;
+}
+
+function saveCachedIconPairs(pairs: Array<[string, string]>, hash: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ICONS_CACHE_KEY, JSON.stringify(pairs));
+    window.localStorage.setItem(ICONS_CACHE_HASH_KEY, hash);
+    window.localStorage.setItem(ICONS_CACHE_TIME_KEY, String(Date.now()));
+  } catch {
+    // Ignore storage quota or disabled storage
+  }
+}
+
+function shouldRevalidateNow() {
+  if (typeof window === "undefined") return true;
+  const last = Number(window.localStorage.getItem(ICONS_CACHE_TIME_KEY) || "0");
+  if (!last) return true;
+  return Date.now() - last > REVALIDATE_MS;
+}
+
 // --- React Context ---
 const IconContext = createContext<IconContextType>({
   icons: new Map(),
@@ -28,38 +84,86 @@ const IconContext = createContext<IconContextType>({
 });
 
 /**
- * A provider that fetches all icons from the database on initial load
- * and makes them available to all <Icon /> components via context.
- * This avoids fetching the same icon multiple times.
+ * Provider behavior:
+ * 1) Hydrate icons immediately from localStorage if present
+ * 2) Render immediately (no DB dependency for first paint if cached exists)
+ * 3) Revalidate from Supabase in the background and update cache if changed
  */
 export function IconProvider({ children }: { children: React.ReactNode }) {
-  const [icons, setIcons] = useState<Map<string, string>>(new Map());
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [icons, setIcons] = useState<Map<string, string>>(() => {
+    const cached = loadCachedIconPairs();
+    if (!cached) return new Map();
+    return new Map(cached);
+  });
+
+  const [isLoaded, setIsLoaded] = useState<boolean>(() => {
+    // If we have cached icons, consider "loaded" for rendering purposes
+    const cached = loadCachedIconPairs();
+    return !!(cached && cached.length > 0);
+  });
 
   useEffect(() => {
-    async function fetchIcons() {
-      // We only need the name and the pre-processed SVG content.
-      const { data, error } = await supabase
-        .from("icons")
-        .select("name, svg_content");
+    let cancelled = false;
 
-      if (error) {
-        console.error("Failed to fetch icons:", error);
-        setIsLoaded(true); // Mark as loaded even on error to unblock rendering
-        return;
-      }
-
-      const iconMap = new Map<string, string>();
-      if (data) {
-        for (const icon of data as IconData[]) {
-          iconMap.set(icon.name, icon.svg_content);
+    async function fetchIconsAndUpdateCache() {
+      try {
+        // If we already have a cache and it is fresh, skip network
+        const hasCache = icons.size > 0;
+        if (hasCache && !shouldRevalidateNow()) {
+          if (!cancelled) setIsLoaded(true);
+          return;
         }
+
+        const { data, error } = await supabase.from("icons").select("name, svg_content");
+        if (error) {
+          // Do not break UI if DB is slow or fails
+          console.error("Failed to fetch icons:", error);
+          if (!cancelled) setIsLoaded(true);
+          return;
+        }
+
+        const rows = (data || []) as IconData[];
+
+        // Build stable sorted pairs
+        const pairs: Array<[string, string]> = rows
+          .filter((r) => !!r?.name && typeof r.svg_content === "string")
+          .map((r) => [r.name, r.svg_content]);
+
+        pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+
+        const nextHash = stableHashFromPairs(pairs);
+
+        const prevHash =
+          typeof window !== "undefined" ? window.localStorage.getItem(ICONS_CACHE_HASH_KEY) : null;
+
+        // Update state only if changed (prevents pointless rerenders)
+        if (!prevHash || prevHash !== nextHash) {
+          if (!cancelled) {
+            setIcons(new Map(pairs));
+          }
+          saveCachedIconPairs(pairs, nextHash);
+        } else {
+          // Mark cache as refreshed
+          if (typeof window !== "undefined") {
+            try {
+              window.localStorage.setItem(ICONS_CACHE_TIME_KEY, String(Date.now()));
+            } catch {}
+          }
+        }
+
+        if (!cancelled) setIsLoaded(true);
+      } catch (e) {
+        console.error("Icon fetch crashed:", e);
+        if (!cancelled) setIsLoaded(true);
       }
-      setIcons(iconMap);
-      setIsLoaded(true);
     }
 
-    fetchIcons();
+    void fetchIconsAndUpdateCache();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo(() => ({ icons, isLoaded }), [icons, isLoaded]);
@@ -78,22 +182,20 @@ interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 /**
  * Renders an SVG icon from the global icon cache.
- * @param name The unique key of the icon (e.g., "fort-outline").
- * @param size Optional size for the icon (e.g., 24 or "1.5rem").
- * @param className Optional classes to apply to the wrapper span.
+ * Fallback behavior:
+ * - If icon not found, render an invisible placeholder that does not block layout
+ * - Never throws, so a missing icon cannot crash the app
  */
 export default function Icon({ name, size, className, ...props }: IconProps) {
-  const { icons, isLoaded } = useIcons();
+  const { icons } = useIcons();
   const svgContent = icons.get(name);
 
-  // While loading, or if the icon doesn't exist, render a placeholder
-  if (!isLoaded || !svgContent) {
+  if (!svgContent) {
     return (
       <span
-        // UPDATED: Changed bg-gray-300 to bg-transparent to make the placeholder invisible
-        className={`inline-block bg-transparent rounded ${className || ""}`}
+        className={`inline-block bg-transparent ${className || ""}`}
         style={{ width: size || "1em", height: size || "1em" }}
-        aria-label={`Loading icon: ${name}`}
+        aria-label={`Icon: ${name}`}
         {...props}
       />
     );
@@ -103,6 +205,7 @@ export default function Icon({ name, size, className, ...props }: IconProps) {
     <span
       className={`inline-block ${className || ""}`}
       style={{ fontSize: size }}
+      // svg_content should already be sanitized at creation time
       dangerouslySetInnerHTML={{ __html: svgContent }}
       {...props}
     />
