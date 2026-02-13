@@ -11,89 +11,111 @@ export function useAuthUserId() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Sticky last known user id to avoid transient "null" jamming gated features
+  const mountedRef = useRef(true);
   const lastKnownUserIdRef = useRef<string | null>(null);
-  const hasResolvedOnceRef = useRef(false);
+  const resolvingRef = useRef(false);
 
-  useEffect(() => {
-    let mounted = true;
+  const applyUser = (nextId: string | null) => {
+    lastKnownUserIdRef.current = nextId;
+    setUserId(nextId);
+  };
 
-    const resolveFromSession = async () => {
+  const resolveSession = async (reason: string) => {
+    if (resolvingRef.current) return;
+    resolvingRef.current = true;
+
+    try {
+      // When returning to a tab, restart refresh loop if available
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (!mounted) return;
+        (supabase.auth as any).startAutoRefresh?.();
+      } catch {}
 
-        if (error) {
-          setAuthError(error.message);
-        } else {
-          setAuthError(null);
-        }
+      // First, try fast session read
+      const { data, error } = await supabase.auth.getSession();
 
-        const nextId = data.session?.user?.id ?? null;
+      if (!mountedRef.current) return;
 
-        lastKnownUserIdRef.current = nextId;
-        setUserId(nextId);
-      } catch (e: any) {
-        if (!mounted) return;
-        setAuthError(e?.message ?? "Auth error");
-      } finally {
-        if (!mounted) return;
-        if (!hasResolvedOnceRef.current) {
-          hasResolvedOnceRef.current = true;
-          setAuthLoading(false);
+      if (error) {
+        setAuthError(error.message);
+      } else {
+        setAuthError(null);
+      }
+
+      let sessionUserId = data.session?.user?.id ?? null;
+
+      // If we have no session after tab switch, try to refresh once
+      if (!sessionUserId) {
+        try {
+          const refreshFn = (supabase.auth as any).refreshSession;
+          if (typeof refreshFn === "function") {
+            const refreshed = await refreshFn.call(supabase.auth);
+            sessionUserId = refreshed?.data?.session?.user?.id ?? null;
+          }
+        } catch {
+          // ignore refresh errors, treat as signed out if still null
         }
       }
-    };
 
-    resolveFromSession();
+      applyUser(sessionUserId);
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      setAuthError(e?.message ?? "Auth error");
+    } finally {
+      if (!mountedRef.current) return;
+      setAuthLoading(false);
+      resolvingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    // Initial resolve
+    void resolveSession("mount");
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
+      if (!mountedRef.current) return;
 
       setAuthError(null);
 
-      // Only clear user on a definite sign out
       if (event === "SIGNED_OUT") {
-        lastKnownUserIdRef.current = null;
-        setUserId(null);
-        if (!hasResolvedOnceRef.current) {
-          hasResolvedOnceRef.current = true;
-          setAuthLoading(false);
-        }
-        return;
-      }
-
-      // If session exists, update immediately
-      if (session?.user?.id) {
-        lastKnownUserIdRef.current = session.user.id;
-        setUserId(session.user.id);
-        if (!hasResolvedOnceRef.current) {
-          hasResolvedOnceRef.current = true;
-          setAuthLoading(false);
-        }
-        return;
-      }
-
-      // Ignore transient null sessions for non-SIGNED_OUT events
-      // This prevents features from being disabled mid-session.
-      if (!hasResolvedOnceRef.current) {
-        hasResolvedOnceRef.current = true;
+        applyUser(null);
         setAuthLoading(false);
+        return;
       }
+
+      const nextId = session?.user?.id ?? null;
+
+      // Ignore transient null sessions for non sign-out events
+      if (!nextId) return;
+
+      applyUser(nextId);
+      setAuthLoading(false);
     });
 
-    // When tab refocuses, re-check session (helps after refresh cycles)
-    const onVisibility = () => {
+    const onVisible = () => {
       if (document.visibilityState === "visible") {
-        resolveFromSession();
+        void resolveSession("visibility");
+      } else {
+        // Optional: stop refresh when hidden (saves resources)
+        try {
+          (supabase.auth as any).stopAutoRefresh?.();
+        } catch {}
       }
     };
-    document.addEventListener("visibilitychange", onVisibility);
+
+    const onFocus = () => {
+      void resolveSession("focus");
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       sub.subscription.unsubscribe();
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
   }, [supabase]);
 
