@@ -13,7 +13,24 @@ declare global {
 
 export const createClient = (): SupabaseClient => {
   if (typeof window === "undefined") {
-    throw new Error("createClient(browser) called on the server");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !anon) {
+      throw new Error(
+        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      );
+    }
+
+    // Server-side fallback for prerender/SSR paths that execute client modules.
+    // Session persistence is browser-only, so keep auth stateless here.
+    return createSupabaseClient(url, anon, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
   }
 
   // Already created → always reuse
