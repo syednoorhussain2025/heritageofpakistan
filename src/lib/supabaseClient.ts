@@ -3,10 +3,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 let cached: SupabaseClient | undefined;
 
+const isRealBrowser = () =>
+  typeof document !== "undefined" &&
+  typeof window !== "undefined" &&
+  typeof navigator !== "undefined";
+
 export const createClient = (): SupabaseClient => {
   if (cached) return cached;
 
-  if (typeof window !== "undefined") {
+  if (isRealBrowser()) {
     // Browser
     const mod = require("@/lib/supabase/browser") as {
       createClient: () => SupabaseClient;
@@ -24,7 +29,9 @@ export const createClient = (): SupabaseClient => {
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anon) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
   }
 
   cached = mod.createClient(url, anon);
