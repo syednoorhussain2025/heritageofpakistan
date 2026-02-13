@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
-const AUTH_RETURN_FLAG = "auth:returning";
+const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 const MIN_VISIBLE_MS = 650;
 
 export default function AuthPendingToast() {
@@ -16,28 +16,30 @@ export default function AuthPendingToast() {
   const [open, setOpen] = useState(false);
   const [toastId, setToastId] = useState(0);
 
-  const safetyTimerRef = useRef<number | null>(null);
-  const hideTimerRef = useRef<number | null>(null);
   const shownAtRef = useRef<number>(0);
+  const hideTimerRef = useRef<number | null>(null);
+  const safetyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const hasFlag = (() => {
+    // Never show on auth routes
+    if ((pathname || "").startsWith("/auth")) return;
+
+    const hasJustSignedIn = (() => {
       try {
         return (
           typeof window !== "undefined" &&
-          window.sessionStorage?.getItem(AUTH_RETURN_FLAG) === "1"
+          window.sessionStorage?.getItem(AUTH_JUST_SIGNED_IN) === "1"
         );
       } catch {
         return false;
       }
     })();
 
-    if (!hasFlag) return;
+    if (!hasJustSignedIn) return;
 
     if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     if (safetyTimerRef.current) window.clearTimeout(safetyTimerRef.current);
 
-    // Show toast
     setVisible(true);
     setToastId((n) => n + 1);
     setOpen(false);
@@ -49,7 +51,7 @@ export default function AuthPendingToast() {
 
     const clearFlag = () => {
       try {
-        window.sessionStorage?.removeItem(AUTH_RETURN_FLAG);
+        window.sessionStorage?.removeItem(AUTH_JUST_SIGNED_IN);
       } catch {}
     };
 
@@ -69,29 +71,28 @@ export default function AuthPendingToast() {
       }, wait);
     };
 
-    // If session is already ready, still show briefly then hide
+    // Close once a real session is confirmed
     sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) hideWithMinimum();
     });
 
-    // Hide when auth confirms a user
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) hideWithMinimum();
     });
 
-    // Safety timeout so it never gets stuck
+    // Safety so it cannot get stuck
     safetyTimerRef.current = window.setTimeout(() => {
       hideNow();
     }, 15000);
 
     return () => {
       subscription.unsubscribe();
-      if (safetyTimerRef.current) window.clearTimeout(safetyTimerRef.current);
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
-      safetyTimerRef.current = null;
+      if (safetyTimerRef.current) window.clearTimeout(safetyTimerRef.current);
       hideTimerRef.current = null;
+      safetyTimerRef.current = null;
     };
   }, [sb, pathname]);
 

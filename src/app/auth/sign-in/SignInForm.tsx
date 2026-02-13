@@ -7,30 +7,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
-function safeRedirectTo(next: string | null, fallback: string) {
-  if (!next) return fallback;
-
-  const trimmed = next.trim();
-  if (!trimmed) return fallback;
-
-  // Only allow same-origin relative paths
-  if (
-    trimmed.startsWith("/") &&
-    !trimmed.startsWith("//") &&
-    !trimmed.includes("://")
-  ) {
-    return trimmed;
-  }
-
-  return fallback;
-}
+const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 
 export default function SignInForm() {
   const supabase = createClient();
   const router = useRouter();
   const sp = useSearchParams();
 
-  const redirectTo = safeRedirectTo(sp.get("redirectTo"), "/dashboard");
+  const redirectTo = sp.get("redirectTo") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,6 +40,11 @@ export default function SignInForm() {
         password,
       });
       if (error) throw error;
+
+      try {
+        window.sessionStorage?.setItem(AUTH_JUST_SIGNED_IN, "1");
+      } catch {}
+
       router.replace(redirectTo);
     } catch (e: any) {
       setErr(e?.message ?? "Sign in failed.");
@@ -111,7 +100,6 @@ export default function SignInForm() {
 
   return (
     <main className="h-screen w-full">
-      {/* Global palette (same as builder theme) */}
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -138,7 +126,6 @@ export default function SignInForm() {
       `}</style>
 
       <div className="grid h-full w-full grid-cols-1 md:grid-cols-2">
-        {/* LEFT: Full photo */}
         <div className="relative hidden md:block">
           <Image
             src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/miniature.jpeg"
@@ -157,9 +144,7 @@ export default function SignInForm() {
           />
         </div>
 
-        {/* RIGHT: Ivory form area */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-          {/* Decorative motifs (top corners) */}
           <img
             src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
             alt=""
@@ -173,8 +158,6 @@ export default function SignInForm() {
             style={{ transform: "rotate(6deg)" }}
           />
 
-          {/* Removed bottom-right flowers */}
-
           <div className="relative z-10 w-full max-w-md">
             <header className="mb-6 text-center md:text-left">
               <h1 className="text-4xl font-black leading-tight text-[var(--dark-grey)]">
@@ -186,7 +169,6 @@ export default function SignInForm() {
               <div className="mt-3 h-[3px] w-16 rounded bg-[var(--sand-gold)]" />
             </header>
 
-            {/* Email + Password */}
             <form onSubmit={onEmailPassword} className="space-y-3">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-[var(--navy-deep)]">
@@ -239,7 +221,6 @@ export default function SignInForm() {
               </div>
             </form>
 
-            {/* Divider */}
             <div className="my-6 flex items-center gap-3">
               <div className="h-px flex-1 bg-[var(--taupe-grey)]" />
               <span className="text-xs uppercase tracking-wide text-[var(--espresso-brown)]/70">
@@ -248,7 +229,6 @@ export default function SignInForm() {
               <div className="h-px flex-1 bg-[var(--taupe-grey)]" />
             </div>
 
-            {/* Magic link */}
             <form onSubmit={onMagicLink} className="space-y-3">
               <div className="text-sm font-medium text-[var(--navy-deep)]">
                 Email me a magic link
@@ -290,9 +270,7 @@ export default function SignInForm() {
               New here?{" "}
               <Link
                 className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
-                href={`/auth/sign-up?redirectTo=${encodeURIComponent(
-                  redirectTo
-                )}`}
+                href="/auth/sign-up"
               >
                 Create an account
               </Link>
