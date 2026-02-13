@@ -101,22 +101,45 @@ export function useSignedInActions() {
     return safeRedirectTo(raw, "/");
   }, [pathname, sp]);
 
-  function ensureSignedIn(): boolean {
-    // Use sticky known state first
+  async function ensureSignedIn(): Promise<boolean> {
+    // Fast path from sticky state
     if (knownSignedIn === true) return true;
 
-    // If we have never established auth state yet, avoid redirect loops
+    // Unknown/auth-loading path: resolve once on demand instead of silently blocking
     if ((authLoading && knownSignedIn === null) || (!fastReady && knownSignedIn === null)) {
-      return false;
+      try {
+        const { data } = await sb.auth.getSession();
+        const signed = !!data.session?.user;
+        if (knownSignedInRef.current !== signed) {
+          knownSignedInRef.current = signed;
+          setKnownSignedIn(signed);
+        }
+        if (signed) return true;
+      } catch {
+        // Continue to redirect below
+      }
     }
 
-    // Known signed out (or confirmed by fast state)
+    // Known signed out (or confirmed by fast signal)
     if (knownSignedIn === false || (!userId && fastReady && !fastSignedIn)) {
       router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
       return false;
     }
 
-    // Fallback: treat as not signed in
+    // Final guard: verify once before redirect to avoid transient false negatives
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data.session?.user) {
+        if (knownSignedInRef.current !== true) {
+          knownSignedInRef.current = true;
+          setKnownSignedIn(true);
+        }
+        return true;
+      }
+    } catch {
+      // fall through to redirect
+    }
+
     router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
     return false;
   }
