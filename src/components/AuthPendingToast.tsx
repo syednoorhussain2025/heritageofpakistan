@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
-const MIN_VISIBLE_MS = 650;
+const MIN_VISIBLE_MS = 1000;
 
 export default function AuthPendingToast() {
   const sb = useMemo(() => createClient(), []);
