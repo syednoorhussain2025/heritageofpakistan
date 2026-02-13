@@ -1,16 +1,11 @@
 // src/hooks/useSignedInActions.ts
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
 
-/**
- * Ensures an action only runs if the user is signed in.
- * If not signed in, redirects to /auth/sign-in with redirectTo.
- * Returns true if signed in, false otherwise.
- */
 function safeRedirectTo(next: string, fallback: string) {
   const trimmed = (next || "").trim();
   if (!trimmed) return fallback;
@@ -32,10 +27,26 @@ export function useSignedInActions() {
   const pathname = usePathname();
   const sp = useSearchParams();
 
-  // Fast session signal so buttons do not feel "dead" after redirect
   const sb = useMemo(() => createClient(), []);
+
+  // "Fast" auth state from Supabase client
   const [fastSignedIn, setFastSignedIn] = useState(false);
   const [fastReady, setFastReady] = useState(false);
+
+  // Sticky "last known" auth state to avoid post-load jamming
+  const knownSignedInRef = useRef<boolean | null>(null);
+  const [knownSignedIn, setKnownSignedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // If either signal says signed in, treat as known signed in
+    if (userId) {
+      if (knownSignedInRef.current !== true) {
+        knownSignedInRef.current = true;
+        setKnownSignedIn(true);
+      }
+      return;
+    }
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,21 +55,38 @@ export function useSignedInActions() {
       .getSession()
       .then(({ data }) => {
         if (cancelled) return;
-        setFastSignedIn(!!data.session?.user);
+        const signed = !!data.session?.user;
+        setFastSignedIn(signed);
         setFastReady(true);
+
+        if (knownSignedInRef.current !== signed) {
+          knownSignedInRef.current = signed;
+          setKnownSignedIn(signed);
+        }
       })
       .catch(() => {
         if (cancelled) return;
         setFastSignedIn(false);
         setFastReady(true);
+
+        if (knownSignedInRef.current !== false) {
+          knownSignedInRef.current = false;
+          setKnownSignedIn(false);
+        }
       });
 
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
-      setFastSignedIn(!!session?.user);
+      const signed = !!session?.user;
+      setFastSignedIn(signed);
       setFastReady(true);
+
+      if (knownSignedInRef.current !== signed) {
+        knownSignedInRef.current = signed;
+        setKnownSignedIn(signed);
+      }
     });
 
     return () => {
@@ -74,22 +102,29 @@ export function useSignedInActions() {
   }, [pathname, sp]);
 
   function ensureSignedIn(): boolean {
-    // Prefer the fastest reliable signal
-    const signedIn = !!userId || fastSignedIn;
-    if (signedIn) return true;
+    // Use sticky known state first
+    if (knownSignedIn === true) return true;
 
-    // If both are still resolving, avoid a "do nothing forever" state
-    // Once fastReady is true, we can confidently redirect if not signed in
-    if (authLoading && !fastReady) return false;
+    // If we have never established auth state yet, avoid redirect loops
+    if ((authLoading && knownSignedIn === null) || (!fastReady && knownSignedIn === null)) {
+      return false;
+    }
 
+    // Known signed out (or confirmed by fast state)
+    if (knownSignedIn === false || (!userId && fastReady && !fastSignedIn)) {
+      router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
+      return false;
+    }
+
+    // Fallback: treat as not signed in
     router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
     return false;
   }
 
   return {
     ensureSignedIn,
-    isSignedIn: !!userId || fastSignedIn,
-    // expose a "ready" style boolean if you want to disable UI briefly
-    authLoading: authLoading && !fastReady,
+    isSignedIn: knownSignedIn === true,
+    // This "loading" is only true until we have a known state once
+    authLoading: knownSignedIn === null,
   };
 }
