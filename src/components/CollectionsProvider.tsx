@@ -28,7 +28,21 @@ export const useCollections = () => useContext(CollectionsCtx);
 
 // Small helpers
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const jitter = (ms: number) => Math.round(ms * (0.8 + Math.random() * 0.4)); // ±20%
+const jitter = (ms: number) => Math.round(ms * (0.8 + Math.random() * 0.4)); // +/-20%
+const ATTEMPT_TIMEOUT_MS = 10000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
+  let timer: number | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer !== null) window.clearTimeout(timer);
+  }) as Promise<T>;
+}
 
 export function CollectionsProvider({
   children,
@@ -46,7 +60,7 @@ export function CollectionsProvider({
   const toastTimerRef = useRef<number | null>(null);
   const toastCleanupRef = useRef<number | null>(null);
 
-  // Track in-flight writes per key so multiple rapid clicks don’t spawn races
+  // Track in-flight writes per key so multiple rapid clicks do not spawn races
   const inFlightRef = useRef<Set<string>>(new Set());
 
   // Fetch initial collected set (if signed in)
@@ -189,23 +203,36 @@ export function CollectionsProvider({
     let success = false;
     let lastErr: any = null;
 
-    for (let i = 0; i < attempts; i++) {
-      try {
-        if (i > 0) await sleep(jitter(backoffs[i]));
-        if (targetOn) {
-          await ensureCollected(input); // idempotent add
-        } else {
-          await removeFromCollection(input); // idempotent remove
-        }
-        success = true;
-        break;
-      } catch (e) {
-        lastErr = e;
-        if (typeof navigator !== "undefined" && !navigator.onLine) break;
-      }
-    }
+    try {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          if (i > 0) await sleep(jitter(backoffs[i]));
 
-    inFlightRef.current.delete(key);
+          if (targetOn) {
+            await withTimeout(
+              ensureCollected(input),
+              ATTEMPT_TIMEOUT_MS,
+              "ensureCollected"
+            );
+          } else {
+            await withTimeout(
+              removeFromCollection(input),
+              ATTEMPT_TIMEOUT_MS,
+              "removeFromCollection"
+            );
+          }
+
+          success = true;
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (typeof navigator !== "undefined" && !navigator.onLine) break;
+        }
+      }
+    } finally {
+      // Always release lock to avoid a permanently dead button for this photo.
+      inFlightRef.current.delete(key);
+    }
 
     if (success) {
       showToast(
@@ -222,7 +249,7 @@ export function CollectionsProvider({
       return next;
     });
     showToast("Failed to save image. Please try again.");
-    // Optional: console.error(lastErr);
+    console.error("[CollectionsProvider] toggleCollect failed:", lastErr);
   };
 
   return (
