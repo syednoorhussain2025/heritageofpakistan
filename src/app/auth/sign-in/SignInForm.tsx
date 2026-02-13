@@ -19,7 +19,6 @@ export default function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loadingPwd, setLoadingPwd] = useState(false);
-  const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingReset, setLoadingReset] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -50,28 +49,6 @@ export default function SignInForm() {
       setErr(e?.message ?? "Sign in failed.");
     } finally {
       setLoadingPwd(false);
-    }
-  }
-
-  async function onMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    setLoadingOtp(true);
-    try {
-      const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
-        redirectTo
-      )}`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo },
-      });
-      if (error) throw error;
-      setMsg("Magic link sent. Please check your email.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Could not send magic link.");
-    } finally {
-      setLoadingOtp(false);
     }
   }
 
@@ -126,6 +103,7 @@ export default function SignInForm() {
       `}</style>
 
       <div className="grid h-full w-full grid-cols-1 md:grid-cols-2">
+        {/* LEFT IMAGE */}
         <div className="relative hidden md:block">
           <Image
             src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/miniature.jpeg"
@@ -144,6 +122,7 @@ export default function SignInForm() {
           />
         </div>
 
+        {/* RIGHT FORM */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
           <img
             src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
@@ -214,44 +193,10 @@ export default function SignInForm() {
                   onClick={onForgotPassword}
                   disabled={loadingReset}
                   className="whitespace-nowrap text-sm font-medium text-[var(--navy-deep)] underline transition hover:text-[var(--terracotta-red)] focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)] disabled:opacity-60"
-                  aria-label="Send password reset email"
                 >
                   {loadingReset ? "Sending…" : "Forgot password?"}
                 </button>
               </div>
-            </form>
-
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[var(--taupe-grey)]" />
-              <span className="text-xs uppercase tracking-wide text-[var(--espresso-brown)]/70">
-                Or
-              </span>
-              <div className="h-px flex-1 bg-[var(--taupe-grey)]" />
-            </div>
-
-            <form onSubmit={onMagicLink} className="space-y-3">
-              <div className="text-sm font-medium text-[var(--navy-deep)]">
-                Email me a magic link
-              </div>
-              <label className="block">
-                <span className="sr-only">Email</span>
-                <input
-                  className="w-full rounded-lg border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[15px] text-[var(--dark-grey)] transition focus-visible:border-[var(--mustard-accent)] focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)]"
-                  type="email"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={loadingOtp}
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--terracotta-red)] px-4 py-2.5 font-semibold text-white transition hover:opacity-95 active:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--mustard-accent)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loadingOtp ? "Sending…" : "Send magic link"}
-              </button>
             </form>
 
             {(err || msg) && (
