@@ -20,6 +20,9 @@ const PANEL_W = 264;
 const GAP = 20;
 const PADDING = 24;
 const MAX_VH = { base: 76, md: 84, lg: 88 };
+const PROGRAMMATIC_ZOOM_MAX_RETRIES = 6;
+const PROGRAMMATIC_ZOOM_RETRY_MS = 80;
+const PROGRAMMATIC_ZOOM_VERIFY_MS = 260;
 
 // --- CUSTOM TEXT CONFIG ---
 const PHOTO_CREDIT = "Photo by Heritage of Pakistan ©";
@@ -130,6 +133,7 @@ export function Lightbox({
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
   const zoomTimerRef = useRef<number | null>(null);
+  const zoomVerifyTimerRef = useRef<number | null>(null);
 
   // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
@@ -147,6 +151,10 @@ export function Lightbox({
         window.clearTimeout(zoomTimerRef.current);
         zoomTimerRef.current = null;
       }
+      if (zoomVerifyTimerRef.current !== null) {
+        window.clearTimeout(zoomVerifyTimerRef.current);
+        zoomVerifyTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -161,6 +169,14 @@ export function Lightbox({
 
   /* ---------- Navigation Handlers ---------- */
   const resetZoom = useCallback(() => {
+    if (zoomTimerRef.current !== null) {
+      window.clearTimeout(zoomTimerRef.current);
+      zoomTimerRef.current = null;
+    }
+    if (zoomVerifyTimerRef.current !== null) {
+      window.clearTimeout(zoomVerifyTimerRef.current);
+      zoomVerifyTimerRef.current = null;
+    }
     if (transformRef.current) {
       transformRef.current.resetTransform();
     }
@@ -384,19 +400,43 @@ export function Lightbox({
     lastZoomAction.current = Date.now();
     triggerHighResLoad();
 
-    setIsZoomed(true);
-
     if (zoomTimerRef.current !== null) {
       window.clearTimeout(zoomTimerRef.current);
       zoomTimerRef.current = null;
     }
+    if (zoomVerifyTimerRef.current !== null) {
+      window.clearTimeout(zoomVerifyTimerRef.current);
+      zoomVerifyTimerRef.current = null;
+    }
 
-    zoomTimerRef.current = window.setTimeout(() => {
-      if (transformRef.current) {
-        transformRef.current.zoomIn(0.5, 500);
+    const runZoomAttempt = (attempt: number) => {
+      const ref = transformRef.current;
+      if (!ref?.instance) {
+        if (attempt < PROGRAMMATIC_ZOOM_MAX_RETRIES) {
+          zoomTimerRef.current = window.setTimeout(
+            () => runZoomAttempt(attempt + 1),
+            PROGRAMMATIC_ZOOM_RETRY_MS
+          );
+        }
+        return;
       }
+
       zoomTimerRef.current = null;
-    }, 350);
+      const prevScale = ref.instance.transformState.scale;
+      ref.zoomIn(0.5, 500);
+
+      zoomVerifyTimerRef.current = window.setTimeout(() => {
+        const nextScale = transformRef.current?.instance?.transformState.scale;
+        if (
+          (nextScale ?? prevScale) <= prevScale + 0.01 &&
+          attempt < PROGRAMMATIC_ZOOM_MAX_RETRIES
+        ) {
+          runZoomAttempt(attempt + 1);
+        }
+      }, PROGRAMMATIC_ZOOM_VERIFY_MS);
+    };
+
+    runZoomAttempt(0);
   };
 
   const handleDoubleTap = useCallback(
