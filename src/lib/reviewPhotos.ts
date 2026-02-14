@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { assertFileAcceptable } from "./image/validate";
 import { compressToWebP } from "./image/compress";
 import { reviewPhotoPath } from "./image/paths";

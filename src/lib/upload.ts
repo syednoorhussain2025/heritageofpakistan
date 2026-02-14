@@ -1,5 +1,5 @@
 // src/lib/upload.ts
-import { supabase } from "./supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 export async function uploadToBucket(
   bucket: "site-images" | "photo-story",

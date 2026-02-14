@@ -1,5 +1,5 @@
 // src/lib/trips.ts
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 /* ───────────────────── Types ───────────────────── */
 

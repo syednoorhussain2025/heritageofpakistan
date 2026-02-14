@@ -1,4 +1,4 @@
-import { createClient } from "../supabaseClient";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { LightboxPhoto } from "../../types/lightbox";
 import { storagePublicUrl } from "../image/storagePublicUrl";
 
@@ -13,6 +13,10 @@ type ImageRow = {
   blur_data_url: string | null;
 };
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+
 /**
  * Fetches and transforms official site gallery photos into the universal
  * LightboxPhoto format.
@@ -21,8 +25,6 @@ export async function getSiteGalleryPhotosForLightbox(
   siteId: string,
   viewerId?: string | null
 ): Promise<LightboxPhoto[]> {
-  const supabase = createClient();
-
   // 1. Fetch all required data in parallel
   const [siteRes, imagesRes, regionRes, categoryRes, bookmarkRes] =
     await Promise.all([
@@ -37,7 +39,7 @@ export async function getSiteGalleryPhotosForLightbox(
       supabase
         .from("site_images")
         .select(
-          // ⬇️ include performance-related columns
+          // ?? include performance-related columns
           "id, storage_path, caption, credit, width, height, blur_hash, blur_data_url"
         )
         .eq("site_id", siteId)
@@ -98,13 +100,13 @@ export async function getSiteGalleryPhotosForLightbox(
           region: siteRegion,
           categories: siteCategories,
           architecturalStyle: site.architectural_style,
-          // ✅ Include the tagline from the sites table
+          // ? Include the tagline from the sites table
           tagline: site.tagline ?? null,
         },
         isBookmarked: bookmarkedPaths.has(img.storage_path),
         storagePath: img.storage_path,
 
-        // ✅ Performance extras from DB
+        // ? Performance extras from DB
         width: img.width ?? undefined,
         height: img.height ?? undefined,
         blurHash: img.blur_hash ?? undefined,

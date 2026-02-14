@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 
 /** Create a review row. Returns the new review id. */
 export async function createReview(input: {

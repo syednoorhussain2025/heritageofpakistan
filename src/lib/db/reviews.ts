@@ -1,5 +1,5 @@
 // src/lib/db/reviews.ts
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 
 export type ReviewRow = {
   id: string;

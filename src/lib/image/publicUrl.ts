@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 
 /** Get a public URL, optionally with Supabase transform (width/quality). */
 export function getPublicUrl(

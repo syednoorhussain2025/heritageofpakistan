@@ -1,5 +1,5 @@
 // lib/db/adminStats.ts
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 export async function getTotalSites() {
   const { count, error } = await supabase

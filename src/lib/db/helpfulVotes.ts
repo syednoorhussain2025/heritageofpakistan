@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 
 export async function toggleHelpful(reviewId: string, voterId: string) {
   const supabase = createClient();

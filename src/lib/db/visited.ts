@@ -1,5 +1,5 @@
 // src/lib/db/visited.ts
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 
 const supabase = createClient();
 
