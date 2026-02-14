@@ -2,10 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import type { User } from "@supabase/supabase-js";
 import Icon from "./Icon";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#A8A8A8]";
@@ -14,13 +13,11 @@ const ICON_SIZE = 23;
 function NavItem({
   label,
   icon,
-  href,
   isActive,
   onClick,
 }: {
   label: string;
   icon: string;
-  href: string;
   isActive: boolean;
   onClick: () => void;
 }) {
@@ -49,7 +46,7 @@ function NavItem({
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const { userId } = useAuthUserId();
   const { startNavigation } = useLoaderEngine();
 
   const [activePath, setActivePath] = useState(pathname);
@@ -60,21 +57,6 @@ export default function BottomNav() {
   }, [pathname]);
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Load and keep last heritage path in sync whenever the route changes
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("lastHeritagePath");
     setLastHeritagePath(stored);
@@ -82,7 +64,6 @@ export default function BottomNav() {
 
   const go = (href: string) => {
     if (!href || href === pathname) return;
-
     setActivePath(href);
     startNavigation(href);
   };
@@ -95,11 +76,10 @@ export default function BottomNav() {
   const isMapActive = currentPath.startsWith("/map");
   const isDashboardActive = currentPath.startsWith("/dashboard");
 
-  const dashboardHref = user ? "/dashboard" : "/auth/sign-in";
+  const dashboardHref = userId ? "/dashboard" : "/auth/sign-in";
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
 
-  // Use last opened heritage page if available, otherwise fall back to Lahore Fort
   const heritageHref =
     lastHeritagePath && lastHeritagePath.startsWith("/heritage/")
       ? lastHeritagePath
@@ -114,35 +94,30 @@ export default function BottomNav() {
           <NavItem
             label="Home"
             icon="home"
-            href="/"
             isActive={isHomeActive}
             onClick={() => go("/")}
           />
           <NavItem
             label="Heritage"
             icon="map-marker-alt"
-            href={heritageHref}
             isActive={isHeritageActive}
             onClick={() => go(heritageHref)}
           />
           <NavItem
             label="Explore"
             icon="search"
-            href="/explore"
             isActive={isExploreActive}
             onClick={() => go("/explore")}
           />
           <NavItem
             label="Map"
             icon="map"
-            href="/map"
             isActive={isMapActive}
             onClick={() => go("/map")}
           />
           <NavItem
             label="Dashboard"
             icon="dashboard"
-            href={dashboardHref}
             isActive={isDashboardActive}
             onClick={() => go(dashboardHref)}
           />

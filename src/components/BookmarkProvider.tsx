@@ -7,6 +7,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
@@ -31,7 +32,7 @@ const BookmarkContext = createContext<BookmarkContextType>({
 export const useBookmarks = () => useContext(BookmarkContext);
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);

@@ -1,7 +1,7 @@
 // src/components/CollectionsProvider.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   listCollections,
   computeDedupeKey,
@@ -49,7 +49,7 @@ export function CollectionsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const sb = createClient();
+  const sb = useMemo(() => createClient(), []);
   const [collected, setCollected] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
 

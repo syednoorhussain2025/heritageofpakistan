@@ -1,7 +1,7 @@
 // src/hooks/useSignedInActions.ts
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
@@ -29,72 +29,6 @@ export function useSignedInActions() {
 
   const sb = useMemo(() => createClient(), []);
 
-  // "Fast" auth state from Supabase client
-  const [fastSignedIn, setFastSignedIn] = useState(false);
-  const [fastReady, setFastReady] = useState(false);
-
-  // Sticky "last known" auth state to avoid post-load jamming
-  const knownSignedInRef = useRef<boolean | null>(null);
-  const [knownSignedIn, setKnownSignedIn] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // If either signal says signed in, treat as known signed in
-    if (userId) {
-      if (knownSignedInRef.current !== true) {
-        knownSignedInRef.current = true;
-        setKnownSignedIn(true);
-      }
-      return;
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    sb.auth
-      .getSession()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const signed = !!data.session?.user;
-        setFastSignedIn(signed);
-        setFastReady(true);
-
-        if (knownSignedInRef.current !== signed) {
-          knownSignedInRef.current = signed;
-          setKnownSignedIn(signed);
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setFastSignedIn(false);
-        setFastReady(true);
-
-        if (knownSignedInRef.current !== false) {
-          knownSignedInRef.current = false;
-          setKnownSignedIn(false);
-        }
-      });
-
-    const {
-      data: { subscription },
-    } = sb.auth.onAuthStateChange((_event, session) => {
-      if (cancelled) return;
-      const signed = !!session?.user;
-      setFastSignedIn(signed);
-      setFastReady(true);
-
-      if (knownSignedInRef.current !== signed) {
-        knownSignedInRef.current = signed;
-        setKnownSignedIn(signed);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [sb]);
-
   const currentUrl = useMemo(() => {
     const qs = sp?.toString();
     const raw = qs ? `${pathname}?${qs}` : pathname;
@@ -102,38 +36,20 @@ export function useSignedInActions() {
   }, [pathname, sp]);
 
   async function ensureSignedIn(): Promise<boolean> {
-    // Fast path from sticky state
-    if (knownSignedIn === true) return true;
+    if (userId) return true;
 
-    // Unknown/auth-loading path: resolve once on demand instead of silently blocking
-    if ((authLoading && knownSignedIn === null) || (!fastReady && knownSignedIn === null)) {
-      try {
-        const { data } = await sb.auth.getSession();
-        const signed = !!data.session?.user;
-        if (knownSignedInRef.current !== signed) {
-          knownSignedInRef.current = signed;
-          setKnownSignedIn(signed);
-        }
-        if (signed) return true;
-      } catch {
-        // Continue to redirect below
-      }
-    }
-
-    // Known signed out (or confirmed by fast signal)
-    if (knownSignedIn === false || (!userId && fastReady && !fastSignedIn)) {
-      router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentUrl)}`);
-      return false;
-    }
-
-    // Final guard: verify once before redirect to avoid transient false negatives
     try {
       const { data } = await sb.auth.getSession();
       if (data.session?.user) {
-        if (knownSignedInRef.current !== true) {
-          knownSignedInRef.current = true;
-          setKnownSignedIn(true);
-        }
+        return true;
+      }
+    } catch {
+      // fall through to getUser
+    }
+
+    try {
+      const { data, error } = await sb.auth.getUser();
+      if (!error && data.user) {
         return true;
       }
     } catch {
@@ -146,8 +62,7 @@ export function useSignedInActions() {
 
   return {
     ensureSignedIn,
-    isSignedIn: knownSignedIn === true,
-    // This "loading" is only true until we have a known state once
-    authLoading: knownSignedIn === null,
+    isSignedIn: Boolean(userId),
+    authLoading,
   };
 }
