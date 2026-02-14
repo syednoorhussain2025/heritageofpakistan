@@ -55,10 +55,22 @@ type SiteLite = {
   location_free: string | null;
   latitude: number | null;
   longitude: number | null;
+  region?: string | null;
+  categories?: string[];
 };
 
 type DashboardLightboxPhoto = LightboxPhoto & {
   siteImageId?: string | null;
+  width?: number | null;
+  height?: number | null;
+  blurHash?: string | null;
+};
+
+type SiteImageLite = {
+  id: string;
+  width: number | null;
+  height: number | null;
+  blur_hash: string | null;
 };
 
 export default function MyCollectionsDashboard() {
@@ -68,6 +80,9 @@ export default function MyCollectionsDashboard() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [photos, setPhotos] = useState<CollectedPhotoRow[]>([]);
   const [siteById, setSiteById] = useState<Record<string, SiteLite>>({});
+  const [imageMetaById, setImageMetaById] = useState<Record<string, SiteImageLite>>(
+    {}
+  );
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -110,6 +125,18 @@ export default function MyCollectionsDashboard() {
   );
 
   const siteIdsKey = siteIds.join("|");
+  const siteImageIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          photos
+            .map((p) => p.site_image_id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
+        )
+      ),
+    [photos]
+  );
+  const siteImageIdsKey = siteImageIds.join("|");
 
   useEffect(() => {
     let active = true;
@@ -120,10 +147,22 @@ export default function MyCollectionsDashboard() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("sites")
-        .select("id, title, location_free, latitude, longitude")
-        .in("id", siteIds);
+      const [sitesRes, siteRegionsRes, siteCategoriesRes] = await Promise.all([
+        supabase
+          .from("sites")
+          .select("id, title, location_free, latitude, longitude")
+          .in("id", siteIds),
+        supabase
+          .from("site_regions")
+          .select("site_id, region:regions(name)")
+          .in("site_id", siteIds),
+        supabase
+          .from("site_categories")
+          .select("site_id, category:categories(name)")
+          .in("site_id", siteIds),
+      ]);
+
+      const { data, error } = sitesRes;
 
       if (!active) return;
       if (error) {
@@ -132,9 +171,45 @@ export default function MyCollectionsDashboard() {
         return;
       }
 
+      if (siteRegionsRes.error) {
+        console.error(
+          "[mycollections] failed to load site regions:",
+          siteRegionsRes.error
+        );
+      }
+
+      if (siteCategoriesRes.error) {
+        console.error(
+          "[mycollections] failed to load site categories:",
+          siteCategoriesRes.error
+        );
+      }
+
+      const regionBySiteId: Record<string, string> = {};
+      for (const row of (siteRegionsRes.data ?? []) as any[]) {
+        const siteId = row.site_id as string | undefined;
+        const regionName = row?.region?.name as string | undefined;
+        if (siteId && regionName && !regionBySiteId[siteId]) {
+          regionBySiteId[siteId] = regionName;
+        }
+      }
+
+      const categoriesBySiteId: Record<string, string[]> = {};
+      for (const row of (siteCategoriesRes.data ?? []) as any[]) {
+        const siteId = row.site_id as string | undefined;
+        const categoryName = row?.category?.name as string | undefined;
+        if (!siteId || !categoryName) continue;
+        if (!categoriesBySiteId[siteId]) categoriesBySiteId[siteId] = [];
+        categoriesBySiteId[siteId].push(categoryName);
+      }
+
       const next: Record<string, SiteLite> = {};
       for (const site of (data ?? []) as SiteLite[]) {
-        next[site.id] = site;
+        next[site.id] = {
+          ...site,
+          region: regionBySiteId[site.id] ?? null,
+          categories: categoriesBySiteId[site.id] ?? [],
+        };
       }
       setSiteById(next);
     })();
@@ -143,6 +218,39 @@ export default function MyCollectionsDashboard() {
       active = false;
     };
   }, [siteIdsKey, siteIds, supabase]);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      if (!siteImageIds.length) {
+        setImageMetaById({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("site_images")
+        .select("id, width, height, blur_hash")
+        .in("id", siteImageIds);
+
+      if (!active) return;
+      if (error) {
+        console.error("[mycollections] failed to load image metadata:", error);
+        setImageMetaById({});
+        return;
+      }
+
+      const next: Record<string, SiteImageLite> = {};
+      for (const img of (data ?? []) as SiteImageLite[]) {
+        next[img.id] = img;
+      }
+      setImageMetaById(next);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [siteImageIdsKey, siteImageIds, supabase]);
 
   useEffect(() => {
     if (!collectedLoaded) return;
@@ -200,6 +308,7 @@ export default function MyCollectionsDashboard() {
     () =>
       photos.map((p) => {
         const site = p.site_id ? siteById[p.site_id] : undefined;
+        const imageMeta = p.site_image_id ? imageMetaById[p.site_image_id] : undefined;
         const url = p.publicUrl || p.image_url || "";
 
         return {
@@ -216,14 +325,17 @@ export default function MyCollectionsDashboard() {
             location: site?.location_free ?? "",
             latitude: site?.latitude ?? null,
             longitude: site?.longitude ?? null,
-            region: "Unknown Region",
-            categories: [],
+            region: site?.region ?? "Unknown Region",
+            categories: site?.categories ?? [],
           },
           isBookmarked: true,
           storagePath: p.storage_path ?? "",
+          width: imageMeta?.width ?? null,
+          height: imageMeta?.height ?? null,
+          blurHash: imageMeta?.blur_hash ?? null,
         };
       }),
-    [photos, siteById]
+    [photos, siteById, imageMetaById]
   );
 
   useEffect(() => {
