@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import FlowComposer from "@/modules/flow-layout/FlowComposer";
 import type {
   Section as FlowSection,

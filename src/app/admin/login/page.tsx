@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import { FaExclamationCircle } from "react-icons/fa";
 
 export default function AdminLogin() {

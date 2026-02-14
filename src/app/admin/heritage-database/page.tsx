@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import AdminGuard from "@/components/AdminGuard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import Icon from "@/components/Icon";
 import MasterSiteModal from "./MasterSiteModal";
 import ResultsMapModal from "./ResultsMapModal";

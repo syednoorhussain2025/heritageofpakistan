@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
 import IconPickerModal from "@/components/IconPickerModal";

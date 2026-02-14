@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import Icon from "@/components/Icon";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
 

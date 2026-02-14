@@ -145,3 +145,5 @@ export const createClient = (): SupabaseClient => {
   wireBrowserAuthRecovery(client);
   return client;
 };
+
+export const supabase = createClient();

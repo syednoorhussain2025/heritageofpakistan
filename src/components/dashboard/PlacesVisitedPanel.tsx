@@ -5,7 +5,7 @@ import { countUserVisits } from "@/lib/db/visited";
 import { listUserReviews } from "@/lib/db/reviews";
 import { progressToNextBadge } from "@/lib/db/badges";
 import Image from "next/image";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { useProfile } from "@/components/ProfileProvider"; // ✅ Import the global profile hook
 
 type Props = {

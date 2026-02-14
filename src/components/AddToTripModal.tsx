@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import { createTrip, getTripUrlById } from "@/lib/trips";
 
 // Types aligned with your schema

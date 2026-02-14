@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import HeritageSection from "./HeritageSection";
 import SitePreviewCard from "@/components/SitePreviewCard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 

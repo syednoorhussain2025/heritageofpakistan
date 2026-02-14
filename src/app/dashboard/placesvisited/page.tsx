@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { countUserVisits } from "@/lib/db/visited";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { progressToNextBadge, BADGE_TIERS } from "@/lib/db/badges";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";

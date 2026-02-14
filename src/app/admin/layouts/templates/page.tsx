@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import {
   seedDefaultSectionTypes,
   loadArchetypeRows,

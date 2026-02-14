@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import JSZip from "jszip"; // Import JSZip for handling ZIP files
 import {
   FaCheckCircle,

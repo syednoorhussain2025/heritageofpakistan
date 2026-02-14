@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import IconPickerModal from "@/components/IconPickerModal"; // already exists :contentReference[oaicite:1]{index=1}
 
 /* --------------------------- Types --------------------------- */

@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 type Guide = {
   id: string;

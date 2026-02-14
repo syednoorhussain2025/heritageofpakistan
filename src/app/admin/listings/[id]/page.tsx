@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import NextImage from "next/image";
 import AdminGuard from "@/components/AdminGuard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
 // @ts-expect-error - papaparse has no type declarations in this project; treat as any

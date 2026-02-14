@@ -15,7 +15,7 @@ import SearchFilters, {
   fetchSitesByFilters,
   hasRadius,
 } from "@/components/SearchFilters";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
 
 const PAGE_SIZE = 12;

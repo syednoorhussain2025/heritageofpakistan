@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 /* =========================
    Types

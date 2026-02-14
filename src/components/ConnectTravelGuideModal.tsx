@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import Icon from "@/components/Icon";
 
 type GuideRow = {

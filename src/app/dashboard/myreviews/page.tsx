@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
 import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox

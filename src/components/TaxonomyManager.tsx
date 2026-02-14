@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
 import IconPickerModal from "@/components/IconPickerModal";

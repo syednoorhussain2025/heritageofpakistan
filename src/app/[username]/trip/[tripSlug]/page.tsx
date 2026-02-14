@@ -28,7 +28,7 @@ import {
 } from "@/lib/trips";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 /* bring in the search modal component you created */
 import TripBuilderSearch from "./TripBuilderSearch";

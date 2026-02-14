@@ -13,7 +13,7 @@ import {
   type SiteLite,
   type TripDay,
 } from "@/lib/trips";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import Icon from "@/components/Icon";
 
 /* ───────────────────────────── Types ───────────────────────────── */

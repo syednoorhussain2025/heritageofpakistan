@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/Icon";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider"; // ✅ Import the global profile hook
 

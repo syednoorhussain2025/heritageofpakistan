@@ -10,7 +10,7 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 

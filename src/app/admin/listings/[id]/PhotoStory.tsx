@@ -9,7 +9,7 @@ import React, {
   useMemo,
 } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 /* ------------------------------------------------------------------ */
 /* Types (match DB schema)                                             */

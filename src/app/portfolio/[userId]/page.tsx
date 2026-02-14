@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 import { avatarSrc } from "@/lib/image/avatarSrc";
 import { motion } from "framer-motion";

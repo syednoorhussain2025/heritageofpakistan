@@ -3,7 +3,7 @@
 
 import AdminGuard from "@/components/AdminGuard";
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 export default function NewListing() {
   return (

@@ -12,7 +12,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { avatarSrc } from "@/lib/image/avatarSrc";
 import { motion, AnimatePresence } from "framer-motion";
 

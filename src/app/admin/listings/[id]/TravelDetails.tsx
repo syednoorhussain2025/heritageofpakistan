@@ -11,7 +11,7 @@ import React, {
   ChangeEvent,
 } from "react";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 /**
  * Travel & Details

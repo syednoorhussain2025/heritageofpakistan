@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import AdminGuard from "@/components/AdminGuard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import SummaryTab from "./SummaryTab";
 
 /**

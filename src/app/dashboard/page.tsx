@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";

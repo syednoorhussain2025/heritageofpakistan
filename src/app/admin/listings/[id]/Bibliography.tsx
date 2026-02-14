@@ -8,7 +8,7 @@ import React, {
   useState,
   useLayoutEffect,
 } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import CitationWizard from "@/components/biblio/CitationWizard";
 
 // TS: this package ships JS only and has no bundled types; ignore missing declaration.

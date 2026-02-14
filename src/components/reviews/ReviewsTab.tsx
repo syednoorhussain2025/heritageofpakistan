@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import NextImage from "next/image";
-import { createClient } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 /** Universal Lightbox */

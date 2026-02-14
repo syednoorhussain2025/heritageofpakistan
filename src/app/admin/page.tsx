@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 
 export default function AdminHome() {
   const [query, setQuery] = useState("");

@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import Icon from "@/components/Icon";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import { Filters } from "@/components/SearchFilters";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite } from "@/components/ClientOnlyMap";
 
 /* ───────────────────────────── Types ───────────────────────────── */

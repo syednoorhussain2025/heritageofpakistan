@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import Icon from "@/components/Icon";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import CitationWizard from "@/components/biblio/CitationWizard";
 
 /* ----------------------------- Helpers ----------------------------- */
