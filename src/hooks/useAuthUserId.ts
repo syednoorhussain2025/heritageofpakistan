@@ -34,10 +34,14 @@ export function useAuthUserId() {
 
   const mountedRef = useRef(true);
   const resolvingRef = useRef(false);
+  const rerunForceRef = useRef(false);
 
   const resolveUser = useCallback(
     async (forceRefresh = false) => {
-      if (resolvingRef.current) return;
+      if (resolvingRef.current) {
+        rerunForceRef.current = rerunForceRef.current || forceRefresh;
+        return;
+      }
       resolvingRef.current = true;
 
       try {
@@ -93,6 +97,12 @@ export function useAuthUserId() {
         if (!mountedRef.current) return;
         setAuthLoading(false);
         resolvingRef.current = false;
+
+        if (rerunForceRef.current) {
+          const rerunForce = rerunForceRef.current;
+          rerunForceRef.current = false;
+          void resolveUser(rerunForce);
+        }
       }
     },
     [supabase]
@@ -121,7 +131,12 @@ export function useAuthUserId() {
         return;
       }
 
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
         void resolveUser(false);
       }
     });

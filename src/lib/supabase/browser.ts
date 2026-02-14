@@ -7,7 +7,93 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 declare global {
   interface Window {
     __HOP_SUPABASE__?: SupabaseClient;
+    __HOP_SUPABASE_AUTH_WIRED__?: boolean;
+    __HOP_SUPABASE_AUTH_RECOVERING__?: boolean;
+    __HOP_SUPABASE_AUTH_LAST_RECOVERY__?: number;
   }
+}
+
+const AUTH_RECOVERY_THROTTLE_MS = 12000;
+
+function wireBrowserAuthRecovery(client: SupabaseClient) {
+  if (typeof window === "undefined") return;
+  if (window.__HOP_SUPABASE_AUTH_WIRED__) return;
+
+  window.__HOP_SUPABASE_AUTH_WIRED__ = true;
+  window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ = 0;
+
+  const recover = async (force = false) => {
+    if (window.__HOP_SUPABASE_AUTH_RECOVERING__) return;
+
+    const now = Date.now();
+    const last = window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ ?? 0;
+    if (!force && now - last < AUTH_RECOVERY_THROTTLE_MS) return;
+
+    window.__HOP_SUPABASE_AUTH_RECOVERING__ = true;
+    window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ = now;
+
+    try {
+      // Ensure token timer is active after tab sleep/wake cycles.
+      client.auth.startAutoRefresh();
+
+      const { data } = await client.auth.getSession();
+      if (data.session) {
+        await client.auth.getUser();
+      }
+    } catch (err) {
+      try {
+        await client.auth.refreshSession();
+      } catch (refreshErr) {
+        console.warn("[supabase/browser] auth recovery failed", {
+          err,
+          refreshErr,
+        });
+      }
+    } finally {
+      window.__HOP_SUPABASE_AUTH_RECOVERING__ = false;
+    }
+  };
+
+  const onVisible = () => {
+    if (document.visibilityState === "visible") {
+      void recover(true);
+    }
+  };
+
+  const onFocus = () => {
+    void recover(true);
+  };
+
+  const onOnline = () => {
+    void recover(true);
+  };
+
+  document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("online", onOnline);
+
+  const {
+    data: { subscription },
+  } = client.auth.onAuthStateChange((event) => {
+    if (
+      event === "INITIAL_SESSION" ||
+      event === "SIGNED_IN" ||
+      event === "TOKEN_REFRESHED"
+    ) {
+      void recover(false);
+    }
+  });
+
+  // Fire one initial recovery after hydration.
+  void recover(true);
+
+  // Keep a best-effort cleanup in page lifecycle.
+  window.addEventListener("beforeunload", () => {
+    subscription.unsubscribe();
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("online", onOnline);
+  });
 }
 
 export const createClient = (): SupabaseClient => {
@@ -33,7 +119,10 @@ export const createClient = (): SupabaseClient => {
   }
 
   // Already created -> always reuse.
-  if (window.__HOP_SUPABASE__) return window.__HOP_SUPABASE__;
+  if (window.__HOP_SUPABASE__) {
+    wireBrowserAuthRecovery(window.__HOP_SUPABASE__);
+    return window.__HOP_SUPABASE__;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -53,5 +142,6 @@ export const createClient = (): SupabaseClient => {
   });
 
   window.__HOP_SUPABASE__ = client;
+  wireBrowserAuthRecovery(client);
   return client;
 };
