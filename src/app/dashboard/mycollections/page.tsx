@@ -1,139 +1,33 @@
 // src/app/dashboard/mycollections/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import dynamicImport from "next/dynamic";
 import Link from "next/link";
 import Icon from "@/components/Icon";
+import CollectHeart from "@/components/CollectHeart";
+import { useCollections } from "@/components/CollectionsProvider";
 import {
   listPhotoCollections,
   deletePhotoCollection,
 } from "@/lib/photoCollections";
 import {
   listCollections as listCollectedPhotos,
-  removeFromCollection as removeFromLibrary,
-  // Removed: makeCollectKey
+  makeCollectKeyFromRow,
 } from "@/lib/collections";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { createClient } from "@/lib/supabase/browser";
+import type { LightboxPhoto } from "@/types/lightbox";
 
-/* Lightbox for Collected Photos */
-type LightboxImage = {
-  publicUrl: string | null;
-  alt_text?: string | null;
-  caption?: string | null;
-  credit?: string | null;
-};
+const Lightbox = dynamicImport(
+  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
+  { ssr: false }
+);
 
-function Lightbox({
-  images,
-  index,
-  onClose,
-  onPrev,
-  onNext,
-}: {
-  images: LightboxImage[];
-  index: number;
-  onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const [show, setShow] = useState(false);
-  const img = images[index];
-
-  useEffect(() => {
-    const t = setTimeout(() => setShow(true), 10);
-    return () => clearTimeout(t);
-  }, []);
-
-  const requestClose = useCallback(() => {
-    setShow(false);
-    setTimeout(() => onClose(), 350);
-  }, [onClose]);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") requestClose();
-      else if (e.key === "ArrowLeft") onPrev();
-      else if (e.key === "ArrowRight") onNext();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [requestClose, onPrev, onNext]);
-
-  return (
-    <div
-      ref={overlayRef}
-      onMouseDown={(e) => {
-        if (e.target === overlayRef.current) requestClose();
-      }}
-      className={`fixed inset-0 z-[2000] flex items-center justify-center transition-opacity duration-300 ${
-        show ? "opacity-100" : "opacity-0"
-      } bg-black/85 backdrop-blur-[1px]`}
-      aria-modal="true"
-      role="dialog"
-    >
-      <div
-        className={`relative w-[92vw] h-[88vh] max-w-6xl mx-auto transition-transform duration-300 ${
-          show ? "scale-100 translate-y-0" : "scale-95 translate-y-1"
-        }`}
-      >
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={requestClose}
-          className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center"
-          aria-label="Close"
-          title="Close"
-        >
-          ✕
-        </button>
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onPrev}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center"
-          aria-label="Previous"
-          title="Previous"
-        >
-          ‹
-        </button>
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onNext}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center"
-          aria-label="Next"
-          title="Next"
-        >
-          ›
-        </button>
-
-        <div className="w-full h-full flex items-center justify-center">
-          {img?.publicUrl ? (
-            <img
-              src={img.publicUrl}
-              alt={img.alt_text || ""}
-              className="max-w-[92vw] max-h-[78vh] object-contain shadow-2xl"
-              onMouseDown={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-200" />
-          )}
-        </div>
-
-        {(img?.caption || img?.credit || img?.alt_text) && (
-          <div className="absolute left-0 right-0 -bottom-0 translate-y-full mt-3 text-center text-sm text-white/95">
-            <div className="inline-block bg-black/70 px-3 py-2 rounded-lg">
-              {img?.caption || img?.alt_text}
-              {img?.credit ? (
-                <span className="ml-2 text-white/70">({img.credit})</span>
-              ) : null}
-              <span className="ml-3 text-white/60">
-                {index + 1} / {images.length}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+const AddToCollectionModal = dynamicImport(
+  () => import("@/components/AddToCollectionModal"),
+  { ssr: false }
+);
 
 type Album = {
   id: string;
@@ -143,15 +37,45 @@ type Album = {
   itemCount?: number;
 };
 
+type CollectedPhotoRow = {
+  id: string;
+  site_image_id: string | null;
+  storage_path: string | null;
+  image_url: string | null;
+  site_id: string | null;
+  alt_text: string | null;
+  caption: string | null;
+  credit: string | null;
+  publicUrl: string | null;
+};
+
+type SiteLite = {
+  id: string;
+  title: string;
+  location_free: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+type DashboardLightboxPhoto = LightboxPhoto & {
+  siteImageId?: string | null;
+};
+
 export default function MyCollectionsDashboard() {
+  const supabase = useMemo(() => createClient(), []);
+  const { collected, isLoaded: collectedLoaded } = useCollections();
+
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<CollectedPhotoRow[]>([]);
+  const [siteById, setSiteById] = useState<Record<string, SiteLite>>({});
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [lbOpen, setLbOpen] = useState(false);
-  const [lbIndex, setLbIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [selectedPhoto, setSelectedPhoto] =
+    useState<DashboardLightboxPhoto | null>(null);
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -162,23 +86,87 @@ export default function MyCollectionsDashboard() {
         setLoadingAlbums(false);
       }
     })();
+
     (async () => {
       setLoadingPhotos(true);
       try {
-        setPhotos(await listCollectedPhotos(200));
+        setPhotos((await listCollectedPhotos(200)) as CollectedPhotoRow[]);
       } finally {
         setLoadingPhotos(false);
       }
     })();
   }, []);
 
+  const siteIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          photos
+            .map((p) => p.site_id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
+        )
+      ),
+    [photos]
+  );
+
+  const siteIdsKey = siteIds.join("|");
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      if (!siteIds.length) {
+        setSiteById({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id, title, location_free, latitude, longitude")
+        .in("id", siteIds);
+
+      if (!active) return;
+      if (error) {
+        console.error("[mycollections] failed to load site metadata:", error);
+        setSiteById({});
+        return;
+      }
+
+      const next: Record<string, SiteLite> = {};
+      for (const site of (data ?? []) as SiteLite[]) {
+        next[site.id] = site;
+      }
+      setSiteById(next);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [siteIdsKey, siteIds, supabase]);
+
+  useEffect(() => {
+    if (!collectedLoaded) return;
+
+    setPhotos((prev) =>
+      prev.filter((p) => {
+        try {
+          const key = makeCollectKeyFromRow({
+            site_image_id: p.site_image_id,
+            storage_path: p.storage_path,
+            image_url: p.image_url,
+          });
+          return collected.has(key);
+        } catch {
+          return false;
+        }
+      })
+    );
+  }, [collected, collectedLoaded]);
+
   async function deleteAlbum(id: string, name: string) {
-    if (
-      !confirm(
-        `Delete collection “${name}”? This will not affect your library.`
-      )
-    )
+    if (!confirm(`Delete collection "${name}"? This will not affect your library.`))
       return;
+
     setDeletingId(id);
     try {
       await deletePhotoCollection(id);
@@ -188,34 +176,71 @@ export default function MyCollectionsDashboard() {
     }
   }
 
-  async function removeLibraryRow(it: any) {
-    // New: delete by identifiers (CollectInput), not by a precomputed string key
-    await removeFromLibrary({
-      siteImageId: it.site_image_id ?? undefined,
-      storagePath: it.storage_path ?? undefined,
-      imageUrl: it.image_url ?? undefined,
-    });
-    setPhotos((prev) => prev.filter((p) => p.id !== it.id));
-  }
-
   const openLightbox = useCallback((idx: number) => {
-    setLbIndex(idx);
-    setLbOpen(true);
+    setLightboxIndex(idx);
   }, []);
-  const prev = useCallback(
-    () => setLbIndex((i) => (i - 1 + photos.length) % photos.length),
-    [photos.length]
+
+  const handleOpenCollectionModal = useCallback((photo: LightboxPhoto) => {
+    setSelectedPhoto(photo as DashboardLightboxPhoto);
+    setCollectionModalOpen(true);
+  }, []);
+
+  const tileUrl = useCallback((photo: CollectedPhotoRow) => {
+    if (photo.storage_path) {
+      try {
+        return getVariantPublicUrl(photo.storage_path, "thumb");
+      } catch {
+        return photo.publicUrl || photo.image_url || "";
+      }
+    }
+    return photo.publicUrl || photo.image_url || "";
+  }, []);
+
+  const lightboxPhotos = useMemo<DashboardLightboxPhoto[]>(
+    () =>
+      photos.map((p) => {
+        const site = p.site_id ? siteById[p.site_id] : undefined;
+        const url = p.publicUrl || p.image_url || "";
+
+        return {
+          id: p.id,
+          siteImageId: p.site_image_id ?? null,
+          url,
+          caption: p.caption ?? p.alt_text ?? null,
+          author: {
+            name: p.credit || "Heritage of Pakistan",
+          },
+          site: {
+            id: p.site_id ?? "unknown-site",
+            name: site?.title ?? "Collected Photo",
+            location: site?.location_free ?? "",
+            latitude: site?.latitude ?? null,
+            longitude: site?.longitude ?? null,
+            region: "Unknown Region",
+            categories: [],
+          },
+          isBookmarked: true,
+          storagePath: p.storage_path ?? "",
+        };
+      }),
+    [photos, siteById]
   );
-  const next = useCallback(
-    () => setLbIndex((i) => (i + 1) % photos.length),
-    [photos.length]
-  );
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    if (lightboxPhotos.length === 0) {
+      setLightboxIndex(null);
+      return;
+    }
+    if (lightboxIndex >= lightboxPhotos.length) {
+      setLightboxIndex(lightboxPhotos.length - 1);
+    }
+  }, [lightboxIndex, lightboxPhotos.length]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 space-y-8">
       <h1 className="text-2xl font-bold">My Collections</h1>
 
-      {/* Collections */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Collections</h2>
@@ -232,7 +257,7 @@ export default function MyCollectionsDashboard() {
           </div>
         ) : albums.length === 0 ? (
           <div className="text-gray-600">
-            You have no collections. Use “Add to Collection” from a photo.
+            You have no collections. Use Add to Collection from a photo.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -275,8 +300,7 @@ export default function MyCollectionsDashboard() {
                       {a.name}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {a.is_public ? "public" : "private"} • {a.itemCount ?? 0}{" "}
-                      items
+                      {a.is_public ? "public" : "private"} • {a.itemCount ?? 0} items
                     </div>
                   </div>
                 </div>
@@ -286,7 +310,6 @@ export default function MyCollectionsDashboard() {
         )}
       </section>
 
-      {/* Collected Photos */}
       <section>
         <h2 className="text-lg font-semibold mb-4">Collected Photos</h2>
 
@@ -308,46 +331,62 @@ export default function MyCollectionsDashboard() {
             {photos.map((it, idx) => (
               <div
                 key={it.id}
-                className="relative group rounded-xl overflow-hidden bg-gray-100 ring-1 ring-black/5 cursor-zoom-in"
+                className="relative group rounded-xl overflow-hidden bg-gray-100 ring-1 ring-black/5 cursor-zoom-in aspect-[4/3]"
                 onClick={() => openLightbox(idx)}
                 title="Open"
               >
-                {/* Transform the wrapper, not the image (avoids pixel jitter) */}
+                <img
+                  src={tileUrl(it)}
+                  alt={it.alt_text || ""}
+                  className="w-full h-full object-cover select-none transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
+                  draggable={false}
+                />
+
                 <div
-                  className="transition-transform duration-200 transform-gpu group-hover:scale-[1.01] will-change-transform"
-                  style={{ backfaceVisibility: "hidden" }}
+                  className="absolute top-2 right-2 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDownCapture={(e) => e.stopPropagation()}
                 >
-                  <img
-                    src={it.publicUrl}
-                    alt={it.alt_text || ""}
-                    className="w-full h-40 object-cover select-none"
-                    draggable={false}
+                  <CollectHeart
+                    variant="overlay"
+                    siteImageId={it.site_image_id}
+                    storagePath={it.storage_path}
+                    imageUrl={it.image_url}
+                    siteId={it.site_id}
+                    altText={it.alt_text}
+                    caption={it.caption}
+                    credit={it.credit}
                   />
                 </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeLibraryRow(it);
-                  }}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 shadow ring-1 ring-black/5 flex items-center justify-center"
-                  title="Remove from library"
-                >
-                  <Icon name="times" />
-                </button>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {lbOpen && photos.length > 0 && (
+      {lightboxIndex !== null && lightboxPhotos.length > 0 && (
         <Lightbox
-          images={photos}
-          index={lbIndex}
-          onClose={() => setLbOpen(false)}
-          onPrev={prev}
-          onNext={next}
+          photos={lightboxPhotos}
+          startIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onAddToCollection={handleOpenCollectionModal}
+        />
+      )}
+
+      {collectionModalOpen && selectedPhoto && (
+        <AddToCollectionModal
+          image={{
+            siteImageId: selectedPhoto.siteImageId ?? null,
+            storagePath: selectedPhoto.storagePath ?? null,
+            imageUrl: selectedPhoto.url ?? null,
+            siteId: selectedPhoto.site?.id ?? null,
+            altText: selectedPhoto.caption ?? null,
+            caption: selectedPhoto.caption ?? null,
+            credit: selectedPhoto.author?.name ?? null,
+            siteName: selectedPhoto.site?.name ?? null,
+            locationText: selectedPhoto.site?.location ?? null,
+          }}
+          onClose={() => setCollectionModalOpen(false)}
         />
       )}
     </div>

@@ -93,6 +93,7 @@ type SiteTaxonomy = {
 };
 
 type LightboxPhotoWithExtras = LightboxPhoto & {
+  siteImageId?: string | null;
   width?: number | null;
   height?: number | null;
   blurHash?: string | null;
@@ -580,8 +581,9 @@ export function Lightbox({
               >
                 <CollectHeart
                   variant="overlay"
-                  siteImageId={(photo as any).id}
+                  siteImageId={(photo as any).siteImageId ?? (photo as any).id}
                   storagePath={(photo as any).storagePath}
+                  imageUrl={(photo as any).url}
                   siteId={photo.site?.id ?? ""}
                   caption={(photo as any).caption}
                   credit={(photo as any)?.author?.name}
