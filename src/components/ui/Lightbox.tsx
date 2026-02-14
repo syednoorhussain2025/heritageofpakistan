@@ -549,6 +549,15 @@ export function Lightbox({
                 </div>
               )}
 
+              {!isImageLoaded && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                  <span
+                    className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
+
               {/* ZOOM COMPONENT */}
               <TransformWrapper
                 ref={transformRef}
@@ -588,6 +597,9 @@ export function Lightbox({
                       draggable={false}
                       priority
                       onLoadingComplete={() => {
+                        setIsImageLoaded(true);
+                      }}
+                      onError={() => {
                         setIsImageLoaded(true);
                       }}
                     />
