@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import NextImage from "next/image";
-import Link from "next/link";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   TransformWrapper,
@@ -113,15 +112,24 @@ export function Lightbox({
   photos,
   startIndex,
   onClose,
-  onBookmarkToggle,
   onAddToCollection,
 }: LightboxProps) {
   const { ensureSignedIn } = useSignedInActions();
   const [currentIndex, setCurrentIndex] = useState(startIndex);
-  const photo = photos[currentIndex] as LightboxPhotoWithExtras;
+  const safeCurrentIndex =
+    photos.length > 0
+      ? ((currentIndex % photos.length) + photos.length) % photos.length
+      : 0;
+  const photo = useMemo<LightboxPhotoWithExtras>(
+    () =>
+      (photos[safeCurrentIndex] as LightboxPhotoWithExtras | undefined) ??
+      ({} as LightboxPhotoWithExtras),
+    [photos, safeCurrentIndex]
+  );
 
   // Zoom Refs and State
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
+  const zoomTimerRef = useRef<number | null>(null);
 
   // Tracks the timestamp of the last *ZOOM* interaction
   const lastZoomAction = useRef<number>(0);
@@ -132,6 +140,24 @@ export function Lightbox({
   // Tracks if the hi-res image has finished decoding to fade it in
   const [isHighResReady, setIsHighResReady] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (zoomTimerRef.current !== null) {
+        window.clearTimeout(zoomTimerRef.current);
+        zoomTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!photos.length) {
+      setCurrentIndex(0);
+      return;
+    }
+    const clamped = Math.min(Math.max(startIndex, 0), photos.length - 1);
+    setCurrentIndex(clamped);
+  }, [startIndex, photos.length]);
 
   /* ---------- Navigation Handlers ---------- */
   const resetZoom = useCallback(() => {
@@ -255,24 +281,6 @@ export function Lightbox({
     return photo?.url;
   }, [photo?.storagePath, photo?.url]);
 
-  // Build the exact payload AddToCollectionModal expects (kept, but no longer used for callback)
-  const addToCollectionPayload = useMemo(() => {
-    const siteName = photo?.site?.name ?? null;
-    const locationText = (photo as any)?.site?.location ?? null;
-
-    return {
-      siteImageId: photo?.id ?? null,
-      storagePath: (photo as any)?.storagePath ?? null,
-      imageUrl: mediumPhotoUrl || highResPhotoUrl || (photo as any)?.url || null,
-      siteId: photo?.site?.id ?? null,
-      altText: (photo as any)?.caption ?? siteName ?? "Photo preview",
-      caption: (photo as any)?.caption ?? null,
-      credit: (photo as any)?.author?.name ?? null,
-      siteName,
-      locationText,
-    };
-  }, [photo, mediumPhotoUrl, highResPhotoUrl]);
-
   /* ---------- Prefetch neighbours ---------- */
   useEffect(() => {
     if (!photos.length) return;
@@ -378,15 +386,21 @@ export function Lightbox({
 
     setIsZoomed(true);
 
-    setTimeout(() => {
+    if (zoomTimerRef.current !== null) {
+      window.clearTimeout(zoomTimerRef.current);
+      zoomTimerRef.current = null;
+    }
+
+    zoomTimerRef.current = window.setTimeout(() => {
       if (transformRef.current) {
         transformRef.current.zoomIn(0.5, 500);
       }
+      zoomTimerRef.current = null;
     }, 350);
   };
 
   const handleDoubleTap = useCallback(
-    (e: React.MouseEvent) => {
+    () => {
       if (transformRef.current) {
         const { scale } = transformRef.current.instance.transformState;
         lastZoomAction.current = Date.now();
@@ -424,7 +438,7 @@ export function Lightbox({
       ? (photo as any)!.site!.categories
       : [];
     return [...region, ...cats].filter(Boolean) as string[];
-  }, [photo?.site]);
+  }, [photo]);
 
   const heritageTypes = taxonomy?.heritageTypes ?? null;
   const architecturalStyles = taxonomy?.architecturalStyles ?? null;
@@ -440,6 +454,7 @@ export function Lightbox({
   /* =======================================================
        RENDER
   ======================================================= */
+  if (!photos.length) return null;
 
   return (
     <AnimatePresence>
@@ -624,6 +639,9 @@ export function Lightbox({
                         priority
                         onLoadingComplete={() => {
                           setIsHighResReady(true);
+                          setIsHighResLoading(false);
+                        }}
+                        onError={() => {
                           setIsHighResLoading(false);
                         }}
                       />

@@ -1,7 +1,7 @@
 // src/components/AddToCollectionModal.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import NextImage from "next/image";
 import Icon from "@/components/Icon";
@@ -112,10 +112,6 @@ function Spinner({
   );
 }
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-}
-
 function isNoSwipeTarget(target: EventTarget | null) {
   const el = target as HTMLElement | null;
   if (!el) return false;
@@ -198,6 +194,11 @@ export default function AddToCollectionModal({
   const [toastOpen, setToastOpen] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
   const toastCleanupRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const createCloseTimerRef = useRef<number | null>(null);
+  const reorderTimerRef = useRef<number | null>(null);
+  const followupToastTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
 
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
@@ -240,6 +241,23 @@ export default function AddToCollectionModal({
   const hasPreview = !!previewUrl;
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+      if (flipTimerRef.current) window.clearTimeout(flipTimerRef.current);
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      if (createCloseTimerRef.current)
+        window.clearTimeout(createCloseTimerRef.current);
+      if (reorderTimerRef.current) window.clearTimeout(reorderTimerRef.current);
+      if (followupToastTimerRef.current)
+        window.clearTimeout(followupToastTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     const t = setTimeout(() => setIsOpen(true), 10);
     return () => clearTimeout(t);
   }, []);
@@ -250,34 +268,42 @@ export default function AddToCollectionModal({
 
   useEffect(() => {
     if (!previewUrl) return;
+    let cancelled = false;
 
     const img = new window.Image();
     img.decoding = "async";
     (img as any).fetchPriority = "high";
     img.src = previewUrl;
 
-    const done = () => setPreviewLoaded(true);
+    const done = () => {
+      if (cancelled || !mountedRef.current) return;
+      setPreviewLoaded(true);
+    };
     img.onload = done;
     img.onerror = done;
 
     return () => {
+      cancelled = true;
       img.onload = null;
       img.onerror = null;
     };
   }, [previewUrl]);
 
-  function requestClose() {
+  const requestClose = useCallback(() => {
     setIsOpen(false);
-    setTimeout(() => onClose(), 250);
-  }
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => onClose(), 250);
+  }, [onClose]);
 
-  function requestCreateClose() {
+  const requestCreateClose = useCallback(() => {
     setIsCreateAnimatingOpen(false);
-    window.setTimeout(() => {
+    if (createCloseTimerRef.current)
+      window.clearTimeout(createCloseTimerRef.current);
+    createCloseTimerRef.current = window.setTimeout(() => {
       setIsCreateVisible(false);
       setIsCreateOpen(false);
     }, 250);
-  }
+  }, []);
 
   // Sync create modal visibility + fade animation
   useEffect(() => {
@@ -308,7 +334,7 @@ export default function AddToCollectionModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [collectionToDelete, isCreateOpen]);
+  }, [collectionToDelete, isCreateOpen, requestClose, requestCreateClose]);
 
   function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === overlayRef.current) requestClose();
@@ -329,6 +355,8 @@ export default function AddToCollectionModal({
     updateSort();
 
     window.requestAnimationFrame(() => {
+      if (!mountedRef.current) return;
+
       const last: Record<string, number> = {};
       Object.entries(itemRefs.current).forEach(([id, el]) => {
         if (!el) return;
@@ -351,6 +379,8 @@ export default function AddToCollectionModal({
 
       // Next frame, animate back to 0
       window.requestAnimationFrame(() => {
+        if (!mountedRef.current) return;
+
         setFlipAnimating(true);
         setFlipMap({});
 
@@ -365,6 +395,8 @@ export default function AddToCollectionModal({
 
   // Load collections + membership for this photo (use stable identity)
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       setLoading(true);
       try {
@@ -374,21 +406,28 @@ export default function AddToCollectionModal({
             ? getCollectionsMembership(stableImage)
             : Promise.resolve(new Set<string>()),
         ]);
+        if (cancelled || !mountedRef.current) return;
         setCollections(cols);
         setSelected(mem as any);
 
         // initial sort follows membership
         setSortSelected(new Set(mem as any));
       } catch (e) {
+        if (cancelled || !mountedRef.current) return;
         console.error("[AddToCollectionModal] load failed", e, { stableImage });
         setCollections([]);
         setSelected(new Set());
         setSortSelected(new Set());
         showToast("Failed to load collections");
       } finally {
+        if (cancelled || !mountedRef.current) return;
         setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [stableImage]);
 
   const filtered = useMemo(() => {
@@ -410,6 +449,8 @@ export default function AddToCollectionModal({
   }, [collections, search, sortSelected]);
 
   function showToast(message: string) {
+    if (!mountedRef.current) return;
+
     setToastMsg(message);
     setToastOpen(false);
 
@@ -417,7 +458,10 @@ export default function AddToCollectionModal({
     if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
 
     // trigger slide-in after mount
-    window.requestAnimationFrame(() => setToastOpen(true));
+    window.requestAnimationFrame(() => {
+      if (!mountedRef.current) return;
+      setToastOpen(true);
+    });
 
     toastTimerRef.current = window.setTimeout(() => {
       setToastOpen(false);
@@ -430,6 +474,8 @@ export default function AddToCollectionModal({
   }
 
   async function handleCreate() {
+    if (busyCreate) return;
+
     const name = newName.trim();
     if (!name) return;
 
@@ -469,14 +515,19 @@ export default function AddToCollectionModal({
       // 1) Collection created
       // 2) After a longer delay, photo added
       showToast(`Collection '${name}' Created`);
-      await sleep(1150);
-      showToast(`Photo added to Collection '${name}'`);
+      if (followupToastTimerRef.current) {
+        window.clearTimeout(followupToastTimerRef.current);
+      }
+      followupToastTimerRef.current = window.setTimeout(() => {
+        showToast(`Photo added to Collection '${name}'`);
+        followupToastTimerRef.current = null;
+      }, 1150);
     } catch (e) {
       console.error("[AddToCollectionModal] create failed", e, {
         stableImage,
         name,
       });
-      alert(`Could not create collection: ${errText(e)}`);
+      showToast(`Could not create collection: ${errText(e)}`);
     } finally {
       setBusyCreate(false);
     }
@@ -495,7 +546,7 @@ export default function AddToCollectionModal({
       return;
     }
 
-    if (toggling === collectionId) return;
+    if (toggling) return;
 
     const wasOn = selected.has(collectionId);
     setToggling(collectionId);
@@ -533,11 +584,13 @@ export default function AddToCollectionModal({
       setToggling(null);
 
       // after a short beat, reorder with a smooth move animation
-      window.setTimeout(() => {
+      if (reorderTimerRef.current) window.clearTimeout(reorderTimerRef.current);
+      reorderTimerRef.current = window.setTimeout(() => {
         setMovingId(collectionId);
         runFlipReorder(() => {
           setSortSelected(new Set(nextSelected));
         });
+        reorderTimerRef.current = null;
       }, 180);
     } catch (e) {
       console.error("[AddToCollectionModal] toggle failed", e, {
@@ -574,8 +627,6 @@ export default function AddToCollectionModal({
       showToast(`Failed to update ${collectionName}`);
       setToggling(null);
 
-      // keep sort consistent with reverted selected
-      setSortSelected((prev) => new Set(prev));
       setMovingId(null);
     }
   }
@@ -607,7 +658,7 @@ export default function AddToCollectionModal({
       setCollectionToDelete(null);
     } catch (e) {
       console.error(e);
-      alert(`Could not delete collection: ${errText(e)}`);
+      showToast(`Could not delete collection: ${errText(e)}`);
     } finally {
       setIsDeleting(false);
     }
@@ -653,6 +704,7 @@ export default function AddToCollectionModal({
   }
 
   const identityOk = hasValidIdentity(stableImage);
+  const anyToggleInFlight = Boolean(toggling);
 
   return (
     <>
@@ -943,7 +995,9 @@ export default function AddToCollectionModal({
                                   );
                                   return;
                                 }
-                                if (!isBusy) toggleMembership(c.id, c.name);
+                                if (!isBusy && !anyToggleInFlight) {
+                                  toggleMembership(c.id, c.name);
+                                }
                               }}
                             >
                               <div
@@ -993,7 +1047,7 @@ export default function AddToCollectionModal({
                                   e.stopPropagation();
                                   requestDelete(c.id, c.name);
                                 }}
-                                disabled={isBusy}
+                                disabled={isBusy || anyToggleInFlight}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                                 title="Delete collection"
                               >

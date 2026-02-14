@@ -52,6 +52,7 @@ export function CollectionsProvider({
   const sb = useMemo(() => createClient(), []);
   const [collected, setCollected] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
+  const collectedRef = useRef<Set<string>>(new Set());
 
   // Toast (match AddToCollectionModal)
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -63,18 +64,30 @@ export function CollectionsProvider({
   // Track in-flight writes per key so multiple rapid clicks do not spawn races
   const inFlightRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    collectedRef.current = collected;
+  }, [collected]);
+
   // Fetch initial collected set (if signed in)
   useEffect(() => {
+    let active = true;
+
     (async () => {
-      const {
-        data: { user },
-      } = await sb.auth.getUser();
-      if (!user) {
-        setIsLoaded(true);
-        return;
-      }
       try {
+        const {
+          data: { user },
+        } = await withTimeout(sb.auth.getUser(), ATTEMPT_TIMEOUT_MS, "getUser");
+
+        if (!active) return;
+        if (!user) {
+          setCollected(new Set());
+          setIsLoaded(true);
+          return;
+        }
+
         const rows = await listCollections(500);
+        if (!active) return;
+
         const keys = new Set<string>();
         for (const r of rows as any[]) {
           keys.add(
@@ -86,18 +99,31 @@ export function CollectionsProvider({
           );
         }
         setCollected(keys);
+      } catch (e) {
+        if (!active) return;
+        console.error("[CollectionsProvider] initial load failed:", e);
+        setCollected(new Set());
       } finally {
+        if (!active) return;
         setIsLoaded(true);
       }
     })();
+
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Keep collected state in sync with auth transitions (SIGNED_OUT, SIGNED_IN)
   useEffect(() => {
+    let active = true;
+
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
+
       if (!session?.user) {
         // Signed out: clear client state so UI cannot behave signed-in
         inFlightRef.current.clear();
@@ -118,6 +144,7 @@ export function CollectionsProvider({
       setIsLoaded(false);
       try {
         const rows = await listCollections(500);
+        if (!active) return;
         const keys = new Set<string>();
         for (const r of rows as any[]) {
           keys.add(
@@ -130,13 +157,16 @@ export function CollectionsProvider({
         }
         setCollected(keys);
       } catch {
+        if (!active) return;
         setCollected(new Set());
       } finally {
+        if (!active) return;
         setIsLoaded(true);
       }
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,16 +204,22 @@ export function CollectionsProvider({
   }
 
   const toggleCollect = async (input: CollectInput) => {
-    const key = computeDedupeKey({
-      siteImageId: input.siteImageId,
-      storagePath: input.storagePath,
-      imageUrl: input.imageUrl,
-    });
+    let key: string;
+    try {
+      key = computeDedupeKey({
+        siteImageId: input.siteImageId,
+        storagePath: input.storagePath,
+        imageUrl: input.imageUrl,
+      });
+    } catch {
+      showToast("Failed to save image. Missing image identity.");
+      return;
+    }
 
     // If a write is already running for this key, ignore a new click.
     if (inFlightRef.current.has(key)) return;
 
-    const currentlyOn = collected.has(key);
+    const currentlyOn = collectedRef.current.has(key);
     const targetOn = !currentlyOn;
 
     // Optimistic UI: flip immediately

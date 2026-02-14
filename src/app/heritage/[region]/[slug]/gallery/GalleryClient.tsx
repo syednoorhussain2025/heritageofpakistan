@@ -33,7 +33,6 @@ const AddToCollectionModal = dynamicImport(
 );
 
 import type { LightboxPhoto } from "@/types/lightbox";
-import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useSignedInActions } from "@/hooks/useSignedInActions";
 
 /* ---------- Types ---------- */
@@ -228,6 +227,9 @@ const MasonryTile = memo(function MasonryTile({
           onLoadingComplete={() => {
             setLoaded(true);
           }}
+          onError={() => {
+            setLoaded(true);
+          }}
         />
 
         <div
@@ -286,7 +288,6 @@ export default function GalleryClient({
   initialSite,
   initialPhotos,
 }: GalleryClientProps) {
-  const { userId: viewerId } = useAuthUserId();
   const { toggleCollect } = useCollections();
   const { ensureSignedIn } = useSignedInActions();
 
@@ -297,6 +298,7 @@ export default function GalleryClient({
   const [visibleCount, setVisibleCount] = useState<number>(BATCH_SIZE);
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  const batchLoadingRef = useRef(false);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -324,21 +326,29 @@ export default function GalleryClient({
 
   /* Pagination observer */
   useEffect(() => {
+    batchLoadingRef.current = isBatchLoading;
+  }, [isBatchLoading]);
+
+  useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
 
     if (visibleCount >= photos.length) return;
 
     let timeoutId: number | undefined;
+    let disposed = false;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry.isIntersecting) return;
+        if (!entry.isIntersecting || batchLoadingRef.current || disposed) return;
 
+        batchLoadingRef.current = true;
         setIsBatchLoading(true);
         timeoutId = window.setTimeout(() => {
+          if (disposed) return;
           setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, photos.length));
+          batchLoadingRef.current = false;
           setIsBatchLoading(false);
         }, 250);
       },
@@ -352,6 +362,8 @@ export default function GalleryClient({
     observer.observe(el);
 
     return () => {
+      disposed = true;
+      batchLoadingRef.current = false;
       observer.disconnect();
       if (timeoutId !== undefined) {
         window.clearTimeout(timeoutId);

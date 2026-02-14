@@ -22,6 +22,12 @@ function errToStr(e: any) {
   return e.message ?? String(e);
 }
 
+function isUniqueViolation(e: any) {
+  const code = e?.code ?? "";
+  const msg = String(e?.message ?? "").toLowerCase();
+  return code === "23505" || msg.includes("duplicate key");
+}
+
 /** Find a collected_images.id for an image identity, or null if not saved yet */
 export async function getCollectedIdByIdentity(
   img: ImageIdentity
@@ -75,7 +81,14 @@ export async function ensureCollected(img: ImageIdentity): Promise<string> {
     })
     .select("id")
     .single();
-  if (error) throw new Error(errToStr(error));
+  if (error) {
+    // Another request may have inserted the same dedupe_key already.
+    if (isUniqueViolation(error)) {
+      const existingAfterConflict = await getCollectedIdByIdentity(img);
+      if (existingAfterConflict) return existingAfterConflict;
+    }
+    throw new Error(errToStr(error));
+  }
   return data.id as string;
 }
 
@@ -187,7 +200,8 @@ export async function toggleImageInCollection(
         collected_id: collectedId,
         user_id: user.id,
       });
-    if (error) throw new Error(errToStr(error));
+    // Treat duplicate membership as success (idempotent add).
+    if (error && !isUniqueViolation(error)) throw new Error(errToStr(error));
   }
 }
 

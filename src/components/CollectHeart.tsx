@@ -1,7 +1,7 @@
 // src/components/CollectHeart.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import Icon from "@/components/Icon";
@@ -38,19 +38,35 @@ export default function CollectHeart({
 }: Props) {
   const { collected, toggleCollect, isLoaded } = useCollections();
   const [popping, setPopping] = useState(false);
+  const popTimerRef = useRef<number | null>(null);
 
   // Mirrors DB: coalesce(site_image_id::text, storage_path, image_url)
   const key = useMemo(
-    () =>
-      computeDedupeKey({
-        siteImageId: siteImageId ?? undefined,
-        storagePath: storagePath ?? undefined,
-        imageUrl: imageUrl ?? undefined,
-      }),
+    () => {
+      try {
+        return computeDedupeKey({
+          siteImageId: siteImageId ?? undefined,
+          storagePath: storagePath ?? undefined,
+          imageUrl: imageUrl ?? undefined,
+        });
+      } catch {
+        return null;
+      }
+    },
     [siteImageId, storagePath, imageUrl]
   );
 
-  const isOn = isLoaded && collected.has(key);
+  const isOn = key ? isLoaded && collected.has(key) : false;
+  const isDisabled = !key;
+
+  useEffect(() => {
+    return () => {
+      if (popTimerRef.current !== null) {
+        window.clearTimeout(popTimerRef.current);
+        popTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // MODIFIED: Conditionally choose icon name for filled or outline style
   const iconName = isOn ? "heart" : "heart-outline";
@@ -66,6 +82,7 @@ export default function CollectHeart({
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (!key) return;
 
     if (requireSignedIn) {
       const ok = await requireSignedIn();
@@ -74,10 +91,13 @@ export default function CollectHeart({
 
     // trigger popping animation
     setPopping(true);
-    setTimeout(() => setPopping(false), 150); // quick reset
+    if (popTimerRef.current !== null) {
+      window.clearTimeout(popTimerRef.current);
+    }
+    popTimerRef.current = window.setTimeout(() => setPopping(false), 150);
 
     // delegate background add/remove to provider
-    void toggleCollect({
+    await toggleCollect({
       siteImageId: siteImageId ?? undefined,
       storagePath: storagePath ?? undefined,
       imageUrl: imageUrl ?? undefined,
@@ -90,8 +110,11 @@ export default function CollectHeart({
 
   return (
     <motion.button
+      type="button"
       onClick={handleClick}
       aria-pressed={isOn}
+      aria-disabled={isDisabled}
+      disabled={isDisabled}
       title={isOn ? "Remove from My Collections" : "Add to My Collections"}
       className={wrapper}
       animate={popping ? { scale: 1.4 } : { scale: 1 }}
