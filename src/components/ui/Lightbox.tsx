@@ -424,7 +424,7 @@ export function Lightbox({
 
       zoomTimerRef.current = null;
       const prevScale = ref.instance.transformState.scale;
-      ref.zoomIn(0.5, 500);
+      ref.zoomIn(1, 500);
 
       zoomVerifyTimerRef.current = window.setTimeout(() => {
         const nextScale = transformRef.current?.instance?.transformState.scale;
