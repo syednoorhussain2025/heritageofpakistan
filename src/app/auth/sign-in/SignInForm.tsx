@@ -1,7 +1,7 @@
 // src/app/auth/sign-in/SignInForm.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,7 +14,11 @@ export default function SignInForm() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const redirectTo = sp.get("redirectTo") || "/dashboard";
+  const requestedRedirect = sp.get("redirectTo");
+  const redirectTo =
+    requestedRedirect && requestedRedirect.startsWith("/")
+      ? requestedRedirect
+      : "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +31,18 @@ export default function SignInForm() {
     () => (typeof window !== "undefined" ? window.location.origin : ""),
     []
   );
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || !session?.user) return;
+      router.replace(redirectTo);
+      router.refresh();
+    });
+    return () => {
+      active = false;
+    };
+  }, [supabase, router, redirectTo]);
 
   async function onEmailPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +61,7 @@ export default function SignInForm() {
       } catch {}
 
       router.replace(redirectTo);
+      router.refresh();
     } catch (e: any) {
       setErr(e?.message ?? "Sign in failed.");
     } finally {

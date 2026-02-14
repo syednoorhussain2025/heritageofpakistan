@@ -1,6 +1,7 @@
 // src/lib/supabase/browser.ts
 "use client";
 
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -133,11 +134,12 @@ export const createClient = (): SupabaseClient => {
     );
   }
 
-  const client = createSupabaseClient(url, anon, {
+  // Use the SSR browser client so auth state is also mirrored into cookies.
+  // Middleware/server components rely on these cookies to recognize sessions.
+  const client = createBrowserClient(url, anon, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
     },
   });
 
