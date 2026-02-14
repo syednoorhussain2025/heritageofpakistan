@@ -14,6 +14,7 @@ import Icon from "../Icon";
 import { decode } from "blurhash";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import CollectHeart from "@/components/CollectHeart";
+import { useSignedInActions } from "@/hooks/useSignedInActions";
 
 /* ---------- CONFIG ---------- */
 const PANEL_W = 264;
@@ -115,6 +116,7 @@ export function Lightbox({
   onBookmarkToggle,
   onAddToCollection,
 }: LightboxProps) {
+  const { ensureSignedIn } = useSignedInActions();
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const photo = photos[currentIndex] as LightboxPhotoWithExtras;
 
@@ -529,6 +531,7 @@ export function Lightbox({
                   siteId={photo.site?.id ?? ""}
                   caption={(photo as any).caption}
                   credit={(photo as any)?.author?.name}
+                  requireSignedIn={ensureSignedIn}
                 />
               </div>
 
