@@ -372,8 +372,7 @@ export function Lightbox({
     }
   };
 
-  const handleZoomIconClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const triggerZoomIn = () => {
     lastZoomAction.current = Date.now();
     triggerHighResLoad();
 
@@ -584,7 +583,14 @@ export function Lightbox({
                   }}
                 >
                   <div
-                    className="relative w-full h-full flex items-center justify-center"
+                    className={`relative w-full h-full flex items-center justify-center ${
+                      isZoomed ? "cursor-grab" : isMdUp ? "cursor-zoom-in" : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isMdUp || isZoomed || isHighResLoading) return;
+                      triggerZoomIn();
+                    }}
                     onDoubleClick={handleDoubleTap}
                   >
                     <NextImage
@@ -654,16 +660,6 @@ export function Lightbox({
                 </div>
               )}
 
-              <button
-                className={`hidden md:flex absolute bottom-3 left-3 z-30 w-9 h-9 items-center justify-center text-white bg-black/40 hover:bg-black/60 rounded-full transition-all duration-300 backdrop-blur-md cursor-pointer ${
-                  isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
-                }`}
-                onClick={handleZoomIconClick}
-                onPointerDownCapture={(e) => e.stopPropagation()}
-                title="Zoom to high resolution"
-              >
-                <Icon name="zoom" className="w-5 h-5" />
-              </button>
             </div>
 
             {/* 3. MOBILE FOOTER */}
