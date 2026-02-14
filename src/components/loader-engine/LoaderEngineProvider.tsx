@@ -45,7 +45,6 @@ export function LoaderEngineProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const MAX_VISIBLE_MS = 5000;
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,7 +55,6 @@ export function LoaderEngineProvider({
 
   const navTimeoutRef = useRef<number | null>(null);
   const hideTimeoutRef = useRef<number | null>(null);
-  const safetyTimeoutRef = useRef<number | null>(null);
 
   const clearNavTimeout = () => {
     if (navTimeoutRef.current !== null) {
@@ -72,13 +70,6 @@ export function LoaderEngineProvider({
     }
   };
 
-  const clearSafetyTimeout = () => {
-    if (safetyTimeoutRef.current !== null) {
-      window.clearTimeout(safetyTimeoutRef.current);
-      safetyTimeoutRef.current = null;
-    }
-  };
-
   const showLoader = useCallback(
     (v: LoaderVariant, dir: Direction = "forward") => {
       if (visible && variant === v && direction === dir) return;
@@ -90,14 +81,6 @@ export function LoaderEngineProvider({
       setDirection(dir);
       setVisible(true);
       setPhase("entering");
-
-      // Hard fail-safe: if navigation never resolves, never block UI forever.
-      clearSafetyTimeout();
-      safetyTimeoutRef.current = window.setTimeout(() => {
-        setVisible(false);
-        setVariant(null);
-        setPhase("active");
-      }, MAX_VISIBLE_MS);
 
       // Promote to active after a couple of frames for a snappy slide in
       requestAnimationFrame(() => {
@@ -118,7 +101,6 @@ export function LoaderEngineProvider({
       setVisible(false);
       setVariant(null);
       setPhase("active");
-      clearSafetyTimeout();
     }, 10);
   }, [visible]);
 
@@ -154,28 +136,8 @@ export function LoaderEngineProvider({
     return () => {
       clearNavTimeout();
       clearHideTimeout();
-      clearSafetyTimeout();
     };
   }, []);
-
-  // If tab resumes and loader is still visible, clear it immediately.
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && visible) {
-        hideLoader();
-      }
-    };
-    const onPageShow = () => {
-      if (visible) hideLoader();
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("pageshow", onPageShow);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("pageshow", onPageShow);
-    };
-  }, [visible, hideLoader]);
 
   const renderActiveLoader = () => {
     if (!variant) return null;
@@ -202,7 +164,7 @@ export function LoaderEngineProvider({
       {visible && (
         // Transparent overlay, no white flash
         <div className="fixed inset-0 z-[20] pointer-events-none">
-          <div className="relative w-full h-full pointer-events-none">
+          <div className="relative w-full h-full pointer-events-auto">
             {renderActiveLoader()}
           </div>
         </div>
