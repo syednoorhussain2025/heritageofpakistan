@@ -5,10 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
 const AUTH_OP_TIMEOUT_MS = 8000;
-
-type ResolveOptions = {
-  forceRefresh?: boolean;
-};
+const REFRESH_WINDOW_SECONDS = 120;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -37,43 +34,40 @@ export function useAuthUserId() {
 
   const mountedRef = useRef(true);
   const resolvingRef = useRef(false);
-  const rerunRef = useRef<ResolveOptions | null>(null);
 
   const resolveUser = useCallback(
-    async (options: ResolveOptions = {}) => {
-      if (resolvingRef.current) {
-        rerunRef.current = {
-          forceRefresh:
-            Boolean(rerunRef.current?.forceRefresh) ||
-            Boolean(options.forceRefresh),
-        };
-        return;
-      }
-
+    async (forceRefresh = false) => {
+      if (resolvingRef.current) return;
       resolvingRef.current = true;
 
       try {
-        let sessionUserId: string | null = null;
-
         const { data: sessionData } = await withTimeout(
           supabase.auth.getSession(),
           AUTH_OP_TIMEOUT_MS
         );
 
-        if (options.forceRefresh && sessionData.session) {
-          const { data: refreshedData } = await withTimeout(
-            supabase.auth.refreshSession(),
-            AUTH_OP_TIMEOUT_MS
-          );
-          sessionUserId = refreshedData.session?.user?.id ?? null;
-        } else {
-          sessionUserId = sessionData.session?.user?.id ?? null;
+        let session = sessionData.session;
+
+        if (forceRefresh && session) {
+          const expiresAt = session.expires_at ?? 0;
+          const nowSec = Math.floor(Date.now() / 1000);
+          const expiresSoon =
+            expiresAt > 0 && expiresAt - nowSec < REFRESH_WINDOW_SECONDS;
+
+          if (expiresSoon) {
+            const { data: refreshed } = await withTimeout(
+              supabase.auth.refreshSession(),
+              AUTH_OP_TIMEOUT_MS
+            );
+            session = refreshed.session;
+          }
         }
 
-        if (sessionUserId) {
-          if (!mountedRef.current) return;
+        if (!mountedRef.current) return;
+
+        if (session?.user?.id) {
           setAuthError(null);
-          setUserId(sessionUserId);
+          setUserId(session.user.id);
           return;
         }
 
@@ -87,24 +81,18 @@ export function useAuthUserId() {
         if (userError) {
           setAuthError(userError.message);
           setUserId(null);
-          return;
+        } else {
+          setAuthError(null);
+          setUserId(userData.user?.id ?? null);
         }
-
-        setAuthError(null);
-        setUserId(userData.user?.id ?? null);
       } catch (e: any) {
         if (!mountedRef.current) return;
         setAuthError(e?.message ?? "Auth error");
+        setUserId(null);
       } finally {
         if (!mountedRef.current) return;
         setAuthLoading(false);
         resolvingRef.current = false;
-
-        if (rerunRef.current) {
-          const next = rerunRef.current;
-          rerunRef.current = null;
-          void resolveUser(next);
-        }
       }
     },
     [supabase]
@@ -113,7 +101,7 @@ export function useAuthUserId() {
   useEffect(() => {
     mountedRef.current = true;
 
-    void resolveUser({ forceRefresh: true });
+    void resolveUser(true);
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mountedRef.current) return;
@@ -133,28 +121,23 @@ export function useAuthUserId() {
         return;
       }
 
-      if (
-        event === "INITIAL_SESSION" ||
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED" ||
-        event === "USER_UPDATED"
-      ) {
-        void resolveUser({ forceRefresh: true });
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+        void resolveUser(false);
       }
     });
 
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        void resolveUser({ forceRefresh: true });
+        void resolveUser(true);
       }
     };
 
     const onFocus = () => {
-      void resolveUser({ forceRefresh: true });
+      void resolveUser(true);
     };
 
     const onOnline = () => {
-      void resolveUser({ forceRefresh: true });
+      void resolveUser(true);
     };
 
     document.addEventListener("visibilitychange", onVisible);
