@@ -39,7 +39,7 @@ export function ListingLoader({
     <div className="fixed inset-0 z-[10] pointer-events-none">
       <div
         className={`
-          pointer-events-auto absolute inset-0
+          pointer-events-none absolute inset-0
           flex flex-col
           transition-transform transition-opacity
           ease-out

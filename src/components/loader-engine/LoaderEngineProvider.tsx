@@ -202,7 +202,7 @@ export function LoaderEngineProvider({
       {visible && (
         // Transparent overlay, no white flash
         <div className="fixed inset-0 z-[20] pointer-events-none">
-          <div className="relative w-full h-full pointer-events-auto">
+          <div className="relative w-full h-full pointer-events-none">
             {renderActiveLoader()}
           </div>
         </div>
