@@ -430,65 +430,30 @@ export default function HeritageSidebar({
       {showTop && (
         <>
           <SidebarAccordionSection
+            id="location"
             title="Where is it?"
             iconName="where-is-it"
             mobileDefaultOpen
           >
-            {maps.link ? (
-              <div className="space-y-3">
-                <div
-                  className="text-[15px]"
-                  style={{ color: "var(--muted-foreground, #5b6b84)" }}
-                >
-                  Open this location in Google Maps for navigation and
-                  directions.
-                </div>
-
-                <a
-                  href={maps.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[14px] font-medium text-slate-800 shadow-sm border border-slate-200 hover:bg-slate-50"
-                >
-                  <Icon
-                    name="location"
-                    size={16}
-                    className="text-[var(--brand-orange,#F78300)]"
-                  />
-                  <span>View in Google Maps</span>
-                </a>
+            {maps.embed ? (
+              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+                <iframe
+                  title={`Map for ${site.title}`}
+                  src={maps.embed}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="absolute inset-0 h-full w-full border-0"
+                />
               </div>
             ) : (
               <div
-                className="text-[15px]"
+                className="mb-3 text-[15px]"
                 style={{ color: "var(--muted-foreground, #5b6b84)" }}
               >
                 Location coordinates not available.
               </div>
             )}
 
-            <div className="mt-3 grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 overflow-x-visible">
-              <div className="text-[15px] font-semibold text-slate-900">
-                Latitude
-              </div>
-              <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
-                {site.latitude ?? "-"}
-              </div>
-              <div className="text-[15px] font-semibold text-slate-900">
-                Longitude
-              </div>
-              <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
-                {site.longitude ?? "-"}
-              </div>
-            </div>
-          </SidebarAccordionSection>
-
-          <SidebarAccordionSection
-            id="location"
-            title="Location"
-            iconName="location"
-            mobileDefaultOpen={false}
-          >
             <KeyVal k="Town/City/Village" v={site.town_city_village} />
             <KeyVal k="Tehsil" v={site.tehsil} />
             <KeyVal k="District" v={site.district} />
@@ -731,4 +696,3 @@ export default function HeritageSidebar({
     </div>
   );
 }
-
