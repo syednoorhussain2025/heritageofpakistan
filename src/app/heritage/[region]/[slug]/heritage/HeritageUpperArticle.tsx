@@ -1,3 +1,4 @@
+import { useRef, type MouseEvent } from "react";
 import HeritageSection from "./HeritageSection";
 import { Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
@@ -7,6 +8,16 @@ export default function HeritageUpperArticle({
 }: {
   categories: Taxonomy[];
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollRight = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: 280, behavior: "smooth" });
+  };
+
   return (
     <>
       {/* Removed the Photo Story section */}
@@ -18,8 +29,11 @@ export default function HeritageUpperArticle({
       >
         {categories.length > 0 ? (
           <div className="relative">
-            <div className="hop-cats-scroll overflow-x-auto overflow-y-hidden pr-10">
-              <div className="grid grid-rows-3 grid-flow-col auto-cols-[minmax(240px,1fr)] gap-x-10 gap-y-4 min-w-max">
+            <div
+              ref={scrollRef}
+              className="hop-cats-scroll overflow-x-auto overflow-y-hidden pr-14"
+            >
+              <div className="grid grid-rows-3 grid-flow-col auto-cols-[minmax(220px,1fr)] gap-x-5 gap-y-4 min-w-max">
                 {categories.map((c) => {
                   const iconKey = (c.icon_key || "").trim();
 
@@ -56,19 +70,24 @@ export default function HeritageUpperArticle({
             </div>
 
             {categories.length > 3 && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-1">
-                <div className="absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-white via-white/90 to-transparent" />
-                <span className="relative z-[1] inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 border border-slate-200 text-slate-500 shadow-sm">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-1 z-10 pointer-events-none">
+                <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white via-white/90 to-transparent pointer-events-none" />
+                <button
+                  type="button"
+                  aria-label="Scroll categories right"
+                  className="relative z-[1] pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 border border-slate-200 text-slate-500 shadow-sm hover:bg-white"
+                  onClick={scrollRight}
+                >
                   <svg
                     viewBox="0 0 20 20"
-                    width="13"
-                    height="13"
+                    width="16"
+                    height="16"
                     fill="currentColor"
                     aria-hidden="true"
                   >
                     <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
                   </svg>
-                </span>
+                </button>
               </div>
             )}
           </div>
