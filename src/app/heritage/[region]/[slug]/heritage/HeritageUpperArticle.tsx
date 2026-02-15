@@ -23,8 +23,7 @@ export default function HeritageUpperArticle({
         {categories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((c) => {
-              const normalizedIcon =
-                (c.icon_key || "").trim().replace(/_/g, "-") || "landmark";
+              const iconName = (c.icon_key || "").trim() || "landmark";
 
               return (
                 <a
@@ -34,7 +33,7 @@ export default function HeritageUpperArticle({
                 >
                   <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)] flex items-center justify-center flex-shrink-0">
                     <Icon
-                      name={normalizedIcon}
+                      name={iconName}
                       size={16}
                       className="text-white"
                     />

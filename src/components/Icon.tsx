@@ -20,9 +20,6 @@ const ICONS_CACHE_KEY = "hop:icons:cache:v1";
 const ICONS_CACHE_HASH_KEY = "hop:icons:cachehash:v1";
 const ICONS_CACHE_TIME_KEY = "hop:icons:cachedat:v1";
 
-// Revalidate interval for DB refresh (in ms)
-const REVALIDATE_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
-
 // --- Utils ---
 function safeParseJson<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -70,13 +67,6 @@ function saveCachedIconPairs(pairs: Array<[string, string]>, hash: string) {
   }
 }
 
-function shouldRevalidateNow() {
-  if (typeof window === "undefined") return true;
-  const last = Number(window.localStorage.getItem(ICONS_CACHE_TIME_KEY) || "0");
-  if (!last) return true;
-  return Date.now() - last > REVALIDATE_MS;
-}
-
 // --- React Context ---
 const IconContext = createContext<IconContextType>({
   icons: new Map(),
@@ -107,13 +97,6 @@ export function IconProvider({ children }: { children: React.ReactNode }) {
 
     async function fetchIconsAndUpdateCache() {
       try {
-        // If we already have a cache and it is fresh, skip network
-        const hasCache = icons.size > 0;
-        if (hasCache && !shouldRevalidateNow()) {
-          if (!cancelled) setIsLoaded(true);
-          return;
-        }
-
         const { data, error } = await supabase.from("icons").select("name, svg_content");
         if (error) {
           // Do not break UI if DB is slow or fails
