@@ -59,7 +59,7 @@ export default function HeritageUpperArticle({
       {/* Removed the Photo Story section */}
 
       <HeritageSection id="categories" title="" hideHeader>
-        <details className="md:contents" open>
+        <details className="md:contents">
           <summary className="md:hidden mb-3 list-none cursor-pointer [&::-webkit-details-marker]:hidden">
             <div className="flex items-center justify-between gap-3">
               <h2

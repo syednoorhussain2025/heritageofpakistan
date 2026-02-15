@@ -3,7 +3,6 @@
 
 import React from "react";
 
-import StickyHeader from "./heritage/StickyHeader";
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageUpperArticle from "./heritage/HeritageUpperArticle";
 import HeritageGalleryLink from "./heritage/HeritageGalleryLink";
@@ -242,18 +241,14 @@ export default function HeritageClient({
       />
 
       {/* Content layout */}
-      <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
-        {/* LEFT SIDEBAR */}
-        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0">
+      <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] flex flex-col gap-5 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+        {/* LEFT SIDEBAR (TOP GROUP) */}
+        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0 lg:col-start-1 lg:row-start-1">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
               <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={12} />
-              <SidebarCardSkeleton lines={3} />
-              <SidebarCardSkeleton lines={4} />
-              <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={4} />
+              <SidebarCardSkeleton lines={9} />
             </>
           ) : (
             <LazySection
@@ -261,7 +256,7 @@ export default function HeritageClient({
                 <>
                   <SidebarCardSkeleton lines={7} />
                   <SidebarCardSkeleton lines={5} />
-                  <SidebarCardSkeleton lines={6} />
+                  <SidebarCardSkeleton lines={9} />
                 </>
               }
             >
@@ -271,13 +266,14 @@ export default function HeritageClient({
                 regions={regions}
                 maps={maps}
                 travelGuideSummary={travelGuideSummary}
+                sectionGroup="top"
               />
             </LazySection>
           )}
         </aside>
 
         {/* RIGHT MAIN CONTENT */}
-        <main className="space-y-5 w-full lg:flex-1">
+        <main className="space-y-5 w-full lg:flex-1 lg:col-start-2 lg:row-span-2">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={6} />
@@ -494,6 +490,42 @@ export default function HeritageClient({
             </>
           )}
         </main>
+
+        {/* LEFT SIDEBAR (BOTTOM GROUP) */}
+        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0 lg:col-start-1 lg:row-start-2">
+          {!site ? (
+            <>
+              <SidebarCardSkeleton lines={3} />
+              <SidebarCardSkeleton lines={5} />
+              <SidebarCardSkeleton lines={4} />
+              <SidebarCardSkeleton lines={5} />
+              <SidebarCardSkeleton lines={4} />
+              <SidebarCardSkeleton lines={4} />
+            </>
+          ) : (
+            <LazySection
+              skeleton={
+                <>
+                  <SidebarCardSkeleton lines={3} />
+                  <SidebarCardSkeleton lines={5} />
+                  <SidebarCardSkeleton lines={4} />
+                  <SidebarCardSkeleton lines={5} />
+                  <SidebarCardSkeleton lines={4} />
+                  <SidebarCardSkeleton lines={4} />
+                </>
+              }
+            >
+              <HeritageSidebar
+                site={site as any}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
+                travelGuideSummary={travelGuideSummary}
+                sectionGroup="bottom"
+              />
+            </LazySection>
+          )}
+        </aside>
       </div>
 
       <style jsx global>{`
