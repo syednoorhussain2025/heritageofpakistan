@@ -493,6 +493,10 @@ export default function HeritageArticle({
           width: 24px;
           height: 24px;
         }
+        .reading-article figure .hop-heart button[aria-pressed="false"] svg {
+          color: #111827 !important;
+          filter: none !important;
+        }
         @media (max-width: 420px) {
           .reading-article figure .hop-caption {
             padding: 0 28px;
