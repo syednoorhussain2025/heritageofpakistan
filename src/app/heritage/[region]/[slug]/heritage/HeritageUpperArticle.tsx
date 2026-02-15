@@ -69,7 +69,7 @@ export default function HeritageUpperArticle({
               ref={scrollRef}
               className="hop-cats-scroll overflow-x-auto overflow-y-hidden pr-14"
             >
-              <div className="grid grid-rows-3 grid-flow-col auto-cols-max gap-x-1 gap-y-4 min-w-max">
+              <div className="grid grid-rows-3 grid-flow-col auto-cols-max gap-x-3 gap-y-4 min-w-max">
                 {categories.map((c) => {
                   const iconKey = (c.icon_key || "").trim();
 
