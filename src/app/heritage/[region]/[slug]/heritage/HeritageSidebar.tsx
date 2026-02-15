@@ -1,6 +1,7 @@
 // src/app/heritage/[region]/[slug]/heritage/HeritageSidebar.tsx
+"use client";
 
-import HeritageSection from "./HeritageSection";
+import { useState } from "react";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
 
@@ -67,7 +68,7 @@ type TravelGuideSummary = {
   temp_summers?: string | null;
 };
 
-/* ---- Maps for enum → label ---- */
+/* ---- Maps for enum -> label ---- */
 const ACCESS_OPTIONS_MAP: Record<
   NonNullable<TravelGuideSummary["access_options"]>,
   string
@@ -143,12 +144,10 @@ function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
 function IconChip({
   iconName,
   label,
-  id,
   href,
 }: {
   iconName: string | null;
   label: string | null;
-  id: string;
   href: string;
 }) {
   return (
@@ -163,6 +162,82 @@ function IconChip({
         {label ?? ""}
       </span>
     </a>
+  );
+}
+
+function SidebarAccordionSection({
+  title,
+  iconName,
+  id,
+  mobileDefaultOpen = false,
+  children,
+}: {
+  title: string;
+  iconName?: string;
+  id?: string;
+  mobileDefaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [openMobile, setOpenMobile] = useState(mobileDefaultOpen);
+
+  return (
+    <section className="bg-white rounded-xl shadow-sm p-5">
+      <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
+
+      <button
+        type="button"
+        className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+        onClick={() => setOpenMobile((prev) => !prev)}
+        aria-expanded={openMobile}
+      >
+        <h2
+          className="flex items-center gap-2 text-[17px] font-semibold"
+          style={{
+            color: "var(--brand-blue, #1f6be0)",
+            fontFamily: "var(--font-article-heading, inherit)",
+          }}
+        >
+          {iconName ? (
+            <Icon
+              name={iconName}
+              size={18}
+              className="text-[var(--brand-orange)]"
+            />
+          ) : null}
+          <span>{title}</span>
+        </h2>
+        <span
+          aria-hidden="true"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-transform duration-200"
+          style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+            <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+          </svg>
+        </span>
+      </button>
+
+      <h2
+        className="mb-3 hidden md:flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+        style={{
+          color: "var(--brand-blue, #1f6be0)",
+          fontFamily: "var(--font-article-heading, inherit)",
+        }}
+      >
+        {iconName ? (
+          <Icon
+            name={iconName}
+            size={18}
+            className="text-[var(--brand-orange)]"
+          />
+        ) : null}
+        <span>{title}</span>
+      </h2>
+
+      <div className={`${openMobile ? "block" : "hidden"} md:block`}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -348,8 +423,11 @@ export default function HeritageSidebar({
 
   return (
     <div className="space-y-5">
-      {/* Map section without iframe, link only */}
-      <HeritageSection title="Where is it?" iconName="where-is-it">
+      <SidebarAccordionSection
+        title="Where is it?"
+        iconName="where-is-it"
+        mobileDefaultOpen
+      >
         {maps.link ? (
           <div className="space-y-3">
             <div
@@ -387,33 +465,37 @@ export default function HeritageSidebar({
             Latitude
           </div>
           <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
-            {site.latitude ?? "—"}
+            {site.latitude ?? "-"}
           </div>
           <div className="text-[15px] font-semibold text-slate-900">
             Longitude
           </div>
           <div className="text-[15px] text-slate-700 text-right overflow-x-visible">
-            {site.longitude ?? "—"}
+            {site.longitude ?? "-"}
           </div>
         </div>
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection id="location" title="Location" iconName="location">
+      <SidebarAccordionSection
+        id="location"
+        title="Location"
+        iconName="location"
+        mobileDefaultOpen={false}
+      >
         <KeyVal k="Town/City/Village" v={site.town_city_village} />
         <KeyVal k="Tehsil" v={site.tehsil} />
         <KeyVal k="District" v={site.district} />
         <KeyVal k="Region/Province" v={provinceName} />
         <KeyVal k="Latitude" v={site.latitude} />
         <KeyVal k="Longitude" v={site.longitude} />
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection title="Regions" iconName="regions">
+      <SidebarAccordionSection title="Regions" iconName="regions" mobileDefaultOpen>
         {regions.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
-            {regions.map(r => (
+            {regions.map((r) => (
               <IconChip
                 key={r.id}
-                id={r.id}
                 iconName={r.icon_key}
                 label={r.name}
                 href={`/explore?regs=${r.id}`}
@@ -428,12 +510,13 @@ export default function HeritageSidebar({
             No regions specified.
           </div>
         )}
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection
+      <SidebarAccordionSection
         id="general"
         title="General Information"
         iconName="general-info"
+        mobileDefaultOpen={false}
       >
         <KeyVal k="Heritage Type" v={site.heritage_type} />
         <KeyVal k="Architectural Style" v={site.architectural_style} />
@@ -459,11 +542,24 @@ export default function HeritageSidebar({
         <KeyVal k="Excavation Status" v={site.excavation_status} />
         <KeyVal k="Excavated by" v={site.excavated_by} />
         <KeyVal k="Administered by" v={site.administered_by} />
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      {/* UNESCO: render only when status exists and is not "None" */}
       {showUNESCO ? (
-        <HeritageSection title="UNESCO" iconName="unesco">
+        <section className="bg-white rounded-xl shadow-sm p-5">
+          <h2
+            className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+            style={{
+              color: "var(--brand-blue, #1f6be0)",
+              fontFamily: "var(--font-article-heading, inherit)",
+            }}
+          >
+            <Icon
+              name="unesco"
+              size={18}
+              className="text-[var(--brand-orange)]"
+            />
+            <span>UNESCO</span>
+          </h2>
           <div className="flex items-start gap-3">
             <div className="text-2xl">🏛️</div>
             <div>
@@ -480,10 +576,14 @@ export default function HeritageSidebar({
               )}
             </div>
           </div>
-        </HeritageSection>
+        </section>
       ) : null}
 
-      <HeritageSection title="Protected under" iconName="protected-under">
+      <SidebarAccordionSection
+        title="Protected under"
+        iconName="protected-under"
+        mobileDefaultOpen={false}
+      >
         {site.protected_under ? (
           <div
             className="whitespace-pre-wrap text-[15px] overflow-x-visible"
@@ -499,11 +599,12 @@ export default function HeritageSidebar({
             Not specified.
           </div>
         )}
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection
+      <SidebarAccordionSection
         title="Climate & Topography"
         iconName="climate-topography"
+        mobileDefaultOpen={false}
       >
         <KeyVal k="Landform" v={mergedLandform} />
         <KeyVal k="Altitude" v={mergedAltitude} />
@@ -511,9 +612,13 @@ export default function HeritageSidebar({
         <KeyVal k="Weather Type" v={mergedWeatherType} />
         <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} />
         <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} />
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection title="Did you Know" iconName="did-you-know">
+      <SidebarAccordionSection
+        title="Did you Know"
+        iconName="did-you-know"
+        mobileDefaultOpen={false}
+      >
         {site.did_you_know ? (
           <div
             className="whitespace-pre-wrap text-[15px] overflow-x-visible"
@@ -526,12 +631,17 @@ export default function HeritageSidebar({
             className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
-            —
+            -
           </div>
         )}
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection id="travel" title="Travel Guide" iconName="travel-guide">
+      <SidebarAccordionSection
+        id="travel"
+        title="Travel Guide"
+        iconName="travel-guide"
+        mobileDefaultOpen={false}
+      >
         <KeyVal k="Heritage Site" v={site.title} />
         <KeyVal k="Location" v={mergedTravelLocation} />
         <KeyVal k="How to Reach" v={mergedHowToReach} />
@@ -551,10 +661,13 @@ export default function HeritageSidebar({
             Open Full Travel Guide
           </a>
         )}
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      {/* Best time to visit (long) */}
-      <HeritageSection title="Best Time to Visit" iconName="best-time-to-visit">
+      <SidebarAccordionSection
+        title="Best Time to Visit"
+        iconName="best-time-to-visit"
+        mobileDefaultOpen={false}
+      >
         {mergedBestTimeLong ? (
           <div
             className="whitespace-pre-wrap text-[15px] overflow-x-visible"
@@ -574,17 +687,21 @@ export default function HeritageSidebar({
             className="text-[15px]"
             style={{ color: "var(--muted-foreground, #5b6b84)" }}
           >
-            —
+            -
           </div>
         )}
-      </HeritageSection>
+      </SidebarAccordionSection>
 
-      <HeritageSection title="Places to Stay" iconName="places-to-stay">
+      <SidebarAccordionSection
+        title="Places to Stay"
+        iconName="places-to-stay"
+        mobileDefaultOpen={false}
+      >
         <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
         <KeyVal k="Spending Night Recommended" v={mergedSpendingNight} />
         <KeyVal k="Camping Possible" v={mergedCamping} />
         <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
-      </HeritageSection>
+      </SidebarAccordionSection>
     </div>
   );
 }
