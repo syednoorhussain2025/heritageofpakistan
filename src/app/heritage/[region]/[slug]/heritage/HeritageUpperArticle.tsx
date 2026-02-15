@@ -23,7 +23,8 @@ export default function HeritageUpperArticle({
         {categories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((c) => {
-              const iconName = (c.icon_key || "").trim() || "landmark";
+              const iconName =
+                (c.icon_key || "").trim() || "heritage-categories";
 
               return (
                 <a
