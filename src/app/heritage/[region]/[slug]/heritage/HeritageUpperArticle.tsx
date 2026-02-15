@@ -107,7 +107,6 @@ export default function HeritageUpperArticle({
 
             {categories.length > 3 && canScrollLeft && (
               <div className="absolute inset-y-0 left-0 flex items-center pl-1 z-10 pointer-events-none">
-                <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white via-white/90 to-transparent pointer-events-none" />
                 <button
                   type="button"
                   aria-label="Scroll categories left"
@@ -129,7 +128,6 @@ export default function HeritageUpperArticle({
 
             {categories.length > 3 && canScrollRight && (
               <div className="absolute inset-y-0 right-0 flex items-center pr-1 z-10 pointer-events-none">
-                <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white via-white/90 to-transparent pointer-events-none" />
                 <button
                   type="button"
                   aria-label="Scroll categories right"
