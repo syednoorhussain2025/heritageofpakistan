@@ -347,7 +347,7 @@ export default function HeritageSidebar({
     unescoStatus.length > 0 && unescoStatus.toLowerCase() !== "none";
 
   return (
-    <>
+    <div className="space-y-5">
       {/* Map section without iframe, link only */}
       <HeritageSection title="Where is it?" iconName="where-is-it">
         {maps.link ? (
@@ -585,6 +585,6 @@ export default function HeritageSidebar({
         <KeyVal k="Camping Possible" v={mergedCamping} />
         <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
       </HeritageSection>
-    </>
+    </div>
   );
 }
