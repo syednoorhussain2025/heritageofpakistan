@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import parse, { domToReact } from "html-react-parser";
 import CollectHeart from "@/components/CollectHeart";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* ---------- helpers ---------- */
 function styleStringToObject(s: string): React.CSSProperties {
@@ -70,6 +71,95 @@ function findImgDeep(node: any): any | null {
   }
   return null;
 }
+
+const STORAGE_PUBLIC_PREFIX = "/storage/v1/object/public/site-images/";
+const VARIANT_SUFFIX_RE = /_(thumb|sm|md|lg|hero)(?=(\.[^./?#]+)?$)/i;
+
+function stripVariantSuffix(path: string): string {
+  return path.replace(VARIANT_SUFFIX_RE, "");
+}
+
+function toMediumVariantUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const src = raw.trim();
+  if (!src) return null;
+  if (/^(data:|blob:)/i.test(src)) return src;
+
+  // Full public URL form:
+  // https://<project>.supabase.co/storage/v1/object/public/site-images/<path>
+  if (/^https?:\/\//i.test(src)) {
+    try {
+      const url = new URL(src);
+      const idx = url.pathname.indexOf(STORAGE_PUBLIC_PREFIX);
+      if (idx === -1) return src;
+
+      const storagePath = decodeURIComponent(
+        url.pathname.slice(idx + STORAGE_PUBLIC_PREFIX.length)
+      );
+      const basePath = stripVariantSuffix(storagePath);
+      return getVariantPublicUrl(basePath, "md");
+    } catch {
+      return src;
+    }
+  }
+
+  // Storage path form from CMS/DB.
+  try {
+    const clean = src.replace(/^\/+/, "");
+    const basePath = stripVariantSuffix(clean);
+    return getVariantPublicUrl(basePath, "md");
+  } catch {
+    return src;
+  }
+}
+
+function normalizeImageNodesToMedium(node: any): void {
+  if (!node) return;
+
+  if (node.type === "tag") {
+    if (node.attribs?.style && typeof node.attribs.style === "string") {
+      node.attribs.style = node.attribs.style.replace(
+        /background-image\s*:\s*url\((['"]?)(.*?)\1\)/gi,
+        (_m: string, q: string, rawUrl: string) => {
+          const medium = toMediumVariantUrl(rawUrl) || rawUrl;
+          return `background-image:url(${q || ""}${medium}${q || ""})`;
+        }
+      );
+    }
+
+    if (node.name === "img" && node.attribs) {
+      const a = node.attribs;
+      const original =
+        getAttr(a, ["src", "data-src", "data-original", "data-lazy-src"]) ||
+        pickFromSrcset(a.srcset) ||
+        null;
+      const medium = toMediumVariantUrl(original);
+      if (medium) {
+        a.src = medium;
+        a["data-src"] = medium;
+        a["data-original"] = medium;
+        a["data-lazy-src"] = medium;
+      }
+      delete a.srcset;
+      delete a["data-srcset"];
+      delete a.sizes;
+    }
+
+    if (node.name === "source" && node.attribs) {
+      const sourceSrc = pickFromSrcset(node.attribs.srcset);
+      const medium = toMediumVariantUrl(sourceSrc);
+      if (medium) {
+        node.attribs.srcset = medium;
+      }
+      delete node.attribs.sizes;
+    }
+  }
+
+  if (Array.isArray(node.children)) {
+    node.children.forEach(normalizeImageNodesToMedium);
+  }
+}
+
 function extractImageMetaFromFigure(node: any): {
   src: string | null;
   alt: string | null;
@@ -165,6 +255,9 @@ export default function HeritageArticle({
             ? textFromNode(capNode).trim() || null
             : null;
 
+          // Ensure article media uses the md variant to reduce transfer size.
+          normalizeImageNodesToMedium(node);
+
           return (
             <figure {...attribs}>
               {domToReact(childrenWithoutCaption as any)}
@@ -201,6 +294,16 @@ export default function HeritageArticle({
             pickFromSrcset(a.srcset) ||
             null;
           const alt = getAttr(a, ["alt"]);
+          const medium = toMediumVariantUrl(src);
+          if (medium) {
+            a.src = medium;
+            a["data-src"] = medium;
+            a["data-original"] = medium;
+            a["data-lazy-src"] = medium;
+          }
+          delete a.srcset;
+          delete a["data-srcset"];
+          delete a.sizes;
           const imgProps = mapAttribs(a);
           return (
             <figure>
