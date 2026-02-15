@@ -3,13 +3,9 @@ import { Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
 
 export default function HeritageUpperArticle({
-  site,
   categories,
-  hasPhotoStory,
 }: {
-  site: { slug: string };
   categories: Taxonomy[];
-  hasPhotoStory: boolean;
 }) {
   return (
     <>
@@ -23,7 +19,7 @@ export default function HeritageUpperArticle({
         {categories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((c) => {
-              const iconName = (c.icon_key || "").trim() || "where-is-it";
+              const iconKey = (c.icon_key || "").trim();
 
               return (
                 <a
@@ -40,9 +36,9 @@ export default function HeritageUpperArticle({
                         // eslint-disable-next-line react/no-danger
                         dangerouslySetInnerHTML={{ __html: c.icon_svg }}
                       />
-                    ) : (
-                      <Icon name={iconName} size={16} className="text-white" />
-                    )}
+                    ) : iconKey ? (
+                      <Icon name={iconKey} size={16} className="text-white" />
+                    ) : null}
                   </div>
                   <span className="font-category-chip transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
                     {c.name}

@@ -292,9 +292,7 @@ export default function HeritageClient({
             <>
               {/* Top categories / overview stays eager */}
               <HeritageUpperArticle
-                site={{ slug: site.slug }}
                 categories={categories}
-                hasPhotoStory={hasPhotoStory}
               />
 
               {/* History */}
