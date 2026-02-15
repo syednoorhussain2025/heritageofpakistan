@@ -124,7 +124,12 @@ type TravelGuideSummary = {
   temp_summers?: string | null;
 };
 
-type Taxonomy = { id: string; name: string; icon_key: string | null };
+type Taxonomy = {
+  id: string;
+  name: string;
+  icon_key: string | null;
+  icon_svg?: string | null;
+};
 
 type ImageRow = {
   id: string;

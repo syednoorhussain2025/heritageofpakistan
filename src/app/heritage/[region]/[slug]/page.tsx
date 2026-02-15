@@ -9,6 +9,7 @@ import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 import HeritageClient from "./HeritageClient";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { createPublicClient } from "@/lib/supabase/public-server";
 
 // **Static revalidation: 3600 seconds (1 hour)**
 // Important: must be a literal, not an expression like 60 * 60
@@ -103,7 +104,12 @@ type TravelGuideSummary = {
   temp_summers?: string | null;
 };
 
-type Taxonomy = { id: string; name: string; icon_key: string | null };
+type Taxonomy = {
+  id: string;
+  name: string;
+  icon_key: string | null;
+  icon_svg?: string | null;
+};
 
 type ImageRow = {
   id: string;
@@ -398,9 +404,47 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     .from("site_categories")
     .select("categories(id, name, icon_key)")
     .eq("site_id", site.id);
-  const categories: Taxonomy[] = (sc || [])
+  const categoriesBase: Taxonomy[] = (sc || [])
     .map((row: any) => row.categories)
     .filter(Boolean);
+
+  const categoryIconKeys = Array.from(
+    new Set(
+      categoriesBase
+        .map(c => (typeof c.icon_key === "string" ? c.icon_key.trim() : ""))
+        .filter(Boolean)
+    )
+  );
+
+  let categories: Taxonomy[] = categoriesBase;
+  if (categoryIconKeys.length > 0) {
+    const supabasePublic = createPublicClient();
+    const { data: iconRows } = await supabasePublic
+      .from("icons")
+      .select("name, svg_content")
+      .in("name", categoryIconKeys);
+
+    const iconSvgByName = new Map<string, string>();
+    for (const row of iconRows || []) {
+      if (row?.name && typeof row.svg_content === "string") {
+        iconSvgByName.set(String(row.name), row.svg_content);
+      }
+    }
+
+    categories = categoriesBase.map(c => {
+      const key =
+        typeof c.icon_key === "string" ? c.icon_key.trim() : c.icon_key;
+      if (!key) return { ...c, icon_key: null, icon_svg: null };
+
+      const svg =
+        iconSvgByName.get(key) ||
+        iconSvgByName.get(key.replace(/_/g, "-")) ||
+        iconSvgByName.get(key.replace(/-/g, "_")) ||
+        null;
+
+      return { ...c, icon_key: key, icon_svg: svg };
+    });
+  }
 
   /* 3. Regions for this site */
   const { data: sr } = await supabase

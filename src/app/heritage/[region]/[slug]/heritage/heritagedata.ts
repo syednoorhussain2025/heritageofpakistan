@@ -176,7 +176,12 @@ export type Site = {
     | null;
 };
 
-export type Taxonomy = { id: string; name: string | null; icon_key: string | null };
+export type Taxonomy = {
+  id: string;
+  name: string | null;
+  icon_key: string | null;
+  icon_svg?: string | null;
+};
 
 /* -------------------------------------------------------
    IMAGE ROW

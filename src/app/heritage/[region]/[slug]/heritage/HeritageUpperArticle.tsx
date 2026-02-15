@@ -23,8 +23,7 @@ export default function HeritageUpperArticle({
         {categories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((c) => {
-              const iconName =
-                (c.icon_key || "").trim() || "heritage-categories";
+              const iconName = (c.icon_key || "").trim() || "where-is-it";
 
               return (
                 <a
@@ -33,11 +32,17 @@ export default function HeritageUpperArticle({
                   className="group inline-flex items-center gap-2 transition-transform duration-200 hover:-translate-y-0.5"
                 >
                   <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)] flex items-center justify-center flex-shrink-0">
-                    <Icon
-                      name={iconName}
-                      size={16}
-                      className="text-white"
-                    />
+                    {c.icon_svg ? (
+                      <span
+                        className="inline-block hop-category-svg text-white leading-none"
+                        style={{ fontSize: 16 }}
+                        // Icon SVG content is sanitized before persistence in admin.
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: c.icon_svg }}
+                      />
+                    ) : (
+                      <Icon name={iconName} size={16} className="text-white" />
+                    )}
                   </div>
                   <span className="font-category-chip transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
                     {c.name}
@@ -55,6 +60,13 @@ export default function HeritageUpperArticle({
           </div>
         )}
       </HeritageSection>
+      <style jsx global>{`
+        .hop-category-svg svg {
+          width: 1em;
+          height: 1em;
+          fill: currentColor;
+        }
+      `}</style>
     </>
   );
 }
