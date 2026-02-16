@@ -242,8 +242,8 @@ export default function HeritageClient({
 
       {/* Content layout */}
       <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] flex flex-col gap-5 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
-        {/* LEFT SIDEBAR (TOP GROUP) */}
-        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0 lg:col-start-1 lg:row-start-1">
+        {/* LEFT SIDEBAR (MOBILE TOP GROUP) */}
+        <aside className="space-y-5 w-full lg:hidden">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
@@ -272,8 +272,46 @@ export default function HeritageClient({
           )}
         </aside>
 
+        {/* LEFT SIDEBAR (DESKTOP FULL STACK) */}
+        <aside className="hidden lg:block lg:space-y-5 lg:w-auto lg:flex-shrink-0">
+          {!site ? (
+            <>
+              <SidebarCardSkeleton lines={7} />
+              <SidebarCardSkeleton lines={5} />
+              <SidebarCardSkeleton lines={12} />
+              <SidebarCardSkeleton lines={3} />
+              <SidebarCardSkeleton lines={4} />
+              <SidebarCardSkeleton lines={5} />
+              <SidebarCardSkeleton lines={4} />
+            </>
+          ) : (
+            <LazySection
+              skeleton={
+                <>
+                  <SidebarCardSkeleton lines={7} />
+                  <SidebarCardSkeleton lines={5} />
+                  <SidebarCardSkeleton lines={12} />
+                  <SidebarCardSkeleton lines={3} />
+                  <SidebarCardSkeleton lines={4} />
+                  <SidebarCardSkeleton lines={5} />
+                  <SidebarCardSkeleton lines={4} />
+                </>
+              }
+            >
+              <HeritageSidebar
+                site={site as any}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
+                travelGuideSummary={travelGuideSummary}
+                sectionGroup="all"
+              />
+            </LazySection>
+          )}
+        </aside>
+
         {/* RIGHT MAIN CONTENT */}
-        <main className="space-y-5 w-full lg:flex-1 lg:col-start-2 lg:row-span-2">
+        <main className="space-y-5 w-full lg:flex-1">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={6} />
@@ -491,8 +529,8 @@ export default function HeritageClient({
           )}
         </main>
 
-        {/* LEFT SIDEBAR (BOTTOM GROUP) */}
-        <aside className="space-y-5 w-full lg:w-auto lg:flex-shrink-0 lg:col-start-1 lg:row-start-2">
+        {/* LEFT SIDEBAR (MOBILE BOTTOM GROUP) */}
+        <aside className="space-y-5 w-full lg:hidden">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={3} />

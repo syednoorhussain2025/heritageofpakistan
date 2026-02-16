@@ -424,6 +424,15 @@ export default function HeritageSidebar({
     unescoStatus.length > 0 && unescoStatus.toLowerCase() !== "none";
   const showTop = sectionGroup !== "bottom";
   const showBottom = sectionGroup !== "top";
+  const lat = site.latitude != null ? Number(site.latitude) : null;
+  const lng = site.longitude != null ? Number(site.longitude) : null;
+  const hasCoordinates =
+    lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const staticMapUrl =
+    hasCoordinates && googleMapsApiKey
+      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=12&size=1000x800&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${googleMapsApiKey}`
+      : null;
 
   return (
     <div className="space-y-5">
@@ -435,7 +444,17 @@ export default function HeritageSidebar({
             iconName="where-is-it"
             mobileDefaultOpen
           >
-            {maps.embed ? (
+            {staticMapUrl ? (
+              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={staticMapUrl}
+                  alt={`Map for ${site.title}`}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              </div>
+            ) : maps.embed ? (
               <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
                 <iframe
                   title={`Map for ${site.title}`}
