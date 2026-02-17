@@ -710,6 +710,7 @@ export default function HeritageArticle({
         .reading-article .hop-text,
         .reading-article .flx-text {
           font-family: var(--font-lato), "Lato", sans-serif !important;
+          font-size: 0.96rem;
         }
         .reading-article [style*="font-family"] {
           font-family: var(--font-lato), "Lato", sans-serif !important;
