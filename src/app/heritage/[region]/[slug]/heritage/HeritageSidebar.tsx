@@ -462,7 +462,7 @@ export default function HeritageSidebar({
                     className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10 cursor-pointer"
                   >
                     <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      Open Pin in Google Maps
+                      {site.title}
                     </span>
                     <Icon
                       name="map-marker-alt"
@@ -511,7 +511,7 @@ export default function HeritageSidebar({
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-black px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1f1f1f]"
+                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[#040951] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#0b1170]"
                 >
                   Open in Maps
                 </a>
