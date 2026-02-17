@@ -487,8 +487,10 @@ export default function HeritageCover({
                     rel="noopener noreferrer"
                     className="hero-action-btn"
                   >
-                    <Icon name="map-marker-alt" size={16} />
-                    <span>Open in Maps</span>
+                    <span className="hero-action-icon" aria-hidden="true">
+                      <Icon name="map-marker-alt" size={14} />
+                    </span>
+                    <span className="hero-action-label">Open in Maps</span>
                   </a>
                 ) : null}
 
@@ -501,8 +503,12 @@ export default function HeritageCover({
                     isBookmarked ? "hero-action-btn--active" : "",
                   ].join(" ")}
                 >
-                  <Icon name="bookmark" size={16} />
-                  <span>{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
+                  <span className="hero-action-icon" aria-hidden="true">
+                    <Icon name="bookmark" size={14} />
+                  </span>
+                  <span className="hero-action-label">
+                    {isBookmarked ? "Bookmarked" : "Bookmark"}
+                  </span>
                 </button>
 
                 <button
@@ -510,8 +516,10 @@ export default function HeritageCover({
                   onClick={() => setShowTripModal(true)}
                   className="hero-action-btn"
                 >
-                  <Icon name="route" size={16} />
-                  <span>Add to Trip</span>
+                  <span className="hero-action-icon" aria-hidden="true">
+                    <Icon name="route" size={14} />
+                  </span>
+                  <span className="hero-action-label">Add to Trip</span>
                 </button>
 
                 <a
@@ -520,8 +528,10 @@ export default function HeritageCover({
                   rel="noopener noreferrer"
                   className="hero-action-btn"
                 >
-                  <Icon name="gallery" size={16} />
-                  <span>Gallery</span>
+                  <span className="hero-action-icon" aria-hidden="true">
+                    <Icon name="gallery" size={14} />
+                  </span>
+                  <span className="hero-action-label">Gallery</span>
                 </a>
 
                 {hasPhotoStory && (
@@ -531,8 +541,10 @@ export default function HeritageCover({
                     rel="noopener noreferrer"
                     className="hero-action-btn"
                   >
-                    <Icon name="play" size={16} />
-                    <span>Photo Story</span>
+                    <span className="hero-action-icon" aria-hidden="true">
+                      <Icon name="play" size={14} />
+                    </span>
+                    <span className="hero-action-label">Photo Story</span>
                   </a>
                 )}
               </div>
@@ -625,16 +637,16 @@ export default function HeritageCover({
             display: inline-flex;
             align-items: center;
             gap: 11px;
-            min-width: 210px;
-            padding: 12px 18px;
+            min-width: 0;
+            padding: 8px 14px 8px 8px;
             border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #f8fafc;
-            background: rgba(0, 0, 0, 0.58);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #0f2947;
+            background: rgba(246, 248, 252, 0.9);
             backdrop-filter: blur(7px);
             -webkit-backdrop-filter: blur(7px);
-            box-shadow: 0 10px 26px rgba(2, 6, 23, 0.22);
-            font-size: 16px;
+            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.16);
+            font-size: 15px;
             font-weight: 600;
             line-height: 1.2;
             transition: background 220ms ease, border-color 220ms ease,
@@ -642,10 +654,10 @@ export default function HeritageCover({
           }
 
           .hero-action-btn:hover {
-            background: rgba(16, 24, 39, 0.78);
-            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.98);
+            border-color: rgba(255, 255, 255, 0.95);
             transform: translateY(-2px) scale(1.015);
-            box-shadow: 0 18px 30px rgba(2, 6, 23, 0.34);
+            box-shadow: 0 16px 28px rgba(2, 6, 23, 0.2);
             filter: saturate(1.06);
           }
 
@@ -656,8 +668,25 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--active {
-            border-color: rgba(255, 255, 255, 0.52);
-            background: rgba(12, 18, 30, 0.74);
+            border-color: rgba(247, 131, 0, 0.45);
+            background: rgba(255, 248, 238, 0.95);
+          }
+
+          .hero-action-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--brand-orange, #f78300);
+            color: #ffffff;
+            box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+          }
+
+          .hero-action-label {
+            white-space: nowrap;
           }
         `}</style>
       </section>
