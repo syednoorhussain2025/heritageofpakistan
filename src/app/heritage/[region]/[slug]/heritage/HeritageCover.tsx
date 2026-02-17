@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
+import AddToTripModal from "@/components/AddToTripModal";
+import { useBookmarks } from "@/components/BookmarkProvider";
 
 /* -------------------------------------------------------
    BLURHASH FALLBACK (only if we have a hash and metadata)
@@ -63,13 +65,15 @@ export default function HeritageCover({
   site: {
     id: string;
     slug: string;
-    province_slug: string;
+    province_slug?: string | null;
     title: string;
     tagline?: string | null;
     heritage_type?: string | null;
     location_free?: string | null;
     avg_rating?: number | null;
     review_count?: number | null;
+    latitude?: string | number | null;
+    longitude?: string | number | null;
 
     cover_photo_url?: string | null;
 
@@ -87,6 +91,7 @@ export default function HeritageCover({
   };
   hasPhotoStory: boolean;
 }) {
+  const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const cover = site.cover ?? null;
 
   // Priority:
@@ -164,6 +169,22 @@ export default function HeritageCover({
   const filled = Math.max(0, Math.min(5, Math.round(site.avg_rating ?? 0)));
   const hasRatingInfo =
     site.avg_rating != null || site.review_count != null;
+  const isBookmarked =
+    isLoaded && site?.id ? bookmarkedIds.has(site.id) : false;
+  const [showTripModal, setShowTripModal] = useState(false);
+
+  const lat = site.latitude != null ? Number(site.latitude) : null;
+  const lng = site.longitude != null ? Number(site.longitude) : null;
+  const mapsLink =
+    lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)
+      ? `https://www.google.com/maps?q=${lat},${lng}`
+      : null;
+
+  const baseHeritagePath = site.province_slug
+    ? `/heritage/${site.province_slug}/${site.slug}`
+    : `/heritage/${site.slug}`;
+  const galleryHref = `${baseHeritagePath}/gallery`;
+  const photoStoryHref = `${baseHeritagePath}/photo-story`;
 
   const getHeritageIcon = (type?: string | null) => {
     const t = type?.toLowerCase() ?? "";
@@ -422,7 +443,7 @@ export default function HeritageCover({
               className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
               style={{
                 top: "calc(var(--sticky-offset, 72px) + 12px)",
-                right: "min(24px, 4vw)",
+                left: "min(24px, 4vw)",
               }}
             >
               <div className="flex items-center gap-1">
@@ -458,19 +479,64 @@ export default function HeritageCover({
               )}
             </div>
 
-            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end -translate-x-24 translate-y-6">
-              {hasPhotoStory && (
+            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end w-[min(320px,34vw)]">
+              <div className="hero-actions-stack">
+                {mapsLink ? (
+                  <a
+                    href={mapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hero-action-btn hero-action-btn--maps"
+                  >
+                    <Icon name="map-marker-alt" size={16} />
+                    <span>Open in Maps</span>
+                  </a>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => toggleBookmark(site.id)}
+                  aria-pressed={isBookmarked}
+                  className={[
+                    "hero-action-btn",
+                    isBookmarked ? "hero-action-btn--active" : "",
+                  ].join(" ")}
+                >
+                  <Icon name="bookmark" size={16} />
+                  <span>{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTripModal(true)}
+                  className="hero-action-btn"
+                >
+                  <Icon name="route" size={16} />
+                  <span>Add to Trip</span>
+                </button>
+
                 <a
-                  href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
+                  href={galleryHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-lg"
-                  style={{ background: "var(--brand-orange, #F78300)" }}
+                  className="hero-action-btn"
                 >
-                  <Icon name="play" className="text-white text-lg" />
-                  <span>Photo Story</span>
+                  <Icon name="gallery" size={16} />
+                  <span>Gallery</span>
                 </a>
-              )}
+
+                {hasPhotoStory && (
+                  <a
+                    href={photoStoryHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hero-action-btn hero-action-btn--story"
+                  >
+                    <Icon name="play" size={16} />
+                    <span>Photo Story</span>
+                  </a>
+                )}
+              </div>
 
               {site.heritage_type && (
                 <div>
@@ -547,8 +613,82 @@ export default function HeritageCover({
           .rating-star--filled {
             color: var(--brand-amber, #ffc107);
           }
+
+          .hero-actions-stack {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 4px;
+          }
+
+          .hero-action-btn {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            color: #f8fafc;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.2;
+            transition: background 180ms ease, border-color 180ms ease,
+              transform 180ms ease, box-shadow 180ms ease;
+          }
+
+          .hero-action-btn:hover {
+            background: rgba(30, 41, 59, 0.72);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(2, 6, 23, 0.34);
+          }
+
+          .hero-action-btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35),
+              0 0 0 5px rgba(15, 23, 42, 0.5);
+          }
+
+          .hero-action-btn--maps {
+            background: rgba(248, 250, 252, 0.96);
+            color: #0f172a;
+            border-color: rgba(255, 255, 255, 0.92);
+          }
+
+          .hero-action-btn--maps:hover {
+            background: #ffffff;
+            border-color: #ffffff;
+          }
+
+          .hero-action-btn--active {
+            border-color: rgba(247, 131, 0, 0.72);
+            background: rgba(53, 24, 3, 0.62);
+          }
+
+          .hero-action-btn--story {
+            background: rgba(247, 131, 0, 0.9);
+            border-color: rgba(255, 193, 111, 0.9);
+          }
+
+          .hero-action-btn--story:hover {
+            background: rgba(247, 131, 0, 1);
+            border-color: #ffd9a4;
+          }
         `}</style>
       </section>
+
+      {showTripModal && (
+        <AddToTripModal
+          siteId={site.id}
+          onClose={() => setShowTripModal(false)}
+        />
+      )}
     </>
   );
 }
