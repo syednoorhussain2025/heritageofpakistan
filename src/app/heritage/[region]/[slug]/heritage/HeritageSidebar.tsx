@@ -453,13 +453,32 @@ export default function HeritageSidebar({
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
-                  <Icon
-                    name="map-marker-alt"
-                    size={34}
-                    className="text-red-600 drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
-                  />
-                </div>
+                {maps.link ? (
+                  <a
+                    href={maps.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open Pin in Google Maps"
+                    className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10 cursor-pointer"
+                  >
+                    <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      Open Pin in Google Maps
+                    </span>
+                    <Icon
+                      name="map-marker-alt"
+                      size={34}
+                      className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] transition-colors duration-200 group-hover:text-neutral-700"
+                    />
+                  </a>
+                ) : (
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
+                    <Icon
+                      name="map-marker-alt"
+                      size={34}
+                      className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
+                    />
+                  </div>
+                )}
               </div>
             ) : maps.embed ? (
               <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
@@ -492,7 +511,7 @@ export default function HeritageSidebar({
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-sm bg-black px-6 py-3 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1a1a1a]"
+                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-black px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1f1f1f]"
                 >
                   Open in Maps
                 </a>
