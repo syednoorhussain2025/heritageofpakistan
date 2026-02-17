@@ -431,7 +431,7 @@ export default function HeritageSidebar({
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const staticMapUrl =
     hasCoordinates && googleMapsApiKey
-      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=12&size=1000x800&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${googleMapsApiKey}`
+      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=1000x800&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${googleMapsApiKey}`
       : null;
 
   return (
@@ -479,6 +479,18 @@ export default function HeritageSidebar({
             <KeyVal k="Region/Province" v={provinceName} />
             <KeyVal k="Latitude" v={site.latitude} />
             <KeyVal k="Longitude" v={site.longitude} />
+            {maps.link ? (
+              <div className="mt-4 flex justify-center">
+                <a
+                  href={maps.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-sm bg-[#16345c] px-6 py-3 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1b3f70]"
+                >
+                  Open in Maps
+                </a>
+              </div>
+            ) : null}
           </SidebarAccordionSection>
 
           <SidebarAccordionSection
