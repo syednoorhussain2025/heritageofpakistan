@@ -265,6 +265,7 @@ export default function HeritageSidebar({
   maps,
   travelGuideSummary,
   sectionGroup = "all",
+  regionsPlacement = "top",
 }: {
   site: Site & {
     overrides?: Record<string, boolean> | null;
@@ -275,6 +276,7 @@ export default function HeritageSidebar({
   maps: { embed: string | null; link: string | null };
   travelGuideSummary?: TravelGuideSummary | null;
   sectionGroup?: "all" | "top" | "bottom";
+  regionsPlacement?: "top" | "bottom";
 }) {
   // use server-provided summary directly, no client Supabase calls
   const tgs: TravelGuideSummary | null = travelGuideSummary ?? null;
@@ -424,6 +426,8 @@ export default function HeritageSidebar({
     unescoStatus.length > 0 && unescoStatus.toLowerCase() !== "none";
   const showTop = sectionGroup !== "bottom";
   const showBottom = sectionGroup !== "top";
+  const showRegionsInTop = showTop && regionsPlacement !== "bottom";
+  const showRegionsInBottom = showBottom && regionsPlacement === "bottom";
   const lat = site.latitude != null ? Number(site.latitude) : null;
   const lng = site.longitude != null ? Number(site.longitude) : null;
   const hasCoordinates =
@@ -519,37 +523,39 @@ export default function HeritageSidebar({
             ) : null}
           </SidebarAccordionSection>
 
-          <SidebarAccordionSection
-            title="Regions"
-            iconName="regions"
-            mobileDefaultOpen={false}
-          >
-            {regions.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4">
-                {regions.map((r) => (
-                  <IconChip
-                    key={r.id}
-                    iconName={r.icon_key}
-                    label={r.name}
-                    href={`/explore?regs=${r.id}`}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div
-                className="text-[15px]"
-                style={{ color: "var(--muted-foreground, #5b6b84)" }}
-              >
-                No regions specified.
-              </div>
-            )}
-          </SidebarAccordionSection>
+          {showRegionsInTop && (
+            <SidebarAccordionSection
+              title="Regions"
+              iconName="regions"
+              mobileDefaultOpen={false}
+            >
+              {regions.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {regions.map((r) => (
+                    <IconChip
+                      key={r.id}
+                      iconName={r.icon_key}
+                      label={r.name}
+                      href={`/explore?regs=${r.id}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="text-[15px]"
+                  style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                >
+                  No regions specified.
+                </div>
+              )}
+            </SidebarAccordionSection>
+          )}
 
           <SidebarAccordionSection
             id="general"
             title="General Information"
             iconName="general-info"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen
           >
             <KeyVal k="Heritage Type" v={site.heritage_type} />
             <KeyVal k="Architectural Style" v={site.architectural_style} />
@@ -619,6 +625,34 @@ export default function HeritageSidebar({
 
       {showBottom && (
         <>
+          {showRegionsInBottom && (
+            <SidebarAccordionSection
+              title="Regions"
+              iconName="regions"
+              mobileDefaultOpen={false}
+            >
+              {regions.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {regions.map((r) => (
+                    <IconChip
+                      key={r.id}
+                      iconName={r.icon_key}
+                      label={r.name}
+                      href={`/explore?regs=${r.id}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="text-[15px]"
+                  style={{ color: "var(--muted-foreground, #5b6b84)" }}
+                >
+                  No regions specified.
+                </div>
+              )}
+            </SidebarAccordionSection>
+          )}
+
           <SidebarAccordionSection
             title="Protected under"
             iconName="protected-under"

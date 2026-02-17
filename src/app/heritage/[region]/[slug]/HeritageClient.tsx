@@ -267,6 +267,7 @@ export default function HeritageClient({
                 maps={maps}
                 travelGuideSummary={travelGuideSummary}
                 sectionGroup="top"
+                regionsPlacement="bottom"
               />
             </LazySection>
           )}
@@ -325,9 +326,9 @@ export default function HeritageClient({
           ) : (
             <>
               {/* Top categories / overview stays eager */}
-              <HeritageUpperArticle
-                categories={categories}
-              />
+              <div className="hidden md:block">
+                <HeritageUpperArticle categories={categories} />
+              </div>
 
               {/* History */}
               {site.history_layout_html && (
@@ -460,6 +461,11 @@ export default function HeritageClient({
                     </HeritageSection>
                   ))}
 
+              {/* Mobile-only categories, moved after article sections */}
+              <div className="md:hidden">
+                <HeritageUpperArticle categories={categories} />
+              </div>
+
               {/* Gallery */}
               <LazySection skeleton={<GallerySkeleton count={6} />}>
                 <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
@@ -560,6 +566,7 @@ export default function HeritageClient({
                 maps={maps}
                 travelGuideSummary={travelGuideSummary}
                 sectionGroup="bottom"
+                regionsPlacement="bottom"
               />
             </LazySection>
           )}
