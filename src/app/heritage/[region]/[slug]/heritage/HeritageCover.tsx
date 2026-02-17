@@ -440,7 +440,7 @@ export default function HeritageCover({
         >
           {hasRatingInfo && (
             <div
-              className="absolute z-10 left-[82px] lg:left-[109px] flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
+              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
               style={{
                 top: "calc(var(--sticky-offset, 72px) + 12px)",
               }}
@@ -465,7 +465,7 @@ export default function HeritageCover({
             </div>
           )}
 
-          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto">
             <div className="text-white hero-left self-end">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
                 {site.title}
@@ -478,7 +478,7 @@ export default function HeritageCover({
               )}
             </div>
 
-            <div className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-end w-auto">
+            <div className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-end -translate-y-8 w-auto">
               <div className="hero-actions-stack">
                 {mapsLink ? (
                   <a
@@ -617,7 +617,7 @@ export default function HeritageCover({
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 12px;
+            gap: 13px;
             margin-bottom: 4px;
           }
 
@@ -627,25 +627,26 @@ export default function HeritageCover({
             gap: 11px;
             min-width: 210px;
             padding: 12px 18px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #f8fafc;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+            background: rgba(0, 0, 0, 0.58);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            box-shadow: 0 10px 26px rgba(2, 6, 23, 0.22);
             font-size: 16px;
             font-weight: 600;
             line-height: 1.2;
-            transition: background 180ms ease, border-color 180ms ease,
-              transform 180ms ease, box-shadow 180ms ease;
+            transition: background 220ms ease, border-color 220ms ease,
+              transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
           }
 
           .hero-action-btn:hover {
-            background: rgba(0, 0, 0, 0.94);
-            border-color: rgba(255, 255, 255, 0.35);
-            transform: translateY(-1px);
-            box-shadow: 0 14px 26px rgba(2, 6, 23, 0.34);
+            background: rgba(16, 24, 39, 0.78);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px) scale(1.015);
+            box-shadow: 0 18px 30px rgba(2, 6, 23, 0.34);
+            filter: saturate(1.06);
           }
 
           .hero-action-btn:focus-visible {
@@ -655,8 +656,8 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--active {
-            border-color: rgba(255, 255, 255, 0.62);
-            background: rgba(0, 0, 0, 0.9);
+            border-color: rgba(255, 255, 255, 0.52);
+            background: rgba(12, 18, 30, 0.74);
           }
         `}</style>
       </section>
