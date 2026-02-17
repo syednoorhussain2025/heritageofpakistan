@@ -440,10 +440,9 @@ export default function HeritageCover({
         >
           {hasRatingInfo && (
             <div
-              className="absolute z-10 flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
+              className="absolute z-10 left-[82px] lg:left-[109px] flex items-center gap-3 text-white bg-black/45 rounded-full px-4 py-2 shadow-lg"
               style={{
                 top: "calc(var(--sticky-offset, 72px) + 12px)",
-                left: "min(24px, 4vw)",
               }}
             >
               <div className="flex items-center gap-1">
@@ -479,14 +478,14 @@ export default function HeritageCover({
               )}
             </div>
 
-            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end self-end w-[min(276px,30vw)]">
+            <div className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-end w-auto">
               <div className="hero-actions-stack">
                 {mapsLink ? (
                   <a
                     href={mapsLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hero-action-btn hero-action-btn--maps"
+                    className="hero-action-btn"
                   >
                     <Icon name="map-marker-alt" size={16} />
                     <span>Open in Maps</span>
@@ -530,7 +529,7 @@ export default function HeritageCover({
                     href={photoStoryHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hero-action-btn hero-action-btn--story"
+                    className="hero-action-btn"
                   >
                     <Icon name="play" size={16} />
                     <span>Photo Story</span>
@@ -615,27 +614,27 @@ export default function HeritageCover({
           }
 
           .hero-actions-stack {
-            width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            align-items: flex-start;
+            gap: 12px;
             margin-bottom: 4px;
           }
 
           .hero-action-btn {
-            width: 100%;
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
+            gap: 11px;
+            min-width: 210px;
+            padding: 12px 18px;
             border-radius: 10px;
             border: 1px solid rgba(255, 255, 255, 0.24);
             color: #f8fafc;
-            background: rgba(15, 23, 42, 0.55);
+            background: rgba(0, 0, 0, 0.82);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
             box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             line-height: 1.2;
             transition: background 180ms ease, border-color 180ms ease,
@@ -643,7 +642,7 @@ export default function HeritageCover({
           }
 
           .hero-action-btn:hover {
-            background: rgba(30, 41, 59, 0.72);
+            background: rgba(0, 0, 0, 0.94);
             border-color: rgba(255, 255, 255, 0.35);
             transform: translateY(-1px);
             box-shadow: 0 14px 26px rgba(2, 6, 23, 0.34);
@@ -655,30 +654,9 @@ export default function HeritageCover({
               0 0 0 5px rgba(15, 23, 42, 0.5);
           }
 
-          .hero-action-btn--maps {
-            background: rgba(248, 250, 252, 0.96);
-            color: #0f172a;
-            border-color: rgba(255, 255, 255, 0.92);
-          }
-
-          .hero-action-btn--maps:hover {
-            background: #ffffff;
-            border-color: #ffffff;
-          }
-
           .hero-action-btn--active {
-            border-color: rgba(247, 131, 0, 0.72);
-            background: rgba(53, 24, 3, 0.62);
-          }
-
-          .hero-action-btn--story {
-            background: rgba(247, 131, 0, 0.9);
-            border-color: rgba(255, 193, 111, 0.9);
-          }
-
-          .hero-action-btn--story:hover {
-            background: rgba(247, 131, 0, 1);
-            border-color: #ffd9a4;
+            border-color: rgba(255, 255, 255, 0.62);
+            background: rgba(0, 0, 0, 0.9);
           }
         `}</style>
       </section>
