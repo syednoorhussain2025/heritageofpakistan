@@ -466,8 +466,8 @@ export default function HeritageCover({
             </div>
           )}
 
-          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
-            <div className="text-white hero-left">
+          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[82px] md:pr-[36px] lg:pl-[109px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+            <div className="text-white hero-left self-end">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
                 {site.title}
               </h1>
@@ -479,7 +479,7 @@ export default function HeritageCover({
               )}
             </div>
 
-            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end w-[min(320px,34vw)]">
+            <div className="text-white flex flex-col items-start gap-4 hero-right text-left justify-self-end self-end w-[min(276px,30vw)]">
               <div className="hero-actions-stack">
                 {mapsLink ? (
                   <a
@@ -618,7 +618,7 @@ export default function HeritageCover({
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 4px;
           }
 
@@ -627,15 +627,15 @@ export default function HeritageCover({
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            padding: 11px 14px;
-            border-radius: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
             border: 1px solid rgba(255, 255, 255, 0.24);
             color: #f8fafc;
             background: rgba(15, 23, 42, 0.55);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
             box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             line-height: 1.2;
             transition: background 180ms ease, border-color 180ms ease,
