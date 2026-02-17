@@ -2,7 +2,6 @@
 "use client";
 
 import React from "react";
-import Icon from "@/components/Icon";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 type HeritageNeighborNavProps = {
@@ -49,10 +48,18 @@ export default function HeritageNeighborNav({
             fixed left-2 bottom-[60px] -translate-y-1/2 z-[60]
             inline-flex items-center justify-center
             rounded-full bg-white shadow-md border border-black/10
-            w-9 h-9 hover:bg-black/5 transition
+            w-9 h-9 text-slate-700 hover:bg-black/5 transition
           "
         >
-          <Icon name="chevron-left" size={16} />
+          <svg
+            viewBox="0 0 20 20"
+            width="16"
+            height="16"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+          </svg>
         </button>
       )}
 
@@ -65,10 +72,18 @@ export default function HeritageNeighborNav({
             fixed right-2 bottom-[60px] -translate-y-1/2 z-[60]
             inline-flex items-center justify-center
             rounded-full bg-white shadow-md border border-black/10
-            w-9 h-9 hover:bg-black/5 transition
+            w-9 h-9 text-slate-700 hover:bg-black/5 transition
           "
         >
-          <Icon name="chevron-right" size={16} />
+          <svg
+            viewBox="0 0 20 20"
+            width="16"
+            height="16"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+          </svg>
         </button>
       )}
     </>
