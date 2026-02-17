@@ -696,11 +696,23 @@ export default function HeritageArticle({
 
         /* -------- Make text selectable & images non-draggable -------- */
         .reading-article {
+          font-family: var(--font-lato), "Lato", sans-serif !important;
           user-select: text !important;
           -webkit-user-select: text !important;
           cursor: text;
           min-height: 0;
           background: transparent !important;
+        }
+        .reading-article p,
+        .reading-article li,
+        .reading-article blockquote,
+        .reading-article figcaption,
+        .reading-article .hop-text,
+        .reading-article .flx-text {
+          font-family: var(--font-lato), "Lato", sans-serif !important;
+        }
+        .reading-article [style*="font-family"] {
+          font-family: var(--font-lato), "Lato", sans-serif !important;
         }
         .reading-article img,
         .hop-article img {
