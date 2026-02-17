@@ -431,7 +431,7 @@ export default function HeritageSidebar({
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const staticMapUrl =
     hasCoordinates && googleMapsApiKey
-      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=1000x800&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${googleMapsApiKey}`
+      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=16&size=1000x800&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${googleMapsApiKey}`
       : null;
 
   return (
@@ -485,7 +485,7 @@ export default function HeritageSidebar({
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-sm bg-[#16345c] px-6 py-3 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1b3f70]"
+                  className="inline-flex items-center justify-center rounded-sm bg-black px-6 py-3 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#1a1a1a]"
                 >
                   Open in Maps
                 </a>
