@@ -127,6 +127,7 @@ const LANDFORM_MAP: Record<
   lake_basin: "Lake Basin",
   steppe: "Steppe",
 };
+const MOBILE_GENERAL_INFO_PREVIEW_ROWS = 8;
 
 /* ---- Key/value row ---- */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
@@ -256,6 +257,10 @@ function pick(
     return has(siteVal) ? siteVal : has(guideVal) ? guideVal : null;
   }
   return has(guideVal) ? guideVal : has(siteVal) ? siteVal : null;
+}
+
+function hasDisplayValue(v: unknown) {
+  return v !== undefined && v !== null && String(v).trim() !== "";
 }
 
 export default function HeritageSidebar({
@@ -417,6 +422,41 @@ export default function HeritageSidebar({
     site.stay_places_to_eat_available,
     ov
   );
+  const [showAllGeneralInfo, setShowAllGeneralInfo] = useState(false);
+
+  const generalInfoRows: Array<{ k: string; v?: string | number | null }> = [
+    { k: "Heritage Type", v: site.heritage_type },
+    { k: "Architectural Style", v: site.architectural_style },
+    { k: "Construction Materials", v: site.construction_materials },
+    { k: "Local Name", v: site.local_name },
+    { k: "Architect", v: site.architect },
+    { k: "Construction Date", v: site.construction_date },
+    { k: "Built by", v: site.built_by },
+    { k: "Dynasty", v: site.dynasty },
+    { k: "Conservation Status", v: site.conservation_status },
+    { k: "Current Use", v: site.current_use },
+    { k: "Restored by", v: site.restored_by },
+    { k: "Known for", v: site.known_for },
+    { k: "Era", v: site.era },
+    { k: "Inhabited by", v: site.inhabited_by },
+    { k: "National Park Established in", v: site.national_park_established_in },
+    { k: "Population", v: site.population },
+    { k: "Ethnic Groups", v: site.ethnic_groups },
+    { k: "Languages Spoken", v: site.languages_spoken },
+    { k: "Excavation Status", v: site.excavation_status },
+    { k: "Excavated by", v: site.excavated_by },
+    { k: "Administered by", v: site.administered_by },
+  ];
+  const availableGeneralInfoRows = generalInfoRows.filter((row) =>
+    hasDisplayValue(row.v)
+  );
+  const visibleGeneralInfoRows = showAllGeneralInfo
+    ? availableGeneralInfoRows
+    : availableGeneralInfoRows.slice(0, MOBILE_GENERAL_INFO_PREVIEW_ROWS);
+  const remainingGeneralInfoCount = Math.max(
+    0,
+    availableGeneralInfoRows.length - MOBILE_GENERAL_INFO_PREVIEW_ROWS
+  );
 
   /* ---------------------------- UI ---------------------------- */
   const unescoStatus = site.unesco_status
@@ -449,7 +489,7 @@ export default function HeritageSidebar({
             mobileDefaultOpen
           >
             {staticMapUrl ? (
-              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={staticMapUrl}
@@ -485,7 +525,7 @@ export default function HeritageSidebar({
                 )}
               </div>
             ) : maps.embed ? (
-              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
                 <iframe
                   title={`Map for ${site.title}`}
                   src={maps.embed}
@@ -557,33 +597,50 @@ export default function HeritageSidebar({
             iconName="general-info"
             mobileDefaultOpen
           >
-            <KeyVal k="Heritage Type" v={site.heritage_type} />
-            <KeyVal k="Architectural Style" v={site.architectural_style} />
-            <KeyVal
-              k="Construction Materials"
-              v={site.construction_materials}
-            />
-            <KeyVal k="Local Name" v={site.local_name} />
-            <KeyVal k="Architect" v={site.architect} />
-            <KeyVal k="Construction Date" v={site.construction_date} />
-            <KeyVal k="Built by" v={site.built_by} />
-            <KeyVal k="Dynasty" v={site.dynasty} />
-            <KeyVal k="Conservation Status" v={site.conservation_status} />
-            <KeyVal k="Current Use" v={site.current_use} />
-            <KeyVal k="Restored by" v={site.restored_by} />
-            <KeyVal k="Known for" v={site.known_for} />
-            <KeyVal k="Era" v={site.era} />
-            <KeyVal k="Inhabited by" v={site.inhabited_by} />
-            <KeyVal
-              k="National Park Established in"
-              v={site.national_park_established_in}
-            />
-            <KeyVal k="Population" v={site.population} />
-            <KeyVal k="Ethnic Groups" v={site.ethnic_groups} />
-            <KeyVal k="Languages Spoken" v={site.languages_spoken} />
-            <KeyVal k="Excavation Status" v={site.excavation_status} />
-            <KeyVal k="Excavated by" v={site.excavated_by} />
-            <KeyVal k="Administered by" v={site.administered_by} />
+            <div className="md:hidden">
+              {visibleGeneralInfoRows.map((row, idx) => (
+                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              ))}
+
+              {remainingGeneralInfoCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllGeneralInfo((prev) => !prev)}
+                  aria-expanded={showAllGeneralInfo}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-50"
+                >
+                  <span>
+                    {showAllGeneralInfo
+                      ? "See Less"
+                      : `See More (${remainingGeneralInfoCount} more)`}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex transition-transform duration-200"
+                    style={{
+                      transform: showAllGeneralInfo
+                        ? "rotate(180deg)"
+                        : "rotate(0deg)",
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 20 20"
+                      width="14"
+                      height="14"
+                      fill="currentColor"
+                    >
+                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+                    </svg>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="hidden md:block">
+              {availableGeneralInfoRows.map((row, idx) => (
+                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              ))}
+            </div>
           </SidebarAccordionSection>
 
           {showUNESCO ? (
