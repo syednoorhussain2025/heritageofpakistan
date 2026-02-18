@@ -548,8 +548,8 @@ export default function HeritageCover({
             </div>
 
             <div
-              className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-start w-auto"
-              style={{ marginTop: "calc(var(--sticky-offset, 72px) + 12px)" }}
+              className="absolute z-10 right-[24px] md:right-[36px] lg:right-[48px] text-white flex flex-col items-start gap-5 hero-right text-left w-auto"
+              style={{ top: "calc(var(--sticky-offset, 72px) + 12px)" }}
             >
               <div className="hero-meta-top">
                 {site.heritage_type && (
