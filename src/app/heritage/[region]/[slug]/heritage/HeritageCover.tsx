@@ -700,14 +700,14 @@ export default function HeritageCover({
             display: inline-flex;
             align-items: center;
             gap: 11px;
-            min-width: 220px;
+            min-width: 180px;
             padding: 10px 16px;
             border-radius: 9999px;
             border: 1px solid transparent;
             color: #ffffff;
             background: rgba(15, 23, 42, 0.22);
             box-shadow: none;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             line-height: 1.2;
             transition: background 220ms ease, border-color 220ms ease,
