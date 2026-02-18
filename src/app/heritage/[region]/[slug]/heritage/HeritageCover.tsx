@@ -539,6 +539,26 @@ export default function HeritageCover({
                 </button>
                   <button
                     type="button"
+                    onClick={() => scrollToSection(["travel"])}
+                    className="hero-quick-circle"
+                    title="Travel Guide"
+                    data-tooltip="Travel Guide"
+                    aria-label="Jump to Travel Guide"
+                >
+                  <Icon name="travel-guide" size={26} />
+                </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(["climate"])}
+                    className="hero-quick-circle"
+                    title="Climate & Topography"
+                    data-tooltip="Climate & Topography"
+                    aria-label="Jump to Climate & Topography"
+                >
+                  <Icon name="climate-topography" size={26} />
+                </button>
+                  <button
+                    type="button"
                     onClick={() => scrollToSection(["nearby"])}
                     className="hero-quick-circle"
                     title="Places Nearby"
