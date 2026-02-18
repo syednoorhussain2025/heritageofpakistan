@@ -489,7 +489,7 @@ export default function HeritageCover({
             </div>
           )}
 
-          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-2 md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto">
             <div className="text-white hero-left self-end">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
                 {site.title}
@@ -799,7 +799,7 @@ export default function HeritageCover({
 
           .hero-tagline-text {
             margin: 0;
-            max-width: 42rem;
+            max-width: 54rem;
             flex: 1;
             min-width: 0;
           }
@@ -809,6 +809,8 @@ export default function HeritageCover({
             justify-content: flex-start;
             gap: 12px;
             flex-shrink: 0;
+            margin-left: auto;
+            padding-right: 6px;
           }
 
           .hero-quick-circle {
@@ -845,7 +847,7 @@ export default function HeritageCover({
 
             .hero-tagline-text {
               margin-bottom: 14px;
-              max-width: 42rem;
+              max-width: 54rem;
             }
           }
         `}</style>
