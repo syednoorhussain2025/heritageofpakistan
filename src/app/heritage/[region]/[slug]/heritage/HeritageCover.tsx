@@ -703,7 +703,7 @@ export default function HeritageCover({
             min-width: 180px;
             padding: 10px 16px;
             border-radius: 9999px;
-            border: 1px solid transparent;
+            border: 2px solid transparent;
             color: #ffffff;
             background: rgba(15, 23, 42, 0.22);
             box-shadow: none;
@@ -729,7 +729,7 @@ export default function HeritageCover({
           .hero-action-btn--primary {
             background: #f78300;
             color: #ffffff;
-            border-color: rgba(255, 214, 145, 0.5);
+            border-color: #f78300;
           }
 
           .hero-action-btn--primary:hover {
