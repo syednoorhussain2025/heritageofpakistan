@@ -723,13 +723,13 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--primary {
-            background: linear-gradient(180deg, #ffab1f 0%, #ff9811 100%);
+            background: #f78300;
             color: #ffffff;
             border-color: rgba(255, 214, 145, 0.5);
           }
 
           .hero-action-btn--primary:hover {
-            background: linear-gradient(180deg, #ffb83f 0%, #ff9f17 100%);
+            background: #f78300;
             border-color: rgba(255, 231, 183, 0.72);
           }
 
