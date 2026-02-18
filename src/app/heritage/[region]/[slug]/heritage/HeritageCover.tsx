@@ -640,12 +640,10 @@ export default function HeritageCover({
             min-width: 0;
             padding: 8px 14px 8px 8px;
             border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            border: 0;
             color: #0f2947;
-            background: rgba(246, 248, 252, 0.9);
-            backdrop-filter: blur(7px);
-            -webkit-backdrop-filter: blur(7px);
-            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.16);
+            background: transparent;
+            box-shadow: none;
             font-size: 15px;
             font-weight: 600;
             line-height: 1.2;
@@ -654,10 +652,8 @@ export default function HeritageCover({
           }
 
           .hero-action-btn:hover {
-            background: rgba(255, 255, 255, 0.98);
-            border-color: rgba(255, 255, 255, 0.95);
             transform: translateY(-2px) scale(1.015);
-            box-shadow: 0 16px 28px rgba(2, 6, 23, 0.2);
+            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.14);
             filter: saturate(1.06);
           }
 
@@ -668,8 +664,7 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--active {
-            border-color: rgba(247, 131, 0, 0.45);
-            background: rgba(255, 248, 238, 0.95);
+            color: #1a3558;
           }
 
           .hero-action-icon {
