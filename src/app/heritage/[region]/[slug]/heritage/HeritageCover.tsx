@@ -589,7 +589,7 @@ export default function HeritageCover({
                     className="hero-action-btn hero-action-btn--primary"
                   >
                     <span className="hero-action-icon" aria-hidden="true">
-                      <Icon name="map-marker-alt" size={14} />
+                      <Icon name="map-marker-alt" size={18} />
                     </span>
                     <span className="hero-action-label">Open in Maps</span>
                   </a>
@@ -601,7 +601,7 @@ export default function HeritageCover({
                   className="hero-action-btn hero-action-btn--primary"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="route" size={14} />
+                    <Icon name="route" size={18} />
                   </span>
                   <span className="hero-action-label">Add to Trip</span>
                 </button>
@@ -616,7 +616,7 @@ export default function HeritageCover({
                   ].join(" ")}
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="bookmark" size={14} />
+                    <Icon name="bookmark" size={18} />
                   </span>
                   <span className="hero-action-label">
                     {isBookmarked ? "Bookmarked" : "Bookmark"}
@@ -629,7 +629,7 @@ export default function HeritageCover({
                   className="hero-action-btn hero-action-btn--secondary"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="list-ul" size={14} />
+                    <Icon name="list-ul" size={18} />
                   </span>
                   <span className="hero-action-label">Save to List</span>
                 </button>
@@ -696,13 +696,13 @@ export default function HeritageCover({
             display: inline-flex;
             align-items: center;
             gap: 11px;
-            min-width: 252px;
+            min-width: 220px;
             padding: 10px 16px;
             border-radius: 9999px;
             border: 1px solid transparent;
             color: #ffffff;
             background: rgba(15, 23, 42, 0.22);
-            box-shadow: 0 10px 20px rgba(2, 6, 23, 0.18);
+            box-shadow: none;
             font-size: 16px;
             font-weight: 700;
             line-height: 1.2;
@@ -712,7 +712,7 @@ export default function HeritageCover({
 
           .hero-action-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 14px 24px rgba(2, 6, 23, 0.24);
+            box-shadow: none;
             filter: saturate(1.06);
           }
 
