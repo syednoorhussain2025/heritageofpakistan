@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { useEffect, useState } from "react";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 type HeritageNeighborNavProps = {
@@ -18,8 +19,42 @@ export default function HeritageNeighborNav({
   nextTitle,
 }: HeritageNeighborNavProps) {
   const { startNavigation } = useLoaderEngine();
+  const [showNav, setShowNav] = useState(false);
 
-  if (!prevHref && !nextHref) return null;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const heroes = Array.from(
+      document.querySelectorAll<HTMLElement>('section[aria-label="Hero"]')
+    );
+
+    // One mobile and one desktop hero exist; use the currently visible one.
+    const activeHero =
+      heroes.find((el) => getComputedStyle(el).display !== "none") ?? null;
+
+    if (!activeHero) {
+      setShowNav(true);
+      return;
+    }
+
+    const updateVisibility = () => {
+      const rect = activeHero.getBoundingClientRect();
+      // Hide while cover is still mostly in view; show once article starts.
+      const coverStillVisible = rect.bottom > window.innerHeight * 0.35;
+      setShowNav(!coverStillVisible);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", updateVisibility);
+      window.removeEventListener("resize", updateVisibility);
+    };
+  }, []);
+
+  if ((!prevHref && !nextHref) || !showNav) return null;
 
   const handlePrevClick = (e: React.MouseEvent) => {
     e.preventDefault();
