@@ -495,59 +495,61 @@ export default function HeritageCover({
                 {site.title}
               </h1>
 
-              {site.tagline && (
-                <p className="mt-4 max-w-2xl font-hero-tagline">
-                  {site.tagline}
-                </p>
-              )}
+              <div className="hero-tagline-row">
+                {site.tagline && (
+                  <p className="hero-tagline-text font-hero-tagline">
+                    {site.tagline}
+                  </p>
+                )}
 
-              <div className="hero-bottom-quicklinks" aria-label="Quick links">
-                <a
-                  href={galleryHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hero-quick-circle"
-                  title="Gallery"
-                  aria-label="Open Gallery"
-                >
-                  <Icon name="gallery" size={18} />
-                </a>
-                {hasPhotoStory && (
+                <div className="hero-bottom-quicklinks" aria-label="Quick links">
                   <a
-                    href={photoStoryHref}
+                    href={galleryHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hero-quick-circle"
-                    title="Photo Story"
-                    aria-label="Open Photo Story"
+                    title="Gallery"
+                    aria-label="Open Gallery"
                   >
-                    <Icon name="play" size={18} />
+                    <Icon name="gallery" size={18} />
                   </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => scrollToSection(["history", "architecture", "climate"])}
-                  className="hero-quick-circle"
-                  title="Article"
-                  aria-label="Jump to Article"
-                >
-                  <Icon name="history-background" size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollToSection(["nearby"])}
-                  className="hero-quick-circle"
-                  title="Places Nearby"
-                  aria-label="Jump to Places Nearby"
-                >
-                  <Icon name="regiontax" size={18} />
-                </button>
+                  {hasPhotoStory && (
+                    <a
+                      href={photoStoryHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hero-quick-circle"
+                      title="Photo Story"
+                      aria-label="Open Photo Story"
+                    >
+                      <Icon name="play" size={18} />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(["history", "architecture", "climate"])}
+                    className="hero-quick-circle"
+                    title="Article"
+                    aria-label="Jump to Article"
+                  >
+                    <Icon name="history-background" size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(["nearby"])}
+                    className="hero-quick-circle"
+                    title="Places Nearby"
+                    aria-label="Jump to Places Nearby"
+                  >
+                    <Icon name="regiontax" size={18} />
+                  </button>
+                </div>
               </div>
             </div>
 
             <div
               className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-start w-auto"
-              style={{ marginTop: "calc(var(--sticky-offset, 72px) + 92px)" }}
+              style={{ marginTop: "calc(var(--sticky-offset, 72px) + 12px)" }}
             >
               <div className="hero-meta-top">
                 {site.heritage_type && (
@@ -785,13 +787,28 @@ export default function HeritageCover({
             margin-bottom: 4px;
           }
 
-          .hero-bottom-quicklinks {
-            width: 100%;
-            max-width: 780px;
-            margin-top: 18px;
+          .hero-tagline-row {
+            margin-top: 16px;
             display: flex;
-            justify-content: flex-end;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 20px;
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .hero-tagline-text {
+            margin: 0;
+            max-width: 42rem;
+            flex: 1;
+            min-width: 0;
+          }
+
+          .hero-bottom-quicklinks {
+            display: flex;
+            justify-content: flex-start;
             gap: 12px;
+            flex-shrink: 0;
           }
 
           .hero-quick-circle {
@@ -819,6 +836,17 @@ export default function HeritageCover({
             outline: none;
             box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38),
               0 0 0 5px rgba(15, 23, 42, 0.45);
+          }
+
+          @media (max-width: 1279px) {
+            .hero-tagline-row {
+              display: block;
+            }
+
+            .hero-tagline-text {
+              margin-bottom: 14px;
+              max-width: 42rem;
+            }
           }
         `}</style>
       </section>
