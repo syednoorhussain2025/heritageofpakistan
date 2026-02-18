@@ -2,10 +2,16 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 import AddToTripModal from "@/components/AddToTripModal";
 import { useBookmarks } from "@/components/BookmarkProvider";
+
+const AddToWishlistModal = dynamic(
+  () => import("@/components/AddToWishlistModal"),
+  { ssr: false }
+);
 
 /* -------------------------------------------------------
    BLURHASH FALLBACK (only if we have a hash and metadata)
@@ -172,6 +178,7 @@ export default function HeritageCover({
   const isBookmarked =
     isLoaded && site?.id ? bookmarkedIds.has(site.id) : false;
   const [showTripModal, setShowTripModal] = useState(false);
+  const [showWishlistModal, setShowWishlistModal] = useState(false);
 
   const lat = site.latitude != null ? Number(site.latitude) : null;
   const lng = site.longitude != null ? Number(site.longitude) : null;
@@ -185,6 +192,23 @@ export default function HeritageCover({
     : `/heritage/${site.slug}`;
   const galleryHref = `${baseHeritagePath}/gallery`;
   const photoStoryHref = `${baseHeritagePath}/photo-story`;
+
+  const scrollToSection = (ids: string[]) => {
+    if (typeof window === "undefined") return;
+
+    const stickyOffsetRaw = getComputedStyle(document.documentElement)
+      .getPropertyValue("--sticky-offset")
+      .trim();
+    const stickyOffset = Number(stickyOffsetRaw.replace("px", "")) || 72;
+
+    const target = ids
+      .map((id) => document.getElementById(id))
+      .find((el): el is HTMLElement => !!el);
+    if (!target) return;
+
+    const y = window.scrollY + target.getBoundingClientRect().top - stickyOffset;
+    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  };
 
   const getHeritageIcon = (type?: string | null) => {
     const t = type?.toLowerCase() ?? "";
@@ -476,16 +500,91 @@ export default function HeritageCover({
                   {site.tagline}
                 </p>
               )}
+
+              <div className="hero-bottom-quicklinks" aria-label="Quick links">
+                <a
+                  href={galleryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-quick-circle"
+                  title="Gallery"
+                  aria-label="Open Gallery"
+                >
+                  <Icon name="gallery" size={18} />
+                </a>
+                {hasPhotoStory && (
+                  <a
+                    href={photoStoryHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hero-quick-circle"
+                    title="Photo Story"
+                    aria-label="Open Photo Story"
+                  >
+                    <Icon name="play" size={18} />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(["history", "architecture", "climate"])}
+                  className="hero-quick-circle"
+                  title="Article"
+                  aria-label="Jump to Article"
+                >
+                  <Icon name="history-background" size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(["nearby"])}
+                  className="hero-quick-circle"
+                  title="Places Nearby"
+                  aria-label="Jump to Places Nearby"
+                >
+                  <Icon name="regiontax" size={18} />
+                </button>
+              </div>
             </div>
 
-            <div className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-end -translate-y-8 w-auto">
+            <div
+              className="text-white flex flex-col items-start gap-5 hero-right text-left justify-self-end self-start w-auto"
+              style={{ marginTop: "calc(var(--sticky-offset, 72px) + 92px)" }}
+            >
+              <div className="hero-meta-top">
+                {site.heritage_type && (
+                  <div>
+                    <div className="uppercase text-white/80 text-xs">
+                      Heritage Type
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                      <Icon
+                        name={getHeritageIcon(site.heritage_type)}
+                        className="text-white/70"
+                      />
+                      <span>{site.heritage_type}</span>
+                    </div>
+                  </div>
+                )}
+
+                {site.location_free && (
+                  <div>
+                    <div className="uppercase text-white/80 text-xs">
+                      Location
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
+                      <Icon name="map-marker-alt" className="text-white/70" />
+                      <span>{site.location_free}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="hero-actions-stack">
                 {mapsLink ? (
                   <a
                     href={mapsLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hero-action-btn"
+                    className="hero-action-btn hero-action-btn--primary"
                   >
                     <span className="hero-action-icon" aria-hidden="true">
                       <Icon name="map-marker-alt" size={14} />
@@ -496,10 +595,21 @@ export default function HeritageCover({
 
                 <button
                   type="button"
+                  onClick={() => setShowTripModal(true)}
+                  className="hero-action-btn hero-action-btn--primary"
+                >
+                  <span className="hero-action-icon" aria-hidden="true">
+                    <Icon name="route" size={14} />
+                  </span>
+                  <span className="hero-action-label">Add to Trip</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => toggleBookmark(site.id)}
                   aria-pressed={isBookmarked}
                   className={[
-                    "hero-action-btn",
+                    "hero-action-btn hero-action-btn--secondary",
                     isBookmarked ? "hero-action-btn--active" : "",
                   ].join(" ")}
                 >
@@ -513,68 +623,15 @@ export default function HeritageCover({
 
                 <button
                   type="button"
-                  onClick={() => setShowTripModal(true)}
-                  className="hero-action-btn"
+                  onClick={() => setShowWishlistModal(true)}
+                  className="hero-action-btn hero-action-btn--secondary"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="route" size={14} />
+                    <Icon name="list-ul" size={14} />
                   </span>
-                  <span className="hero-action-label">Add to Trip</span>
+                  <span className="hero-action-label">Save to List</span>
                 </button>
-
-                <a
-                  href={galleryHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hero-action-btn"
-                >
-                  <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="gallery" size={14} />
-                  </span>
-                  <span className="hero-action-label">Gallery</span>
-                </a>
-
-                {hasPhotoStory && (
-                  <a
-                    href={photoStoryHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hero-action-btn"
-                  >
-                    <span className="hero-action-icon" aria-hidden="true">
-                      <Icon name="play" size={14} />
-                    </span>
-                    <span className="hero-action-label">Photo Story</span>
-                  </a>
-                )}
               </div>
-
-              {site.heritage_type && (
-                <div>
-                  <div className="uppercase text-white/80 text-xs">
-                    Heritage Type
-                  </div>
-                  <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                    <Icon
-                      name={getHeritageIcon(site.heritage_type)}
-                      className="text-white/60"
-                    />
-                    <span>{site.heritage_type}</span>
-                  </div>
-                </div>
-              )}
-
-              {site.location_free && (
-                <div>
-                  <div className="uppercase text-white/80 text-xs">
-                    Location
-                  </div>
-                  <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                    <Icon name="map-marker-alt" className="text-white/60" />
-                    <span>{site.location_free}</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -629,7 +686,7 @@ export default function HeritageCover({
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 13px;
+            gap: 10px;
             margin-bottom: 4px;
           }
 
@@ -637,14 +694,14 @@ export default function HeritageCover({
             display: inline-flex;
             align-items: center;
             gap: 11px;
-            min-width: 0;
-            padding: 8px 14px 8px 8px;
-            border-radius: 14px;
-            border: 0;
-            color: #0f2947;
-            background: transparent;
-            box-shadow: none;
-            font-size: 15px;
+            min-width: 252px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            color: #f8fafc;
+            background: rgba(15, 23, 42, 0.5);
+            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.2);
+            font-size: 16px;
             font-weight: 600;
             line-height: 1.2;
             transition: background 220ms ease, border-color 220ms ease,
@@ -652,8 +709,8 @@ export default function HeritageCover({
           }
 
           .hero-action-btn:hover {
-            transform: translateY(-2px) scale(1.015);
-            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.14);
+            transform: translateY(-1px);
+            box-shadow: 0 14px 24px rgba(2, 6, 23, 0.24);
             filter: saturate(1.06);
           }
 
@@ -663,25 +720,105 @@ export default function HeritageCover({
               0 0 0 5px rgba(15, 23, 42, 0.5);
           }
 
+          .hero-action-btn--primary {
+            background: linear-gradient(
+              180deg,
+              rgba(20, 184, 166, 0.97) 0%,
+              rgba(13, 148, 136, 0.98) 100%
+            );
+            color: #ffffff;
+            border-color: rgba(110, 231, 183, 0.45);
+          }
+
+          .hero-action-btn--primary:hover {
+            background: linear-gradient(
+              180deg,
+              rgba(45, 212, 191, 0.98) 0%,
+              rgba(15, 118, 110, 0.98) 100%
+            );
+            border-color: rgba(167, 243, 208, 0.62);
+          }
+
+          .hero-action-btn--secondary {
+            color: rgba(226, 232, 240, 0.98);
+            background: transparent;
+            border-color: rgba(148, 163, 184, 0.7);
+          }
+
+          .hero-action-btn--secondary:hover {
+            border-color: rgba(203, 213, 225, 0.9);
+            background: rgba(15, 23, 42, 0.34);
+          }
+
           .hero-action-btn--active {
-            color: #1a3558;
+            border-color: rgba(226, 232, 240, 0.96);
+            color: #f8fafc;
           }
 
           .hero-action-icon {
-            width: 34px;
-            height: 34px;
+            width: 26px;
+            height: 26px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            background: var(--brand-orange, #f78300);
+            background: transparent;
+            color: currentColor;
+          }
+
+          .hero-action-btn--primary .hero-action-icon {
             color: #ffffff;
-            box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+          }
+
+          .hero-action-btn--secondary .hero-action-icon {
+            color: rgba(203, 213, 225, 0.98);
           }
 
           .hero-action-label {
             white-space: nowrap;
+          }
+
+          .hero-meta-top {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 4px;
+          }
+
+          .hero-bottom-quicklinks {
+            width: 100%;
+            max-width: 780px;
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+          }
+
+          .hero-quick-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: rgba(255, 255, 255, 0.95);
+            color: #111827;
+            box-shadow: 0 10px 20px rgba(2, 6, 23, 0.18);
+            transition: transform 180ms ease, box-shadow 180ms ease,
+              background 180ms ease;
+          }
+
+          .hero-quick-circle:hover {
+            transform: translateY(-1px);
+            background: #ffffff;
+            box-shadow: 0 14px 24px rgba(2, 6, 23, 0.24);
+          }
+
+          .hero-quick-circle:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38),
+              0 0 0 5px rgba(15, 23, 42, 0.45);
           }
         `}</style>
       </section>
@@ -690,6 +827,13 @@ export default function HeritageCover({
         <AddToTripModal
           siteId={site.id}
           onClose={() => setShowTripModal(false)}
+        />
+      )}
+
+      {showWishlistModal && (
+        <AddToWishlistModal
+          siteId={site.id}
+          onClose={() => setShowWishlistModal(false)}
         />
       )}
     </>
