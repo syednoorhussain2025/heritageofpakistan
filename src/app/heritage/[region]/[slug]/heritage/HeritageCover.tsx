@@ -510,9 +510,9 @@ export default function HeritageCover({
                     className="hero-quick-circle"
                     title="Gallery"
                     aria-label="Open Gallery"
-                  >
-                    <Icon name="gallery" size={18} />
-                  </a>
+                >
+                  <Icon name="gallery" size={22} />
+                </a>
                   {hasPhotoStory && (
                     <a
                       href={photoStoryHref}
@@ -522,7 +522,7 @@ export default function HeritageCover({
                       title="Photo Story"
                       aria-label="Open Photo Story"
                     >
-                      <Icon name="play" size={18} />
+                      <Icon name="play" size={22} />
                     </a>
                   )}
                   <button
@@ -531,18 +531,18 @@ export default function HeritageCover({
                     className="hero-quick-circle"
                     title="Article"
                     aria-label="Jump to Article"
-                  >
-                    <Icon name="history-background" size={18} />
-                  </button>
+                >
+                  <Icon name="history-background" size={22} />
+                </button>
                   <button
                     type="button"
                     onClick={() => scrollToSection(["nearby"])}
                     className="hero-quick-circle"
                     title="Places Nearby"
                     aria-label="Jump to Places Nearby"
-                  >
-                    <Icon name="regiontax" size={18} />
-                  </button>
+                >
+                  <Icon name="regiontax" size={22} />
+                </button>
                 </div>
               </div>
             </div>
@@ -807,23 +807,23 @@ export default function HeritageCover({
           .hero-bottom-quicklinks {
             display: flex;
             justify-content: flex-start;
-            gap: 12px;
+            gap: 18px;
             flex-shrink: 0;
             margin-left: auto;
-            padding-right: 6px;
+            padding-right: 44px;
           }
 
           .hero-quick-circle {
-            width: 48px;
-            height: 48px;
+            width: 58px;
+            height: 58px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(15, 23, 42, 0.2);
-            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.52);
+            background: rgba(255, 255, 255, 0.72);
             color: #111827;
-            box-shadow: 0 10px 20px rgba(2, 6, 23, 0.18);
+            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.16);
             transition: transform 180ms ease, box-shadow 180ms ease,
               background 180ms ease;
           }
@@ -848,6 +848,11 @@ export default function HeritageCover({
             .hero-tagline-text {
               margin-bottom: 14px;
               max-width: 54rem;
+            }
+
+            .hero-bottom-quicklinks {
+              padding-right: 0;
+              gap: 12px;
             }
           }
         `}</style>
