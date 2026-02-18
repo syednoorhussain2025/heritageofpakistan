@@ -811,8 +811,8 @@ export default function HeritageCover({
           }
 
           .hero-quick-circle {
-            width: 78px;
-            height: 78px;
+            width: 60px;
+            height: 60px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
