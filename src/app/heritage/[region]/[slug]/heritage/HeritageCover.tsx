@@ -698,13 +698,13 @@ export default function HeritageCover({
             gap: 11px;
             min-width: 252px;
             padding: 10px 16px;
-            border-radius: 12px;
+            border-radius: 9999px;
             border: 1px solid transparent;
-            color: #f8fafc;
-            background: rgba(15, 23, 42, 0.5);
-            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.2);
+            color: #ffffff;
+            background: rgba(15, 23, 42, 0.22);
+            box-shadow: 0 10px 20px rgba(2, 6, 23, 0.18);
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 700;
             line-height: 1.2;
             transition: background 220ms ease, border-color 220ms ease,
               transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
@@ -723,38 +723,30 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--primary {
-            background: linear-gradient(
-              180deg,
-              rgba(20, 184, 166, 0.97) 0%,
-              rgba(13, 148, 136, 0.98) 100%
-            );
+            background: linear-gradient(180deg, #ffab1f 0%, #ff9811 100%);
             color: #ffffff;
-            border-color: rgba(110, 231, 183, 0.45);
+            border-color: rgba(255, 214, 145, 0.5);
           }
 
           .hero-action-btn--primary:hover {
-            background: linear-gradient(
-              180deg,
-              rgba(45, 212, 191, 0.98) 0%,
-              rgba(15, 118, 110, 0.98) 100%
-            );
-            border-color: rgba(167, 243, 208, 0.62);
+            background: linear-gradient(180deg, #ffb83f 0%, #ff9f17 100%);
+            border-color: rgba(255, 231, 183, 0.72);
           }
 
           .hero-action-btn--secondary {
-            color: rgba(226, 232, 240, 0.98);
-            background: transparent;
-            border-color: rgba(148, 163, 184, 0.7);
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.84);
           }
 
           .hero-action-btn--secondary:hover {
-            border-color: rgba(203, 213, 225, 0.9);
-            background: rgba(15, 23, 42, 0.34);
+            border-color: rgba(255, 255, 255, 1);
+            background: rgba(255, 255, 255, 0.14);
           }
 
           .hero-action-btn--active {
-            border-color: rgba(226, 232, 240, 0.96);
-            color: #f8fafc;
+            border-color: rgba(255, 255, 255, 0.98);
+            color: #ffffff;
           }
 
           .hero-action-icon {
@@ -774,7 +766,7 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--secondary .hero-action-icon {
-            color: rgba(203, 213, 225, 0.98);
+            color: rgba(255, 255, 255, 0.9);
           }
 
           .hero-action-label {
@@ -815,18 +807,18 @@ export default function HeritageCover({
           }
 
           .hero-quick-circle {
-            width: 64px;
-            height: 64px;
+            width: 72px;
+            height: 72px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             padding: 0;
             line-height: 0;
-            border: 1px solid rgba(255, 255, 255, 0.52);
-            background: rgba(255, 255, 255, 0.58);
-            color: #111827;
-            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.16);
+            border: 1px solid rgba(88, 241, 215, 0.34);
+            background: linear-gradient(180deg, #11b99f 0%, #0e9f89 100%);
+            color: #ffffff;
+            box-shadow: 0 12px 24px rgba(3, 54, 48, 0.28);
             transition: transform 180ms ease, box-shadow 180ms ease,
               background 180ms ease;
           }
@@ -839,15 +831,15 @@ export default function HeritageCover({
           }
 
           .hero-quick-circle :global(svg) {
-            width: 30px;
-            height: 30px;
+            width: 34px;
+            height: 34px;
             display: block;
           }
 
           .hero-quick-circle:hover {
             transform: translateY(-1px);
-            background: rgba(255, 255, 255, 0.74);
-            box-shadow: 0 14px 24px rgba(2, 6, 23, 0.24);
+            background: linear-gradient(180deg, #1bcbb0 0%, #109f89 100%);
+            box-shadow: 0 16px 28px rgba(3, 54, 48, 0.34);
           }
 
           .hero-quick-circle:focus-visible {
