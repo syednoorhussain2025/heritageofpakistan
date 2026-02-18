@@ -509,6 +509,7 @@ export default function HeritageCover({
                     rel="noopener noreferrer"
                     className="hero-quick-circle"
                     title="Gallery"
+                    data-tooltip="Gallery"
                     aria-label="Open Gallery"
                 >
                   <Icon name="gallery" size={26} />
@@ -520,6 +521,7 @@ export default function HeritageCover({
                       rel="noopener noreferrer"
                       className="hero-quick-circle"
                       title="Photo Story"
+                      data-tooltip="Photo Story"
                       aria-label="Open Photo Story"
                     >
                       <Icon name="play" size={26} />
@@ -530,6 +532,7 @@ export default function HeritageCover({
                     onClick={() => scrollToSection(["history", "architecture", "climate"])}
                     className="hero-quick-circle"
                     title="Article"
+                    data-tooltip="Article"
                     aria-label="Jump to Article"
                 >
                   <Icon name="history-background" size={26} />
@@ -539,6 +542,7 @@ export default function HeritageCover({
                     onClick={() => scrollToSection(["nearby"])}
                     className="hero-quick-circle"
                     title="Places Nearby"
+                    data-tooltip="Places Nearby"
                     aria-label="Jump to Places Nearby"
                 >
                   <Icon name="regiontax" size={26} />
@@ -807,18 +811,21 @@ export default function HeritageCover({
           }
 
           .hero-quick-circle {
-            width: 72px;
-            height: 72px;
+            width: 78px;
+            height: 78px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             padding: 0;
             line-height: 0;
-            border: 1px solid rgba(88, 241, 215, 0.34);
-            background: linear-gradient(180deg, #11b99f 0%, #0e9f89 100%);
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.53);
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
             color: #ffffff;
-            box-shadow: 0 12px 24px rgba(3, 54, 48, 0.28);
+            box-shadow: none;
             transition: transform 180ms ease, box-shadow 180ms ease,
               background 180ms ease;
           }
@@ -831,21 +838,70 @@ export default function HeritageCover({
           }
 
           .hero-quick-circle :global(svg) {
-            width: 34px;
-            height: 34px;
+            width: 32px;
+            height: 32px;
             display: block;
+            transition: transform 180ms ease;
           }
 
           .hero-quick-circle:hover {
             transform: translateY(-1px);
-            background: linear-gradient(180deg, #1bcbb0 0%, #109f89 100%);
-            box-shadow: 0 16px 28px rgba(3, 54, 48, 0.34);
+            background: linear-gradient(180deg, #11b99f 0%, #0e9f89 100%);
+            box-shadow: none;
+          }
+
+          .hero-quick-circle:hover :global(svg),
+          .hero-quick-circle:focus-visible :global(svg) {
+            transform: scale(1.15);
           }
 
           .hero-quick-circle:focus-visible {
             outline: none;
             box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38),
               0 0 0 5px rgba(15, 23, 42, 0.45);
+          }
+
+          .hero-quick-circle::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 10px);
+            transform: translateX(-50%) translateY(4px);
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 7px 9px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 20;
+          }
+
+          .hero-quick-circle::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 4px);
+            transform: translateX(-50%) translateY(4px);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 20;
+          }
+
+          .hero-quick-circle:hover::after,
+          .hero-quick-circle:hover::before,
+          .hero-quick-circle:focus-visible::after,
+          .hero-quick-circle:focus-visible::before {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
           }
 
           @media (max-width: 1279px) {
