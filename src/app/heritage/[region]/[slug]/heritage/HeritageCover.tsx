@@ -815,7 +815,7 @@ export default function HeritageCover({
 
           .hero-tagline-text {
             margin: 0;
-            max-width: 54rem;
+            max-width: clamp(58rem, 66vw, 84rem);
             flex: 1;
             min-width: 0;
           }
@@ -827,7 +827,7 @@ export default function HeritageCover({
             flex-shrink: 0;
             margin-left: auto;
             padding-right: 0;
-            transform: translateX(clamp(260px, 24vw, 480px));
+            transform: translateX(clamp(360px, 34vw, 700px));
           }
 
           .hero-quick-circle {
