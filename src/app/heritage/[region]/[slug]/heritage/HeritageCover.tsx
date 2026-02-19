@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 import AddToTripModal from "@/components/AddToTripModal";
-import { useBookmarks } from "@/components/BookmarkProvider";
 
 const AddToWishlistModal = dynamic(
   () => import("@/components/AddToWishlistModal"),
@@ -97,7 +96,6 @@ export default function HeritageCover({
   };
   hasPhotoStory: boolean;
 }) {
-  const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const cover = site.cover ?? null;
 
   // Priority:
@@ -175,8 +173,6 @@ export default function HeritageCover({
   const filled = Math.max(0, Math.min(5, Math.round(site.avg_rating ?? 0)));
   const hasRatingInfo =
     site.avg_rating != null || site.review_count != null;
-  const isBookmarked =
-    isLoaded && site?.id ? bookmarkedIds.has(site.id) : false;
   const [showTripModal, setShowTripModal] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
 
@@ -648,30 +644,13 @@ export default function HeritageCover({
 
                 <button
                   type="button"
-                  onClick={() => toggleBookmark(site.id)}
-                  aria-pressed={isBookmarked}
-                  className={[
-                    "hero-action-btn hero-action-btn--secondary",
-                    isBookmarked ? "hero-action-btn--active" : "",
-                  ].join(" ")}
-                >
-                  <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="bookmark" size={18} />
-                  </span>
-                  <span className="hero-action-label">
-                    {isBookmarked ? "Bookmarked" : "Bookmark"}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setShowWishlistModal(true)}
                   className="hero-action-btn hero-action-btn--secondary"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="list-ul" size={18} />
+                    <Icon name="bookmark" size={18} />
                   </span>
-                  <span className="hero-action-label">Save to List</span>
+                  <span className="hero-action-label">Save</span>
                 </button>
               </div>
             </div>
