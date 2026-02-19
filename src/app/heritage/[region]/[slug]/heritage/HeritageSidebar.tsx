@@ -733,6 +733,7 @@ export default function HeritageSidebar({
           </SidebarAccordionSection>
 
           <SidebarAccordionSection
+            id="climate-topography"
             title="Climate & Topography"
             iconName="climate-topography"
             mobileDefaultOpen={false}

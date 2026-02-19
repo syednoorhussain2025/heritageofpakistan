@@ -549,7 +549,7 @@ export default function HeritageCover({
                 </button>
                   <button
                     type="button"
-                    onClick={() => scrollToSection(["climate"])}
+                    onClick={() => scrollToSection(["climate-topography", "climate"])}
                     className="hero-quick-circle"
                     title="Climate & Topography"
                     data-tooltip="Climate & Topography"
@@ -827,7 +827,7 @@ export default function HeritageCover({
             flex-shrink: 0;
             margin-left: auto;
             padding-right: 0;
-            transform: translateX(clamp(260px, 18vw, 480px));
+            transform: translateX(clamp(260px, 16vw, 480px));
           }
 
           .hero-quick-circle {
