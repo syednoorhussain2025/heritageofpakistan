@@ -435,7 +435,7 @@ export default function HeritageCover({
 
         {/* 1) DARK READABILITY GRADIENT */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%]"
           style={{
             backgroundImage:
               "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
@@ -444,9 +444,9 @@ export default function HeritageCover({
 
         {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%]"
           style={{
-            backdropFilter: "blur(2px)",
+            backdropFilter: "blur(1px)",
             WebkitBackdropFilter: "blur(2px)",
             WebkitMaskImage:
               "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 38%, rgba(0,0,0,0) 100%)",
