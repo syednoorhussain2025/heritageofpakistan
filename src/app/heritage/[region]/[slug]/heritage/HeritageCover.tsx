@@ -840,6 +840,7 @@ export default function HeritageCover({
             padding: 0;
             line-height: 0;
             position: relative;
+            cursor: pointer;
             border: 0px;
             background: rgba(0, 0, 0, 0.53);
             backdrop-filter: blur(1px);
