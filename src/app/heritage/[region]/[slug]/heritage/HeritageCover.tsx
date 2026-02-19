@@ -827,7 +827,7 @@ export default function HeritageCover({
             flex-shrink: 0;
             margin-left: auto;
             padding-right: 0;
-            transform: translateX(clamp(260px, 24vw, 480px));
+            transform: translateX(clamp(260px, 18vw, 480px));
           }
 
           .hero-quick-circle {
