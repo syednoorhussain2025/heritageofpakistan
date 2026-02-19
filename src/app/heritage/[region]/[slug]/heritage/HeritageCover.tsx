@@ -206,7 +206,7 @@ export default function HeritageCover({
     window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
   };
 
-  const heritageTypeTop = hasRatingInfo
+  const leftMetaTop = hasRatingInfo
     ? "calc(var(--sticky-offset, 72px) + 74px)"
     : "calc(var(--sticky-offset, 72px) + 12px)";
 
@@ -489,30 +489,60 @@ export default function HeritageCover({
             </div>
           )}
 
-          {site.heritage_type && (
+          {(site.heritage_type || site.location_free || mapsLink) && (
             <div
-              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] hero-heritage-type-left"
-              style={{ top: heritageTypeTop }}
+              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] hero-left-meta-stack"
+              style={{ top: leftMetaTop }}
             >
-              <div className="hero-heritage-type-main">
-                <div className="hero-heritage-type-label">Heritage Type</div>
-                <div className="hero-heritage-type-value">
-                  <Icon
-                    name={getHeritageIcon(site.heritage_type)}
-                    className="text-white/75"
-                  />
-                  <span>{site.heritage_type}</span>
+              {site.heritage_type && (
+                <div className="hero-heritage-type-left">
+                  <div className="hero-heritage-type-main">
+                    <div className="hero-heritage-type-label">Heritage Type</div>
+                    <div className="hero-heritage-type-value">
+                      <Icon
+                        name={getHeritageIcon(site.heritage_type)}
+                        className="text-white/75"
+                      />
+                      <span>{site.heritage_type}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="hero-heritage-see-all"
+                    data-tooltip="Heritage Categories"
+                    aria-label="See all heritage categories"
+                    onClick={() => scrollToSection(["categories"])}
+                  >
+                    See all
+                  </button>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="hero-heritage-see-all"
-                data-tooltip="Heritage Categories"
-                aria-label="See all heritage categories"
-                onClick={() => scrollToSection(["categories"])}
-              >
-                See all
-              </button>
+              )}
+
+              {site.location_free && (
+                <div className="hero-heritage-type-left hero-location-left">
+                  <div className="hero-heritage-type-main">
+                    <div className="hero-heritage-type-label">Location</div>
+                    <div className="hero-heritage-type-value">
+                      <Icon name="map-marker-alt" className="text-white/75" />
+                      <span>{site.location_free}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {mapsLink ? (
+                <a
+                  href={mapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-action-btn hero-action-btn--primary hero-left-maps-btn"
+                >
+                  <span className="hero-action-icon" aria-hidden="true">
+                    <Icon name="map-marker-alt" size={18} />
+                  </span>
+                  <span className="hero-action-label">Open in Maps</span>
+                </a>
+              ) : null}
             </div>
           )}
 
@@ -602,35 +632,7 @@ export default function HeritageCover({
               className="absolute z-10 right-[24px] md:right-[36px] lg:right-[48px] text-white flex flex-col items-start gap-5 hero-right text-left w-auto"
               style={{ top: "calc(var(--sticky-offset, 72px) + 12px)" }}
             >
-              <div className="hero-meta-top">
-                {site.location_free && (
-                  <div>
-                    <div className="uppercase text-white/80 text-xs">
-                      Location
-                    </div>
-                    <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                      <Icon name="map-marker-alt" className="text-white/70" />
-                      <span>{site.location_free}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <div className="hero-actions-stack">
-                {mapsLink ? (
-                  <a
-                    href={mapsLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hero-action-btn hero-action-btn--primary"
-                  >
-                    <span className="hero-action-icon" aria-hidden="true">
-                      <Icon name="map-marker-alt" size={18} />
-                    </span>
-                    <span className="hero-action-label">Open in Maps</span>
-                  </a>
-                ) : null}
-
                 <button
                   type="button"
                   onClick={() => setShowTripModal(true)}
@@ -798,6 +800,13 @@ export default function HeritageCover({
             margin-bottom: 4px;
           }
 
+          .hero-left-meta-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+
           .hero-heritage-type-left {
             display: inline-flex;
             align-items: stretch;
@@ -809,6 +818,14 @@ export default function HeritageCover({
             -webkit-backdrop-filter: blur(1px);
             color: #ffffff;
             max-width: min(470px, calc(100vw - 124px));
+          }
+
+          .hero-location-left {
+            max-width: min(470px, calc(100vw - 124px));
+          }
+
+          .hero-left-maps-btn {
+            min-width: 192px;
           }
 
           .hero-heritage-type-main {
