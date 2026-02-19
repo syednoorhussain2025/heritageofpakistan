@@ -538,7 +538,7 @@ export default function HeritageCover({
                   className="hero-action-btn hero-action-btn--primary hero-left-maps-btn"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="map-marker-alt" size={18} />
+                    <Icon name="adminmap" size={18} />
                   </span>
                   <span className="hero-action-label">Open in Maps</span>
                 </a>
