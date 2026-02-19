@@ -210,6 +210,10 @@ export default function HeritageCover({
     window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
   };
 
+  const heritageTypeTop = hasRatingInfo
+    ? "calc(var(--sticky-offset, 72px) + 74px)"
+    : "calc(var(--sticky-offset, 72px) + 12px)";
+
   const getHeritageIcon = (type?: string | null) => {
     const t = type?.toLowerCase() ?? "";
     if (t.includes("fort") || t.includes("palace")) return "chess-rook";
@@ -489,6 +493,33 @@ export default function HeritageCover({
             </div>
           )}
 
+          {site.heritage_type && (
+            <div
+              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] hero-heritage-type-left"
+              style={{ top: heritageTypeTop }}
+            >
+              <div className="hero-heritage-type-main">
+                <div className="hero-heritage-type-label">Heritage Type</div>
+                <div className="hero-heritage-type-value">
+                  <Icon
+                    name={getHeritageIcon(site.heritage_type)}
+                    className="text-white/75"
+                  />
+                  <span>{site.heritage_type}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="hero-heritage-see-all"
+                data-tooltip="Heritage Categories"
+                aria-label="See all heritage categories"
+                onClick={() => scrollToSection(["categories"])}
+              >
+                See all
+              </button>
+            </div>
+          )}
+
           <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-[minmax(0,1.65fr)_minmax(0,0.35fr)] md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto">
             <div className="text-white hero-left self-end">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
@@ -576,21 +607,6 @@ export default function HeritageCover({
               style={{ top: "calc(var(--sticky-offset, 72px) + 12px)" }}
             >
               <div className="hero-meta-top">
-                {site.heritage_type && (
-                  <div>
-                    <div className="uppercase text-white/80 text-xs">
-                      Heritage Type
-                    </div>
-                    <div className="flex items-center gap-1.5 font-semibold text-base md:text-lg">
-                      <Icon
-                        name={getHeritageIcon(site.heritage_type)}
-                        className="text-white/70"
-                      />
-                      <span>{site.heritage_type}</span>
-                    </div>
-                  </div>
-                )}
-
                 {site.location_free && (
                   <div>
                     <div className="uppercase text-white/80 text-xs">
@@ -801,6 +817,113 @@ export default function HeritageCover({
             display: grid;
             gap: 12px;
             margin-bottom: 4px;
+          }
+
+          .hero-heritage-type-left {
+            display: inline-flex;
+            align-items: stretch;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            background: rgba(8, 14, 25, 0.44);
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
+            color: #ffffff;
+            max-width: min(470px, calc(100vw - 124px));
+          }
+
+          .hero-heritage-type-main {
+            padding: 9px 14px 10px;
+            min-width: 0;
+          }
+
+          .hero-heritage-type-label {
+            text-transform: uppercase;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 2px;
+            letter-spacing: 0.02em;
+          }
+
+          .hero-heritage-type-value {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .hero-heritage-see-all {
+            position: relative;
+            border: 0;
+            border-left: 1px solid rgba(255, 255, 255, 0.24);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0 12px;
+            min-width: 72px;
+            cursor: pointer;
+            transition: background-color 160ms ease, color 160ms ease;
+          }
+
+          .hero-heritage-see-all:hover,
+          .hero-heritage-see-all:focus-visible {
+            background: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+          }
+
+          .hero-heritage-see-all:focus-visible {
+            outline: none;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.38);
+          }
+
+          .hero-heritage-see-all::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 10px);
+            transform: translateX(-50%) translateY(4px);
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 7px 9px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 20;
+          }
+
+          .hero-heritage-see-all::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 4px);
+            transform: translateX(-50%) translateY(4px);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 20;
+          }
+
+          .hero-heritage-see-all:hover::after,
+          .hero-heritage-see-all:hover::before,
+          .hero-heritage-see-all:focus-visible::after,
+          .hero-heritage-see-all:focus-visible::before {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
           }
 
           .hero-tagline-row {
