@@ -435,7 +435,7 @@ export default function HeritageCover({
 
         {/* 1) DARK READABILITY GRADIENT */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%]"
           style={{
             backgroundImage:
               "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
