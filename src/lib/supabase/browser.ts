@@ -17,7 +17,7 @@ declare global {
 
 const AUTH_RECOVERY_THROTTLE_MS = 12000;
 const AUTH_RECOVERY_FORCE_THROTTLE_MS = 5000;
-const AUTH_RECOVERY_TIMEOUT_MS = 6000;
+const AUTH_RECOVERY_TIMEOUT_MS = 10000;
 const AUTH_RECOVERY_FAILURE_COOLDOWN_MS = 30000;
 const REFRESH_WINDOW_SECONDS = 120;
 
@@ -100,16 +100,16 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
 
   const onVisible = () => {
     if (document.visibilityState === "visible") {
-      void recover(true);
+      void recover(false);
     }
   };
 
   const onFocus = () => {
-    void recover(true);
+    void recover(false);
   };
 
   const onOnline = () => {
-    void recover(true);
+    void recover(false);
   };
 
   document.addEventListener("visibilitychange", onVisible);
@@ -122,7 +122,6 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
     if (
       event === "INITIAL_SESSION" ||
       event === "SIGNED_IN" ||
-      event === "TOKEN_REFRESHED" ||
       event === "USER_UPDATED"
     ) {
       void recover(false);

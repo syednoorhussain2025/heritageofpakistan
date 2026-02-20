@@ -21,8 +21,8 @@ import SitePreviewCard from "@/components/SitePreviewCard";
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
 
-function withTimeout<T>(
-  promise: Promise<T>,
+function withTimeout<T = any>(
+  promise: PromiseLike<T>,
   timeoutMs = QUERY_TIMEOUT_MS,
   label = "Request"
 ): Promise<T> {
@@ -31,7 +31,7 @@ function withTimeout<T>(
       reject(new Error(`${label} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
-    promise
+    Promise.resolve(promise)
       .then((value) => {
         window.clearTimeout(timer);
         resolve(value);

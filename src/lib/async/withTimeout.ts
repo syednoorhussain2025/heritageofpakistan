@@ -1,4 +1,4 @@
-export function withTimeout<T>(
+export function withTimeout<T = any>(
   promise: PromiseLike<T>,
   timeoutMs: number,
   label = "Operation"
@@ -8,7 +8,7 @@ export function withTimeout<T>(
       reject(new Error(`${label} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
-    promise
+    Promise.resolve(promise)
       .then((value) => {
         clearTimeout(timer);
         resolve(value);

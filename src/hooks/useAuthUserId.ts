@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 
-const AUTH_OP_TIMEOUT_MS = 8000;
+const AUTH_OP_TIMEOUT_MS = 10000;
 const REFRESH_WINDOW_SECONDS = 120;
 
 type AuthState = {
@@ -159,16 +159,16 @@ function initSharedAuthRuntime() {
 
   const onVisible = () => {
     if (document.visibilityState === "visible") {
-      void resolveSharedAuth(true);
+      void resolveSharedAuth(false);
     }
   };
 
   const onFocus = () => {
-    void resolveSharedAuth(true);
+    void resolveSharedAuth(false);
   };
 
   const onOnline = () => {
-    void resolveSharedAuth(true);
+    void resolveSharedAuth(false);
   };
 
   document.addEventListener("visibilitychange", onVisible);
