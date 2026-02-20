@@ -5,13 +5,16 @@ import type { User } from "@supabase/supabase-js";
 
 const AUTH_TIMEOUT_MS = 7000;
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Auth check timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
-    promise
+    Promise.resolve(promise)
       .then((value) => {
         clearTimeout(timer);
         resolve(value);
@@ -93,10 +96,10 @@ export async function middleware(req: NextRequest) {
     if (!user) return redirectToSignIn();
 
     try {
-      const { data: profile, error } = await withTimeout(
+      const { data: profile, error } = (await withTimeout(
         supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
         AUTH_TIMEOUT_MS
-      );
+      )) as any;
 
       if (error) {
         console.warn("[middleware] admin profile check failed", error.message);
