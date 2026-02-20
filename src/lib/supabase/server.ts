@@ -1,11 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export function createClient() {
-  // WORKAROUND: Using `as any` because the Next.js v15 build environment
-  // has unstable types for the `cookies()` function, causing a persistent
-  // build error. This bypasses the incorrect type check.
-  const cookieStore = cookies() as any;
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +15,7 @@ export function createClient() {
         set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set(name, value, options);
-          } catch (error) {
+          } catch {
             // The `set` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing sessions.
           }
@@ -26,7 +23,7 @@ export function createClient() {
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.remove(name, options);
-          } catch (error) {
+          } catch {
             // The `delete` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing sessions.
           }

@@ -2,10 +2,26 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+function safeRedirectTo(next: string | null, fallback: string) {
+  if (!next) return fallback;
+  const trimmed = next.trim();
+  if (!trimmed) return fallback;
+
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.includes("://")
+  ) {
+    return trimmed;
+  }
+
+  return fallback;
+}
+
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") || "/dashboard";
+  const next = safeRedirectTo(searchParams.get("next"), "/dashboard");
 
   if (!code) {
     return NextResponse.redirect(

@@ -44,15 +44,6 @@ export function useSignedInActions() {
         return true;
       }
     } catch {
-      // fall through to getUser
-    }
-
-    try {
-      const { data, error } = await sb.auth.getUser();
-      if (!error && data.user) {
-        return true;
-      }
-    } catch {
       // fall through to redirect
     }
 

@@ -1,19 +1,36 @@
-// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
+
+const AUTH_TIMEOUT_MS = 7000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Auth check timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
 
 export async function middleware(req: NextRequest) {
-  // Keep the same response reference throughout
   const res = NextResponse.next();
   const { pathname, search } = req.nextUrl;
 
-  // Ignore framework & static assets
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     return res;
   }
 
-  // Initialize Supabase with cookie passthrough
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,65 +47,75 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Helper: redirect to sign-in
   const redirectToSignIn = () => {
     const url = new URL("/auth/sign-in", req.url);
     url.searchParams.set("redirectTo", pathname + search);
     return NextResponse.redirect(url);
   };
 
-  // ─────────────── ADMIN ROUTES ───────────────
-  if (pathname.startsWith("/admin")) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const redirectHome = () => NextResponse.redirect(new URL("/", req.url));
 
-    if (!user) return redirectToSignIn();
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.is_admin) {
-      const homeUrl = new URL("/", req.url);
-      return NextResponse.redirect(homeUrl);
+  const getUserSafe = async (): Promise<User | null> => {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS);
+      if (error) {
+        console.warn("[middleware] getUser error", error.message);
+        return null;
+      }
+      return user ?? null;
+    } catch (error) {
+      console.warn("[middleware] getUser failed", {
+        pathname,
+        error: (error as any)?.message ?? String(error),
+      });
+      return null;
     }
-    return res;
-  }
+  };
 
-  // ─────────────── DASHBOARD ROUTES ───────────────
-  if (pathname.startsWith("/dashboard")) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return redirectToSignIn();
-    return res;
-  }
-
-  // ─────────────── USER/TRIP ROUTES ───────────────
-  // /:username/mytrips
   const isMyTrips = /^\/[^/]+\/mytrips(\/.*)?$/.test(pathname);
-
-  // /:username/trip/:tripSlug/finalize
   const isTripFinalize = /^\/[^/]+\/trip\/[^/]+\/finalize(\/.*)?$/.test(
     pathname
   );
-
-  // /:username/trip/:tripSlug  (the Trip Builder page itself)
-  // Exact match on the builder root (optional trailing slash), excluding subpaths like /public or /finalize
   const isTripBuilder = /^\/[^/]+\/trip\/[^/]+\/?$/.test(pathname);
-
-  // Public page should remain open:
-  // /:username/trip/:tripSlug/public
   const isTripPublic = /^\/[^/]+\/trip\/[^/]+\/public(\/.*)?$/.test(pathname);
 
-  if ((isMyTrips || isTripFinalize || isTripBuilder) && !isTripPublic) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const needsBasicAuth =
+    pathname.startsWith("/dashboard") ||
+    ((isMyTrips || isTripFinalize || isTripBuilder) && !isTripPublic);
+
+  if (pathname.startsWith("/admin")) {
+    if (pathname === "/admin/login") return res;
+
+    const user = await getUserSafe();
+    if (!user) return redirectToSignIn();
+
+    try {
+      const { data: profile, error } = await withTimeout(
+        supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
+        AUTH_TIMEOUT_MS
+      );
+
+      if (error) {
+        console.warn("[middleware] admin profile check failed", error.message);
+        return redirectToSignIn();
+      }
+
+      if (!profile?.is_admin) return redirectHome();
+      return res;
+    } catch (error) {
+      console.warn("[middleware] admin profile check timed out", {
+        pathname,
+        error: (error as any)?.message ?? String(error),
+      });
+      return redirectToSignIn();
+    }
+  }
+
+  if (needsBasicAuth) {
+    const user = await getUserSafe();
     if (!user) return redirectToSignIn();
     return res;
   }
@@ -96,15 +123,12 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-// Ensure middleware runs on all relevant routes
 export const config = {
   matcher: [
     "/admin/:path*",
     "/dashboard/:path*",
     "/:username/mytrips/:path*",
-    // Match all trip pages (builder root, finalize, public, etc.); logic above decides which require auth
     "/:username/trip/:tripSlug/:path*",
-    // Also match the builder root without extra segments
     "/:username/trip/:tripSlug",
   ],
 };

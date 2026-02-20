@@ -15,8 +15,15 @@ export default async function AccountDetailsPage() {
   const supabase = await createClient();
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: sessionData,
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    redirect("/auth/sign-in");
+  }
+
+  const user = sessionData.session?.user ?? null;
 
   if (!user) {
     // This should not happen due to middleware, but it's a good safeguard

@@ -1,4 +1,3 @@
-// src/components/BookmarkProvider.tsx
 "use client";
 
 import {
@@ -37,25 +36,63 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
 
-  useEffect(() => {
-    const fetchBookmarks = async () => {
+  const getSignedInUserId = useCallback(async (): Promise<string | null> => {
+    try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("bookmarks")
-          .select("site_id")
-          .eq("user_id", user.id);
-
-        if (data) {
-          setBookmarkedIds(new Set(data.map((b) => b.site_id)));
-        }
-      }
-      setIsLoaded(true);
-    };
-    fetchBookmarks();
+        data: sessionData,
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      return sessionData.session?.user?.id ?? null;
+    } catch (error) {
+      console.warn("[BookmarkProvider] session check failed", error);
+      return null;
+    }
   }, [supabase]);
+
+  const refreshBookmarks = useCallback(async () => {
+    try {
+      const userId = await getSignedInUserId();
+      if (!userId) {
+        setBookmarkedIds(new Set());
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("bookmarks")
+        .select("site_id")
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      setBookmarkedIds(new Set((data ?? []).map((b) => b.site_id)));
+    } catch (error) {
+      console.warn("[BookmarkProvider] failed to refresh bookmarks", error);
+      setBookmarkedIds(new Set());
+    } finally {
+      setIsLoaded(true);
+    }
+  }, [getSignedInUserId, supabase]);
+
+  useEffect(() => {
+    void refreshBookmarks();
+  }, [refreshBookmarks]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setBookmarkedIds(new Set());
+        setIsLoaded(true);
+        return;
+      }
+      void refreshBookmarks();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [refreshBookmarks, supabase]);
 
   const showToast = (message: string, type: "add" | "remove") => {
     setToast({ message, type });
@@ -64,10 +101,8 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
   const toggleBookmark = useCallback(
     async (siteId: string) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      const userId = await getSignedInUserId();
+      if (!userId) {
         alert("Please sign in to bookmark sites.");
         return;
       }
@@ -75,24 +110,46 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       const isBookmarked = bookmarkedIds.has(siteId);
       if (isBookmarked) {
         setBookmarkedIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(siteId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(siteId);
+          return next;
         });
-        await supabase
+
+        const { error } = await supabase
           .from("bookmarks")
           .delete()
-          .match({ user_id: user.id, site_id: siteId });
+          .match({ user_id: userId, site_id: siteId });
+
+        if (error) {
+          setBookmarkedIds((prev) => new Set(prev).add(siteId));
+          console.warn("[BookmarkProvider] remove failed", error);
+          alert("Failed to update bookmark. Please try again.");
+          return;
+        }
+
         showToast("Removed from Bookmarks", "remove");
       } else {
         setBookmarkedIds((prev) => new Set(prev).add(siteId));
-        await supabase
+
+        const { error } = await supabase
           .from("bookmarks")
-          .insert({ user_id: user.id, site_id: siteId });
+          .insert({ user_id: userId, site_id: siteId });
+
+        if (error) {
+          setBookmarkedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(siteId);
+            return next;
+          });
+          console.warn("[BookmarkProvider] insert failed", error);
+          alert("Failed to update bookmark. Please try again.");
+          return;
+        }
+
         showToast("Added to Bookmarks", "add");
       }
     },
-    [bookmarkedIds, supabase]
+    [bookmarkedIds, getSignedInUserId, supabase]
   );
 
   return (
@@ -104,7 +161,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
         <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-fadeIn">
           <Icon
             name={toast.type === "add" ? "heart" : "trash"}
-            className="text-[var(--brand-orange)]" // UPDATED
+            className="text-[var(--brand-orange)]"
           />
           <span>{toast.message}</span>
         </div>

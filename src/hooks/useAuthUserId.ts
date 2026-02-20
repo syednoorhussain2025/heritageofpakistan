@@ -72,10 +72,11 @@ async function resolveSharedAuth(forceRefresh = false) {
 
   try {
     const supabase = getClient();
-    const { data: sessionData } = await withTimeout(
+    const { data: sessionData, error: sessionError } = await withTimeout(
       supabase.auth.getSession(),
       AUTH_OP_TIMEOUT_MS
     );
+    if (sessionError) throw sessionError;
 
     let session = sessionData.session;
 
@@ -103,28 +104,14 @@ async function resolveSharedAuth(forceRefresh = false) {
       return;
     }
 
-    const { data: userData, error: userError } = await withTimeout(
-      supabase.auth.getUser(),
-      AUTH_OP_TIMEOUT_MS
-    );
-
-    if (userError) {
-      patchState({
-        userId: null,
-        authLoading: false,
-        authError: userError.message,
-      });
-      return;
-    }
-
     patchState({
-      userId: userData.user?.id ?? null,
+      userId: null,
       authLoading: false,
       authError: null,
     });
   } catch (e: any) {
     patchState({
-      userId: null,
+      userId: sharedState.userId,
       authLoading: false,
       authError: e?.message ?? "Auth error",
     });

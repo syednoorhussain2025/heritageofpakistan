@@ -19,8 +19,15 @@ export default async function UserTripsPage({ params }: UserTripsPageProps) {
 
   // 1) Require auth
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: sessionData,
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    redirect(`/auth/sign-in?redirectTo=/${username}/mytrips`);
+  }
+
+  const user = sessionData.session?.user ?? null;
 
   if (!user) {
     redirect(`/auth/sign-in?redirectTo=/${username}/mytrips`);

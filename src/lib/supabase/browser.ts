@@ -15,6 +15,26 @@ declare global {
 }
 
 const AUTH_RECOVERY_THROTTLE_MS = 12000;
+const AUTH_RECOVERY_TIMEOUT_MS = 6000;
+const REFRESH_WINDOW_SECONDS = 120;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Auth operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
 
 function wireBrowserAuthRecovery(client: SupabaseClient) {
   if (typeof window === "undefined") return;
@@ -37,19 +57,28 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
       // Ensure token timer is active after tab sleep/wake cycles.
       client.auth.startAutoRefresh();
 
-      const { data } = await client.auth.getSession();
-      if (data.session) {
-        await client.auth.getUser();
+      const { data, error } = await withTimeout(
+        client.auth.getSession(),
+        AUTH_RECOVERY_TIMEOUT_MS
+      );
+      if (error) throw error;
+
+      const session = data.session;
+      if (!session?.user) return;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expiresAt = session.expires_at ?? 0;
+      const expiresSoon =
+        expiresAt > 0 && expiresAt - nowSec < REFRESH_WINDOW_SECONDS;
+
+      if (force || expiresSoon) {
+        await withTimeout(
+          client.auth.refreshSession(),
+          AUTH_RECOVERY_TIMEOUT_MS
+        );
       }
     } catch (err) {
-      try {
-        await client.auth.refreshSession();
-      } catch (refreshErr) {
-        console.warn("[supabase/browser] auth recovery failed", {
-          err,
-          refreshErr,
-        });
-      }
+      console.warn("[supabase/browser] auth recovery failed", err);
     } finally {
       window.__HOP_SUPABASE_AUTH_RECOVERING__ = false;
     }
@@ -79,7 +108,8 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
     if (
       event === "INITIAL_SESSION" ||
       event === "SIGNED_IN" ||
-      event === "TOKEN_REFRESHED"
+      event === "TOKEN_REFRESHED" ||
+      event === "USER_UPDATED"
     ) {
       void recover(false);
     }

@@ -72,9 +72,14 @@ export default function AuthPendingToast() {
     };
 
     // Close once a real session is confirmed
-    sb.auth.getSession().then(({ data }) => {
-      if (data.session?.user) hideWithMinimum();
-    });
+    sb.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session?.user) hideWithMinimum();
+      })
+      .catch((error) => {
+        console.warn("[AuthPendingToast] getSession failed", error);
+      });
 
     const {
       data: { subscription },

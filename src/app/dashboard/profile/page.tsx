@@ -8,8 +8,15 @@ export default async function ProfilePage() {
   const supabase = await createClient();
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: sessionData,
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    redirect("/auth/sign-in?redirectTo=/dashboard/profile");
+  }
+
+  const user = sessionData.session?.user ?? null;
 
   if (!user) {
     redirect("/auth/sign-in?redirectTo=/dashboard/profile");

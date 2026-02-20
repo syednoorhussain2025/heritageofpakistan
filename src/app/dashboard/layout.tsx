@@ -12,8 +12,15 @@ export default async function DashboardLayout({
 
   // 1) Require an authenticated user
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: sessionData,
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    redirect(`/auth/sign-in?redirectTo=/dashboard`);
+  }
+
+  const user = sessionData.session?.user ?? null;
 
   if (!user) {
     redirect(`/auth/sign-in?redirectTo=/dashboard`);

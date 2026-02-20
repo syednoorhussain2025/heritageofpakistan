@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/browser";
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 
 export default function SignInForm() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -34,11 +34,16 @@ export default function SignInForm() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!active || !session?.user) return;
-      router.replace(redirectTo);
-      router.refresh();
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!active || !session?.user) return;
+        router.replace(redirectTo);
+        router.refresh();
+      })
+      .catch((error) => {
+        console.warn("[auth/sign-in] getSession failed", error);
+      });
     return () => {
       active = false;
     };
