@@ -1,7 +1,7 @@
 // src/components/SitePreviewCard.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,7 +12,6 @@ import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
-import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 type Site = {
   id: string;
@@ -100,7 +99,6 @@ export default function SitePreviewCard({
   index?: number;
 }) {
   const router = useRouter();
-  const { startNavigation } = useLoaderEngine();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
@@ -111,6 +109,7 @@ export default function SitePreviewCard({
   const detailHref = regionSlug
     ? `/heritage/${regionSlug}/${site.slug}`
     : `/heritage/${site.slug}`;
+  const prefetchedRef = useRef(false);
 
   // Progressive image loading state
   const [isSharpLoaded, setIsSharpLoaded] = useState(false);
@@ -205,18 +204,15 @@ export default function SitePreviewCard({
     }
   };
 
-  /** Main card click: trigger engine with listing loader */
-  const handleCardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
-      return;
-    }
+  useEffect(() => {
+    prefetchedRef.current = false;
+  }, [detailHref]);
 
-    e.preventDefault();
-    startNavigation(detailHref, {
-      direction: "forward",
-      variantOverride: "listing",
-    });
-  };
+  const prefetchDetail = useCallback(() => {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+    void router.prefetch(detailHref);
+  }, [router, detailHref]);
 
   return (
     <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative transition-all duration-300 hover:-translate-y-1 border border-[#e5e5e5]">
@@ -234,7 +230,9 @@ export default function SitePreviewCard({
         href={detailHref}
         className="group block"
         prefetch={false}
-        onClick={handleCardClick}
+        onMouseEnter={prefetchDetail}
+        onFocus={prefetchDetail}
+        onTouchStart={prefetchDetail}
       >
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
