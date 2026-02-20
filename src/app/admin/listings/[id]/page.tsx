@@ -1825,6 +1825,47 @@ function CoverUploader({
   );
 }
 
+function CoverLibraryThumb({
+  img,
+  alt,
+  className,
+}: {
+  img: LibraryImage;
+  alt: string;
+  className: string;
+}) {
+  const candidates = useMemo(
+    () =>
+      Array.from(
+        new Set([img.thumbUrl, img.heroUrl, img.url].filter(Boolean))
+      ),
+    [img.thumbUrl, img.heroUrl, img.url]
+  );
+
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [candidates]);
+
+  const src = candidates[Math.min(index, candidates.length - 1)] || img.url;
+
+  return (
+    <NextImage
+      src={src}
+      alt={alt}
+      fill
+      unoptimized
+      className={className}
+      sizes="288px"
+      draggable={false}
+      onError={() => {
+        setIndex((curr) => (curr + 1 < candidates.length ? curr + 1 : curr));
+      }}
+    />
+  );
+}
+
 /* -------- Cover library modal using site_images (outside click closes) -------- */
 
 function CoverLibraryModal({
@@ -1950,7 +1991,11 @@ function CoverLibraryModal({
               {images.map((img) => {
                 const isCurrent =
                   !!currentUrl &&
-                  (img.heroUrl === currentUrl || img.url === currentUrl);
+                  (
+                    img.thumbUrl === currentUrl ||
+                    img.heroUrl === currentUrl ||
+                    img.url === currentUrl
+                  );
 
                 const imageClass = isCurrent
                   ? "opacity-90"
@@ -1979,13 +2024,10 @@ function CoverLibraryModal({
                     }}
                   >
                     <div className="relative h-44 w-72">
-                      <NextImage
-                        src={img.heroUrl || img.url}
+                      <CoverLibraryThumb
+                        img={img}
                         alt={img.name}
-                        fill
                         className={`object-cover ${imageClass}`}
-                        sizes="288px"
-                        draggable={false}
                       />
                     </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
