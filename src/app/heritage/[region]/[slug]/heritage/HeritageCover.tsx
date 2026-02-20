@@ -534,7 +534,7 @@ export default function HeritageCover({
                   className="hero-action-btn hero-action-btn--primary hero-left-maps-btn"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="adminmap" size={26} />
+                    <Icon name="adminmap" size={22} />
                   </span>
                   <span className="hero-action-label">Open in Maps</span>
                 </a>
@@ -817,7 +817,10 @@ export default function HeritageCover({
           }
 
           .hero-left-maps-btn {
-            min-width: 192px;
+            align-self: center;
+            min-width: 176px;
+            padding: 8px 14px;
+            font-size: 13px;
             background: var(--brand-blue, #040951);
             border-color: var(--brand-blue, #040951);
           }
@@ -825,6 +828,11 @@ export default function HeritageCover({
           .hero-left-maps-btn:hover {
             background: #0b1170;
             border-color: #0b1170;
+          }
+
+          .hero-left-maps-btn .hero-action-icon {
+            width: 22px;
+            height: 22px;
           }
 
           .hero-heritage-type-main {
