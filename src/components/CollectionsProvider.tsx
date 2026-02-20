@@ -75,8 +75,17 @@ export function CollectionsProvider({
     (async () => {
       try {
         const {
-          data: { user },
-        } = await withTimeout(sb.auth.getUser(), ATTEMPT_TIMEOUT_MS, "getUser");
+          data: sessionData,
+          error: sessionError,
+        } = await withTimeout(
+          sb.auth.getSession(),
+          ATTEMPT_TIMEOUT_MS,
+          "getSession"
+        );
+
+        if (sessionError) throw sessionError;
+
+        const user = sessionData.session?.user ?? null;
 
         if (!active) return;
         if (!user) {
@@ -101,7 +110,7 @@ export function CollectionsProvider({
         setCollected(keys);
       } catch (e) {
         if (!active) return;
-        console.error("[CollectionsProvider] initial load failed:", e);
+        console.warn("[CollectionsProvider] initial load skipped:", e);
         setCollected(new Set());
       } finally {
         if (!active) return;
