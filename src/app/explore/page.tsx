@@ -19,6 +19,29 @@ import { supabase } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
 
 const PAGE_SIZE = 12;
+const QUERY_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = QUERY_TIMEOUT_MS,
+  label = "Request"
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 /* ───────────────────────────── Spinner ───────────────────────────── */
 function Spinner({
@@ -313,10 +336,11 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
   const out = new Map<string, string | null>();
   if (!siteIds.length) return out;
 
-  const { data: siteRows, error: siteErr } = await supabase
-    .from("sites")
-    .select("id, province_id")
-    .in("id", siteIds);
+  const { data: siteRows, error: siteErr } = await withTimeout(
+    supabase.from("sites").select("id, province_id").in("id", siteIds),
+    QUERY_TIMEOUT_MS,
+    "explore.buildProvinceSlugMapForSites"
+  );
 
   if (siteErr || !siteRows?.length) return out;
 
@@ -329,10 +353,14 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
 
   let slugByProvinceId = new Map<number, string>();
   if (provinceIds.size > 0) {
-    const { data: provs } = await supabase
-      .from("provinces")
-      .select("id, slug")
-      .in("id", Array.from(provinceIds));
+    const { data: provs } = await withTimeout(
+      supabase
+        .from("provinces")
+        .select("id, slug")
+        .in("id", Array.from(provinceIds)),
+      QUERY_TIMEOUT_MS,
+      "explore.loadProvincesByIds"
+    );
     slugByProvinceId = new Map(
       (provs || []).map((p: any) => [
         p.id as number,
@@ -371,10 +399,11 @@ async function attachActiveCovers(sites: Site[]) {
   if (!ids.length) return;
 
   try {
-    const { data, error } = await supabase
-      .from("sites")
-      .select("id, cover_photo_thumb_url")
-      .in("id", ids);
+    const { data, error } = await withTimeout(
+      supabase.from("sites").select("id, cover_photo_thumb_url").in("id", ids),
+      QUERY_TIMEOUT_MS,
+      "explore.attachActiveCovers"
+    );
 
     if (error || !data?.length) {
       if (error) {
@@ -496,26 +525,34 @@ function ExplorePageContent() {
   /* Load name maps once */
   useEffect(() => {
     (async () => {
-      const [{ data: cats }, { data: regs }] = await Promise.all([
-        supabase.from("categories").select("id,name").order("name"),
-        supabase.from("regions").select("id,name").order("name"),
-      ]);
-      setCategoryMap(
-        (cats || []).reduce(
-          (acc: Record<string, string>, r: NamedRow) => (
-            (acc[r.id] = r.name), acc
-          ),
-          {}
-        )
-      );
-      setRegionMap(
-        (regs || []).reduce(
-          (acc: Record<string, string>, r: NamedRow) => (
-            (acc[r.id] = r.name), acc
-          ),
-          {}
-        )
-      );
+      try {
+        const [{ data: cats }, { data: regs }] = await withTimeout(
+          Promise.all([
+            supabase.from("categories").select("id,name").order("name"),
+            supabase.from("regions").select("id,name").order("name"),
+          ]),
+          QUERY_TIMEOUT_MS,
+          "explore.loadFilterMaps"
+        );
+        setCategoryMap(
+          (cats || []).reduce(
+            (acc: Record<string, string>, r: NamedRow) => (
+              (acc[r.id] = r.name), acc
+            ),
+            {}
+          )
+        );
+        setRegionMap(
+          (regs || []).reduce(
+            (acc: Record<string, string>, r: NamedRow) => (
+              (acc[r.id] = r.name), acc
+            ),
+            {}
+          )
+        );
+      } catch (error) {
+        console.warn("[Explore] failed to load category/region maps", error);
+      }
     })();
   }, []);
 
@@ -602,20 +639,28 @@ function ExplorePageContent() {
       try {
         /* Headline and banner in radius mode */
         if (hasRadius(nextFilters) && nextFilters.centerSiteId) {
-          const { data: row, error: err } = await supabase
-            .from("sites")
-            .select("id,title,location_free")
-            .eq("id", nextFilters.centerSiteId)
-            .maybeSingle();
+          const { data: row, error: err } = await withTimeout(
+            supabase
+              .from("sites")
+              .select("id,title,location_free")
+              .eq("id", nextFilters.centerSiteId)
+              .maybeSingle(),
+            QUERY_TIMEOUT_MS,
+            "explore.loadCenterSite"
+          );
 
           if (!err && row) {
             let cover: string | null = null;
-            const { data: coverRow } = await supabase
-              .from("site_covers")
-              .select("storage_path")
-              .eq("site_id", row.id)
-              .eq("is_active", true)
-              .maybeSingle();
+            const { data: coverRow } = await withTimeout(
+              supabase
+                .from("site_covers")
+                .select("storage_path")
+                .eq("site_id", row.id)
+                .eq("is_active", true)
+                .maybeSingle(),
+              QUERY_TIMEOUT_MS,
+              "explore.loadCenterCover"
+            );
 
             if (coverRow?.storage_path) {
               cover = buildCoverUrlFromStoragePath(coverRow.storage_path);
@@ -639,7 +684,11 @@ function ExplorePageContent() {
 
         /* ───── Radius mode, first page ───── */
         if (hasRadius(nextFilters)) {
-          const radiusRows = await fetchSitesByFilters(nextFilters);
+          const radiusRows = await withTimeout(
+            fetchSitesByFilters(nextFilters),
+            QUERY_TIMEOUT_MS,
+            "explore.fetchSitesByFilters"
+          );
           let distanceOrdered = [...radiusRows].sort(
             (a: any, b: any) =>
               (a.distance_km ?? Number.POSITIVE_INFINITY) -
@@ -650,11 +699,15 @@ function ExplorePageContent() {
 
           /* Category filter via join table */
           if (allIds.length && nextFilters.categoryIds?.length) {
-            const { data: pairs, error: joinErr } = await supabase
-              .from("site_categories")
-              .select("site_id,category_id")
-              .in("site_id", allIds)
-              .in("category_id", nextFilters.categoryIds as string[]);
+            const { data: pairs, error: joinErr } = await withTimeout(
+              supabase
+                .from("site_categories")
+                .select("site_id,category_id")
+                .in("site_id", allIds)
+                .in("category_id", nextFilters.categoryIds as string[]),
+              QUERY_TIMEOUT_MS,
+              "explore.filterByCategories"
+            );
             if (joinErr) throw joinErr;
             const allowed = new Set((pairs || []).map((p: any) => p.site_id));
             distanceOrdered = distanceOrdered.filter((r: any) =>
@@ -665,10 +718,11 @@ function ExplorePageContent() {
           /* Heritage type filter */
           const selectedTypes = new Set(getSelectedTypes(nextFilters));
           if (allIds.length && selectedTypes.size > 0) {
-            const { data: attrs } = await supabase
-              .from("sites")
-              .select("id,heritage_type")
-              .in("id", allIds);
+            const { data: attrs } = await withTimeout(
+              supabase.from("sites").select("id,heritage_type").in("id", allIds),
+              QUERY_TIMEOUT_MS,
+              "explore.filterByTypes"
+            );
             const typeById = new Map(
               (attrs || []).map((s: any) => [s.id, s.heritage_type ?? null])
             );
@@ -691,12 +745,16 @@ function ExplorePageContent() {
             return;
           }
 
-          const { data: details, error: detailsErr } = await supabase
-            .from("sites")
-            .select(
-              "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
-            )
-            .in("id", ids);
+          const { data: details, error: detailsErr } = await withTimeout(
+            supabase
+              .from("sites")
+              .select(
+                "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
+              )
+              .in("id", ids),
+            QUERY_TIMEOUT_MS,
+            "explore.loadRadiusPageDetails"
+          );
           if (detailsErr) throw detailsErr;
 
           await ensureProvinceSlugOnSites(details as Site[]);
@@ -726,14 +784,18 @@ function ExplorePageContent() {
         setRadiusAllRows(null);
 
         const orderQuery = "latest";
-        const { data, error: rpcError } = await supabase.rpc("search_sites", {
-          p_name_query: nameQuery.trim() || null,
-          p_category_ids: catsQuery.length > 0 ? catsQuery : null,
-          p_region_ids: regsQuery.length > 0 ? regsQuery : null,
-          p_order_by: orderQuery,
-          p_page: 1,
-          p_page_size: PAGE_SIZE,
-        });
+        const { data, error: rpcError } = await withTimeout(
+          supabase.rpc("search_sites", {
+            p_name_query: nameQuery.trim() || null,
+            p_category_ids: catsQuery.length > 0 ? catsQuery : null,
+            p_region_ids: regsQuery.length > 0 ? regsQuery : null,
+            p_order_by: orderQuery,
+            p_page: 1,
+            p_page_size: PAGE_SIZE,
+          }),
+          QUERY_TIMEOUT_MS,
+          "explore.searchSitesPage1"
+        );
         if (rpcError) throw rpcError;
 
         const sites = ((data as any[]) || []) as Site[];
@@ -827,12 +889,16 @@ function ExplorePageContent() {
         }
 
         const ids = pageRows.map((r: any) => r.id);
-        const { data: details, error: detailsErr } = await supabase
-          .from("sites")
-          .select(
-            "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
-          )
-          .in("id", ids);
+        const { data: details, error: detailsErr } = await withTimeout(
+          supabase
+            .from("sites")
+            .select(
+              "id,slug,province_id,title,cover_photo_url,location_free,heritage_type,avg_rating,review_count"
+            )
+            .in("id", ids),
+          QUERY_TIMEOUT_MS,
+          "explore.loadMoreRadiusDetails"
+        );
         if (detailsErr) throw detailsErr;
 
         await ensureProvinceSlugOnSites(details as Site[]);
@@ -870,14 +936,18 @@ function ExplorePageContent() {
       const regsQuery = parseMulti(searchParams.get("regs"));
 
       const orderQuery = "latest";
-      const { data, error: rpcError } = await supabase.rpc("search_sites", {
-        p_name_query: nameQuery.trim() || null,
-        p_category_ids: catsQuery.length > 0 ? catsQuery : null,
-        p_region_ids: regsQuery.length > 0 ? regsQuery : null,
-        p_order_by: orderQuery,
-        p_page: nextPage,
-        p_page_size: PAGE_SIZE,
-      });
+      const { data, error: rpcError } = await withTimeout(
+        supabase.rpc("search_sites", {
+          p_name_query: nameQuery.trim() || null,
+          p_category_ids: catsQuery.length > 0 ? catsQuery : null,
+          p_region_ids: regsQuery.length > 0 ? regsQuery : null,
+          p_order_by: orderQuery,
+          p_page: nextPage,
+          p_page_size: PAGE_SIZE,
+        }),
+        QUERY_TIMEOUT_MS,
+        "explore.searchSitesLoadMore"
+      );
       if (rpcError) throw rpcError;
 
       const newSites = ((data as any[]) || []) as Site[];

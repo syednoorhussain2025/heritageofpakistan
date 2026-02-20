@@ -9,6 +9,7 @@ import {
   useMemo,
 } from "react";
 import { createClient } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
 import Icon from "./Icon";
 
 type Toast = {
@@ -31,6 +32,8 @@ const BookmarkContext = createContext<BookmarkContextType>({
 export const useBookmarks = () => useContext(BookmarkContext);
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
+  const SESSION_TIMEOUT_MS = 10000;
+  const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
@@ -41,7 +44,11 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       const {
         data: sessionData,
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await withTimeout(
+        supabase.auth.getSession(),
+        SESSION_TIMEOUT_MS,
+        "bookmarks.getSession"
+      );
       if (sessionError) throw sessionError;
       return sessionData.session?.user?.id ?? null;
     } catch (error) {
@@ -58,10 +65,11 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("bookmarks")
-        .select("site_id")
-        .eq("user_id", userId);
+      const { data, error } = await withTimeout(
+        supabase.from("bookmarks").select("site_id").eq("user_id", userId),
+        QUERY_TIMEOUT_MS,
+        "bookmarks.refresh"
+      );
 
       if (error) throw error;
       setBookmarkedIds(new Set((data ?? []).map((b) => b.site_id)));

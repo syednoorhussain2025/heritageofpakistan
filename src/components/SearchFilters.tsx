@@ -4,6 +4,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/browser";
 import Icon from "./Icon";
+import { withTimeout } from "@/lib/async/withTimeout";
 import {
   clearPlacesNearby,
   isPlacesNearbyActive,
@@ -36,6 +37,8 @@ type CategoryRow = {
   parent_id: string | null;
   slug: string;
 };
+
+const FILTER_QUERY_TIMEOUT_MS = 12000;
 
 /* ───────────────────────────── Small utils ───────────────────────────── */
 const andJoin = (arr: string[]) =>
@@ -1146,12 +1149,16 @@ async function fetchSitesWithinRadius({
   radiusKm: number;
   name?: string | null;
 }) {
-  const { data, error } = await supabase.rpc("sites_within_radius", {
-    center_lat: lat,
-    center_lng: lng,
-    radius_km: radiusKm,
-    name_ilike: name ?? null,
-  });
+  const { data, error } = await withTimeout(
+    supabase.rpc("sites_within_radius", {
+      center_lat: lat,
+      center_lng: lng,
+      radius_km: radiusKm,
+      name_ilike: name ?? null,
+    }),
+    FILTER_QUERY_TIMEOUT_MS,
+    "searchFilters.sitesWithinRadius"
+  );
 
   if (error) {
     console.error("Error fetching sites within radius:", error);
@@ -1201,7 +1208,11 @@ export async function fetchSitesByFilters(filters: Filters) {
   if (filters.regionIds?.length) qb.in("province_id", filters.regionIds as any);
 
   qb.order("title", { ascending: true });
-  const { data, error } = await qb;
+  const { data, error } = await withTimeout(
+    qb,
+    FILTER_QUERY_TIMEOUT_MS,
+    "searchFilters.fetchSitesByFilters"
+  );
   if (error) throw error;
   return data ?? [];
 }

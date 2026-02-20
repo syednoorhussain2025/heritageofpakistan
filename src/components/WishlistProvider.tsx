@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getWishlists } from "@/lib/wishlists";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 /** Narrow type for items returned by `getWishlists()` */
 export type Wishlist = {
@@ -25,13 +26,19 @@ type WishlistContextValue = {
 const WishlistContext = createContext<WishlistContextValue | null>(null);
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
+  const QUERY_TIMEOUT_MS = 12000;
   const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = (await getWishlists()) ?? [];
+      const data =
+        (await withTimeout(
+          getWishlists(),
+          QUERY_TIMEOUT_MS,
+          "wishlists.getWishlists"
+        )) ?? [];
       setWishlists(data as Wishlist[]);
     } catch (err) {
       console.error("[WishlistProvider] getWishlists failed:", err);

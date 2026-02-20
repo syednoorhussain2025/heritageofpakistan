@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 type GuardStatus = "checking" | "ok" | "redirecting" | "error";
 
 const ADMIN_CACHE_TTL_MS = 60_000;
+const ADMIN_CHECK_TIMEOUT_MS = 10000;
 
 let adminCheckInFlight: Promise<{ userId: string | null; isAdmin: boolean }> | null =
   null;
@@ -20,8 +22,11 @@ async function resolveAdminAccess() {
   if (adminCheckInFlight) return adminCheckInFlight;
 
   adminCheckInFlight = (async () => {
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await withTimeout(
+      supabase.auth.getSession(),
+      ADMIN_CHECK_TIMEOUT_MS,
+      "admin.getSession"
+    );
     if (sessionError) throw sessionError;
 
     const userId = sessionData.session?.user?.id ?? null;
@@ -30,11 +35,11 @@ async function resolveAdminAccess() {
       return { userId: null, isAdmin: false };
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userId)
-      .maybeSingle();
+    const { data: profile, error: profileError } = await withTimeout(
+      supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle(),
+      ADMIN_CHECK_TIMEOUT_MS,
+      "admin.profileCheck"
+    );
 
     if (profileError) throw profileError;
 

@@ -11,11 +11,14 @@ declare global {
     __HOP_SUPABASE_AUTH_WIRED__?: boolean;
     __HOP_SUPABASE_AUTH_RECOVERING__?: boolean;
     __HOP_SUPABASE_AUTH_LAST_RECOVERY__?: number;
+    __HOP_SUPABASE_AUTH_RECOVER_BLOCK_UNTIL__?: number;
   }
 }
 
 const AUTH_RECOVERY_THROTTLE_MS = 12000;
+const AUTH_RECOVERY_FORCE_THROTTLE_MS = 5000;
 const AUTH_RECOVERY_TIMEOUT_MS = 6000;
+const AUTH_RECOVERY_FAILURE_COOLDOWN_MS = 30000;
 const REFRESH_WINDOW_SECONDS = 120;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -47,8 +50,14 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
     if (window.__HOP_SUPABASE_AUTH_RECOVERING__) return;
 
     const now = Date.now();
+    const blockedUntil = window.__HOP_SUPABASE_AUTH_RECOVER_BLOCK_UNTIL__ ?? 0;
+    if (blockedUntil > now) return;
+
     const last = window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ ?? 0;
-    if (!force && now - last < AUTH_RECOVERY_THROTTLE_MS) return;
+    const minInterval = force
+      ? AUTH_RECOVERY_FORCE_THROTTLE_MS
+      : AUTH_RECOVERY_THROTTLE_MS;
+    if (now - last < minInterval) return;
 
     window.__HOP_SUPABASE_AUTH_RECOVERING__ = true;
     window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ = now;
@@ -78,6 +87,11 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
         );
       }
     } catch (err) {
+      const message = (err as any)?.message ?? "";
+      if (String(message).toLowerCase().includes("timed out")) {
+        window.__HOP_SUPABASE_AUTH_RECOVER_BLOCK_UNTIL__ =
+          Date.now() + AUTH_RECOVERY_FAILURE_COOLDOWN_MS;
+      }
       console.warn("[supabase/browser] auth recovery failed", err);
     } finally {
       window.__HOP_SUPABASE_AUTH_RECOVERING__ = false;

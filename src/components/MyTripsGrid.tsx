@@ -11,6 +11,7 @@ import {
   createTrip,
   getTripUrlById,
 } from "@/lib/trips";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 type TripRow = {
   id: string;
@@ -35,6 +36,7 @@ export default function MyTripsGrid({
   allowDelete?: boolean;
   containerClassName?: string;
 }) {
+  const TRIPS_TIMEOUT_MS = 12000;
   const router = useRouter();
 
   const [trips, setTrips] = useState<TripRow[]>([]);
@@ -53,7 +55,11 @@ export default function MyTripsGrid({
       try {
         setLoading(true);
         setErrMsg(null);
-        const data = await listTripsByUsername(username);
+        const data = await withTimeout(
+          listTripsByUsername(username),
+          TRIPS_TIMEOUT_MS,
+          "myTrips.listTripsByUsername"
+        );
         if (!mounted) return;
 
         // data is TripWithCover[] where slug may be null/undefined

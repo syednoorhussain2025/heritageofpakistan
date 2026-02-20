@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 // Define the shape of the profile data we'll be storing
 type Profile = {
@@ -30,6 +31,7 @@ const ProfileContext = createContext<{
 
 // Create the Provider component
 export function ProfileProvider({ children }: { children: ReactNode }) {
+  const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
   const { userId } = useAuthUserId();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -44,11 +46,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     async function fetchProfile() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url, badge") // ✅ ADDED: Fetch the badge from the database
-        .eq("id", userId)
-        .single();
+      const { data, error } = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("full_name, avatar_url, badge") // ✅ ADDED: Fetch the badge from the database
+          .eq("id", userId)
+          .single(),
+        QUERY_TIMEOUT_MS,
+        "profile.fetch"
+      );
 
       if (error) {
         console.error("Error fetching profile:", error);

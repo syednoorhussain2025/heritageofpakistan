@@ -1,5 +1,8 @@
 // src/lib/trips.ts
 import { supabase } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
+
+const TRIPS_QUERY_TIMEOUT_MS = 12000;
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -119,12 +122,16 @@ async function deriveTripCoversFromFirstSite(
 ): Promise<Record<string, string | null>> {
   if (tripIds.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from("trip_items")
-    .select("trip_id, order_index, sites:site_id(cover_photo_url)")
-    .in("trip_id", tripIds)
-    .order("trip_id", { ascending: true })
-    .order("order_index", { ascending: true });
+  const { data, error } = await withTimeout(
+    supabase
+      .from("trip_items")
+      .select("trip_id, order_index, sites:site_id(cover_photo_url)")
+      .in("trip_id", tripIds)
+      .order("trip_id", { ascending: true })
+      .order("order_index", { ascending: true }),
+    TRIPS_QUERY_TIMEOUT_MS,
+    "trips.deriveTripCoversFromFirstSite"
+  );
 
   if (error) throw error;
 
@@ -154,12 +161,16 @@ async function deriveTripCoversFromFirstSite(
 export async function listTripsByUsername(
   _username: string
 ): Promise<TripWithCover[]> {
-  const { data: tripsData, error } = await supabase
-    .from("trips")
-    .select(
-      "id, user_id, name, slug, creator_name, is_public, created_at, updated_at"
-    )
-    .order("updated_at", { ascending: false });
+  const { data: tripsData, error } = await withTimeout(
+    supabase
+      .from("trips")
+      .select(
+        "id, user_id, name, slug, creator_name, is_public, created_at, updated_at"
+      )
+      .order("updated_at", { ascending: false }),
+    TRIPS_QUERY_TIMEOUT_MS,
+    "trips.listTripsByUsername"
+  );
 
   if (error) {
     const msg = (error.message || "").toLowerCase();

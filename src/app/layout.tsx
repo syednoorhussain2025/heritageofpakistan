@@ -54,7 +54,7 @@ export default function RootLayout({
       <head>
         <link
           rel="preconnect"
-          href="https://fopkndnjdeartooxhmfsr.supabase.co"
+          href="https://opkndnjdeartooxhmfsr.supabase.co"
           crossOrigin="anonymous"
         />
       </head>
