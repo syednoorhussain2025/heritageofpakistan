@@ -1,7 +1,7 @@
-// src/app/admin/login/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/browser";
 import { FaExclamationCircle } from "react-icons/fa";
 
@@ -13,11 +13,27 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      setCurrentEmail(data.user?.email ?? null);
-      setLoading(false);
+      try {
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!cancelled) setCurrentEmail(data.session?.user?.email ?? null);
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error("[admin/login] failed to load session", err);
+          setCurrentEmail(null);
+          setError(err?.message ?? "Could not check current session.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function signIn(e: React.FormEvent) {
@@ -56,12 +72,12 @@ export default function AdminLogin() {
               Signed in as{" "}
               <b className="font-medium text-gray-200">{currentEmail}</b>
             </div>
-            <a
+            <Link
               href="/admin"
               className="w-full inline-block text-center px-4 py-2.5 rounded-md bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold shadow-lg hover:shadow-blue-500/30 transition-shadow duration-300"
             >
               Go to Dashboard
-            </a>
+            </Link>
             <button
               onClick={signOut}
               className="w-full px-4 py-2.5 rounded-md bg-gray-700/50 border border-gray-600 hover:bg-gray-700 transition-colors duration-300"
