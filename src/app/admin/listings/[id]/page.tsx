@@ -7,6 +7,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
 import { FaArrowLeft, FaTrash, FaMagic } from "react-icons/fa";
 import Icon from "@/components/Icon";
 // @ts-expect-error - papaparse has no type declarations in this project; treat as any
@@ -103,6 +104,26 @@ const LISTING_TABS: {
   { key: "bibliography", label: "Bibliography", sections: ["bibliography"] },
   { key: "photo", label: "Photo Story", sections: ["photo"] },
 ];
+
+const LISTING_LOAD_TIMEOUT_MS = 12000;
+
+function isLikelyAuthError(error: any): boolean {
+  const message = String(error?.message ?? "").toLowerCase();
+  const code = String(error?.code ?? "").toLowerCase();
+  const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? 0);
+
+  if (status === 401 || status === 403) return true;
+  if (code === "401" || code === "403" || code === "pgrst301") return true;
+  if (code.includes("auth") || code.includes("jwt")) return true;
+
+  return (
+    message.includes("not authenticated") ||
+    message.includes("jwt") ||
+    message.includes("auth") ||
+    message.includes("permission denied") ||
+    message.includes("row-level security")
+  );
+}
 
 /* UI helpers */
 function Section({
@@ -468,8 +489,6 @@ function SidebarControls({
   onSave,
   saving,
   uploaderSlot,
-  autoSaveEnabled,
-  onToggleAutoSave,
   lastSavedAt,
 }: {
   published: boolean;
@@ -477,8 +496,6 @@ function SidebarControls({
   onSave: (opts?: { silent?: boolean }) => void | Promise<void>;
   saving: boolean;
   uploaderSlot?: React.ReactNode;
-  autoSaveEnabled: boolean;
-  onToggleAutoSave: (v: boolean) => void;
   lastSavedAt: Date | null;
 }) {
   return (
@@ -492,16 +509,6 @@ function SidebarControls({
             onChange={(e) => onTogglePublished(e.target.checked)}
           />
           <span className="text-gray-900 font-medium">Published</span>
-        </label>
-
-        <label className="inline-flex items-center gap-3">
-          <input
-            type="checkbox"
-            className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-            checked={autoSaveEnabled}
-            onChange={(e) => onToggleAutoSave(e.target.checked)}
-          />
-          <span className="text-gray-900 font-medium">Auto Save</span>
         </label>
 
         <div>
@@ -719,13 +726,13 @@ const HEADER_TO_FIELD: Record<string, string> = {
 /* Root Page */
 function EditContent({ id }: { id: string }) {
   const [site, setSite] = useState<any>(null);
+  const [siteLoading, setSiteLoading] = useState(true);
+  const [siteLoadError, setSiteLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState<boolean>(false);
   const [listingTab, setListingTab] = useState<ListingTabKey>("overview");
 
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [autoSaving, setAutoSaving] = useState<boolean>(false);
 
   const saveListingRef = useRef<
     ((opts?: { silent?: boolean }) => Promise<void> | void) | undefined
@@ -750,19 +757,51 @@ function EditContent({ id }: { id: string }) {
   } | null>(null);
 
   useEffect(() => {
+    let active = true;
+
     (async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) {
-        alert(error.message);
-        return;
+      setSiteLoading(true);
+      setSiteLoadError(null);
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from("sites").select("*").eq("id", id).single(),
+          LISTING_LOAD_TIMEOUT_MS,
+          "admin.listing.fetchSite"
+        );
+
+        if (!active) return;
+        if (error) throw error;
+
+        if (!data) {
+          setSiteLoadError("Listing not found.");
+          return;
+        }
+
+        setSite(data);
+        setPublished(!!data.is_published);
+      } catch (error: any) {
+        if (!active) return;
+
+        console.warn("[admin/listings/[id]] listing load failed", error);
+
+        if (isLikelyAuthError(error)) {
+          const redirectTo = window.location.pathname + window.location.search;
+          window.location.replace(
+            `/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`
+          );
+          return;
+        }
+
+        setSiteLoadError(String(error?.message ?? "Failed to load listing."));
+      } finally {
+        if (active) setSiteLoading(false);
       }
-      setSite(data);
-      setPublished(!!data.is_published);
     })();
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -881,22 +920,7 @@ function EditContent({ id }: { id: string }) {
     loadTaxonomies();
   }, [loadTaxonomies]);
 
-  useEffect(() => {
-    if (!autoSaveEnabled) return;
-    const timer = setInterval(async () => {
-      if (saveListingRef.current && !saving) {
-        setAutoSaving(true);
-        try {
-          await saveListingRef.current({ silent: true });
-        } finally {
-          setAutoSaving(false);
-        }
-      }
-    }, 30_000);
-    return () => clearInterval(timer);
-  }, [autoSaveEnabled, saving]);
-
-  if (!site)
+  if (siteLoading)
     return (
       <div
         className="p-10 text-gray-700 text-center min-h-screen"
@@ -905,6 +929,42 @@ function EditContent({ id }: { id: string }) {
         Loading…
       </div>
     );
+
+  if (siteLoadError) {
+    return (
+      <div
+        className="p-10 text-center min-h-screen"
+        style={{ backgroundColor: "#f4f4f4" }}
+      >
+        <div className="mx-auto max-w-xl rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-red-700">
+            Failed to load listing
+          </h2>
+          <p className="mt-2 text-sm text-gray-700 break-words">
+            {siteLoadError}
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Btn
+              onClick={() => window.location.reload()}
+              className="bg-black text-white hover:bg-gray-900"
+            >
+              Retry
+            </Btn>
+            <Link
+              href={`/auth/sign-in?redirectTo=${encodeURIComponent(
+                window.location.pathname + window.location.search
+              )}`}
+              className="px-4 py-2 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Sign In Again
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!site) return null;
 
   const uploaderSlot = (
     <SidebarImporter
@@ -1085,8 +1145,6 @@ function EditContent({ id }: { id: string }) {
               if (saveListingRef.current) await saveListingRef.current(opts);
             }}
             uploaderSlot={uploaderSlot}
-            autoSaveEnabled={autoSaveEnabled}
-            onToggleAutoSave={setAutoSaveEnabled}
             lastSavedAt={lastSavedAt}
           />
         </div>
@@ -1101,8 +1159,6 @@ function EditContent({ id }: { id: string }) {
                 if (saveListingRef.current) await saveListingRef.current(opts);
               }}
               uploaderSlot={uploaderSlot}
-              autoSaveEnabled={autoSaveEnabled}
-              onToggleAutoSave={setAutoSaveEnabled}
               lastSavedAt={lastSavedAt}
             />
           </div>
@@ -1135,8 +1191,6 @@ function EditContent({ id }: { id: string }) {
           </main>
         </div>
       </div>
-
-      <SavingToast visible={autoSaving} />
 
       <ConnectTravelGuideModal
         isOpen={guideModalOpen}

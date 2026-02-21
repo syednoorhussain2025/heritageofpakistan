@@ -77,11 +77,7 @@ export function CollectionsProvider({
         const {
           data: sessionData,
           error: sessionError,
-        } = await withTimeout(
-          sb.auth.getSession(),
-          ATTEMPT_TIMEOUT_MS,
-          "getSession"
-        );
+        } = await sb.auth.getSession();
 
         if (sessionError) throw sessionError;
 

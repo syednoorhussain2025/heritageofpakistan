@@ -32,7 +32,6 @@ const BookmarkContext = createContext<BookmarkContextType>({
 export const useBookmarks = () => useContext(BookmarkContext);
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  const SESSION_TIMEOUT_MS = 10000;
   const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
@@ -44,11 +43,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       const {
         data: sessionData,
         error: sessionError,
-      } = await withTimeout(
-        supabase.auth.getSession(),
-        SESSION_TIMEOUT_MS,
-        "bookmarks.getSession"
-      );
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       return sessionData.session?.user?.id ?? null;
     } catch (error) {

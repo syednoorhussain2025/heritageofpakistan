@@ -78,13 +78,13 @@ function MainShell() {
     };
   }, []);
 
-  // Prevent overlapping saves (manual or autosave)
+  // Prevent overlapping saves
   const savingRef = useRef(false);
 
-  async function saveActive({ isAuto = false }: { isAuto?: boolean } = {}) {
+  async function saveActive() {
     const fn = saveHandlers.current[active];
     if (!fn) {
-      if (!isAuto) alert("Nothing to save on this tab.");
+      alert("Nothing to save on this tab.");
       return;
     }
     if (savingRef.current) return; // skip if a save is already running
@@ -92,44 +92,13 @@ function MainShell() {
     savingRef.current = true;
     try {
       await fn();
-      showToast(isAuto ? "Saved (autosave)" : "Saved");
+      showToast("Saved");
     } catch (e: any) {
-      if (isAuto) {
-        // For autosave, keep it discreet
-        // eslint-disable-next-line no-console
-        console.error("Autosave failed:", e?.message ?? e);
-      } else {
-        alert(`Save failed: ${e?.message ?? e}`);
-      }
+      alert(`Save failed: ${e?.message ?? e}`);
     } finally {
       savingRef.current = false;
     }
   }
-
-  // -----------------------------
-  // AUTOSAVE: every 60s when a region/guide is loaded and tab has a save handler
-  // -----------------------------
-  useEffect(() => {
-    if (!selectedRegion || !guide) return;
-    let intervalId: number | null = null;
-
-    function canAutosave() {
-      return Boolean(saveHandlers.current[active]);
-    }
-
-    if (canAutosave()) {
-      intervalId = window.setInterval(() => {
-        // If the handler is still present, trigger autosave.
-        if (canAutosave()) {
-          void saveActive({ isAuto: true });
-        }
-      }, 20_000); // 1 minute
-    }
-
-    return () => {
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [selectedRegion, guide, active]);
 
   // -----------------------------
   // Typeahead region search

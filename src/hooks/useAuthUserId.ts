@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 
-const AUTH_OP_TIMEOUT_MS = 10000;
-
 type AuthState = {
   userId: string | null;
   authLoading: boolean;
@@ -25,24 +23,6 @@ let sharedState: AuthState = {
 };
 
 const sharedListeners = new Set<(state: AuthState) => void>();
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Auth operation timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-  });
-}
 
 function getClient(): SupabaseClient {
   if (!sharedClient) {
@@ -71,10 +51,8 @@ async function resolveSharedAuth() {
 
   try {
     const supabase = getClient();
-    const { data: sessionData, error: sessionError } = await withTimeout(
-      supabase.auth.getSession(),
-      AUTH_OP_TIMEOUT_MS
-    );
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession();
     if (sessionError) throw sessionError;
 
     const session = sessionData.session;

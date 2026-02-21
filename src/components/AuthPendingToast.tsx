@@ -4,11 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { withTimeout } from "@/lib/async/withTimeout";
 
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 const MIN_VISIBLE_MS = 1000;
-const SESSION_TIMEOUT_MS = 10000;
 
 export default function AuthPendingToast() {
   const sb = useMemo(() => createClient(), []);
@@ -74,11 +72,8 @@ export default function AuthPendingToast() {
     };
 
     // Close once a real session is confirmed
-    withTimeout(
-      sb.auth.getSession(),
-      SESSION_TIMEOUT_MS,
-      "authPendingToast.getSession"
-    )
+    sb.auth
+      .getSession()
       .then(({ data }) => {
         if (data.session?.user) hideWithMinimum();
       })

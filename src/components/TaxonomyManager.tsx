@@ -452,13 +452,12 @@ function EditPane({
   const [slugLocked, setSlugLocked] = useState<boolean>(false);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
 
-  // Autosave UI state
+  // Save UI state
   const [toastState, setToastState] = useState<"idle" | "saving" | "saved">(
     "idle"
   );
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const prevSavingRef = useRef<boolean>(false);
-  const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setLocal(item);
@@ -548,21 +547,6 @@ function EditPane({
     const n = Number(t);
     return Number.isFinite(n) ? n : null;
   };
-
-  // Auto-save every 10 seconds
-  useEffect(() => {
-    if (autosaveTimer.current) clearInterval(autosaveTimer.current);
-    autosaveTimer.current = setInterval(() => {
-      void saveWithUI({
-        keepEditing: true,
-        showToast: true,
-        toastLabelSaving: "Auto-saving…",
-      });
-    }, 10_000);
-    return () => {
-      if (autosaveTimer.current) clearInterval(autosaveTimer.current);
-    };
-  }, [item, local, computePatch, table]);
 
   // Hook toast state to parent saving
   useEffect(() => {
