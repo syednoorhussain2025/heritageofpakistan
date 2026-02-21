@@ -16,10 +16,8 @@ declare global {
 }
 
 const AUTH_RECOVERY_THROTTLE_MS = 12000;
-const AUTH_RECOVERY_FORCE_THROTTLE_MS = 5000;
 const AUTH_RECOVERY_TIMEOUT_MS = 10000;
 const AUTH_RECOVERY_FAILURE_COOLDOWN_MS = 30000;
-const REFRESH_WINDOW_SECONDS = 120;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -46,7 +44,7 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
   window.__HOP_SUPABASE_AUTH_WIRED__ = true;
   window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ = 0;
 
-  const recover = async (force = false) => {
+  const recover = async () => {
     if (window.__HOP_SUPABASE_AUTH_RECOVERING__) return;
 
     const now = Date.now();
@@ -54,10 +52,7 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
     if (blockedUntil > now) return;
 
     const last = window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ ?? 0;
-    const minInterval = force
-      ? AUTH_RECOVERY_FORCE_THROTTLE_MS
-      : AUTH_RECOVERY_THROTTLE_MS;
-    if (now - last < minInterval) return;
+    if (now - last < AUTH_RECOVERY_THROTTLE_MS) return;
 
     window.__HOP_SUPABASE_AUTH_RECOVERING__ = true;
     window.__HOP_SUPABASE_AUTH_LAST_RECOVERY__ = now;
@@ -71,21 +66,7 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
         AUTH_RECOVERY_TIMEOUT_MS
       );
       if (error) throw error;
-
-      const session = data.session;
-      if (!session?.user) return;
-
-      const nowSec = Math.floor(Date.now() / 1000);
-      const expiresAt = session.expires_at ?? 0;
-      const expiresSoon =
-        expiresAt > 0 && expiresAt - nowSec < REFRESH_WINDOW_SECONDS;
-
-      if (force || expiresSoon) {
-        await withTimeout(
-          client.auth.refreshSession(),
-          AUTH_RECOVERY_TIMEOUT_MS
-        );
-      }
+      void data.session;
     } catch (err) {
       const message = (err as any)?.message ?? "";
       if (String(message).toLowerCase().includes("timed out")) {
@@ -100,16 +81,16 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
 
   const onVisible = () => {
     if (document.visibilityState === "visible") {
-      void recover(false);
+      void recover();
     }
   };
 
   const onFocus = () => {
-    void recover(false);
+    void recover();
   };
 
   const onOnline = () => {
-    void recover(false);
+    void recover();
   };
 
   document.addEventListener("visibilitychange", onVisible);
@@ -124,12 +105,12 @@ function wireBrowserAuthRecovery(client: SupabaseClient) {
       event === "SIGNED_IN" ||
       event === "USER_UPDATED"
     ) {
-      void recover(false);
+      void recover();
     }
   });
 
   // Fire one initial recovery after hydration.
-  void recover(true);
+  void recover();
 
   // Keep a best-effort cleanup in page lifecycle.
   window.addEventListener("beforeunload", () => {

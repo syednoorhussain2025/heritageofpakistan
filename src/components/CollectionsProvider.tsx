@@ -130,8 +130,16 @@ export function CollectionsProvider({
 
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange(async (_event, session) => {
+    } = sb.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
+      if (
+        event !== "INITIAL_SESSION" &&
+        event !== "SIGNED_IN" &&
+        event !== "SIGNED_OUT" &&
+        event !== "USER_UPDATED"
+      ) {
+        return;
+      }
 
       if (!session?.user) {
         // Signed out: clear client state so UI cannot behave signed-in

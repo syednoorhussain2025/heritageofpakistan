@@ -6,7 +6,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 
 const AUTH_OP_TIMEOUT_MS = 10000;
-const REFRESH_WINDOW_SECONDS = 120;
 
 type AuthState = {
   userId: string | null;
@@ -17,7 +16,7 @@ type AuthState = {
 let sharedClient: SupabaseClient | null = null;
 let sharedInitialized = false;
 let sharedResolving = false;
-let sharedQueuedForceRefresh = false;
+let sharedQueuedResolve = false;
 
 let sharedState: AuthState = {
   userId: null,
@@ -63,9 +62,9 @@ function patchState(patch: Partial<AuthState>) {
   emitState();
 }
 
-async function resolveSharedAuth(forceRefresh = false) {
+async function resolveSharedAuth() {
   if (sharedResolving) {
-    sharedQueuedForceRefresh = sharedQueuedForceRefresh || forceRefresh;
+    sharedQueuedResolve = true;
     return;
   }
   sharedResolving = true;
@@ -78,22 +77,7 @@ async function resolveSharedAuth(forceRefresh = false) {
     );
     if (sessionError) throw sessionError;
 
-    let session = sessionData.session;
-
-    if (forceRefresh && session) {
-      const expiresAt = session.expires_at ?? 0;
-      const nowSec = Math.floor(Date.now() / 1000);
-      const expiresSoon =
-        expiresAt > 0 && expiresAt - nowSec < REFRESH_WINDOW_SECONDS;
-
-      if (expiresSoon) {
-        const { data: refreshed } = await withTimeout(
-          supabase.auth.refreshSession(),
-          AUTH_OP_TIMEOUT_MS
-        );
-        session = refreshed.session;
-      }
-    }
+    const session = sessionData.session;
 
     if (session?.user?.id) {
       patchState({
@@ -118,10 +102,9 @@ async function resolveSharedAuth(forceRefresh = false) {
   } finally {
     sharedResolving = false;
 
-    if (sharedQueuedForceRefresh) {
-      const rerunForce = sharedQueuedForceRefresh;
-      sharedQueuedForceRefresh = false;
-      void resolveSharedAuth(rerunForce);
+    if (sharedQueuedResolve) {
+      sharedQueuedResolve = false;
+      void resolveSharedAuth();
     }
   }
 }
@@ -133,7 +116,7 @@ function initSharedAuthRuntime() {
   sharedInitialized = true;
   const supabase = getClient();
 
-  void resolveSharedAuth(true);
+  void resolveSharedAuth();
 
   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
@@ -150,25 +133,24 @@ function initSharedAuthRuntime() {
     if (
       event === "INITIAL_SESSION" ||
       event === "SIGNED_IN" ||
-      event === "TOKEN_REFRESHED" ||
       event === "USER_UPDATED"
     ) {
-      void resolveSharedAuth(false);
+      void resolveSharedAuth();
     }
   });
 
   const onVisible = () => {
     if (document.visibilityState === "visible") {
-      void resolveSharedAuth(false);
+      void resolveSharedAuth();
     }
   };
 
   const onFocus = () => {
-    void resolveSharedAuth(false);
+    void resolveSharedAuth();
   };
 
   const onOnline = () => {
-    void resolveSharedAuth(false);
+    void resolveSharedAuth();
   };
 
   document.addEventListener("visibilitychange", onVisible);
