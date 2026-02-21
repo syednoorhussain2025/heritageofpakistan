@@ -4,14 +4,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 
 export default function SignInForm() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
   const sp = useSearchParams();
 
   const requestedRedirect = sp.get("redirectTo");
@@ -32,14 +31,24 @@ export default function SignInForm() {
     []
   );
 
+  async function waitForSessionReady(timeoutMs = 5000): Promise<boolean> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) break;
+      if (data.session?.user) return true;
+      await new Promise((resolve) => window.setTimeout(resolve, 150));
+    }
+    return false;
+  }
+
   useEffect(() => {
     let active = true;
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
         if (!active || !session?.user) return;
-        router.replace(redirectTo);
-        router.refresh();
+        window.location.assign(redirectTo);
       })
       .catch((error) => {
         console.warn("[auth/sign-in] getSession failed", error);
@@ -47,7 +56,7 @@ export default function SignInForm() {
     return () => {
       active = false;
     };
-  }, [supabase, router, redirectTo]);
+  }, [supabase, redirectTo]);
 
   async function onEmailPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -65,8 +74,8 @@ export default function SignInForm() {
         window.sessionStorage?.setItem(AUTH_JUST_SIGNED_IN, "1");
       } catch {}
 
-      router.replace(redirectTo);
-      router.refresh();
+      await waitForSessionReady();
+      window.location.assign(redirectTo);
     } catch (e: any) {
       setErr(e?.message ?? "Sign in failed.");
     } finally {

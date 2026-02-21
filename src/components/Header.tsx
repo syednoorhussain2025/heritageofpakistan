@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { withTimeout } from "@/lib/async/withTimeout";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
@@ -21,7 +20,6 @@ const SEARCH_BG = "#f5f5f5";
 const SEARCH_BORDER = "#e0e0e0";
 const BRAND_GREEN = "#004f32"; // deep green for icons / search text
 const BRAND_LOGO_GREEN = "#00b5a5"; // bright logo/text green
-const HEADER_SESSION_TIMEOUT_MS = 10000;
 
 /* ---------- Types ---------- */
 type SiteSearchRow = {
@@ -391,11 +389,8 @@ export default function Header() {
       setUser(session?.user ?? null);
     });
 
-    withTimeout(
-      supabase.auth.getSession(),
-      HEADER_SESSION_TIMEOUT_MS,
-      "header.getSession"
-    )
+    supabase.auth
+      .getSession()
       .then(({ data: { session } }) => {
         setUser(session?.user ?? null);
       })

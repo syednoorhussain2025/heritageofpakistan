@@ -105,7 +105,7 @@ const LISTING_TABS: {
   { key: "photo", label: "Photo Story", sections: ["photo"] },
 ];
 
-const LISTING_LOAD_TIMEOUT_MS = 12000;
+const LISTING_LOAD_TIMEOUT_MS = 30000;
 
 function isLikelyAuthError(error: any): boolean {
   const message = String(error?.message ?? "").toLowerCase();

@@ -4,16 +4,9 @@ import { Geist, Geist_Mono, Lato } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import "@/modules/flow-layout/flow-layout.css";
-import Header from "@/components/Header";
-import BottomNav from "@/components/BottomNav";
+import AppChrome from "@/components/AppChrome";
 import { IconProvider } from "@/components/Icon";
-import { BookmarkProvider } from "@/components/BookmarkProvider";
-import { WishlistProvider } from "@/components/WishlistProvider";
-import { CollectionsProvider } from "@/components/CollectionsProvider";
-import { ProfileProvider } from "@/components/ProfileProvider";
-import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import AuthPendingToast from "@/components/AuthPendingToast";
 
 /* ---------------- Fonts ---------------- */
 const lato = Lato({
@@ -63,21 +56,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
-          <ProfileProvider>
-            <BookmarkProvider>
-              <WishlistProvider>
-                <CollectionsProvider>
-                  <LoaderEngineProvider>
-                    <AuthPendingToast />
-                    <Header />
-                    <BottomNav />
-                    <main>{children}</main>
-                    <SpeedInsights />
-                  </LoaderEngineProvider>
-                </CollectionsProvider>
-              </WishlistProvider>
-            </BookmarkProvider>
-          </ProfileProvider>
+          <AppChrome>{children}</AppChrome>
+          <SpeedInsights />
         </IconProvider>
       </body>
     </html>

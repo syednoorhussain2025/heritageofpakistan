@@ -1,33 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import type { User } from "@supabase/supabase-js";
-
-const AUTH_TIMEOUT_MS = 7000;
-
-function withTimeout<T>(
-  promise: PromiseLike<T>,
-  timeoutMs: number
-): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Auth check timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    Promise.resolve(promise)
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-  });
-}
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
   const { pathname, search } = req.nextUrl;
 
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
@@ -39,12 +19,23 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) => {
-          res.cookies.set({ name, value, ...options });
+        getAll() {
+          return req.cookies.getAll();
         },
-        remove: (name, options) => {
-          res.cookies.set({ name, value: "", ...options });
+        setAll(cookiesToSet) {
+          for (const { name, value } of cookiesToSet) {
+            req.cookies.set(name, value);
+          }
+
+          res = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          });
+
+          for (const { name, value, options } of cookiesToSet) {
+            res.cookies.set(name, value, options);
+          }
         },
       },
     }
@@ -58,25 +49,17 @@ export async function middleware(req: NextRequest) {
 
   const redirectHome = () => NextResponse.redirect(new URL("/", req.url));
 
-  const getUserSafe = async (): Promise<User | null> => {
-    try {
-      const {
-        data: { user },
-        error,
-      } = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS);
-      if (error) {
-        console.warn("[middleware] getUser error", error.message);
-        return null;
-      }
-      return user ?? null;
-    } catch (error) {
-      console.warn("[middleware] getUser failed", {
-        pathname,
-        error: (error as any)?.message ?? String(error),
-      });
-      return null;
-    }
-  };
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+
+  if (userErr) {
+    console.warn("[middleware] getUser error", {
+      pathname,
+      error: userErr.message,
+    });
+  }
 
   const isMyTrips = /^\/[^/]+\/mytrips(\/.*)?$/.test(pathname);
   const isTripFinalize = /^\/[^/]+\/trip\/[^/]+\/finalize(\/.*)?$/.test(
@@ -92,33 +75,27 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/admin")) {
     if (pathname === "/admin/login") return res;
 
-    const user = await getUserSafe();
     if (!user) return redirectToSignIn();
 
-    try {
-      const { data: profile, error } = (await withTimeout(
-        supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
-        AUTH_TIMEOUT_MS
-      )) as any;
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      if (error) {
-        console.warn("[middleware] admin profile check failed", error.message);
-        return redirectToSignIn();
-      }
-
-      if (!profile?.is_admin) return redirectHome();
-      return res;
-    } catch (error) {
-      console.warn("[middleware] admin profile check timed out", {
+    if (profileErr) {
+      console.warn("[middleware] admin profile check failed", {
         pathname,
-        error: (error as any)?.message ?? String(error),
+        error: profileErr.message,
       });
       return redirectToSignIn();
     }
+
+    if (!profile?.is_admin) return redirectHome();
+    return res;
   }
 
   if (needsBasicAuth) {
-    const user = await getUserSafe();
     if (!user) return redirectToSignIn();
     return res;
   }

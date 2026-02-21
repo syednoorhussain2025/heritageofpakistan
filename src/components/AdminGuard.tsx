@@ -8,10 +8,26 @@ export default function AdminGuard({
 }: {
   children: React.ReactNode;
 }) {
-  const [redirecting, setRedirecting] = useState(false);
+  const [status, setStatus] = useState<"checking" | "allowed" | "redirecting">(
+    "checking"
+  );
 
   useEffect(() => {
     let active = true;
+    const redirectTo = window.location.pathname + window.location.search;
+    const redirectToSignIn = () => {
+      if (!active) return;
+      setStatus("redirecting");
+      window.location.replace(
+        `/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`
+      );
+    };
+
+    // Fail-safe: if session read stalls, do not render protected UI indefinitely.
+    const stallTimer = window.setTimeout(() => {
+      console.warn("[AdminGuard] session check stalled; allowing page");
+      if (active) setStatus("allowed");
+    }, 12000);
 
     (async () => {
       try {
@@ -19,12 +35,10 @@ export default function AdminGuard({
 
         if (!active) return;
         if (error || !data.session?.user) {
-          setRedirecting(true);
-          const redirectTo = window.location.pathname + window.location.search;
-          window.location.replace(
-            `/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`
-          );
+          redirectToSignIn();
+          return;
         }
+        setStatus("allowed");
       } catch (error: any) {
         if (!active) return;
         const message = String(error?.message ?? "");
@@ -35,23 +49,28 @@ export default function AdminGuard({
           message.toLowerCase().includes("invalid") ||
           message.toLowerCase().includes("jwt")
         ) {
-          setRedirecting(true);
-          const redirectTo = window.location.pathname + window.location.search;
-          window.location.replace(
-            `/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`
-          );
+          redirectToSignIn();
           return;
         }
 
+        // Middleware already guards /admin; don't loop users to sign-in on transient client errors.
         console.warn("[AdminGuard] non-blocking auth check error", error);
+        setStatus("allowed");
+      } finally {
+        window.clearTimeout(stallTimer);
       }
     })();
 
     return () => {
       active = false;
+      window.clearTimeout(stallTimer);
     };
   }, []);
 
-  if (redirecting) return null;
-  return <>{children}</>;
+  if (status === "allowed") return <>{children}</>;
+  return (
+    <div className="min-h-screen grid place-items-center bg-[#f4f4f4] text-gray-600">
+      Checking access...
+    </div>
+  );
 }
