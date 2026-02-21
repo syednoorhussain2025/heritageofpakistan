@@ -13,14 +13,12 @@ import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { withTimeout } from "@/lib/async/withTimeout";
 
-// Define the shape of the profile data we'll be storing
 type Profile = {
   full_name: string | null;
   avatar_url: string | null;
-  badge: string | null; // ✅ ADDED: Include the badge field
+  badge: string | null;
 };
 
-// Create the context with a default value
 const ProfileContext = createContext<{
   profile: Profile | null;
   loading: boolean;
@@ -29,7 +27,6 @@ const ProfileContext = createContext<{
   loading: true,
 });
 
-// Create the Provider component
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
@@ -38,6 +35,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     if (!userId) {
       setLoading(false);
       setProfile(null);
@@ -46,26 +45,41 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     async function fetchProfile() {
       setLoading(true);
-      const { data, error } = await withTimeout(
-        supabase
-          .from("profiles")
-          .select("full_name, avatar_url, badge") // ✅ ADDED: Fetch the badge from the database
-          .eq("id", userId)
-          .single(),
-        QUERY_TIMEOUT_MS,
-        "profile.fetch"
-      );
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select("full_name, avatar_url, badge")
+            .eq("id", userId)
+            .maybeSingle(),
+          QUERY_TIMEOUT_MS,
+          "profile.fetch"
+        );
 
-      if (error) {
-        console.error("Error fetching profile:", error);
+        if (!active) return;
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+          setProfile(null);
+          return;
+        }
+
+        setProfile((data as Profile | null) ?? null);
+      } catch (error) {
+        if (!active) return;
+        console.warn("[ProfileProvider] fetchProfile failed", error);
+        // Fail-soft so UI never gets stuck on profile fetch timeout.
         setProfile(null);
-      } else {
-        setProfile(data);
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     }
 
-    fetchProfile();
+    void fetchProfile();
+
+    return () => {
+      active = false;
+    };
   }, [userId, supabase]);
 
   const value = { profile, loading };
@@ -75,7 +89,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Create a custom hook for easy access to the profile data
 export function useProfile() {
   return useContext(ProfileContext);
 }

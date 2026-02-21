@@ -80,22 +80,22 @@ const IconContext = createContext<IconContextType>({
  * 3) Revalidate from Supabase in the background and update cache if changed
  */
 export function IconProvider({ children }: { children: React.ReactNode }) {
-  const [icons, setIcons] = useState<Map<string, string>>(() => {
-    const cached = loadCachedIconPairs();
-    if (!cached) return new Map();
-    return new Map(cached);
-  });
-
-  const [isLoaded, setIsLoaded] = useState<boolean>(() => {
-    // If we have cached icons, consider "loaded" for rendering purposes
-    const cached = loadCachedIconPairs();
-    return !!(cached && cached.length > 0);
-  });
+  // Keep first client render identical to server render to avoid hydration mismatch.
+  const [icons, setIcons] = useState<Map<string, string>>(new Map());
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchIconsAndUpdateCache() {
+      // Step 1: hydrate quickly from local cache on the client after mount.
+      const cached = loadCachedIconPairs();
+      if (!cancelled && cached && cached.length > 0) {
+        setIcons(new Map(cached));
+        setIsLoaded(true);
+      }
+
+      // Step 2: always revalidate from Supabase and update only if changed.
       try {
         const { data, error } = await supabase.from("icons").select("name, svg_content");
         if (error) {

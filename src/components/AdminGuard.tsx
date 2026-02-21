@@ -9,14 +9,14 @@ type GuardStatus = "checking" | "ok" | "redirecting" | "error";
 const ADMIN_CACHE_TTL_MS = 60_000;
 const ADMIN_CHECK_TIMEOUT_MS = 10000;
 
-let adminCheckInFlight: Promise<{ userId: string | null; isAdmin: boolean }> | null =
+let adminCheckInFlight: Promise<{ userId: string | null; hasAccess: boolean }> | null =
   null;
-let cachedAdmin: { userId: string; expiresAt: number } | null = null;
+let cachedAccess: { userId: string; expiresAt: number } | null = null;
 
 async function resolveAdminAccess() {
   const now = Date.now();
-  if (cachedAdmin && cachedAdmin.expiresAt > now) {
-    return { userId: cachedAdmin.userId, isAdmin: true };
+  if (cachedAccess && cachedAccess.expiresAt > now) {
+    return { userId: cachedAccess.userId, hasAccess: true };
   }
 
   if (adminCheckInFlight) return adminCheckInFlight;
@@ -31,26 +31,14 @@ async function resolveAdminAccess() {
 
     const userId = sessionData.session?.user?.id ?? null;
     if (!userId) {
-      cachedAdmin = null;
-      return { userId: null, isAdmin: false };
+      cachedAccess = null;
+      return { userId: null, hasAccess: false };
     }
 
-    const { data: profile, error: profileError } = await withTimeout(
-      supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle(),
-      ADMIN_CHECK_TIMEOUT_MS,
-      "admin.profileCheck"
-    );
-
-    if (profileError) throw profileError;
-
-    const isAdmin = !!profile?.is_admin;
-    if (isAdmin) {
-      cachedAdmin = { userId, expiresAt: now + ADMIN_CACHE_TTL_MS };
-    } else {
-      cachedAdmin = null;
-    }
-
-    return { userId, isAdmin };
+    // Authorization is enforced by middleware on /admin routes.
+    // Keep client guard lightweight so admin UI never deadlocks on profile query timeouts.
+    cachedAccess = { userId, expiresAt: now + ADMIN_CACHE_TTL_MS };
+    return { userId, hasAccess: true };
   })();
 
   try {
@@ -66,7 +54,7 @@ export default function AdminGuard({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<GuardStatus>(() =>
-    cachedAdmin && cachedAdmin.expiresAt > Date.now() ? "ok" : "checking"
+    cachedAccess && cachedAccess.expiresAt > Date.now() ? "ok" : "checking"
   );
   const [retryKey, setRetryKey] = useState(0);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -76,13 +64,13 @@ export default function AdminGuard({
 
     const run = async () => {
       const hasHotCache = !!(
-        cachedAdmin && cachedAdmin.expiresAt > Date.now()
+        cachedAccess && cachedAccess.expiresAt > Date.now()
       );
       if (!hasHotCache) setStatus("checking");
       setErrorText(null);
 
       try {
-        const { userId, isAdmin } = await resolveAdminAccess();
+        const { userId, hasAccess } = await resolveAdminAccess();
         if (cancelled) return;
 
         if (!userId) {
@@ -94,7 +82,7 @@ export default function AdminGuard({
           return;
         }
 
-        if (!isAdmin) {
+        if (!hasAccess) {
           setStatus("redirecting");
           window.location.replace("/");
           return;
@@ -103,8 +91,17 @@ export default function AdminGuard({
         setStatus("ok");
       } catch (error: any) {
         if (cancelled) return;
+        const message = String(error?.message ?? "");
+        if (message.toLowerCase().includes("timed out")) {
+          // Middleware already enforces admin access on /admin routes.
+          // Do not block the page when this secondary client check times out.
+          console.warn("[AdminGuard] timeout; allowing page", message);
+          setStatus("ok");
+          return;
+        }
+
         console.error("[AdminGuard] access check failed", error);
-        setErrorText(error?.message ?? "Unable to verify admin access.");
+        setErrorText(message || "Unable to verify admin access.");
         setStatus("error");
       }
     };
