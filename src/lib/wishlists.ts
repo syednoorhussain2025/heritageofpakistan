@@ -2,6 +2,9 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
+
+const WISHLISTS_QUERY_TIMEOUT_MS = 10000;
 
 function humanError(err: any): string {
   if (!err) return "Unknown error";
@@ -20,37 +23,53 @@ function supa() {
 
 export async function getWishlists() {
   const supabase = supa();
-  const res = await supabase
-    .from("wishlists")
-    .select(
-      "id, name, is_public, cover_image_url, notes, created_at, updated_at, wishlist_items(count)"
-    )
-    .order("created_at", { ascending: true });
-
-  if (!res.error && res.data) return res.data;
-
-  const flat = await supabase
-    .from("wishlists")
-    .select(
-      "id, name, is_public, cover_image_url, notes, created_at, updated_at"
-    )
-    .order("created_at", { ascending: true });
-
-  if (flat.error) throw new Error(humanError(flat.error));
-  const lists = flat.data ?? [];
-
-  const withCounts = await Promise.all(
-    lists.map(async (w) => {
-      const { count, error } = await supabase
-        .from("wishlist_items")
-        .select("id", { head: true, count: "exact" })
-        .eq("wishlist_id", w.id);
-      if (error) console.warn("[wishlist_items count]", error);
-      return { ...w, wishlist_items: [{ count: count ?? 0 }] };
-    })
+  const { data: lists, error: listErr } = await withTimeout(
+    supabase
+      .from("wishlists")
+      .select(
+        "id, name, is_public, cover_image_url, notes, created_at, updated_at"
+      )
+      .order("created_at", { ascending: true }),
+    WISHLISTS_QUERY_TIMEOUT_MS,
+    "wishlists.list"
   );
 
-  return withCounts;
+  if (listErr) throw new Error(humanError(listErr));
+
+  const baseLists = (lists ?? []) as any[];
+  if (!baseLists.length) return [];
+
+  const ids = baseLists.map((w) => w.id).filter(Boolean);
+  if (!ids.length) {
+    return baseLists.map((w) => ({ ...w, wishlist_items: [{ count: 0 }] }));
+  }
+
+  try {
+    // One batched query is much more predictable than per-list count queries.
+    const { data: itemRows, error: itemsErr } = await withTimeout(
+      supabase.from("wishlist_items").select("wishlist_id").in("wishlist_id", ids),
+      WISHLISTS_QUERY_TIMEOUT_MS,
+      "wishlists.items"
+    );
+
+    if (itemsErr) {
+      console.warn("[wishlists] item count query failed", itemsErr);
+      return baseLists.map((w) => ({ ...w, wishlist_items: [{ count: 0 }] }));
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of (itemRows ?? []) as { wishlist_id: string }[]) {
+      counts.set(row.wishlist_id, (counts.get(row.wishlist_id) ?? 0) + 1);
+    }
+
+    return baseLists.map((w) => ({
+      ...w,
+      wishlist_items: [{ count: counts.get(w.id) ?? 0 }],
+    }));
+  } catch (error) {
+    console.warn("[wishlists] item count query timed out", error);
+    return baseLists.map((w) => ({ ...w, wishlist_items: [{ count: 0 }] }));
+  }
 }
 
 export async function createWishlist(name: string, isPublic: boolean) {
