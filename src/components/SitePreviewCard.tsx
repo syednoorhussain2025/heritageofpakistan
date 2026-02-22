@@ -1,7 +1,7 @@
 // src/components/SitePreviewCard.tsx
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -115,6 +115,7 @@ export default function SitePreviewCard({
   const [isSharpLoaded, setIsSharpLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState<number>(384);
 
@@ -142,6 +143,15 @@ export default function SitePreviewCard({
   useEffect(() => {
     setIsSharpLoaded(false);
     setHasError(false);
+  }, [sharpSrc, site.id]);
+
+  // Handle already-cached images: onLoad won't fire if the browser already has
+  // the image, so check img.complete synchronously after each render.
+  useLayoutEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsSharpLoaded(true);
+    }
   }, [sharpSrc, site.id]);
 
   // Prioritise first two rows in the Explore grid
@@ -255,6 +265,7 @@ export default function SitePreviewCard({
 
             {/* Sharp thumbnail image from cover_photo_thumb_url */}
             <Image
+              ref={imgRef}
               key={sharpSrc}
               src={sharpSrc}
               alt={site.title}
@@ -263,7 +274,7 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoadingComplete={() => setIsSharpLoaded(true)}
+              onLoad={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);
                 setIsSharpLoaded(true);
