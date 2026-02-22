@@ -458,7 +458,7 @@ export default function HeritageCover({
         {/* OVERLAY CONTENT */}
         <div
           ref={overlayRef}
-          className={`absolute inset-0 flex items-end hero-overlay ${
+          className={`absolute inset-0 flex items-end hero-overlay pointer-events-none ${
             mounted ? "blocks-in" : ""
           }`}
         >
@@ -491,7 +491,7 @@ export default function HeritageCover({
 
           {(site.heritage_type || site.location_free || mapsLink) && (
             <div
-              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] hero-left-meta-stack"
+              className="absolute z-10 left-[54px] md:left-[66px] lg:left-[82px] hero-left-meta-stack pointer-events-auto"
               style={{ top: leftMetaTop }}
             >
               {(site.heritage_type || site.location_free) && (
@@ -542,7 +542,7 @@ export default function HeritageCover({
             </div>
           )}
 
-          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-[minmax(0,1.65fr)_minmax(0,0.35fr)] md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto">
+          <div className="w-full pb-8 md:pb-10 lg:pb-12 grid grid-cols-1 md:grid-cols-[minmax(0,1.65fr)_minmax(0,0.35fr)] md:items-end gap-6 pl-[54px] pr-[24px] md:pl-[66px] md:pr-[36px] lg:pl-[82px] lg:pr-[48px] max-w-screen-2xl mx-auto pointer-events-auto">
             <div className="text-white hero-left self-end">
               <h1 className="font-hero-title text-4xl md:text-5xl lg:text-6xl leading-tight">
                 {site.title}

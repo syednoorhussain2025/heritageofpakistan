@@ -16,7 +16,12 @@ export default function AppChrome({ children }: { children: ReactNode }) {
   const isAdminRoute = pathname.startsWith("/admin");
 
   if (isAdminRoute) {
-    return <main>{children}</main>;
+    return (
+      <LoaderEngineProvider>
+        <Header />
+        <main>{children}</main>
+      </LoaderEngineProvider>
+    );
   }
 
   return (
@@ -36,4 +41,3 @@ export default function AppChrome({ children }: { children: ReactNode }) {
     </ProfileProvider>
   );
 }
-
