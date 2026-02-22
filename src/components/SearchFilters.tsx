@@ -1852,17 +1852,14 @@ export default function SearchFilters({
   >([]);
   const [architecturalFeatureOptions, setArchitecturalFeatureOptions] =
     useState<Option[]>([]);
-  const [architectureSearch, setArchitectureSearch] = useState("");
 
   // Nature tab
   const [naturalRootId, setNaturalRootId] = useState<string | null>(null);
   const [naturalTypeOptions, setNaturalTypeOptions] = useState<Option[]>([]);
-  const [natureSearch, setNatureSearch] = useState("");
 
   // Cultural Landscape tab
   const [culturalRootId, setCulturalRootId] = useState<string | null>(null);
   const [culturalTypeOptions, setCulturalTypeOptions] = useState<Option[]>([]);
-  const [culturalSearch, setCulturalSearch] = useState("");
 
   // Archaeology tab
   const [archaeologyRootId, setArchaeologyRootId] = useState<string | null>(
@@ -1871,7 +1868,6 @@ export default function SearchFilters({
   const [archaeologyTypeOptions, setArchaeologyTypeOptions] = useState<
     Option[]
   >([]);
-  const [archaeologySearch, setArchaeologySearch] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -2094,38 +2090,6 @@ export default function SearchFilters({
     [archaeologyTypeOptions]
   );
 
-  const architectureSearchResults = useMemo(() => {
-    const term = architectureSearch.trim().toLowerCase();
-    if (!term) return [];
-    return architectureTypeOptions.filter((c) =>
-      c.name.toLowerCase().includes(term)
-    );
-  }, [architectureSearch, architectureTypeOptions]);
-
-  const natureSearchResults = useMemo(() => {
-    const term = natureSearch.trim().toLowerCase();
-    if (!term) return [];
-    return naturalTypeOptions.filter((c) =>
-      c.name.toLowerCase().includes(term)
-    );
-  }, [natureSearch, naturalTypeOptions]);
-
-  const culturalSearchResults = useMemo(() => {
-    const term = culturalSearch.trim().toLowerCase();
-    if (!term) return [];
-    return culturalTypeOptions.filter((c) =>
-      c.name.toLowerCase().includes(term)
-    );
-  }, [culturalSearch, culturalTypeOptions]);
-
-  const archaeologySearchResults = useMemo(() => {
-    const term = archaeologySearch.trim().toLowerCase();
-    if (!term) return [];
-    return archaeologyTypeOptions.filter((c) =>
-      c.name.toLowerCase().includes(term)
-    );
-  }, [archaeologySearch, archaeologyTypeOptions]);
-
   const loadSubregions = async (parentId: string) => {
     if (subsByParent[parentId]) return;
     const { data, error } = await supabase
@@ -2256,10 +2220,6 @@ export default function SearchFilters({
     setActiveParentId(null);
     setExpandedParentId(null);
     setCenterSiteTitle(null);
-    setArchitectureSearch("");
-    setNatureSearch("");
-    setCulturalSearch("");
-    setArchaeologySearch("");
   };
 
   const handleReset = () => {
@@ -2282,9 +2242,19 @@ export default function SearchFilters({
   };
 
   const openHeritageTypeModal = () => {
-    setDraftHeritageTypeIds(
-      filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
-    );
+    let seedIds: string[];
+    if (domainTab === "architecture") {
+      seedIds = filters.categoryIds.filter((id) => architectureTypeIdSet.has(id));
+    } else if (domainTab === "nature") {
+      seedIds = filters.categoryIds.filter((id) => naturalTypeIdSet.has(id));
+    } else if (domainTab === "cultural") {
+      seedIds = filters.categoryIds.filter((id) => culturalTypeIdSet.has(id));
+    } else if (domainTab === "archaeology") {
+      seedIds = filters.categoryIds.filter((id) => archaeologyTypeIdSet.has(id));
+    } else {
+      seedIds = filters.categoryIds.filter((id) => heritageTypeIdSet.has(id));
+    }
+    setDraftHeritageTypeIds(seedIds);
     setIsHeritageTypeModalOpen(true);
   };
 
@@ -2295,13 +2265,33 @@ export default function SearchFilters({
   };
 
   const applyDraftHeritageType = () => {
-    handleHeritageTypeChange(draftHeritageTypeIds);
+    if (domainTab === "architecture") {
+      handleArchitectureTypeChange(draftHeritageTypeIds);
+    } else if (domainTab === "nature") {
+      handleNatureTypeChange(draftHeritageTypeIds);
+    } else if (domainTab === "cultural") {
+      handleCulturalTypeChange(draftHeritageTypeIds);
+    } else if (domainTab === "archaeology") {
+      handleArchaeologyTypeChange(draftHeritageTypeIds);
+    } else {
+      handleHeritageTypeChange(draftHeritageTypeIds);
+    }
     setIsHeritageTypeModalOpen(false);
     onSearch();
   };
 
   const clearHeritageTypeSelection = () => {
-    handleHeritageTypeChange([]);
+    if (domainTab === "architecture") {
+      handleArchitectureTypeChange([]);
+    } else if (domainTab === "nature") {
+      handleNatureTypeChange([]);
+    } else if (domainTab === "cultural") {
+      handleCulturalTypeChange([]);
+    } else if (domainTab === "archaeology") {
+      handleArchaeologyTypeChange([]);
+    } else {
+      handleHeritageTypeChange([]);
+    }
     setDraftHeritageTypeIds([]);
     setIsHeritageTypeModalOpen(false);
     onSearch();
@@ -2392,21 +2382,6 @@ export default function SearchFilters({
     rebuildArchitectureCategoryIds({ newPeriodIds: ids });
   };
 
-  const handleArchitectureSearchPick = (id: string) => {
-    // Narrow to the picked architecture type ONLY (no architecture root)
-    const base: Partial<Filters> = {
-      name: "",
-      categoryIds: [id],
-      regionIds: [],
-      orderBy: "latest",
-      ...clearPlacesNearby(),
-    };
-
-    onFilterChange(base);
-    resetSharedUi();
-    onSearch();
-  };
-
   // Nature tab: helper to rebuild nature-related category IDs
   const rebuildNatureCategoryIds = ({
     newTypeIds,
@@ -2437,21 +2412,6 @@ export default function SearchFilters({
     rebuildNatureCategoryIds({ newTypeIds: ids });
   };
 
-  const handleNatureSearchPick = (id: string) => {
-    // Narrow to the picked nature type ONLY (no natural root)
-    const base: Partial<Filters> = {
-      name: "",
-      categoryIds: [id],
-      regionIds: [],
-      orderBy: "latest",
-      ...clearPlacesNearby(),
-    };
-
-    onFilterChange(base);
-    resetSharedUi();
-    onSearch();
-  };
-
   // Cultural Landscape: helper
   const rebuildCulturalCategoryIds = ({
     newTypeIds,
@@ -2480,21 +2440,6 @@ export default function SearchFilters({
 
   const handleCulturalTypeChange = (ids: string[]) => {
     rebuildCulturalCategoryIds({ newTypeIds: ids });
-  };
-
-  const handleCulturalSearchPick = (id: string) => {
-    // Narrow to the picked cultural type ONLY (no cultural root)
-    const base: Partial<Filters> = {
-      name: "",
-      categoryIds: [id],
-      regionIds: [],
-      orderBy: "latest",
-      ...clearPlacesNearby(),
-    };
-
-    onFilterChange(base);
-    resetSharedUi();
-    onSearch();
   };
 
   // Archaeology: helper (type + period)
@@ -2551,21 +2496,6 @@ export default function SearchFilters({
 
   const handleArchaeologyPeriodChange = (ids: string[]) => {
     rebuildArchaeologyCategoryIds({ newPeriodIds: ids });
-  };
-
-  const handleArchaeologySearchPick = (id: string) => {
-    // Narrow to the picked archaeology type ONLY (no archaeology root)
-    const base: Partial<Filters> = {
-      name: "",
-      categoryIds: [id],
-      regionIds: [],
-      orderBy: "latest",
-      ...clearPlacesNearby(),
-    };
-
-    onFilterChange(base);
-    resetSharedUi();
-    onSearch();
   };
 
   /* ───────── Heading text builder ───────── */
@@ -2702,23 +2632,71 @@ export default function SearchFilters({
 
   return (
     <div className="p-4 bg-white h-full flex flex-col text-sm">
-      {/* Domain Pills (2×2 grid) */}
+
+      {/* ── Heading ── */}
+      <div className="flex items-center gap-2 mb-4">
+        <Icon name="search" size={18} className="text-[var(--brand-orange)]" />
+        <h2 className="text-xl font-bold text-[var(--navy-deep)] tracking-tight">Search</h2>
+      </div>
+
+      {/* ── Fixed: keyword search — placeholder is domain-aware ── */}
+      <div className="relative rounded-2xl bg-gray-100 border border-gray-300 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all mb-3">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+          <Icon name="search" size={14} />
+        </div>
+        <input
+          type="text"
+          value={filters.name}
+          onChange={(e) => onFilterChange({ name: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && onSearch()}
+          placeholder={
+            domainTab === "architecture" ? "Search Architecture…"
+            : domainTab === "nature" ? "Search Nature & Landscapes…"
+            : domainTab === "cultural" ? "Search Cultural Landscape…"
+            : domainTab === "archaeology" ? "Search Archaeology…"
+            : "Search Heritage"
+          }
+          className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm"
+        />
+      </div>
+
+      {/* ── Fixed: Heritage Type (context-aware) + Location ── */}
+      <div className="rounded-xl bg-[var(--ivory-cream)] border border-gray-200 p-2 space-y-2 mb-3">
+        <HeritageTypeTrigger
+          options={
+            domainTab === "architecture" ? architectureTypeOptions
+            : domainTab === "nature" ? naturalTypeOptions
+            : domainTab === "cultural" ? culturalTypeOptions
+            : domainTab === "archaeology" ? archaeologyTypeOptions
+            : heritageTypeOptions
+          }
+          selectedIds={
+            domainTab === "architecture" ? selectedArchitectureTypeIds
+            : domainTab === "nature" ? selectedNatureTypeIds
+            : domainTab === "cultural" ? selectedCulturalTypeIds
+            : domainTab === "archaeology" ? selectedArchaeologyTypeIds
+            : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
+          }
+          onOpen={openHeritageTypeModal}
+          onClear={clearHeritageTypeSelection}
+        />
+        <LocationSearchTrigger
+          selectedIds={filters.regionIds}
+          regionNames={regionNames}
+          regionParents={regionParents}
+          onOpen={openLocationModal}
+          onClear={clearRegionSelection}
+        />
+      </div>
+
+      {/* ── Domain pills (2×2 grid) ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        {[
-          "architecture",
-          "nature",
-          "cultural",
-          "archaeology",
-        ].map((d) => {
-          const domain = d as DomainTab;
+        {(["architecture", "nature", "cultural", "archaeology"] as DomainTab[]).map((domain) => {
           const label =
-            domain === "architecture"
-              ? "Architecture"
-              : domain === "nature"
-              ? "Nature & Landscapes"
-              : domain === "cultural"
-              ? "Cultural Landscape"
-              : "Archaeology";
+            domain === "architecture" ? "Architecture"
+            : domain === "nature" ? "Nature & Landscapes"
+            : domain === "cultural" ? "Cultural Landscape"
+            : "Archaeology";
           const isActive = domainTab === domain;
           return (
             <button
@@ -2726,10 +2704,9 @@ export default function SearchFilters({
               type="button"
               onClick={() => handleDomainTabClick(domain)}
               className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap flex items-center justify-center
-              ${
-                isActive
-                  ? "bg-[var(--brand-orange)] text-white border-[var(--brand-orange)] shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
+              ${isActive
+                ? "bg-[var(--brand-orange)] text-white border-[var(--brand-orange)] shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
               }`}
             >
               {label}
@@ -2738,322 +2715,42 @@ export default function SearchFilters({
         })}
       </div>
 
-      {/* Panels */}
-      <div className="flex-grow min-h-0">
-        {/* All-domain panel (no specific pill selected) */}
-            {domainTab === "all" && (
-              <div className="space-y-4">
-                {/* Keyword */}
-                <div className="relative rounded-xl bg-white border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all">
-                  <input
-                    type="text"
-                    value={filters.name}
-                    onChange={(e) => onFilterChange({ name: e.target.value })}
-                    onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                    placeholder="Search Heritage"
-                    className="w-full px-3 py-2.5 rounded-xl bg-transparent outline-none text-gray-800 placeholder-gray-500 text-sm"
-                  />
-                </div>
+      {/* ── Advanced filters — only for Architecture and Archaeology ── */}
+      {(domainTab === "architecture" || domainTab === "archaeology") && (
+        <div className="flex-grow min-h-0 overflow-y-auto space-y-3 pb-1">
+          {domainTab === "architecture" && (
+            <>
+              <MultiSelectDropdown
+                options={architecturalStyleOptions}
+                selectedIds={selectedArchitecturalStyleIds}
+                onChange={handleArchitecturalStyleChange}
+                placeholder="Architectural Style"
+              />
+              <MultiSelectDropdown
+                options={architecturalFeatureOptions}
+                selectedIds={selectedArchitecturalFeatureIds}
+                onChange={handleArchitecturalFeatureChange}
+                placeholder="Architectural Features"
+              />
+              <MultiSelectDropdown
+                options={historicalPeriodOptions}
+                selectedIds={selectedArchitecturePeriodIds}
+                onChange={handleArchitecturePeriodChange}
+                placeholder="Historical Period"
+              />
+            </>
+          )}
+          {domainTab === "archaeology" && (
+            <MultiSelectDropdown
+              options={historicalPeriodOptions}
+              selectedIds={selectedArchaeologyPeriodIds}
+              onChange={handleArchaeologyPeriodChange}
+              placeholder="Historical Period"
+            />
+          )}
+        </div>
+      )}
 
-                <HeritageTypeTrigger
-                  options={heritageTypeOptions}
-                  selectedIds={filters.categoryIds.filter((id) =>
-                    heritageTypeIdSet.has(id)
-                  )}
-                  onOpen={openHeritageTypeModal}
-                  onClear={clearHeritageTypeSelection}
-                />
-
-                {/* Historical Period */}
-                <MultiSelectDropdown
-                  options={historicalPeriodOptions}
-                  selectedIds={filters.categoryIds.filter((id) =>
-                    historicalPeriodIdSet.has(id)
-                  )}
-                  onChange={handleHistoricalPeriodChange}
-                  placeholder="Historical Period"
-                />
-
-                <LocationSearchTrigger
-                  selectedIds={filters.regionIds}
-                  regionNames={regionNames}
-                  regionParents={regionParents}
-                  onOpen={openLocationModal}
-                  onClear={clearRegionSelection}
-                />
-
-              </div>
-            )}
-
-            {/* Architecture Panel */}
-            {domainTab === "architecture" && (
-              <div className="h-full flex flex-col space-y-3.5">
-                {/* Architecture search */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Search Architecture…"
-                    value={architectureSearch}
-                    onChange={(e) => setArchitectureSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
-                  />
-                  {architectureSearch.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
-                      {architectureSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-gray-500">
-                          No architecture categories found
-                        </div>
-                      ) : (
-                        architectureSearchResults.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => handleArchitectureSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Icon
-                              name={c.icon_key || "landmark"}
-                              size={13}
-                              className="text-gray-400"
-                            />
-                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                              {c.name}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Architecture Type */}
-                <MultiSelectDropdown
-                  options={architectureTypeOptions}
-                  selectedIds={selectedArchitectureTypeIds}
-                  onChange={handleArchitectureTypeChange}
-                  placeholder="Architecture Type"
-                />
-
-                {/* Architectural Style */}
-                <MultiSelectDropdown
-                  options={architecturalStyleOptions}
-                  selectedIds={selectedArchitecturalStyleIds}
-                  onChange={handleArchitecturalStyleChange}
-                  placeholder="Architectural Style"
-                />
-
-                {/* Architectural Features */}
-                <MultiSelectDropdown
-                  options={architecturalFeatureOptions}
-                  selectedIds={selectedArchitecturalFeatureIds}
-                  onChange={handleArchitecturalFeatureChange}
-                  placeholder="Architectural Features"
-                />
-
-                {/* Historical Period (for architecture) */}
-                <MultiSelectDropdown
-                  options={historicalPeriodOptions}
-                  selectedIds={selectedArchitecturePeriodIds}
-                  onChange={handleArchitecturePeriodChange}
-                  placeholder="Historical Period"
-                />
-
-                <LocationSearchTrigger
-                  selectedIds={filters.regionIds}
-                  regionNames={regionNames}
-                  regionParents={regionParents}
-                  onOpen={openLocationModal}
-                  onClear={clearRegionSelection}
-                />
-
-              </div>
-            )}
-
-            {/* Nature Panel */}
-            {domainTab === "nature" && (
-              <div className="h-full flex flex-col space-y-3.5">
-                {/* Nature search */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Search Nature…"
-                    value={natureSearch}
-                    onChange={(e) => setNatureSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
-                  />
-                  {natureSearch.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
-                      {natureSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-gray-500">
-                          No natural heritage categories found
-                        </div>
-                      ) : (
-                        natureSearchResults.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => handleNatureSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Icon
-                              name={c.icon_key || "leaf"}
-                              size={13}
-                              className="text-gray-400"
-                            />
-                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                              {c.name}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Natural Heritage Type */}
-                <MultiSelectDropdown
-                  options={naturalTypeOptions}
-                  selectedIds={selectedNatureTypeIds}
-                  onChange={handleNatureTypeChange}
-                  placeholder="Natural Heritage Type"
-                />
-
-                <LocationSearchTrigger
-                  selectedIds={filters.regionIds}
-                  regionNames={regionNames}
-                  regionParents={regionParents}
-                  onOpen={openLocationModal}
-                  onClear={clearRegionSelection}
-                />
-
-              </div>
-            )}
-
-            {/* Cultural Landscape Panel */}
-            {domainTab === "cultural" && (
-              <div className="h-full flex flex-col space-y-3.5">
-                {/* Cultural Landscape search */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Search Cultural Landscape…"
-                    value={culturalSearch}
-                    onChange={(e) => setCulturalSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
-                  />
-                  {culturalSearch.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
-                      {culturalSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-gray-500">
-                          No cultural landscape categories found
-                        </div>
-                      ) : (
-                        culturalSearchResults.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => handleCulturalSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Icon
-                              name={c.icon_key || "globe-europe"}
-                              size={13}
-                              className="text-gray-400"
-                            />
-                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                              {c.name}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Type Dropdown */}
-                <MultiSelectDropdown
-                  options={culturalTypeOptions}
-                  selectedIds={selectedCulturalTypeIds}
-                  onChange={handleCulturalTypeChange}
-                  placeholder="Type"
-                />
-
-                <LocationSearchTrigger
-                  selectedIds={filters.regionIds}
-                  regionNames={regionNames}
-                  regionParents={regionParents}
-                  onOpen={openLocationModal}
-                  onClear={clearRegionSelection}
-                />
-
-              </div>
-            )}
-
-            {/* Archaeology Panel */}
-            {domainTab === "archaeology" && (
-              <div className="h-full flex flex-col space-y-3.5">
-                {/* Archaeology search */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Search Archaeology…"
-                    value={archaeologySearch}
-                    onChange={(e) => setArchaeologySearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
-                  />
-                  {archaeologySearch.trim().length >= 2 && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
-                      {archaeologySearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-gray-500">
-                          No archaeology categories found
-                        </div>
-                      ) : (
-                        archaeologySearchResults.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => handleArchaeologySearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Icon
-                              name={c.icon_key || "university"}
-                              size={13}
-                              className="text-gray-400"
-                            />
-                            <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                              {c.name}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Type Dropdown */}
-                <MultiSelectDropdown
-                  options={archaeologyTypeOptions}
-                  selectedIds={selectedArchaeologyTypeIds}
-                  onChange={handleArchaeologyTypeChange}
-                  placeholder="Type"
-                />
-
-                {/* Historical Period Dropdown */}
-                <MultiSelectDropdown
-                  options={historicalPeriodOptions}
-                  selectedIds={selectedArchaeologyPeriodIds}
-                  onChange={handleArchaeologyPeriodChange}
-                  placeholder="Historical Period"
-                />
-
-                <LocationSearchTrigger
-                  selectedIds={filters.regionIds}
-                  regionNames={regionNames}
-                  regionParents={regionParents}
-                  onOpen={openLocationModal}
-                  onClear={clearRegionSelection}
-                />
-
-              </div>
-            )}
-
-      </div>
 
       <SearchLocationModal
         isOpen={isLocationModalOpen}
@@ -3077,7 +2774,13 @@ export default function SearchFilters({
       <HeritageTypeModal
         isOpen={isHeritageTypeModalOpen}
         onClose={() => setIsHeritageTypeModalOpen(false)}
-        options={heritageTypeOptions}
+        options={
+          domainTab === "architecture" ? architectureTypeOptions
+          : domainTab === "nature" ? naturalTypeOptions
+          : domainTab === "cultural" ? culturalTypeOptions
+          : domainTab === "archaeology" ? archaeologyTypeOptions
+          : heritageTypeOptions
+        }
         selectedIds={draftHeritageTypeIds}
         onToggle={toggleDraftHeritageType}
         onApply={applyDraftHeritageType}
