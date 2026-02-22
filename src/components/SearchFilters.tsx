@@ -193,8 +193,8 @@ const MultiSelectDropdown = ({
         className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all
         ${
           isOpen
-            ? "ring-[var(--mustard-accent)] shadow-md"
-            : "ring-[var(--taupe-grey)] hover:ring-[var(--mustard-accent)]"
+            ? "ring-[var(--brand-orange)] shadow-md"
+            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
         }`}
       >
         {/* OUTER: div role=button (was button) */}
@@ -210,7 +210,7 @@ const MultiSelectDropdown = ({
             className={`text-sm truncate
             ${
               !selectedIds || selectedIds.length === 0
-                ? "text-[var(--espresso-brown)]/60 font-normal"
+                ? "text-gray-500 font-normal"
                 : "text-[var(--dark-grey)] font-semibold"
             }`}
           >
@@ -243,7 +243,7 @@ const MultiSelectDropdown = ({
                     onChange([]);
                   }
                 }}
-                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
+                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
                 title="Clear selection"
               >
                 <Icon name="times" size={9} />
@@ -252,7 +252,7 @@ const MultiSelectDropdown = ({
             <Icon
               name="chevron-down"
               size={14}
-              className={`transition-transform text-[var(--taupe-grey)] ${
+              className={`transition-transform text-gray-400 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -262,20 +262,20 @@ const MultiSelectDropdown = ({
 
       {/* Dropdown panel */}
       <div
-        className={`absolute left-0 right-0 z-20 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-200 ease-out
+        className={`absolute left-0 right-0 z-20 mt-2 bg-white rounded-xl shadow-xl ring-1 ring-gray-100 transition-all duration-200 ease-out
         ${
           isOpen
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="p-2 border-b border-[var(--taupe-grey)]/40">
+        <div className="p-2 border-b border-gray-100">
           <input
             type="text"
             placeholder="Search…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
           />
         </div>
         <ul className="py-1.5 max-h-60 overflow-auto text-sm">
@@ -286,7 +286,7 @@ const MultiSelectDropdown = ({
               className={`px-3 py-1.5 cursor-pointer transition-colors font-explore-dropdown-item
               ${
                 selectedIds && selectedIds.includes(opt.id)
-                  ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
+                  ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-semibold"
                   : "hover:bg-[var(--ivory-cream)]"
               } text-[var(--dark-grey)]`}
             >
@@ -405,8 +405,8 @@ const TopLevelRegionSelect = ({
       <div
         className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
           isOpen
-            ? "ring-[var(--mustard-accent)] shadow-md"
-            : "ring-[var(--taupe-grey)] hover:ring-[var(--mustard-accent)]"
+            ? "ring-[var(--brand-orange)] shadow-md"
+            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
         }`}
       >
         {/* OUTER: div role=button (was button) */}
@@ -422,7 +422,7 @@ const TopLevelRegionSelect = ({
             className={`text-sm truncate ${
               selectedIds.length || activeParentId
                 ? "text-[var(--dark-grey)] font-semibold"
-                : "text-[var(--espresso-brown)]/60"
+                : "text-gray-500"
             }`}
           >
             {label}
@@ -443,7 +443,7 @@ const TopLevelRegionSelect = ({
                     onClearAll();
                   }
                 }}
-                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)] hover:bg-white transition-colors"
+                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
                 title="Clear"
               >
                 <Icon name="times" size={9} />
@@ -452,7 +452,7 @@ const TopLevelRegionSelect = ({
             <Icon
               name="chevron-down"
               size={14}
-              className={`transition-transform text-[var(--taupe-grey)] ${
+              className={`transition-transform text-gray-400 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -462,30 +462,30 @@ const TopLevelRegionSelect = ({
 
       {/* Panel */}
       <div
-        className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-200 ease-out ${
+        className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-xl ring-1 ring-gray-100 transition-all duration-200 ease-out ${
           isOpen
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="p-2 border-b border-[var(--taupe-grey)]/40">
+        <div className="p-2 border-b border-gray-100">
           <input
             type="text"
             placeholder="Search regions…"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
           />
         </div>
 
         <div className="py-1.5 max-h-72 overflow-auto text-sm">
           {term.trim().length >= 2 ? (
             searching ? (
-              <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
+              <div className="px-3 py-1.5 text-xs text-gray-500">
                 Searching…
               </div>
             ) : results.length === 0 ? (
-              <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
+              <div className="px-3 py-1.5 text-xs text-gray-500">
                 No regions found
               </div>
             ) : (
@@ -500,7 +500,7 @@ const TopLevelRegionSelect = ({
                     }}
                     className={`px-3 py-1.5 cursor-pointer hover:bg-[var(--ivory-cream)] ${
                       selectedIds.includes(r.id)
-                        ? "text-[var(--terracotta-red)] font-semibold"
+                        ? "text-[var(--brand-orange)] font-semibold"
                         : "text-[var(--dark-grey)]"
                     }`}
                   >
@@ -523,14 +523,14 @@ const TopLevelRegionSelect = ({
                     }}
                     className={`px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-[var(--ivory-cream)] ${
                       isSelected
-                        ? "text-[var(--terracotta-red)] font-semibold"
+                        ? "text-[var(--brand-orange)] font-semibold"
                         : "text-[var(--dark-grey)]"
                     }`}
                   >
                     <Icon
                       name={top.icon_key || "map"}
                       size={14}
-                      className="text-[var(--taupe-grey)]"
+                      className="text-gray-400"
                     />
                     <span>{top.name}</span>
                   </li>
@@ -609,8 +609,8 @@ const SubRegionSelect = ({
       <div
         className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
           isOpen
-            ? "ring-[var(--mustard-accent)] shadow-md"
-            : "ring-[var(--taupe-grey)] hover:ring-[var(--mustard-accent)]"
+            ? "ring-[var(--brand-orange)] shadow-md"
+            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
         }`}
       >
         {/* OUTER: div role=button (was button) */}
@@ -637,7 +637,7 @@ const SubRegionSelect = ({
                     clearParentSubs(e);
                   }
                 }}
-                className="w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
                 title="Clear these subregions"
               >
                 <Icon name="times" size={9} />
@@ -646,7 +646,7 @@ const SubRegionSelect = ({
             <Icon
               name="chevron-down"
               size={14}
-              className={`transition-transform text-[var(--taupe-grey)] ${
+              className={`transition-transform text-gray-400 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
@@ -656,29 +656,29 @@ const SubRegionSelect = ({
 
       {/* Panel */}
       <div
-        className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-200 ease-out ${
+        className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-xl ring-1 ring-gray-100 transition-all duration-200 ease-out ${
           isOpen
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="p-2 border-b border-[var(--taupe-grey)]/40">
+        <div className="p-2 border-b border-gray-100">
           <input
             type="text"
             placeholder="Search subregions…"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)]"
+            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
           />
         </div>
 
         <div className="py-1.5 max-h-72 overflow-auto text-sm">
           {loading ? (
-            <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
+            <div className="px-3 py-1.5 text-xs text-gray-500">
               Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-3 py-1.5 text-xs text-[var(--taupe-grey)]">
+            <div className="px-3 py-1.5 text-xs text-gray-500">
               No subregions
             </div>
           ) : (
@@ -691,7 +691,7 @@ const SubRegionSelect = ({
                     onClick={() => onToggleWithRule(s.id)}
                     className={`px-3 py-1.5 cursor-pointer transition-colors flex items-center justify-between ${
                       active
-                        ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
+                        ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-semibold"
                         : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
                     }`}
                   >
@@ -876,7 +876,7 @@ function LocationRadiusFilter({
   return (
     <div className="space-y-2.5 text-sm">
       <div ref={boxRef}>
-        <div className="relative rounded-xl bg-[var(--taupe-grey)]/10 shadow-sm focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+        <div className="relative rounded-xl bg-white border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all">
           {/* Selected site box (thumbnail + title + subtitle) */}
           {selectedPreview ? (
             <div className="flex items-center gap-3 px-3 py-2.5">
@@ -904,7 +904,7 @@ function LocationRadiusFilter({
                         src={thumb}
                         alt=""
                         aria-hidden="true"
-                        className="w-9 h-9 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                        className="w-9 h-9 rounded-full object-cover ring-1 ring-gray-200"
                         loading="lazy"
                         decoding="async"
                         onError={(e) => {
@@ -921,7 +921,7 @@ function LocationRadiusFilter({
                     ) : null}
                     <div
                       style={{ display: thumb ? "none" : "flex" }}
-                      className="absolute inset-0 w-9 h-9 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                      className="absolute inset-0 w-9 h-9 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
                     >
                       <Icon name="image" size={13} />
                     </div>
@@ -934,7 +934,7 @@ function LocationRadiusFilter({
                   {selectedPreview.title}
                 </div>
                 {selectedPreview.subtitle && (
-                  <div className="text-xs text-[var(--espresso-brown)]/70 truncate">
+                  <div className="text-xs text-gray-500 truncate">
                     {selectedPreview.subtitle}
                   </div>
                 )}
@@ -950,7 +950,7 @@ function LocationRadiusFilter({
                     clearSelection();
                   }
                 }}
-                className="mr-1 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                className="mr-1 w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
                 title="Clear"
               >
                 <Icon name="times" size={9} />
@@ -962,10 +962,10 @@ function LocationRadiusFilter({
               <Icon
                 name="map-marker-alt"
                 size={14}
-                className="ml-3 mr-2 text-[var(--taupe-grey)]"
+                className="ml-3 mr-2 text-gray-400"
               />
               <input
-                className="w-full px-2 py-2.5 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 text-sm"
+                className="w-full px-2 py-2.5 rounded-xl bg-transparent outline-none text-gray-800 placeholder-gray-500 text-sm"
                 placeholder="Search Around a Site"
                 value={query}
                 onChange={(e) => {
@@ -985,7 +985,7 @@ function LocationRadiusFilter({
                       setQuery("");
                     }
                   }}
-                  className="mr-3 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                  className="mr-3 w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
                   title="Clear"
                 >
                   <Icon name="times" size={9} />
@@ -996,22 +996,22 @@ function LocationRadiusFilter({
 
           {/* Dropdown */}
           <div
-            className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-[var(--taupe-grey)] transition-all duration-150 ${
+            className={`absolute left-0 right-0 z-30 mt-2 bg-white rounded-xl shadow-xl ring-1 ring-gray-100 transition-all duration-150 ${
               open
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
             {loading ? (
-              <div className="px-4 py-2 text-xs text-[var(--taupe-grey)]">
+              <div className="px-4 py-2 text-xs text-gray-500">
                 Searching…
               </div>
             ) : results.length === 0 && query.length >= 2 ? (
-              <div className="px-4 py-2 text-xs text-[var(--taupe-grey)]">
+              <div className="px-4 py-2 text-xs text-gray-500">
                 No sites found
               </div>
             ) : (
-              <ul className="max-h-64 overflow-auto py-1.5 divide-y divide-[var(--taupe-grey)]/20 text-sm">
+              <ul className="max-h-64 overflow-auto py-1.5 divide-y divide-gray-100 text-sm">
                 {results.map((r) => {
                   const raw = r.cover_photo_url || "";
                   const thumb = thumbUrl(raw, 40);
@@ -1040,7 +1040,7 @@ function LocationRadiusFilter({
                               src={thumb}
                               alt=""
                               aria-hidden="true"
-                              className="w-9 h-9 rounded-full object-cover ring-1 ring-[var(--taupe-grey)]/40"
+                              className="w-9 h-9 rounded-full object-cover ring-1 ring-gray-200"
                               loading="lazy"
                               decoding="async"
                               onError={(e) => {
@@ -1064,7 +1064,7 @@ function LocationRadiusFilter({
                           {/* Hidden placeholder to reveal if image fails */}
                           <div
                             style={{ display: thumb ? "none" : "flex" }}
-                            className="absolute inset-0 w-9 h-9 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40 items-center justify-center text-[var(--taupe-grey)]"
+                            className="absolute inset-0 w-9 h-9 rounded-full bg-gray-100 ring-1 ring-gray-200 items-center justify-center text-gray-400"
                           >
                             <Icon name="image" size={13} />
                           </div>
@@ -1075,7 +1075,7 @@ function LocationRadiusFilter({
                             {r.title}
                           </div>
                           {r.location_free && (
-                            <div className="text-xs text-[var(--espresso-brown)]/70 truncate">
+                            <div className="text-xs text-gray-500 truncate">
                               {r.location_free}
                             </div>
                           )}
@@ -1091,11 +1091,11 @@ function LocationRadiusFilter({
       </div>
 
       <div>
-        <label className="mb-0.5 block text-[0.7rem] font-medium text-[var(--espresso-brown)]/70">
+        <label className="mb-0.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
           Radius (km)
         </label>
         <div className="grid grid-cols-[1fr_auto] gap-2.5 items-center">
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-3 py-1.5">
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/40 px-3 py-1.5">
             <input
               type="range"
               min={1}
@@ -1109,7 +1109,7 @@ function LocationRadiusFilter({
               disabled={!value.centerSiteId}
             />
           </div>
-          <div className="w-24 rounded-xl bg-white shadow-sm ring-1 ring-[var(--taupe-grey)] focus-within:ring-2 focus-within:ring-[var(--mustard-accent)] px-2.5 py-1.5">
+          <div className="w-24 rounded-xl bg-white shadow-sm ring-1 ring-gray-200 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/40 px-2.5 py-1.5">
             <input
               type="number"
               min={1}
@@ -1127,7 +1127,7 @@ function LocationRadiusFilter({
             />
           </div>
         </div>
-        <p className="mt-1 text-[0.7rem] text-[var(--espresso-brown)]/70">
+        <p className="mt-1 text-[0.7rem] text-gray-500">
           {value.centerSiteId
             ? `Searching within ${value.radiusKm ?? 25} km of the selected site.`
             : "Choose a site to enable radius search."}
@@ -2119,18 +2119,18 @@ export default function SearchFilters({
   /* ───────── Render ───────── */
 
   return (
-    <div className="p-3 bg-white h-full flex flex-col text-sm">
+    <div className="p-4 bg-white h-full flex flex-col text-sm">
       {/* Master Tabs: All / Region (overall tabs) */}
-      <div className="flex mb-3 border-b border-[var(--taupe-grey)]/60 text-xs">
+      <div className="flex mb-4 border-b border-gray-100 text-xs">
         {(["all", "region"] as MasterTab[]).map((t) => (
           <button
             key={t}
             onClick={() => handleMasterTabClick(t)}
-            className={`px-3 pt-2 pb-1 -mb-[1px] font-semibold border-b-2 transition-colors
+            className={`px-4 pt-2.5 pb-1.5 -mb-[1px] font-semibold border-b-2 transition-colors
             ${
               masterTab === t
-                ? "border-[var(--terracotta-red)] text-[var(--dark-grey)]"
-                : "border-transparent text-[var(--espresso-brown)]/70 hover:text-[var(--dark-grey)]"
+                ? "border-[var(--brand-orange)] text-[var(--brand-orange)]"
+                : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
             {t === "all" ? "All" : "Region"}
@@ -2161,11 +2161,11 @@ export default function SearchFilters({
               key={domain}
               type="button"
               onClick={() => handleDomainTabClick(domain)}
-              className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition whitespace-nowrap flex items-center justify-center
+              className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap flex items-center justify-center
               ${
                 isActive
-                  ? "bg-[var(--terracotta-red)] text-white border-[var(--terracotta-red)]"
-                  : "bg-white text-[var(--dark-grey)] border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+                  ? "bg-[var(--brand-orange)] text-white border-[var(--brand-orange)] shadow-sm"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
               }`}
             >
               {label}
@@ -2183,14 +2183,14 @@ export default function SearchFilters({
             {domainTab === "all" && (
               <div className="space-y-4">
                 {/* Keyword */}
-                <div className="relative rounded-xl bg-[var(--taupe-grey)]/10 shadow-sm focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+                <div className="relative rounded-xl bg-white border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all">
                   <input
                     type="text"
                     value={filters.name}
                     onChange={(e) => onFilterChange({ name: e.target.value })}
                     onKeyDown={(e) => e.key === "Enter" && onSearch()}
                     placeholder="Search Heritage"
-                    className="w-full px-3 py-2.5 rounded-xl bg-transparent outline-none text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl bg-transparent outline-none text-gray-800 placeholder-gray-500 text-sm"
                   />
                 </div>
 
@@ -2265,12 +2265,12 @@ export default function SearchFilters({
                     placeholder="Search Architecture…"
                     value={architectureSearch}
                     onChange={(e) => setArchitectureSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
                   />
                   {architectureSearch.trim().length >= 2 && (
                     <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
                       {architectureSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                        <div className="px-2 py-1 text-gray-500">
                           No architecture categories found
                         </div>
                       ) : (
@@ -2278,12 +2278,12 @@ export default function SearchFilters({
                           <button
                             key={c.id}
                             onClick={() => handleArchitectureSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Icon
                               name={c.icon_key || "landmark"}
                               size={13}
-                              className="text-[var(--taupe-grey)]"
+                              className="text-gray-400"
                             />
                             <span className="font-explore-tab-item text-[var(--dark-grey)]">
                               {c.name}
@@ -2378,12 +2378,12 @@ export default function SearchFilters({
                     placeholder="Search Nature…"
                     value={natureSearch}
                     onChange={(e) => setNatureSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
                   />
                   {natureSearch.trim().length >= 2 && (
                     <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
                       {natureSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                        <div className="px-2 py-1 text-gray-500">
                           No natural heritage categories found
                         </div>
                       ) : (
@@ -2391,12 +2391,12 @@ export default function SearchFilters({
                           <button
                             key={c.id}
                             onClick={() => handleNatureSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Icon
                               name={c.icon_key || "leaf"}
                               size={13}
-                              className="text-[var(--taupe-grey)]"
+                              className="text-gray-400"
                             />
                             <span className="font-explore-tab-item text-[var(--dark-grey)]">
                               {c.name}
@@ -2467,12 +2467,12 @@ export default function SearchFilters({
                     placeholder="Search Cultural Landscape…"
                     value={culturalSearch}
                     onChange={(e) => setCulturalSearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
                   />
                   {culturalSearch.trim().length >= 2 && (
                     <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
                       {culturalSearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                        <div className="px-2 py-1 text-gray-500">
                           No cultural landscape categories found
                         </div>
                       ) : (
@@ -2480,12 +2480,12 @@ export default function SearchFilters({
                           <button
                             key={c.id}
                             onClick={() => handleCulturalSearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Icon
                               name={c.icon_key || "globe-europe"}
                               size={13}
-                              className="text-[var(--taupe-grey)]"
+                              className="text-gray-400"
                             />
                             <span className="font-explore-tab-item text-[var(--dark-grey)]">
                               {c.name}
@@ -2556,12 +2556,12 @@ export default function SearchFilters({
                     placeholder="Search Archaeology…"
                     value={archaeologySearch}
                     onChange={(e) => setArchaeologySearch(e.target.value)}
-                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input"
+                    className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input"
                   />
                   {archaeologySearch.trim().length >= 2 && (
                     <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
                       {archaeologySearchResults.length === 0 ? (
-                        <div className="px-2 py-1 text-[var(--taupe-grey)]">
+                        <div className="px-2 py-1 text-gray-500">
                           No archaeology categories found
                         </div>
                       ) : (
@@ -2569,12 +2569,12 @@ export default function SearchFilters({
                           <button
                             key={c.id}
                             onClick={() => handleArchaeologySearchPick(c.id)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)] flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Icon
                               name={c.icon_key || "university"}
                               size={13}
-                              className="text-[var(--taupe-grey)]"
+                              className="text-gray-400"
                             />
                             <span className="font-explore-tab-item text-[var(--dark-grey)]">
                               {c.name}
@@ -2653,17 +2653,17 @@ export default function SearchFilters({
               placeholder="Search regions..."
               value={regSearch}
               onChange={(e) => setRegSearch(e.target.value)}
-              className="w-full mb-2.5 px-3 py-1.5 text-xs rounded-md bg-[var(--taupe-grey)]/15 text-[var(--espresso-brown)] placeholder-[var(--espresso-brown)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] font-explore-input flex-shrink-0"
+              className="w-full mb-2.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input flex-shrink-0"
             />
 
             {regSearch.trim().length >= 2 ? (
               <div className="space-y-1 overflow-y-auto scrollbar-hide text-xs">
                 {regSearching ? (
-                  <div className="px-3 py-1.5 text-[var(--taupe-grey)]">
+                  <div className="px-3 py-1.5 text-gray-500">
                     Searching…
                   </div>
                 ) : regSearchResults.length === 0 ? (
-                  <div className="px-3 py-1.5 text-[var(--taupe-grey)]">
+                  <div className="px-3 py-1.5 text-gray-500">
                     No regions found
                   </div>
                 ) : (
@@ -2674,14 +2674,14 @@ export default function SearchFilters({
                       className={`w-full text-left px-3 py-1.5 rounded-lg border transition flex items-center gap-2
                       ${
                         filters.regionIds.includes(r.id)
-                          ? "bg-[var(--terracotta-red)]/10 border-[var(--terracotta-red)]"
-                          : "border-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+                          ? "bg-[var(--brand-orange)]/10 border-[var(--brand-orange)]"
+                          : "border-gray-200 hover:bg-gray-50"
                       }`}
                     >
                       <Icon
                         name={r.icon_key || "map"}
                         size={14}
-                        className="text-[var(--taupe-grey)]"
+                        className="text-gray-400"
                       />
                       <span className="font-explore-tab-item text-[var(--dark-grey)]">
                         {r.name}
@@ -2699,7 +2699,7 @@ export default function SearchFilters({
                       return (
                         <div
                           key={top.id}
-                          className="rounded-lg border border-[var(--taupe-grey)] bg-white"
+                          className="rounded-lg border border-gray-200 bg-white"
                         >
                           {/* Entire row accessible clickable container (NOT a button) */}
                           <div
@@ -2725,7 +2725,7 @@ export default function SearchFilters({
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition cursor-pointer ${
                               parentSelected
-                                ? "bg-[var(--terracotta-red)]/10"
+                                ? "bg-[var(--brand-orange)]/10"
                                 : "hover:bg-[var(--ivory-cream)]"
                             }`}
                             title={`Open ${top.name}`}
@@ -2734,12 +2734,12 @@ export default function SearchFilters({
                               <Icon
                                 name={top.icon_key || "map"}
                                 size={14}
-                                className="text-[var(--taupe-grey)]"
+                                className="text-gray-400"
                               />
                               <span
                                 className={`font-explore-tab-item text-sm ${
                                   parentSelected
-                                    ? "text-[var(--terracotta-red)] font-semibold"
+                                    ? "text-[var(--brand-orange)] font-semibold"
                                     : "text-[var(--dark-grey)]"
                                 }`}
                               >
@@ -2754,7 +2754,7 @@ export default function SearchFilters({
                                   e.stopPropagation();
                                   clearRegionParent(top.id);
                                 }}
-                                className="ml-2 w-5 h-5 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] flex items-center justify-center text-[var(--taupe-grey)] hover:text-[var(--terracotta-red)]"
+                                className="ml-2 w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
                                 title="Clear this region"
                               >
                                 <Icon name="times" size={9} />
@@ -2763,7 +2763,7 @@ export default function SearchFilters({
                               <Icon
                                 name="chevron-right"
                                 size={14}
-                                className="text-[var(--taupe-grey)]"
+                                className="text-gray-400 flex-shrink-0"
                               />
                             )}
                           </div>
@@ -2778,7 +2778,7 @@ export default function SearchFilters({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setExpandedParentId(null)}
-                          className="px-2 py-1 text-xs rounded ring-1 ring-[var(--taupe-grey)] hover:bg-[var(--ivory-cream)]"
+                          className="px-2 py-1 text-xs rounded ring-1 ring-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
                         >
                           ← Back
                         </button>
@@ -2789,7 +2789,7 @@ export default function SearchFilters({
 
                       <button
                         onClick={() => clearRegionParent(expandedParentId!)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)] hover:bg-white"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-gray-50 ring-1 ring-gray-200 hover:bg-white text-gray-600 transition-colors"
                         title="Clear this region & subregions"
                       >
                         <Icon name="times" size={9} />
@@ -2797,8 +2797,8 @@ export default function SearchFilters({
                       </button>
                     </div>
 
-                    <div className="rounded-lg border border-[var(--taupe-grey)]/60">
-                      <div className="px-3 py-1.5 border-b border-[var(--taupe-grey)]/40 text-[0.7rem] text-[var(--espresso-brown)]/70">
+                    <div className="rounded-lg border border-gray-200">
+                      <div className="px-3 py-1.5 border-b border-gray-100 text-[0.7rem] text-gray-400">
                         Choose subregions under “
                         {regionNames[expandedParentId!] || "Region"}”.
                       </div>
@@ -2808,7 +2808,7 @@ export default function SearchFilters({
                           const subs = subsByParent[expandedParentId!] || [];
                           if (!subs.length)
                             return (
-                              <div className="px-2 py-1.5 text-[var(--taupe-grey)]">
+                              <div className="px-2 py-1.5 text-gray-500">
                                 No subregions
                               </div>
                             );
@@ -2820,7 +2820,7 @@ export default function SearchFilters({
                                 key={s.id}
                                 className={`flex items-center justify-between rounded px-3 py-1.5 ${
                                   active
-                                    ? "bg-[var(--terracotta-red)]/10 text-[var(--terracotta-red)] font-semibold"
+                                    ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-semibold"
                                     : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
                                 }`}
                               >
@@ -2856,23 +2856,24 @@ export default function SearchFilters({
       </div>
 
       {/* Footer actions */}
-      <div className="flex gap-2.5 pt-3 mt-3 flex-shrink-0">
+      <div className="flex gap-2.5 pt-4 mt-3 border-t border-gray-100 flex-shrink-0">
         <button
           onClick={onSearch}
-          className="font-explore-button flex-1 py-2 rounded-xl bg-[var(--terracotta-red)] hover:brightness-95 text-white font-semibold shadow-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] text-sm"
+          className="font-explore-button flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
         >
+          <Icon name="search" size={13} />
           Search
         </button>
         <button
           onClick={handleReset}
-          className="font-explore-button px-3.5 rounded-xl bg-white ring-1 ring-[var(--taupe-grey)] shadow-sm text-[var(--dark-grey)] hover:bg-[var(--ivory-cream)] inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--mustard-accent)] text-xs"
+          className="font-explore-button px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
           title="Reset filters"
           type="button"
         >
           <Icon
             name="redo-alt"
             size={12}
-            className="text-[var(--terracotta-red)]"
+            className="text-[var(--brand-orange)]"
           />
           Reset
         </button>

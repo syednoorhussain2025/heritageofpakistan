@@ -1059,7 +1059,7 @@ function ExplorePageContent() {
       <div className="relative z-10">
         <div className="lg:flex">
           <aside className="hidden lg:block w-[360px] fixed left-4 top-[88px] bottom-4 z-20">
-            <div className="h-full rounded-2xl bg-white shadow-2xl ring-1 ring-[var(--taupe-grey)] overflow-hidden flex flex-col">
+            <div className="h-full rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 overflow-hidden flex flex-col">
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
