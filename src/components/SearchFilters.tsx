@@ -2255,8 +2255,6 @@ export default function SearchFilters({
   const resetSharedUi = () => {
     setActiveParentId(null);
     setExpandedParentId(null);
-    setRegSearch("");
-    setRegSearchResults([]);
     setCenterSiteTitle(null);
     setArchitectureSearch("");
     setNatureSearch("");
