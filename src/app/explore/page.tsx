@@ -15,8 +15,11 @@ import SearchFilters, {
   fetchSitesByFilters,
   hasRadius,
 } from "@/components/SearchFilters";
+import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
+import NearbySearchModal from "@/components/NearbySearchModal";
+import Icon from "@/components/Icon";
 
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
@@ -453,6 +456,8 @@ function ExplorePageContent() {
 
   const isHydratingRef = useRef(false);
 
+  const [showNearbyModal, setShowNearbyModal] = useState(false);
+
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
     sites: [],
@@ -642,7 +647,7 @@ function ExplorePageContent() {
           const { data: row, error: err } = await withTimeout(
             supabase
               .from("sites")
-              .select("id,title,location_free")
+              .select("id,title,location_free,cover_photo_url")
               .eq("id", nextFilters.centerSiteId)
               .maybeSingle(),
             QUERY_TIMEOUT_MS,
@@ -664,6 +669,9 @@ function ExplorePageContent() {
 
             if (coverRow?.storage_path) {
               cover = buildCoverUrlFromStoragePath(coverRow.storage_path);
+            } else if ((row as any).cover_photo_url) {
+              // Fallback: use the direct cover_photo_url from the sites table
+              cover = (row as any).cover_photo_url as string;
             }
 
             setCenterSiteTitle(row.title ?? null);
@@ -1003,38 +1011,66 @@ function ExplorePageContent() {
     return () => observer.disconnect();
   }, [hasMore, loadMore]);
 
-  /* Locked radius banner */
+  /* Locked radius banner — clicking opens the NearbySearchModal */
   const CenterBanner = () =>
     hasRadius(filters) && centerSitePreview ? (
       <div
         className="hidden xl:flex items-center gap-3 absolute right-2 top-1"
         aria-label="Locked radius location"
       >
-        <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 flex items-center max-w-[360px]">
-          <div className="relative w-14 h-14 flex-shrink-0">
-            <StableBannerImage
-              rawCover={centerSitePreview.cover}
-              size={112}
-              alt=""
-            />
-          </div>
-          <div className="min-w-0 pl-2">
-            <div className="text-[11px] uppercase tracking-wider text-[var(--espresso-brown)]/70 flex items-center gap-1">
-              <span>Sites within</span>
-              <span className="px-2 py-0.5 rounded-full bg-[var(--olive-green)]/10 text-[var(--olive-green)] font-semibold ring-1 ring-[var(--olive-green)]/30 leading-none">
-                {typeof filters.radiusKm === "number"
-                  ? `${filters.radiusKm} km`
-                  : "Radius"}
-              </span>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowNearbyModal(true)}
+            className="group/edit rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-[var(--taupe-grey)]/60 px-3 py-2 pr-4 flex items-center max-w-[360px] hover:ring-[var(--brand-orange)] hover:shadow-xl transition-all cursor-pointer"
+          >
+            <div className="relative w-14 h-14 flex-shrink-0">
+              <StableBannerImage
+                rawCover={centerSitePreview.cover}
+                size={112}
+                alt=""
+              />
             </div>
-            <div className="text-base font-semibold text-[var(--dark-grey)] truncate">
-              {centerSitePreview.title}
-            </div>
-            {centerSitePreview.subtitle && (
-              <div className="text-xs text-[var(--espresso-brown)]/80 truncate">
-                {centerSitePreview.subtitle}
+            <div className="min-w-0 pl-2 text-left">
+              <div className="text-[11px] uppercase tracking-wider text-[var(--espresso-brown)]/70 flex items-center gap-1">
+                <span>Sites within</span>
+                <span className="px-2 py-0.5 rounded-full bg-[var(--olive-green)]/10 text-[var(--olive-green)] font-semibold ring-1 ring-[var(--olive-green)]/30 leading-none">
+                  {typeof filters.radiusKm === "number"
+                    ? `${filters.radiusKm} km`
+                    : "Radius"}
+                </span>
               </div>
-            )}
+              <div className="text-base font-semibold text-[var(--dark-grey)] truncate">
+                {centerSitePreview.title}
+              </div>
+              {centerSitePreview.subtitle && (
+                <div className="text-xs text-[var(--espresso-brown)]/80 truncate">
+                  {centerSitePreview.subtitle}
+                </div>
+              )}
+            </div>
+            {/* "Click to edit" tooltip on main button hover */}
+            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/edit:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+              Click to edit
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900" />
+            </span>
+          </button>
+          {/* X to clear proximity search — with its own "Clear" tooltip */}
+          <div className="absolute -top-2 -right-2 group/clearx">
+            <button
+              type="button"
+              onClick={() => {
+                handleFilterChange(clearPlacesNearby());
+                executeSearch();
+              }}
+              className="w-5 h-5 rounded-full bg-white shadow ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/50 transition-colors"
+            >
+              <Icon name="times" size={8} />
+            </button>
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[0.65rem] rounded-md whitespace-nowrap opacity-0 group-hover/clearx:opacity-100 transition-opacity duration-150 z-50">
+              Clear
+              <span className="absolute top-full left-1/2 -translate-x-1/2 border-[3px] border-transparent border-t-gray-900" />
+            </span>
           </div>
         </div>
       </div>
@@ -1064,6 +1100,7 @@ function ExplorePageContent() {
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onSearch={executeSearch}
+                onOpenNearbyModal={() => setShowNearbyModal(true)}
               />
               {hasRadius(filters) && centerSitePreview?.subtitle ? (
                 <div className="px-4 pb-3 pt-1 text-xs text-[var(--espresso-brown)]/80 border-t border-[var(--taupe-grey)]/30">
@@ -1136,6 +1173,22 @@ function ExplorePageContent() {
           </main>
         </div>
       </div>
+
+      {/* Nearby search modal */}
+      <NearbySearchModal
+        isOpen={showNearbyModal}
+        onClose={() => setShowNearbyModal(false)}
+        value={{
+          centerSiteId: filters.centerSiteId,
+          centerLat: filters.centerLat,
+          centerLng: filters.centerLng,
+          radiusKm: filters.radiusKm,
+        }}
+        onApply={(v) => {
+          handleFilterChange(v);
+          executeSearch();
+        }}
+      />
     </div>
   );
 }

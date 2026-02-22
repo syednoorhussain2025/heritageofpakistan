@@ -1223,6 +1223,7 @@ interface SearchFiltersProps {
   onFilterChange: (newFilters: Partial<Filters>) => void;
   onSearch: () => void;
   onHeadingChange?: (title: string) => void;
+  onOpenNearbyModal?: () => void;
 }
 
 type MasterTab = "all" | "region";
@@ -1238,6 +1239,7 @@ export default function SearchFilters({
   onFilterChange,
   onSearch,
   onHeadingChange,
+  onOpenNearbyModal,
 }: SearchFiltersProps) {
   const [options, setOptions] = useState<FilterOptions>({
     categories: [],
@@ -1247,6 +1249,26 @@ export default function SearchFilters({
   const [activeParentId, setActiveParentId] = useState<string | null>(null);
 
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
+
+  // Keep centerSiteTitle in sync whenever filters.centerSiteId changes externally
+  useEffect(() => {
+    let active = true;
+    if (!filters.centerSiteId) {
+      setCenterSiteTitle(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("sites")
+        .select("id,title")
+        .eq("id", filters.centerSiteId)
+        .maybeSingle();
+      if (active && data) setCenterSiteTitle(data.title);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [filters.centerSiteId]);
 
   const [regionNames, setRegionNames] = useState<Record<string, string>>({});
   const [regionParents, setRegionParents] = useState<
@@ -2239,19 +2261,6 @@ export default function SearchFilters({
                     )}
                 </div>
 
-                {/* Location + Radius */}
-                <LocationRadiusFilter
-                  value={{
-                    centerSiteId: filters.centerSiteId ?? null,
-                    centerLat: filters.centerLat ?? null,
-                    centerLng: filters.centerLng ?? null,
-                    radiusKm: filters.radiusKm ?? undefined,
-                  }}
-                  onChange={(v) => onFilterChange(v)}
-                  onSitePicked={(site) =>
-                    setCenterSiteTitle(site?.title ?? null)
-                  }
-                />
               </div>
             )}
 
@@ -2352,19 +2361,6 @@ export default function SearchFilters({
                     )}
                 </div>
 
-                {/* Architecture tab radius search */}
-                <LocationRadiusFilter
-                  value={{
-                    centerSiteId: filters.centerSiteId ?? null,
-                    centerLat: filters.centerLat ?? null,
-                    centerLng: filters.centerLng ?? null,
-                    radiusKm: filters.radiusKm ?? undefined,
-                  }}
-                  onChange={(v) => onFilterChange(v)}
-                  onSitePicked={(site) =>
-                    setCenterSiteTitle(site?.title ?? null)
-                  }
-                />
               </div>
             )}
 
@@ -2441,19 +2437,6 @@ export default function SearchFilters({
                     )}
                 </div>
 
-                {/* Nature tab radius search */}
-                <LocationRadiusFilter
-                  value={{
-                    centerSiteId: filters.centerSiteId ?? null,
-                    centerLat: filters.centerLat ?? null,
-                    centerLng: filters.centerLng ?? null,
-                    radiusKm: filters.radiusKm ?? undefined,
-                  }}
-                  onChange={(v) => onFilterChange(v)}
-                  onSitePicked={(site) =>
-                    setCenterSiteTitle(site?.title ?? null)
-                  }
-                />
               </div>
             )}
 
@@ -2530,19 +2513,6 @@ export default function SearchFilters({
                     )}
                 </div>
 
-                {/* Cultural tab radius search */}
-                <LocationRadiusFilter
-                  value={{
-                    centerSiteId: filters.centerSiteId ?? null,
-                    centerLat: filters.centerLat ?? null,
-                    centerLng: filters.centerLng ?? null,
-                    radiusKm: filters.radiusKm ?? undefined,
-                  }}
-                  onChange={(v) => onFilterChange(v)}
-                  onSitePicked={(site) =>
-                    setCenterSiteTitle(site?.title ?? null)
-                  }
-                />
               </div>
             )}
 
@@ -2627,19 +2597,6 @@ export default function SearchFilters({
                     )}
                 </div>
 
-                {/* Archaeology tab radius search */}
-                <LocationRadiusFilter
-                  value={{
-                    centerSiteId: filters.centerSiteId ?? null,
-                    centerLat: filters.centerLat ?? null,
-                    centerLng: filters.centerLng ?? null,
-                    radiusKm: filters.radiusKm ?? undefined,
-                  }}
-                  onChange={(v) => onFilterChange(v)}
-                  onSitePicked={(site) =>
-                    setCenterSiteTitle(site?.title ?? null)
-                  }
-                />
               </div>
             )}
           </>
@@ -2851,6 +2808,98 @@ export default function SearchFilters({
                 )}
               </>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Proximity search trigger */}
+      <div className="pt-3 flex-shrink-0 relative group/proximity">
+        <button
+          type="button"
+          onClick={onOpenNearbyModal}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-sm ${
+            filters.centerSiteId
+              ? "bg-[var(--brand-orange)]/5 border-[var(--brand-orange)]/40 hover:border-[var(--brand-orange)]"
+              : "bg-white border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+              filters.centerSiteId
+                ? "bg-[var(--brand-orange)]/10"
+                : "bg-gray-100"
+            }`}
+          >
+            <Icon
+              name="map-marker-alt"
+              size={13}
+              className={
+                filters.centerSiteId
+                  ? "text-[var(--brand-orange)]"
+                  : "text-gray-400"
+              }
+            />
+          </div>
+          {filters.centerSiteId && centerSiteTitle ? (
+            <div className="min-w-0 flex-1 text-left">
+              <div className="font-medium text-gray-900 truncate text-xs leading-tight">
+                {centerSiteTitle}
+              </div>
+              <div className="text-[0.65rem] text-gray-500 truncate leading-tight">
+                Within {filters.radiusKm ?? 25} km · tap to edit
+              </div>
+            </div>
+          ) : (
+            <span className="font-medium text-sm text-gray-600">
+              Search Around a Site
+            </span>
+          )}
+          {filters.centerSiteId ? (
+            /* X button with its own "Clear" tooltip */
+            <span className="relative ml-auto flex-shrink-0 group/clearx">
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFilterChange(clearPlacesNearby());
+                  onSearch();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onFilterChange(clearPlacesNearby());
+                    onSearch();
+                  }
+                }}
+                className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"
+              >
+                <Icon name="times" size={8} />
+              </span>
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[0.65rem] rounded-md whitespace-nowrap opacity-0 group-hover/clearx:opacity-100 transition-opacity duration-150 z-50">
+                Clear
+                <span className="absolute top-full left-1/2 -translate-x-1/2 border-[3px] border-transparent border-t-gray-900" />
+              </span>
+            </span>
+          ) : (
+            <Icon
+              name="chevron-right"
+              size={11}
+              className="ml-auto text-gray-400 flex-shrink-0"
+            />
+          )}
+        </button>
+        {/* "Click to edit" tooltip on main button hover (hides when X is hovered) */}
+        {filters.centerSiteId ? (
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/proximity:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+            Click to edit
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/proximity:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+            Find heritage sites near a specific location
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
           </div>
         )}
       </div>
