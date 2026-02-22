@@ -23,6 +23,7 @@ import Icon from "@/components/Icon";
 
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
+const SEARCH_RPC_TIMEOUT_MS = 30000;
 
 function withTimeout<T = any>(
   promise: PromiseLike<T>,
@@ -103,6 +104,115 @@ function parseMulti(value: string | null): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+type SearchSitesRpcArgs = {
+  nameQuery: string;
+  categoryIds: string[];
+  regionIds: string[];
+  page: number;
+  pageSize: number;
+  label: string;
+};
+
+function isTimeoutError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+  return /timed out after/i.test(message);
+}
+
+async function fetchSearchSitesFallback({
+  nameQuery,
+  categoryIds,
+  regionIds,
+  page,
+  pageSize,
+}: Omit<SearchSitesRpcArgs, "label">) {
+  const needCategoryInner = categoryIds.length > 0;
+  const needRegionInner = regionIds.length > 0;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const joinSelectParts: string[] = [];
+  if (needCategoryInner) joinSelectParts.push("site_categories!inner(category_id)");
+  if (needRegionInner) joinSelectParts.push("site_regions!inner(region_id)");
+
+  const selectCols = [
+    "id",
+    "slug",
+    "province_id",
+    "title",
+    "cover_photo_url",
+    "location_free",
+    "heritage_type",
+    "avg_rating",
+    "review_count",
+    "created_at",
+    ...joinSelectParts,
+  ].join(",");
+
+  let q = supabase
+    .from("sites")
+    .select(selectCols, { count: "planned" })
+    .eq("is_published", true)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .range(from, to);
+
+  if (nameQuery.trim()) {
+    const qv = nameQuery.trim();
+    q = q.or(`title.ilike.%${qv}%,slug.ilike.%${qv}%`);
+  }
+  if (needCategoryInner) {
+    q = q.in("site_categories.category_id", categoryIds as any[]);
+  }
+  if (needRegionInner) {
+    q = q.in("site_regions.region_id", regionIds as any[]);
+  }
+
+  const { data, error, count } = await q;
+  if (error) throw error;
+
+  const rows = ((data as any[]) || []).map((row) => ({
+    ...row,
+    total_count: count ?? 0,
+  }));
+  return rows;
+}
+
+async function searchSitesRpc({
+  nameQuery,
+  categoryIds,
+  regionIds,
+  page,
+  pageSize,
+  label,
+}: SearchSitesRpcArgs) {
+  try {
+    return await withTimeout(
+      supabase.rpc("search_sites", {
+        p_name_query: nameQuery.trim() || null,
+        p_category_ids: categoryIds.length > 0 ? categoryIds : null,
+        p_region_ids: regionIds.length > 0 ? regionIds : null,
+        p_order_by: "latest",
+        p_page: page,
+        p_page_size: pageSize,
+      }),
+      SEARCH_RPC_TIMEOUT_MS,
+      label
+    );
+  } catch (error) {
+    if (!isTimeoutError(error)) throw error;
+    console.warn(`[Explore] ${label} timed out, using fallback query path.`);
+    const fallbackRows = await fetchSearchSitesFallback({
+      nameQuery,
+      categoryIds,
+      regionIds,
+      page,
+      pageSize,
+    });
+    return { data: fallbackRows, error: null };
+  }
 }
 
 /** Read "type" selections from Filters in a tolerant way. */
@@ -791,19 +901,14 @@ function ExplorePageContent() {
         /* ───── Non radius mode, first page ───── */
         setRadiusAllRows(null);
 
-        const orderQuery = "latest";
-        const { data, error: rpcError } = await withTimeout(
-          supabase.rpc("search_sites", {
-            p_name_query: nameQuery.trim() || null,
-            p_category_ids: catsQuery.length > 0 ? catsQuery : null,
-            p_region_ids: regsQuery.length > 0 ? regsQuery : null,
-            p_order_by: orderQuery,
-            p_page: 1,
-            p_page_size: PAGE_SIZE,
-          }),
-          QUERY_TIMEOUT_MS,
-          "explore.searchSitesPage1"
-        );
+        const { data, error: rpcError } = await searchSitesRpc({
+          nameQuery,
+          categoryIds: catsQuery,
+          regionIds: regsQuery,
+          page: 1,
+          pageSize: PAGE_SIZE,
+          label: "explore.searchSitesPage1",
+        });
         if (rpcError) throw rpcError;
 
         const sites = ((data as any[]) || []) as Site[];
@@ -943,19 +1048,14 @@ function ExplorePageContent() {
       const catsQuery = parseMulti(searchParams.get("cats"));
       const regsQuery = parseMulti(searchParams.get("regs"));
 
-      const orderQuery = "latest";
-      const { data, error: rpcError } = await withTimeout(
-        supabase.rpc("search_sites", {
-          p_name_query: nameQuery.trim() || null,
-          p_category_ids: catsQuery.length > 0 ? catsQuery : null,
-          p_region_ids: regsQuery.length > 0 ? regsQuery : null,
-          p_order_by: orderQuery,
-          p_page: nextPage,
-          p_page_size: PAGE_SIZE,
-        }),
-        QUERY_TIMEOUT_MS,
-        "explore.searchSitesLoadMore"
-      );
+      const { data, error: rpcError } = await searchSitesRpc({
+        nameQuery,
+        categoryIds: catsQuery,
+        regionIds: regsQuery,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        label: "explore.searchSitesLoadMore",
+      });
       if (rpcError) throw rpcError;
 
       const newSites = ((data as any[]) || []) as Site[];

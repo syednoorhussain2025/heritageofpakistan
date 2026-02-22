@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import { withTimeout } from "@/lib/async/withTimeout";
@@ -311,11 +312,31 @@ function applyRegionToggle(
   const set = new Set(currentIds);
 
   if (isTop) {
-    set.has(toggleId) ? set.delete(toggleId) : set.add(toggleId);
+    if (set.has(toggleId)) {
+      set.delete(toggleId);
+      return Array.from(set);
+    }
+
+    // Selecting a parent means "whole parent region":
+    // clear any selected subregions under it to avoid ambiguous broad+narrow state.
+    for (const id of Array.from(set)) {
+      if ((parentOf[id] ?? id) === toggleId && id !== toggleId) {
+        set.delete(id);
+      }
+    }
+    set.add(toggleId);
     return Array.from(set);
   }
 
-  set.has(toggleId) ? set.delete(toggleId) : set.add(toggleId);
+  if (set.has(toggleId)) {
+    set.delete(toggleId);
+    return Array.from(set);
+  }
+
+  // Selecting a subregion should narrow under its parent,
+  // so remove the parent-wide selection if present.
+  set.delete(parent);
+  set.add(toggleId);
   return Array.from(set);
 }
 
@@ -729,6 +750,529 @@ const SubRegionSelect = ({
 };
 
 /* ───────────────────────────── Location + Radius Filter ───────────────────────────── */
+function buildLocationSummary(
+  selectedIds: string[],
+  regionNames: Record<string, string>,
+  regionParents: Record<string, string | null>
+) {
+  if (!selectedIds.length) return null;
+
+  if (selectedIds.length === 1) {
+    const id = selectedIds[0];
+    const parentId = regionParents[id] ?? id;
+    if (parentId !== id) {
+      const sub = regionNames[id] ?? "Subregion";
+      const parent = regionNames[parentId] ?? "Region";
+      return { title: `${sub}, ${parent}`, subtitle: "Tap to edit" };
+    }
+    return { title: regionNames[id] ?? "Region", subtitle: "Tap to edit" };
+  }
+
+  const parentIds = Array.from(
+    new Set(selectedIds.map((id) => regionParents[id] ?? id))
+  );
+  const parentNames = parentIds
+    .map((id) => regionNames[id] ?? "Region")
+    .filter(Boolean);
+  const subCount = selectedIds.filter((id) => (regionParents[id] ?? id) !== id)
+    .length;
+
+  if (subCount > 0) {
+    return {
+      title: `${subCount} subregion${subCount === 1 ? "" : "s"} selected`,
+      subtitle: `${andJoin(parentNames)} · tap to edit`,
+    };
+  }
+
+  return {
+    title: `${parentIds.length} region${parentIds.length === 1 ? "" : "s"} selected`,
+    subtitle: "Tap to edit",
+  };
+}
+
+function LocationSearchTrigger({
+  selectedIds,
+  regionNames,
+  regionParents,
+  onOpen,
+  onClear,
+}: {
+  selectedIds: string[];
+  regionNames: Record<string, string>;
+  regionParents: Record<string, string | null>;
+  onOpen: () => void;
+  onClear: () => void;
+}) {
+  const summary = buildLocationSummary(selectedIds, regionNames, regionParents);
+  const hasSelection = Boolean(summary);
+
+  return (
+    <div className="relative group/location">
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-sm ${
+          hasSelection
+            ? "bg-[var(--brand-orange)]/5 border-[var(--brand-orange)]/40 hover:border-[var(--brand-orange)]"
+            : "bg-white border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
+        }`}
+      >
+        <div
+          className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            hasSelection ? "bg-[var(--brand-orange)]/10" : "bg-gray-100"
+          }`}
+        >
+          <Icon
+            name="map-marker-alt"
+            size={13}
+            className={hasSelection ? "text-[var(--brand-orange)]" : "text-gray-400"}
+          />
+        </div>
+
+        {summary ? (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="font-medium text-gray-900 truncate text-xs leading-tight">
+              {summary.title}
+            </div>
+            <div className="text-[0.65rem] text-gray-500 truncate leading-tight">
+              {summary.subtitle}
+            </div>
+          </div>
+        ) : (
+          <span className="font-medium text-sm text-gray-600">Search Location</span>
+        )}
+
+        {hasSelection ? (
+          <span className="relative ml-auto flex-shrink-0 group/clearx">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClear();
+                }
+              }}
+              className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"
+            >
+              <Icon name="times" size={8} />
+            </span>
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[0.65rem] rounded-md whitespace-nowrap opacity-0 group-hover/clearx:opacity-100 transition-opacity duration-150 z-50">
+              Clear
+              <span className="absolute top-full left-1/2 -translate-x-1/2 border-[3px] border-transparent border-t-gray-900" />
+            </span>
+          </span>
+        ) : (
+          <Icon
+            name="chevron-right"
+            size={11}
+            className="ml-auto text-gray-400 flex-shrink-0"
+          />
+        )}
+      </button>
+
+      {hasSelection ? (
+        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/location:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+          Click to edit
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/location:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+          Select region and subregion filters
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildHeritageTypeSummary(
+  selectedIds: string[],
+  options: Option[]
+) {
+  if (!selectedIds.length) return null;
+  const names = selectedIds
+    .map((id) => options.find((o) => o.id === id)?.name)
+    .filter(Boolean) as string[];
+  if (!names.length) return null;
+  if (names.length === 1) return { title: names[0], subtitle: "Tap to edit" };
+  return {
+    title: `${names[0]} +${names.length - 1}`,
+    subtitle: `${names.length} selected · tap to edit`,
+  };
+}
+
+function HeritageTypeTrigger({
+  selectedIds,
+  options,
+  onOpen,
+  onClear,
+}: {
+  selectedIds: string[];
+  options: Option[];
+  onOpen: () => void;
+  onClear: () => void;
+}) {
+  const summary = buildHeritageTypeSummary(selectedIds, options);
+  const hasSelection = Boolean(summary);
+
+  return (
+    <div className="relative group/htype">
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-sm ${
+          hasSelection
+            ? "bg-[var(--brand-orange)]/5 border-[var(--brand-orange)]/40 hover:border-[var(--brand-orange)]"
+            : "bg-white border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
+        }`}
+      >
+        <div
+          className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            hasSelection ? "bg-[var(--brand-orange)]/10" : "bg-gray-100"
+          }`}
+        >
+          <Icon
+            name="landmark"
+            size={12}
+            className={hasSelection ? "text-[var(--brand-orange)]" : "text-gray-400"}
+          />
+        </div>
+
+        {summary ? (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="font-medium text-gray-900 truncate text-xs leading-tight">
+              {summary.title}
+            </div>
+            <div className="text-[0.65rem] text-gray-500 truncate leading-tight">
+              {summary.subtitle}
+            </div>
+          </div>
+        ) : (
+          <span className="font-medium text-sm text-gray-600">Heritage Type</span>
+        )}
+
+        {hasSelection ? (
+          <span className="relative ml-auto flex-shrink-0 group/clearx">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClear();
+                }
+              }}
+              className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"
+            >
+              <Icon name="times" size={8} />
+            </span>
+          </span>
+        ) : (
+          <Icon
+            name="chevron-right"
+            size={11}
+            className="ml-auto text-gray-400 flex-shrink-0"
+          />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function HeritageTypeModal({
+  isOpen,
+  onClose,
+  options,
+  selectedIds,
+  onToggle,
+  onApply,
+  onClear,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  options: Option[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  onApply: () => void;
+  onClear: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [term, setTerm] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) setTerm("");
+  }, [isOpen]);
+
+  const filtered = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
+  }, [term, options]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 ${
+        isOpen ? "pointer-events-auto" : "pointer-events-none"
+      }`}
+      aria-modal="true"
+      role="dialog"
+      aria-label="Heritage Type"
+    >
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={onClose}
+      />
+
+      <div
+        className={`relative w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 ${
+          isOpen
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-2"
+        }`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
+              <Icon name="landmark" size={13} className="text-[var(--brand-orange)]" />
+            </div>
+            <h2 className="text-base font-semibold text-gray-900">Heritage Type</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+            aria-label="Close"
+          >
+            <Icon name="times" size={12} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3 flex-1 min-h-0">
+          <input
+            type="text"
+            placeholder="Search heritage type..."
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-xl bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+          />
+          <div className="rounded-xl border border-gray-200 overflow-hidden min-h-0 flex-1">
+            <ul className="max-h-[320px] overflow-auto divide-y divide-gray-100">
+              {filtered.length === 0 ? (
+                <li className="px-3 py-2 text-xs text-gray-500">No heritage type found</li>
+              ) : (
+                filtered.map((opt) => {
+                  const active = selectedIds.includes(opt.id);
+                  return (
+                    <li
+                      key={opt.id}
+                      onClick={() => onToggle(opt.id)}
+                      className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
+                        active
+                          ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
+                          : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
+                      }`}
+                    >
+                      <span className="text-sm">{opt.name}</span>
+                      {active ? <Icon name="check" size={12} /> : null}
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+          <button
+            onClick={onApply}
+            className="flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+          >
+            <Icon name="search" size={13} />
+            Apply Heritage Type
+          </button>
+          <button
+            onClick={onClear}
+            className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+            title="Clear heritage type"
+          >
+            <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function SearchLocationModal({
+  isOpen,
+  onClose,
+  topRegions,
+  selectedIds,
+  activeParentId,
+  setActiveParentId,
+  onClearAll,
+  onToggleWithRule,
+  onApply,
+  onClear,
+  regionNames,
+  regionParents,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  topRegions: Option[];
+  selectedIds: string[];
+  activeParentId: string | null;
+  setActiveParentId: (id: string | null) => void;
+  onClearAll: () => void;
+  onToggleWithRule: (id: string) => void | Promise<void>;
+  onApply: () => void;
+  onClear: () => void;
+  regionNames: Record<string, string>;
+  regionParents: Record<string, string | null>;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isOpen, onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 ${
+        isOpen ? "pointer-events-auto" : "pointer-events-none"
+      }`}
+      aria-modal="true"
+      role="dialog"
+      aria-label="Search Location"
+    >
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={onClose}
+      />
+
+      <div
+        className={`relative w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 ${
+          isOpen
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-2"
+        }`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
+              <Icon
+                name="map-marker-alt"
+                size={14}
+                className="text-[var(--brand-orange)]"
+              />
+            </div>
+            <h2 className="text-base font-semibold text-gray-900">Search Location</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+            aria-label="Close"
+          >
+            <Icon name="times" size={12} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 flex-1">
+          <div>
+            <label className="mb-1.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
+              Region
+            </label>
+            <TopLevelRegionSelect
+              topRegions={topRegions}
+              activeParentId={activeParentId}
+              setActiveParentId={setActiveParentId}
+              selectedIds={selectedIds}
+              onClearAll={onClearAll}
+              onToggleWithRule={onToggleWithRule}
+              regionNames={regionNames}
+              regionParents={regionParents}
+            />
+          </div>
+
+          {activeParentId && topRegions.find((t) => t.id === activeParentId) && (
+            <div>
+              <label className="mb-1.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
+                Subregion
+              </label>
+              <SubRegionSelect
+                parent={topRegions.find((t) => t.id === activeParentId)!}
+                selectedIds={selectedIds}
+                onToggleWithRule={onToggleWithRule}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+          <button
+            onClick={onApply}
+            className="flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+          >
+            <Icon name="search" size={13} />
+            Apply Location
+          </button>
+          <button
+            onClick={onClear}
+            className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+            title="Clear location filters"
+          >
+            <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function LocationRadiusFilter({
   value,
   onChange,
@@ -1226,7 +1770,6 @@ interface SearchFiltersProps {
   onOpenNearbyModal?: () => void;
 }
 
-type MasterTab = "all" | "region";
 type DomainTab =
   | "all"
   | "architecture"
@@ -1247,6 +1790,15 @@ export default function SearchFilters({
   });
   const [topRegions, setTopRegions] = useState<Option[]>([]);
   const [activeParentId, setActiveParentId] = useState<string | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [draftRegionIds, setDraftRegionIds] = useState<string[]>([]);
+  const [draftActiveParentId, setDraftActiveParentId] = useState<string | null>(
+    null
+  );
+  const [isHeritageTypeModalOpen, setIsHeritageTypeModalOpen] = useState(false);
+  const [draftHeritageTypeIds, setDraftHeritageTypeIds] = useState<string[]>(
+    []
+  );
 
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
 
@@ -1279,11 +1831,7 @@ export default function SearchFilters({
     {}
   );
   const [expandedParentId, setExpandedParentId] = useState<string | null>(null);
-  const [regSearch, setRegSearch] = useState("");
-  const [regSearching, setRegSearching] = useState(false);
-  const [regSearchResults, setRegSearchResults] = useState<Option[]>([]);
 
-  const [masterTab, setMasterTab] = useState<MasterTab>("all");
   const [domainTab, setDomainTab] = useState<DomainTab>("all");
 
   // All tab: Heritage Type & Historical Period
@@ -1601,46 +2149,23 @@ export default function SearchFilters({
     }
   };
 
-  // Remote search for Regions tab
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const term = regSearch.trim();
-      if (term.length < 2) {
-        setRegSearchResults([]);
-        setRegSearching(false);
-        return;
-      }
-      setRegSearching(true);
-      const { data, error } = await supabase
-        .from("regions")
-        .select("id,name,icon_key,parent_id")
-        .ilike("name", `%${term}%`)
-        .order("name")
-        .limit(40);
-      if (!active) return;
-      if (!error) {
-        const rows = (data || []) as any[];
-        setRegSearchResults(
-          rows.map((r) => ({ id: r.id, name: r.name, icon_key: r.icon_key }))
-        );
-        setRegionNames((m) => {
-          const next = { ...m };
-          rows.forEach((r) => (next[r.id] = r.name));
-          return next;
-        });
-        setRegionParents((m) => {
-          const next = { ...m };
-          rows.forEach((r) => (next[r.id] = r.parent_id ?? r.id));
-          return next;
-        });
-      }
-      setRegSearching(false);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [regSearch]);
+
+  const ensureRegionMetaForId = async (id: string) => {
+    if (id in regionParents) return (regionParents[id] ?? id) as string;
+
+    const { data } = await supabase
+      .from("regions")
+      .select("id,name,parent_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!data) return id;
+
+    setRegionNames((m) => ({ ...m, [id]: data.name }));
+    const parentId = (data.parent_id ?? id) as string;
+    setRegionParents((m) => ({ ...m, [id]: parentId }));
+    return parentId;
+  };
 
   // Toggle region with rule
   const onToggleWithRule = async (id: string) => {
@@ -1654,31 +2179,15 @@ export default function SearchFilters({
       });
     }
 
-    if (!(id in regionParents)) {
-      const { data } = await supabase
-        .from("regions")
-        .select("id,name,parent_id")
-        .eq("id", id)
-        .maybeSingle();
-      if (data) {
-        setRegionNames((m) => ({ ...m, [id]: data.name }));
-        setRegionParents((m) => ({ ...m, [id]: data.parent_id ?? id }));
-      }
-    }
+    const parentId = await ensureRegionMetaForId(id);
+    const parentOf = id in regionParents ? regionParents : { ...regionParents, [id]: parentId };
 
-    const next = applyRegionToggle(filters.regionIds || [], id, regionParents);
+    const next = applyRegionToggle(filters.regionIds || [], id, parentOf);
     onFilterChange({ regionIds: next });
 
-    const parentId = (regionParents[id] ?? id) as string;
     setActiveParentId(parentId);
     setExpandedParentId(parentId);
     await loadSubregions(parentId);
-  };
-
-  const clearAllRegions = () => {
-    onFilterChange({ regionIds: [] });
-    setActiveParentId(null);
-    setExpandedParentId(null);
   };
 
   // Remove a parent region and any of its selected subregions
@@ -1687,6 +2196,60 @@ export default function SearchFilters({
       (id) => id !== parentId && (regionParents[id] ?? id) !== parentId
     );
     onFilterChange({ regionIds: next });
+  };
+
+  const openLocationModal = async () => {
+    setIsLocationModalOpen(true);
+    const currentIds = [...(filters.regionIds || [])];
+    setDraftRegionIds(currentIds);
+
+    if (!currentIds.length) {
+      setDraftActiveParentId(null);
+      return;
+    }
+
+    const parentId = await ensureRegionMetaForId(currentIds[0]);
+    setDraftActiveParentId(parentId);
+    await loadSubregions(parentId);
+  };
+
+  const toggleDraftRegionWithRule = async (id: string) => {
+    const parentId = await ensureRegionMetaForId(id);
+    const parentOf = id in regionParents ? regionParents : { ...regionParents, [id]: parentId };
+    setDraftRegionIds((prev) => applyRegionToggle(prev, id, parentOf));
+    setDraftActiveParentId(parentId);
+    await loadSubregions(parentId);
+  };
+
+  const clearAllDraftRegions = () => {
+    setDraftRegionIds([]);
+    setDraftActiveParentId(null);
+  };
+
+  const applyDraftRegions = () => {
+    if (hasRadius(filters)) {
+      onFilterChange({
+        name: "",
+        categoryIds: [],
+        regionIds: draftRegionIds,
+        orderBy: "latest",
+        ...clearPlacesNearby(),
+      });
+    } else {
+      onFilterChange({ regionIds: draftRegionIds });
+    }
+    setActiveParentId(draftActiveParentId);
+    setIsLocationModalOpen(false);
+    onSearch();
+  };
+
+  const clearRegionSelection = () => {
+    onFilterChange({ regionIds: [] });
+    setActiveParentId(null);
+    setExpandedParentId(null);
+    setDraftActiveParentId(null);
+    setDraftRegionIds([]);
+    onSearch();
   };
 
   const resetSharedUi = () => {
@@ -1710,7 +2273,6 @@ export default function SearchFilters({
       ...clearPlacesNearby(),
     });
     resetSharedUi();
-    setMasterTab("all");
     setDomainTab("all");
   };
 
@@ -1719,6 +2281,32 @@ export default function SearchFilters({
     const current = filters.categoryIds || [];
     const preserved = current.filter((id) => !heritageTypeIdSet.has(id));
     onFilterChange({ categoryIds: [...preserved, ...ids] });
+  };
+
+  const openHeritageTypeModal = () => {
+    setDraftHeritageTypeIds(
+      filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
+    );
+    setIsHeritageTypeModalOpen(true);
+  };
+
+  const toggleDraftHeritageType = (id: string) => {
+    setDraftHeritageTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  };
+
+  const applyDraftHeritageType = () => {
+    handleHeritageTypeChange(draftHeritageTypeIds);
+    setIsHeritageTypeModalOpen(false);
+    onSearch();
+  };
+
+  const clearHeritageTypeSelection = () => {
+    handleHeritageTypeChange([]);
+    setDraftHeritageTypeIds([]);
+    setIsHeritageTypeModalOpen(false);
+    onSearch();
   };
 
   const handleHistoricalPeriodChange = (ids: string[]) => {
@@ -2099,33 +2687,7 @@ export default function SearchFilters({
     }
   };
 
-  const handleMasterTabClick = (tab: MasterTab) => {
-    if (tab === masterTab) return;
-    setMasterTab(tab);
-    resetSharedUi();
-
-    const base: Partial<Filters> = {
-      name: "",
-      categoryIds: [],
-      regionIds: [],
-      orderBy: "latest",
-      ...clearPlacesNearby(),
-    };
-
-    if (tab === "all") {
-      applyDomainDefaults(domainTab);
-    } else {
-      // Region master tab
-      onFilterChange(base);
-    }
-  };
-
   const handleDomainTabClick = (domain: DomainTab) => {
-    if (masterTab !== "all") {
-      // Only meaningful when master is "all"
-      setMasterTab("all");
-    }
-
     // Toggle behaviour: click active pill → back to All
     if (domain === domainTab) {
       setDomainTab("all");
@@ -2142,24 +2704,6 @@ export default function SearchFilters({
 
   return (
     <div className="p-4 bg-white h-full flex flex-col text-sm">
-      {/* Master Tabs: All / Region (overall tabs) */}
-      <div className="flex mb-4 border-b border-gray-100 text-xs">
-        {(["all", "region"] as MasterTab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => handleMasterTabClick(t)}
-            className={`px-4 pt-2.5 pb-1.5 -mb-[1px] font-semibold border-b-2 transition-colors
-            ${
-              masterTab === t
-                ? "border-[var(--brand-orange)] text-[var(--brand-orange)]"
-                : "border-transparent text-gray-400 hover:text-gray-700"
-            }`}
-          >
-            {t === "all" ? "All" : "Region"}
-          </button>
-        ))}
-      </div>
-
       {/* Domain Pills (2×2 grid) */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         {[
@@ -2177,7 +2721,7 @@ export default function SearchFilters({
               : domain === "cultural"
               ? "Cultural Landscape"
               : "Archaeology";
-          const isActive = masterTab === "all" && domainTab === domain;
+          const isActive = domainTab === domain;
           return (
             <button
               key={domain}
@@ -2198,10 +2742,7 @@ export default function SearchFilters({
 
       {/* Panels */}
       <div className="flex-grow min-h-0">
-        {/* MASTER: All */}
-        {masterTab === "all" && (
-          <>
-            {/* All-domain panel (no specific pill selected) */}
+        {/* All-domain panel (no specific pill selected) */}
             {domainTab === "all" && (
               <div className="space-y-4">
                 {/* Keyword */}
@@ -2216,14 +2757,13 @@ export default function SearchFilters({
                   />
                 </div>
 
-                {/* Heritage Type */}
-                <MultiSelectDropdown
+                <HeritageTypeTrigger
                   options={heritageTypeOptions}
                   selectedIds={filters.categoryIds.filter((id) =>
                     heritageTypeIdSet.has(id)
                   )}
-                  onChange={handleHeritageTypeChange}
-                  placeholder="Heritage Type"
+                  onOpen={openHeritageTypeModal}
+                  onClear={clearHeritageTypeSelection}
                 />
 
                 {/* Historical Period */}
@@ -2236,30 +2776,13 @@ export default function SearchFilters({
                   placeholder="Historical Period"
                 />
 
-                {/* Regions: Two dropdowns */}
-                <div className="space-y-1">
-                  <TopLevelRegionSelect
-                    topRegions={topRegions}
-                    activeParentId={activeParentId}
-                    setActiveParentId={setActiveParentId}
-                    selectedIds={filters.regionIds}
-                    onClearAll={clearAllRegions}
-                    onToggleWithRule={onToggleWithRule}
-                    regionNames={regionNames}
-                    regionParents={regionParents}
-                  />
-
-                  {activeParentId &&
-                    topRegions.find((t) => t.id === activeParentId) && (
-                      <SubRegionSelect
-                        parent={topRegions.find(
-                          (t) => t.id === activeParentId
-                        )!}
-                        selectedIds={filters.regionIds}
-                        onToggleWithRule={onToggleWithRule}
-                      />
-                    )}
-                </div>
+                <LocationSearchTrigger
+                  selectedIds={filters.regionIds}
+                  regionNames={regionNames}
+                  regionParents={regionParents}
+                  onOpen={openLocationModal}
+                  onClear={clearRegionSelection}
+                />
 
               </div>
             )}
@@ -2336,30 +2859,13 @@ export default function SearchFilters({
                   placeholder="Historical Period"
                 />
 
-                {/* Regions for Architecture */}
-                <div className="space-y-1">
-                  <TopLevelRegionSelect
-                    topRegions={topRegions}
-                    activeParentId={activeParentId}
-                    setActiveParentId={setActiveParentId}
-                    selectedIds={filters.regionIds}
-                    onClearAll={clearAllRegions}
-                    onToggleWithRule={onToggleWithRule}
-                    regionNames={regionNames}
-                    regionParents={regionParents}
-                  />
-
-                  {activeParentId &&
-                    topRegions.find((t) => t.id === activeParentId) && (
-                      <SubRegionSelect
-                        parent={topRegions.find(
-                          (t) => t.id === activeParentId
-                        )!}
-                        selectedIds={filters.regionIds}
-                        onToggleWithRule={onToggleWithRule}
-                      />
-                    )}
-                </div>
+                <LocationSearchTrigger
+                  selectedIds={filters.regionIds}
+                  regionNames={regionNames}
+                  regionParents={regionParents}
+                  onOpen={openLocationModal}
+                  onClear={clearRegionSelection}
+                />
 
               </div>
             )}
@@ -2412,30 +2918,13 @@ export default function SearchFilters({
                   placeholder="Natural Heritage Type"
                 />
 
-                {/* Regions */}
-                <div className="space-y-1">
-                  <TopLevelRegionSelect
-                    topRegions={topRegions}
-                    activeParentId={activeParentId}
-                    setActiveParentId={setActiveParentId}
-                    selectedIds={filters.regionIds}
-                    onClearAll={clearAllRegions}
-                    onToggleWithRule={onToggleWithRule}
-                    regionNames={regionNames}
-                    regionParents={regionParents}
-                  />
-
-                  {activeParentId &&
-                    topRegions.find((t) => t.id === activeParentId) && (
-                      <SubRegionSelect
-                        parent={topRegions.find(
-                          (t) => t.id === activeParentId
-                        )!}
-                        selectedIds={filters.regionIds}
-                        onToggleWithRule={onToggleWithRule}
-                      />
-                    )}
-                </div>
+                <LocationSearchTrigger
+                  selectedIds={filters.regionIds}
+                  regionNames={regionNames}
+                  regionParents={regionParents}
+                  onOpen={openLocationModal}
+                  onClear={clearRegionSelection}
+                />
 
               </div>
             )}
@@ -2488,30 +2977,13 @@ export default function SearchFilters({
                   placeholder="Type"
                 />
 
-                {/* Regions */}
-                <div className="space-y-1">
-                  <TopLevelRegionSelect
-                    topRegions={topRegions}
-                    activeParentId={activeParentId}
-                    setActiveParentId={setActiveParentId}
-                    selectedIds={filters.regionIds}
-                    onClearAll={clearAllRegions}
-                    onToggleWithRule={onToggleWithRule}
-                    regionNames={regionNames}
-                    regionParents={regionParents}
-                  />
-
-                  {activeParentId &&
-                    topRegions.find((t) => t.id === activeParentId) && (
-                      <SubRegionSelect
-                        parent={topRegions.find(
-                          (t) => t.id === activeParentId
-                        )!}
-                        selectedIds={filters.regionIds}
-                        onToggleWithRule={onToggleWithRule}
-                      />
-                    )}
-                </div>
+                <LocationSearchTrigger
+                  selectedIds={filters.regionIds}
+                  regionNames={regionNames}
+                  regionParents={regionParents}
+                  onOpen={openLocationModal}
+                  onClear={clearRegionSelection}
+                />
 
               </div>
             )}
@@ -2572,245 +3044,47 @@ export default function SearchFilters({
                   placeholder="Historical Period"
                 />
 
-                {/* Regions */}
-                <div className="space-y-1">
-                  <TopLevelRegionSelect
-                    topRegions={topRegions}
-                    activeParentId={activeParentId}
-                    setActiveParentId={setActiveParentId}
-                    selectedIds={filters.regionIds}
-                    onClearAll={clearAllRegions}
-                    onToggleWithRule={onToggleWithRule}
-                    regionNames={regionNames}
-                    regionParents={regionParents}
-                  />
-
-                  {activeParentId &&
-                    topRegions.find((t) => t.id === activeParentId) && (
-                      <SubRegionSelect
-                        parent={topRegions.find(
-                          (t) => t.id === activeParentId
-                        )!}
-                        selectedIds={filters.regionIds}
-                        onToggleWithRule={onToggleWithRule}
-                      />
-                    )}
-                </div>
+                <LocationSearchTrigger
+                  selectedIds={filters.regionIds}
+                  regionNames={regionNames}
+                  regionParents={regionParents}
+                  onOpen={openLocationModal}
+                  onClear={clearRegionSelection}
+                />
 
               </div>
             )}
-          </>
-        )}
 
-        {/* MASTER: Region (full Regions panel) */}
-        {masterTab === "region" && (
-          <div className="h-full flex flex-col text-sm">
-            <input
-              type="text"
-              placeholder="Search regions..."
-              value={regSearch}
-              onChange={(e) => setRegSearch(e.target.value)}
-              className="w-full mb-2.5 px-3 py-1.5 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all font-explore-input flex-shrink-0"
-            />
-
-            {regSearch.trim().length >= 2 ? (
-              <div className="space-y-1 overflow-y-auto scrollbar-hide text-xs">
-                {regSearching ? (
-                  <div className="px-3 py-1.5 text-gray-500">
-                    Searching…
-                  </div>
-                ) : regSearchResults.length === 0 ? (
-                  <div className="px-3 py-1.5 text-gray-500">
-                    No regions found
-                  </div>
-                ) : (
-                  regSearchResults.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => onToggleWithRule(r.id)}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg border transition flex items-center gap-2
-                      ${
-                        filters.regionIds.includes(r.id)
-                          ? "bg-[var(--brand-orange)]/10 border-[var(--brand-orange)]"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Icon
-                        name={r.icon_key || "map"}
-                        size={14}
-                        className="text-gray-400"
-                      />
-                      <span className="font-explore-tab-item text-[var(--dark-grey)]">
-                        {r.name}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            ) : (
-              <>
-                {!expandedParentId ? (
-                  <div className="space-y-2 overflow-y-auto scrollbar-hide text-sm">
-                    {topRegions.map((top) => {
-                      const parentSelected = filters.regionIds.includes(top.id);
-                      return (
-                        <div
-                          key={top.id}
-                          className="rounded-lg border border-gray-200 bg-white"
-                        >
-                          {/* Entire row accessible clickable container (NOT a button) */}
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) =>
-                              onKeyActivate(e, async () => {
-                                if (!parentSelected) {
-                                  await onToggleWithRule(top.id);
-                                } else {
-                                  await loadSubregions(top.id);
-                                }
-                                setExpandedParentId(top.id);
-                              })
-                            }
-                            onClick={async () => {
-                              if (!parentSelected) {
-                                await onToggleWithRule(top.id);
-                              } else {
-                                await loadSubregions(top.id);
-                              }
-                              setExpandedParentId(top.id);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition cursor-pointer ${
-                              parentSelected
-                                ? "bg-[var(--brand-orange)]/10"
-                                : "hover:bg-[var(--ivory-cream)]"
-                            }`}
-                            title={`Open ${top.name}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Icon
-                                name={top.icon_key || "map"}
-                                size={14}
-                                className="text-gray-400"
-                              />
-                              <span
-                                className={`font-explore-tab-item text-sm ${
-                                  parentSelected
-                                    ? "text-[var(--brand-orange)] font-semibold"
-                                    : "text-[var(--dark-grey)]"
-                                }`}
-                              >
-                                {top.name}
-                              </span>
-                            </div>
-
-                            {/* Right-side control: × when selected, chevron otherwise */}
-                            {parentSelected ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  clearRegionParent(top.id);
-                                }}
-                                className="ml-2 w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
-                                title="Clear this region"
-                              >
-                                <Icon name="times" size={9} />
-                              </button>
-                            ) : (
-                              <Icon
-                                name="chevron-right"
-                                size={14}
-                                className="text-gray-400 flex-shrink-0"
-                              />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  // Expanded panel for a parent
-                  <div className="overflow-y-auto scrollbar-hide text-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setExpandedParentId(null)}
-                          className="px-2 py-1 text-xs rounded ring-1 ring-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
-                        >
-                          ← Back
-                        </button>
-                        <div className="text-xs text-[var(--dark-grey)] font-semibold">
-                          {regionNames[expandedParentId] || "Region"}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => clearRegionParent(expandedParentId!)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-gray-50 ring-1 ring-gray-200 hover:bg-white text-gray-600 transition-colors"
-                        title="Clear this region & subregions"
-                      >
-                        <Icon name="times" size={9} />
-                        Clear
-                      </button>
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200">
-                      <div className="px-3 py-1.5 border-b border-gray-100 text-[0.7rem] text-gray-400">
-                        Choose subregions under “
-                        {regionNames[expandedParentId!] || "Region"}”.
-                      </div>
-
-                      <div className="p-2 space-y-1 text-xs">
-                        {(() => {
-                          const subs = subsByParent[expandedParentId!] || [];
-                          if (!subs.length)
-                            return (
-                              <div className="px-2 py-1.5 text-gray-500">
-                                No subregions
-                              </div>
-                            );
-
-                          return subs.map((s) => {
-                            const active = filters.regionIds.includes(s.id);
-                            return (
-                              <div
-                                key={s.id}
-                                className={`flex items-center justify-between rounded px-3 py-1.5 ${
-                                  active
-                                    ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-semibold"
-                                    : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
-                                }`}
-                              >
-                                <button
-                                  className="text-left flex-1"
-                                  onClick={() => onToggleWithRule(s.id)}
-                                  title={`Toggle ${s.name}`}
-                                >
-                                  {s.name}
-                                </button>
-
-                                {active && (
-                                  <button
-                                    onClick={() => onToggleWithRule(s.id)}
-                                    className="ml-2 w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-current"
-                                    title="Remove"
-                                  >
-                                    <Icon name="times" size={9} />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
       </div>
+
+      <SearchLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        topRegions={topRegions}
+        selectedIds={draftRegionIds}
+        activeParentId={draftActiveParentId}
+        setActiveParentId={setDraftActiveParentId}
+        onClearAll={clearAllDraftRegions}
+        onToggleWithRule={toggleDraftRegionWithRule}
+        onApply={applyDraftRegions}
+        onClear={() => {
+          clearAllDraftRegions();
+          clearRegionSelection();
+          setIsLocationModalOpen(false);
+        }}
+        regionNames={regionNames}
+        regionParents={regionParents}
+      />
+
+      <HeritageTypeModal
+        isOpen={isHeritageTypeModalOpen}
+        onClose={() => setIsHeritageTypeModalOpen(false)}
+        options={heritageTypeOptions}
+        selectedIds={draftHeritageTypeIds}
+        onToggle={toggleDraftHeritageType}
+        onApply={applyDraftHeritageType}
+        onClear={clearHeritageTypeSelection}
+      />
 
       {/* Proximity search trigger */}
       <div className="pt-3 flex-shrink-0 relative group/proximity">
