@@ -31,10 +31,13 @@ export default function AdminGuard({
 
     (async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        // Use getUser() — not getSession() — so we validate against the server.
+        // getSession() reads from cache and can return an expired token, letting
+        // the guard pass even when the session is gone.
+        const { data, error } = await supabase.auth.getUser();
 
         if (!active) return;
-        if (error || !data.session?.user) {
+        if (error || !data.user) {
           redirectToSignIn();
           return;
         }

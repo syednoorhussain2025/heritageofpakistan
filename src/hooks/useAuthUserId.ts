@@ -16,6 +16,11 @@ let sharedInitialized = false;
 let sharedResolving = false;
 let sharedQueuedResolve = false;
 
+// Debounce repeated event-driven re-checks (visibility/focus/online) to avoid
+// hammering the server when the user rapidly switches tabs.
+let lastEventResolveMs = 0;
+const EVENT_RESOLVE_DEBOUNCE_MS = 3000;
+
 let sharedState: AuthState = {
   userId: null,
   authLoading: true,
@@ -42,7 +47,25 @@ function patchState(patch: Partial<AuthState>) {
   emitState();
 }
 
-async function resolveSharedAuth() {
+/**
+ * Validate auth state with the Supabase server.
+ *
+ * We intentionally use `getUser()` — NOT `getSession()` — because:
+ *   • `getSession()` reads from localStorage/memory and can return a stale or
+ *     expired token without checking the server.
+ *   • `getUser()` validates the JWT with Supabase, triggers a token refresh if
+ *     the access token is expired (using the refresh token), and returns null
+ *     when the session is truly gone.
+ *
+ * @param fromEvent  true when called from a DOM event handler (applies debounce)
+ */
+async function resolveSharedAuth(fromEvent = false) {
+  if (fromEvent) {
+    const now = Date.now();
+    if (now - lastEventResolveMs < EVENT_RESOLVE_DEBOUNCE_MS) return;
+    lastEventResolveMs = now;
+  }
+
   if (sharedResolving) {
     sharedQueuedResolve = true;
     return;
@@ -51,32 +74,35 @@ async function resolveSharedAuth() {
 
   try {
     const supabase = getClient();
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-    const session = sessionData.session;
-
-    if (session?.user?.id) {
-      patchState({
-        userId: session.user.id,
-        authLoading: false,
-        authError: null,
-      });
+    if (error) {
+      // Supabase auth errors (JWT expired, invalid token, etc.) have
+      // __isAuthError === true.  These mean the user is definitively signed out.
+      // Plain network / fetch errors don't have that flag — in that case we
+      // preserve the existing userId so a momentary connectivity blip doesn't
+      // silently sign the user out of the UI.
+      const isDefinitiveAuthFailure = (error as any).__isAuthError === true;
+      if (isDefinitiveAuthFailure) {
+        patchState({ userId: null, authLoading: false, authError: null });
+      } else {
+        // Transient network error — stop the loading spinner but keep state.
+        patchState({ authLoading: false, authError: null });
+      }
       return;
     }
 
     patchState({
-      userId: null,
+      userId: user?.id ?? null,
       authLoading: false,
       authError: null,
     });
-  } catch (e: any) {
-    patchState({
-      userId: sharedState.userId,
-      authLoading: false,
-      authError: e?.message ?? "Auth error",
-    });
+  } catch {
+    // Unknown error — stop loading, preserve existing state.
+    patchState({ authLoading: false, authError: null });
   } finally {
     sharedResolving = false;
 
@@ -94,6 +120,7 @@ function initSharedAuthRuntime() {
   sharedInitialized = true;
   const supabase = getClient();
 
+  // Initial server-validated check on page load (no debounce).
   void resolveSharedAuth();
 
   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -102,12 +129,16 @@ function initSharedAuthRuntime() {
       return;
     }
 
+    // For SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — if the event carries a
+    // valid session we trust it directly (it came straight from Supabase).
     const nextUserId = session?.user?.id ?? null;
     if (nextUserId) {
       patchState({ userId: nextUserId, authError: null, authLoading: false });
       return;
     }
 
+    // Session is null for INITIAL_SESSION (no user) or unusual SIGNED_IN /
+    // USER_UPDATED without a session — fall back to a server round-trip.
     if (
       event === "INITIAL_SESSION" ||
       event === "SIGNED_IN" ||
@@ -117,18 +148,21 @@ function initSharedAuthRuntime() {
     }
   });
 
+  // Re-validate auth when the tab becomes visible, the window regains focus,
+  // or the device reconnects.  These use the debounce to avoid back-to-back
+  // network calls when e.g. alt-tabbing rapidly.
   const onVisible = () => {
     if (document.visibilityState === "visible") {
-      void resolveSharedAuth();
+      void resolveSharedAuth(true);
     }
   };
 
   const onFocus = () => {
-    void resolveSharedAuth();
+    void resolveSharedAuth(true);
   };
 
   const onOnline = () => {
-    void resolveSharedAuth();
+    void resolveSharedAuth(true);
   };
 
   document.addEventListener("visibilitychange", onVisible);
@@ -154,6 +188,7 @@ export function useAuthUserId() {
     };
 
     sharedListeners.add(onState);
+    // Sync immediately in case sharedState changed between render and effect.
     onState(sharedState);
 
     return () => {
