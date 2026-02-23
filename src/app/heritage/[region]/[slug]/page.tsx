@@ -1,8 +1,6 @@
 // src/app/heritage/[region]/[slug]/page.tsx
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 // @ts-ignore 3p library without TS types
 import { Cite } from "@citation-js/core";
 // @ts-ignore 3p library without TS types
@@ -47,22 +45,6 @@ type HeritagePageProps = {
   params: Promise<Params>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-async function getSupabaseServerClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: () => {},
-        remove: () => {},
-      },
-    }
-  );
-}
 
 /* ---------- Types for data sent to the client ---------- */
 
@@ -394,7 +376,7 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
       ? search.note
       : null;
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = createPublicClient();
 
   /* 1. Site — must resolve first; every other query depends on site.id / province */
   const { data: site, error: siteErr } = await supabase
@@ -770,7 +752,7 @@ export async function generateMetadata({
   let coverUrl: string | null = null;
 
   try {
-    const supabase = await getSupabaseServerClient();
+    const supabase = createPublicClient();
 
     const { data: site } = await supabase
       .from("sites")
