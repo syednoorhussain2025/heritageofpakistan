@@ -1,4 +1,5 @@
 // src/app/heritage/[region]/[slug]/page.tsx
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 // @ts-ignore 3p library without TS types
@@ -685,19 +686,21 @@ export default async function Page({ params }: HeritagePageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <HeritageClient
-        site={siteDataForClient}
-        neighbors={neighbors}
-        provinceName={provinceName}
-        categories={categories}
-        regions={regions}
-        gallery={gallery}
-        bibliography={bibliography}
-        bibliographyEntries={bibliographyEntries}
-        styleId={styleId}
-        hasPhotoStory={hasPhotoStory}
-        travelGuideSummary={travelGuideSummary}
-      />
+      <Suspense>
+        <HeritageClient
+          site={siteDataForClient}
+          neighbors={neighbors}
+          provinceName={provinceName}
+          categories={categories}
+          regions={regions}
+          gallery={gallery}
+          bibliography={bibliography}
+          bibliographyEntries={bibliographyEntries}
+          styleId={styleId}
+          hasPhotoStory={hasPhotoStory}
+          travelGuideSummary={travelGuideSummary}
+        />
+      </Suspense>
     </>
   );
 }
