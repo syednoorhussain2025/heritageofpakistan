@@ -239,7 +239,6 @@ export default function SitePreviewCard({
       <Link
         href={detailHref}
         className="group block"
-        prefetch={false}
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
         onTouchStart={prefetchDetail}
