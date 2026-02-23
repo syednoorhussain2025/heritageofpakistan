@@ -225,7 +225,7 @@ export default function SitePreviewCard({
   }, [router, detailHref]);
 
   return (
-    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative transition-all duration-300 hover:-translate-y-1 border border-[#e5e5e5]">
+    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[#e5e5e5]">
       {onClose && (
         <button
           onClick={onClose}
@@ -291,6 +291,9 @@ export default function SitePreviewCard({
                 <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
               </div>
             )}
+
+            {/* Hover dark overlay */}
+            <div className="absolute inset-0 bg-[#242429] opacity-0 group-hover:opacity-65 transition-opacity duration-300 pointer-events-none" />
           </div>
 
           {/* Heritage type chip (slightly smaller) */}

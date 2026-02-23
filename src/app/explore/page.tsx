@@ -1249,7 +1249,7 @@ function ExplorePageContent() {
 
               <div
                 ref={cardsRef}
-                className="grid grid-cols-2 xl:grid-cols-3 gap-5 transition-opacity duration-300"
+                className="grid grid-cols-2 xl:grid-cols-3 gap-5"
                 style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
               >
                 {loading && results.sites.length === 0 ? (
