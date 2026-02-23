@@ -1190,6 +1190,16 @@ function ExplorePageContent() {
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
         }
+        @keyframes cardIn {
+          from {
+            opacity: 0;
+            transform: translateY(18px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
       `}</style>
 
       <div className="relative z-10">
@@ -1239,7 +1249,8 @@ function ExplorePageContent() {
 
               <div
                 ref={cardsRef}
-                className="grid grid-cols-2 xl:grid-cols-3 gap-5"
+                className="grid grid-cols-2 xl:grid-cols-3 gap-5 transition-opacity duration-300"
+                style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
               >
                 {loading && results.sites.length === 0 ? (
                   Array.from({ length: 6 }).map((_, i) => (
@@ -1255,7 +1266,15 @@ function ExplorePageContent() {
                   </div>
                 ) : (
                   results.sites.map((s, index) => (
-                    <SitePreviewCard key={s.id} site={s} index={index} />
+                    <div
+                      key={s.id}
+                      style={{
+                        animation: "cardIn 0.4s ease both",
+                        animationDelay: `${Math.min(index, 8) * 55}ms`,
+                      }}
+                    >
+                      <SitePreviewCard site={s} index={index} />
+                    </div>
                   ))
                 )}
               </div>
