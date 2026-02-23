@@ -330,7 +330,7 @@ export default function SitePreviewCard({
 
           {/* Title and location gradient desktop / tablet only */}
           <div className="absolute inset-x-0 bottom-0 p-3">
-            <div className="bg-gradient-to-t from-black/70 to-transparent rounded-b-xl -m-3 p-3 pt-10">
+            <div className="bg-gradient-to-t from-black/60 to-transparent rounded-b-xl -m-3 p-3 pt-10">
               <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold">
                 {site.title}
               </h3>
