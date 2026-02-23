@@ -10,7 +10,7 @@ const BUCKET = "site-images";
 type Variant = "thumb" | "sm" | "md" | "lg" | "hero";
 
 const VARIANT_LONG_EDGES: Record<Variant, number> = {
-  thumb: 400,
+  thumb: 800,
   sm: 600,
   md: 1000,
   lg: 1300,

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "backfill:image-dimensions": "ts-node scripts/backfill-image-dimensions.ts"
+    "backfill:image-dimensions": "ts-node scripts/backfill-image-dimensions.ts",
+    "regenerate:thumbs": "ts-node scripts/regenerate-thumbs.ts"
   },
   "dependencies": {
     "@citation-js/plugin-csl": "^0.7.18",

@@ -139,8 +139,12 @@ export default function SitePreviewCard({
   // use only the thumbnail URL from the table, no transformations, no fallback to cover_photo_url
   const sharpSrc = site.cover_photo_thumb_url || FALLBACK_SVG;
 
-  // Reset load/error when the image changes
+  // Reset load/error when the image changes, but skip if already complete
+  // (StrictMode double-invokes effects; resetting after useLayoutEffect detects
+  // a cached img.complete would leave the blur visible forever)
   useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) return;
     setIsSharpLoaded(false);
     setHasError(false);
   }, [sharpSrc, site.id]);
@@ -245,9 +249,9 @@ export default function SitePreviewCard({
       >
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
-          <div className="relative aspect-[5/4] md:aspect-[18/9] w-full overflow-hidden rounded-none">
+          <div className="relative aspect-[5/3] w-full overflow-hidden rounded-none">
             {/* Blur layer (uses stored data URL only, no transformations) */}
-            {hasBlur && (
+            {hasBlur && !(isSharpLoaded || hasError) && (
               <Image
                 src={site.cover_blur_data_url!}
                 alt=""
@@ -256,9 +260,7 @@ export default function SitePreviewCard({
                 aria-hidden
                 priority={isPriority}
                 sizes={`${baseW}px`}
-                className={`object-cover scale-105 blur-xl transition-opacity duration-700 ${
-                  isSharpLoaded || hasError ? "opacity-0" : "opacity-100"
-                }`}
+                className="object-cover scale-105 blur-xl"
               />
             )}
 
