@@ -17,6 +17,31 @@ export const revalidate = 3600;
 
 type Params = { region: string; slug: string };
 
+/**
+ * Pre-build every site page at deploy time so that navigating from the
+ * explore page hits a cached HTML response instead of running DB queries
+ * on each request.  ISR (revalidate = 3600) regenerates stale pages in
+ * the background so content stays fresh without blocking the user.
+ */
+export async function generateStaticParams(): Promise<Params[]> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("sites")
+    .select("slug, provinces!sites_province_id_fkey ( slug )")
+    .not("slug", "is", null)
+    .not("province_id", "is", null);
+
+  if (!data) return [];
+
+  return (data as any[]).flatMap(row => {
+    const provinceSlug = Array.isArray(row.provinces)
+      ? row.provinces[0]?.slug
+      : row.provinces?.slug;
+    if (!provinceSlug || !row.slug) return [];
+    return [{ region: provinceSlug, slug: row.slug }];
+  });
+}
+
 type HeritagePageProps = {
   // Next passes plain objects here; we await them for convenience
   params: Promise<Params>;
@@ -371,7 +396,7 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
 
   const supabase = await getSupabaseServerClient();
 
-  /* 1. Site (with province relation and layout fields) */
+  /* 1. Site — must resolve first; every other query depends on site.id / province */
   const { data: site, error: siteErr } = await supabase
     .from("sites")
     .select(
@@ -399,11 +424,111 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
 
   if (!provinceSlug || region !== provinceSlug) return notFound();
 
-  /* 2. Categories for this site */
-  const { data: sc } = await supabase
-    .from("site_categories")
-    .select("categories(id, name, icon_key)")
-    .eq("site_id", site.id);
+  /* 2. All remaining queries fired in parallel — no sequential round-trips */
+  const [
+    { data: sc },
+    { data: sr },
+    { data: imgs },
+    styleId,
+    bibliography,
+    { data: ps },
+    { data: travelGuideRaw },
+    { data: list },
+    { data: deepLinkRaw },
+  ] = await Promise.all([
+    /* 2a. Categories */
+    supabase
+      .from("site_categories")
+      .select("categories(id, name, icon_key)")
+      .eq("site_id", site.id),
+
+    /* 2b. Regions */
+    supabase
+      .from("site_regions")
+      .select("regions(id, name, icon_key)")
+      .eq("site_id", site.id),
+
+    /* 2c. Gallery images */
+    supabase
+      .from("site_images")
+      .select(
+        `
+          id,
+          site_id,
+          storage_path,
+          alt_text,
+          caption,
+          credit,
+          is_cover,
+          sort_order,
+          width,
+          height,
+          blur_hash,
+          blur_data_url
+        `
+      )
+      .eq("site_id", site.id)
+      .order("sort_order", { ascending: true }),
+
+    /* 2d. Global citation style */
+    loadGlobalCitationStyle(supabase),
+
+    /* 2e. Bibliography */
+    loadBibliographyForPublic(supabase, site.id),
+
+    /* 2f. Photo story presence */
+    supabase
+      .from("photo_stories")
+      .select("site_id")
+      .eq("site_id", site.id)
+      .maybeSingle(),
+
+    /* 2g. Travel guide summary (skipped when no guide is linked) */
+    site.region_travel_guide_id
+      ? supabase
+          .from("region_travel_guide_summary")
+          .select(
+            `
+              location, how_to_reach, nearest_major_city,
+              airport_access, access_options,
+              road_type_condition, best_time_to_visit,
+              hotels_available, spending_night_recommended, camping, places_to_eat,
+              altitude, landform, mountain_range, climate_type, temp_winter, temp_summers,
+              region_travel_guides!inner ( status )
+            `
+          )
+          .eq("guide_id", site.region_travel_guide_id)
+          .eq("region_travel_guides.status", "published")
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+
+    /* 2h. All sites in same province — used for prev/next neighbors */
+    supabase
+      .from("sites")
+      .select(
+        `
+          slug,
+          title,
+          tagline,
+          province_id,
+          cover_photo_url,
+          provinces ( slug )
+        `
+      )
+      .eq("province_id", site.province_id)
+      .order("title", { ascending: true }),
+
+    /* 2i. Deep-link research note (skipped when no note id in URL) */
+    deepLinkNoteId
+      ? supabase
+          .from("research_notes")
+          .select("id, quote_text, section_id")
+          .eq("id", deepLinkNoteId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  /* 3. Category icon SVGs — one extra round-trip, only if icons are needed */
   const categoriesBase: Taxonomy[] = (sc || [])
     .map((row: any) => row.categories)
     .filter(Boolean);
@@ -446,37 +571,12 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     });
   }
 
-  /* 3. Regions for this site */
-  const { data: sr } = await supabase
-    .from("site_regions")
-    .select("regions(id, name, icon_key)")
-    .eq("site_id", site.id);
+  /* Regions */
   const regions: Taxonomy[] = (sr || [])
     .map((row: any) => row.regions)
     .filter(Boolean);
 
-  /* 4. Gallery images */
-  const { data: imgs } = await supabase
-    .from("site_images")
-    .select(
-      `
-        id,
-        site_id,
-        storage_path,
-        alt_text,
-        caption,
-        credit,
-        is_cover,
-        sort_order,
-        width,
-        height,
-        blur_hash,
-        blur_data_url
-      `
-    )
-    .eq("site_id", site.id)
-    .order("sort_order", { ascending: true });
-
+  /* Gallery */
   const gallery: ImageRow[] = (imgs || []).map((r: any) => ({
     id: r.id,
     site_id: r.site_id,
@@ -493,8 +593,7 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     publicUrl: buildPublicImageUrl(r.storage_path),
   }));
 
-  /* 5. Cover for main hero (sites.cover_photo_url as source of truth) */
-
+  /* Cover */
   let coverForClient: HeroCoverForClient | null = null;
 
   const coverUrl = getCoverVariantUrl((site as any).cover_photo_url || null);
@@ -516,11 +615,7 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     cover: coverForClient,
   };
 
-  /* 6. Bibliography and citation style */
-  const styleId = await loadGlobalCitationStyle(supabase);
-  const bibliography = await loadBibliographyForPublic(supabase, site.id);
-
-  // New: preformat bibliography entries on the server
+  /* Format bibliography — CPU only, data already fetched in phase 2 */
   let bibliographyEntries: string[] = [];
   if (bibliography.length) {
     try {
@@ -558,72 +653,28 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     }
   }
 
-  /* 7. Photo story presence */
-  const { data: ps } = await supabase
-    .from("photo_stories")
-    .select("site_id")
-    .eq("site_id", site.id)
-    .maybeSingle();
+  /* Photo story */
   const hasPhotoStory = !!ps;
 
-  /* 8. Linked travel guide summary (published only) */
+  /* Travel guide summary */
   let travelGuideSummary: TravelGuideSummary | null = null;
-  if (site.region_travel_guide_id) {
-    const { data: tgs } = await supabase
-      .from("region_travel_guide_summary")
-      .select(
-        `
-          location, how_to_reach, nearest_major_city,
-          airport_access, access_options,
-          road_type_condition, best_time_to_visit,
-          hotels_available, spending_night_recommended, camping, places_to_eat,
-          altitude, landform, mountain_range, climate_type, temp_winter, temp_summers,
-          region_travel_guides!inner ( status )
-        `
-      )
-      .eq("guide_id", site.region_travel_guide_id)
-      .eq("region_travel_guides.status", "published")
-      .maybeSingle();
-
-    if (tgs) {
-      const { region_travel_guides: _joined, ...summary } = (tgs as any) || {};
-      travelGuideSummary = summary as TravelGuideSummary;
-    }
+  if (travelGuideRaw) {
+    const { region_travel_guides: _joined, ...summary } =
+      (travelGuideRaw as any) || {};
+    travelGuideSummary = summary as TravelGuideSummary;
   }
 
-  /* 9. Deep link highlight for research notes */
+  /* Deep-link highlight */
   let highlight: Highlight = { quote: null, section_id: null };
-  if (deepLinkNoteId) {
-    const { data: rn } = await supabase
-      .from("research_notes")
-      .select("id, quote_text, section_id")
-      .eq("id", deepLinkNoteId)
-      .maybeSingle();
-    if (rn?.quote_text) {
-      highlight = {
-        quote: rn.quote_text as string,
-        section_id: (rn.section_id as string) || null,
-      };
-    }
+  if (deepLinkRaw?.quote_text) {
+    highlight = {
+      quote: deepLinkRaw.quote_text as string,
+      section_id: (deepLinkRaw.section_id as string) || null,
+    };
   }
 
-  /* 10. Neighbors (alphabetical inside same province) */
+  /* Neighbors (alphabetical within same province) */
   let neighbors: NeighborProps = { prev: null, next: null };
-
-  const { data: list } = await supabase
-    .from("sites")
-    .select(
-      `
-        slug,
-        title,
-        tagline,
-        province_id,
-        cover_photo_url,
-        provinces ( slug )
-      `
-    )
-    .eq("province_id", site.province_id)
-    .order("title", { ascending: true });
 
   if (list) {
     const index = list.findIndex((s: any) => s.slug === slug);
