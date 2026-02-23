@@ -41,9 +41,7 @@ export async function generateStaticParams(): Promise<Params[]> {
 }
 
 type HeritagePageProps = {
-  // Next passes plain objects here; we await them for convenience
   params: Promise<Params>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 /* ---------- Types for data sent to the client ---------- */
@@ -153,8 +151,6 @@ type NeighborProps = {
   prev: NeighborLinkForClient | null;
   next: NeighborLinkForClient | null;
 };
-
-type Highlight = { quote: string | null; section_id: string | null };
 
 /* ---------- Helpers (server side) ---------- */
 
@@ -368,13 +364,8 @@ function buildJsonLdForSite(args: {
 
 /* ---------- Page component ---------- */
 
-export default async function Page({ params, searchParams }: HeritagePageProps) {
+export default async function Page({ params }: HeritagePageProps) {
   const { region, slug } = await params;
-  const search = (await searchParams) || {};
-  const deepLinkNoteId =
-    typeof search.note === "string" && search.note.length > 0
-      ? search.note
-      : null;
 
   const supabase = createPublicClient();
 
@@ -416,7 +407,6 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     { data: ps },
     { data: travelGuideRaw },
     { data: list },
-    { data: deepLinkRaw },
   ] = await Promise.all([
     /* 2a. Categories */
     supabase
@@ -500,14 +490,6 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
       .eq("province_id", site.province_id)
       .order("title", { ascending: true }),
 
-    /* 2i. Deep-link research note (skipped when no note id in URL) */
-    deepLinkNoteId
-      ? supabase
-          .from("research_notes")
-          .select("id, quote_text, section_id")
-          .eq("id", deepLinkNoteId)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
   ]);
 
   /* 3. Category icon SVGs — one extra round-trip, only if icons are needed */
@@ -646,15 +628,6 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
     travelGuideSummary = summary as TravelGuideSummary;
   }
 
-  /* Deep-link highlight */
-  let highlight: Highlight = { quote: null, section_id: null };
-  if (deepLinkRaw?.quote_text) {
-    highlight = {
-      quote: deepLinkRaw.quote_text as string,
-      section_id: (deepLinkRaw.section_id as string) || null,
-    };
-  }
-
   /* Neighbors (alphabetical within same province) */
   let neighbors: NeighborProps = { prev: null, next: null };
 
@@ -723,7 +696,6 @@ export default async function Page({ params, searchParams }: HeritagePageProps) 
         bibliographyEntries={bibliographyEntries}
         styleId={styleId}
         hasPhotoStory={hasPhotoStory}
-        highlight={highlight}
         travelGuideSummary={travelGuideSummary}
       />
     </>

@@ -1,7 +1,9 @@
 // src/app/heritage/[region]/[slug]/HeritageClient.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/browser";
 
 import HeritageCover from "./heritage/HeritageCover";
 import HeritageUpperArticle from "./heritage/HeritageUpperArticle";
@@ -166,7 +168,6 @@ type HeritagePageProps = {
   bibliographyEntries: string[];
   styleId: string;
   hasPhotoStory: boolean;
-  highlight: Highlight;
   travelGuideSummary: TravelGuideSummary | null;
 };
 
@@ -181,9 +182,34 @@ export default function HeritageClient({
   bibliographyEntries,
   styleId,
   hasPhotoStory,
-  highlight,
   travelGuideSummary,
 }: HeritagePageProps) {
+  // Deep-link highlight: read ?note= on the client so the server page stays
+  // fully static (searchParams in a Server Component forces dynamic rendering).
+  const searchParams = useSearchParams();
+  const [highlight, setHighlight] = useState<Highlight>({
+    quote: null,
+    section_id: null,
+  });
+
+  useEffect(() => {
+    const noteId = searchParams.get("note");
+    if (!noteId) return;
+    const supabase = createClient();
+    supabase
+      .from("research_notes")
+      .select("id, quote_text, section_id")
+      .eq("id", noteId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.quote_text) {
+          setHighlight({
+            quote: data.quote_text as string,
+            section_id: (data.section_id as string) || null,
+          });
+        }
+      });
+  }, [searchParams]);
   const site: HeritageClientSite | null = initialSite ?? null;
 
   /* ---------------- Derived links and neighbors ---------------- */
