@@ -25,7 +25,7 @@ body {
   /* --- HEADER FONTS --- */
   /* ---Header Menu Links --- */
   --font-headermenu: "FuturaCyrillicMedium", sans-serif;
-  --font-headermenu-font-size: 17px;
+  --font-headermenu-font-size: 15px;
   --font-headermenu-font-color: #8f8f8f;
   /* ---Header Logo --- */
   --font-headerlogo-shorthand: 700 24px "FuturaCyrillicMedium", sans-serif;
