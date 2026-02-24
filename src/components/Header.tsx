@@ -796,7 +796,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       {/* HEADER */}
       <header
         ref={headerRef as any}
-        className={`fixed lg:sticky top-0 z-[120] w-full transition-colors duration-300 ${
+        className={`fixed lg:sticky top-0 z-[1100] w-full transition-colors duration-300 ${
           solid || searchOverlayOpen
             ? "backdrop-blur shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
@@ -1421,7 +1421,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       {activeSub && activeSubItems.length > 0 && (
         <div
           ref={megaRef}
-          className={`fixed inset-x-0 top-0 z-30 bg-white/95 backdrop-blur shadow-lg border-b border-gray-200 transform transition-transform duration-[${PANEL_ANIM_MS}ms] ease-out ${
+          className={`fixed inset-x-0 top-0 z-[1090] bg-white/95 backdrop-blur shadow-lg border-b border-gray-200 transform transition-transform duration-[${PANEL_ANIM_MS}ms] ease-out ${
             megaOpen
               ? "translate-y-0 opacity-100 pointer-events-auto"
               : "-translate-y-full opacity-0 pointer-events-none"
