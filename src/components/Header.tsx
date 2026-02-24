@@ -1445,6 +1445,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                         <Link
                           href={s.url}
                           onMouseEnter={() => setActiveSubId(s.id)}
+                          onClick={() => setMegaOpen(false)}
                           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                             isActive
                               ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
@@ -1498,6 +1499,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                 {activeSub.url && (
                   <Link
                     href={activeSub.url}
+                    onClick={() => setMegaOpen(false)}
                     className="mt-4 inline-flex items-center text-sm font-medium text-[var(--brand-orange)] hover:underline"
                   >
                     Discover more
