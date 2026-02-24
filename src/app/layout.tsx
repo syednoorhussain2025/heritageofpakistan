@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import "@/modules/flow-layout/flow-layout.css";
 import AppChrome from "@/components/AppChrome";
+import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -39,9 +40,11 @@ export const metadata: Metadata = {};
 
 /* ---------------- Layout ---------------- */
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const initialHeaderItems = await fetchHeaderItems();
+
   return (
     <html lang="en">
       <head>
@@ -56,7 +59,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
-          <AppChrome>{children}</AppChrome>
+          <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
           <SpeedInsights />
         </IconProvider>
       </body>

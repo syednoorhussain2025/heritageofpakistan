@@ -184,7 +184,7 @@ function SearchThumbCircle({
 }
 
 /* ------------------------------- Header ----------------------------------- */
-export default function Header() {
+export default function Header({ initialItems }: { initialItems?: HeaderMainItem[] } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useLoaderEngine();
@@ -405,8 +405,8 @@ export default function Header() {
 
   /* -------------------------- Header menu data + mega state -------------------------- */
 
-  const [headerItems, setHeaderItems] = useState<HeaderMainItem[]>([]);
-  const [headerLoading, setHeaderLoading] = useState<boolean>(true);
+  const [headerItems, setHeaderItems] = useState<HeaderMainItem[]>(initialItems ?? []);
+  const [headerLoading, setHeaderLoading] = useState<boolean>(!initialItems?.length);
   const [activeMainId, setActiveMainId] = useState<string | null>(null);
   const [activeSubId, setActiveSubId] = useState<string | null>(null);
 
@@ -416,19 +416,24 @@ export default function Header() {
   useEffect(() => {
     let cancelled = false;
 
-    // Load from cache instantly to prevent layout shift
-    let hasCache = false;
-    try {
-      const raw = localStorage.getItem("heritage_header_nav_cache");
-      if (raw) {
-        const cached: HeaderMainItem[] = JSON.parse(raw);
-        if (cached.length > 0) {
-          hasCache = true;
-          setHeaderItems(cached);
-          setHeaderLoading(false);
+    // If server already provided items, skip cache check and never show loading
+    const hasServerData = !!(initialItems?.length);
+
+    // Load from cache instantly to prevent layout shift (only needed without server data)
+    let hasCache = hasServerData;
+    if (!hasServerData) {
+      try {
+        const raw = localStorage.getItem("heritage_header_nav_cache");
+        if (raw) {
+          const cached: HeaderMainItem[] = JSON.parse(raw);
+          if (cached.length > 0) {
+            hasCache = true;
+            setHeaderItems(cached);
+            setHeaderLoading(false);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     (async () => {
       if (!hasCache) setHeaderLoading(true);
@@ -1024,14 +1029,7 @@ export default function Header() {
                 </span>
               </Link>
 
-              {headerLoading ? (
-                // Skeleton placeholders preserve layout on first visit (no cache yet)
-                <>
-                  <div className={`h-4 w-20 rounded-full animate-pulse ${textLight ? "bg-gray-300/50" : "bg-white/20"}`} />
-                  <div className={`h-4 w-16 rounded-full animate-pulse ${textLight ? "bg-gray-300/50" : "bg-white/20"}`} />
-                </>
-              ) : (
-                headerItems.map((m) => {
+              {!headerLoading && headerItems.map((m) => {
                   const hasPanel = (m.sub_items?.length ?? 0) > 0;
 
                   if (!hasPanel && m.url) {
@@ -1067,8 +1065,7 @@ export default function Header() {
                       )}
                     </button>
                   );
-                })
-              )}
+                })}
 
               <Link
                 href="/explore"

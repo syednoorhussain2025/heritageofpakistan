@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
+import type { HeaderMainItem } from "@/lib/fetchHeaderItems";
 import BottomNav from "@/components/BottomNav";
 import { BookmarkProvider } from "@/components/BookmarkProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
@@ -11,14 +12,20 @@ import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import AuthPendingToast from "@/components/AuthPendingToast";
 
-export default function AppChrome({ children }: { children: ReactNode }) {
+export default function AppChrome({
+  children,
+  initialHeaderItems,
+}: {
+  children: ReactNode;
+  initialHeaderItems?: HeaderMainItem[];
+}) {
   const pathname = usePathname() || "";
   const isAdminRoute = pathname.startsWith("/admin");
 
   if (isAdminRoute) {
     return (
       <LoaderEngineProvider>
-        <Header />
+        <Header initialItems={initialHeaderItems} />
         <main>{children}</main>
       </LoaderEngineProvider>
     );
@@ -31,7 +38,7 @@ export default function AppChrome({ children }: { children: ReactNode }) {
           <CollectionsProvider>
             <LoaderEngineProvider>
               <AuthPendingToast />
-              <Header />
+              <Header initialItems={initialHeaderItems} />
               <BottomNav />
               <main>{children}</main>
             </LoaderEngineProvider>
