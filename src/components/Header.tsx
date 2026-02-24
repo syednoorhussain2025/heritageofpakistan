@@ -415,8 +415,23 @@ export default function Header() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Load from cache instantly to prevent layout shift
+    let hasCache = false;
+    try {
+      const raw = localStorage.getItem("heritage_header_nav_cache");
+      if (raw) {
+        const cached: HeaderMainItem[] = JSON.parse(raw);
+        if (cached.length > 0) {
+          hasCache = true;
+          setHeaderItems(cached);
+          setHeaderLoading(false);
+        }
+      }
+    } catch {}
+
     (async () => {
-      setHeaderLoading(true);
+      if (!hasCache) setHeaderLoading(true);
 
       const { data: mainItems, error: mainErr } = await supabase
         .from("header_main_items")
@@ -507,6 +522,10 @@ export default function Header() {
       if (!cancelled) {
         setHeaderItems(final);
         setHeaderLoading(false);
+        // Refresh cache for next visit
+        try {
+          localStorage.setItem("heritage_header_nav_cache", JSON.stringify(final));
+        } catch {}
       }
     })();
 
@@ -1005,7 +1024,13 @@ export default function Header() {
                 </span>
               </Link>
 
-              {!headerLoading &&
+              {headerLoading ? (
+                // Skeleton placeholders preserve layout on first visit (no cache yet)
+                <>
+                  <div className={`h-4 w-20 rounded-full animate-pulse ${textLight ? "bg-gray-300/50" : "bg-white/20"}`} />
+                  <div className={`h-4 w-16 rounded-full animate-pulse ${textLight ? "bg-gray-300/50" : "bg-white/20"}`} />
+                </>
+              ) : (
                 headerItems.map((m) => {
                   const hasPanel = (m.sub_items?.length ?? 0) > 0;
 
@@ -1042,7 +1067,8 @@ export default function Header() {
                       )}
                     </button>
                   );
-                })}
+                })
+              )}
 
               <Link
                 href="/explore"
