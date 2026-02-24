@@ -1441,11 +1441,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           }}
         >
           <div
-            className="mx-auto max-w-[1400px] px-8 py-10 flex gap-8 min-h-[520px]"
+            className="mx-auto max-w-[1400px] px-8 py-10 flex gap-8"
             style={{ paddingTop: headerHeight + 16 }}
           >
-            <div className="w-1/3 border-r border-gray-100 pr-4">
-              <ul className="space-y-1">
+            <div className={`border-r border-gray-100 pr-4 ${activeSubItems.length > 10 ? "w-1/2" : "w-1/3"}`}>
+              <ul className={`space-y-1 ${activeSubItems.length > 10 ? "columns-2 gap-2" : ""}`}
+                style={{ columnFill: "auto", maxHeight: "calc(10 * 2.5rem)" }}
+              >
                 {activeSubItems.map((s, i) => {
                   const isActive = s.id === activeSub.id;
                   const itemClass = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-all duration-200 opacity-0 animate-fadeSlideLeft ${
@@ -1489,7 +1491,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </ul>
             </div>
 
-            <div className="w-2/3 grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] gap-6">
+            <div className={`grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] gap-6 ${activeSubItems.length > 10 ? "w-1/2" : "w-2/3"}`}>
               <div
                 key={activeSub.id + "_text"}
                 className="flex flex-col justify-center opacity-0 animate-fadeIn"
