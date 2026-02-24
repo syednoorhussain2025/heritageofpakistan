@@ -143,6 +143,46 @@ function onKeyActivate(e: React.KeyboardEvent, fn: () => void) {
   }
 }
 
+/* ───────────────────────────── Tooltip ───────────────────────────── */
+function Tooltip({
+  text,
+  children,
+  wrapperClassName = "",
+}: {
+  text: string;
+  children: React.ReactNode;
+  wrapperClassName?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const handleMouseEnter = () => {
+    if (!wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    setCoords({ top: r.top - 8, left: r.left + r.width / 2 });
+    setVisible(true);
+  };
+
+  return (
+    <div ref={wrapRef} className={wrapperClassName} onMouseEnter={handleMouseEnter} onMouseLeave={() => setVisible(false)}>
+      {children}
+      {mounted && visible && createPortal(
+        <div
+          style={{ position: "fixed", top: coords.top, left: coords.left, transform: "translate(-50%, -100%)", zIndex: 9999, pointerEvents: "none" }}
+          className="px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap shadow-lg"
+        >
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────────── Generic MultiSelect (Categories) ───────────────────────────── */
 const MultiSelectDropdown = ({
   options,
@@ -190,76 +230,79 @@ const MultiSelectDropdown = ({
 
   return (
     <div className="relative group" ref={dropdownRef}>
-      <div
-        className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all
-        ${
-          isOpen
-            ? "ring-[var(--brand-orange)] shadow-md"
-            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
-        }`}
-      >
-        {/* OUTER: div role=button (was button) */}
+      <Tooltip text={selectedIds && selectedIds.length > 0 ? `${selectedOptions.map(o => o.name).join(", ")} — click to change` : `Select ${placeholder}`} wrapperClassName="w-full">
         <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen(!isOpen)}
-          onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
+          className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all
+          ${
+            isOpen
+              ? "ring-[var(--brand-orange)] shadow-md"
+              : "ring-gray-200 hover:ring-[var(--brand-orange)]"
+          }`}
         >
+          {/* OUTER: div role=button (was button) */}
           <div
-            className={`text-sm truncate
-            ${
-              !selectedIds || selectedIds.length === 0
-                ? "text-gray-500 font-normal"
-                : "text-[var(--dark-grey)] font-semibold"
-            }`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(!isOpen)}
+            onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
+            className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
           >
-            {selectedOptions.length > 1 ? (
-              <div className="flex items-center">
-                <span className="truncate">{displayLabel},</span>
-                <span
-                  className="relative group/plus ml-1 flex-shrink-0"
-                  title={plusMoreTooltipLabel}
-                >{`+${selectedOptions.length - 1}`}</span>
-              </div>
-            ) : (
-              displayLabel || "\u00A0"
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 pl-2">
-            {selectedIds && selectedIds.length > 0 && (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange([]);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onChange([]);
-                  }
-                }}
-                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
-                title="Clear selection"
-              >
-                <Icon name="times" size={9} />
-              </div>
-            )}
-            <Icon
-              name="chevron-down"
-              size={14}
-              className={`transition-transform text-gray-400 ${
-                isOpen ? "rotate-180" : ""
+            <div
+              className={`text-sm truncate
+              ${
+                !selectedIds || selectedIds.length === 0
+                  ? "text-gray-500 font-normal"
+                  : "text-[var(--dark-grey)] font-semibold"
               }`}
-            />
+            >
+              {selectedOptions.length > 1 ? (
+                <div className="flex items-center">
+                  <span className="truncate">{displayLabel},</span>
+                  <span
+                    className="relative group/plus ml-1 flex-shrink-0"
+                    title={plusMoreTooltipLabel}
+                  >{`+${selectedOptions.length - 1}`}</span>
+                </div>
+              ) : (
+                displayLabel || "\u00A0"
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pl-2">
+              {selectedIds && selectedIds.length > 0 && (
+                <Tooltip text="Clear selection" wrapperClassName="inline-flex items-center">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange([]);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onChange([]);
+                      }
+                    }}
+                    className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
+                  >
+                    <Icon name="times" size={9} />
+                  </span>
+                </Tooltip>
+              )}
+              <Icon
+                name="chevron-down"
+                size={14}
+                className={`transition-transform text-gray-400 ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </Tooltip>
 
       {/* Dropdown panel */}
       <div
@@ -271,13 +314,15 @@ const MultiSelectDropdown = ({
         }`}
       >
         <div className="p-2 border-b border-gray-100">
-          <input
-            type="text"
-            placeholder="Search…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-          />
+          <Tooltip text="Type to filter options" wrapperClassName="w-full">
+            <input
+              type="text"
+              placeholder="Search…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+            />
+          </Tooltip>
         </div>
         <ul className="py-1.5 max-h-60 overflow-auto text-sm">
           {filteredOptions.map((opt) => (
@@ -423,63 +468,66 @@ const TopLevelRegionSelect = ({
 
   return (
     <div className="relative group" ref={ref}>
-      <div
-        className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
-          isOpen
-            ? "ring-[var(--brand-orange)] shadow-md"
-            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
-        }`}
-      >
-        {/* OUTER: div role=button (was button) */}
+      <Tooltip text={selectedIds.length || activeParentId ? "Click to change region" : "Select a region to filter by location"} wrapperClassName="w-full">
         <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen(!isOpen)}
-          onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
+          className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
+            isOpen
+              ? "ring-[var(--brand-orange)] shadow-md"
+              : "ring-gray-200 hover:ring-[var(--brand-orange)]"
+          }`}
         >
+          {/* OUTER: div role=button (was button) */}
           <div
-            className={`text-sm truncate ${
-              selectedIds.length || activeParentId
-                ? "text-[var(--dark-grey)] font-semibold"
-                : "text-gray-500"
-            }`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(!isOpen)}
+            onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
+            className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
           >
-            {label}
-          </div>
-          <div className="flex items-center gap-2 pl-2">
-            {(selectedIds.length > 0 || activeParentId) && (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClearAll();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onClearAll();
-                  }
-                }}
-                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
-                title="Clear"
-              >
-                <Icon name="times" size={9} />
-              </div>
-            )}
-            <Icon
-              name="chevron-down"
-              size={14}
-              className={`transition-transform text-gray-400 ${
-                isOpen ? "rotate-180" : ""
+            <div
+              className={`text-sm truncate ${
+                selectedIds.length || activeParentId
+                  ? "text-[var(--dark-grey)] font-semibold"
+                  : "text-gray-500"
               }`}
-            />
+            >
+              {label}
+            </div>
+            <div className="flex items-center gap-2 pl-2">
+              {(selectedIds.length > 0 || activeParentId) && (
+                <Tooltip text="Clear region" wrapperClassName="inline-flex items-center">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClearAll();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onClearAll();
+                      }
+                    }}
+                    className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] hover:bg-white transition-colors"
+                  >
+                    <Icon name="times" size={9} />
+                  </span>
+                </Tooltip>
+              )}
+              <Icon
+                name="chevron-down"
+                size={14}
+                className={`transition-transform text-gray-400 ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </Tooltip>
 
       {/* Panel */}
       <div
@@ -490,13 +538,15 @@ const TopLevelRegionSelect = ({
         }`}
       >
         <div className="p-2 border-b border-gray-100">
-          <input
-            type="text"
-            placeholder="Search regions…"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-          />
+          <Tooltip text="Type at least 2 characters to search for a region" wrapperClassName="w-full">
+            <input
+              type="text"
+              placeholder="Search regions…"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+            />
+          </Tooltip>
         </div>
 
         <div className="py-1.5 max-h-72 overflow-auto text-sm">
@@ -627,53 +677,56 @@ const SubRegionSelect = ({
 
   return (
     <div className="relative group mt-2.5" ref={ref}>
-      <div
-        className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
-          isOpen
-            ? "ring-[var(--brand-orange)] shadow-md"
-            : "ring-gray-200 hover:ring-[var(--brand-orange)]"
-        }`}
-      >
-        {/* OUTER: div role=button (was button) */}
+      <Tooltip text={selectedForParent.length > 0 ? "Click to change subregion" : `Filter within ${parent.name} by a specific subregion`} wrapperClassName="w-full">
         <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen(!isOpen)}
-          onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
-          className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
+          className={`relative rounded-xl bg-white shadow-sm ring-1 transition-all ${
+            isOpen
+              ? "ring-[var(--brand-orange)] shadow-md"
+              : "ring-gray-200 hover:ring-[var(--brand-orange)]"
+          }`}
         >
-          <div className="text-sm truncate text-[var(--dark-grey)]">
-            {labelText}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectedForParent.length > 0 && (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={clearParentSubs}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    clearParentSubs(e);
-                  }
-                }}
-                className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
-                title="Clear these subregions"
-              >
-                <Icon name="times" size={9} />
-              </div>
-            )}
-            <Icon
-              name="chevron-down"
-              size={14}
-              className={`transition-transform text-gray-400 ${
-                isOpen ? "rotate-180" : ""
-              }`}
-            />
+          {/* OUTER: div role=button (was button) */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(!isOpen)}
+            onKeyDown={(e) => onKeyActivate(e, () => setIsOpen(!isOpen))}
+            className="w-full flex items-center justify-between text-left px-3 py-2.5 cursor-pointer"
+          >
+            <div className="text-sm truncate text-[var(--dark-grey)]">
+              {labelText}
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedForParent.length > 0 && (
+                <Tooltip text="Clear subregion" wrapperClassName="inline-flex items-center">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={clearParentSubs}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        clearParentSubs(e);
+                      }
+                    }}
+                    className="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 flex items-center justify-center text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
+                  >
+                    <Icon name="times" size={9} />
+                  </span>
+                </Tooltip>
+              )}
+              <Icon
+                name="chevron-down"
+                size={14}
+                className={`transition-transform text-gray-400 ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </Tooltip>
 
       {/* Panel */}
       <div
@@ -684,13 +737,15 @@ const SubRegionSelect = ({
         }`}
       >
         <div className="p-2 border-b border-gray-100">
-          <input
-            type="text"
-            placeholder="Search subregions…"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-          />
+          <Tooltip text="Type to filter subregions" wrapperClassName="w-full">
+            <input
+              type="text"
+              placeholder="Search subregions…"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+            />
+          </Tooltip>
         </div>
 
         <div className="py-1.5 max-h-72 overflow-auto text-sm">
@@ -718,25 +773,26 @@ const SubRegionSelect = ({
                   >
                     <span>{s.name}</span>
                     {active && (
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="ml-2 w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-current"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleWithRule(s.id); // clears only this sub
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                      <Tooltip text="Remove" wrapperClassName="ml-2 inline-flex items-center">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-current"
+                          onClick={(e) => {
                             e.stopPropagation();
                             onToggleWithRule(s.id);
-                          }
-                        }}
-                        title="Remove"
-                      >
-                        <Icon name="times" size={9} />
-                      </div>
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onToggleWithRule(s.id);
+                            }
+                          }}
+                        >
+                          <Icon name="times" size={9} />
+                        </span>
+                      </Tooltip>
                     )}
                   </li>
                 );
@@ -807,7 +863,8 @@ function LocationSearchTrigger({
   const hasSelection = Boolean(summary);
 
   return (
-    <div className="relative group/location">
+    <div>
+      <Tooltip text={hasSelection ? "Click to edit location filter" : "Select region and subregion filters"} wrapperClassName="w-full">
       <button
         type="button"
         onClick={onOpen}
@@ -843,7 +900,7 @@ function LocationSearchTrigger({
         )}
 
         {hasSelection ? (
-          <span className="relative ml-auto flex-shrink-0 group/clearx">
+          <Tooltip text="Clear location filter" wrapperClassName="ml-auto flex-shrink-0 inline-flex items-center">
             <span
               role="button"
               tabIndex={0}
@@ -862,11 +919,7 @@ function LocationSearchTrigger({
             >
               <Icon name="times" size={8} />
             </span>
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[0.65rem] rounded-md whitespace-nowrap opacity-0 group-hover/clearx:opacity-100 transition-opacity duration-150 z-50">
-              Clear
-              <span className="absolute top-full left-1/2 -translate-x-1/2 border-[3px] border-transparent border-t-gray-900" />
-            </span>
-          </span>
+          </Tooltip>
         ) : (
           <Icon
             name="chevron-right"
@@ -875,18 +928,7 @@ function LocationSearchTrigger({
           />
         )}
       </button>
-
-      {hasSelection ? (
-        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/location:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
-          Click to edit
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-        </div>
-      ) : (
-        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/location:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
-          Select region and subregion filters
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-        </div>
-      )}
+      </Tooltip>
     </div>
   );
 }
@@ -922,7 +964,8 @@ function HeritageTypeTrigger({
   const hasSelection = Boolean(summary);
 
   return (
-    <div className="relative group/htype">
+    <div>
+      <Tooltip text={hasSelection ? "Click to edit heritage type selection" : "Filter results by heritage type (mosque, fort, temple…)"} wrapperClassName="w-full">
       <button
         type="button"
         onClick={onOpen}
@@ -958,7 +1001,7 @@ function HeritageTypeTrigger({
         )}
 
         {hasSelection ? (
-          <span className="relative ml-auto flex-shrink-0 group/clearx">
+          <Tooltip text="Clear heritage type" wrapperClassName="ml-auto flex-shrink-0 inline-flex items-center">
             <span
               role="button"
               tabIndex={0}
@@ -977,7 +1020,7 @@ function HeritageTypeTrigger({
             >
               <Icon name="times" size={8} />
             </span>
-          </span>
+          </Tooltip>
         ) : (
           <Icon
             name="chevron-right"
@@ -986,6 +1029,7 @@ function HeritageTypeTrigger({
           />
         )}
       </button>
+      </Tooltip>
     </div>
   );
 }
@@ -1065,23 +1109,27 @@ function HeritageTypeModal({
             </div>
             <h2 className="text-base font-semibold text-gray-900">Heritage Type</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
-            aria-label="Close"
-          >
-            <Icon name="times" size={12} />
-          </button>
+          <Tooltip text="Close without applying">
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              aria-label="Close"
+            >
+              <Icon name="times" size={12} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="px-5 py-4 space-y-3 flex-1 min-h-0">
-          <input
-            type="text"
-            placeholder="Search heritage type..."
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-xl bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-          />
+          <Tooltip text="Type to find a heritage type" wrapperClassName="w-full">
+            <input
+              type="text"
+              placeholder="Search heritage type..."
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-xl bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+            />
+          </Tooltip>
           <div className="rounded-xl border border-gray-200 overflow-hidden min-h-0 flex-1">
             <ul className="max-h-[320px] overflow-auto divide-y divide-gray-100">
               {filtered.length === 0 ? (
@@ -1110,21 +1158,24 @@ function HeritageTypeModal({
         </div>
 
         <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
-          <button
-            onClick={onApply}
-            className="flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
-          >
-            <Icon name="search" size={13} />
-            Apply Heritage Type
-          </button>
-          <button
-            onClick={onClear}
-            className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
-            title="Clear heritage type"
-          >
-            <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
-            Clear
-          </button>
+          <Tooltip text="Apply selected heritage types and run search" wrapperClassName="flex-1">
+            <button
+              onClick={onApply}
+              className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+            >
+              <Icon name="search" size={13} />
+              Apply Heritage Type
+            </button>
+          </Tooltip>
+          <Tooltip text="Clear all heritage type selections">
+            <button
+              onClick={onClear}
+              className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+            >
+              <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
+              Clear
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>,
@@ -1210,13 +1261,15 @@ function SearchLocationModal({
             </div>
             <h2 className="text-base font-semibold text-gray-900">Search Location</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
-            aria-label="Close"
-          >
-            <Icon name="times" size={12} />
-          </button>
+          <Tooltip text="Close without applying">
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              aria-label="Close"
+            >
+              <Icon name="times" size={12} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="px-5 py-4 space-y-4 flex-1">
@@ -1251,21 +1304,24 @@ function SearchLocationModal({
         </div>
 
         <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
-          <button
-            onClick={onApply}
-            className="flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
-          >
-            <Icon name="search" size={13} />
-            Apply Location
-          </button>
-          <button
-            onClick={onClear}
-            className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
-            title="Clear location filters"
-          >
-            <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
-            Clear
-          </button>
+          <Tooltip text="Apply selected location filters and run search" wrapperClassName="flex-1">
+            <button
+              onClick={onApply}
+              className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+            >
+              <Icon name="search" size={13} />
+              Apply Location
+            </button>
+          </Tooltip>
+          <Tooltip text="Clear all location filters">
+            <button
+              onClick={onClear}
+              className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+            >
+              <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
+              Clear
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>,
@@ -2639,118 +2695,127 @@ export default function SearchFilters({
         <h2 className="text-xl font-bold text-[var(--navy-deep)] tracking-tight">Search</h2>
       </div>
 
-      {/* ── Fixed: keyword search — placeholder is domain-aware ── */}
-      <div className="relative rounded-2xl bg-gray-100 border border-gray-300 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all mb-3">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-          <Icon name="search" size={14} />
+      {/* ══ Section 1: Search ══ */}
+      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">
+        <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Search</span>
+        <Tooltip text="Search heritage sites by name — press Enter to search" wrapperClassName="w-full mb-2">
+          <div className="relative rounded-2xl bg-gray-100 border border-gray-300 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <Icon name="search" size={14} />
+            </div>
+            <input
+              type="text"
+              value={filters.name}
+              onChange={(e) => onFilterChange({ name: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && onSearch()}
+              placeholder={
+                domainTab === "architecture" ? "Search Architecture…"
+                : domainTab === "nature" ? "Search Nature & Landscapes…"
+                : domainTab === "cultural" ? "Search Cultural Landscape…"
+                : domainTab === "archaeology" ? "Search Archaeology…"
+                : "Search Heritage"
+              }
+              className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm"
+            />
+          </div>
+        </Tooltip>
+        <div className="rounded-xl bg-[var(--ivory-cream)] border border-gray-200 p-2 space-y-2">
+          <HeritageTypeTrigger
+            options={
+              domainTab === "architecture" ? architectureTypeOptions
+              : domainTab === "nature" ? naturalTypeOptions
+              : domainTab === "cultural" ? culturalTypeOptions
+              : domainTab === "archaeology" ? archaeologyTypeOptions
+              : heritageTypeOptions
+            }
+            selectedIds={
+              domainTab === "architecture" ? selectedArchitectureTypeIds
+              : domainTab === "nature" ? selectedNatureTypeIds
+              : domainTab === "cultural" ? selectedCulturalTypeIds
+              : domainTab === "archaeology" ? selectedArchaeologyTypeIds
+              : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
+            }
+            onOpen={openHeritageTypeModal}
+            onClear={clearHeritageTypeSelection}
+          />
+          <LocationSearchTrigger
+            selectedIds={filters.regionIds}
+            regionNames={regionNames}
+            regionParents={regionParents}
+            onOpen={openLocationModal}
+            onClear={clearRegionSelection}
+          />
         </div>
-        <input
-          type="text"
-          value={filters.name}
-          onChange={(e) => onFilterChange({ name: e.target.value })}
-          onKeyDown={(e) => e.key === "Enter" && onSearch()}
-          placeholder={
-            domainTab === "architecture" ? "Search Architecture…"
-            : domainTab === "nature" ? "Search Nature & Landscapes…"
-            : domainTab === "cultural" ? "Search Cultural Landscape…"
-            : domainTab === "archaeology" ? "Search Archaeology…"
-            : "Search Heritage"
-          }
-          className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm"
-        />
       </div>
 
-      {/* ── Fixed: Heritage Type (context-aware) + Location ── */}
-      <div className="rounded-xl bg-[var(--ivory-cream)] border border-gray-200 p-2 space-y-2 mb-3">
-        <HeritageTypeTrigger
-          options={
-            domainTab === "architecture" ? architectureTypeOptions
-            : domainTab === "nature" ? naturalTypeOptions
-            : domainTab === "cultural" ? culturalTypeOptions
-            : domainTab === "archaeology" ? archaeologyTypeOptions
-            : heritageTypeOptions
-          }
-          selectedIds={
-            domainTab === "architecture" ? selectedArchitectureTypeIds
-            : domainTab === "nature" ? selectedNatureTypeIds
-            : domainTab === "cultural" ? selectedCulturalTypeIds
-            : domainTab === "archaeology" ? selectedArchaeologyTypeIds
-            : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
-          }
-          onOpen={openHeritageTypeModal}
-          onClear={clearHeritageTypeSelection}
-        />
-        <LocationSearchTrigger
-          selectedIds={filters.regionIds}
-          regionNames={regionNames}
-          regionParents={regionParents}
-          onOpen={openLocationModal}
-          onClear={clearRegionSelection}
-        />
-      </div>
-
-      {/* ── Domain pills (2×2 grid) ── */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        {(["architecture", "nature", "cultural", "archaeology"] as DomainTab[]).map((domain) => {
-          const label =
-            domain === "architecture" ? "Architecture"
-            : domain === "nature" ? "Nature & Landscapes"
-            : domain === "cultural" ? "Cultural Landscape"
-            : "Archaeology";
-          const isActive = domainTab === domain;
-          return (
-            <button
-              key={domain}
-              type="button"
-              onClick={() => handleDomainTabClick(domain)}
-              className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap flex items-center justify-center
-              ${isActive
-                ? "bg-[var(--brand-orange)] text-white border-[var(--brand-orange)] shadow-sm"
-                : "bg-white text-gray-600 border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Advanced filters — only for Architecture and Archaeology ── */}
-      {(domainTab === "architecture" || domainTab === "archaeology") && (
-        <div className="flex-grow min-h-0 overflow-y-auto space-y-3 pb-1">
-          {domainTab === "architecture" && (
-            <>
-              <MultiSelectDropdown
-                options={architecturalStyleOptions}
-                selectedIds={selectedArchitecturalStyleIds}
-                onChange={handleArchitecturalStyleChange}
-                placeholder="Architectural Style"
-              />
-              <MultiSelectDropdown
-                options={architecturalFeatureOptions}
-                selectedIds={selectedArchitecturalFeatureIds}
-                onChange={handleArchitecturalFeatureChange}
-                placeholder="Architectural Features"
-              />
+      {/* ══ Section 2: Explore by Domain ══ */}
+      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">
+        <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Explore by Domain</span>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          {(["architecture", "nature", "cultural", "archaeology"] as DomainTab[]).map((domain) => {
+            const label =
+              domain === "architecture" ? "Architecture"
+              : domain === "nature" ? "Nature & Landscapes"
+              : domain === "cultural" ? "Cultural Landscape"
+              : "Archaeology";
+            const domainTooltip =
+              domain === "architecture" ? "Show only architectural heritage (mosques, forts, tombs…)"
+              : domain === "nature" ? "Show only natural sites and landscapes"
+              : domain === "cultural" ? "Show only cultural landscapes and living traditions"
+              : "Show only archaeological sites and excavations";
+            const isActive = domainTab === domain;
+            return (
+              <Tooltip key={domain} text={isActive ? `Click to deactivate ${label} filter` : domainTooltip} wrapperClassName="w-full">
+                <button
+                  type="button"
+                  onClick={() => handleDomainTabClick(domain)}
+                  className={`font-explore-tab w-full px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap flex items-center justify-center
+                  ${isActive
+                    ? "bg-[var(--brand-orange)] text-white border-[var(--brand-orange)] shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-[var(--brand-orange)] hover:text-[var(--brand-orange)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
+        {(domainTab === "architecture" || domainTab === "archaeology") && (
+          <div className="flex-grow min-h-0 overflow-y-auto space-y-2 pb-1">
+            {domainTab === "architecture" && (
+              <>
+                <MultiSelectDropdown
+                  options={architecturalStyleOptions}
+                  selectedIds={selectedArchitecturalStyleIds}
+                  onChange={handleArchitecturalStyleChange}
+                  placeholder="Architectural Style"
+                />
+                <MultiSelectDropdown
+                  options={architecturalFeatureOptions}
+                  selectedIds={selectedArchitecturalFeatureIds}
+                  onChange={handleArchitecturalFeatureChange}
+                  placeholder="Architectural Features"
+                />
+                <MultiSelectDropdown
+                  options={historicalPeriodOptions}
+                  selectedIds={selectedArchitecturePeriodIds}
+                  onChange={handleArchitecturePeriodChange}
+                  placeholder="Historical Period"
+                />
+              </>
+            )}
+            {domainTab === "archaeology" && (
               <MultiSelectDropdown
                 options={historicalPeriodOptions}
-                selectedIds={selectedArchitecturePeriodIds}
-                onChange={handleArchitecturePeriodChange}
+                selectedIds={selectedArchaeologyPeriodIds}
+                onChange={handleArchaeologyPeriodChange}
                 placeholder="Historical Period"
               />
-            </>
-          )}
-          {domainTab === "archaeology" && (
-            <MultiSelectDropdown
-              options={historicalPeriodOptions}
-              selectedIds={selectedArchaeologyPeriodIds}
-              onChange={handleArchaeologyPeriodChange}
-              placeholder="Historical Period"
-            />
-          )}
-        </div>
-      )}
-
+            )}
+          </div>
+        )}
+      </div>
 
       <SearchLocationModal
         isOpen={isLocationModalOpen}
@@ -2787,8 +2852,10 @@ export default function SearchFilters({
         onClear={clearHeritageTypeSelection}
       />
 
-      {/* Proximity search trigger */}
-      <div className="pt-3 flex-shrink-0 relative group/proximity">
+      {/* ══ Section 3: Search Around a Site ══ */}
+      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 flex-shrink-0">
+        <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Nearby</span>
+        <Tooltip text={filters.centerSiteId ? "Click to edit proximity filter" : "Find heritage sites near a specific location"} wrapperClassName="w-full">
         <button
           type="button"
           onClick={onOpenNearbyModal}
@@ -2830,8 +2897,7 @@ export default function SearchFilters({
             </span>
           )}
           {filters.centerSiteId ? (
-            /* X button with its own "Clear" tooltip */
-            <span className="relative ml-auto flex-shrink-0 group/clearx">
+            <Tooltip text="Clear proximity filter" wrapperClassName="ml-auto flex-shrink-0 inline-flex items-center">
               <span
                 role="button"
                 tabIndex={0}
@@ -2852,11 +2918,7 @@ export default function SearchFilters({
               >
                 <Icon name="times" size={8} />
               </span>
-              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-gray-900 text-white text-[0.65rem] rounded-md whitespace-nowrap opacity-0 group-hover/clearx:opacity-100 transition-opacity duration-150 z-50">
-                Clear
-                <span className="absolute top-full left-1/2 -translate-x-1/2 border-[3px] border-transparent border-t-gray-900" />
-              </span>
-            </span>
+            </Tooltip>
           ) : (
             <Icon
               name="chevron-right"
@@ -2865,42 +2927,34 @@ export default function SearchFilters({
             />
           )}
         </button>
-        {/* "Click to edit" tooltip on main button hover (hides when X is hovered) */}
-        {filters.centerSiteId ? (
-          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/proximity:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
-            Click to edit
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-          </div>
-        ) : (
-          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[0.7rem] rounded-lg whitespace-nowrap opacity-0 group-hover/proximity:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
-            Find heritage sites near a specific location
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-          </div>
-        )}
+        </Tooltip>
       </div>
 
       {/* Footer actions */}
       <div className="flex gap-2.5 pt-4 mt-3 border-t border-gray-100 flex-shrink-0">
-        <button
-          onClick={onSearch}
-          className="font-explore-button flex-1 py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
-        >
-          <Icon name="search" size={13} />
-          Search
-        </button>
-        <button
-          onClick={handleReset}
-          className="font-explore-button px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
-          title="Reset filters"
-          type="button"
-        >
-          <Icon
-            name="redo-alt"
-            size={12}
-            className="text-[var(--brand-orange)]"
-          />
-          Reset
-        </button>
+        <Tooltip text="Run search with current filters" wrapperClassName="flex-1">
+          <button
+            onClick={onSearch}
+            className="font-explore-button w-full py-2.5 rounded-xl bg-[var(--brand-orange)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-sm flex items-center justify-center gap-2"
+          >
+            <Icon name="search" size={13} />
+            Search
+          </button>
+        </Tooltip>
+        <Tooltip text="Reset all filters to default">
+          <button
+            onClick={handleReset}
+            className="font-explore-button px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+            type="button"
+          >
+            <Icon
+              name="redo-alt"
+              size={12}
+              className="text-[var(--brand-orange)]"
+            />
+            Reset
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
