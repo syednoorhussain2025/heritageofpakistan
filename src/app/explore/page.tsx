@@ -541,38 +541,70 @@ async function attachActiveCovers(sites: Site[]) {
           })()
         : Promise.resolve(),
 
-      // ── Blur placeholder + dimensions from site_covers table ─────────────
-      // blur_data_url lives on site_covers (not sites), mirroring HeritageNearby
+      // ── Blur placeholder + dimensions from site_images via site_covers ──
+      // site_covers.blur_data_url is never populated by admin; blur lives in
+      // site_images. So we fetch the active cover's storage_path, then join
+      // to site_images on storage_path to get blur_data_url + dimensions.
       needsBlur.length
         ? (async () => {
             const ids = Array.from(
               new Set(needsBlur.map((s) => s.id))
             ).filter(Boolean);
-            const { data } = await withTimeout(
+
+            // Step 1: active cover storage_path per site
+            const { data: coverData, error: coverErr } = await withTimeout(
               supabase
                 .from("site_covers")
-                .select("site_id, blur_data_url, width, height")
+                .select("site_id, storage_path")
                 .in("site_id", ids)
                 .eq("is_active", true),
               QUERY_TIMEOUT_MS,
-              "explore.attachActiveCovers.blur"
+              "explore.attachActiveCovers.coverPaths"
             );
-            if (!data?.length) return;
-            type BlurRow = {
-              site_id: string;
+            if (coverErr) {
+              console.error("attachActiveCovers: cover paths error", coverErr);
+              return;
+            }
+            if (!coverData?.length) return;
+
+            type CoverPathRow = { site_id: string; storage_path: string };
+            const siteToPath = new Map<string, string>(
+              (coverData as CoverPathRow[]).map((r) => [r.site_id, r.storage_path])
+            );
+            const paths = Array.from(new Set((coverData as CoverPathRow[]).map((r) => r.storage_path)));
+
+            // Step 2: blur data from site_images by storage_path
+            const { data: imgData, error: imgErr } = await withTimeout(
+              supabase
+                .from("site_images")
+                .select("storage_path, blur_data_url, width, height")
+                .in("storage_path", paths),
+              QUERY_TIMEOUT_MS,
+              "explore.attachActiveCovers.blurFromImages"
+            );
+            if (imgErr) {
+              console.error("attachActiveCovers: blur image error", imgErr);
+              return;
+            }
+            if (!imgData?.length) return;
+
+            type ImgRow = {
+              storage_path: string;
               blur_data_url: string | null;
               width: number | null;
               height: number | null;
             };
-            const byId = new Map<string, BlurRow>(
-              (data as BlurRow[]).map((r) => [r.site_id, r])
+            const pathToImg = new Map<string, ImgRow>(
+              (imgData as ImgRow[]).map((r) => [r.storage_path, r])
             );
             for (const s of needsBlur) {
-              const m = byId.get(s.id);
-              if (!m) continue;
-              s.cover_blur_data_url = m.blur_data_url ?? null;
-              s.cover_width = m.width ?? null;
-              s.cover_height = m.height ?? null;
+              const path = siteToPath.get(s.id);
+              if (!path) continue;
+              const img = pathToImg.get(path);
+              if (!img) continue;
+              s.cover_blur_data_url = img.blur_data_url ?? null;
+              s.cover_width = img.width ?? null;
+              s.cover_height = img.height ?? null;
             }
           })()
         : Promise.resolve(),
