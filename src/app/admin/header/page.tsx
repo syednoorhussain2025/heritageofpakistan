@@ -391,14 +391,35 @@ export default function HeaderAdminPage() {
 
       const { error: mainErr } = await supabase
         .from("header_main_items")
-        .upsert(mainItems.map((m) => ({ ...m, updated_at: now })));
+        .upsert(
+          mainItems.map((m) => ({
+            id: m.id,
+            label: m.label,
+            slug: m.slug,
+            icon_name: m.icon_name,
+            url: m.url,
+            sort_order: m.sort_order,
+            updated_at: now,
+          }))
+        );
       if (mainErr) throw mainErr;
 
-      // Strip UI-only fields before persisting
       const { error: subErr } = await supabase
         .from("header_sub_items")
         .upsert(
-          subItems.map(({ _previewUrl, ...s }) => ({ ...s, updated_at: now }))
+          subItems.map((s) => ({
+            id: s.id,
+            main_item_id: s.main_item_id,
+            label: s.label,
+            icon_name: s.icon_name,
+            url: s.url,
+            title: s.title,
+            detail: s.detail,
+            site_id: s.site_id,
+            site_image_id: s.site_image_id,
+            sort_order: s.sort_order,
+            updated_at: now,
+          }))
         );
       if (subErr) throw subErr;
 

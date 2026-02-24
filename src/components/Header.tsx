@@ -1441,22 +1441,41 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   const isActive = s.id === activeSub.id;
                   return (
                     <li key={s.id}>
-                      <button
-                        type="button"
-                        onMouseEnter={() => setActiveSubId(s.id)}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                          isActive
-                            ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
-                            : "hover:bg-gray-50 text-gray-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {s.icon_name && (
-                            <Icon name={s.icon_name} className={iconStyles} />
-                          )}
-                          <span className="font-medium">{s.label}</span>
-                        </div>
-                      </button>
+                      {s.url ? (
+                        <Link
+                          href={s.url}
+                          onMouseEnter={() => setActiveSubId(s.id)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                            isActive
+                              ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
+                              : "hover:bg-gray-50 text-gray-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {s.icon_name && (
+                              <Icon name={s.icon_name} className={iconStyles} />
+                            )}
+                            <span className="font-medium">{s.label}</span>
+                          </div>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onMouseEnter={() => setActiveSubId(s.id)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                            isActive
+                              ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
+                              : "hover:bg-gray-50 text-gray-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {s.icon_name && (
+                              <Icon name={s.icon_name} className={iconStyles} />
+                            )}
+                            <span className="font-medium">{s.label}</span>
+                          </div>
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -1468,7 +1487,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                 key={activeSub.id + "_text"}
                 className="flex flex-col justify-center opacity-0 animate-fadeIn"
               >
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-2xl font-bold text-[var(--brand-blue)]">
                   {activeSub.title || activeSub.label}
                 </h3>
                 {activeSub.detail && (
