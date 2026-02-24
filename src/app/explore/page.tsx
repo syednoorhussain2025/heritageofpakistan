@@ -506,40 +506,77 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
 
 /* ────────────── Active cover thumbs from sites table ────────────── */
 async function attachActiveCovers(sites: Site[]) {
-  // Skip sites that already carry a thumbnail (e.g. fetched in same query)
+  // Work out what each site is still missing
   const needsThumb = sites.filter((s) => !s.cover_photo_thumb_url);
-  if (!needsThumb.length) return;
-
-  const ids = Array.from(new Set(needsThumb.map((s) => s.id))).filter(Boolean);
-  if (!ids.length) return;
+  const needsBlur = sites.filter((s) => !s.cover_blur_data_url);
+  if (!needsThumb.length && !needsBlur.length) return;
 
   try {
-    const { data, error } = await withTimeout(
-      supabase.from("sites").select("id, cover_photo_thumb_url").in("id", ids),
-      QUERY_TIMEOUT_MS,
-      "explore.attachActiveCovers"
-    );
+    await Promise.all([
+      // ── Thumbnail URL from sites table ───────────────────────────────────
+      needsThumb.length
+        ? (async () => {
+            const ids = Array.from(
+              new Set(needsThumb.map((s) => s.id))
+            ).filter(Boolean);
+            const { data, error } = await withTimeout(
+              supabase
+                .from("sites")
+                .select("id, cover_photo_thumb_url")
+                .in("id", ids),
+              QUERY_TIMEOUT_MS,
+              "explore.attachActiveCovers.thumb"
+            );
+            if (error) {
+              console.error("attachActiveCovers: thumb error", error);
+              return;
+            }
+            type ThumbRow = { id: string; cover_photo_thumb_url: string | null };
+            const byId = new Map<string, string | null>(
+              (data as ThumbRow[]).map((r) => [r.id, r.cover_photo_thumb_url ?? null])
+            );
+            for (const s of needsThumb) {
+              s.cover_photo_thumb_url = byId.get(s.id) ?? null;
+            }
+          })()
+        : Promise.resolve(),
 
-    if (error || !data?.length) {
-      if (error) {
-        console.error(
-          "attachActiveCovers: error fetching thumb urls from sites",
-          error
-        );
-      }
-      return;
-    }
-
-    type Row = { id: string; cover_photo_thumb_url: string | null };
-
-    const byId = new Map<string, string | null>();
-    for (const row of data as Row[]) {
-      byId.set(row.id, row.cover_photo_thumb_url ?? null);
-    }
-
-    for (const s of needsThumb) {
-      s.cover_photo_thumb_url = byId.get(s.id) ?? null;
-    }
+      // ── Blur placeholder + dimensions from site_covers table ─────────────
+      // blur_data_url lives on site_covers (not sites), mirroring HeritageNearby
+      needsBlur.length
+        ? (async () => {
+            const ids = Array.from(
+              new Set(needsBlur.map((s) => s.id))
+            ).filter(Boolean);
+            const { data } = await withTimeout(
+              supabase
+                .from("site_covers")
+                .select("site_id, blur_data_url, width, height")
+                .in("site_id", ids)
+                .eq("is_active", true),
+              QUERY_TIMEOUT_MS,
+              "explore.attachActiveCovers.blur"
+            );
+            if (!data?.length) return;
+            type BlurRow = {
+              site_id: string;
+              blur_data_url: string | null;
+              width: number | null;
+              height: number | null;
+            };
+            const byId = new Map<string, BlurRow>(
+              (data as BlurRow[]).map((r) => [r.site_id, r])
+            );
+            for (const s of needsBlur) {
+              const m = byId.get(s.id);
+              if (!m) continue;
+              s.cover_blur_data_url = m.blur_data_url ?? null;
+              s.cover_width = m.width ?? null;
+              s.cover_height = m.height ?? null;
+            }
+          })()
+        : Promise.resolve(),
+    ]);
   } catch (e) {
     console.error("attachActiveCovers: unexpected error", e);
   }
