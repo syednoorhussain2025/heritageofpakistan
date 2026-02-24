@@ -267,3 +267,36 @@ code {
   align-items: center;
   justify-content: center;
 }
+
+/* ---- Header animation keyframes ---- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideLeft {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeInImage {
+  from { opacity: 0; transform: scale(1.04); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes underlineGrow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fadeIn        { animation: fadeIn       0.25s ease-out forwards; }
+.animate-fadeSlideUp   { animation: fadeSlideUp  0.35s ease-out forwards; }
+.animate-fadeSlideLeft { animation: fadeSlideLeft 0.28s ease-out forwards; }
+.animate-fadeInImage   { animation: fadeInImage  0.5s  ease-out forwards; }
+.animate-underlineGrow { animation: underlineGrow 0.25s ease-out forwards; }
+.animate-slideInLeft   { animation: slideInLeft  0.3s  cubic-bezier(0.22,1,0.36,1) forwards; }
