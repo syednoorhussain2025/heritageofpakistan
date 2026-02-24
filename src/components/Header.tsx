@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 /* ---------- Styling helpers ---------- */
@@ -56,10 +57,11 @@ type HeaderMainItem = {
 };
 
 /* ---------- Utils ---------- */
-const useClickOutside = (ref: any, handler: () => void) => {
+const useClickOutside = (ref: any, handler: () => void, excludeRef?: any) => {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
       if (!ref.current || ref.current.contains(event.target as Node)) return;
+      if (excludeRef?.current?.contains(event.target as Node)) return;
       handler();
     };
     document.addEventListener("mousedown", listener);
@@ -68,7 +70,7 @@ const useClickOutside = (ref: any, handler: () => void) => {
       document.removeEventListener("mousedown", listener);
       document.removeEventListener("touchstart", listener);
     };
-  }, [ref, handler]);
+  }, [ref, handler, excludeRef]);
 };
 
 /** Simple thumbnail builder similar to the one in SearchFilters. */
@@ -412,6 +414,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const [megaOpen, setMegaOpen] = useState(false);
   const megaRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -488,7 +491,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             ? imageMap[s.site_image_id] ?? null
             : null;
           const imageUrl = storagePath
-            ? storagePublicUrl("site-images", storagePath)
+            ? getVariantPublicUrl(storagePath, "thumb")
             : null;
 
           return {
@@ -599,7 +602,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   // Close panel on click outside
   useClickOutside(megaRef, () => {
     if (megaOpen) setMegaOpen(false);
-  });
+  }, navRef);
 
   /* -------------------------------- User Menu ------------------------------- */
   const UserMenu = ({ user, lightOn }: { user: User; lightOn: boolean }) => {
@@ -1014,7 +1017,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           {/* Right side */}
           <div className="flex items-center gap-3">
             {/* Desktop nav */}
-            <nav className="hidden lg:flex items-center gap-4 text-[15px]">
+            <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
               <Link
                 href="/"
                 className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"

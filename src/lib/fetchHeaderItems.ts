@@ -3,7 +3,7 @@
 // is available before any client JS runs, eliminating layout shift.
 
 import { createPublicClient } from "@/lib/supabase/public-server";
-import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 export type HeaderSubItem = {
   id: string;
@@ -75,7 +75,7 @@ export async function fetchHeaderItems(): Promise<HeaderMainItem[]> {
     const finalSubItems: HeaderSubItem[] = ((subItems as any[]) || []).map((s) => {
       const storagePath = s.site_image_id ? imageMap[s.site_image_id] ?? null : null;
       const image_url = storagePath
-        ? storagePublicUrl("site-images", storagePath)
+        ? getVariantPublicUrl(storagePath, "thumb")
         : null;
       return {
         id: s.id,
