@@ -935,11 +935,13 @@ function LocationSearchTrigger({
 
 function buildHeritageTypeSummary(
   selectedIds: string[],
-  options: Option[]
+  options: Option[],
+  extraOptions: Option[] = []
 ) {
   if (!selectedIds.length) return null;
+  const allOptions = [...options, ...extraOptions];
   const names = selectedIds
-    .map((id) => options.find((o) => o.id === id)?.name)
+    .map((id) => allOptions.find((o) => o.id === id)?.name)
     .filter(Boolean) as string[];
   if (!names.length) return null;
   if (names.length === 1) return { title: names[0], subtitle: "Tap to edit" };
@@ -952,15 +954,17 @@ function buildHeritageTypeSummary(
 function HeritageTypeTrigger({
   selectedIds,
   options,
+  unescoOptions,
   onOpen,
   onClear,
 }: {
   selectedIds: string[];
   options: Option[];
+  unescoOptions: Option[];
   onOpen: () => void;
   onClear: () => void;
 }) {
-  const summary = buildHeritageTypeSummary(selectedIds, options);
+  const summary = buildHeritageTypeSummary(selectedIds, options, unescoOptions);
   const hasSelection = Boolean(summary);
 
   return (
@@ -1038,6 +1042,7 @@ function HeritageTypeModal({
   isOpen,
   onClose,
   options,
+  unescoOptions,
   selectedIds,
   onToggle,
   onApply,
@@ -1046,6 +1051,7 @@ function HeritageTypeModal({
   isOpen: boolean;
   onClose: () => void;
   options: Option[];
+  unescoOptions: Option[];
   selectedIds: string[];
   onToggle: (id: string) => void;
   onApply: () => void;
@@ -1076,6 +1082,12 @@ function HeritageTypeModal({
     if (!q) return options;
     return options.filter((o) => o.name.toLowerCase().includes(q));
   }, [term, options]);
+
+  const filteredUnesco = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    if (!q) return unescoOptions;
+    return unescoOptions.filter((o) => o.name.toLowerCase().includes(q));
+  }, [term, unescoOptions]);
 
   if (!mounted) return null;
 
@@ -1120,7 +1132,7 @@ function HeritageTypeModal({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-4 space-y-3 flex-1 min-h-0">
+        <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
           <Tooltip text="Type to find a heritage type" wrapperClassName="w-full">
             <input
               type="text"
@@ -1130,31 +1142,64 @@ function HeritageTypeModal({
               className="w-full px-3 py-2 text-sm rounded-xl bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
             />
           </Tooltip>
-          <div className="rounded-xl border border-gray-200 overflow-hidden min-h-0 flex-1">
-            <ul className="max-h-[320px] overflow-auto divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <li className="px-3 py-2 text-xs text-gray-500">No heritage type found</li>
-              ) : (
-                filtered.map((opt) => {
-                  const active = selectedIds.includes(opt.id);
-                  return (
-                    <li
-                      key={opt.id}
-                      onClick={() => onToggle(opt.id)}
-                      className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
-                        active
-                          ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
-                          : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
-                      }`}
-                    >
-                      <span className="text-sm">{opt.name}</span>
-                      {active ? <Icon name="check" size={12} /> : null}
-                    </li>
-                  );
-                })
-              )}
-            </ul>
+
+          {/* Heritage Type list */}
+          <div>
+            <p className="text-[0.65rem] font-bold uppercase tracking-widest text-gray-400 mb-1.5 px-1">Heritage Type</p>
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <ul className="max-h-[260px] overflow-auto divide-y divide-gray-100">
+                {filtered.length === 0 ? (
+                  <li className="px-3 py-2 text-xs text-gray-500">No heritage type found</li>
+                ) : (
+                  filtered.map((opt) => {
+                    const active = selectedIds.includes(opt.id);
+                    return (
+                      <li
+                        key={opt.id}
+                        onClick={() => onToggle(opt.id)}
+                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
+                          active
+                            ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
+                            : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
+                        }`}
+                      >
+                        <span className="text-sm">{opt.name}</span>
+                        {active ? <Icon name="check" size={12} /> : null}
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>
           </div>
+
+          {/* UNESCO Status list */}
+          {filteredUnesco.length > 0 && (
+            <div>
+              <p className="text-[0.65rem] font-bold uppercase tracking-widest text-gray-400 mb-1.5 px-1">UNESCO Status</p>
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <ul className="divide-y divide-gray-100">
+                  {filteredUnesco.map((opt) => {
+                    const active = selectedIds.includes(opt.id);
+                    return (
+                      <li
+                        key={opt.id}
+                        onClick={() => onToggle(opt.id)}
+                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
+                          active
+                            ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
+                            : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
+                        }`}
+                      >
+                        <span className="text-sm">{opt.name}</span>
+                        {active ? <Icon name="check" size={12} /> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
@@ -1925,6 +1970,9 @@ export default function SearchFilters({
     Option[]
   >([]);
 
+  // UNESCO Status
+  const [unescoOptions, setUnescoOptions] = useState<Option[]>([]);
+
   useEffect(() => {
     (async () => {
       const [{ data: cat }, { data: regTop }] = await Promise.all([
@@ -2109,6 +2157,19 @@ export default function SearchFilters({
         setArchaeologyRootId(null);
         setArchaeologyTypeOptions([]);
       }
+
+      // UNESCO Status
+      const unescoRoot =
+        cats.find((c) => c.slug === "unesco-status") ||
+        cats.find((c) => c.name?.toLowerCase().includes("unesco"));
+      if (unescoRoot) {
+        const unescoSubtree = collectCategorySubtree(cats, unescoRoot.id, false);
+        setUnescoOptions(
+          unescoSubtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
+        );
+      } else {
+        setUnescoOptions([]);
+      }
     })();
   }, []);
 
@@ -2116,6 +2177,10 @@ export default function SearchFilters({
   const heritageTypeIdSet = useMemo(
     () => new Set(heritageTypeOptions.map((c) => c.id)),
     [heritageTypeOptions]
+  );
+  const unescoIdSet = useMemo(
+    () => new Set(unescoOptions.map((c) => c.id)),
+    [unescoOptions]
   );
   const historicalPeriodIdSet = useMemo(
     () => new Set(historicalPeriodOptions.map((c) => c.id)),
@@ -2293,7 +2358,9 @@ export default function SearchFilters({
   // All tab handlers
   const handleHeritageTypeChange = (ids: string[]) => {
     const current = filters.categoryIds || [];
-    const preserved = current.filter((id) => !heritageTypeIdSet.has(id));
+    const preserved = current.filter(
+      (id) => !heritageTypeIdSet.has(id) && !unescoIdSet.has(id)
+    );
     onFilterChange({ categoryIds: [...preserved, ...ids] });
   };
 
@@ -2308,7 +2375,9 @@ export default function SearchFilters({
     } else if (domainTab === "archaeology") {
       seedIds = filters.categoryIds.filter((id) => archaeologyTypeIdSet.has(id));
     } else {
-      seedIds = filters.categoryIds.filter((id) => heritageTypeIdSet.has(id));
+      seedIds = filters.categoryIds.filter(
+        (id) => heritageTypeIdSet.has(id) || unescoIdSet.has(id)
+      );
     }
     setDraftHeritageTypeIds(seedIds);
     setIsHeritageTypeModalOpen(true);
@@ -2346,6 +2415,7 @@ export default function SearchFilters({
     } else if (domainTab === "archaeology") {
       handleArchaeologyTypeChange([]);
     } else {
+      // clears both heritage type and UNESCO ids (handleHeritageTypeChange now excludes both)
       handleHeritageTypeChange([]);
     }
     setDraftHeritageTypeIds([]);
@@ -2728,12 +2798,13 @@ export default function SearchFilters({
               : domainTab === "archaeology" ? archaeologyTypeOptions
               : heritageTypeOptions
             }
+            unescoOptions={unescoOptions}
             selectedIds={
               domainTab === "architecture" ? selectedArchitectureTypeIds
               : domainTab === "nature" ? selectedNatureTypeIds
               : domainTab === "cultural" ? selectedCulturalTypeIds
               : domainTab === "archaeology" ? selectedArchaeologyTypeIds
-              : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id))
+              : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id) || unescoIdSet.has(id))
             }
             onOpen={openHeritageTypeModal}
             onClear={clearHeritageTypeSelection}
@@ -2846,6 +2917,7 @@ export default function SearchFilters({
           : domainTab === "archaeology" ? archaeologyTypeOptions
           : heritageTypeOptions
         }
+        unescoOptions={unescoOptions}
         selectedIds={draftHeritageTypeIds}
         onToggle={toggleDraftHeritageType}
         onApply={applyDraftHeritageType}

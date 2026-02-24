@@ -555,7 +555,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const textLight = solid || panelActive || searchOverlayOpen;
 
-  const megaTextClass = `transition-colors duration-200 [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
+  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
     textLight ? "[color:var(--brand-grey)]" : "text-white"
   }`;
 
