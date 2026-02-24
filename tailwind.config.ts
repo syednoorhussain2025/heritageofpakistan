@@ -17,7 +17,40 @@ const config: Config = {
       "2xl": "1536px",
     },
     extend: {
-      // your existing colors, fonts, etc.
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        fadeSlideUp: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        fadeSlideLeft: {
+          "0%": { opacity: "0", transform: "translateX(-10px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        slideInLeft: {
+          "0%": { opacity: "0", transform: "translateX(-100%)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        fadeInImage: {
+          "0%": { opacity: "0", transform: "scale(1.04)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        underlineGrow: {
+          "0%": { transform: "scaleX(0)", opacity: "0" },
+          "100%": { transform: "scaleX(1)", opacity: "1" },
+        },
+      },
+      animation: {
+        fadeIn: "fadeIn 0.25s ease-out forwards",
+        fadeSlideUp: "fadeSlideUp 0.35s ease-out forwards",
+        fadeSlideLeft: "fadeSlideLeft 0.28s ease-out forwards",
+        slideInLeft: "slideInLeft 0.3s cubic-bezier(0.22,1,0.36,1) forwards",
+        fadeInImage: "fadeInImage 0.5s ease-out forwards",
+        underlineGrow: "underlineGrow 0.25s ease-out forwards",
+      },
     },
   },
   plugins: [],

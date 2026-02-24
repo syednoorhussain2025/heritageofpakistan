@@ -559,6 +559,11 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     textLight ? "[color:var(--brand-grey)]" : "text-white"
   }`;
 
+  // Stagger helper: returns inline style with animation delay for index i
+  const stagger = (i: number, baseMs = 60) => ({
+    animationDelay: `${i * baseMs}ms`,
+  });
+
   const handleMainClick = (
     id: string,
     hasPanel: boolean,
@@ -1018,108 +1023,112 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           <div className="flex items-center gap-3">
             {/* Desktop nav */}
             <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
-              <Link
-                href="/"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-              >
-                <Icon name="home" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    textLight ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
+              {/* Home */}
+              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(0)}>
+                <Link
+                  href="/"
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
-                  Home
-                </span>
-              </Link>
+                  <Icon name="home" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                    Home
+                  </span>
+                </Link>
+                {pathname === "/" && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
 
-              {!headerLoading && headerItems.map((m) => {
-                  const hasPanel = (m.sub_items?.length ?? 0) > 0;
-
-                  if (!hasPanel && m.url) {
-                    return (
-                      <Link
-                        key={m.id}
-                        href={m.url}
-                        className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-                      >
-                        {m.icon_name && (
-                          <Icon name={m.icon_name} className={iconStyles} />
-                        )}
-                        <span className={megaTextClass}>{m.label}</span>
+              {/* DB-driven items */}
+              {!headerLoading && headerItems.map((m, i) => {
+                const hasPanel = (m.sub_items?.length ?? 0) > 0;
+                const isActive = !!m.url && (pathname === m.url || pathname.startsWith(m.url + "/"));
+                const isMenuOpen = megaOpen && activeMainId === m.id;
+                const inner = (
+                  <>
+                    {m.icon_name && (
+                      <Icon name={m.icon_name} className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                    )}
+                    <span className={megaTextClass}>{m.label}</span>
+                    {hasPanel && (
+                      <span className={`ml-1 text-[11px] inline-block transition-transform duration-300 group-hover:text-[var(--brand-orange)] ${isMenuOpen ? "rotate-180" : "rotate-0"}`}>▾</span>
+                    )}
+                  </>
+                );
+                return (
+                  <div key={m.id} className="relative opacity-0 animate-fadeSlideUp" style={stagger(i + 1)}>
+                    {!hasPanel && m.url ? (
+                      <Link href={m.url} className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5">
+                        {inner}
                       </Link>
-                    );
-                  }
+                    ) : (
+                      <button type="button" onClick={() => handleMainClick(m.id, hasPanel, m.url)} className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5">
+                        {inner}
+                      </button>
+                    )}
+                    {isActive && (
+                      <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                    )}
+                  </div>
+                );
+              })}
 
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => handleMainClick(m.id, hasPanel, m.url)}
-                      className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-                    >
-                      {m.icon_name && (
-                        <Icon name={m.icon_name} className={iconStyles} />
-                      )}
-                      <span className={megaTextClass}>{m.label}</span>
-                      {hasPanel && (
-                        <span className="ml-1 text-[11px] group-hover:text-[var(--brand-orange)]">
-                          ▾
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-
-              <Link
-                href="/explore"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-              >
-                <Icon name="search" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    textLight ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
+              {/* Explore */}
+              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 1)}>
+                <Link
+                  href="/explore"
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
-                  Explore
-                </span>
-              </Link>
+                  <Icon name="search" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                    Explore
+                  </span>
+                </Link>
+                {pathname.startsWith("/explore") && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
 
-              <Link
-                href="/map"
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-              >
-                <Icon name="map" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    textLight ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
+              {/* Map */}
+              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 2)}>
+                <Link
+                  href="/map"
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
-                  Map
-                </span>
-              </Link>
+                  <Icon name="map" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                    Map
+                  </span>
+                </Link>
+                {pathname.startsWith("/map") && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
 
-              <button
-                onClick={() => {
-                  if (user?.user_metadata?.username) {
-                    router.push(`/${user.user_metadata.username}/mytrips`);
-                  } else if (user?.email) {
-                    const safeSlug = user.email.split("@")[0];
-                    router.push(`/${safeSlug}/mytrips`);
-                  } else {
-                    router.push("/auth/sign-in");
-                  }
-                }}
-                className="group flex items-center gap-1 cursor-pointer transition-transform duration-300 ease-in-out hover:-translate-y-0.5"
-              >
-                <Icon name="route" className={iconStyles} />
-                <span
-                  className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-                    textLight ? "[color:var(--brand-grey)]" : "text-white"
-                  }`}
+              {/* Trip Builder */}
+              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 3)}>
+                <button
+                  onClick={() => {
+                    if (user?.user_metadata?.username) {
+                      router.push(`/${user.user_metadata.username}/mytrips`);
+                    } else if (user?.email) {
+                      const safeSlug = user.email.split("@")[0];
+                      router.push(`/${safeSlug}/mytrips`);
+                    } else {
+                      router.push("/auth/sign-in");
+                    }
+                  }}
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
-                  Trip Builder
-                </span>
-              </button>
+                  <Icon name="route" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                    Trip Builder
+                  </span>
+                </button>
+                {pathname.includes("/mytrips") && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
             </nav>
 
             {/* User / auth */}
@@ -1437,20 +1446,21 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           >
             <div className="w-1/3 border-r border-gray-100 pr-4">
               <ul className="space-y-1">
-                {activeSubItems.map((s) => {
+                {activeSubItems.map((s, i) => {
                   const isActive = s.id === activeSub.id;
+                  const itemClass = `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-all duration-200 opacity-0 animate-fadeSlideLeft ${
+                    isActive
+                      ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)] translate-x-1"
+                      : "hover:bg-gray-50 text-gray-800 hover:translate-x-1"
+                  }`;
                   return (
-                    <li key={s.id}>
+                    <li key={s.id} style={stagger(i, 50)}>
                       {s.url ? (
                         <Link
                           href={s.url}
                           onMouseEnter={() => setActiveSubId(s.id)}
                           onClick={() => setMegaOpen(false)}
-                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                            isActive
-                              ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
-                              : "hover:bg-gray-50 text-gray-800"
-                          }`}
+                          className={itemClass}
                         >
                           <div className="flex items-center gap-2">
                             {s.icon_name && (
@@ -1463,11 +1473,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                         <button
                           type="button"
                           onMouseEnter={() => setActiveSubId(s.id)}
-                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                            isActive
-                              ? "bg-[var(--brand-light-orange)] text-[var(--brand-orange)]"
-                              : "hover:bg-gray-50 text-gray-800"
-                          }`}
+                          className={itemClass}
                         >
                           <div className="flex items-center gap-2">
                             {s.icon_name && (
@@ -1506,14 +1512,14 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   </Link>
                 )}
               </div>
-              <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100">
+              <div className="group/img relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100 shadow-md">
                 {activeSub.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={activeSub.id + "_img"}
                     src={activeSub.image_url}
                     alt={activeSub.title || activeSub.label}
-                    className="h-full w-full object-cover opacity-0 animate-fadeInImage"
+                    className="h-full w-full object-cover opacity-0 animate-fadeInImage transition-transform duration-700 ease-out group-hover/img:scale-105"
                   />
                 )}
               </div>
