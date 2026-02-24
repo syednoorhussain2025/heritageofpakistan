@@ -250,21 +250,7 @@ export default function SitePreviewCard({
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
           <div className="relative aspect-[5/3] w-full overflow-hidden rounded-none">
-            {/* Blur layer (uses stored data URL only, no transformations) */}
-            {hasBlur && !(isSharpLoaded || hasError) && (
-              <Image
-                src={site.cover_blur_data_url!}
-                alt=""
-                fill
-                unoptimized
-                aria-hidden
-                priority={isPriority}
-                sizes={`${baseW}px`}
-                className="object-cover scale-105 blur-xl"
-              />
-            )}
-
-            {/* Sharp thumbnail image from cover_photo_thumb_url */}
+            {/* Sharp thumbnail — native Next.js blur placeholder (same as gallery page) */}
             <Image
               ref={imgRef}
               key={sharpSrc}
@@ -280,15 +266,14 @@ export default function SitePreviewCard({
                 setHasError(true);
                 setIsSharpLoaded(true);
               }}
-              className={`object-cover transition-opacity duration-700 ${
-                isSharpLoaded || !hasBlur ? "opacity-100" : "opacity-0"
-              }`}
+              className="object-cover"
               style={{ imageRendering: "auto" }}
-              placeholder="empty"
+              placeholder={hasBlur ? "blur" : "empty"}
+              blurDataURL={site.cover_blur_data_url ?? undefined}
             />
 
-            {/* Small spinner overlay until final image is loaded */}
-            {!isSharpLoaded && !hasError && (
+            {/* Small spinner overlay — only when no blur placeholder is available */}
+            {!isSharpLoaded && !hasError && !hasBlur && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
               </div>
