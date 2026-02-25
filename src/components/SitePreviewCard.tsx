@@ -110,6 +110,7 @@ export default function SitePreviewCard({
   // preventing the stale-true → empty-img flash caused by useEffect timing.
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [allowBlur, setAllowBlur] = useState(false);
 
   const hasBlur = Boolean(site.cover_blur_data_url);
 
@@ -118,11 +119,21 @@ export default function SitePreviewCard({
 
   // isSharpLoaded is true only when the CURRENT sharpSrc has loaded
   const isSharpLoaded = loadedSrc === sharpSrc;
+  const showBlur = hasBlur && !isSharpLoaded && allowBlur;
 
   // Reset error state when src changes
   useEffect(() => {
     setHasError(false);
   }, [sharpSrc, site.id]);
+
+  // Show blur only if sharp image is not ready quickly.
+  // Cached images usually resolve before this delay and skip blur entirely.
+  useEffect(() => {
+    setAllowBlur(false);
+    if (!hasBlur || isSharpLoaded) return;
+    const t = window.setTimeout(() => setAllowBlur(true), 90);
+    return () => window.clearTimeout(t);
+  }, [sharpSrc, hasBlur, isSharpLoaded]);
 
   // Prioritise first two rows in the Explore grid
   const isPriority = index < 6;
@@ -268,8 +279,8 @@ export default function SitePreviewCard({
                 aria-hidden
                 className="absolute inset-0 pointer-events-none select-none overflow-hidden"
                 style={{
-                  opacity: isSharpLoaded ? 0 : 1,
-                  transition: "opacity 220ms ease",
+                  opacity: showBlur ? 1 : 0,
+                  transition: isSharpLoaded ? "opacity 220ms ease" : "none",
                   zIndex: 1,
                   willChange: "opacity",
                   backfaceVisibility: "hidden",
