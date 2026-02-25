@@ -301,6 +301,15 @@ export default function SitePreviewCard({
               </div>
             )}
 
+            {showBlur && !hasError && (
+              <div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                style={{ zIndex: 2 }}
+              >
+                <span className="inline-block w-5 h-5 rounded-full border-2 border-white/85 border-t-transparent animate-spin shadow bg-black/10 backdrop-blur-[1px]" />
+              </div>
+            )}
+
             <img
               src={sharpSrc}
               alt={site.title}
