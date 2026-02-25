@@ -111,8 +111,10 @@ export default function SitePreviewCard({
     : `/heritage/${site.slug}`;
   const prefetchedRef = useRef(false);
 
-  // Progressive image loading state
-  const [isSharpLoaded, setIsSharpLoaded] = useState(false);
+  // Derive isSharpLoaded from which src has actually loaded.
+  // This resets to false SYNCHRONOUSLY during render when sharpSrc changes,
+  // preventing the stale-true → empty-img flash caused by useEffect timing.
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
 
   const imgRef = useRef<HTMLImageElement>(null);
@@ -139,19 +141,19 @@ export default function SitePreviewCard({
   // use only the thumbnail URL from the table, no transformations, no fallback to cover_photo_url
   const sharpSrc = site.cover_photo_thumb_url || FALLBACK_SVG;
 
-  // Reset load/error when the image changes, but skip if already complete
+  // isSharpLoaded is true only when the CURRENT sharpSrc has loaded
+  const isSharpLoaded = loadedSrc === sharpSrc;
+
+  // Reset error state when src changes
   useEffect(() => {
-    const img = imgRef.current;
-    if (img?.complete && img.naturalWidth > 0) return;
-    setIsSharpLoaded(false);
     setHasError(false);
   }, [sharpSrc, site.id]);
 
-  // Cached images: mark loaded immediately (no fade needed)
+  // Cached images: mark loaded synchronously before paint
   useLayoutEffect(() => {
     const img = imgRef.current;
     if (img?.complete && img.naturalWidth > 0) {
-      setIsSharpLoaded(true);
+      setLoadedSrc(sharpSrc);
     }
   }, [sharpSrc, site.id]);
 
@@ -262,8 +264,8 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoad={() => setIsSharpLoaded(true)}
-              onError={() => { setHasError(true); setIsSharpLoaded(true); }}
+              onLoad={() => setLoadedSrc(sharpSrc)}
+              onError={() => { setHasError(true); setLoadedSrc(sharpSrc); }}
               className="object-cover"
               style={{
                 imageRendering: "auto",
