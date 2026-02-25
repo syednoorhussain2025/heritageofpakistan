@@ -263,8 +263,9 @@ export default function SitePreviewCard({
   // Animate bottom sheet in after mount
   useEffect(() => {
     if (!showActionsMenu) { setSheetVisible(false); return; }
-    const id = requestAnimationFrame(() => setSheetVisible(true));
-    return () => cancelAnimationFrame(id);
+    let id2: number;
+    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setSheetVisible(true)); });
+    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
   }, [showActionsMenu]);
 
   return (
@@ -516,7 +517,7 @@ export default function SitePreviewCard({
       {/* Mobile bottom sheet */}
       {showActionsMenu && (
         <Portal>
-          <div className="md:hidden fixed inset-0 z-50">
+          <div className="md:hidden fixed inset-0 z-[3100]">
             <div
               className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${sheetVisible ? "opacity-100" : "opacity-0"}`}
               onClick={() => setShowActionsMenu(false)}
@@ -558,7 +559,7 @@ export default function SitePreviewCard({
               </button>
 
               {/* Safe area spacer */}
-              <div className="pb-6" />
+              <div className="pb-[env(safe-area-inset-bottom,1rem)]" />
             </div>
           </div>
         </Portal>
