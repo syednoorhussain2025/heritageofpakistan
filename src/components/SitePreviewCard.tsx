@@ -256,7 +256,6 @@ export default function SitePreviewCard({
             {/* Sharp thumbnail — always full opacity; without blur it fades in to avoid progressive JPEG paint */}
             <Image
               ref={imgRef}
-              key={sharpSrc}
               src={sharpSrc}
               alt={site.title}
               fill
@@ -275,20 +274,20 @@ export default function SitePreviewCard({
               placeholder="empty"
             />
 
-            {/* Blur overlay — outer div fades (no filter = clean compositing),
-                inner div has static filter (no opacity transition).
-                backgroundColor on inner div prevents a transparent frame
-                while the background-image is decoding. */}
-            {hasBlur && (
-              <div
-                aria-hidden
-                className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-                style={{
-                  opacity: isSharpLoaded ? 0 : 1,
-                  transition: isSharpLoaded ? "opacity 0.4s ease" : "none",
-                  zIndex: 2,
-                }}
-              >
+            {/* Blur overlay — always in DOM so React doesn't need to insert it
+                mid-transition. Appears INSTANTLY (transition:"none") to snap
+                over the container the moment a new src starts loading, then
+                fades OUT smoothly (transition:"opacity 0.3s ease") when done. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none select-none overflow-hidden"
+              style={{
+                opacity: hasBlur && !isSharpLoaded ? 1 : 0,
+                transition: isSharpLoaded ? "opacity 0.3s ease" : "none",
+                zIndex: 2,
+              }}
+            >
+              {hasBlur && (
                 <div
                   className="absolute inset-0"
                   style={{
@@ -300,8 +299,8 @@ export default function SitePreviewCard({
                     transform: "scale(1.1)",
                   }}
                 />
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Small spinner overlay while high-res image is loading */}
             {!isSharpLoaded && !hasError && (
