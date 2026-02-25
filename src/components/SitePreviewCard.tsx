@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import { useBookmarks } from "./BookmarkProvider";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { supabase } from "@/lib/supabase/browser";
@@ -93,17 +92,18 @@ export default function SitePreviewCard({
   index?: number;
 }) {
   const router = useRouter();
-  const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
-  const isBookmarked = isLoaded ? bookmarkedIds.has(site.id) : false;
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
     ? `/heritage/${regionSlug}/${site.slug}`
     : `/heritage/${site.slug}`;
   const prefetchedRef = useRef(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   // Derive isSharpLoaded from which src has actually loaded.
   // This resets to false SYNCHRONOUSLY during render when sharpSrc changes,
@@ -247,6 +247,25 @@ export default function SitePreviewCard({
     prefetchedRef.current = true;
     void router.prefetch(detailHref);
   }, [router, detailHref]);
+
+  // Close desktop popup on outside click
+  useEffect(() => {
+    if (!showActionsMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setShowActionsMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showActionsMenu]);
+
+  // Animate bottom sheet in after mount
+  useEffect(() => {
+    if (!showActionsMenu) { setSheetVisible(false); return; }
+    const id = requestAnimationFrame(() => setSheetVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, [showActionsMenu]);
 
   return (
     <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[#e5e5e5]">
@@ -420,159 +439,57 @@ export default function SitePreviewCard({
               {site.heritage_type || "—"}
             </span>
 
-            <div className="ml-auto flex items-center gap-3">
-              {/* Places Nearby */}
+            {/* Plus button + popup */}
+            <div className="ml-auto relative" ref={actionsMenuRef}>
               <button
                 type="button"
-                title="Places Nearby"
-                onClick={handlePlacesNearby}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+                title="Actions"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu((v) => !v); }}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
               >
-                <Icon
-                  name="nearby"
-                  size={14}
-                  className="text-[var(--brand-orange)]"
-                />
+                <Icon name="plus" size={16} className="text-white" />
               </button>
 
-              {/* Bookmark */}
-              <button
-                type="button"
-                title="Bookmark"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleBookmark(site.id);
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                  isBookmarked
-                    ? "bg-[var(--brand-orange)] hover:brightness-90"
-                    : "bg-gray-100 hover:bg-gray-200"
-                }`}
-                disabled={!isLoaded}
-              >
-                <Icon
-                  name="heart"
-                  size={14}
-                  className={
-                    isBookmarked ? "text-white" : "text-[var(--brand-orange)]"
-                  }
-                />
-              </button>
-
-              {/* Wishlist */}
-              <button
-                type="button"
-                title="Add to Wishlist"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowWishlistModal(true);
-                }}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <Icon
-                  name="list-ul"
-                  size={14}
-                  className="text-[var(--brand-orange)]"
-                />
-              </button>
-
-              {/* Trip */}
-              <button
-                type="button"
-                title="Add to Trip"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowTripModal(true);
-                }}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <Icon
-                  name="route"
-                  size={14}
-                  className="text-[var(--brand-orange)]"
-                />
-              </button>
+              {showActionsMenu && (
+                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowWishlistModal(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
+                  >
+                    <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowTripModal(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+                  >
+                    <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
+                    Add to Trip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); void handlePlacesNearby(e); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+                  >
+                    <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
+                    Places Nearby
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Mobile actions row */}
           <div className="flex md:hidden items-center justify-center gap-3 text-gray-700">
-            {/* Places Nearby */}
             <button
               type="button"
-              title="Places Nearby"
-              onClick={handlePlacesNearby}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+              title="Actions"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
             >
-              <Icon
-                name="nearby"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
-            </button>
-
-            {/* Bookmark */}
-            <button
-              type="button"
-              title="Bookmark"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleBookmark(site.id);
-              }}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                isBookmarked
-                  ? "bg-[var(--brand-orange)] hover:brightness-90"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-              disabled={!isLoaded}
-            >
-              <Icon
-                name="heart"
-                size={14}
-                className={
-                  isBookmarked ? "text-white" : "text-[var(--brand-orange)]"
-                }
-              />
-            </button>
-
-            {/* Wishlist */}
-            <button
-              type="button"
-              title="Add to Wishlist"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowWishlistModal(true);
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon
-                name="list-ul"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
-            </button>
-
-            {/* Trip */}
-            <button
-              type="button"
-              title="Add to Trip"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowTripModal(true);
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon
-                name="route"
-                size={14}
-                className="text-[var(--brand-orange)]"
-              />
+              <Icon name="plus" size={16} className="text-white" />
             </button>
           </div>
         </div>
@@ -593,6 +510,57 @@ export default function SitePreviewCard({
             siteId={site.id}
             onClose={() => setShowTripModal(false)}
           />
+        </Portal>
+      )}
+
+      {/* Mobile bottom sheet */}
+      {showActionsMenu && (
+        <Portal>
+          <div className="md:hidden fixed inset-0 z-50">
+            <div
+              className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${sheetVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={() => setShowActionsMenu(false)}
+            />
+            <div
+              className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl transition-transform duration-300 ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+            >
+              {/* Drag handle */}
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-1" />
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-5 pt-3 pb-2 truncate">
+                {site.title}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => { setShowActionsMenu(false); setShowWishlistModal(true); }}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
+              >
+                <Icon name="heart" size={18} className="text-[var(--brand-orange)]" />
+                Save
+              </button>
+              <div className="mx-5 h-px bg-gray-100" />
+              <button
+                type="button"
+                onClick={() => { setShowActionsMenu(false); setShowTripModal(true); }}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
+              >
+                <Icon name="route" size={18} className="text-[var(--brand-orange)]" />
+                Add to Trip
+              </button>
+              <div className="mx-5 h-px bg-gray-100" />
+              <button
+                type="button"
+                onClick={(e) => { setShowActionsMenu(false); void handlePlacesNearby(e as unknown as React.MouseEvent); }}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
+              >
+                <Icon name="nearby" size={18} className="text-[var(--brand-orange)]" />
+                Places Nearby
+              </button>
+
+              {/* Safe area spacer */}
+              <div className="pb-6" />
+            </div>
+          </div>
         </Portal>
       )}
     </div>
