@@ -244,7 +244,7 @@ export default function SitePreviewCard({
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
             style={{ transform: "translateZ(0)" }}
           >
-            {/* Sharp thumbnail fades in only after decode to avoid flash during paint. */}
+            {/* Use Next/Image native blur placeholder for stable blur->sharp transition. */}
             <Image
               src={sharpSrc}
               alt={site.title}
@@ -258,45 +258,15 @@ export default function SitePreviewCard({
               className="object-cover"
               style={{
                 imageRendering: "auto",
-                opacity: isSharpLoaded ? 1 : 0,
-                transition: "opacity 260ms ease",
+                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
+                transition: hasBlur ? "none" : "opacity 260ms ease",
                 willChange: "opacity",
                 backfaceVisibility: "hidden",
                 transform: "translateZ(0)",
               }}
-              placeholder="empty"
+              placeholder={hasBlur ? "blur" : "empty"}
+              blurDataURL={site.cover_blur_data_url || undefined}
             />
-
-            {/* Blur overlay — always in DOM so React doesn't need to insert it
-                mid-transition. Appears INSTANTLY (transition:"none") to snap
-                over the container the moment a new src starts loading, then
-                fades OUT smoothly (transition:"opacity 0.3s ease") when done. */}
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-              style={{
-                opacity: hasBlur && !isSharpLoaded ? 1 : 0,
-                transition: "opacity 260ms ease",
-                zIndex: 2,
-                willChange: "opacity",
-                backfaceVisibility: "hidden",
-                transform: "translateZ(0)",
-              }}
-            >
-              {hasBlur && (
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundColor: "#a3a3a3",
-                    backgroundImage: `url(${site.cover_blur_data_url})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    filter: "blur(16px)",
-                    transform: "translateZ(0) scale(1.06)",
-                  }}
-                />
-              )}
-            </div>
 
             {/* Small spinner overlay while high-res image is loading */}
             {!isSharpLoaded && !hasError && (
