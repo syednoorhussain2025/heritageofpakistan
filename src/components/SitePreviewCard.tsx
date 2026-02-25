@@ -252,18 +252,23 @@ export default function SitePreviewCard({
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
           >
-            {/* Blur placeholder — separate layer with CSS filter so it looks smooth */}
+            {/* Blur placeholder — fades out as sharp fades in (cross-fade) */}
             {hasBlur && (
               <img
                 src={site.cover_blur_data_url!}
                 alt=""
                 aria-hidden
                 className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-                style={{ filter: "blur(20px)", transform: "scale(1.05)" }}
+                style={{
+                  filter: "blur(20px)",
+                  transform: "scale(1.05)",
+                  opacity: isSharpLoaded ? 0 : 1,
+                  transition: "opacity 0.4s ease",
+                }}
               />
             )}
 
-            {/* Sharp thumbnail — fades in over blur background */}
+            {/* Sharp thumbnail — fades in over blur (cross-fade) */}
             <Image
               ref={imgRef}
               key={sharpSrc}
@@ -283,7 +288,8 @@ export default function SitePreviewCard({
               style={{
                 imageRendering: "auto",
                 opacity: isSharpLoaded ? 1 : 0,
-                transition: isSharpLoaded ? "opacity 0.4s ease" : "none",
+                transition: "opacity 0.4s ease",
+                zIndex: 1,
               }}
               placeholder="empty"
             />
