@@ -1,7 +1,7 @@
 // src/components/SitePreviewCard.tsx
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -117,7 +117,6 @@ export default function SitePreviewCard({
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
 
-  const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerW, setContainerW] = useState<number>(384);
 
@@ -147,14 +146,6 @@ export default function SitePreviewCard({
   // Reset error state when src changes
   useEffect(() => {
     setHasError(false);
-  }, [sharpSrc, site.id]);
-
-  // Cached images: mark loaded synchronously before paint
-  useLayoutEffect(() => {
-    const img = imgRef.current;
-    if (img?.complete && img.naturalWidth > 0) {
-      setLoadedSrc(sharpSrc);
-    }
   }, [sharpSrc, site.id]);
 
   // Prioritise first two rows in the Explore grid
@@ -253,9 +244,8 @@ export default function SitePreviewCard({
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
             style={{ transform: "translateZ(0)" }}
           >
-            {/* Sharp thumbnail — always full opacity; without blur it fades in to avoid progressive JPEG paint */}
+            {/* Sharp thumbnail fades in only after decode to avoid flash during paint. */}
             <Image
-              ref={imgRef}
               src={sharpSrc}
               alt={site.title}
               fill
@@ -263,13 +253,16 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoad={() => setLoadedSrc(sharpSrc)}
+              onLoadingComplete={() => setLoadedSrc(sharpSrc)}
               onError={() => { setHasError(true); setLoadedSrc(sharpSrc); }}
               className="object-cover"
               style={{
                 imageRendering: "auto",
                 opacity: isSharpLoaded ? 1 : 0,
-                transition: hasBlur ? "none" : "opacity 0.3s ease",
+                transition: "opacity 260ms ease",
+                willChange: "opacity",
+                backfaceVisibility: "hidden",
+                transform: "translateZ(0)",
               }}
               placeholder="empty"
             />
@@ -283,8 +276,11 @@ export default function SitePreviewCard({
               className="absolute inset-0 pointer-events-none select-none overflow-hidden"
               style={{
                 opacity: hasBlur && !isSharpLoaded ? 1 : 0,
-                transition: isSharpLoaded ? "opacity 0.3s ease" : "none",
+                transition: "opacity 260ms ease",
                 zIndex: 2,
+                willChange: "opacity",
+                backfaceVisibility: "hidden",
+                transform: "translateZ(0)",
               }}
             >
               {hasBlur && (
@@ -295,8 +291,8 @@ export default function SitePreviewCard({
                     backgroundImage: `url(${site.cover_blur_data_url})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
-                    filter: "blur(20px)",
-                    transform: "scale(1.1)",
+                    filter: "blur(16px)",
+                    transform: "translateZ(0) scale(1.06)",
                   }}
                 />
               )}
