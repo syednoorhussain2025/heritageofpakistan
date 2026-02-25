@@ -112,11 +112,8 @@ export default function SitePreviewCard({
   const prefetchedRef = useRef(false);
 
   // Progressive image loading state
-  const [isSharpLoaded, setIsSharpLoaded] = useState(false); // controls spinner
+  const [isSharpLoaded, setIsSharpLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  // blurFading: true = blur overlay should fade out (set only after image is
-  // decoded + 1 rAF, guaranteeing pixels are on the GPU before blur disappears)
-  const [blurFading, setBlurFading] = useState(false);
 
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -148,15 +145,13 @@ export default function SitePreviewCard({
     if (img?.complete && img.naturalWidth > 0) return;
     setIsSharpLoaded(false);
     setHasError(false);
-    setBlurFading(false);
   }, [sharpSrc, site.id]);
 
-  // Cached images: mark loaded + blur-done immediately (no fade needed)
+  // Cached images: mark loaded immediately (no fade needed)
   useLayoutEffect(() => {
     const img = imgRef.current;
     if (img?.complete && img.naturalWidth > 0) {
       setIsSharpLoaded(true);
-      setBlurFading(true);
     }
   }, [sharpSrc, site.id]);
 
@@ -250,9 +245,10 @@ export default function SitePreviewCard({
         onTouchStart={prefetchDetail}
       >
         <div className="relative" ref={containerRef}>
-          {/* Image container with robust progressive loading */}
+          {/* Image container — bg-neutral-300 ensures any transparent frame
+              shows neutral gray instead of the card's white background */}
           <div
-            className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
+            className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
             style={{ transform: "translateZ(0)" }}
           >
             {/* Sharp thumbnail — always full opacity; without blur it fades in to avoid progressive JPEG paint */}
@@ -266,48 +262,35 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoad={() => {
-                setIsSharpLoaded(true);
-                // img.decode() waits until pixels are ready to paint (not just
-                // downloaded), then one rAF ensures they're composited on the
-                // GPU before we start fading the blur overlay — no white flash.
-                const img = imgRef.current;
-                const p = img?.decode ? img.decode().catch(() => {}) : Promise.resolve();
-                p.then(() => requestAnimationFrame(() => setBlurFading(true)));
-              }}
-              onError={() => {
-                setHasError(true);
-                setIsSharpLoaded(true);
-                setBlurFading(true);
-              }}
+              onLoad={() => setIsSharpLoaded(true)}
+              onError={() => { setHasError(true); setIsSharpLoaded(true); }}
               className="object-cover"
               style={{
                 imageRendering: "auto",
-                // With blur: always full opacity (blur overlay covers it while loading)
-                // Without blur: fade in to avoid progressive JPEG paint artifact
-                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
+                opacity: isSharpLoaded ? 1 : 0,
                 transition: hasBlur ? "none" : "opacity 0.3s ease",
-                willChange: "opacity",
               }}
               placeholder="empty"
             />
 
             {/* Blur overlay — outer div fades (no filter = clean compositing),
-                inner div has static filter (no opacity transition) */}
+                inner div has static filter (no opacity transition).
+                backgroundColor on inner div prevents a transparent frame
+                while the background-image is decoding. */}
             {hasBlur && (
               <div
                 aria-hidden
                 className="absolute inset-0 pointer-events-none select-none overflow-hidden"
                 style={{
-                  opacity: blurFading ? 0 : 1,
-                  transition: blurFading ? "opacity 0.4s ease" : "none",
-                  willChange: "opacity",
+                  opacity: isSharpLoaded ? 0 : 1,
+                  transition: isSharpLoaded ? "opacity 0.4s ease" : "none",
                   zIndex: 2,
                 }}
               >
                 <div
                   className="absolute inset-0"
                   style={{
+                    backgroundColor: "#a3a3a3",
                     backgroundImage: `url(${site.cover_blur_data_url})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
