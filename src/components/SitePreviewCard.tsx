@@ -263,13 +263,7 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoad={() => {
-                // Wait 2 frames so the image is composited onto the GPU
-                // before we start fading the blur overlay — prevents white flash
-                requestAnimationFrame(() =>
-                  requestAnimationFrame(() => setIsSharpLoaded(true))
-                );
-              }}
+              onLoad={() => setIsSharpLoaded(true)}
               onError={() => {
                 setHasError(true);
                 setIsSharpLoaded(true);
@@ -278,7 +272,9 @@ export default function SitePreviewCard({
               style={{
                 imageRendering: "auto",
                 opacity: isSharpLoaded ? 1 : 0,
-                transition: "opacity 0.4s ease",
+                // With blur: instant snap (hidden under blur overlay anyway)
+                // Without blur: short fade to avoid progressive JPEG paint
+                transition: hasBlur ? "none" : "opacity 0.3s ease",
                 willChange: "opacity",
               }}
               placeholder="empty"
@@ -296,7 +292,9 @@ export default function SitePreviewCard({
                   filter: "blur(20px)",
                   transform: "scale(1.05)",
                   opacity: isSharpLoaded ? 0 : 1,
-                  transition: "opacity 0.4s ease",
+                  // 100ms delay: sharp snaps to opacity 1 first, then blur fades —
+                  // guarantees sharp is painted before it becomes visible
+                  transition: "opacity 0.4s ease 0.1s",
                   willChange: "opacity",
                   zIndex: 2,
                 }}
