@@ -249,8 +249,19 @@ export default function SitePreviewCard({
       >
         <div className="relative" ref={containerRef}>
           {/* Image container with robust progressive loading */}
-          <div className="relative aspect-[5/3] w-full overflow-hidden rounded-none">
-            {/* Sharp thumbnail — native Next.js blur placeholder (same as gallery page) */}
+          <div
+            className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
+            style={
+              hasBlur
+                ? {
+                    backgroundImage: `url(${site.cover_blur_data_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            {/* Sharp thumbnail — fades in over blur background */}
             <Image
               ref={imgRef}
               key={sharpSrc}
@@ -267,9 +278,12 @@ export default function SitePreviewCard({
                 setIsSharpLoaded(true);
               }}
               className="object-cover"
-              style={{ imageRendering: "auto" }}
-              placeholder={hasBlur ? "blur" : "empty"}
-              blurDataURL={site.cover_blur_data_url ?? undefined}
+              style={{
+                imageRendering: "auto",
+                opacity: isSharpLoaded ? 1 : 0,
+                transition: isSharpLoaded ? "opacity 0.4s ease" : "none",
+              }}
+              placeholder="empty"
             />
 
             {/* Small spinner overlay — only when no blur placeholder is available */}
