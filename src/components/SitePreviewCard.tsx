@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "./BookmarkProvider";
@@ -56,11 +55,6 @@ const FALLBACK_SVG =
 function fmtKm(v?: number | null) {
   if (v == null || Number.isNaN(v)) return "";
   return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
-}
-
-function roundToStep(n: number, step = 40, min = 280, max = 800) {
-  const clamped = Math.max(min, Math.min(max, n));
-  return Math.round(clamped / step) * step;
 }
 
 function Portal({ children }: { children: React.ReactNode }) {
@@ -117,24 +111,6 @@ export default function SitePreviewCard({
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerW, setContainerW] = useState<number>(384);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = Math.round(entry.contentRect.width);
-        if (w > 0) setContainerW(w);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const baseW = roundToStep(containerW, 40, 280, 800);
-
   const hasBlur = Boolean(site.cover_blur_data_url);
 
   // use only the thumbnail URL from the table, no transformations, no fallback to cover_photo_url
@@ -151,13 +127,56 @@ export default function SitePreviewCard({
   // Prioritise first two rows in the Explore grid
   const isPriority = index < 6;
 
-  // Simple preload for priority cards (uses the thumb URL as is)
+  // Decode before reveal to avoid progressive paint flicker on hard refresh.
   useEffect(() => {
-    if (!isPriority || !sharpSrc || sharpSrc === FALLBACK_SVG) return;
+    if (!sharpSrc) return;
+    if (sharpSrc === FALLBACK_SVG) {
+      setLoadedSrc(sharpSrc);
+      return;
+    }
     if (typeof window === "undefined") return;
+
+    let cancelled = false;
     const pre = new window.Image();
+    pre.decoding = "async";
     pre.src = sharpSrc;
-  }, [isPriority, sharpSrc]);
+
+    const markLoaded = () => {
+      if (!cancelled) setLoadedSrc(sharpSrc);
+    };
+    const markError = () => {
+      if (!cancelled) {
+        setHasError(true);
+        setLoadedSrc(sharpSrc);
+      }
+    };
+
+    if (pre.complete && pre.naturalWidth > 0) {
+      markLoaded();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (typeof pre.decode === "function") {
+      pre
+        .decode()
+        .then(markLoaded)
+        .catch(() => {
+          if (pre.complete && pre.naturalWidth > 0) markLoaded();
+          else markError();
+        });
+    } else {
+      pre.onload = markLoaded;
+      pre.onerror = markError;
+    }
+
+    return () => {
+      cancelled = true;
+      pre.onload = null;
+      pre.onerror = null;
+    };
+  }, [sharpSrc]);
 
   const hasDistance =
     site.distance_km != null && !Number.isNaN(site.distance_km);
@@ -237,35 +256,60 @@ export default function SitePreviewCard({
         onFocus={prefetchDetail}
         onTouchStart={prefetchDetail}
       >
-        <div className="relative" ref={containerRef}>
+        <div className="relative">
           {/* Image container — bg-neutral-300 ensures any transparent frame
               shows neutral gray instead of the card's white background */}
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
             style={{ transform: "translateZ(0)", contain: "paint" }}
           >
-            {/* Use Next/Image native blur placeholder for stable blur->sharp transition. */}
-            <Image
+            {hasBlur && (
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none select-none overflow-hidden"
+                style={{
+                  opacity: isSharpLoaded ? 0 : 1,
+                  transition: "opacity 220ms ease",
+                  zIndex: 1,
+                  willChange: "opacity",
+                  backfaceVisibility: "hidden",
+                  transform: "translateZ(0)",
+                }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor: "#a3a3a3",
+                    backgroundImage: `url(${site.cover_blur_data_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    filter: "blur(14px)",
+                    transform: "translateZ(0) scale(1.05)",
+                  }}
+                />
+              </div>
+            )}
+
+            <img
               src={sharpSrc}
               alt={site.title}
-              fill
-              sizes={`${baseW}px`}
               loading={isPriority ? "eager" : "lazy"}
-              priority={isPriority}
-              unoptimized
-              onLoadingComplete={() => setLoadedSrc(sharpSrc)}
-              onError={() => { setHasError(true); setLoadedSrc(sharpSrc); }}
-              className="object-cover"
+              fetchPriority={isPriority ? "high" : "auto"}
+              decoding="async"
+              onLoad={() => setLoadedSrc(sharpSrc)}
+              onError={() => {
+                setHasError(true);
+                setLoadedSrc(sharpSrc);
+              }}
+              className="absolute inset-0 h-full w-full object-cover"
               style={{
                 imageRendering: "auto",
-                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
-                transition: hasBlur ? "none" : "opacity 260ms ease",
+                opacity: isSharpLoaded ? 1 : 0,
+                transition: "opacity 220ms ease",
                 willChange: "opacity",
                 backfaceVisibility: "hidden",
                 transform: "translateZ(0)",
               }}
-              placeholder={hasBlur ? "blur" : "empty"}
-              blurDataURL={site.cover_blur_data_url || undefined}
             />
 
             {/* Small spinner overlay while high-res image is loading */}
