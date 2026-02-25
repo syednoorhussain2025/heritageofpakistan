@@ -242,7 +242,7 @@ export default function SitePreviewCard({
               shows neutral gray instead of the card's white background */}
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
-            style={{ transform: "translateZ(0)" }}
+            style={{ transform: "translateZ(0)", contain: "paint" }}
           >
             {/* Use Next/Image native blur placeholder for stable blur->sharp transition. */}
             <Image
@@ -269,7 +269,7 @@ export default function SitePreviewCard({
             />
 
             {/* Small spinner overlay while high-res image is loading */}
-            {!isSharpLoaded && !hasError && (
+            {!hasBlur && !isSharpLoaded && !hasError && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
                 <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
               </div>
