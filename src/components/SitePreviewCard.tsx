@@ -310,27 +310,29 @@ export default function SitePreviewCard({
               </div>
             )}
 
-            <img
-              src={sharpSrc}
-              alt={site.title}
-              loading={isPriority ? "eager" : "lazy"}
-              fetchPriority={isPriority ? "high" : "auto"}
-              decoding="async"
-              onLoad={() => setLoadedSrc(sharpSrc)}
-              onError={() => {
-                setHasError(true);
-                setLoadedSrc(sharpSrc);
-              }}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                imageRendering: "auto",
-                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
-                transition: hasBlur ? "none" : "opacity 220ms ease",
-                willChange: "opacity",
-                backfaceVisibility: "hidden",
-                transform: "translateZ(0)",
-              }}
-            />
+            <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-110">
+              <img
+                src={sharpSrc}
+                alt={site.title}
+                loading={isPriority ? "eager" : "lazy"}
+                fetchPriority={isPriority ? "high" : "auto"}
+                decoding="async"
+                onLoad={() => setLoadedSrc(sharpSrc)}
+                onError={() => {
+                  setHasError(true);
+                  setLoadedSrc(sharpSrc);
+                }}
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{
+                  imageRendering: "auto",
+                  opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
+                  transition: hasBlur ? "none" : "opacity 220ms ease",
+                  willChange: "opacity",
+                  backfaceVisibility: "hidden",
+                  transform: "translateZ(0)",
+                }}
+              />
+            </div>
 
             {/* Small spinner overlay while high-res image is loading */}
             {!hasBlur && !isSharpLoaded && !hasError && (
@@ -340,7 +342,7 @@ export default function SitePreviewCard({
             )}
 
             {/* Hover dark overlay */}
-            <div className="absolute inset-0 bg-[#242429] opacity-0 group-hover:opacity-65 transition-opacity duration-300 pointer-events-none" />
+            {/* <div className="absolute inset-0 bg-[#242429] opacity-0 group-hover:opacity-65 transition-opacity duration-300 pointer-events-none" /> */}
           </div>
 
           {/* Heritage type chip (slightly smaller) */}
@@ -378,7 +380,7 @@ export default function SitePreviewCard({
           {/* Title and location gradient desktop / tablet only */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/60 to-transparent rounded-b-xl -m-3 p-3 pt-10">
-              <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold">
+              <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold transition-transform duration-300 group-hover:translate-x-1">
                 {site.title}
               </h3>
               {site.location_free && (
