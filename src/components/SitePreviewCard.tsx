@@ -253,6 +253,7 @@ export default function SitePreviewCard({
           {/* Image container with robust progressive loading */}
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
+            style={{ transform: "translateZ(0)" }}
           >
             {/* Sharp thumbnail — always full opacity; without blur it fades in to avoid progressive JPEG paint */}
             <Image
@@ -291,24 +292,30 @@ export default function SitePreviewCard({
               placeholder="empty"
             />
 
-            {/* Blur overlay — sits ON TOP of sharp image, fades away when loaded */}
+            {/* Blur overlay — outer div fades (no filter = clean compositing),
+                inner div has static filter (no opacity transition) */}
             {hasBlur && (
               <div
                 aria-hidden
-                className="absolute inset-0 pointer-events-none select-none"
+                className="absolute inset-0 pointer-events-none select-none overflow-hidden"
                 style={{
-                  backgroundImage: `url(${site.cover_blur_data_url})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  filter: "blur(20px)",
-                  transform: "scale(1.05)",
-                  // blurFading: decode() + 1 rAF have elapsed — image is on GPU
                   opacity: blurFading ? 0 : 1,
                   transition: blurFading ? "opacity 0.4s ease" : "none",
                   willChange: "opacity",
                   zIndex: 2,
                 }}
-              />
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage: `url(${site.cover_blur_data_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    filter: "blur(20px)",
+                    transform: "scale(1.1)",
+                  }}
+                />
+              </div>
             )}
 
             {/* Small spinner overlay while high-res image is loading */}
