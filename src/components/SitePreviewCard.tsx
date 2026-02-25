@@ -251,16 +251,18 @@ export default function SitePreviewCard({
           {/* Image container with robust progressive loading */}
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
-            style={
-              hasBlur
-                ? {
-                    backgroundImage: `url(${site.cover_blur_data_url})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }
-                : undefined
-            }
           >
+            {/* Blur placeholder — separate layer with CSS filter so it looks smooth */}
+            {hasBlur && (
+              <img
+                src={site.cover_blur_data_url!}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+                style={{ filter: "blur(20px)", transform: "scale(1.05)" }}
+              />
+            )}
+
             {/* Sharp thumbnail — fades in over blur background */}
             <Image
               ref={imgRef}
@@ -286,8 +288,8 @@ export default function SitePreviewCard({
               placeholder="empty"
             />
 
-            {/* Small spinner overlay — only when no blur placeholder is available */}
-            {!isSharpLoaded && !hasError && !hasBlur && (
+            {/* Small spinner overlay while high-res image is loading */}
+            {!isSharpLoaded && !hasError && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
               </div>
