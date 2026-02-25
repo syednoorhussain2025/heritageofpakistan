@@ -541,43 +541,67 @@ async function attachActiveCovers(sites: Site[]) {
           })()
         : Promise.resolve(),
 
-      // ── Blur placeholder: site_images WHERE is_cover = true ─────────
+      // ── Blur placeholder: sites.cover_image_id → site_images ────────
       needsBlur.length
         ? (async () => {
             const ids = Array.from(
               new Set(needsBlur.map((s) => s.id))
             ).filter(Boolean);
 
-            const { data, error } = await withTimeout(
+            // Step 1: get cover_image_id for each site
+            const { data: siteRows, error: siteErr } = await withTimeout(
               supabase
-                .from("site_images")
-                .select("site_id, blur_data_url, width, height")
-                .in("site_id", ids)
-                .eq("is_cover", true),
+                .from("sites")
+                .select("id, cover_image_id")
+                .in("id", ids)
+                .not("cover_image_id", "is", null),
               QUERY_TIMEOUT_MS,
-              "explore.attachActiveCovers.blur"
+              "explore.attachActiveCovers.coverImageIds"
             );
-            console.log("[Explore] blur rows:", data?.length, "error:", error, "sample:", data?.[0]);
-            if (error) {
-              console.error("attachActiveCovers: blur error", error);
+            if (siteErr) {
+              console.error("attachActiveCovers: coverImageIds error", siteErr);
               return;
             }
 
-            type BlurRow = {
-              site_id: string;
+            type SiteRow = { id: string; cover_image_id: string };
+            const siteToImageId = new Map<string, string>(
+              ((siteRows ?? []) as SiteRow[]).map((r) => [r.id, r.cover_image_id])
+            );
+            const imageIds = Array.from(new Set(siteToImageId.values()));
+            if (!imageIds.length) return;
+
+            // Step 2: fetch blur data from site_images by cover_image_id
+            const { data: imgRows, error: imgErr } = await withTimeout(
+              supabase
+                .from("site_images")
+                .select("id, blur_data_url, width, height")
+                .in("id", imageIds),
+              QUERY_TIMEOUT_MS,
+              "explore.attachActiveCovers.blurData"
+            );
+            if (imgErr) {
+              console.error("attachActiveCovers: blurData error", imgErr);
+              return;
+            }
+
+            type ImgRow = {
+              id: string;
               blur_data_url: string | null;
               width: number | null;
               height: number | null;
             };
-            const byId = new Map<string, BlurRow>(
-              ((data ?? []) as BlurRow[]).map((r) => [r.site_id, r])
+            const byImageId = new Map<string, ImgRow>(
+              ((imgRows ?? []) as ImgRow[]).map((r) => [r.id, r])
             );
+
             for (const s of needsBlur) {
-              const row = byId.get(s.id);
-              if (!row?.blur_data_url) continue;
-              s.cover_blur_data_url = row.blur_data_url;
-              s.cover_width = row.width ?? null;
-              s.cover_height = row.height ?? null;
+              const imgId = siteToImageId.get(s.id);
+              if (!imgId) continue;
+              const img = byImageId.get(imgId);
+              if (!img?.blur_data_url) continue;
+              s.cover_blur_data_url = img.blur_data_url;
+              s.cover_width = img.width ?? null;
+              s.cover_height = img.height ?? null;
             }
           })()
         : Promise.resolve(),
