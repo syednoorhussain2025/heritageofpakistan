@@ -252,23 +252,7 @@ export default function SitePreviewCard({
           <div
             className="relative aspect-[5/3] w-full overflow-hidden rounded-none"
           >
-            {/* Blur placeholder — fades out as sharp fades in (cross-fade) */}
-            {hasBlur && (
-              <img
-                src={site.cover_blur_data_url!}
-                alt=""
-                aria-hidden
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-                style={{
-                  filter: "blur(20px)",
-                  transform: "scale(1.05)",
-                  opacity: isSharpLoaded ? 0 : 1,
-                  transition: "opacity 0.4s ease",
-                }}
-              />
-            )}
-
-            {/* Sharp thumbnail — fades in over blur (cross-fade) */}
+            {/* Sharp thumbnail — always full opacity; without blur it fades in to avoid progressive JPEG paint */}
             <Image
               ref={imgRef}
               key={sharpSrc}
@@ -287,16 +271,35 @@ export default function SitePreviewCard({
               className="object-cover"
               style={{
                 imageRendering: "auto",
-                opacity: isSharpLoaded ? 1 : 0,
-                transition: "opacity 0.4s ease",
-                zIndex: 1,
+                // With blur overlay on top: keep sharp at full opacity so it never flickers.
+                // Without blur: fade in to hide progressive JPEG paint.
+                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
+                transition: hasBlur ? "none" : "opacity 0.4s ease",
               }}
               placeholder="empty"
             />
 
+            {/* Blur overlay — sits ON TOP of sharp image, fades away when loaded */}
+            {hasBlur && (
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none select-none"
+                style={{
+                  backgroundImage: `url(${site.cover_blur_data_url})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  filter: "blur(20px)",
+                  transform: "scale(1.05)",
+                  opacity: isSharpLoaded ? 0 : 1,
+                  transition: "opacity 0.4s ease",
+                  zIndex: 2,
+                }}
+              />
+            )}
+
             {/* Small spinner overlay while high-res image is loading */}
             {!isSharpLoaded && !hasError && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
                 <span className="inline-block w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md bg-black/10 backdrop-blur-[2px]" />
               </div>
             )}
