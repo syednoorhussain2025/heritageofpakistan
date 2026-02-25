@@ -112,8 +112,11 @@ export default function SitePreviewCard({
   const prefetchedRef = useRef(false);
 
   // Progressive image loading state
-  const [isSharpLoaded, setIsSharpLoaded] = useState(false);
+  const [isSharpLoaded, setIsSharpLoaded] = useState(false); // controls spinner
   const [hasError, setHasError] = useState(false);
+  // blurFading: true = blur overlay should fade out (set only after image is
+  // decoded + 1 rAF, guaranteeing pixels are on the GPU before blur disappears)
+  const [blurFading, setBlurFading] = useState(false);
 
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -140,21 +143,20 @@ export default function SitePreviewCard({
   const sharpSrc = site.cover_photo_thumb_url || FALLBACK_SVG;
 
   // Reset load/error when the image changes, but skip if already complete
-  // (StrictMode double-invokes effects; resetting after useLayoutEffect detects
-  // a cached img.complete would leave the blur visible forever)
   useEffect(() => {
     const img = imgRef.current;
     if (img?.complete && img.naturalWidth > 0) return;
     setIsSharpLoaded(false);
     setHasError(false);
+    setBlurFading(false);
   }, [sharpSrc, site.id]);
 
-  // Handle already-cached images: onLoad won't fire if the browser already has
-  // the image, so check img.complete synchronously after each render.
+  // Cached images: mark loaded + blur-done immediately (no fade needed)
   useLayoutEffect(() => {
     const img = imgRef.current;
     if (img?.complete && img.naturalWidth > 0) {
       setIsSharpLoaded(true);
+      setBlurFading(true);
     }
   }, [sharpSrc, site.id]);
 
@@ -263,17 +265,26 @@ export default function SitePreviewCard({
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               unoptimized
-              onLoad={() => setIsSharpLoaded(true)}
+              onLoad={() => {
+                setIsSharpLoaded(true);
+                // img.decode() waits until pixels are ready to paint (not just
+                // downloaded), then one rAF ensures they're composited on the
+                // GPU before we start fading the blur overlay — no white flash.
+                const img = imgRef.current;
+                const p = img?.decode ? img.decode().catch(() => {}) : Promise.resolve();
+                p.then(() => requestAnimationFrame(() => setBlurFading(true)));
+              }}
               onError={() => {
                 setHasError(true);
                 setIsSharpLoaded(true);
+                setBlurFading(true);
               }}
               className="object-cover"
               style={{
                 imageRendering: "auto",
-                opacity: isSharpLoaded ? 1 : 0,
-                // With blur: instant snap (hidden under blur overlay anyway)
-                // Without blur: short fade to avoid progressive JPEG paint
+                // With blur: always full opacity (blur overlay covers it while loading)
+                // Without blur: fade in to avoid progressive JPEG paint artifact
+                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
                 transition: hasBlur ? "none" : "opacity 0.3s ease",
                 willChange: "opacity",
               }}
@@ -291,10 +302,9 @@ export default function SitePreviewCard({
                   backgroundPosition: "center",
                   filter: "blur(20px)",
                   transform: "scale(1.05)",
-                  opacity: isSharpLoaded ? 0 : 1,
-                  // 100ms delay: sharp snaps to opacity 1 first, then blur fades —
-                  // guarantees sharp is painted before it becomes visible
-                  transition: "opacity 0.4s ease 0.1s",
+                  // blurFading: decode() + 1 rAF have elapsed — image is on GPU
+                  opacity: blurFading ? 0 : 1,
+                  transition: blurFading ? "opacity 0.4s ease" : "none",
                   willChange: "opacity",
                   zIndex: 2,
                 }}
