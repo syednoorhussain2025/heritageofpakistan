@@ -557,6 +557,7 @@ async function attachActiveCovers(sites: Site[]) {
               QUERY_TIMEOUT_MS,
               "explore.attachActiveCovers.blur"
             );
+            console.log("[Explore] blur rows:", data?.length, "error:", error, "sample:", data?.[0]);
             if (error) {
               console.error("attachActiveCovers: blur error", error);
               return;
