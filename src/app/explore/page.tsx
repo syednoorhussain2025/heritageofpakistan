@@ -541,136 +541,42 @@ async function attachActiveCovers(sites: Site[]) {
           })()
         : Promise.resolve(),
 
-      // ── Blur placeholder via cover_image_id → site_images (direct FK) ──
-      // sites.cover_image_id is set by admin when picking a cover from gallery.
-      // Strategy A: use cover_image_id FK directly.
-      // Strategy B (fallback): match site_covers.storage_path → site_images.storage_path.
+      // ── Blur placeholder: site_images WHERE is_cover = true ─────────
       needsBlur.length
         ? (async () => {
             const ids = Array.from(
               new Set(needsBlur.map((s) => s.id))
             ).filter(Boolean);
 
-            // Step 1a: get cover_image_id from sites table (direct FK approach)
-            const { data: coverIdRows, error: coverIdErr } = await withTimeout(
+            const { data, error } = await withTimeout(
               supabase
-                .from("sites")
-                .select("id, cover_image_id")
-                .in("id", ids),
+                .from("site_images")
+                .select("site_id, blur_data_url, width, height")
+                .in("site_id", ids)
+                .eq("is_cover", true),
               QUERY_TIMEOUT_MS,
-              "explore.attachActiveCovers.coverImageIds"
+              "explore.attachActiveCovers.blur"
             );
-            if (coverIdErr) {
-              console.error("attachActiveCovers: coverImageId error", coverIdErr);
+            if (error) {
+              console.error("attachActiveCovers: blur error", error);
+              return;
             }
 
-            type CoverIdRow = { id: string; cover_image_id: string | null };
-            const siteToImageId = new Map<string, string>(
-              ((coverIdRows ?? []) as CoverIdRow[])
-                .filter((r) => r.cover_image_id)
-                .map((r) => [r.id, r.cover_image_id!])
-            );
-            const imageIds = Array.from(new Set(siteToImageId.values()));
-
-            // Step 1b (fallback): for sites with no cover_image_id, try storage_path
-            const needsPathFallback = ids.filter((id) => !siteToImageId.has(id));
-
-            type ImgRow = {
-              id?: string;
-              storage_path?: string;
+            type BlurRow = {
+              site_id: string;
               blur_data_url: string | null;
               width: number | null;
               height: number | null;
             };
-
-            // Run FK lookup and storage_path fallback in parallel
-            const [fkImgData, fallbackResult] = await Promise.all([
-              imageIds.length
-                ? withTimeout(
-                    supabase
-                      .from("site_images")
-                      .select("id, blur_data_url, width, height")
-                      .in("id", imageIds),
-                    QUERY_TIMEOUT_MS,
-                    "explore.attachActiveCovers.blurByImageId"
-                  )
-                : Promise.resolve({ data: null, error: null }),
-
-              needsPathFallback.length
-                ? withTimeout(
-                    supabase
-                      .from("site_covers")
-                      .select("site_id, storage_path")
-                      .in("site_id", needsPathFallback)
-                      .eq("is_active", true),
-                    QUERY_TIMEOUT_MS,
-                    "explore.attachActiveCovers.coverPaths"
-                  )
-                : Promise.resolve({ data: null, error: null }),
-            ]);
-
-            // Build imageId → ImgRow map
-            const byImageId = new Map<string, ImgRow>(
-              ((fkImgData.data ?? []) as ImgRow[])
-                .map((r) => [r.id!, r])
+            const byId = new Map<string, BlurRow>(
+              ((data ?? []) as BlurRow[]).map((r) => [r.site_id, r])
             );
-
-            // Apply FK results
             for (const s of needsBlur) {
-              const imgId = siteToImageId.get(s.id);
-              if (!imgId) continue;
-              const img = byImageId.get(imgId);
-              if (!img?.blur_data_url) continue;
-              s.cover_blur_data_url = img.blur_data_url;
-              s.cover_width = img.width ?? null;
-              s.cover_height = img.height ?? null;
-            }
-
-            // Storage-path fallback for sites still missing blur
-            if (fallbackResult.data?.length) {
-              type CoverPathRow = { site_id: string; storage_path: string };
-              const siteToPath = new Map<string, string>(
-                (fallbackResult.data as CoverPathRow[]).map((r) => [r.site_id, r.storage_path])
-              );
-              const paths = Array.from(new Set((fallbackResult.data as CoverPathRow[]).map((r) => r.storage_path)));
-              const { data: pathImgData } = await withTimeout(
-                supabase
-                  .from("site_images")
-                  .select("storage_path, blur_data_url, width, height")
-                  .in("storage_path", paths),
-                QUERY_TIMEOUT_MS,
-                "explore.attachActiveCovers.blurByPath"
-              );
-              if (pathImgData?.length) {
-                const byPath = new Map<string, ImgRow>(
-                  (pathImgData as ImgRow[]).map((r) => [r.storage_path!, r])
-                );
-                for (const s of needsBlur) {
-                  if (s.cover_blur_data_url) continue; // already resolved
-                  const path = siteToPath.get(s.id);
-                  if (!path) continue;
-                  const img = byPath.get(path);
-                  if (!img?.blur_data_url) continue;
-                  s.cover_blur_data_url = img.blur_data_url;
-                  s.cover_width = img.width ?? null;
-                  s.cover_height = img.height ?? null;
-                }
-              }
-            }
-
-            // Debug: log resolution details in dev
-            if (process.env.NODE_ENV === "development") {
-              const resolved = needsBlur.filter((s) => s.cover_blur_data_url).length;
-              console.group("[Explore] blur diagnosis");
-              console.log(`sites needing blur: ${needsBlur.length}`);
-              console.log(`cover_image_id found for: ${imageIds.length} sites`, [...siteToImageId.entries()]);
-              console.log(`sites falling back to path lookup: ${needsPathFallback.length}`);
-              console.log(`FK image rows returned:`, fkImgData.data);
-              console.log(`FK image error:`, fkImgData.error);
-              console.log(`path fallback cover rows:`, fallbackResult.data);
-              console.log(`final resolved: ${resolved}/${needsBlur.length}`);
-              console.log(`sample resolved blur url:`, needsBlur.find(s => s.cover_blur_data_url)?.cover_blur_data_url?.slice(0, 60));
-              console.groupEnd();
+              const row = byId.get(s.id);
+              if (!row?.blur_data_url) continue;
+              s.cover_blur_data_url = row.blur_data_url;
+              s.cover_width = row.width ?? null;
+              s.cover_height = row.height ?? null;
             }
           })()
         : Promise.resolve(),
