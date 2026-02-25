@@ -304,8 +304,8 @@ export default function SitePreviewCard({
               className="absolute inset-0 h-full w-full object-cover"
               style={{
                 imageRendering: "auto",
-                opacity: isSharpLoaded ? 1 : 0,
-                transition: "opacity 220ms ease",
+                opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
+                transition: hasBlur ? "none" : "opacity 220ms ease",
                 willChange: "opacity",
                 backfaceVisibility: "hidden",
                 transform: "translateZ(0)",
