@@ -260,7 +260,7 @@ export default function NearbySearchModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 ${
+      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
@@ -277,7 +277,7 @@ export default function NearbySearchModal({
 
       {/* Modal panel — fades + scales in */}
       <div
-        className={`relative w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 ${
+        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 overflow-hidden ${
           isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
         }`}
       >

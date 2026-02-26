@@ -1305,6 +1305,14 @@ function ExplorePageContent() {
     setTimeout(() => setSearchPanelOpen(false), 300);
   }, []);
 
+  // Lock body scroll while panel is open
+  useEffect(() => {
+    if (searchPanelOpen) document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [searchPanelOpen]);
+
+  const panelSwipeRef = useRef<{ x: number; y: number } | null>(null);
+
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
       <style jsx global>{`
@@ -1347,8 +1355,8 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] p-4 pt-16 lg:pt-4 w-full">
-            <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-0 mb-10 sm:mb-4 relative xl:pr-[260px]">
+          <main className="lg:ml-[380px] p-4 pt-14 lg:pt-4 w-full">
+            <div className="px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
               {/* Desktop-only headline + count; shown in mobile header instead */}
               <div className="hidden lg:block">
                 <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
@@ -1488,17 +1496,33 @@ function ExplorePageContent() {
             className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] overflow-y-auto transition-[right] duration-300 ease-out"
             style={{ right: searchPanelVisible ? 0 : "-100%" }}
           >
-            {/* Panel header */}
-            <div className="sticky top-0 z-10 bg-white border-b border-gray-100 flex items-center gap-2 px-3 py-3 shadow-sm">
-              <button
-                type="button"
-                onClick={closeSearchPanel}
-                aria-label="Close"
-                className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
-              >
-                <Icon name="times" size={18} className="text-gray-600" />
-              </button>
-              <span className="text-base font-bold text-[var(--dark-grey)]">Search & Filters</span>
+            {/* Panel header — drag here to swipe-close */}
+            <div
+              className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm select-none"
+              onTouchStart={(e) => { panelSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+              onTouchEnd={(e) => {
+                if (!panelSwipeRef.current) return;
+                const dx = e.changedTouches[0].clientX - panelSwipeRef.current.x;
+                const dy = e.changedTouches[0].clientY - panelSwipeRef.current.y;
+                panelSwipeRef.current = null;
+                // Swipe right (dismiss) or swipe down (dismiss)
+                if ((Math.abs(dx) > Math.abs(dy) && dx > 60) || (Math.abs(dy) > Math.abs(dx) && dy > 60)) {
+                  closeSearchPanel();
+                }
+              }}
+            >
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5" />
+              <div className="flex items-center gap-2 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={closeSearchPanel}
+                  aria-label="Close"
+                  className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
+                >
+                  <Icon name="times" size={18} className="text-gray-600" />
+                </button>
+                <span className="text-base font-bold text-[var(--dark-grey)]">Search & Filters</span>
+              </div>
             </div>
 
             <SearchFilters
