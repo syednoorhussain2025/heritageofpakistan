@@ -1493,19 +1493,18 @@ function ExplorePageContent() {
           />
           {/* Panel slides from right — uses `right` not transform to avoid stacking context issues */}
           <div
-            className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] overflow-y-auto transition-[right] duration-300 ease-out"
+            className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] flex flex-col overflow-hidden transition-[right] duration-300 ease-out"
             style={{ right: searchPanelVisible ? 0 : "-100%" }}
           >
-            {/* Panel header — drag here to swipe-close */}
+            {/* Panel header — fixed, not sticky — same pattern as HeritageTypeModal */}
             <div
-              className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm select-none"
+              className="shrink-0 bg-white border-b border-gray-100 shadow-sm select-none"
               onTouchStart={(e) => { panelSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
               onTouchEnd={(e) => {
                 if (!panelSwipeRef.current) return;
                 const dx = e.changedTouches[0].clientX - panelSwipeRef.current.x;
                 const dy = e.changedTouches[0].clientY - panelSwipeRef.current.y;
                 panelSwipeRef.current = null;
-                // Swipe right (dismiss) or swipe down (dismiss)
                 if ((Math.abs(dx) > Math.abs(dy) && dx > 60) || (Math.abs(dy) > Math.abs(dx) && dy > 60)) {
                   closeSearchPanel();
                 }
@@ -1525,17 +1524,20 @@ function ExplorePageContent() {
               </div>
             </div>
 
-            <SearchFilters
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onSearch={() => { executeSearch(); closeSearchPanel(); }}
-              onOpenNearbyModal={() => { closeSearchPanel(); setShowNearbyModal(true); }}
-            />
-            {hasRadius(filters) && centerSitePreview?.subtitle ? (
-              <div className="px-4 pb-3 text-xs text-[var(--espresso-brown)]/80">
-                {centerSitePreview.subtitle}
-              </div>
-            ) : null}
+            {/* Scrollable content — flex-1 min-h-0 keeps it within screen bounds */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <SearchFilters
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onSearch={() => { executeSearch(); closeSearchPanel(); }}
+                onOpenNearbyModal={() => { closeSearchPanel(); setShowNearbyModal(true); }}
+              />
+              {hasRadius(filters) && centerSitePreview?.subtitle ? (
+                <div className="px-4 pb-3 text-xs text-[var(--espresso-brown)]/80">
+                  {centerSitePreview.subtitle}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>,
         document.body
