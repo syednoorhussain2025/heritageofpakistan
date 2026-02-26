@@ -812,7 +812,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           solid || searchOverlayOpen
             ? "backdrop-blur shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
-        }`}
+        }${pathname === "/explore" ? " hidden lg:block" : ""}`}
         style={{
           backgroundColor:
             solid || searchOverlayOpen ? "#ffffff" : "transparent",
