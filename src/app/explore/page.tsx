@@ -8,8 +8,8 @@ import {
   useRef,
   useLayoutEffect,
   Suspense,
-  createPortal,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
   Filters,
