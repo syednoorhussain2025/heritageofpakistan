@@ -266,6 +266,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     };
   }, [allowTransparent]);
 
+  // Allow other components (e.g. mobile explore header) to open the mobile menu
+  useEffect(() => {
+    const handler = () => setMobileMenuOpen(true);
+    document.addEventListener("open-mobile-menu", handler);
+    return () => document.removeEventListener("open-mobile-menu", handler);
+  }, []);
+
   /* ------------------------------ Search (live) ------------------------------ */
 
   const [q, setQ] = useState("");

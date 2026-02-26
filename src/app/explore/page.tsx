@@ -8,6 +8,7 @@ import {
   useRef,
   useLayoutEffect,
   Suspense,
+  createPortal,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
@@ -639,6 +640,9 @@ function ExplorePageContent() {
   const searchGenRef = useRef(0);
 
   const [showNearbyModal, setShowNearbyModal] = useState(false);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchPanelVisible, setSearchPanelVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
@@ -1285,6 +1289,22 @@ function ExplorePageContent() {
       </div>
     ) : null;
 
+  // Mount guard for portals
+  useEffect(() => { setMounted(true); }, []);
+
+  // Search panel slide animation
+  useEffect(() => {
+    if (!searchPanelOpen) { setSearchPanelVisible(false); return; }
+    let id2: number;
+    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setSearchPanelVisible(true)); });
+    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
+  }, [searchPanelOpen]);
+
+  const closeSearchPanel = useCallback(() => {
+    setSearchPanelVisible(false);
+    setTimeout(() => setSearchPanelOpen(false), 300);
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
       <style jsx global>{`
@@ -1327,21 +1347,24 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] p-4 w-full">
+          <main className="lg:ml-[380px] p-4 pt-16 lg:pt-4 w-full">
             <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-0 mb-10 sm:mb-4 relative xl:pr-[260px]">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
-                {headline}
-              </h1>
-              <div className="mt-2 text-sm text-[var(--espresso-brown)]/80 font-explore-results-count">
-                Showing{" "}
-                <strong>
-                  {loading && results.sites.length === 0
-                    ? 0
-                    : results.sites.length}
-                </strong>{" "}
-                of <strong>{results.total}</strong> results
+              {/* Desktop-only headline + count; shown in mobile header instead */}
+              <div className="hidden lg:block">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
+                  {headline}
+                </h1>
+                <div className="mt-2 text-sm text-[var(--espresso-brown)]/80 font-explore-results-count">
+                  Showing{" "}
+                  <strong>
+                    {loading && results.sites.length === 0
+                      ? 0
+                      : results.sites.length}
+                  </strong>{" "}
+                  of <strong>{results.total}</strong> results
+                </div>
+                <div className="mt-2 h-[3px] w-20 bg-[var(--mustard-accent)] rounded" />
               </div>
-              <div className="mt-2 h-[3px] w-20 bg-[var(--mustard-accent)] rounded" />
 
               <CenterBanner />
             </div>
@@ -1415,6 +1438,84 @@ function ExplorePageContent() {
           executeSearch();
         }}
       />
+
+      {/* ── Mobile Explore Header ── */}
+      {mounted && createPortal(
+        <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm h-14 flex items-center px-3 gap-2">
+          {/* Burger → opens global nav drawer */}
+          <button
+            type="button"
+            aria-label="Open menu"
+            onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
+            className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32]"
+          >
+            <Icon name="navigator" size={20} />
+          </button>
+
+          {/* Headline + count */}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
+              {headline}
+            </div>
+            <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
+              {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
+            </div>
+          </div>
+
+          {/* Search / filter icon */}
+          <button
+            type="button"
+            aria-label="Search & Filters"
+            onClick={() => setSearchPanelOpen(true)}
+            className="p-2 shrink-0 flex items-center justify-center"
+          >
+            <Icon name="search" size={20} className="text-[var(--brand-orange)]" />
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Mobile Search Panel ── */}
+      {mounted && searchPanelOpen && createPortal(
+        <div className="lg:hidden fixed inset-0 z-[3200]">
+          {/* Backdrop */}
+          <div
+            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
+            onClick={closeSearchPanel}
+          />
+          {/* Panel slides from right — uses `right` not transform to avoid stacking context issues */}
+          <div
+            className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] overflow-y-auto transition-[right] duration-300 ease-out"
+            style={{ right: searchPanelVisible ? 0 : "-100%" }}
+          >
+            {/* Panel header */}
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-100 flex items-center gap-2 px-3 py-3 shadow-sm">
+              <button
+                type="button"
+                onClick={closeSearchPanel}
+                aria-label="Close"
+                className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
+              >
+                <Icon name="times" size={18} className="text-gray-600" />
+              </button>
+              <span className="text-base font-bold text-[var(--dark-grey)]">Search & Filters</span>
+            </div>
+
+            <SearchFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onSearch={() => { executeSearch(); closeSearchPanel(); }}
+              onOpenNearbyModal={() => { closeSearchPanel(); setShowNearbyModal(true); }}
+            />
+            {hasRadius(filters) && centerSitePreview?.subtitle ? (
+              <div className="px-4 pb-3 text-xs text-[var(--espresso-brown)]/80">
+                {centerSitePreview.subtitle}
+              </div>
+            ) : null}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
