@@ -1460,24 +1460,22 @@ function ExplorePageContent() {
             <Icon name="navigator" size={20} />
           </button>
 
-          {/* Headline + count */}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
-              {headline}
-            </div>
-            <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
-              {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
-            </div>
-          </div>
-
-          {/* Search / filter icon */}
+          {/* Headline + search icon — entire area opens search panel */}
           <button
             type="button"
             aria-label="Search & Filters"
             onClick={() => setSearchPanelOpen(true)}
-            className="p-2 shrink-0 flex items-center justify-center"
+            className="flex-1 min-w-0 flex items-center gap-2 text-left"
           >
-            <Icon name="search" size={20} className="text-[var(--brand-orange)]" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
+                {headline}
+              </div>
+              <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
+                {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
+              </div>
+            </div>
+            <Icon name="search" size={20} className="text-[var(--brand-orange)] shrink-0" />
           </button>
         </div>,
         document.body
