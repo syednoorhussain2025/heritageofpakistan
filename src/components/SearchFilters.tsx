@@ -160,6 +160,8 @@ function Tooltip({
   useEffect(() => { setMounted(true); }, []);
 
   const handleMouseEnter = () => {
+    // Don't show tooltips on touch/mobile devices
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) return;
     if (!wrapRef.current) return;
     const r = wrapRef.current.getBoundingClientRect();
     setCoords({ top: r.top - 8, left: r.left + r.width / 2 });
