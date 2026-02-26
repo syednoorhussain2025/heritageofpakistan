@@ -1077,6 +1077,13 @@ function HeritageTypeModal({
     if (isOpen) setTerm("");
   }, [isOpen]);
 
+  // Body scroll lock — same pattern as lightbox
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
   const filtered = useMemo(() => {
     const q = term.trim().toLowerCase();
     if (!q) return options;
@@ -1093,7 +1100,7 @@ function HeritageTypeModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${
+      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
@@ -1132,7 +1139,7 @@ function HeritageTypeModal({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
           <Tooltip text="Type to find a heritage type" wrapperClassName="w-full">
             <input
               type="text"
@@ -1270,11 +1277,18 @@ function SearchLocationModal({
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
+  // Body scroll lock
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
   if (!mounted) return null;
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${
+      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
@@ -1317,7 +1331,7 @@ function SearchLocationModal({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-4 space-y-4 flex-1">
+        <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
           <div>
             <label className="mb-1.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
               Region

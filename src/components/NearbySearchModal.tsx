@@ -220,6 +220,13 @@ export default function NearbySearchModal({
     }
   }, [isOpen, draftSite]);
 
+  // Body scroll lock
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
   const chooseSite = (row: SiteRow) => {
     if (row.latitude == null || row.longitude == null) return;
     setDraftSite({
@@ -260,7 +267,7 @@ export default function NearbySearchModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${
+      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"

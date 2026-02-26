@@ -1483,7 +1483,7 @@ function ExplorePageContent() {
 
       {/* ── Mobile Search Panel ── */}
       {mounted && searchPanelOpen && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[3200]">
+        <div className="lg:hidden fixed inset-0 z-[3200] touch-none">
           {/* Backdrop */}
           <div
             className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
@@ -1523,7 +1523,7 @@ function ExplorePageContent() {
             </div>
 
             {/* Scrollable content — flex-1 min-h-0 keeps it within screen bounds */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
