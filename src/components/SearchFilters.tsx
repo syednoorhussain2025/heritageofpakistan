@@ -1885,6 +1885,8 @@ interface SearchFiltersProps {
   onSearch: () => void;
   onHeadingChange?: (title: string) => void;
   onOpenNearbyModal?: () => void;
+  hideFooter?: boolean;
+  resetRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 type DomainTab =
@@ -1900,6 +1902,8 @@ export default function SearchFilters({
   onSearch,
   onHeadingChange,
   onOpenNearbyModal,
+  hideFooter,
+  resetRef,
 }: SearchFiltersProps) {
   const [options, setOptions] = useState<FilterOptions>({
     categories: [],
