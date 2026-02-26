@@ -1355,8 +1355,8 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] px-4 pb-4 pt-14 lg:pt-4 w-full">
-            <div className="px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
+          <main className="lg:ml-[380px] px-4 pb-4 pt-6 lg:pt-4 w-full">
+            <div className="hidden lg:block px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
               {/* Desktop-only headline + count; shown in mobile header instead */}
               <div className="hidden lg:block">
                 <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--dark-grey)] tracking-tight">
