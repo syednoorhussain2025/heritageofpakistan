@@ -88,12 +88,24 @@ export default function SignUpPage() {
           --sticky-offset: 72px;
         }
         button, input { outline: none !important; }
-        /* ── Sign-up mobile: keep only burger in header ── */
+        /* ── Sign-up mobile: transparent header, burger only ── */
         @media (max-width: 767px) {
           body[data-page="sign-up"] header a[href="/"],
           body[data-page="sign-up"] header [class*="max-w-2xl"],
           body[data-page="sign-up"] header [data-header-user] {
             display: none !important;
+          }
+          body[data-page="sign-up"] header {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+          body[data-page="sign-up"] header [aria-hidden="true"] {
+            opacity: 1 !important;
+          }
+          body[data-page="sign-up"] header button[aria-label="Open menu"] svg {
+            color: white !important;
           }
         }
       `}</style>

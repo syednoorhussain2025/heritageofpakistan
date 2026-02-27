@@ -138,12 +138,24 @@ export default function SignInForm() {
         input {
           outline: none !important;
         }
-        /* ── Sign-in mobile: keep only burger in header ── */
+        /* ── Sign-in mobile: transparent header, burger only ── */
         @media (max-width: 767px) {
           body[data-page="sign-in"] header a[href="/"],
           body[data-page="sign-in"] header [class*="max-w-2xl"],
           body[data-page="sign-in"] header [data-header-user] {
             display: none !important;
+          }
+          body[data-page="sign-in"] header {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+          body[data-page="sign-in"] header [aria-hidden="true"] {
+            opacity: 1 !important;
+          }
+          body[data-page="sign-in"] header button[aria-label="Open menu"] svg {
+            color: white !important;
           }
         }
       `}</style>
