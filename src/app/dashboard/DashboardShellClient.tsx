@@ -39,7 +39,7 @@ export default function DashboardShellClient({
 
   return (
     <div
-      className="min-h-screen flex p-6 gap-6 items-start"
+      className="min-h-screen lg:flex lg:p-6 lg:gap-6 lg:items-start"
       style={{
         backgroundImage:
           'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
@@ -48,8 +48,8 @@ export default function DashboardShellClient({
         backgroundPosition: "top left",
       }}
     >
-      {/* Fixed Sidebar */}
-      <aside className="fixed w-64 bg-white border border-gray-200 rounded-2xl shadow-md flex flex-col h-[calc(100vh-3rem)]">
+      {/* Fixed Sidebar — desktop only */}
+      <aside className="hidden lg:flex fixed w-64 bg-white border border-gray-200 rounded-2xl shadow-md flex-col h-[calc(100vh-3rem)]">
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-2xl font-bold text-gray-800">My Dashboard</h2>
         </div>
@@ -79,14 +79,14 @@ export default function DashboardShellClient({
         </nav>
       </aside>
 
-      {/* Spacer to prevent overlap with fixed sidebar */}
-      <div className="w-64" />
+      {/* Spacer — desktop only */}
+      <div className="hidden lg:block w-64" />
 
       {/* Main Content */}
       <main
-        className={`flex-1 ${
-          fullBleed ? "p-0" : "p-8"
-        } bg-white rounded-2xl border border-gray-200 shadow-sm`}
+        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${
+          fullBleed ? "" : "p-4 lg:p-8"
+        }`}
       >
         {children}
       </main>
