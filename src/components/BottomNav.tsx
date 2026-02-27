@@ -136,19 +136,6 @@ function ProfilePanel({
   const supabase = useRef(createClient()).current;
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Swipe-down to close
-  const touchStartY = useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (dy > 60) onClose();
-    touchStartY.current = null;
-  };
-
   const handleLogout = async () => {
     onClose();
     await supabase.auth.signOut();
@@ -161,106 +148,120 @@ function ProfilePanel({
   if (!open) return null;
 
   return (
-    <>
-      {/* Panel */}
+    <div
+      ref={panelRef}
+      className={`fixed inset-0 z-[3200] bg-[#f0f2f5] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+        closing ? "translate-y-full" : "translate-y-0"
+      }`}
+    >
+      {/* Top bar */}
       <div
-        ref={panelRef}
-        className={`fixed inset-0 z-[3200] bg-white flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
-          closing ? "translate-y-full" : "translate-y-0"
-        }`}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        className="flex items-center justify-between px-4 flex-shrink-0"
+        style={{ paddingTop: "calc(0.85rem + env(safe-area-inset-top, 0px))" }}
       >
-        {/* Close button */}
-        <div className="flex items-center justify-end px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 active:bg-gray-200"
-          >
-            <Icon name="times" size={16} />
-          </button>
-        </div>
-
-        {/* Profile header */}
-        <div className="flex flex-col items-center px-6 pt-2 pb-5 border-b border-gray-100 flex-shrink-0">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt="Profile"
-              className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-200 shadow-sm"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-[var(--brand-blue)] flex items-center justify-center text-white text-3xl font-bold shadow-sm">
-              {initial}
-            </div>
-          )}
-          <p className="mt-3 text-lg font-semibold text-gray-900 text-center leading-tight">
-            {displayName || "My Account"}
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">Heritage of Pakistan</p>
-        </div>
-
-        {/* Nav items – scrollable */}
-        <div className="flex-1 overflow-y-auto py-2">
-          {dashboardNav.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => onNavigate(item.href)}
-                className={`w-full flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 active:bg-gray-50 ${
-                  isActive ? "bg-orange-50" : ""
-                }`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    isActive ? "bg-orange-100" : "bg-gray-100"
-                  }`}
-                >
-                  <Icon
-                    name={item.icon}
-                    size={18}
-                    className={isActive ? "text-orange-600" : "text-gray-500"}
-                  />
-                </div>
-                <span
-                  className={`text-[15px] font-medium ${
-                    isActive ? "text-orange-700" : "text-gray-800"
-                  }`}
-                >
-                  {item.label}
-                </span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />
-                )}
-              </button>
-            );
-          })}
-
-          {/* Divider + Sign out */}
-          <div className="h-px bg-gray-100 mx-5 my-2" />
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 active:bg-red-50"
-          >
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-red-50">
-              <Icon name="logout" size={18} className="text-red-500" />
-            </div>
-            <span className="text-[15px] font-medium text-red-500">
-              Sign Out
-            </span>
-          </button>
-
-          {/* Safe-area bottom padding */}
-          <div className="h-[calc(1rem+env(safe-area-inset-bottom,0px))]" />
-        </div>
+        <span className="text-[17px] font-semibold text-gray-800">Profile</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-gray-500 active:bg-white"
+        >
+          <Icon name="times" size={15} />
+        </button>
       </div>
-    </>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Profile section */}
+        <div className="flex flex-col items-center px-6 pt-6 pb-8">
+          {/* Avatar */}
+          <div className="relative">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-28 h-28 rounded-full object-cover shadow-md"
+              />
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-[var(--brand-blue)] flex items-center justify-center text-white text-4xl font-bold shadow-md">
+                {initial}
+              </div>
+            )}
+            {/* Online dot */}
+            <div className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full bg-[#25d366] border-2 border-[#f0f2f5]" />
+          </div>
+
+          {/* Name */}
+          <h2 className="mt-4 text-[22px] font-bold text-gray-900 text-center leading-snug">
+            {displayName || "My Account"}
+          </h2>
+          <p className="mt-0.5 text-[13px] text-gray-500">Heritage of Pakistan</p>
+        </div>
+
+        {/* "My Dashboard" section */}
+        <div className="px-4 mb-1">
+          <p className="text-[13px] font-medium text-gray-500 px-1 mb-2 uppercase tracking-wide">
+            My Dashboard
+          </p>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+            {dashboardNav.map((item, i) => {
+              const isActive = pathname === item.href;
+              return (
+                <div key={item.href}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(item.href)}
+                    className={`w-full flex items-center gap-3 px-4 py-[13px] transition-colors duration-100 active:bg-gray-50 ${
+                      isActive ? "bg-orange-50/60" : ""
+                    }`}
+                  >
+                    <Icon
+                      name={item.icon}
+                      size={20}
+                      className={isActive ? "text-[#ff752b]" : "text-gray-400"}
+                    />
+                    <span
+                      className={`flex-1 text-left text-[15.5px] ${
+                        isActive
+                          ? "font-semibold text-[#ff752b]"
+                          : "font-normal text-gray-800"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                    <Icon name="chevron-right" size={14} className="text-gray-300" />
+                  </button>
+                  {i < dashboardNav.length - 1 && (
+                    <div className="h-px bg-gray-100 ml-11" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sign out card */}
+        <div className="px-4 mt-4">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-[13px] active:bg-red-50 transition-colors duration-100"
+            >
+              <Icon name="logout" size={20} className="text-red-500" />
+              <span className="flex-1 text-left text-[15.5px] text-red-500">
+                Sign Out
+              </span>
+              <Icon name="chevron-right" size={14} className="text-gray-300" />
+            </button>
+          </div>
+        </div>
+
+        {/* Safe-area bottom padding */}
+        <div className="h-[calc(2rem+env(safe-area-inset-bottom,0px))]" />
+      </div>
+    </div>
   );
 }
 
@@ -295,7 +296,7 @@ export default function BottomNav() {
 
   const openPanel = () => {
     if (!userId) {
-      go("/auth/sign-in");
+      go("/auth/sign-in?redirectTo=/");
       return;
     }
     setPanelOpen(true);
