@@ -255,7 +255,7 @@ const MasonryTile = memo(function MasonryTile({
 
 function HeaderSkeleton() {
   return (
-    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
+    <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-3 sm:pt-8 pb-4">
       <div className="animate-pulse flex items-center gap-4">
         <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gray-200" />
         <div className="flex-1 space-y-3">
@@ -462,7 +462,7 @@ export default function GalleryClient({
         <HeaderSkeleton />
       ) : site ? (
         /* Header content unchanged */
-        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
+        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-3 sm:pt-8 pb-4">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
               <Image
@@ -546,7 +546,7 @@ export default function GalleryClient({
           </div>
         </section>
       ) : (
-        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-8 pb-4">
+        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-3 sm:pt-8 pb-4">
           <div className="p-6 text-gray-600">Not found.</div>
         </section>
       )}
@@ -635,3 +635,4 @@ export default function GalleryClient({
     </div>
   );
 }
+

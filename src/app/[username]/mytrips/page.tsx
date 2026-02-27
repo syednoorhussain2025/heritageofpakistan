@@ -53,7 +53,7 @@ export default async function UserTripsPage({ params }: UserTripsPageProps) {
 
   // 4) Render — client grid will use the canonical username only for data lookups
   return (
-    <div className="pt-8 min-h-screen bg-[url('https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png')] bg-repeat bg-[length:500px] bg-fixed">
+    <div className="pt-3 sm:pt-8 min-h-screen bg-[url('https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png')] bg-repeat bg-[length:500px] bg-fixed">
       <MyTripsGrid
         username={canonical}
         title="Your Trips"
@@ -62,3 +62,4 @@ export default async function UserTripsPage({ params }: UserTripsPageProps) {
     </div>
   );
 }
+

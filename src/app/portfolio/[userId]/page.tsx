@@ -371,7 +371,7 @@ export default function PublicPortfolioPage() {
     <div className={`min-h-screen ${themeClasses}`}>
       <PortfolioHeader profile={profile} />
 
-      <main className="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+      <main className="pt-6 sm:pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
         {/* Profile header */}
         {profile && (
           <div className="max-w-4xl mx-auto mb-10 flex flex-col md:flex-row items-center gap-4 md:gap-6">
@@ -490,3 +490,4 @@ export default function PublicPortfolioPage() {
     </div>
   );
 }
+
