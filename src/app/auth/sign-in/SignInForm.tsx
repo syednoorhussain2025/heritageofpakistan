@@ -135,22 +135,16 @@ export default function SignInForm() {
 
       <div className="grid h-full w-full grid-cols-1 md:grid-cols-2">
         {/* LEFT IMAGE */}
-        <div className="relative hidden md:block">
+        <div className="relative hidden md:block h-screen">
           <Image
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/miniature.jpeg"
-            alt="Heritage of Pakistan"
+            src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
+            alt="Royal Garden, Altit"
             fill
             priority
             sizes="50vw"
             className="object-cover"
           />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(90deg, rgba(169,80,42,0.28) 0%, rgba(250,247,242,0) 55%)",
-            }}
-          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
         </div>
 
         {/* RIGHT FORM */}
