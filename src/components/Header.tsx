@@ -212,7 +212,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
 
   useEffect(() => {
-    const HEADER_FALLBACK = 72;
+    const HEADER_FALLBACK =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches
+        ? 56
+        : 72;
     const DEFAULT_THRESHOLD = 140;
 
     const measureAndSetOffsetVar = () => {
