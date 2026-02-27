@@ -376,6 +376,12 @@ export default function HomePage() {
     })();
   }, []);
 
+  // Mark body so CSS can strip header items on mobile homepage only
+  useEffect(() => {
+    document.body.dataset.page = "home";
+    return () => { delete document.body.dataset.page; };
+  }, []);
+
   useEffect(() => {
     if (!heroReady) return;
     const t1 = setTimeout(() => setTextVisible(true), 150);
@@ -413,6 +419,15 @@ export default function HomePage() {
         button,
         input {
           outline: none !important;
+        }
+        /* ── Homepage mobile: keep only burger in header ── */
+        @media (max-width: 767px) {
+          body[data-page="home"] header a[href="/"],
+          body[data-page="home"] header a[href="/auth/sign-in"],
+          body[data-page="home"] header [class*="max-w-2xl"],
+          body[data-page="home"] header div[class="relative"] {
+            display: none !important;
+          }
         }
       `}</style>
 
@@ -496,7 +511,7 @@ export default function HomePage() {
           </div>
 
           {/* Auth actions — outside the card */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-3">
             <a
               href="/auth/sign-in"
               className="rounded-lg bg-[var(--brand-orange)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:opacity-95 active:opacity-90"
