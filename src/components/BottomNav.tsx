@@ -162,32 +162,29 @@ function ProfilePanel({
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-[3100] bg-black/40 transition-opacity duration-300 ${
-          closing ? "opacity-0" : "opacity-100"
-        }`}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`fixed inset-x-0 bottom-0 z-[3200] bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+        className={`fixed inset-0 z-[3200] bg-white flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
           closing ? "translate-y-full" : "translate-y-0"
         }`}
-        style={{ maxHeight: "85vh" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        {/* Close button */}
+        <div className="flex items-center justify-end px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 active:bg-gray-200"
+          >
+            <Icon name="times" size={16} />
+          </button>
         </div>
 
         {/* Profile header */}
-        <div className="flex flex-col items-center px-6 pt-4 pb-5 border-b border-gray-100 flex-shrink-0">
+        <div className="flex flex-col items-center px-6 pt-2 pb-5 border-b border-gray-100 flex-shrink-0">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -259,8 +256,8 @@ function ProfilePanel({
             </span>
           </button>
 
-          {/* Safe-area padding */}
-          <div className="h-[calc(0.5rem+env(safe-area-inset-bottom,0px))]" />
+          {/* Safe-area bottom padding */}
+          <div className="h-[calc(1rem+env(safe-area-inset-bottom,0px))]" />
         </div>
       </div>
     </>
