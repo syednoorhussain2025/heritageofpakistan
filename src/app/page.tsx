@@ -423,6 +423,7 @@ export default function HomePage() {
           marginTop: "calc(var(--sticky-offset, 72px) * -1)",
           height: "calc(100dvh)",
           paddingTop: "var(--sticky-offset, 72px)",
+          paddingBottom: "72px",
         }}
       >
         {/* Hero image — full bleed */}
