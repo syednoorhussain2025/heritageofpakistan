@@ -405,16 +405,16 @@ export default function HomePage() {
       {/* Global palette */}
       <style jsx global>{`
         :root {
-          --navy-deep: #1c1f4c;
-          --sand-gold: #c7a76b;
+          --navy-deep: var(--brand-blue);
+          --sand-gold: var(--brand-orange);
           --espresso-brown: #4b2e05;
-          --ivory-cream: #faf7f2;
-          --taupe-grey: #d8cfc4;
-          --terracotta-red: #a9502a;
-          --mustard-accent: #e2b65c;
+          --ivory-cream: #ffffff;
+          --taupe-grey: #d4d4d4;
+          --terracotta-red: var(--brand-orange);
+          --mustard-accent: var(--brand-orange);
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
-          --sticky-offset: 72px; /* used to pull the grid under your sticky header */
+          --sticky-offset: 72px;
         }
         button,
         input {
@@ -451,19 +451,6 @@ export default function HomePage() {
 
         {/* RIGHT: Ivory panel */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-          {/* Optional decorative motifs */}
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
-            alt=""
-            className="pointer-events-none absolute -top-6 -left-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(-6deg)" }}
-          />
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(2).png"
-            alt=""
-            className="pointer-events-none absolute -top-8 -right-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(6deg)" }}
-          />
 
           <div className="relative z-10 w-full max-w-3xl">
             {/* Title */}
@@ -474,10 +461,10 @@ export default function HomePage() {
                   : "opacity-0 translate-y-2"
               }`}
             >
-              <h1 className="text-4xl font-black leading-tight text-[var(--dark-grey)] md:text-5xl">
+              <h1 className="text-4xl font-black leading-tight text-[var(--brand-blue)] md:text-5xl">
                 Heritage of Pakistan
               </h1>
-              <p className="mt-1 text-base text-[var(--espresso-brown)]/85 md:text-lg">
+              <p className="mt-1 text-base text-[var(--brand-grey)] md:text-lg">
                 Discover, Explore, Preserve
               </p>
               <div className="mt-3 h-[3px] w-16 rounded bg-[var(--sand-gold)]" />
@@ -541,16 +528,16 @@ export default function HomePage() {
               {/* Auth actions moved slightly down; Sign in as button */}
               <div className="mt-8 flex items-center gap-3 text-sm">
                 <a
-                  href="http://localhost:3000/auth/sign-in"
-                  className="inline-flex items-center rounded-lg bg-[var(--terracotta-red)] px-5 py-2.5 font-semibold text-white shadow-lg transition hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
+                  href="/auth/sign-in"
+                  className="inline-flex items-center rounded-lg bg-[var(--brand-orange)] px-5 py-2.5 font-semibold text-white shadow-lg transition hover:opacity-95 focus:ring-2 focus:ring-[var(--brand-orange)] active:opacity-90"
                   aria-label="Sign in"
                 >
                   Sign in
                 </a>
-                <span className="text-[var(--espresso-brown)]/60">or</span>
+                <span className="text-[var(--brand-grey)]/60">or</span>
                 <a
-                  href="http://localhost:3000/auth/sign-up"
-                  className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
+                  href="/auth/sign-up"
+                  className="font-semibold text-[var(--brand-orange)] underline decoration-[var(--brand-orange)] underline-offset-2 hover:opacity-90"
                 >
                   Create an account
                 </a>

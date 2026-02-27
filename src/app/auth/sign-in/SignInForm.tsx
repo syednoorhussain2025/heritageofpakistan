@@ -110,13 +110,13 @@ export default function SignInForm() {
     <main className="h-screen w-full">
       <style jsx global>{`
         :root {
-          --navy-deep: #1c1f4c;
-          --sand-gold: #c7a76b;
+          --navy-deep: var(--brand-blue);
+          --sand-gold: var(--brand-orange);
           --espresso-brown: #4b2e05;
-          --ivory-cream: #faf7f2;
-          --taupe-grey: #d8cfc4;
-          --terracotta-red: #a9502a;
-          --mustard-accent: #e2b65c;
+          --ivory-cream: #ffffff;
+          --taupe-grey: #d4d4d4;
+          --terracotta-red: var(--brand-orange);
+          --mustard-accent: var(--brand-orange);
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
 
@@ -155,28 +155,16 @@ export default function SignInForm() {
 
         {/* RIGHT FORM */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif.png"
-            alt=""
-            className="pointer-events-none absolute -top-6 -left-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(-6deg)" }}
-          />
-          <img
-            src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/chowkandimotif%20(2).png"
-            alt=""
-            className="pointer-events-none absolute -top-8 -right-4 w-40 select-none opacity-15 md:w-56"
-            style={{ transform: "rotate(6deg)" }}
-          />
 
           <div className="relative z-10 w-full max-w-md">
             <header className="mb-6 text-center md:text-left">
-              <h1 className="text-4xl font-black leading-tight text-[var(--dark-grey)]">
+              <h1 className="text-4xl font-black leading-tight text-[var(--brand-blue)]">
                 Welcome back
               </h1>
-              <p className="mt-1 text-sm text-[var(--espresso-brown)]/80">
+              <p className="mt-1 text-sm text-[var(--brand-grey)]">
                 Sign in to continue exploring Pakistan’s heritage.
               </p>
-              <div className="mt-3 h-[3px] w-16 rounded bg-[var(--sand-gold)]" />
+              <div className="mt-3 h-[3px] w-16 rounded bg-[var(--brand-orange)]" />
             </header>
 
             <form onSubmit={onEmailPassword} className="space-y-3">
@@ -242,17 +230,17 @@ export default function SignInForm() {
               </div>
             )}
 
-            <div className="mt-6 text-sm text-[var(--espresso-brown)]">
+            <div className="mt-6 text-sm text-[var(--brand-grey)]">
               New here?{" "}
               <Link
-                className="font-semibold text-[var(--terracotta-red)] underline decoration-[var(--sand-gold)] underline-offset-2 hover:opacity-90"
+                className="font-semibold text-[var(--brand-orange)] underline decoration-[var(--brand-orange)] underline-offset-2 hover:opacity-90"
                 href="/auth/sign-up"
               >
                 Create an account
               </Link>
             </div>
 
-            <p className="mt-2 text-[12px] text-[var(--espresso-brown)]/70">
+            <p className="mt-2 text-[12px] text-[var(--brand-grey)]/60">
               By continuing you agree to our Terms and acknowledge our Privacy
               Policy.
             </p>
