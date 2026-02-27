@@ -72,13 +72,15 @@ function NavItem({
   );
 }
 
-/** Builds a thumbnail URL for the avatar. */
+/** Builds a public URL for the avatar stored in the "avatars" bucket. */
 function avatarThumbUrl(input: string | null | undefined): string {
   if (!input) return "";
   if (/^https?:\/\//i.test(input)) return input;
   const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
   if (!SUPA_URL) return "";
-  return `${SUPA_URL}/storage/v1/object/public/${input.replace(/^\/+/, "")}`;
+  const path = input.replace(/^\/+/, "");
+  // avatar_url is stored as a relative path inside the "avatars" bucket
+  return `${SUPA_URL}/storage/v1/object/public/avatars/${path}`;
 }
 
 /** Profile avatar circle used in the bottom nav tab. */
