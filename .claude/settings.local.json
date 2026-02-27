@@ -5,7 +5,8 @@
       "Bash(node -e \":*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
