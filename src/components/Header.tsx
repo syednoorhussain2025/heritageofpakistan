@@ -855,7 +855,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
         ref={headerRef as any}
         className={`fixed lg:sticky top-0 z-[1100] w-full transition-colors duration-300 ${
           solid || searchOverlayOpen
-            ? "backdrop-blur shadow-sm"
+            ? "backdrop-blur shadow-none lg:shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
         }${pathname === "/explore" ? " hidden lg:block" : ""}`}
         style={{

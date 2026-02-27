@@ -39,8 +39,8 @@ export default function AppChrome({
             <LoaderEngineProvider>
               <AuthPendingToast />
               <Header initialItems={initialHeaderItems} />
-              <BottomNav />
               <main>{children}</main>
+              <BottomNav />
             </LoaderEngineProvider>
           </CollectionsProvider>
         </WishlistProvider>
