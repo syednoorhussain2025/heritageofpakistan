@@ -268,10 +268,9 @@ export default function SitePreviewCard({
     return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
   }, [showActionsMenu]);
 
-  // Close with slide-down animation before unmounting
+  // Close: slide down first, unmount only after transition ends
   const closeSheet = useCallback(() => {
     setSheetVisible(false);
-    setTimeout(() => setShowActionsMenu(false), 350);
   }, []);
 
   return (
@@ -529,6 +528,7 @@ export default function SitePreviewCard({
             />
             <div
               className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-in-out ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              onTransitionEnd={(e) => { if (e.propertyName === "transform" && !sheetVisible) setShowActionsMenu(false); }}
             >
               {/* Drag handle */}
               <div className="w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-3" />
