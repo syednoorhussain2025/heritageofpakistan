@@ -422,7 +422,7 @@ export default function SitePreviewCard({
             type="button"
             title="Actions"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--brand-blue)] hover:scale-110 transition-transform cursor-pointer shadow-md z-[21]"
+            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/75 hover:scale-110 transition-all cursor-pointer shadow-md z-[21] backdrop-blur-sm"
           >
             <Icon name="plus" size={13} className="text-white" />
           </button>
