@@ -97,6 +97,7 @@ export default function SitePreviewCard({
   const [showTripModal, setShowTripModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
@@ -268,9 +269,15 @@ export default function SitePreviewCard({
     return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
   }, [showActionsMenu]);
 
-  // Close: slide down first, unmount only after transition ends
+  // Close: imperatively animate down via WAAPI, then unmount
   const closeSheet = useCallback(() => {
-    setSheetVisible(false);
+    const el = sheetRef.current;
+    if (!el) { setShowActionsMenu(false); return; }
+    const anim = el.animate(
+      [{ transform: "translateY(0)" }, { transform: "translateY(100%)" }],
+      { duration: 300, easing: "cubic-bezier(0.4,0,1,1)", fill: "forwards" }
+    );
+    anim.onfinish = () => setShowActionsMenu(false);
   }, []);
 
   return (
@@ -527,8 +534,8 @@ export default function SitePreviewCard({
               onClick={closeSheet}
             />
             <div
-              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-in-out ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-              onTransitionEnd={(e) => { if (e.propertyName === "transform" && !sheetVisible) setShowActionsMenu(false); }}
+              ref={sheetRef}
+              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-out ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
             >
               {/* Drag handle */}
               <div className="w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-3" />
