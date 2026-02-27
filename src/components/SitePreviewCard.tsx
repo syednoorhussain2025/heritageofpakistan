@@ -97,6 +97,7 @@ export default function SitePreviewCard({
   const [showTripModal, setShowTripModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetClosing, setSheetClosing] = useState(false);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
@@ -270,8 +271,9 @@ export default function SitePreviewCard({
 
   // Close with slide-down animation before unmounting
   const closeSheet = useCallback(() => {
+    setSheetClosing(true);
     setSheetVisible(false);
-    setTimeout(() => setShowActionsMenu(false), 300);
+    setTimeout(() => { setShowActionsMenu(false); setSheetClosing(false); }, 400);
   }, []);
 
   return (
@@ -528,7 +530,7 @@ export default function SitePreviewCard({
               onClick={closeSheet}
             />
             <div
-              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform ${sheetClosing ? "duration-[380ms] ease-in" : "duration-300 ease-out"} ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
             >
               {/* Drag handle */}
               <div className="w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-3" />
