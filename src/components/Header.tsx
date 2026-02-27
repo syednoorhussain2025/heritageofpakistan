@@ -207,6 +207,48 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   // Mobile side menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
+  const [drawerDragX, setDrawerDragX] = useState(0);
+  const swipeTouchStartX = useRef<number | null>(null);
+  const swipeTouchStartY = useRef<number | null>(null);
+  const swipeIsHorizontal = useRef<boolean | null>(null);
+
+  const closeMobileMenu = () => {
+    setMobileMenuClosing(true);
+    setDrawerDragX(0);
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+      setMobileMenuClosing(false);
+    }, 240);
+  };
+
+  const handleDrawerTouchStart = (e: React.TouchEvent) => {
+    swipeTouchStartX.current = e.touches[0].clientX;
+    swipeTouchStartY.current = e.touches[0].clientY;
+    swipeIsHorizontal.current = null;
+  };
+
+  const handleDrawerTouchMove = (e: React.TouchEvent) => {
+    if (swipeTouchStartX.current === null || swipeTouchStartY.current === null) return;
+    const dx = e.touches[0].clientX - swipeTouchStartX.current;
+    const dy = e.touches[0].clientY - swipeTouchStartY.current;
+    if (swipeIsHorizontal.current === null) {
+      swipeIsHorizontal.current = Math.abs(dx) > Math.abs(dy);
+    }
+    if (!swipeIsHorizontal.current) return;
+    if (dx < 0) setDrawerDragX(dx);
+  };
+
+  const handleDrawerTouchEnd = () => {
+    if (swipeIsHorizontal.current && drawerDragX < -60) {
+      closeMobileMenu();
+    } else {
+      setDrawerDragX(0);
+    }
+    swipeTouchStartX.current = null;
+    swipeTouchStartY.current = null;
+    swipeIsHorizontal.current = null;
+  };
 
   // Full-screen search overlay state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
@@ -1172,12 +1214,16 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       {/* MOBILE SIDE MENU */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+          className={`fixed inset-0 z-50 bg-black/40 lg:hidden ${mobileMenuClosing ? "animate-fadeOutBackdrop" : "animate-fadeInBackdrop"}`}
+          onClick={closeMobileMenu}
         >
           <div
-            className="absolute inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-xl animate-slideInLeft flex flex-col"
+            className={`absolute inset-y-0 left-0 w-[85%] max-w-xs bg-white shadow-xl flex flex-col ${mobileMenuClosing ? "animate-slideOutLeft" : "animate-slideInLeft"}`}
+            style={drawerDragX < 0 ? { transform: `translateX(${drawerDragX}px)`, transition: "none" } : undefined}
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleDrawerTouchStart}
+            onTouchMove={handleDrawerTouchMove}
+            onTouchEnd={handleDrawerTouchEnd}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -1189,7 +1235,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </div>
               <button
                 type="button"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="p-2 rounded-full hover:bg-gray-100"
                 aria-label="Close menu"
               >
@@ -1199,60 +1245,63 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto">
-              {/* Heritage category grid */}
-              {!headerLoading && headerItems.length > 0 && (
-                <div className="px-3 pt-4 pb-2">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold mb-2 px-1">
-                    Heritage Categories
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {headerItems.map((m) => (
-                      <Link
-                        key={m.id}
-                        href={m.url ?? "#"}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-1 hover:bg-orange-50 active:bg-orange-100 transition-colors"
-                      >
-                        {m.icon_name && (
-                          <Icon
-                            name={m.icon_name}
-                            size={20}
-                            className={iconStyles}
-                          />
-                        )}
-                        <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
-                          {m.label}
-                        </span>
-                      </Link>
-                    ))}
+              {/* Heritage category list — 2-col, icon + label */}
+              {!headerLoading && headerItems.length > 0 && (() => {
+                const allSubItems = headerItems.flatMap((m) => m.sub_items);
+                const listItems = allSubItems.length > 0 ? allSubItems : headerItems;
+                return (
+                  <div className="px-3 pt-4 pb-2">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold mb-2 px-1">
+                      Heritage Categories
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {listItems.slice(0, -2).map((m) => (
+                          <Link
+                            key={m.id}
+                            href={m.url ?? "#"}
+                            onClick={closeMobileMenu}
+                            className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                          >
+                            {m.icon_name && (
+                              <Icon
+                                name={m.icon_name}
+                                size={20}
+                                className="text-[#1C1C1C]"
+                              />
+                            )}
+                            <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
+                              {m.label}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="border-t border-gray-200 mx-1" />
+                      <div className="flex flex-col gap-2">
+                        {listItems.slice(-2).map((m) => (
+                          <Link
+                            key={m.id}
+                            href={m.url ?? "#"}
+                            onClick={closeMobileMenu}
+                            className="flex items-center gap-3 bg-gray-100 rounded-xl py-3 px-4 hover:bg-gray-200 active:bg-gray-300 transition-colors w-full"
+                          >
+                            {m.icon_name && (
+                              <Icon
+                                name={m.icon_name}
+                                size={20}
+                                className="text-[#1C1C1C] shrink-0"
+                              />
+                            )}
+                            <span className="text-[12px] font-medium text-gray-700 leading-tight">
+                              {m.label}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* Divider */}
-              <div className="mx-4 my-3 border-t border-gray-200" />
-
-              {/* UNESCO links */}
-              <div className="px-3 flex flex-col gap-2 pb-3">
-                <Link
-                  href="/explore?is_unesco=true"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center bg-gray-100 rounded-xl py-3 px-4 hover:bg-orange-50 active:bg-orange-100 transition-colors"
-                >
-                  <span className="text-[13px] font-medium text-gray-700 text-center leading-tight">
-                    UNESCO World Heritage Sites
-                  </span>
-                </Link>
-                <Link
-                  href="/explore?is_tentative=true"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center bg-gray-100 rounded-xl py-3 px-4 hover:bg-orange-50 active:bg-orange-100 transition-colors"
-                >
-                  <span className="text-[13px] font-medium text-gray-700 text-center leading-tight">
-                    UNESCO World Heritage Sites Tentative
-                  </span>
-                </Link>
-              </div>
+                );
+              })()}
 
               {/* Divider */}
               <div className="mx-4 my-3 border-t border-gray-200" />
@@ -1263,14 +1312,14 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   <button
                     type="button"
                     onClick={async () => {
-                      setMobileMenuOpen(false);
+                      closeMobileMenu();
                       await supabase.auth.signOut();
                       router.replace("/");
                       router.refresh();
                     }}
-                    className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+                    className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="logout" size={20} className={iconStyles} />
+                    <Icon name="logout" size={20} className="text-[#1C1C1C]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign Out
                     </span>
@@ -1278,10 +1327,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                 ) : (
                   <Link
                     href="/auth/sign-in"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+                    onClick={closeMobileMenu}
+                    className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="user" size={20} className={iconStyles} />
+                    <Icon name="user" size={20} className="text-[#1C1C1C]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign In
                     </span>
@@ -1289,10 +1338,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                 )}
                 <Link
                   href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+                  onClick={closeMobileMenu}
+                  className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                 >
-                  <Icon name="dashboard" size={20} className={iconStyles} />
+                  <Icon name="dashboard" size={20} className="text-[#1C1C1C]" />
                   <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                     My Dashboard
                   </span>
