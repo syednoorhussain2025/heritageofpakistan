@@ -202,16 +202,14 @@ export default function SignUpPage() {
 
             <form onSubmit={onSubmit} className="space-y-3">
               <input
-                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none
-                           focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
+                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
                 placeholder="Full name"
                 autoComplete="name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
               />
               <input
-                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none
-                           focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
+                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
                 type="email"
                 placeholder="Email address"
                 autoComplete="email"
@@ -220,8 +218,7 @@ export default function SignUpPage() {
                 required
               />
               <input
-                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none
-                           focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
+                className="w-full border rounded-lg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]"
                 type="password"
                 placeholder="Password"
                 autoComplete="new-password"
@@ -230,9 +227,7 @@ export default function SignUpPage() {
                 required
               />
               <button
-                className="w-full rounded-lg px-3 py-2 text-white
-                           bg-[var(--brand-orange)] hover:brightness-95 active:brightness-90
-                           disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full rounded-lg px-3 py-2 text-white bg-[var(--brand-orange)] hover:brightness-95 active:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed transition"
                 disabled={loading}
               >
                 {loading ? "Creating…" : "Create account"}
