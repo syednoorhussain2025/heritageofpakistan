@@ -141,9 +141,8 @@ export default function SignInForm() {
         /* ── Sign-in mobile: keep only burger in header ── */
         @media (max-width: 767px) {
           body[data-page="sign-in"] header a[href="/"],
-          body[data-page="sign-in"] header a[href="/auth/sign-in"],
           body[data-page="sign-in"] header [class*="max-w-2xl"],
-          body[data-page="sign-in"] header div[class="relative"] {
+          body[data-page="sign-in"] header [data-header-user] {
             display: none !important;
           }
         }

@@ -91,9 +91,8 @@ export default function SignUpPage() {
         /* ── Sign-up mobile: keep only burger in header ── */
         @media (max-width: 767px) {
           body[data-page="sign-up"] header a[href="/"],
-          body[data-page="sign-up"] header a[href="/auth/sign-in"],
           body[data-page="sign-up"] header [class*="max-w-2xl"],
-          body[data-page="sign-up"] header div[class="relative"] {
+          body[data-page="sign-up"] header [data-header-user] {
             display: none !important;
           }
         }

@@ -420,12 +420,15 @@ export default function HomePage() {
         input {
           outline: none !important;
         }
-        /* ── Homepage mobile: keep only burger in header ── */
+        /* ── Homepage mobile: keep only burger in header; hide bottom nav ── */
         @media (max-width: 767px) {
           body[data-page="home"] header a[href="/"],
-          body[data-page="home"] header a[href="/auth/sign-in"],
           body[data-page="home"] header [class*="max-w-2xl"],
-          body[data-page="home"] header div[class="relative"] {
+          body[data-page="home"] header [data-header-user] {
+            display: none !important;
+          }
+          body[data-page="home"] #bottom-nav,
+          body[data-page="home"] #bottom-nav-spacer {
             display: none !important;
           }
         }
@@ -438,7 +441,7 @@ export default function HomePage() {
           marginTop: "calc(var(--sticky-offset, 72px) * -1)",
           height: "calc(100dvh)",
           paddingTop: "var(--sticky-offset, 72px)",
-          paddingBottom: "72px",
+          paddingBottom: "24px",
         }}
       >
         {/* Hero image — full bleed */}
