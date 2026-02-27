@@ -85,14 +85,7 @@ export default function SignUpPage() {
       `}</style>
 
       {/* ── MOBILE LAYOUT ── */}
-      <div
-        className="md:hidden relative flex flex-col items-center justify-center"
-        style={{
-          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
-          height: "calc(100dvh)",
-          paddingTop: "var(--sticky-offset, 72px)",
-        }}
-      >
+      <div className="md:hidden fixed inset-0 z-[4000] flex flex-col items-center justify-center overflow-hidden">
         {/* Hero image */}
         <Image
           src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"

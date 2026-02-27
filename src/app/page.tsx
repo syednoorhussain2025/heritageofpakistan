@@ -493,28 +493,23 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Divider */}
-            <div className="mt-4 flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-400 font-medium">or</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
+          </div>
 
-            {/* Auth actions */}
-            <div className="mt-3 flex gap-2">
-              <a
-                href="/auth/sign-in"
-                className="flex-1 text-center rounded-lg border border-[var(--brand-orange)] py-2.5 text-sm font-semibold text-[var(--brand-orange)] transition hover:bg-orange-50 active:opacity-90"
-              >
-                Sign in
-              </a>
-              <a
-                href="/auth/sign-up"
-                className="flex-1 text-center rounded-lg bg-[var(--brand-orange)] py-2.5 text-sm font-semibold text-white transition hover:opacity-95 active:opacity-90"
-              >
-                Create account
-              </a>
-            </div>
+          {/* Auth actions — outside the card */}
+          <div className="flex items-center gap-3">
+            <a
+              href="/auth/sign-in"
+              className="rounded-lg bg-[var(--brand-orange)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:opacity-95 active:opacity-90"
+            >
+              Sign in
+            </a>
+            <span className="text-white/60 text-sm">or</span>
+            <a
+              href="/auth/sign-up"
+              className="text-sm font-semibold text-white underline decoration-white/60 underline-offset-2 drop-shadow hover:opacity-80"
+            >
+              Create an account
+            </a>
           </div>
         </div>
       </div>
