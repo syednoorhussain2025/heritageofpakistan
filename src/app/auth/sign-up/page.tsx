@@ -1,7 +1,7 @@
 // src/app/auth/sign-up/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +38,12 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // Mark body so CSS can strip header items on mobile sign-up only
+  useEffect(() => {
+    document.body.dataset.page = "sign-up";
+    return () => { delete document.body.dataset.page; };
+  }, []);
 
   const origin = useMemo(
     () => (typeof window !== "undefined" ? window.location.origin : ""),
@@ -82,10 +88,27 @@ export default function SignUpPage() {
           --sticky-offset: 72px;
         }
         button, input { outline: none !important; }
+        /* ── Sign-up mobile: keep only burger in header ── */
+        @media (max-width: 767px) {
+          body[data-page="sign-up"] header a[href="/"],
+          body[data-page="sign-up"] header a[href="/auth/sign-in"],
+          body[data-page="sign-up"] header [class*="max-w-2xl"],
+          body[data-page="sign-up"] header div[class="relative"] {
+            display: none !important;
+          }
+        }
       `}</style>
 
       {/* ── MOBILE LAYOUT ── */}
-      <div className="md:hidden fixed inset-0 z-[4000] flex flex-col items-center justify-center overflow-hidden">
+      <div
+        className="md:hidden relative flex flex-col items-center justify-center overflow-hidden"
+        style={{
+          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
+          height: "100dvh",
+          paddingTop: "var(--sticky-offset, 72px)",
+          paddingBottom: "72px",
+        }}
+      >
         {/* Hero image */}
         <Image
           src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"

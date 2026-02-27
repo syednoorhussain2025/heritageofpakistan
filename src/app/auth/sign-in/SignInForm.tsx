@@ -42,6 +42,12 @@ export default function SignInForm() {
     return false;
   }
 
+  // Mark body so CSS can strip header items on mobile sign-in only
+  useEffect(() => {
+    document.body.dataset.page = "sign-in";
+    return () => { delete document.body.dataset.page; };
+  }, []);
+
   useEffect(() => {
     let active = true;
     supabase.auth
@@ -132,10 +138,27 @@ export default function SignInForm() {
         input {
           outline: none !important;
         }
+        /* ── Sign-in mobile: keep only burger in header ── */
+        @media (max-width: 767px) {
+          body[data-page="sign-in"] header a[href="/"],
+          body[data-page="sign-in"] header a[href="/auth/sign-in"],
+          body[data-page="sign-in"] header [class*="max-w-2xl"],
+          body[data-page="sign-in"] header div[class="relative"] {
+            display: none !important;
+          }
+        }
       `}</style>
 
       {/* ── MOBILE LAYOUT ── */}
-      <div className="md:hidden fixed inset-0 z-[4000] flex flex-col items-center justify-center overflow-hidden">
+      <div
+        className="md:hidden relative flex flex-col items-center justify-center overflow-hidden"
+        style={{
+          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
+          height: "100dvh",
+          paddingTop: "var(--sticky-offset, 72px)",
+          paddingBottom: "72px",
+        }}
+      >
         {/* Hero image */}
         <Image
           src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
