@@ -253,6 +253,9 @@ export default function SitePreviewCard({
   useEffect(() => {
     if (!showActionsMenu) return;
     const handler = (e: MouseEvent) => {
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+        return;
+      }
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
         setShowActionsMenu(false);
       }
