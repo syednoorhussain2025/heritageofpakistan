@@ -332,16 +332,10 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-        // Fetch (kept for parity with your flow), but we will use the fixed hero below.
-        const { data: gs } = await supabase
-          .from("global_settings")
-          .select("hero_image_url")
-          .limit(1)
-          .maybeSingle();
 
         // Force the hero to your provided image URL (without removing any of your existing logic)
         const fixedHero =
-          "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Photos/mughalminiature.jfif";
+          "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/d4fe2137-78ff-4e17-b7c6-f4b41cad31a8/1771660133978-Islamia%20College%20Peshawar-34.jpg";
         setHeroUrl(fixedHero);
 
         // Preload the fixed hero and then mark ready
@@ -422,13 +416,92 @@ export default function HomePage() {
         }
       `}</style>
 
-      {/* Split layout pulled up under sticky header to remove top gap */}
+      {/* ── MOBILE LAYOUT ── */}
       <div
-        className="grid min-h-screen w-full grid-cols-1 md:grid-cols-2"
+        className="md:hidden relative flex flex-col items-center justify-center"
+        style={{
+          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
+          height: "calc(100dvh)",
+          paddingTop: "var(--sticky-offset, 72px)",
+        }}
+      >
+        {/* Hero image — full bleed */}
+        {heroUrl && (
+          <img
+            src={heroUrl}
+            alt="Heritage of Pakistan"
+            className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
+              heroReady ? "opacity-100" : "opacity-0"
+            }`}
+            draggable={false}
+          />
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+
+        {/* Centred content: title + search card */}
+        <div className="relative z-10 w-full px-5 flex flex-col gap-4">
+          {/* Title */}
+          <div
+            className={`text-center transition-all duration-700 ease-out ${
+              textVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+            }`}
+          >
+            <h1 className="text-[2.6rem] font-black leading-[1.1] text-white drop-shadow-lg">
+              Heritage of<br />Pakistan
+            </h1>
+            <p className="mt-2 text-lg text-white/90 italic tracking-wide drop-shadow">
+              Discover, Explore, Preserve
+            </p>
+          </div>
+
+          {/* Search card */}
+          <div
+            className={`bg-white rounded-2xl px-4 pt-4 pb-4 shadow-2xl transition-all duration-700 ease-out ${
+              searchVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <div className="flex flex-col gap-3">
+              <RegionSelect
+                parentRegions={parentRegions}
+                subRegions={subRegions}
+                value={regionId}
+                onChange={setRegionId}
+                activeParent={activeParentRegion}
+                setActiveParent={setActiveParentRegion}
+              />
+              <SearchableSelect
+                options={categories}
+                value={categoryId}
+                onChange={setCategoryId}
+                placeholder="Heritage Type"
+              />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSearch()}
+                placeholder="Search Heritage"
+                className="w-full rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
+              />
+              <button
+                onClick={onSearch}
+                className="w-full rounded-lg bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DESKTOP LAYOUT ── */}
+      <div
+        className="hidden md:grid min-h-screen w-full grid-cols-2"
         style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
       >
         {/* LEFT: Hero image (flush to top) */}
-        <div className="relative hidden md:block">
+        <div className="relative">
           {heroUrl && (
             <img
               src={heroUrl}
@@ -439,23 +512,14 @@ export default function HomePage() {
               draggable={false}
             />
           )}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(90deg, rgba(169,80,42,0.28) 0%, rgba(250,247,242,0) 55%)",
-            }}
-          />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
         </div>
 
         {/* RIGHT: Ivory panel */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-
           <div className="relative z-10 w-full max-w-3xl">
             {/* Title */}
             <header
-              className={`mb-6 text-center md:text-left transition-all duration-700 ease-out ${
+              className={`mb-6 text-left transition-all duration-700 ease-out ${
                 textVisible
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-2"
@@ -478,10 +542,10 @@ export default function HomePage() {
                   : "opacity-0 translate-y-1"
               }`}
             >
-              <div className="rounded-md bg-white p-4 shadow-2xl ring-1 ring-[var(--taupe-grey)]">
-                {/* ROW 1: Search input + Button (inline) */}
-                <div className="mb-4 grid grid-cols-1 items-center gap-3 md:grid-cols-12">
-                  <div className="md:col-span-10">
+              <div className="rounded-md bg-white p-4 border border-[var(--taupe-grey)] shadow-md">
+                {/* ROW 1: Search input + Button */}
+                <div className="mb-4 grid grid-cols-12 items-center gap-3">
+                  <div className="col-span-10">
                     <input
                       type="text"
                       value={q}
@@ -491,10 +555,10 @@ export default function HomePage() {
                       className="w-full rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[var(--dark-grey)] outline-none placeholder-[var(--espresso-brown)]/60 transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="col-span-2">
                     <button
                       onClick={onSearch}
-                      className="w-full transform rounded-lg bg-[var(--terracotta-red)] px-6 py-3 font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
+                      className="w-full rounded-lg bg-[var(--terracotta-red)] px-6 py-3 font-semibold text-white transition hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
                     >
                       Search
                     </button>
@@ -502,7 +566,7 @@ export default function HomePage() {
                 </div>
 
                 {/* ROW 2: Region, Category */}
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3">
                   <RegionSelect
                     parentRegions={parentRegions}
                     subRegions={subRegions}
@@ -521,11 +585,9 @@ export default function HomePage() {
               </div>
 
               <p className="mt-3 text-xs text-[var(--espresso-brown)]/70">
-                Tip: Choose a region and heritage type, or search directly by
-                name.
+                Tip: Choose a region and heritage type, or search directly by name.
               </p>
 
-              {/* Auth actions moved slightly down; Sign in as button */}
               <div className="mt-8 flex items-center gap-3 text-sm">
                 <a
                   href="/auth/sign-in"

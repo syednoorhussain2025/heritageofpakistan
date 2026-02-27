@@ -107,7 +107,7 @@ export default function SignInForm() {
   }
 
   return (
-    <main className="h-screen w-full">
+    <main className="w-full">
       <style jsx global>{`
         :root {
           --navy-deep: var(--brand-blue);
@@ -119,6 +119,7 @@ export default function SignInForm() {
           --mustard-accent: var(--brand-orange);
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
+          --sticky-offset: 72px;
 
           --ok-bg: #ecfdf5;
           --ok-border: #a7f3d0;
@@ -133,9 +134,109 @@ export default function SignInForm() {
         }
       `}</style>
 
-      <div className="grid h-full w-full grid-cols-1 md:grid-cols-2">
+      {/* ── MOBILE LAYOUT ── */}
+      <div
+        className="md:hidden relative flex flex-col items-center justify-center"
+        style={{
+          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
+          height: "calc(100dvh)",
+          paddingTop: "var(--sticky-offset, 72px)",
+        }}
+      >
+        {/* Hero image */}
+        <Image
+          src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
+          alt="Royal Garden, Altit"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+
+        {/* Centred content: title + form card */}
+        <div className="relative z-10 w-full px-5 flex flex-col gap-4">
+          {/* Title */}
+          <div className="text-center">
+            <h1 className="text-[2.4rem] font-black leading-[1.1] text-white drop-shadow-lg">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-base text-white/90 italic tracking-wide drop-shadow">
+              Sign in to explore Pakistan’s heritage.
+            </p>
+          </div>
+
+          {/* Form card */}
+          <div className="bg-white rounded-2xl px-4 pt-4 pb-4 shadow-2xl">
+            <form onSubmit={onEmailPassword} className="flex flex-col gap-3">
+              <input
+                className="w-full rounded-lg border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[15px] text-[var(--dark-grey)] transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
+                type="email"
+                placeholder="Email address"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <input
+                className="w-full rounded-lg border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[15px] text-[var(--dark-grey)] transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
+                type="password"
+                placeholder="Password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                disabled={loadingPwd}
+                className="w-full rounded-lg bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingPwd ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                disabled={loadingReset}
+                className="text-sm font-medium text-[var(--navy-deep)] underline transition hover:text-[var(--terracotta-red)] disabled:opacity-60"
+              >
+                {loadingReset ? "Sending…" : "Forgot password?"}
+              </button>
+            </div>
+
+            {(err || msg) && (
+              <div
+                className={`mt-3 rounded-md border p-3 text-sm ${
+                  err
+                    ? "border-[var(--err-border)] bg-[var(--err-bg)] text-[var(--err-text)]"
+                    : "border-[var(--ok-border)] bg-[var(--ok-bg)] text-[var(--ok-text)]"
+                }`}
+              >
+                {err ?? msg}
+              </div>
+            )}
+
+            <p className="mt-3 text-sm text-center text-[var(--brand-grey)]">
+              New here?{" "}
+              <Link
+                className="font-semibold text-[var(--brand-orange)] underline decoration-[var(--brand-orange)] underline-offset-2"
+                href="/auth/sign-up"
+              >
+                Create an account
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DESKTOP LAYOUT ── */}
+      <div className="hidden md:grid h-screen w-full grid-cols-2">
         {/* LEFT IMAGE */}
-        <div className="relative hidden md:block h-screen">
+        <div className="relative h-screen">
           <Image
             src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
             alt="Royal Garden, Altit"
@@ -149,9 +250,8 @@ export default function SignInForm() {
 
         {/* RIGHT FORM */}
         <div className="relative flex h-full items-center justify-center overflow-hidden bg-[var(--ivory-cream)] px-6 py-10 md:px-10">
-
           <div className="relative z-10 w-full max-w-md">
-            <header className="mb-6 text-center md:text-left">
+            <header className="mb-6 text-left">
               <h1 className="text-4xl font-black leading-tight text-[var(--brand-blue)]">
                 Welcome back
               </h1>
