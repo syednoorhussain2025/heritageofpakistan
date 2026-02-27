@@ -291,7 +291,7 @@ export default function SitePreviewCard({
           {/* Image container — bg-neutral-300 ensures any transparent frame
               shows neutral gray instead of the card's white background */}
           <div
-            className="relative aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
+            className="relative aspect-[4/3] sm:aspect-[5/3] w-full overflow-hidden rounded-none bg-neutral-300"
             style={{ transform: "translateZ(0)", contain: "paint" }}
           >
             {hasBlur && (
@@ -410,6 +410,16 @@ export default function SitePreviewCard({
               )}
             </div>
           </div>
+
+          {/* Mobile plus button — pinned to image bottom-right */}
+          <button
+            type="button"
+            title="Actions"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
+            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md z-[21]"
+          >
+            <Icon name="plus" size={13} className="text-white" />
+          </button>
         </div>
 
         {/* Footer */}
@@ -418,8 +428,8 @@ export default function SitePreviewCard({
           onClick={(e) => e.preventDefault()}
         >
           {/* Mobile title + location inside white card, no pin */}
-          <div className="md:hidden text-gray-900 px-0 pt-0 pb-4">
-            <h3 className="text-[16px] font-extrabold leading-tight">
+          <div className="md:hidden text-gray-900 px-0 pt-0 pb-2">
+            <h3 className="text-[16px] font-extrabold leading-tight truncate">
               {site.title}
             </h3>
             {site.location_free && (
@@ -482,17 +492,6 @@ export default function SitePreviewCard({
             </div>
           </div>
 
-          {/* Mobile actions row */}
-          <div className="flex md:hidden items-center justify-center gap-3 text-gray-700">
-            <button
-              type="button"
-              title="Actions"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
-            >
-              <Icon name="plus" size={16} className="text-white" />
-            </button>
-          </div>
         </div>
       </Link>
 
