@@ -418,14 +418,7 @@ export default function FinalizedTripPage() {
   /* ---------- UI ---------- */
   return (
     <main
-      className="min-h-screen py-6 relative"
-      style={{
-        backgroundImage:
-          'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
-        backgroundRepeat: "repeat",
-        backgroundSize: "600px",
-        backgroundPosition: "top left",
-      }}
+      className="min-h-screen py-6 relative bg-gray-100"
     >
       <style jsx global>{`
         :root {

@@ -39,14 +39,7 @@ export default function DashboardShellClient({
 
   return (
     <div
-      className="min-h-screen lg:flex lg:p-6 lg:gap-6 lg:items-start"
-      style={{
-        backgroundImage:
-          'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
-        backgroundRepeat: "repeat",
-        backgroundSize: "500px",
-        backgroundPosition: "top left",
-      }}
+      className="min-h-screen lg:flex lg:p-6 lg:gap-6 lg:items-start bg-gray-100"
     >
       {/* Fixed Sidebar — desktop only */}
       <aside className="hidden lg:flex fixed w-64 bg-white border border-gray-200 rounded-2xl shadow-md flex-col h-[calc(100vh-3rem)]">

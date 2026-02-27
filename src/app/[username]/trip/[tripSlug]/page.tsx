@@ -1078,14 +1078,7 @@ export default function TripBuilderPage() {
   /* ---------- UI ---------- */
   return (
     <main
-      className="min-h-screen py-6 bg-slate-100"
-      style={{
-        backgroundImage:
-          'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
-        backgroundRepeat: "repeat",
-        backgroundSize: "600px",
-        backgroundPosition: "top left",
-      }}
+      className="min-h-screen py-6 bg-gray-100"
     >
       {/* Global toast */}
       {toastMsg && (
