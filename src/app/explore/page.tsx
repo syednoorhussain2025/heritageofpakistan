@@ -1378,7 +1378,7 @@ function ExplorePageContent() {
             </div>
 
             {/* Grid + centered spinner overlay for first load only */}
-            <div className="relative">
+            <div className="relative -mt-4 lg:mt-0">
               {loading && results.sites.length === 0 && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
                   <Spinner size={40} />
