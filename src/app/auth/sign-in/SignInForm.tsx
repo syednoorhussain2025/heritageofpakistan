@@ -153,7 +153,7 @@ export default function SignInForm() {
         className="md:hidden relative flex flex-col items-center justify-center overflow-hidden"
         style={{
           marginTop: "calc(var(--sticky-offset, 72px) * -1)",
-          height: "100dvh",
+          height: "calc(100dvh + var(--sticky-offset, 72px))",
           paddingTop: "var(--sticky-offset, 72px)",
           paddingBottom: "72px",
         }}

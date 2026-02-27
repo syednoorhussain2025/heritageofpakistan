@@ -439,7 +439,7 @@ export default function HomePage() {
         className="md:hidden relative flex flex-col items-center justify-center"
         style={{
           marginTop: "calc(var(--sticky-offset, 72px) * -1)",
-          height: "calc(100dvh)",
+          height: "calc(100dvh + var(--sticky-offset, 72px))",
           paddingTop: "var(--sticky-offset, 72px)",
           paddingBottom: "24px",
         }}
