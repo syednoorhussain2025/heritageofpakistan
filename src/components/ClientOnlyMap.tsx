@@ -275,6 +275,7 @@ function OSMLeafletView({
         center={[settings.default_center_lat, settings.default_center_lng]}
         zoom={settings.default_zoom}
         scrollWheelZoom={true}
+        zoomControl={false}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
