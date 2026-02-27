@@ -97,7 +97,7 @@ export default function SitePreviewCard({
   const [showTripModal, setShowTripModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
@@ -263,21 +263,37 @@ export default function SitePreviewCard({
 
   // Animate bottom sheet in after mount
   useEffect(() => {
-    if (!showActionsMenu) { setSheetVisible(false); return; }
+    if (!showActionsMenu) {
+      setSheetVisible(false);
+      return;
+    }
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     let id2: number;
     const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setSheetVisible(true)); });
     return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
   }, [showActionsMenu]);
 
-  // Close: imperatively animate down via WAAPI, then unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Close: transition down first, then unmount.
   const closeSheet = useCallback(() => {
-    const el = sheetRef.current;
-    if (!el) { setShowActionsMenu(false); return; }
-    const anim = el.animate(
-      [{ transform: "translateY(0)" }, { transform: "translateY(100%)" }],
-      { duration: 300, easing: "cubic-bezier(0.4,0,1,1)", fill: "forwards" }
-    );
-    anim.onfinish = () => setShowActionsMenu(false);
+    setSheetVisible(false);
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setShowActionsMenu(false);
+      closeTimerRef.current = null;
+    }, 300);
   }, []);
 
   return (
@@ -534,7 +550,6 @@ export default function SitePreviewCard({
               onClick={closeSheet}
             />
             <div
-              ref={sheetRef}
               className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-out ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
             >
               {/* Drag handle */}
