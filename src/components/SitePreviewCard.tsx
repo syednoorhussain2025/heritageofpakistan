@@ -268,6 +268,12 @@ export default function SitePreviewCard({
     return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
   }, [showActionsMenu]);
 
+  // Close with slide-down animation before unmounting
+  const closeSheet = useCallback(() => {
+    setSheetVisible(false);
+    setTimeout(() => setShowActionsMenu(false), 300);
+  }, []);
+
   return (
     <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[#e5e5e5]">
       {onClose && (
@@ -416,7 +422,7 @@ export default function SitePreviewCard({
             type="button"
             title="Actions"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md z-[21]"
+            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--brand-blue)] hover:scale-110 transition-transform cursor-pointer shadow-md z-[21]"
           >
             <Icon name="plus" size={13} className="text-white" />
           </button>
@@ -516,49 +522,71 @@ export default function SitePreviewCard({
       {/* Mobile bottom sheet */}
       {showActionsMenu && (
         <Portal>
-          <div className="md:hidden fixed inset-0 z-[3100]">
+          <div className="md:hidden fixed inset-0 z-[3100] touch-none">
             <div
-              className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${sheetVisible ? "opacity-100" : "opacity-0"}`}
-              onClick={() => setShowActionsMenu(false)}
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${sheetVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={closeSheet}
             />
             <div
-              className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl transition-transform duration-300 ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
             >
               {/* Drag handle */}
-              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-1" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-5 pt-3 pb-2 truncate">
+              <div className="w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-3" />
+
+              {/* Site name header */}
+              <p className="text-center text-[13px] text-gray-500 font-medium pt-3 pb-2 px-8 truncate">
                 {site.title}
               </p>
 
-              <button
-                type="button"
-                onClick={() => { setShowActionsMenu(false); setShowWishlistModal(true); }}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
-              >
-                <Icon name="heart" size={18} className="text-[var(--brand-orange)]" />
-                Save
-              </button>
-              <div className="mx-5 h-px bg-gray-100" />
-              <button
-                type="button"
-                onClick={() => { setShowActionsMenu(false); setShowTripModal(true); }}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
-              >
-                <Icon name="route" size={18} className="text-[var(--brand-orange)]" />
-                Add to Trip
-              </button>
-              <div className="mx-5 h-px bg-gray-100" />
-              <button
-                type="button"
-                onClick={(e) => { setShowActionsMenu(false); void handlePlacesNearby(e as unknown as React.MouseEvent); }}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-50 text-base font-medium text-gray-800"
-              >
-                <Icon name="nearby" size={18} className="text-[var(--brand-orange)]" />
-                Places Nearby
-              </button>
+              {/* Actions group */}
+              <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="heart" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Save</span>
+                </button>
+                <div className="ml-16 mr-0 h-px bg-gray-100" />
+                <button
+                  type="button"
+                  onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="route" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
+                </button>
+                <div className="ml-16 mr-0 h-px bg-gray-100" />
+                <button
+                  type="button"
+                  onClick={(e) => { void handlePlacesNearby(e as unknown as React.MouseEvent); closeSheet(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="nearby" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
+                </button>
+              </div>
+
+              {/* Cancel */}
+              <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={closeSheet}
+                  className="w-full px-4 py-4 text-[15px] font-semibold text-[var(--brand-blue)] active:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
 
               {/* Safe area spacer */}
-              <div className="pb-[env(safe-area-inset-bottom,1rem)]" />
+              <div className="pb-[env(safe-area-inset-bottom,0.5rem)]" />
             </div>
           </div>
         </Portal>
