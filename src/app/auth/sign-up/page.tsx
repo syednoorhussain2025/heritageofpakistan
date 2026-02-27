@@ -84,9 +84,6 @@ export default function SignUpPage() {
   return (
     <div className="w-full">
       <style jsx global>{`
-        :root {
-          --sticky-offset: 72px;
-        }
         button, input { outline: none !important; }
         /* ── Sign-up mobile: transparent header, burger only ── */
         @media (max-width: 767px) {

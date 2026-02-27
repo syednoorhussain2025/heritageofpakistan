@@ -601,7 +601,6 @@ export default function HeritageClient({
 
       <style jsx global>{`
         :root {
-          --sticky-offset: 72px;
           --amber-50: #fffaf2;
           --amber-100: #fff4e3;
           --amber-150: #ffe9c7;

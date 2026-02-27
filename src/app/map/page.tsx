@@ -215,7 +215,7 @@ export default function MapPage() {
   );
 
   return (
-    <div className="w-full h-[calc(100vh-88px)] flex">
+    <div className="w-full h-[calc(100dvh-var(--sticky-offset,56px))] lg:h-[calc(100vh-88px)] flex">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
       <CollapsibleSidebar

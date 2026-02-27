@@ -414,7 +414,6 @@ export default function HomePage() {
           --mustard-accent: var(--brand-orange);
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
-          --sticky-offset: 72px;
         }
         button,
         input {

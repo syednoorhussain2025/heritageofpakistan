@@ -125,8 +125,6 @@ export default function SignInForm() {
           --mustard-accent: var(--brand-orange);
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
-          --sticky-offset: 72px;
-
           --ok-bg: #ecfdf5;
           --ok-border: #a7f3d0;
           --ok-text: #065f46;
