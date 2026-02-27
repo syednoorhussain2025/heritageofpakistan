@@ -491,6 +491,29 @@ export default function HomePage() {
                 Search
               </button>
             </div>
+
+            {/* Divider */}
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400 font-medium">or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            {/* Auth actions */}
+            <div className="mt-3 flex gap-2">
+              <a
+                href="/auth/sign-in"
+                className="flex-1 text-center rounded-lg border border-[var(--brand-orange)] py-2.5 text-sm font-semibold text-[var(--brand-orange)] transition hover:bg-orange-50 active:opacity-90"
+              >
+                Sign in
+              </a>
+              <a
+                href="/auth/sign-up"
+                className="flex-1 text-center rounded-lg bg-[var(--brand-orange)] py-2.5 text-sm font-semibold text-white transition hover:opacity-95 active:opacity-90"
+              >
+                Create account
+              </a>
+            </div>
           </div>
         </div>
       </div>
