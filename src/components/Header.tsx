@@ -1214,7 +1214,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       {/* MOBILE SIDE MENU */}
       {mobileMenuOpen && (
         <div
-          className={`fixed inset-0 z-50 bg-black/40 lg:hidden ${mobileMenuClosing ? "animate-fadeOutBackdrop" : "animate-fadeInBackdrop"}`}
+          className={`fixed inset-0 z-[9999] bg-black/40 lg:hidden ${mobileMenuClosing ? "animate-fadeOutBackdrop" : "animate-fadeInBackdrop"}`}
           onClick={closeMobileMenu}
         >
           <div
@@ -1267,7 +1267,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                               <Icon
                                 name={m.icon_name}
                                 size={20}
-                                className="text-[#1C1C1C]"
+                                className="text-[#303030]"
                               />
                             )}
                             <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
@@ -1289,7 +1289,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                               <Icon
                                 name={m.icon_name}
                                 size={20}
-                                className="text-[#1C1C1C] shrink-0"
+                                className="text-[#303030] shrink-0"
                               />
                             )}
                             <span className="text-[12px] font-medium text-gray-700 leading-tight">
@@ -1319,7 +1319,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     }}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="logout" size={20} className="text-[#1C1C1C]" />
+                    <Icon name="logout" size={20} className="text-[#303030]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign Out
                     </span>
@@ -1330,7 +1330,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     onClick={closeMobileMenu}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="user" size={20} className="text-[#1C1C1C]" />
+                    <Icon name="user" size={20} className="text-[#303030]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign In
                     </span>
@@ -1341,7 +1341,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   onClick={closeMobileMenu}
                   className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                 >
-                  <Icon name="dashboard" size={20} className="text-[#1C1C1C]" />
+                  <Icon name="dashboard" size={20} className="text-[#303030]" />
                   <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                     My Dashboard
                   </span>

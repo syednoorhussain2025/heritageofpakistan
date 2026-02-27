@@ -7,7 +7,7 @@ import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
-const INACTIVE_COLOR_CLASS = "text-[#1C1C1C]";
+const INACTIVE_COLOR_CLASS = "text-[#303030]";
 const ICON_SIZE = 23;
 
 function NavItem({
