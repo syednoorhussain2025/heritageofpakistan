@@ -336,6 +336,7 @@ export default function HomePage() {
 
   const [textVisible, setTextVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -404,6 +405,7 @@ export default function HomePage() {
   }, [heroReady]);
 
   function onSearch() {
+    setSearching(true);
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);
     if (categoryId) sp.set("cats", categoryId);
@@ -485,6 +487,27 @@ export default function HomePage() {
         {/* Gradient overlay */}
         <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none z-[3002]" />
 
+        {/* Slide indicators — mobile */}
+        <div
+          className="fixed left-0 right-0 bottom-56 z-[3003] flex justify-center gap-2 px-4"
+          aria-label="Slideshow"
+        >
+          {heroImages.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setHeroIndex(i)}
+              aria-label={`Go to slide ${i + 1} of ${heroImages.length}`}
+              aria-current={i === heroIndex ? "true" : undefined}
+              className={`rounded-full transition-all duration-300 ${
+                i === heroIndex
+                  ? "h-2.5 w-2.5 bg-white shadow-md"
+                  : "h-2 w-2 bg-white/50 hover:bg-white/70"
+              }`}
+            />
+          ))}
+        </div>
+
         {/* Centred content: title + search card */}
         <div className="relative z-[3003] w-full px-5 flex flex-col gap-4 mt-32">
           {/* Title */}
@@ -531,10 +554,19 @@ export default function HomePage() {
                 placeholder="Heritage Type"
               />
               <button
+                type="button"
                 onClick={onSearch}
-                className="w-full rounded-xl bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90"
+                disabled={searching}
+                className="w-full rounded-xl bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90 disabled:opacity-80 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2"
               >
-                Search
+                {searching ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />
+                    Searching…
+                  </>
+                ) : (
+                  "Search"
+                )}
               </button>
             </div>
 
@@ -577,6 +609,26 @@ export default function HomePage() {
               draggable={false}
             />
           ))}
+          {/* Slide indicators — desktop */}
+          <div
+            className="absolute bottom-6 left-0 right-0 z-10 flex justify-center gap-2"
+            aria-label="Slideshow"
+          >
+            {heroImages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setHeroIndex(i)}
+                aria-label={`Go to slide ${i + 1} of ${heroImages.length}`}
+                aria-current={i === heroIndex ? "true" : undefined}
+                className={`rounded-full transition-all duration-300 ${
+                  i === heroIndex
+                    ? "h-2.5 w-2.5 bg-white shadow-md"
+                    : "h-2 w-2 bg-white/50 hover:bg-white/70"
+                }`}
+              />
+            ))}
+          </div>
         </div>
 
         {/* RIGHT: Ivory panel */}
@@ -622,10 +674,19 @@ export default function HomePage() {
                   </div>
                   <div className="col-span-2">
                     <button
+                      type="button"
                       onClick={onSearch}
-                      className="w-full rounded-lg bg-[var(--terracotta-red)] px-6 py-3 font-semibold text-white transition hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90"
+                      disabled={searching}
+                      className="w-full rounded-lg bg-[var(--terracotta-red)] px-6 py-3 font-semibold text-white transition hover:opacity-95 focus:ring-2 focus:ring-[var(--mustard-accent)] active:opacity-90 disabled:opacity-80 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2"
                     >
-                      Search
+                      {searching ? (
+                        <>
+                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />
+                          Searching…
+                        </>
+                      ) : (
+                        "Search"
+                      )}
                     </button>
                   </div>
                 </div>
