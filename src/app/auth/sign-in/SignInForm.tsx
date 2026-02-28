@@ -24,7 +24,7 @@ export default function SignInForm() {
   const redirectTo =
     requestedRedirect && requestedRedirect.startsWith("/")
       ? requestedRedirect
-      : "/dashboard";
+      : "/explore";
 
   const [heroReady, setHeroReady] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
