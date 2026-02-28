@@ -196,7 +196,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
-    pathname === "/" || heritageDetailRe.test(pathname || "");
+    pathname === "/" ||
+    heritageDetailRe.test(pathname || "") ||
+    pathname === "/auth/sign-in" ||
+    pathname === "/auth/sign-up";
 
   const [user, setUser] = useState<User | null>(null);
 
