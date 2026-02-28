@@ -681,6 +681,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     };
 
     const handleLogout = async () => {
+      try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
       await supabase.auth.signOut();
       setIsOpen(false);
       router.replace("/");
@@ -1316,6 +1317,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     type="button"
                     onClick={async () => {
                       closeMobileMenu();
+                      try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
                       await supabase.auth.signOut();
                       router.replace("/");
                       router.refresh();
