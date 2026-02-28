@@ -421,6 +421,9 @@ export default function HomePage() {
         }
         /* ── Homepage mobile: keep only burger in header; hide bottom nav ── */
         @media (max-width: 767px) {
+          body[data-page="home"] {
+            overflow: hidden;
+          }
           body[data-page="home"] header a[href="/"],
           body[data-page="home"] header [class*="max-w-2xl"],
           body[data-page="home"] header [data-header-user] {

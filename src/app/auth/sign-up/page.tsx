@@ -87,6 +87,9 @@ export default function SignUpPage() {
         button, input { outline: none !important; }
         /* ── Sign-up mobile: transparent header, burger only ── */
         @media (max-width: 767px) {
+          body[data-page="sign-up"] {
+            overflow: hidden;
+          }
           body[data-page="sign-up"] header a[href="/"],
           body[data-page="sign-up"] header [class*="max-w-2xl"],
           body[data-page="sign-up"] header [data-header-user] {

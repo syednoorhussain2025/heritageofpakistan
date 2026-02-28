@@ -138,6 +138,9 @@ export default function SignInForm() {
         }
         /* ── Sign-in mobile: transparent header, burger only ── */
         @media (max-width: 767px) {
+          body[data-page="sign-in"] {
+            overflow: hidden;
+          }
           body[data-page="sign-in"] header a[href="/"],
           body[data-page="sign-in"] header [class*="max-w-2xl"],
           body[data-page="sign-in"] header [data-header-user] {
