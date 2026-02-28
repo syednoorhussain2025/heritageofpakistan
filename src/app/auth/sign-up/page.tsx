@@ -142,6 +142,10 @@ export default function SignUpPage() {
           body[data-page="sign-up"] header button[aria-label="Open menu"] svg {
             color: white !important;
           }
+          body[data-page="sign-up"] #bottom-nav,
+          body[data-page="sign-up"] #bottom-nav-spacer {
+            display: none !important;
+          }
         }
       `}</style>
 

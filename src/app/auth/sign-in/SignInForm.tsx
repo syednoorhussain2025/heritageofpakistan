@@ -193,6 +193,10 @@ export default function SignInForm() {
           body[data-page="sign-in"] header button[aria-label="Open menu"] svg {
             color: white !important;
           }
+          body[data-page="sign-in"] #bottom-nav,
+          body[data-page="sign-in"] #bottom-nav-spacer {
+            display: none !important;
+          }
         }
       `}</style>
 
