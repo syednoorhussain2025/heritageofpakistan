@@ -309,11 +309,17 @@ const RegionSelect = ({
 /* =========================
    Main Page (split layout)
 ========================= */
+const heroImages = [
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/d4fe2137-78ff-4e17-b7c6-f4b41cad31a8/1771660133978-Islamia%20College%20Peshawar-34.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/04da125d-4c2b-4be6-a112-e52b87f1629a/1771569291072-birds-flying-badshahi-mosque.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/da973cff-1bff-45f8-a13d-38e2af239691/1771663260542-Khaplu%20Palace-20.jpg",
+];
+
 export default function HomePage() {
   const router = useRouter();
 
-  const [heroUrl, setHeroUrl] = useState<string | null>(null);
   const [heroReady, setHeroReady] = useState<boolean>(false);
+  const [heroIndex, setHeroIndex] = useState(0);
 
   const [parentRegions, setParentRegions] = useState<Region[]>([]);
   const [subRegions, setSubRegions] = useState<SubRegionsMap>({});
@@ -332,19 +338,13 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-
-        // Force the hero to your provided image URL (without removing any of your existing logic)
-        const fixedHero =
-          "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/d4fe2137-78ff-4e17-b7c6-f4b41cad31a8/1771660133978-Islamia%20College%20Peshawar-34.jpg";
-        setHeroUrl(fixedHero);
-
-        // Preload the fixed hero and then mark ready
+        // Preload the first hero image
         const img = new Image();
-        img.src = fixedHero;
+        img.src = heroImages[0];
         if (img.complete) setHeroReady(true);
         else {
           img.onload = () => setHeroReady(true);
-          img.onerror = () => setHeroReady(false);
+          img.onerror = () => setHeroReady(true);
         }
 
         const [{ data: regData }, { data: catData }] = await Promise.all([
@@ -390,6 +390,15 @@ export default function HomePage() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
+  }, [heroReady]);
+
+  // Crossfade slideshow
+  useEffect(() => {
+    if (!heroReady) return;
+    const timer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(timer);
   }, [heroReady]);
 
   function onSearch() {
@@ -455,17 +464,18 @@ export default function HomePage() {
           paddingBottom: "24px",
         }}
       >
-        {/* Hero image — full bleed, fixed so keyboard open doesn't shift it */}
-        {heroUrl && (
+        {/* Hero slideshow — fixed so keyboard open doesn't shift it */}
+        {heroImages.map((src, i) => (
           <img
-            src={heroUrl}
+            key={src}
+            src={src}
             alt="Heritage of Pakistan"
-            className={`fixed inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
-              heroReady ? "opacity-100" : "opacity-0"
+            className={`fixed inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-1000 ease-in-out ${
+              heroReady && i === heroIndex ? "opacity-100" : "opacity-0"
             }`}
             draggable={false}
           />
-        )}
+        ))}
         {/* Gradient overlay */}
         <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
 
@@ -548,18 +558,19 @@ export default function HomePage() {
         className="hidden md:grid min-h-screen w-full grid-cols-2"
         style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
       >
-        {/* LEFT: Hero image (flush to top) */}
+        {/* LEFT: Hero slideshow */}
         <div className="relative">
-          {heroUrl && (
+          {heroImages.map((src, i) => (
             <img
-              src={heroUrl}
+              key={src}
+              src={src}
               alt="Heritage of Pakistan"
-              className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
-                heroReady ? "opacity-100" : "opacity-0"
+              className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-1000 ease-in-out ${
+                heroReady && i === heroIndex ? "opacity-100" : "opacity-0"
               }`}
               draggable={false}
             />
-          )}
+          ))}
         </div>
 
         {/* RIGHT: Ivory panel */}
