@@ -17,14 +17,39 @@ const ToolPanel = ({
   filters,
   onFilterChange,
   onSearch,
+  renderToolPanel,
 }: {
   tool: Tool | undefined;
   onClose: () => void;
   filters?: Filters;
   onFilterChange?: (newFilters: Partial<Filters>) => void;
   onSearch?: () => void;
+  renderToolPanel?: (toolId: string, onClose: () => void) => React.ReactNode;
 }) => {
   if (!tool) return null;
+
+  const customContent = renderToolPanel?.(tool.id, onClose);
+  if (customContent != null) {
+    return (
+      <div className="h-full flex flex-col animate-fadeIn bg-white">
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Icon name={tool.icon} size={24} className="text-gray-700" />
+            <h2 className="font-panel-heading text-[var(--brand-blue)]">
+              {tool.name}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-gray-200"
+          >
+            <Icon name="times" size={20} className="text-gray-500" />
+          </button>
+        </div>
+        <div className="flex-grow min-h-0 overflow-auto">{customContent}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col animate-fadeIn bg-white">
@@ -47,7 +72,7 @@ const ToolPanel = ({
           <SearchFilters
             filters={filters}
             onFilterChange={onFilterChange}
-            onSearch={onSearch}
+            onSearch={() => { onSearch(); onClose(); }}
           />
         ) : (
           <div className="p-4 text-gray-500">
@@ -64,11 +89,13 @@ export default function CollapsibleSidebar({
   filters,
   onFilterChange,
   onSearch,
+  renderToolPanel,
 }: {
   tools: Tool[];
   filters?: Filters;
   onFilterChange?: (newFilters: Partial<Filters>) => void;
   onSearch?: () => void;
+  renderToolPanel?: (toolId: string, onClose: () => void) => React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -141,6 +168,7 @@ export default function CollapsibleSidebar({
             filters={filters}
             onFilterChange={onFilterChange}
             onSearch={onSearch}
+            renderToolPanel={renderToolPanel}
           />
         )}
       </div>

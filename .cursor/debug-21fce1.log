@@ -1,0 +1,3 @@
+{"sessionId":"21fce1","location":"SignInForm.tsx:onEmailPassword:entry","message":"Sign-in submit","data":{"redirectTo":"/explore","hasEmail":true},"timestamp":1772289206713,"hypothesisId":"H1"}
+{"sessionId":"21fce1","location":"SignInForm.tsx:after signInWithPassword","message":"signInWithPassword success","data":{"error":null,"hasSession":true},"timestamp":1772289210136,"hypothesisId":"H1"}
+{"sessionId":"21fce1","location":"SignInForm.tsx:before redirect","message":"Before redirect after sign-in","data":{"sessionReady":true,"hasSession":true,"redirectTo":"/explore"},"timestamp":1772289210141,"hypothesisId":"H2"}

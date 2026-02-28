@@ -1541,11 +1541,11 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
         </div>
       )}
 
-      {/* FULL-WIDTH PANEL (mega menu) */}
+      {/* FULL-WIDTH PANEL (mega menu) — fixed height */}
       {activeSub && activeSubItems.length > 0 && (
         <div
           ref={megaRef}
-          className={`fixed inset-x-0 top-0 z-[1090] bg-white/95 backdrop-blur shadow-lg border-b border-gray-200 transform transition-transform duration-[${PANEL_ANIM_MS}ms] ease-out ${
+          className={`fixed inset-x-0 top-0 z-[1090] bg-white/95 backdrop-blur shadow-lg border-b border-gray-200 transform transition-transform duration-[${PANEL_ANIM_MS}ms] ease-out h-[480px] ${
             megaOpen
               ? "translate-y-0 opacity-100 pointer-events-auto"
               : "-translate-y-full opacity-0 pointer-events-none"
@@ -1556,11 +1556,11 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           }}
         >
           <div
-            className="mx-auto max-w-[1400px] px-8 py-10 flex gap-8"
+            className="mx-auto max-w-[1400px] h-full px-8 py-10 flex gap-8 overflow-hidden"
             style={{ paddingTop: headerHeight + 16 }}
           >
             <div className={`border-r border-gray-100 pr-4 ${activeSubItems.length > 10 ? "w-1/2" : "w-1/3"}`}>
-              <ul className={`space-y-1 ${activeSubItems.length > 10 ? "columns-2 gap-2" : ""}`}
+              <ul className={`space-y-1 ${activeSubItems.length > 10 ? "columns-3 gap-x-6 gap-y-1" : ""}`}
                 style={{ columnFill: "auto", maxHeight: "calc(10 * 2.5rem)" }}
               >
                 {activeSubItems.map((s, i) => {
@@ -1606,10 +1606,11 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </ul>
             </div>
 
-            <div className={`grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] gap-6 ${activeSubItems.length > 10 ? "w-1/2" : "w-2/3"}`}>
+            <div className="flex flex-col gap-4 flex-1 min-w-0 max-w-[520px]">
+              {/* Title, subtitle, Discover more — above the preview image */}
               <div
                 key={activeSub.id + "_text"}
-                className="flex flex-col justify-center opacity-0 animate-fadeIn"
+                className="flex flex-col opacity-0 animate-fadeIn min-w-0 flex-shrink-0"
               >
                 <h3 className="text-2xl font-bold text-[var(--brand-blue)]">
                   {activeSub.title || activeSub.label}
@@ -1623,13 +1624,14 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   <Link
                     href={activeSub.url}
                     onClick={() => setMegaOpen(false)}
-                    className="mt-4 inline-flex items-center text-sm font-medium text-[var(--brand-orange)] hover:underline"
+                    className="mt-2 inline-flex items-center text-sm font-medium text-[var(--brand-orange)] hover:underline"
                   >
                     Discover more
                   </Link>
                 )}
               </div>
-              <div className="group/img relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100 shadow-md">
+              {/* Preview image — large 16:9 rectangle to fill dropdown area */}
+              <div className="group/img relative aspect-[16/9] w-full max-h-[280px] overflow-hidden rounded-xl bg-gray-100 shadow-md flex-shrink-0">
                 {activeSub.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
