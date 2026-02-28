@@ -174,7 +174,7 @@ export default function SignInForm() {
           paddingBottom: "72px",
         }}
       >
-        {/* Hero image */}
+        {/* Hero image — fixed so keyboard open doesn't shift it */}
         <Image
           src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
           alt="Royal Garden, Altit"
@@ -182,9 +182,10 @@ export default function SignInForm() {
           priority
           sizes="100vw"
           className="object-cover object-center"
+          style={{ position: "fixed" }}
         />
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
 
         {/* Centred content: title + form card */}
         <div className="relative z-10 w-full px-5 flex flex-col gap-4">

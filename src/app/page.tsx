@@ -449,19 +449,19 @@ export default function HomePage() {
           paddingBottom: "24px",
         }}
       >
-        {/* Hero image — full bleed */}
+        {/* Hero image — full bleed, fixed so keyboard open doesn't shift it */}
         {heroUrl && (
           <img
             src={heroUrl}
             alt="Heritage of Pakistan"
-            className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
+            className={`fixed inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-700 ease-out ${
               heroReady ? "opacity-100" : "opacity-0"
             }`}
             draggable={false}
           />
         )}
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
 
         {/* Centred content: title + search card */}
         <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-32">
