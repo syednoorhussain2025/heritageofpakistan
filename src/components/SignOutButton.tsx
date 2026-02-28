@@ -6,6 +6,7 @@ export default function SignOutButton() {
   return (
     <button
       onClick={async () => {
+        try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
         await supabase.auth.signOut();
         window.location.href = "/";
       }}

@@ -140,6 +140,7 @@ function ProfilePanel({
 
   const handleLogout = async () => {
     onClose();
+    try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
     await supabase.auth.signOut();
     router.replace("/");
     router.refresh();
