@@ -89,6 +89,9 @@ export default function SignUpPage() {
         @media (max-width: 767px) {
           body[data-page="sign-up"] {
             overflow: hidden;
+            background-color: black !important;
+            min-height: 0 !important;
+            height: 100dvh !important;
           }
           body[data-page="sign-up"] header a[href="/"],
           body[data-page="sign-up"] header [class*="max-w-2xl"],

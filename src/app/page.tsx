@@ -423,6 +423,9 @@ export default function HomePage() {
         @media (max-width: 767px) {
           body[data-page="home"] {
             overflow: hidden;
+            background-color: black !important;
+            min-height: 0 !important;
+            height: 100dvh !important;
           }
           body[data-page="home"] header a[href="/"],
           body[data-page="home"] header [class*="max-w-2xl"],
