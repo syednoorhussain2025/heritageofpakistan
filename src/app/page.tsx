@@ -443,6 +443,7 @@ export default function HomePage() {
             box-shadow: none !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
+            z-index: 3010 !important;
           }
           body[data-page="home"] header a[href="/"],
           body[data-page="home"] header [class*="max-w-2xl"],
@@ -466,6 +467,9 @@ export default function HomePage() {
           paddingBottom: "24px",
         }}
       >
+        {/* Black backdrop — prevents body/html background from showing during transitions */}
+        <div className="fixed inset-0 bg-black z-[2999]" />
+
         {/* Hero slideshow — fixed above bottom nav (z-[3000]) */}
         {heroImages.map((src, i) => (
           <img
