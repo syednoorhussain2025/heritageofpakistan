@@ -2,12 +2,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
+
+const heroImages = [
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/d4fe2137-78ff-4e17-b7c6-f4b41cad31a8/1771660133978-Islamia%20College%20Peshawar-34.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/04da125d-4c2b-4be6-a112-e52b87f1629a/1771569291072-birds-flying-badshahi-mosque.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/da973cff-1bff-45f8-a13d-38e2af239691/1771663260542-Khaplu%20Palace-20.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/3567294c-1090-43e7-8c2d-6676e5b9ea54/1771680261029-Malam%20Jabba-103.jpg",
+  "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/c7ffcc06-e765-4e4e-a6ad-cffc2fc1b441/1771690397771-Royal%20Garden%20Altit-8.jpg",
+];
 
 export default function SignInForm() {
   const supabase = useMemo(() => createClient(), []);
@@ -18,6 +25,9 @@ export default function SignInForm() {
     requestedRedirect && requestedRedirect.startsWith("/")
       ? requestedRedirect
       : "/dashboard";
+
+  const [heroReady, setHeroReady] = useState(false);
+  const [heroIndex, setHeroIndex] = useState(0);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +51,26 @@ export default function SignInForm() {
     }
     return false;
   }
+
+  // Preload first hero image
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = heroImages[0];
+    if (img.complete) setHeroReady(true);
+    else {
+      img.onload = () => setHeroReady(true);
+      img.onerror = () => setHeroReady(true);
+    }
+  }, []);
+
+  // Crossfade slideshow
+  useEffect(() => {
+    if (!heroReady) return;
+    const timer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroReady]);
 
   // Mark body so CSS can strip header items on mobile sign-in only
   useEffect(() => {
@@ -136,7 +166,15 @@ export default function SignInForm() {
         input {
           outline: none !important;
         }
-        /* ── Sign-in mobile: transparent header, burger only ── */
+        /* ── Sign-in: transparent header on all screen sizes ── */
+        body[data-page="sign-in"] header {
+          background-color: transparent !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          z-index: 3010 !important;
+        }
+        /* ── Sign-in mobile: burger only, fixed full-screen layout ── */
         @media (max-width: 767px) {
           body[data-page="sign-in"] {
             overflow: hidden;
@@ -148,12 +186,6 @@ export default function SignInForm() {
           body[data-page="sign-in"] header [class*="max-w-2xl"],
           body[data-page="sign-in"] header [data-header-user] {
             display: none !important;
-          }
-          body[data-page="sign-in"] header {
-            background-color: transparent !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
           }
           body[data-page="sign-in"] header [aria-hidden="true"] {
             opacity: 1 !important;
@@ -174,21 +206,26 @@ export default function SignInForm() {
           paddingBottom: "72px",
         }}
       >
-        {/* Hero image — fixed so keyboard open doesn't shift it */}
-        <Image
-          src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
-          alt="Royal Garden, Altit"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-          style={{ position: "fixed" }}
-        />
+        {/* Black backdrop */}
+        <div className="fixed inset-0 bg-black z-[2999]" />
+
+        {/* Hero slideshow */}
+        {heroImages.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt="Heritage of Pakistan"
+            className={`fixed inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out z-[3001] ${
+              heroReady && i === heroIndex ? "opacity-100" : "opacity-0"
+            }`}
+            draggable={false}
+          />
+        ))}
         {/* Gradient overlay */}
-        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none z-[3002]" />
 
         {/* Centred content: title + form card */}
-        <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-32">
+        <div className="relative z-[3003] w-full px-5 flex flex-col gap-4 mt-32">
           {/* Title */}
           <div className="text-center">
             <h1 className="text-[2.4rem] font-black leading-[1.1] text-white drop-shadow-lg">
@@ -266,17 +303,23 @@ export default function SignInForm() {
       </div>
 
       {/* ── DESKTOP LAYOUT ── */}
-      <div className="hidden md:grid h-screen w-full grid-cols-2">
-        {/* LEFT IMAGE */}
-        <div className="relative h-screen">
-          <Image
-            src="https://heritageofpakistan.org/wp-content/uploads/2025/06/Royal-Garden-Altit-23.jpg"
-            alt="Royal Garden, Altit"
-            fill
-            priority
-            sizes="50vw"
-            className="object-cover"
-          />
+      <div
+        className="hidden md:grid h-screen w-full grid-cols-2"
+        style={{ marginTop: "calc(var(--sticky-offset, 72px) * -1)" }}
+      >
+        {/* LEFT: Hero slideshow */}
+        <div className="relative h-screen overflow-hidden">
+          {heroImages.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt="Heritage of Pakistan"
+              className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out ${
+                heroReady && i === heroIndex ? "opacity-100" : "opacity-0"
+              }`}
+              draggable={false}
+            />
+          ))}
           <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
         </div>
 
