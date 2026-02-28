@@ -461,7 +461,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
 
         {/* Centred content: title + search card */}
-        <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-16">
+        <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-32">
           {/* Title */}
           <div
             className={`text-center transition-all duration-700 ease-out ${
