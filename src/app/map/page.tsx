@@ -258,10 +258,20 @@ export default function MapPage() {
 
     if (sidebarFilter === "bookmarks" && bookmarksLoaded) {
       res = res.filter((site) => bookmarkedIds.has(site.id));
-    } else if (sidebarFilter && "wishlistId" in sidebarFilter && wishlistSiteIds.length > 0) {
+    } else if (
+      typeof sidebarFilter === "object" &&
+      sidebarFilter !== null &&
+      "wishlistId" in sidebarFilter &&
+      wishlistSiteIds.length > 0
+    ) {
       const set = new Set(wishlistSiteIds);
       res = res.filter((site) => set.has(site.id));
-    } else if (sidebarFilter && "tripId" in sidebarFilter && tripSiteIds.length > 0) {
+    } else if (
+      typeof sidebarFilter === "object" &&
+      sidebarFilter !== null &&
+      "tripId" in sidebarFilter &&
+      tripSiteIds.length > 0
+    ) {
       const set = new Set(tripSiteIds);
       res = res.filter((site) => set.has(site.id));
     }
@@ -374,7 +384,7 @@ export default function MapPage() {
       if (toolId === "wishlist") {
         return (
           <div className="p-4 space-y-3">
-            {sidebarFilter && "wishlistId" in sidebarFilter && (
+            {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
               <button
                 type="button"
                 onClick={() => { clearSidebarFilter(); onClose(); }}
@@ -412,7 +422,7 @@ export default function MapPage() {
       if (toolId === "trips") {
         return (
           <div className="p-4 space-y-3">
-            {sidebarFilter && "tripId" in sidebarFilter && (
+            {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
               <button
                 type="button"
                 onClick={() => { clearSidebarFilter(); onClose(); }}
