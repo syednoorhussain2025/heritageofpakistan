@@ -427,6 +427,12 @@ export default function HomePage() {
             min-height: 0 !important;
             height: 100dvh !important;
           }
+          body[data-page="home"] header {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
           body[data-page="home"] header a[href="/"],
           body[data-page="home"] header [class*="max-w-2xl"],
           body[data-page="home"] header [data-header-user] {
