@@ -79,7 +79,7 @@ const SearchableSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className="relative w-full cursor-pointer group"
       >
-        <div className="flex items-center justify-between rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
           <span
             className={`truncate ${
               selectedOption
@@ -224,7 +224,7 @@ const RegionSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className="relative w-full cursor-pointer group"
       >
-        <div className="flex items-center justify-between rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--taupe-grey)] bg-white px-3 py-2 transition focus-within:ring-2 focus-within:ring-[var(--mustard-accent)]">
           <span
             className={`truncate ${
               selectedRegion
@@ -461,7 +461,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
 
         {/* Centred content: title + search card */}
-        <div className="relative z-10 w-full px-5 flex flex-col gap-4">
+        <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-16">
           {/* Title */}
           <div
             className={`text-center transition-all duration-700 ease-out ${
@@ -483,6 +483,14 @@ export default function HomePage() {
             }`}
           >
             <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSearch()}
+                placeholder="Search Heritage"
+                className="w-full rounded-xl border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
+              />
               <RegionSelect
                 parentRegions={parentRegions}
                 subRegions={subRegions}
@@ -497,17 +505,9 @@ export default function HomePage() {
                 onChange={setCategoryId}
                 placeholder="Heritage Type"
               />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                placeholder="Search Heritage"
-                className="w-full rounded-md border border-[var(--taupe-grey)] bg-white px-3 py-2 text-[var(--dark-grey)] placeholder-[var(--espresso-brown)]/60 transition focus:border-[var(--mustard-accent)] focus:ring-2 focus:ring-[var(--mustard-accent)]"
-              />
               <button
                 onClick={onSearch}
-                className="w-full rounded-lg bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90"
+                className="w-full rounded-xl bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90"
               >
                 Search
               </button>
