@@ -464,23 +464,23 @@ export default function HomePage() {
           paddingBottom: "24px",
         }}
       >
-        {/* Hero slideshow — fixed so keyboard open doesn't shift it */}
+        {/* Hero slideshow — fixed above bottom nav (z-[3000]) */}
         {heroImages.map((src, i) => (
           <img
             key={src}
             src={src}
             alt="Heritage of Pakistan"
-            className={`fixed inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-1000 ease-in-out ${
+            className={`fixed inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-1000 ease-in-out z-[3001] ${
               heroReady && i === heroIndex ? "opacity-100" : "opacity-0"
             }`}
             draggable={false}
           />
         ))}
         {/* Gradient overlay */}
-        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none" />
+        <div className="fixed inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 pointer-events-none z-[3002]" />
 
         {/* Centred content: title + search card */}
-        <div className="relative z-10 w-full px-5 flex flex-col gap-4 mt-32">
+        <div className="relative z-[3003] w-full px-5 flex flex-col gap-4 mt-32">
           {/* Title */}
           <div
             className={`text-center transition-all duration-700 ease-out ${
