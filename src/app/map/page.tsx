@@ -178,7 +178,14 @@ export default function MapPage() {
     setWishlistItemsLoading(true);
     getWishlistItems(expandedWishlistId)
       .then((data) => {
-        if (!cancelled) setWishlistItems((data ?? []) as { site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]);
+        if (!cancelled) {
+          const raw = (data ?? []) as unknown as { site_id: string; sites?: { title: string; slug: string; cover_photo_url: string | null } | { title: string; slug: string; cover_photo_url: string | null }[] }[];
+          const normalized: { site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[] = raw.map((item) => ({
+            site_id: item.site_id,
+            sites: Array.isArray(item.sites) ? item.sites[0] ?? null : item.sites ?? null,
+          }));
+          setWishlistItems(normalized);
+        }
       })
       .catch(() => { if (!cancelled) setWishlistItems([]); })
       .finally(() => { if (!cancelled) setWishlistItemsLoading(false); });
