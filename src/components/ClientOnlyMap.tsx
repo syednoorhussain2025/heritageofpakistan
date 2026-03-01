@@ -31,6 +31,8 @@ export type Site = {
 };
 
 type MapProvider = "osm" | "google";
+/** Map type for the switcher: OSM, Google roadmap, or Google satellite */
+export type MapType = "osm" | "google" | "google_satellite";
 
 type MapSettings = {
   provider?: MapProvider;
@@ -193,6 +195,8 @@ export default function ClientOnlyMap({
   icons,
   highlightSiteId = null,
   onHighlightConsumed,
+  /** Override from map type switcher: osm | google | google_satellite */
+  mapType: mapTypeOverride,
 }: {
   locations: Site[];
   settings: MapSettings | null;
@@ -200,6 +204,7 @@ export default function ClientOnlyMap({
   /** When set, map flies to this site and opens its preview popup. Cleared via onHighlightConsumed. */
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  mapType?: MapType;
 }) {
   if (!settings || icons.size === 0) {
     return (
@@ -214,7 +219,17 @@ export default function ClientOnlyMap({
     );
   }
 
-  if ((settings.provider ?? "osm") === "google") {
+  const effectiveProvider: MapProvider =
+    mapTypeOverride === "google" || mapTypeOverride === "google_satellite"
+      ? "google"
+      : mapTypeOverride === "osm"
+        ? "osm"
+        : (settings.provider ?? "osm");
+
+  const googleMapTypeId: "roadmap" | "satellite" =
+    mapTypeOverride === "google_satellite" ? "satellite" : "roadmap";
+
+  if (effectiveProvider === "google") {
     return (
       <GoogleMapView
         locations={locations}
@@ -222,6 +237,7 @@ export default function ClientOnlyMap({
         icons={icons}
         highlightSiteId={highlightSiteId}
         onHighlightConsumed={onHighlightConsumed}
+        mapTypeId={googleMapTypeId}
       />
     );
   }
@@ -439,14 +455,23 @@ function GoogleMapView({
   icons,
   highlightSiteId = null,
   onHighlightConsumed,
+  mapTypeId = "roadmap",
 }: {
   locations: Site[];
   settings: MapSettings;
   icons: Map<string, string>;
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  mapTypeId?: "roadmap" | "satellite";
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
+  /* Call useJsApiLoader unconditionally (before any early return) to satisfy Rules of Hooks */
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: apiKey || "invalid-no-key",
+    language: "en",
+    region: "US",
+  });
+
   const mapRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const tooltipWindowRef = useRef<google.maps.InfoWindow | null>(null);
@@ -653,12 +678,6 @@ function GoogleMapView({
     );
   }
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: apiKey,
-    language: "en",
-    region: "US",
-  });
-
   if (loadError) {
     return (
       <div className="absolute inset-0 flex items-center justify-center text-sm text-red-700 bg-red-100">
@@ -807,7 +826,12 @@ function GoogleMapView({
       mapContainerStyle={containerStyle}
       center={initialCenter}
       zoom={initialZoom}
-      options={{ streetViewControl: false, fullscreenControl: false }}
+      options={{
+        streetViewControl: false,
+        fullscreenControl: false,
+        mapTypeControl: false,
+        mapTypeId: mapTypeId === "satellite" ? "satellite" : "roadmap",
+      }}
       onLoad={(map) => {
         mapRef.current = map;
         tooltipWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });

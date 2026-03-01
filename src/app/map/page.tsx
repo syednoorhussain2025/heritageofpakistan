@@ -2,13 +2,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
 import { supabase } from "@/lib/supabase/browser";
-import type { Site as ClientMapSite } from "@/components/ClientOnlyMap";
+import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { getWishlists, getWishlistItems } from "@/lib/wishlists";
 import { listTripsByUsername, getTripWithItems } from "@/lib/trips";
@@ -120,6 +120,10 @@ export default function MapPage() {
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
   const [tripItems, setTripItems] = useState<{ site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
   const [tripItemsLoading, setTripItemsLoading] = useState(false);
+  const [mapType, setMapType] = useState<MapType>("osm");
+  const mapTypeInitializedRef = useRef(false);
+  const [loadError, setLoadError] = useState(false);
+  const stableLocationsRef = useRef<{ key: string; value: MapSite[] }>({ key: "", value: [] });
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -213,23 +217,44 @@ export default function MapPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [settingsRes, iconsRes, locationsRes] = await Promise.all([
-        supabase
-          .from("global_settings")
-          .select("value")
-          .eq("key", "map_settings")
-          .maybeSingle(),
-        supabase.from("icons").select("name, svg_content"),
-        supabase
-          .from("sites")
-          .select(
-            `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, latitude, longitude, province_id,
+      setLoadError(false);
+      const LOAD_TIMEOUT_MS = 15000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("LOAD_TIMEOUT")), LOAD_TIMEOUT_MS)
+      );
+      let settingsRes: any;
+      let iconsRes: any;
+      let locationsRes: any;
+      try {
+        [settingsRes, iconsRes, locationsRes] = await Promise.race([
+          Promise.all([
+            supabase
+              .from("global_settings")
+              .select("value")
+              .eq("key", "map_settings")
+              .maybeSingle(),
+            supabase.from("icons").select("name, svg_content"),
+            supabase
+              .from("sites")
+              .select(
+                `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, latitude, longitude, province_id,
              site_categories!inner(category_id, categories(icon_key)),
              site_regions!inner(region_id)`
-          )
-          .not("latitude", "is", null)
-          .not("longitude", "is", null),
-      ]);
+              )
+              .not("latitude", "is", null)
+              .not("longitude", "is", null),
+          ]),
+          timeoutPromise,
+        ]);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof Error && err.message === "LOAD_TIMEOUT") {
+          setLoadError(true);
+          setLoading(false);
+          return;
+        }
+        throw err;
+      }
 
       if (cancelled) return;
 
@@ -274,6 +299,16 @@ export default function MapPage() {
       cancelled = true;
     };
   }, []);
+
+  /* Sync map type from admin settings once when settings load */
+  useEffect(() => {
+    if (mapTypeInitializedRef.current || !mapSettings) return;
+    mapTypeInitializedRef.current = true;
+    setMapType((prev) => {
+      const p = mapSettings as { provider?: string };
+      return p?.provider === "google" ? "google" : prev;
+    });
+  }, [mapSettings]);
 
   /* ───────── Derived filtering (memoized; no setState → fewer renders) ───────── */
   const filteredLocations: MapSite[] = useMemo(() => {
@@ -320,6 +355,11 @@ export default function MapPage() {
       res = res.filter((site) => set.has(site.id));
     }
 
+    /* Return stable reference when the set of locations is unchanged to avoid map re-render storms */
+    const key = res.length + "|" + res.map((s) => s.id).sort().join(",");
+    const prev = stableLocationsRef.current;
+    if (prev.key === key) return prev.value;
+    stableLocationsRef.current = { key, value: res };
     return res;
   }, [
     loading,
@@ -778,7 +818,7 @@ export default function MapPage() {
 
       {/* Map: full size, fixed; sidebar overlays on top */}
       <div className="absolute inset-0 pt-14 lg:pt-0">
-        {loading && (
+        {loading && !loadError && (
           <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-full shadow-lg">
             <Icon
               name="spinner"
@@ -787,6 +827,21 @@ export default function MapPage() {
             />
           </div>
         )}
+        {loadError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gray-50 p-6">
+            <p className="text-center text-gray-700">
+              Map failed to load. The request may have timed out. Check your connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-[var(--brand-orange)] px-4 py-2 text-white font-medium hover:opacity-90"
+            >
+              Refresh page
+            </button>
+          </div>
+        ) : (
+          <>
         {/* Pass enriched, memoized data with province_slug for province-aware links */}
         <ClientOnlyMap
           locations={filteredLocations as ClientMapSite[]}
@@ -794,7 +849,54 @@ export default function MapPage() {
           icons={allIcons}
           highlightSiteId={highlightSiteId}
           onHighlightConsumed={() => setHighlightSiteId(null)}
+          mapType={mapType}
         />
+        {/* Map type switcher: OSM, Google roadmap, Google satellite */}
+        <div
+          className="absolute bottom-4 left-4 lg:left-20 z-[1000] flex items-center gap-2"
+          aria-label="Map type"
+        >
+          {(
+            [
+              {
+                type: "osm" as const,
+                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/Light.JPG",
+                label: "OpenStreetMap",
+              },
+              {
+                type: "google" as const,
+                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/googlemap.JPG",
+                label: "Google Maps",
+              },
+              {
+                type: "google_satellite" as const,
+                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/terrain.JPG",
+                label: "Google Satellite",
+              },
+            ] as const
+          ).map(({ type, src, label }) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setMapType(type)}
+              aria-label={label}
+              aria-pressed={mapType === type}
+              className={`flex-shrink-0 w-11 h-11 rounded-full border-2 overflow-hidden bg-white shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--brand-orange)] ${
+                mapType === type
+                  ? "border-[var(--brand-orange)] ring-2 ring-[var(--brand-orange)]/30"
+                  : "border-gray-300 hover:border-gray-400"
+              }`}
+            >
+              <img
+                src={src}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+          </>
+        )}
         {(() => {
           const label =
             sidebarFilter === "bookmarks"

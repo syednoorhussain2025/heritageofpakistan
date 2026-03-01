@@ -1,0 +1,44 @@
+{"sessionId":"b7acee","location":"map/page.tsx:initial-load-start","message":"Map initial load effect started","data":{},"timestamp":1772362634873,"hypothesisId":"H1"}
+{"sessionId":"b7acee","location":"map/page.tsx:initial-load-start","message":"Map initial load effect started","data":{},"timestamp":1772362634875,"hypothesisId":"H1"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362634959,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362634961,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635360,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635361,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635375,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635377,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635876,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635878,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635900,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362635901,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"map/page.tsx:after-fetch","message":"Map fetch completed","data":{"hasSettings":true,"hasIcons":true,"iconsCount":102,"hasLocations":true,"locationsCount":116},"timestamp":1772362635977,"hypothesisId":"H1"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"osm"},"timestamp":1772362635984,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"osm","googleMapTypeId":"roadmap"},"timestamp":1772362635984,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"osm"},"timestamp":1772362635985,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"osm","googleMapTypeId":"roadmap"},"timestamp":1772362635985,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"map/page.tsx:mapType-sync","message":"Map type synced from settings","data":{"prev":"osm","next":"google","provider":"google"},"timestamp":1772362636011,"hypothesisId":"H3"}
+{"sessionId":"b7acee","location":"map/page.tsx:mapType-sync","message":"Map type synced from settings","data":{"prev":"osm","next":"google","provider":"google"},"timestamp":1772362636012,"hypothesisId":"H3"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"google"},"timestamp":1772362636015,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"google"},"timestamp":1772362636016,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"google","googleMapTypeId":"roadmap"},"timestamp":1772362636016,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"google","googleMapTypeId":"roadmap"},"timestamp":1772362636015,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636017,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":false,"loadError":null},"timestamp":1772362636019,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636020,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":false,"loadError":null},"timestamp":1772362636021,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636141,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":true,"loadError":null},"timestamp":1772362636143,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636146,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":true,"loadError":null},"timestamp":1772362636147,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"map/page.tsx:setLoading-false","message":"Map page setLoading(false) called","data":{},"timestamp":1772362636672,"hypothesisId":"H1"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"google"},"timestamp":1772362636676,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"google","googleMapTypeId":"roadmap"},"timestamp":1772362636677,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":true,"iconsSize":102,"mapTypeOverride":"google"},"timestamp":1772362636677,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:branch","message":"ClientOnlyMap branch","data":{"effectiveProvider":"google","googleMapTypeId":"roadmap"},"timestamp":1772362636678,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636678,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":true,"loadError":null},"timestamp":1772362636679,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-entry","message":"GoogleMapView render","data":{"hasApiKey":true},"timestamp":1772362636679,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:GoogleMapView-loader","message":"GoogleMapView loader state","data":{"isLoaded":true,"loadError":null},"timestamp":1772362636680,"hypothesisId":"H5"}
+{"sessionId":"b7acee","location":"map/page.tsx:initial-load-start","message":"Map initial load effect started","data":{},"timestamp":1772362672168,"hypothesisId":"H1"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362672306,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"ClientOnlyMap.tsx:entry","message":"ClientOnlyMap render","data":{"hasSettings":false,"iconsSize":0,"mapTypeOverride":"osm"},"timestamp":1772362672308,"hypothesisId":"H2"}
+{"sessionId":"b7acee","location":"map/page.tsx:load-timeout","message":"Map load timeout fired","data":{},"timestamp":1772362687177,"runId":"post-fix"}
