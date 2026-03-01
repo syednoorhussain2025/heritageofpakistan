@@ -21,6 +21,8 @@ type Site = {
 
   // new thumbnail column coming from sites table
   cover_photo_thumb_url?: string | null;
+  // full-size cover URL (used as fallback when thumb not available, e.g. map popup)
+  cover_photo_url?: string | null;
 
   // existing blur + meta
   cover_blur_data_url?: string | null;
@@ -115,8 +117,8 @@ export default function SitePreviewCard({
 
   const hasBlur = Boolean(site.cover_blur_data_url);
 
-  // use only the thumbnail URL from the table, no transformations, no fallback to cover_photo_url
-  const sharpSrc = site.cover_photo_thumb_url || FALLBACK_SVG;
+  // Prefer thumbnail; fall back to full cover URL (e.g. map page) then placeholder
+  const sharpSrc = site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_SVG;
 
   // isSharpLoaded is true only when the CURRENT sharpSrc has loaded
   const isSharpLoaded = loadedSrc === sharpSrc;

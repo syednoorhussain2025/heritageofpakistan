@@ -4,7 +4,7 @@
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 
 /* ------------------------ Leaflet / OSM (original path) ------------------------ */
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -57,8 +57,9 @@ type MapSettings = {
   pin_border_thickness?: number;
   pin_border_color?: string;
 
-  // Clustering (both OSM & Google)
-  cluster_color?: string;
+  // Clustering
+  cluster_color?: string; // Open Maps (OSM)
+  cluster_color_google?: string; // Google Maps
   cluster_max_radius?: number;
   disable_clustering_at_zoom?: number;
 
@@ -87,17 +88,44 @@ const hexToRgb = (hex: string) => {
     : null;
 };
 
+const lightenHex = (hex: string, amount: number): string => {
+  const r = hexToRgb(hex);
+  if (!r) return hex;
+  const blend = (v: number) => Math.round(v + (255 - v) * amount);
+  return `#${[r.r, r.g, r.b].map((v) => blend(v).toString(16).padStart(2, "0")).join("")}`;
+};
+
 const DynamicClusterStyles = ({ color }: { color: string }) => {
   const rgb = hexToRgb(color);
   if (!rgb) return null;
+  const hoverColor = lightenHex(color, 0.2);
+  const hoverRgb = hexToRgb(hoverColor);
+  const hoverOuterRgba = hoverRgb
+    ? `rgba(${hoverRgb.r}, ${hoverRgb.g}, ${hoverRgb.b}, 0.35)`
+    : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
   const style = `
-    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2) !important; }
-    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { background-color: ${color} !important; }
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+      background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2) !important;
+      transition: background-color 0.15s ease-out !important;
+    }
+    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+      background-color: ${color} !important;
+      transition: background-color 0.15s ease-out !important;
+    }
+    .marker-cluster-small:hover, .marker-cluster-medium:hover, .marker-cluster-large:hover {
+      background-color: ${hoverOuterRgba} !important;
+      z-index: 1000 !important;
+    }
+    .marker-cluster-small:hover div, .marker-cluster-medium:hover div, .marker-cluster-large:hover div {
+      background-color: ${hoverColor} !important;
+    }
   `;
   return <style>{style}</style>;
 };
 
 const DynamicTooltipStyles = ({ settings }: { settings: MapSettings }) => {
+  const bg = settings.tooltip_background_color ?? "#2d3748";
+  const borderColor = settings.tooltip_border_color ?? "#4a5568";
   const style = `
     .leaflet-tooltip {
       background-color: ${settings.tooltip_background_color} !important;
@@ -107,18 +135,31 @@ const DynamicTooltipStyles = ({ settings }: { settings: MapSettings }) => {
       font-family: ${settings.tooltip_font_family}, sans-serif !important;
       font-size: ${settings.tooltip_font_size}px !important;
       font-weight: ${settings.tooltip_font_weight} !important;
-      padding: 4px 8px !important;
+      padding: 6px 8px 10px 8px !important;
       white-space: nowrap !important;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
     }
-    .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before {
+    .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before {
       border: none !important;
+    }
+    /* Pointer for tooltip above pin (direction="top") – triangle pointing down */
+    .leaflet-tooltip-top:before {
+      position: absolute !important;
+      left: 50% !important;
+      bottom: 0 !important;
+      transform: translate(-50%, 100%) !important;
+      width: 0 !important;
+      height: 0 !important;
+      border: 6px solid transparent !important;
+      border-top-color: ${bg} !important;
+      border-bottom: none !important;
+      margin: 0 !important;
     }
   `;
   return <style>{style}</style>;
 };
 
-// **NEW**: Style component to make the OSM popup container transparent
+// **NEW**: Style component to make the OSM popup container transparent and set card size
 const DynamicPopupStyles = () => {
   const style = `
     .leaflet-popup-content-wrapper {
@@ -126,12 +167,18 @@ const DynamicPopupStyles = () => {
       box-shadow: none !important;
       border: none !important;
       padding: 0 !important; /* Let the inner component control padding */
+      min-width: 340px !important;
+      max-width: 360px !important;
     }
     .leaflet-popup-tip-container {
       display: none !important; /* Hide the popup tip/arrow */
     }
     .leaflet-popup-content {
       margin: 0 !important; /* Remove default margin */
+      width: 100% !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+      border-radius: 0.75rem !important;
+      overflow: hidden !important;
     }
   `;
   return <style>{style}</style>;
@@ -144,10 +191,15 @@ export default function ClientOnlyMap({
   locations,
   settings,
   icons,
+  highlightSiteId = null,
+  onHighlightConsumed,
 }: {
   locations: Site[];
   settings: MapSettings | null;
   icons: Map<string, string>;
+  /** When set, map flies to this site and opens its preview popup. Cleared via onHighlightConsumed. */
+  highlightSiteId?: string | null;
+  onHighlightConsumed?: () => void;
 }) {
   if (!settings || icons.size === 0) {
     return (
@@ -164,26 +216,75 @@ export default function ClientOnlyMap({
 
   if ((settings.provider ?? "osm") === "google") {
     return (
-      <GoogleMapView locations={locations} settings={settings} icons={icons} />
+      <GoogleMapView
+        locations={locations}
+        settings={settings}
+        icons={icons}
+        highlightSiteId={highlightSiteId}
+        onHighlightConsumed={onHighlightConsumed}
+      />
     );
   }
 
   return (
-    <OSMLeafletView locations={locations} settings={settings} icons={icons} />
+    <OSMLeafletView
+      locations={locations}
+      settings={settings}
+      icons={icons}
+      highlightSiteId={highlightSiteId}
+      onHighlightConsumed={onHighlightConsumed}
+    />
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * OSM / Leaflet view (unchanged)
  * ────────────────────────────────────────────────────────────────────────────── */
+/* Fly to and show popup when parent sets highlightSiteId */
+function OSMHighlightEffect({
+  locations,
+  highlightSiteId,
+  onHighlightConsumed,
+}: {
+  locations: Site[];
+  highlightSiteId: string | null;
+  onHighlightConsumed?: () => void;
+}) {
+  const map = useMap();
+  const site = highlightSiteId
+    ? locations.find((s) => s.id === highlightSiteId)
+    : null;
+
+  useEffect(() => {
+    if (!site) return;
+    map.flyTo([site.latitude, site.longitude], 14, { duration: 0.5 });
+  }, [map, site?.id, site?.latitude, site?.longitude]);
+
+  if (!site) return null;
+  return (
+    <Popup
+      position={[site.latitude, site.longitude]}
+      eventHandlers={{
+        remove: () => onHighlightConsumed?.(),
+      }}
+    >
+      <SitePreviewCard site={site} />
+    </Popup>
+  );
+}
+
 function OSMLeafletView({
   locations,
   settings,
   icons,
+  highlightSiteId = null,
+  onHighlightConsumed,
 }: {
   locations: Site[];
   settings: MapSettings;
   icons: Map<string, string>;
+  highlightSiteId?: string | null;
+  onHighlightConsumed?: () => void;
 }) {
   const createCustomIcon = useCallback(
     (iconName: string, s: MapSettings) => {
@@ -288,6 +389,11 @@ function OSMLeafletView({
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
         />
+        <OSMHighlightEffect
+          locations={locations}
+          highlightSiteId={highlightSiteId ?? null}
+          onHighlightConsumed={onHighlightConsumed}
+        />
         <MarkerClusterGroup
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
           maxClusterRadius={settings.cluster_max_radius}
@@ -309,7 +415,7 @@ function OSMLeafletView({
                 position={[site.latitude, site.longitude]}
                 icon={iconData.icon}
               >
-                <Tooltip direction="right" offset={[iconData.size / 2 + 2, 0]}>
+                <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
                   {site.title}
                 </Tooltip>
                 <Popup>
@@ -331,17 +437,35 @@ function GoogleMapView({
   locations,
   settings,
   icons,
+  highlightSiteId = null,
+  onHighlightConsumed,
 }: {
   locations: Site[];
   settings: MapSettings;
   icons: Map<string, string>;
+  highlightSiteId?: string | null;
+  onHighlightConsumed?: () => void;
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const tooltipWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const containerStyle = { width: "100%", height: "100%" };
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [infoWindowSite, setInfoWindowSite] = useState<Site | null>(null);
+
+  const highlightSite = highlightSiteId
+    ? locations.find((s) => s.id === highlightSiteId) ?? null
+    : null;
+  useEffect(() => {
+    if (!highlightSite || !mapRef.current) return;
+    const map = mapRef.current;
+    map.panTo({ lat: highlightSite.latitude, lng: highlightSite.longitude });
+    map.setZoom(14);
+    setActiveId(highlightSite.id);
+    setInfoWindowSite(highlightSite);
+  }, [highlightSite?.id]);
 
   const [initialCenter] = useState({
     lat: settings.default_center_lat,
@@ -359,36 +483,7 @@ function GoogleMapView({
     }
   }, [activeId, infoWindowSite]);
 
-  if (!apiKey) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center text-sm text-yellow-900 bg-yellow-100">
-        Google Maps API key missing in settings.
-      </div>
-    );
-  }
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: apiKey,
-    language: "en",
-    region: "US",
-  });
-
-  if (loadError) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center text-sm text-red-700 bg-red-100">
-        Failed to load Google Maps SDK: {String(loadError.message || loadError)}
-      </div>
-    );
-  }
-  if (!isLoaded) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
-        Loading Google Maps…
-      </div>
-    );
-  }
-
-  /* ---------- SVG normalization (ensures icons render) ---------- */
+  /* ---------- Icon/marker helpers (must be before useCallback; no hooks below until after early returns) ---------- */
   const encodeSvg = (svg: string) =>
     `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 
@@ -440,52 +535,178 @@ function GoogleMapView({
       </svg>`;
   };
 
-  const iconForSite = (site: Site): google.maps.Icon | undefined => {
-    let iconName = settings.pin_icon_name || "map-pin";
-    if (settings.icon_source === "category") {
-      const catIcon = site.site_categories?.find(
-        (sc) => sc.categories?.icon_key
-      )?.categories?.icon_key;
-      if (catIcon) iconName = catIcon;
-    }
-    const rawSvg = icons.get(iconName);
-    if (!rawSvg) return undefined;
+  const iconForSite = useCallback(
+    (site: Site): google.maps.Icon | undefined => {
+      let iconName = settings.pin_icon_name || "map-pin";
+      if (settings.icon_source === "category") {
+        const catIcon = site.site_categories?.find(
+          (sc) => sc.categories?.icon_key
+        )?.categories?.icon_key;
+        if (catIcon) iconName = catIcon;
+      }
+      const rawSvg = icons.get(iconName);
+      if (!rawSvg) return undefined;
 
-    if (settings.pin_style === "icon_in_circle") {
-      const circleSize = Math.max(8, settings.pin_circle_size ?? 40);
-      const borderThickness = Math.max(0, settings.pin_border_thickness ?? 0);
+      if (settings.pin_style === "icon_in_circle") {
+        const circleSize = Math.max(8, settings.pin_circle_size ?? 40);
+        const borderThickness = Math.max(0, settings.pin_border_thickness ?? 0);
+        const iconSize = Math.max(8, settings.pin_icon_size ?? 32);
+        const finalSvg = buildCircleWrappedSvg(
+          rawSvg,
+          iconSize,
+          circleSize + borderThickness * 2,
+          settings.pin_circle_color ?? "#f78300",
+          settings.pin_border_color ?? "transparent",
+          borderThickness,
+          settings.pin_icon_color_in_circle ?? "#ffffff"
+        );
+        const size = circleSize + borderThickness * 2;
+        return {
+          url: encodeSvg(finalSvg),
+          scaledSize: new google.maps.Size(size, size),
+          anchor: new google.maps.Point(size / 2, size / 2),
+        };
+      }
+
       const iconSize = Math.max(8, settings.pin_icon_size ?? 32);
-      const finalSvg = buildCircleWrappedSvg(
+      const normalized = normalizeSvg(
         rawSvg,
         iconSize,
-        circleSize + borderThickness * 2,
-        settings.pin_circle_color ?? "#f78300",
-        settings.pin_border_color ?? "transparent",
-        borderThickness,
-        settings.pin_icon_color_in_circle ?? "#ffffff"
+        settings.pin_color ?? "#f78300"
       );
-      const size = circleSize + borderThickness * 2;
       return {
-        url: encodeSvg(finalSvg),
-        scaledSize: new google.maps.Size(size, size),
-        anchor: new google.maps.Point(size / 2, size / 2),
+        url: encodeSvg(normalized),
+        scaledSize: new google.maps.Size(iconSize, iconSize),
+        anchor: new google.maps.Point(iconSize / 2, iconSize / 2),
       };
-    }
+    },
+    [settings, icons]
+  );
 
-    const iconSize = Math.max(8, settings.pin_icon_size ?? 32);
-    const normalized = normalizeSvg(
-      rawSvg,
-      iconSize,
-      settings.pin_color ?? "#f78300"
+  const getTooltipContent = useCallback(
+    (title: string): string => {
+      const bg = settings.tooltip_background_color ?? "#2d3748";
+      const color = settings.tooltip_text_color ?? "#ffffff";
+      const borderColor = settings.tooltip_border_color ?? "#4a5568";
+      const borderRadius = settings.tooltip_border_radius ?? 4;
+      const borderThickness = settings.tooltip_border_thickness ?? 1;
+      const fontSize = settings.tooltip_font_size ?? 12;
+      const fontWeight = settings.tooltip_font_weight ?? "600";
+      const fontFamily = (settings.tooltip_font_family || "system-ui") + ", sans-serif";
+      const escaped = String(title)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+      return `<div class="gm-custom-tooltip" style="position:relative;background-color:${bg};color:${color};border:${borderThickness}px solid ${borderColor};border-radius:${borderRadius}px;padding:6px 8px 10px 8px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);font-size:${fontSize}px;font-weight:${fontWeight};font-family:${fontFamily};">${escaped}<span class="gm-custom-tooltip-pointer" style="border-top-color:${bg};border-width:6px 6px 0 6px;"></span></div>`;
+    },
+    [settings]
+  );
+
+  const renderMarkers = useCallback(() => {
+    const map = mapRef.current;
+    const clusterer = clustererRef.current;
+    const tooltipWindow = tooltipWindowRef.current;
+    if (!map || !clusterer) return;
+
+    clusterer.clearMarkers();
+
+    const newMarkers = locations.map((s) => {
+      const m = new google.maps.Marker({
+        position: { lat: s.latitude, lng: s.longitude },
+        title: s.title,
+        icon: iconForSite(s) ?? undefined,
+      });
+
+      m.addListener("mouseover", () => {
+        if (tooltipWindow) {
+          tooltipWindow.setContent(getTooltipContent(s.title));
+          tooltipWindow.open(map, m);
+        }
+      });
+      m.addListener("mouseout", () => {
+        if (tooltipWindow) tooltipWindow.close();
+      });
+
+      m.addListener("click", () => {
+        tooltipWindowRef.current?.close();
+        setActiveId(s.id);
+        setInfoWindowSite(s);
+      });
+
+      return m;
+    });
+
+    clusterer.addMarkers(newMarkers);
+  }, [locations, iconForSite, getTooltipContent]);
+
+  useEffect(() => {
+    if (!clustererRef.current) return;
+    renderMarkers();
+  }, [renderMarkers]);
+
+  if (!apiKey) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-sm text-yellow-900 bg-yellow-100">
+        Google Maps API key missing in settings.
+      </div>
     );
-    return {
-      url: encodeSvg(normalized),
-      scaledSize: new google.maps.Size(iconSize, iconSize),
-      anchor: new google.maps.Point(iconSize / 2, iconSize / 2),
-    };
-  };
+  }
 
-  /* ----- cluster renderer using your selected cluster_color ----- */
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: apiKey,
+    language: "en",
+    region: "US",
+  });
+
+  if (loadError) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-sm text-red-700 bg-red-100">
+        Failed to load Google Maps SDK: {String(loadError.message || loadError)}
+      </div>
+    );
+  }
+  if (!isLoaded) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
+        Loading Google Maps…
+      </div>
+    );
+  }
+
+  /* ----- cluster renderer: match OSM style; Google hover = slight color change (no size change) ----- */
+  const sizeBase = 46;
+
+  function buildClusterIcon(
+    color: string,
+    count: number,
+    isHover: boolean
+  ): google.maps.Icon {
+    const fillColor = isHover ? lightenHex(color, 0.2) : color;
+    const rgb = hexToRgb(fillColor);
+    const outerRgba = rgb
+      ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${isHover ? 0.35 : 0.2})`
+      : isHover
+        ? "rgba(247, 131, 0, 0.35)"
+        : "rgba(247, 131, 0, 0.2)";
+    const cx = sizeBase / 2;
+    const cy = sizeBase / 2;
+    const rOuter = sizeBase / 2 - 2;
+    const ringThickness = 5;
+    const rInner = rOuter - ringThickness;
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${sizeBase}" height="${sizeBase}" viewBox="0 0 ${sizeBase} ${sizeBase}">
+        <circle cx="${cx}" cy="${cy}" r="${rOuter}" fill="${outerRgba}" />
+        <circle cx="${cx}" cy="${cy}" r="${rInner}" fill="${fillColor}" />
+        <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="13" font-family="system-ui, sans-serif" font-weight="600" fill="#ffffff">${count}</text>
+      </svg>`;
+    return {
+      url: encodeSvg(svg),
+      scaledSize: new google.maps.Size(sizeBase, sizeBase),
+      anchor: new google.maps.Point(sizeBase / 2, sizeBase / 2),
+    };
+  }
+
   class ThemedRenderer extends DefaultRenderer {
     private color: string;
     constructor(color: string) {
@@ -493,27 +714,21 @@ function GoogleMapView({
       this.color = color || "#f78300";
     }
     render({ count, position }: any) {
-      const size = 44;
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-          <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="${
-        this.color
-      }" stroke="#ffffff" stroke-width="2" />
-          <text x="50%" y="55%" text-anchor="middle" font-size="14" font-family="system-ui, sans-serif" fill="#ffffff">${count}</text>
-        </svg>`;
-      return new google.maps.Marker({
+      const clusterColor = this.color;
+      const normalIcon = buildClusterIcon(clusterColor, count, false);
+      const hoverIcon = buildClusterIcon(clusterColor, count, true);
+      const marker = new google.maps.Marker({
         position,
-        icon: {
-          url: encodeSvg(svg),
-          scaledSize: new google.maps.Size(size, size),
-          anchor: new google.maps.Point(size / 2, size / 2),
-        },
+        icon: normalIcon,
         zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
       });
+      marker.addListener("mouseover", () => marker.setIcon(hoverIcon));
+      marker.addListener("mouseout", () => marker.setIcon(normalIcon));
+      return marker;
     }
   }
 
-  /* ----- **NEW** CSS to make InfoWindow transparent ----- */
+  /* ----- **NEW** CSS to make InfoWindow transparent; hide close button for hover tooltip ----- */
   const GoogleInfoWindowStyles = () => (
     <style>{`
       /* Make the main InfoWindow bubble transparent and remove its styling */
@@ -528,9 +743,43 @@ function GoogleMapView({
         overflow: visible !important;
         background: transparent !important;
       }
-      /* Hide the little pointer arrow */
-      .gm-style .gm-style-iw-tc::after {
+      /* Hide the InfoWindow pointer/tail (removes the strange line) - only pseudo-elements, not containers */
+      .gm-style .gm-style-iw-tc::after,
+      .gm-style .gm-style-iw-tc::before,
+      .gm-style .gm-style-iw-t::after,
+      .gm-style .gm-style-iw-t::before {
         display: none !important;
+        visibility: hidden !important;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      /* Remove stray borders; keep tip containers so tooltip content still shows */
+      .gm-style .gm-style-iw-c,
+      .gm-style .gm-style-iw-d {
+        border: none !important;
+        outline: none !important;
+      }
+      /* Hide close button (X) when content is our hover tooltip */
+      .gm-style .gm-style-iw-c:has(.gm-custom-tooltip) .gm-style-iw-tc,
+      .gm-style .gm-style-iw-c:has(.gm-custom-tooltip) button[aria-label="Close"],
+      .gm-style .gm-style-iw-c:has(.gm-custom-tooltip) .gm-style-iw-tb {
+        display: none !important;
+      }
+      /* Custom pointer (triangle) for hover tooltip – points down to the pin */
+      .gm-custom-tooltip-pointer {
+        position: absolute !important;
+        left: 50% !important;
+        bottom: 0 !important;
+        transform: translate(-50%, 0) !important;
+        width: 0 !important;
+        height: 0 !important;
+        border-style: solid !important;
+        border-left-color: transparent !important;
+        border-right-color: transparent !important;
+        border-bottom: none !important;
+        /* border-top-color set inline to match tooltip background */
+        filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)) !important;
       }
 
       /* Animation keyframes */
@@ -561,15 +810,28 @@ function GoogleMapView({
       options={{ streetViewControl: false, fullscreenControl: false }}
       onLoad={(map) => {
         mapRef.current = map;
+        tooltipWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });
 
         const markers = locations.map((s) => {
           const m = new google.maps.Marker({
             position: { lat: s.latitude, lng: s.longitude },
             title: s.title,
-            icon: iconForSite(s),
+            icon: iconForSite(s) ?? undefined,
+          });
+
+          m.addListener("mouseover", () => {
+            const tw = tooltipWindowRef.current;
+            if (tw) {
+              tw.setContent(getTooltipContent(s.title));
+              tw.open(map, m);
+            }
+          });
+          m.addListener("mouseout", () => {
+            tooltipWindowRef.current?.close();
           });
 
           m.addListener("click", () => {
+            tooltipWindowRef.current?.close();
             setActiveId(s.id);
             setInfoWindowSite(s);
           });
@@ -577,15 +839,17 @@ function GoogleMapView({
           return m;
         });
 
-        new MarkerClusterer({
+        const clusterer = new MarkerClusterer({
           markers,
           map,
-          renderer: new ThemedRenderer(settings.cluster_color || "#f78300"),
+          renderer: new ThemedRenderer(settings.cluster_color_google || settings.cluster_color || "#f78300"),
         });
+        clustererRef.current = clusterer;
       }}
       onClick={() => setActiveId(null)}
       onUnmount={() => {
         mapRef.current = null;
+        clustererRef.current = null;
       }}
     >
       <GoogleInfoWindowStyles />
@@ -596,13 +860,18 @@ function GoogleMapView({
             lat: infoWindowSite.latitude,
             lng: infoWindowSite.longitude,
           }}
-          onCloseClick={() => setActiveId(null)}
+          onCloseClick={() => {
+            if (highlightSiteId && activeId === highlightSiteId) onHighlightConsumed?.();
+            setActiveId(null);
+            setInfoWindowSite(null);
+          }}
           options={{ disableAutoPan: true }}
         >
           <div
             className={`info-window-content ${
               activeId === infoWindowSite.id ? "fade-in" : "fade-out"
-            }`}
+            } rounded-xl overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)]`}
+            style={{ minWidth: 340, maxWidth: 360, width: "100%" }}
           >
             <SitePreviewCard site={infoWindowSite} />
           </div>

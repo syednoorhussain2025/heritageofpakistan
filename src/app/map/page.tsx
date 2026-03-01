@@ -10,7 +10,7 @@ import SearchFilters, { Filters } from "@/components/SearchFilters";
 import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite } from "@/components/ClientOnlyMap";
 import { useBookmarks } from "@/components/BookmarkProvider";
-import { getWishlists } from "@/lib/wishlists";
+import { getWishlists, getWishlistItems } from "@/lib/wishlists";
 import { listTripsByUsername, getTripWithItems } from "@/lib/trips";
 import Link from "next/link";
 
@@ -37,8 +37,6 @@ const mapTools: Tool[] = [
   { id: "wishlist", name: "Wishlist", icon: "list-ul" },
   { id: "trips", name: "My Trips", icon: "route" },
 ];
-
-const searchToolOnly: Tool[] = [mapTools[0]];
 
 type SidebarFilter =
   | null
@@ -115,6 +113,13 @@ export default function MapPage() {
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips">("search");
+  const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
+  const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
+  const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
+  const [wishlistItemsLoading, setWishlistItemsLoading] = useState(false);
+  const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
+  const [tripItems, setTripItems] = useState<{ site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
+  const [tripItemsLoading, setTripItemsLoading] = useState(false);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -163,6 +168,38 @@ export default function MapPage() {
     })();
     return () => { cancelled = true; };
   }, [isSignedIn]);
+
+  useEffect(() => {
+    if (!expandedWishlistId || !isSignedIn) {
+      setWishlistItems([]);
+      return;
+    }
+    let cancelled = false;
+    setWishlistItemsLoading(true);
+    getWishlistItems(expandedWishlistId)
+      .then((data) => {
+        if (!cancelled) setWishlistItems((data ?? []) as { site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]);
+      })
+      .catch(() => { if (!cancelled) setWishlistItems([]); })
+      .finally(() => { if (!cancelled) setWishlistItemsLoading(false); });
+    return () => { cancelled = true; };
+  }, [expandedWishlistId, isSignedIn]);
+
+  useEffect(() => {
+    if (!expandedTripId || !isSignedIn) {
+      setTripItems([]);
+      return;
+    }
+    let cancelled = false;
+    setTripItemsLoading(true);
+    getTripWithItems(expandedTripId)
+      .then(({ items }) => {
+        if (!cancelled) setTripItems((items ?? []) as { site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]);
+      })
+      .catch(() => { if (!cancelled) setTripItems([]); })
+      .finally(() => { if (!cancelled) setTripItemsLoading(false); });
+    return () => { cancelled = true; };
+  }, [expandedTripId, isSignedIn]);
 
   /* ───────── Initial load: settings, icons, locations + province slugs ───────── */
   useEffect(() => {
@@ -337,9 +374,24 @@ export default function MapPage() {
     setTripSiteIds([]);
   }, []);
 
+  const signInRedirectUrl = "/auth/sign-in?redirectTo=" + encodeURIComponent("/map");
+
   const renderToolPanel = useCallback(
     (toolId: string, onClose: () => void) => {
       if (toolId === "bookmarks") {
+        if (isSignedIn === false) {
+          return (
+            <div className="p-4 flex flex-col items-center justify-center min-h-[200px] text-center bg-gray-50/80 rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600 mb-4">Sign in to View Bookmarks</p>
+              <Link
+                href={signInRedirectUrl}
+                className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90"
+              >
+                Sign in
+              </Link>
+            </div>
+          );
+        }
         const bookmarkedSites = allLocations.filter((s) => bookmarkedIds.has(s.id));
         return (
           <div className="p-4 space-y-3">
@@ -359,12 +411,36 @@ export default function MapPage() {
                 No bookmarks yet. Add sites from the heart icon on a site.
               </p>
             ) : (
-              <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
+              <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                 {bookmarkedSites.map((s) => (
-                  <li key={s.id}>
-                    <Link href={`/heritage/${(s as any).province_slug ?? "pakistan"}/${s.slug}`} className="text-sm text-[var(--brand-blue)] hover:underline truncate block">
-                      {s.title}
-                    </Link>
+                  <li key={s.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
+                    <button
+                      type="button"
+                      onClick={() => { setHighlightSiteId(s.id); onClose(); }}
+                      className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                    >
+                      <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                        {(s as any).cover_photo_url ? (
+                          <img
+                            src={(s as any).cover_photo_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                            <Icon name="map-pin" size={18} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{s.title}</span>
+                    </button>
+                    <a
+                      href={`/heritage/${(s as any).province_slug ?? "pakistan"}/${s.slug}`}
+                      className="text-xs text-gray-500 hover:text-[var(--brand-orange)] shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -373,8 +449,9 @@ export default function MapPage() {
               <button
                 type="button"
                 onClick={() => { setSidebarFilter("bookmarks"); onClose(); }}
-                className="w-full py-2 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold"
+                className="flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold"
               >
+                <Icon name="map-pin" size={16} />
                 Show on map
               </button>
             )}
@@ -382,74 +459,248 @@ export default function MapPage() {
         );
       }
       if (toolId === "wishlist") {
-        return (
-          <div className="p-4 space-y-3">
-            {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
-              <button
-                type="button"
-                onClick={() => { clearSidebarFilter(); onClose(); }}
-                className="text-sm text-[var(--brand-orange)] font-medium"
+        if (isSignedIn === false) {
+          return (
+            <div className="p-4 flex flex-col items-center justify-center min-h-[200px] text-center bg-gray-50/80 rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600 mb-4">Sign in to View Wishlists</p>
+              <Link
+                href={signInRedirectUrl}
+                className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90"
               >
-                Clear · Show all on map
-              </button>
-            )}
-            {wishlistsLoading ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : wishlists.length === 0 ? (
-              <p className="text-sm text-gray-500">No wishlists yet.</p>
+                Sign in
+              </Link>
+            </div>
+          );
+        }
+        const expandedWishlist = expandedWishlistId ? wishlists.find((w) => w.id === expandedWishlistId) : null;
+        return (
+          <div className="p-4 space-y-3 flex flex-col min-h-0">
+            {expandedWishlistId ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExpandedWishlistId(null)}
+                  className="flex items-center gap-2 text-sm text-[var(--brand-blue)] font-medium self-start"
+                >
+                  <Icon name="arrow-left" size={14} />
+                  Back to wishlists
+                </button>
+                {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && sidebarFilter.wishlistId === expandedWishlistId && (
+                  <button
+                    type="button"
+                    onClick={() => { clearSidebarFilter(); onClose(); }}
+                    className="text-sm text-[var(--brand-orange)] font-medium"
+                  >
+                    Clear · Show all on map
+                  </button>
+                )}
+                <h3 className="font-semibold text-[var(--brand-blue)] truncate">{expandedWishlist?.name ?? "Wishlist"}</h3>
+                {wishlistItemsLoading ? (
+                  <p className="text-sm text-gray-500">Loading…</p>
+                ) : wishlistItems.length === 0 ? (
+                  <p className="text-sm text-gray-500">No sites in this wishlist.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 flex-1 min-h-0">
+                    {wishlistItems.map((item) => {
+                      const site = item.sites;
+                      const title = site?.title ?? "Site";
+                      const cover = site?.cover_photo_url ?? null;
+                      return (
+                        <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
+                          <button
+                            type="button"
+                            onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
+                            className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                          >
+                            <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                              {cover ? (
+                                <img src={cover} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                  <Icon name="map-pin" size={18} />
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { applyWishlistFilter(expandedWishlistId); onClose(); }}
+                            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] px-2 py-1.5 text-white text-xs font-medium"
+                          >
+                            <Icon name="map-pin" size={12} />
+                            Show on map
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
             ) : (
-              <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
-                {wishlists.map((w) => (
-                  <li key={w.id} className="flex items-center justify-between gap-2">
-                    <span className="text-sm truncate">{w.name}</span>
-                    <span className="text-xs text-gray-500 shrink-0">
-                      {(w.wishlist_items?.[0] as { count?: number })?.count ?? 0} sites
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => { applyWishlistFilter(w.id); onClose(); }}
-                      className="py-1 px-2 rounded-lg bg-[var(--brand-orange)] text-white text-xs font-medium"
-                    >
-                      Show on map
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
+                  <button
+                    type="button"
+                    onClick={() => { clearSidebarFilter(); onClose(); }}
+                    className="text-sm text-[var(--brand-orange)] font-medium"
+                  >
+                    Clear · Show all on map
+                  </button>
+                )}
+                {wishlistsLoading ? (
+                  <p className="text-sm text-gray-500">Loading…</p>
+                ) : wishlists.length === 0 ? (
+                  <p className="text-sm text-gray-500">No wishlists yet.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                    {wishlists.map((w) => (
+                      <li key={w.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedWishlistId(w.id)}
+                          className="flex flex-1 min-w-0 items-center justify-between gap-2 text-left"
+                        >
+                          <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{w.name}</span>
+                          <span className="text-xs text-gray-500 shrink-0">
+                            {(w.wishlist_items?.[0] as { count?: number })?.count ?? 0} sites
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { applyWishlistFilter(w.id); onClose(); }}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
+                        >
+                          <Icon name="map-pin" size={12} />
+                          Show on map
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         );
       }
       if (toolId === "trips") {
-        return (
-          <div className="p-4 space-y-3">
-            {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-              <button
-                type="button"
-                onClick={() => { clearSidebarFilter(); onClose(); }}
-                className="text-sm text-[var(--brand-orange)] font-medium"
+        if (isSignedIn === false) {
+          return (
+            <div className="p-4 flex flex-col items-center justify-center min-h-[200px] text-center bg-gray-50/80 rounded-xl border border-gray-200">
+              <p className="text-sm text-gray-600 mb-4">Sign in to View Trips</p>
+              <Link
+                href={signInRedirectUrl}
+                className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90"
               >
-                Clear · Show all on map
-              </button>
-            )}
-            {tripsLoading ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : trips.length === 0 ? (
-              <p className="text-sm text-gray-500">No trips yet.</p>
+                Sign in
+              </Link>
+            </div>
+          );
+        }
+        const expandedTrip = expandedTripId ? trips.find((t) => t.id === expandedTripId) : null;
+        return (
+          <div className="p-4 space-y-3 flex flex-col min-h-0">
+            {expandedTripId ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExpandedTripId(null)}
+                  className="flex items-center gap-2 text-sm text-[var(--brand-blue)] font-medium self-start"
+                >
+                  <Icon name="arrow-left" size={14} />
+                  Back to trips
+                </button>
+                {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === expandedTripId && (
+                  <button
+                    type="button"
+                    onClick={() => { clearSidebarFilter(); onClose(); }}
+                    className="text-sm text-[var(--brand-orange)] font-medium"
+                  >
+                    Clear · Show all on map
+                  </button>
+                )}
+                <h3 className="font-semibold text-[var(--brand-blue)] truncate">{expandedTrip?.name ?? "Trip"}</h3>
+                {tripItemsLoading ? (
+                  <p className="text-sm text-gray-500">Loading…</p>
+                ) : tripItems.length === 0 ? (
+                  <p className="text-sm text-gray-500">No sites in this trip.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 flex-1 min-h-0">
+                    {tripItems.map((item) => {
+                      const site = item.site;
+                      const title = site?.title ?? "Site";
+                      const cover = site?.cover_photo_url ?? null;
+                      return (
+                        <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
+                          <button
+                            type="button"
+                            onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
+                            className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                          >
+                            <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                              {cover ? (
+                                <img src={cover} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                  <Icon name="map-pin" size={18} />
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { applyTripFilter(expandedTripId); onClose(); }}
+                            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] px-2 py-1.5 text-white text-xs font-medium"
+                          >
+                            <Icon name="map-pin" size={12} />
+                            Show on map
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
             ) : (
-              <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
-                {trips.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between gap-2">
-                    <span className="text-sm truncate">{t.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => { applyTripFilter(t.id); onClose(); }}
-                      className="py-1 px-2 rounded-lg bg-[var(--brand-orange)] text-white text-xs font-medium"
-                    >
-                      Show on map
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
+                  <button
+                    type="button"
+                    onClick={() => { clearSidebarFilter(); onClose(); }}
+                    className="text-sm text-[var(--brand-orange)] font-medium"
+                  >
+                    Clear · Show all on map
+                  </button>
+                )}
+                {tripsLoading ? (
+                  <p className="text-sm text-gray-500">Loading…</p>
+                ) : trips.length === 0 ? (
+                  <p className="text-sm text-gray-500">No trips yet.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                    {trips.map((t) => (
+                      <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTripId(t.id)}
+                          className="flex flex-1 min-w-0 text-left"
+                        >
+                          <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { applyTripFilter(t.id); onClose(); }}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
+                        >
+                          <Icon name="map-pin" size={12} />
+                          Show on map
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         );
@@ -457,6 +708,8 @@ export default function MapPage() {
       return null;
     },
     [
+      isSignedIn,
+      signInRedirectUrl,
       allLocations,
       bookmarkedIds,
       bookmarksLoaded,
@@ -466,6 +719,12 @@ export default function MapPage() {
       wishlistsLoading,
       trips,
       tripsLoading,
+      expandedWishlistId,
+      wishlistItems,
+      wishlistItemsLoading,
+      expandedTripId,
+      tripItems,
+      tripItemsLoading,
       applyWishlistFilter,
       applyTripFilter,
     ]
@@ -490,7 +749,7 @@ export default function MapPage() {
     []
   );
 
-  const tools: Tool[] = isSignedIn ? mapTools : searchToolOnly;
+  const tools: Tool[] = mapTools; // always show Bookmarks, Wishlist, Trips (signed-out users see sign-in prompt)
 
   const mobilePanelContent = mobilePanelTab === "search" ? (
     <SearchFilters
@@ -507,20 +766,11 @@ export default function MapPage() {
   );
 
   return (
-    <div className="w-full h-[calc(100dvh-var(--sticky-offset,56px))] lg:h-[calc(100vh-88px)] flex relative">
+    <div className="w-full h-[calc(100dvh-var(--sticky-offset,56px))] lg:h-[calc(100vh-88px)] relative">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
-      <aside className="hidden lg:flex flex-shrink-0 h-full">
-        <CollapsibleSidebar
-          tools={tools}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onSearch={() => {}}
-          renderToolPanel={renderToolPanel}
-        />
-      </aside>
-
-      <div className="flex-grow h-full relative pt-14 lg:pt-0">
+      {/* Map: full size, fixed; sidebar overlays on top */}
+      <div className="absolute inset-0 pt-14 lg:pt-0">
         {loading && (
           <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-full shadow-lg">
             <Icon
@@ -535,8 +785,41 @@ export default function MapPage() {
           locations={filteredLocations as ClientMapSite[]}
           settings={mapSettings}
           icons={allIcons}
+          highlightSiteId={highlightSiteId}
+          onHighlightConsumed={() => setHighlightSiteId(null)}
         />
+        {(() => {
+          const label =
+            sidebarFilter === "bookmarks"
+              ? "Bookmarks"
+              : typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter
+                ? wishlists.find((w) => w.id === sidebarFilter.wishlistId)?.name ?? "Wishlist"
+                : typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
+                  ? trips.find((t) => t.id === sidebarFilter.tripId)?.name ?? "Trip"
+                  : null;
+          if (!label) return null;
+          return (
+            <div
+              className="absolute right-2 top-2 z-[1000] rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-3 py-2"
+              aria-label="Active filter"
+            >
+              <span className="text-[11px] uppercase tracking-wider text-gray-500">Viewing</span>
+              <div className="text-sm font-semibold text-gray-800 truncate max-w-[200px]">{label}</div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* Desktop: sidebar overlays the map (does not push it) */}
+      <aside className="hidden lg:block absolute left-0 top-0 bottom-0 z-[1000]">
+        <CollapsibleSidebar
+          tools={tools}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onSearch={() => {}}
+          renderToolPanel={renderToolPanel}
+        />
+      </aside>
 
       {mounted &&
         createPortal(
@@ -608,35 +891,35 @@ export default function MapPage() {
                           : "My Trips"}
                   </span>
                 </div>
-                {isSignedIn && (
-                  <div className="flex border-t border-gray-100">
-                    {(["search", "bookmarks", "wishlist", "trips"] as const).map(
-                      (tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          onClick={() => setMobilePanelTab(tab)}
-                          className={`flex-1 py-2.5 text-xs font-medium ${
-                            mobilePanelTab === tab
-                              ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {tab === "search"
-                            ? "Search"
-                            : tab === "bookmarks"
-                              ? "Bookmarks"
-                              : tab === "wishlist"
-                                ? "Wishlist"
-                                : "Trips"}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
+                <div className="flex border-t border-gray-100">
+                  {(["search", "bookmarks", "wishlist", "trips"] as const).map(
+                    (tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setMobilePanelTab(tab)}
+                        className={`flex-1 py-2.5 text-xs font-medium ${
+                          mobilePanelTab === tab
+                            ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
+                            : "text-[var(--brand-grey)]"
+                        }`}
+                      >
+                        {tab === "search"
+                          ? "Search"
+                          : tab === "bookmarks"
+                            ? "Bookmarks"
+                            : tab === "wishlist"
+                              ? "Wishlist"
+                              : "Trips"}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4">
-                {mobilePanelContent}
+                <div className="min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden">
+                  {mobilePanelContent}
+                </div>
               </div>
             </div>
           </div>,

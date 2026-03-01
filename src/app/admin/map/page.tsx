@@ -31,6 +31,7 @@ type AdminMapSettings = {
   pin_border_color: string;
 
   cluster_color: string;
+  cluster_color_google: string;
   cluster_max_radius: number;
   disable_clustering_at_zoom: number;
 
@@ -125,6 +126,7 @@ export default function AdminMapSettingsPage() {
     pin_border_color: "#ffffff",
 
     cluster_color: "#f78300",
+    cluster_color_google: "#f78300",
     cluster_max_radius: 80,
     disable_clustering_at_zoom: 10,
 
@@ -757,13 +759,26 @@ export default function AdminMapSettingsPage() {
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-slate-700">
-                        Cluster Color
+                        Open Maps Cluster Color
                       </label>
                       <input
                         type="color"
                         value={settings.cluster_color}
                         onChange={(e) =>
                           onChange("cluster_color", e.target.value)
+                        }
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-1 text-slate-700">
+                        Google Maps Cluster Color
+                      </label>
+                      <input
+                        type="color"
+                        value={settings.cluster_color_google}
+                        onChange={(e) =>
+                          onChange("cluster_color_google", e.target.value)
                         }
                         className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
                       />

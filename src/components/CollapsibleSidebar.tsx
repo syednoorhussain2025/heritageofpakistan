@@ -138,16 +138,20 @@ export default function CollapsibleSidebar({
                 ${
                   activeTool === tool.id && isOpen
                     ? "text-white"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-[var(--brand-orange)]"
+                    : "text-[var(--brand-grey)] hover:bg-gray-100 hover:text-[var(--brand-orange)]"
                 }
             `}
           >
-            <div
-              className={`w-16 h-12 flex-shrink-0 flex items-center justify-center rounded-lg transition-colors ${
-                activeTool === tool.id && isOpen ? "bg-[var(--brand-blue)]" : ""
-              }`}
-            >
-              <Icon name={tool.icon} size={20} />
+            <div className="w-16 h-12 flex-shrink-0 flex items-center justify-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                  activeTool === tool.id && isOpen
+                    ? "bg-[var(--brand-blue)]"
+                    : "bg-gray-100"
+                }`}
+              >
+                <Icon name={tool.icon} size={20} />
+              </div>
             </div>
             <span className="font-sidebar-menu whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               {tool.name}
