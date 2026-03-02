@@ -813,11 +813,11 @@ export default function MapPage() {
   );
 
   return (
-    <div className="w-full h-[calc(100dvh-var(--sticky-offset,56px))] lg:h-[calc(100vh-88px)] relative">
+    <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
-      {/* Map: full size, fixed; sidebar overlays on top */}
-      <div className="absolute inset-0 pt-14 lg:pt-0">
+      {/* Map: full size from top; header overlays transparently */}
+      <div className="absolute inset-0">
         {loading && !loadError && (
           <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-full shadow-lg">
             <Icon
@@ -860,37 +860,38 @@ export default function MapPage() {
             [
               {
                 type: "osm" as const,
-                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/Light.JPG",
-                label: "OpenStreetMap",
+                iconKey: "climate-geography-environment",
+                label: "Light",
               },
               {
                 type: "google" as const,
-                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/googlemap.JPG",
-                label: "Google Maps",
+                iconKey: "map",
+                label: "Map",
               },
               {
                 type: "google_satellite" as const,
-                src: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/Map/terrain.JPG",
-                label: "Google Satellite",
+                iconKey: "mountain",
+                label: "Terrain",
               },
             ] as const
-          ).map(({ type, src, label }) => (
+          ).map(({ type, iconKey, label }) => (
             <button
               key={type}
               type="button"
               onClick={() => setMapType(type)}
               aria-label={label}
               aria-pressed={mapType === type}
-              className={`flex-shrink-0 w-11 h-11 rounded-full border-2 overflow-hidden bg-white shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--brand-orange)] ${
+              title={label}
+              className={`flex-shrink-0 w-11 h-11 rounded-full border-2 overflow-hidden bg-white shadow-md transition-all flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--brand-orange)] hover:bg-gray-50 ${
                 mapType === type
                   ? "border-[var(--brand-orange)] ring-2 ring-[var(--brand-orange)]/30"
                   : "border-gray-300 hover:border-gray-400"
               }`}
             >
-              <img
-                src={src}
-                alt=""
-                className="w-full h-full object-cover"
+              <Icon
+                name={iconKey}
+                size={22}
+                className={mapType === type ? "text-[var(--brand-orange)]" : "text-gray-600"}
               />
             </button>
           ))}

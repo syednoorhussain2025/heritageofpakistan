@@ -197,6 +197,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const allowTransparent =
     pathname === "/" ||
+    pathname === "/map" ||
     heritageDetailRe.test(pathname || "") ||
     pathname === "/auth/sign-in" ||
     pathname === "/auth/sign-up";
@@ -278,6 +279,8 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     }
 
     const computeThreshold = () => {
+      // Map page: keep header transparent (no scroll-to-solid)
+      if (pathname === "/map") return Infinity;
       const marker =
         document.getElementById("white-header-trigger") ||
         document.getElementById("header-threshold");
@@ -312,7 +315,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       window.removeEventListener("resize", onResize);
       if (ro && headerRef.current) ro.disconnect();
     };
-  }, [allowTransparent]);
+  }, [allowTransparent, pathname]);
 
   // Allow other components (e.g. mobile explore header) to open the mobile menu
   useEffect(() => {
@@ -907,7 +910,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             </span>
           </Link>
 
-          {/* Search pill */}
+          {/* Search pill (hidden on map page; spacer keeps nav position) */}
+          {pathname === "/map" ? (
+          <div className="flex-1 max-w-2xl ml-2" aria-hidden="true" />
+          ) : (
           <div className="relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out cursor-text"
@@ -1074,6 +1080,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </div>
             )}
           </div>
+          )}
 
           {/* Right side */}
           <div className="flex items-center gap-3" data-header-user>

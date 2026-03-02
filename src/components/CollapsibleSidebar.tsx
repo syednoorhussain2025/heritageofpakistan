@@ -127,7 +127,7 @@ export default function CollapsibleSidebar({
         group
     `}
     >
-      <div className="w-full h-full flex flex-col items-center py-4 space-y-2">
+      <div className="w-full h-full flex flex-col items-center pt-14 pb-4 space-y-2">
         {tools.map((tool) => (
           <button
             key={tool.id}
