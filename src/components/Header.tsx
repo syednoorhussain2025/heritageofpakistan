@@ -613,9 +613,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const textLight = solid || panelActive || searchOverlayOpen || pathname === "/map";
 
-  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
-    textLight ? "[color:var(--brand-grey)]" : "text-white"
-  }`;
+  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`;
 
   // Stagger helper: returns inline style with animation delay for index i
   const stagger = (i: number, baseMs = 60) => ({
@@ -873,7 +871,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
         {/* Gradient only when transparent and no panel */}
         <div
           aria-hidden="true"
-          className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/12 via-black/5 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
             allowTransparent && !solid && !panelActive && !searchOverlayOpen
               ? "opacity-100"
               : "opacity-0"
@@ -1096,7 +1094,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="home" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
                     Home
                   </span>
                 </Link>
@@ -1146,7 +1144,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="search" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
                     Explore
                   </span>
                 </Link>
@@ -1162,7 +1160,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="map" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
                     Map
                   </span>
                 </Link>
@@ -1187,7 +1185,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="route" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${textLight ? "[color:var(--brand-grey)]" : "text-white"}`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
                     Trip Builder
                   </span>
                 </button>

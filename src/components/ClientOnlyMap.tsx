@@ -1,7 +1,7 @@
 // src/components/ClientOnlyMap.tsx
 "use client";
 
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect, memo } from "react";
 
 /* ------------------------ Leaflet / OSM (original path) ------------------------ */
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
@@ -217,6 +217,20 @@ export default function ClientOnlyMap({
   onSiteSelect?: (site: Site) => void;
   mapType?: MapType;
 }) {
+  // Stabilize callbacks with refs so OSMLeafletView never re-renders just
+  // because the parent passed a new inline arrow function reference.
+  const onSiteSelectRef = useRef(onSiteSelect);
+  useEffect(() => { onSiteSelectRef.current = onSiteSelect; }, [onSiteSelect]);
+  const stableOnSiteSelect = useCallback((site: Site) => {
+    onSiteSelectRef.current?.(site);
+  }, []);
+
+  const onHighlightConsumedRef = useRef(onHighlightConsumed);
+  useEffect(() => { onHighlightConsumedRef.current = onHighlightConsumed; }, [onHighlightConsumed]);
+  const stableOnHighlightConsumed = useCallback(() => {
+    onHighlightConsumedRef.current?.();
+  }, []);
+
   if (!settings || icons.size === 0) {
     return (
       <div className="flex items-center justify-center h-full w-full bg-gray-100">
@@ -247,8 +261,8 @@ export default function ClientOnlyMap({
         settings={settings}
         icons={icons}
         highlightSiteId={highlightSiteId}
-        onHighlightConsumed={onHighlightConsumed}
-        onSiteSelect={onSiteSelect}
+        onHighlightConsumed={stableOnHighlightConsumed}
+        onSiteSelect={stableOnSiteSelect}
         mapTypeId={googleMapTypeId}
       />
     );
@@ -260,8 +274,8 @@ export default function ClientOnlyMap({
       settings={settings}
       icons={icons}
       highlightSiteId={highlightSiteId}
-      onHighlightConsumed={onHighlightConsumed}
-      onSiteSelect={onSiteSelect}
+      onHighlightConsumed={stableOnHighlightConsumed}
+      onSiteSelect={stableOnSiteSelect}
     />
   );
 }
@@ -274,10 +288,12 @@ function OSMHighlightEffect({
   locations,
   highlightSiteId,
   onHighlightConsumed,
+  onSiteSelect,
 }: {
   locations: Site[];
   highlightSiteId: string | null;
   onHighlightConsumed?: () => void;
+  onSiteSelect?: (site: Site) => void;
 }) {
   const map = useMap();
   const site = highlightSiteId
@@ -297,12 +313,15 @@ function OSMHighlightEffect({
         remove: () => onHighlightConsumed?.(),
       }}
     >
-      <SitePreviewCard site={site} />
+      <SitePreviewCard
+        site={site}
+        onCardClick={onSiteSelect ? () => onSiteSelect(site) : undefined}
+      />
     </Popup>
   );
 }
 
-function OSMLeafletView({
+const OSMLeafletView = memo(function OSMLeafletView({
   locations,
   settings,
   icons,
@@ -394,6 +413,11 @@ function OSMLeafletView({
     return cache;
   }, [settings, locations, createCustomIcon, icons]);
 
+  // Keep popup open after clicking a card. When the card click triggers a
+  // state update in the parent, the Leaflet popup closes. We detect this via
+  // the marker's popupclose event and reopen the popup immediately.
+  const pendingPopupId = useRef<string | null>(null);
+
   return (
     <div className="relative w-full h-full">
       {settings.cluster_color && (
@@ -424,6 +448,7 @@ function OSMLeafletView({
           locations={locations}
           highlightSiteId={highlightSiteId ?? null}
           onHighlightConsumed={onHighlightConsumed}
+          onSiteSelect={onSiteSelect}
         />
         <MarkerClusterGroup
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
@@ -445,6 +470,14 @@ function OSMLeafletView({
                 key={site.id}
                 position={[site.latitude, site.longitude]}
                 icon={iconData.icon}
+                eventHandlers={{
+                  popupclose: (e) => {
+                    if (pendingPopupId.current === site.id) {
+                      pendingPopupId.current = null;
+                      setTimeout(() => (e.target as L.Marker).openPopup(), 0);
+                    }
+                  },
+                }}
               >
                 <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
                   {site.title}
@@ -452,7 +485,10 @@ function OSMLeafletView({
                 <Popup>
                   <SitePreviewCard
                     site={site}
-                    onCardClick={onSiteSelect ? () => onSiteSelect(site) : undefined}
+                    onCardClick={onSiteSelect ? () => {
+                      pendingPopupId.current = site.id;
+                      onSiteSelect(site);
+                    } : undefined}
                   />
                 </Popup>
               </Marker>
@@ -462,7 +498,7 @@ function OSMLeafletView({
       </MapContainer>
     </div>
   );
-}
+});
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * Google Maps view — Transparent InfoWindow
@@ -919,10 +955,7 @@ function GoogleMapView({
           >
             <SitePreviewCard
               site={infoWindowSite}
-              onCardClick={onSiteSelect ? () => {
-                onSiteSelect(infoWindowSite);
-                setActiveId(null); // triggers the 300ms timer that closes the InfoWindow
-              } : undefined}
+              onCardClick={onSiteSelect ? () => onSiteSelect(infoWindowSite) : undefined}
             />
           </div>
         </InfoWindow>

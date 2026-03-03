@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { getWishlists, getWishlistItems } from "@/lib/wishlists";
-import { listTripsByUsername, getTripWithItems } from "@/lib/trips";
+import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -120,6 +120,8 @@ export default function MapPage() {
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
   const [tripItems, setTripItems] = useState<{ site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
   const [tripItemsLoading, setTripItemsLoading] = useState(false);
+  const [tripTimeline, setTripTimeline] = useState<TimelineItem[]>([]);
+  const [tripTimelineLoading, setTripTimelineLoading] = useState(false);
   const [mapType, setMapType] = useState<MapType>("osm");
   const mapTypeInitializedRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
@@ -203,16 +205,22 @@ export default function MapPage() {
   useEffect(() => {
     if (!expandedTripId || !isSignedIn) {
       setTripItems([]);
+      setTripTimeline([]);
       return;
     }
     let cancelled = false;
     setTripItemsLoading(true);
+    setTripTimelineLoading(true);
     getTripWithItems(expandedTripId)
       .then(({ items }) => {
         if (!cancelled) setTripItems((items ?? []) as { site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]);
       })
       .catch(() => { if (!cancelled) setTripItems([]); })
       .finally(() => { if (!cancelled) setTripItemsLoading(false); });
+    getTripTimeline(expandedTripId)
+      .then((timeline) => { if (!cancelled) setTripTimeline(timeline ?? []); })
+      .catch(() => { if (!cancelled) setTripTimeline([]); })
+      .finally(() => { if (!cancelled) setTripTimelineLoading(false); });
     return () => { cancelled = true; };
   }, [expandedTripId, isSignedIn]);
 
@@ -580,13 +588,6 @@ export default function MapPage() {
                       </span>
                       <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{s.title}</span>
                     </button>
-                    <a
-                      href={`/heritage/${(s as any).province_slug ?? "pakistan"}/${s.slug}`}
-                      className="text-xs text-gray-500 hover:text-[var(--brand-orange)] shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View
-                    </a>
                   </li>
                 ))}
               </ul>
@@ -669,14 +670,6 @@ export default function MapPage() {
                             </span>
                             <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => { applyWishlistFilter(expandedWishlistId); onClose(); }}
-                            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] px-2 py-1.5 text-white text-xs font-medium"
-                          >
-                            <Icon name="map-pin" size={12} />
-                            Show on map
-                          </button>
                         </li>
                       );
                     })}
@@ -704,7 +697,7 @@ export default function MapPage() {
                       <li key={w.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
                         <button
                           type="button"
-                          onClick={() => setExpandedWishlistId(w.id)}
+                          onClick={() => { setExpandedWishlistId(w.id); applyWishlistFilter(w.id); }}
                           className="flex flex-1 min-w-0 items-center justify-between gap-2 text-left"
                         >
                           <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{w.name}</span>
@@ -766,45 +759,83 @@ export default function MapPage() {
                   </button>
                 )}
                 <h3 className="font-semibold text-[var(--brand-blue)] truncate">{expandedTrip?.name ?? "Trip"}</h3>
-                {tripItemsLoading ? (
+                {tripItemsLoading || tripTimelineLoading ? (
                   <p className="text-sm text-gray-500">Loading…</p>
-                ) : tripItems.length === 0 ? (
+                ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
                   <p className="text-sm text-gray-500">No sites in this trip.</p>
                 ) : (
                   <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 flex-1 min-h-0">
-                    {tripItems.map((item) => {
-                      const site = item.site;
-                      const title = site?.title ?? "Site";
-                      const cover = site?.cover_photo_url ?? null;
-                      return (
-                        <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
-                          <button
-                            type="button"
-                            onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
-                            className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                          >
-                            <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
-                              {cover ? (
-                                <img src={cover} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                  <Icon name="map-pin" size={18} />
+                    {tripTimeline.length > 0
+                      ? tripTimeline.map((entry) => {
+                          if (entry.kind === "day") {
+                            const day = entry as TimelineItem & { kind: "day"; title?: string | null; the_date?: string | null };
+                            const dateStr = day.the_date
+                              ? new Date(day.the_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+                              : null;
+                            return (
+                              <li key={`day-${entry.id}`} className="pt-2 pb-1 border-b border-gray-200">
+                                <div className="flex items-center gap-2">
+                                  <Icon name="calendar-check" size={14} className="text-[var(--brand-orange)] shrink-0" />
+                                  <span className="text-sm font-semibold text-gray-800">{day.title ?? "Day"}</span>
+                                  {dateStr && <span className="text-xs text-gray-500">{dateStr}</span>}
+                                </div>
+                              </li>
+                            );
+                          }
+                          if (entry.kind === "site") {
+                            const siteItem = entry as TimelineItem & { kind: "site"; site_id: string };
+                            const item = tripItems.find((i) => i.site_id === siteItem.site_id);
+                            const site = item?.site;
+                            const title = site?.title ?? "Site";
+                            const cover = site?.cover_photo_url ?? null;
+                            return (
+                              <li key={`site-${siteItem.site_id}-${siteItem.id}`} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow ml-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { setHighlightSiteId(siteItem.site_id); onClose(); }}
+                                  className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                                >
+                                  <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                                    {cover ? (
+                                      <img src={cover} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                      <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                        <Icon name="map-pin" size={18} />
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
+                                </button>
+                              </li>
+                            );
+                          }
+                          return null;
+                        })
+                      : tripItems.map((item) => {
+                          const site = item.site;
+                          const title = site?.title ?? "Site";
+                          const cover = site?.cover_photo_url ?? null;
+                          return (
+                            <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
+                              <button
+                                type="button"
+                                onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
+                                className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                              >
+                                <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                                  {cover ? (
+                                    <img src={cover} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                      <Icon name="map-pin" size={18} />
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </span>
-                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { applyTripFilter(expandedTripId); onClose(); }}
-                            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] px-2 py-1.5 text-white text-xs font-medium"
-                          >
-                            <Icon name="map-pin" size={12} />
-                            Show on map
-                          </button>
-                        </li>
-                      );
-                    })}
+                                <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
                   </ul>
                 )}
               </>
@@ -829,7 +860,7 @@ export default function MapPage() {
                       <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
                         <button
                           type="button"
-                          onClick={() => setExpandedTripId(t.id)}
+                          onClick={() => { setExpandedTripId(t.id); applyTripFilter(t.id); }}
                           className="flex flex-1 min-w-0 text-left"
                         >
                           <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
@@ -872,6 +903,8 @@ export default function MapPage() {
       expandedTripId,
       tripItems,
       tripItemsLoading,
+      tripTimeline,
+      tripTimelineLoading,
       applyWishlistFilter,
       applyTripFilter,
     ]

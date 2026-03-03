@@ -322,7 +322,7 @@ export default function SitePreviewCard({
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
         onTouchStart={prefetchDetail}
-        onClick={onCardClick ? (e) => { e.preventDefault(); onCardClick(); } : undefined}
+        onClick={onCardClick ? (e) => { e.preventDefault(); e.stopPropagation(); onCardClick(); } : undefined}
       >
         <div className="relative">
           {/* Image container — bg-neutral-300 ensures any transparent frame
