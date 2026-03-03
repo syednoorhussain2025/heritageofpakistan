@@ -30,22 +30,27 @@ const ToolPanel = ({
 
   const customContent = renderToolPanel?.(tool.id, onClose);
   if (customContent != null) {
+    // When tool.name is empty (virtual tool like "site"), suppress the header —
+    // the renderToolPanel content provides its own close button / header.
+    const showHeader = Boolean(tool.name);
     return (
       <div className="h-full flex flex-col animate-fadeIn bg-white">
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Icon name={tool.icon} size={24} className="text-gray-700" />
-            <h2 className="font-panel-heading text-[var(--brand-blue)]">
-              {tool.name}
-            </h2>
+        {showHeader && (
+          <div className="p-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <Icon name={tool.icon} size={24} className="text-gray-700" />
+              <h2 className="font-panel-heading text-[var(--brand-blue)]">
+                {tool.name}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-200"
+            >
+              <Icon name="times" size={20} className="text-gray-500" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-200"
-          >
-            <Icon name="times" size={20} className="text-gray-500" />
-          </button>
-        </div>
+        )}
         <div className="flex-grow min-h-0 overflow-auto">{customContent}</div>
       </div>
     );
@@ -73,6 +78,7 @@ const ToolPanel = ({
             filters={filters}
             onFilterChange={onFilterChange}
             onSearch={() => { onSearch(); onClose(); }}
+            hideHeading
           />
         ) : (
           <div className="p-4 text-gray-500">
@@ -90,17 +96,29 @@ export default function CollapsibleSidebar({
   onFilterChange,
   onSearch,
   renderToolPanel,
+  controlledOpenTool,
+  onControlledToolClose,
 }: {
   tools: Tool[];
   filters?: Filters;
   onFilterChange?: (newFilters: Partial<Filters>) => void;
   onSearch?: () => void;
   renderToolPanel?: (toolId: string, onClose: () => void) => React.ReactNode;
+  /** When set, forces the sidebar open to this tool ID (e.g. "site" for a map pin click). */
+  controlledOpenTool?: string | null;
+  /** Called when the user closes the panel while in controlled mode. */
+  onControlledToolClose?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
+  // Controlled mode overrides internal state
+  const effectiveIsOpen = controlledOpenTool != null ? true : isOpen;
+  const effectiveActiveTool = controlledOpenTool ?? activeTool;
+
   const handleToolClick = (toolId: string) => {
+    // Clicking a sidebar button always clears any controlled state first
+    if (controlledOpenTool != null) onControlledToolClose?.();
     if (isOpen && activeTool === toolId) {
       setIsOpen(false);
       setActiveTool(null);
@@ -111,11 +129,21 @@ export default function CollapsibleSidebar({
   };
 
   const closePanel = () => {
-    setIsOpen(false);
-    setActiveTool(null);
+    if (controlledOpenTool != null) {
+      onControlledToolClose?.();
+    } else {
+      setIsOpen(false);
+      setActiveTool(null);
+    }
   };
 
-  const selectedTool = tools.find((t) => t.id === activeTool);
+  // Find the active tool — fall back to a virtual stub for programmatic tools
+  // (like "site") that aren't in the tools array.
+  const selectedTool =
+    tools.find((t) => t.id === effectiveActiveTool) ??
+    (effectiveActiveTool
+      ? ({ id: effectiveActiveTool, name: "", icon: "map-pin" } as Tool)
+      : undefined);
 
   return (
     <div
@@ -123,7 +151,7 @@ export default function CollapsibleSidebar({
         relative h-full flex flex-shrink-0
         bg-white border-r border-gray-200
         transition-all duration-300 ease-in-out
-        ${isOpen ? "w-96" : "w-16 hover:w-56"}
+        ${effectiveIsOpen ? "w-[440px]" : "w-16 hover:w-56"}
         group
     `}
     >
@@ -133,10 +161,9 @@ export default function CollapsibleSidebar({
             key={tool.id}
             onClick={() => handleToolClick(tool.id)}
             title={tool.name}
-            // UPDATED: Added 'cursor-pointer' class
             className={`flex items-center w-full h-12 rounded-lg transition-colors group/item cursor-pointer
                 ${
-                  activeTool === tool.id && isOpen
+                  effectiveActiveTool === tool.id && effectiveIsOpen
                     ? "text-white"
                     : "text-[var(--brand-grey)] hover:bg-gray-100 hover:text-[var(--brand-orange)]"
                 }
@@ -145,7 +172,7 @@ export default function CollapsibleSidebar({
             <div className="w-16 h-12 flex-shrink-0 flex items-center justify-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                  activeTool === tool.id && isOpen
+                  effectiveActiveTool === tool.id && effectiveIsOpen
                     ? "bg-[var(--brand-blue)]"
                     : "bg-gray-100"
                 }`}
@@ -162,10 +189,10 @@ export default function CollapsibleSidebar({
 
       <div
         className={`absolute top-0 left-16 w-[calc(100%-4rem)] h-full transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          effectiveIsOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        {isOpen && (
+        {effectiveIsOpen && (
           <ToolPanel
             tool={selectedTool}
             onClose={closePanel}

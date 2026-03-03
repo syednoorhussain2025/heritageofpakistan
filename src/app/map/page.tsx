@@ -112,7 +112,7 @@ export default function MapPage() {
   const [mounted, setMounted] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
-  const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips">("search");
+  const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips" | "site">("search");
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
   const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
@@ -124,6 +124,10 @@ export default function MapPage() {
   const mapTypeInitializedRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
   const stableLocationsRef = useRef<{ key: string; value: MapSite[] }>({ key: "", value: [] });
+
+  // Selected site (from clicking a map pin) — shown in the left panel on desktop
+  // and in the mobile search panel on mobile.
+  const [selectedMapSite, setSelectedMapSite] = useState<MapSite | null>(null);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -237,7 +241,7 @@ export default function MapPage() {
             supabase
               .from("sites")
               .select(
-                `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, latitude, longitude, province_id,
+                `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
              site_categories!inner(category_id, categories(icon_key)),
              site_regions!inner(region_id)`
               )
@@ -421,10 +425,105 @@ export default function MapPage() {
     setTripSiteIds([]);
   }, []);
 
+  // Called when the user clicks a pin on the map
+  const handleSiteSelect = useCallback((site: MapSite) => {
+    setSelectedMapSite(site);
+    // Mobile: open the slide-up panel showing site details
+    setMobilePanelTab("site");
+    setSearchPanelOpen(true);
+  }, []);
+
   const signInRedirectUrl = "/auth/sign-in?redirectTo=" + encodeURIComponent("/map");
 
   const renderToolPanel = useCallback(
     (toolId: string, onClose: () => void) => {
+      if (toolId === "site") {
+        if (!selectedMapSite) return null;
+        const regionSlug = selectedMapSite.province_slug ?? null;
+        const detailHref = regionSlug
+          ? `/heritage/${regionSlug}/${selectedMapSite.slug}`
+          : `/heritage/${selectedMapSite.slug}`;
+        return (
+          <div className="flex flex-col">
+            {/* Cover photo */}
+            <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-300 flex-shrink-0">
+              {selectedMapSite.cover_photo_url ? (
+                <img
+                  src={selectedMapSite.cover_photo_url}
+                  alt={selectedMapSite.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />
+              )}
+              {/* Close button overlaid on photo */}
+              <button
+                onClick={onClose}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                title="Close"
+              >
+                <Icon name="times" size={16} />
+              </button>
+            </div>
+
+            {/* Details */}
+            <div className="p-4 flex flex-col gap-3">
+              {/* Title */}
+              <h2 className="text-xl font-bold text-[var(--brand-blue)] leading-tight">
+                {selectedMapSite.title}
+              </h2>
+
+              {/* Rating */}
+              {selectedMapSite.avg_rating != null && (
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#00b78b] text-white text-sm font-semibold inline-flex items-center gap-1">
+                    <Icon name="star" size={12} />
+                    {selectedMapSite.avg_rating.toFixed(1)}
+                  </span>
+                  {selectedMapSite.review_count != null && selectedMapSite.review_count > 0 && (
+                    <span className="text-sm text-gray-500">
+                      {selectedMapSite.review_count}{" "}
+                      {selectedMapSite.review_count === 1 ? "Review" : "Reviews"}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Tagline */}
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedMapSite.heritage_type && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
+                    {selectedMapSite.heritage_type}
+                  </span>
+                )}
+                {selectedMapSite.location_free && (
+                  <span className="flex items-center gap-1 text-gray-500 text-xs">
+                    <Icon name="map-marker-alt" size={11} />
+                    {selectedMapSite.location_free}
+                  </span>
+                )}
+              </div>
+
+              {/* Tagline */}
+              {selectedMapSite.tagline && (
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {selectedMapSite.tagline}
+                </p>
+              )}
+
+              {/* Open Site button */}
+              <Link
+                href={detailHref}
+                className="mt-2 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+              >
+                Open Site
+                <Icon name="arrow-right" size={14} />
+              </Link>
+            </div>
+          </div>
+        );
+      }
+
       if (toolId === "bookmarks") {
         if (isSignedIn === false) {
           return (
@@ -755,6 +854,7 @@ export default function MapPage() {
       return null;
     },
     [
+      selectedMapSite,
       isSignedIn,
       signInRedirectUrl,
       allLocations,
@@ -804,6 +904,8 @@ export default function MapPage() {
       onFilterChange={handleFilterChange}
       onSearch={closeSearchPanel}
     />
+  ) : mobilePanelTab === "site" ? (
+    renderToolPanel("site", () => { setSelectedMapSite(null); closeSearchPanel(); })
   ) : mobilePanelTab === "bookmarks" ? (
     renderToolPanel("bookmarks", closeSearchPanel)
   ) : mobilePanelTab === "wishlist" ? (
@@ -813,6 +915,7 @@ export default function MapPage() {
   );
 
   return (
+    <>
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
@@ -849,6 +952,7 @@ export default function MapPage() {
           icons={allIcons}
           highlightSiteId={highlightSiteId}
           onHighlightConsumed={() => setHighlightSiteId(null)}
+          onSiteSelect={(site) => handleSiteSelect(site as MapSite)}
           mapType={mapType}
         />
         {/* Map type switcher: OSM, Google roadmap, Google satellite */}
@@ -920,17 +1024,6 @@ export default function MapPage() {
         })()}
       </div>
 
-      {/* Desktop: sidebar overlays the map (does not push it) */}
-      <aside className="hidden lg:block absolute left-0 top-0 bottom-0 z-[1000]">
-        <CollapsibleSidebar
-          tools={tools}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onSearch={() => {}}
-          renderToolPanel={renderToolPanel}
-        />
-      </aside>
-
       {mounted &&
         createPortal(
           <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm h-14 flex items-center px-3 gap-2">
@@ -985,49 +1078,57 @@ export default function MapPage() {
                 <div className="flex items-center gap-2 px-3 py-2.5">
                   <button
                     type="button"
-                    onClick={closeSearchPanel}
+                    onClick={() => {
+                      if (mobilePanelTab === "site") setSelectedMapSite(null);
+                      closeSearchPanel();
+                    }}
                     aria-label="Close"
                     className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
                   >
                     <Icon name="times" size={18} className="text-gray-600" />
                   </button>
-                  <span className="text-base font-bold text-gray-800">
+                  <span className="text-base font-bold text-gray-800 truncate">
                     {mobilePanelTab === "search"
                       ? "Search & Filters"
                       : mobilePanelTab === "bookmarks"
                         ? "Bookmarks"
                         : mobilePanelTab === "wishlist"
                           ? "Wishlist"
-                          : "My Trips"}
+                          : mobilePanelTab === "trips"
+                            ? "My Trips"
+                            : selectedMapSite?.title ?? "Site Details"}
                   </span>
                 </div>
-                <div className="flex border-t border-gray-100">
-                  {(["search", "bookmarks", "wishlist", "trips"] as const).map(
-                    (tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setMobilePanelTab(tab)}
-                        className={`flex-1 py-2.5 text-xs font-medium ${
-                          mobilePanelTab === tab
-                            ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
-                            : "text-[var(--brand-grey)]"
-                        }`}
-                      >
-                        {tab === "search"
-                          ? "Search"
-                          : tab === "bookmarks"
-                            ? "Bookmarks"
-                            : tab === "wishlist"
-                              ? "Wishlist"
-                              : "Trips"}
-                      </button>
-                    )
-                  )}
-                </div>
+                {/* Tab bar: hidden when showing a site preview */}
+                {mobilePanelTab !== "site" && (
+                  <div className="flex border-t border-gray-100">
+                    {(["search", "bookmarks", "wishlist", "trips"] as const).map(
+                      (tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setMobilePanelTab(tab)}
+                          className={`flex-1 py-2.5 text-xs font-medium ${
+                            mobilePanelTab === tab
+                              ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
+                              : "text-[var(--brand-grey)]"
+                          }`}
+                        >
+                          {tab === "search"
+                            ? "Search"
+                            : tab === "bookmarks"
+                              ? "Bookmarks"
+                              : tab === "wishlist"
+                                ? "Wishlist"
+                                : "Trips"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4">
-                <div className="min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden">
+                <div className={`min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden ${mobilePanelTab === "site" ? "p-0" : ""}`}>
                   {mobilePanelContent}
                 </div>
               </div>
@@ -1036,5 +1137,19 @@ export default function MapPage() {
           document.body
         )}
     </div>
+
+      {/* Desktop: sidebar overlays the map and header (fixed, outside z-0 stacking context) */}
+      <aside className="hidden lg:block fixed left-0 top-0 bottom-0 z-[1150]">
+        <CollapsibleSidebar
+          tools={tools}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onSearch={() => {}}
+          renderToolPanel={renderToolPanel}
+          controlledOpenTool={selectedMapSite ? "site" : null}
+          onControlledToolClose={() => setSelectedMapSite(null)}
+        />
+      </aside>
+    </>
   );
 }

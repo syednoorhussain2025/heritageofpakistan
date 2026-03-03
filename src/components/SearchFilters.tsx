@@ -1886,6 +1886,7 @@ interface SearchFiltersProps {
   onHeadingChange?: (title: string) => void;
   onOpenNearbyModal?: () => void;
   hideFooter?: boolean;
+  hideHeading?: boolean;
   resetRef?: React.MutableRefObject<(() => void) | null>;
 }
 
@@ -1903,6 +1904,7 @@ export default function SearchFilters({
   onHeadingChange,
   onOpenNearbyModal,
   hideFooter,
+  hideHeading,
   resetRef,
 }: SearchFiltersProps) {
   const [options, setOptions] = useState<FilterOptions>({
@@ -2780,10 +2782,12 @@ export default function SearchFilters({
     <div className="p-4 bg-white h-full flex flex-col text-sm">
 
       {/* ── Heading ── */}
+      {!hideHeading && (
       <div className="flex items-center gap-2 mb-4">
         <Icon name="search" size={18} className="text-[var(--brand-orange)]" />
         <h2 className="text-xl font-bold text-[var(--navy-deep)] tracking-tight">Search</h2>
       </div>
+      )}
 
       {/* ══ Section 1: Search ══ */}
       <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">

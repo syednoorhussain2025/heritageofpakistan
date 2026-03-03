@@ -28,6 +28,14 @@ export type Site = {
   latitude: number;
   longitude: number;
   site_categories: { categories: { icon_key: string | null } | null }[];
+  // Optional richer fields (present when passed from map page)
+  cover_photo_url?: string | null;
+  location_free?: string | null;
+  heritage_type?: string | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+  province_slug?: string | null;
+  tagline?: string | null;
 };
 
 type MapProvider = "osm" | "google";
@@ -195,6 +203,7 @@ export default function ClientOnlyMap({
   icons,
   highlightSiteId = null,
   onHighlightConsumed,
+  onSiteSelect,
   /** Override from map type switcher: osm | google | google_satellite */
   mapType: mapTypeOverride,
 }: {
@@ -204,6 +213,8 @@ export default function ClientOnlyMap({
   /** When set, map flies to this site and opens its preview popup. Cleared via onHighlightConsumed. */
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  /** When provided, clicking a marker calls this instead of showing a popup. */
+  onSiteSelect?: (site: Site) => void;
   mapType?: MapType;
 }) {
   if (!settings || icons.size === 0) {
@@ -237,6 +248,7 @@ export default function ClientOnlyMap({
         icons={icons}
         highlightSiteId={highlightSiteId}
         onHighlightConsumed={onHighlightConsumed}
+        onSiteSelect={onSiteSelect}
         mapTypeId={googleMapTypeId}
       />
     );
@@ -249,6 +261,7 @@ export default function ClientOnlyMap({
       icons={icons}
       highlightSiteId={highlightSiteId}
       onHighlightConsumed={onHighlightConsumed}
+      onSiteSelect={onSiteSelect}
     />
   );
 }
@@ -295,12 +308,14 @@ function OSMLeafletView({
   icons,
   highlightSiteId = null,
   onHighlightConsumed,
+  onSiteSelect,
 }: {
   locations: Site[];
   settings: MapSettings;
   icons: Map<string, string>;
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  onSiteSelect?: (site: Site) => void;
 }) {
   const createCustomIcon = useCallback(
     (iconName: string, s: MapSettings) => {
@@ -435,7 +450,10 @@ function OSMLeafletView({
                   {site.title}
                 </Tooltip>
                 <Popup>
-                  <SitePreviewCard site={site} />
+                  <SitePreviewCard
+                    site={site}
+                    onCardClick={onSiteSelect ? () => onSiteSelect(site) : undefined}
+                  />
                 </Popup>
               </Marker>
             );
@@ -455,6 +473,7 @@ function GoogleMapView({
   icons,
   highlightSiteId = null,
   onHighlightConsumed,
+  onSiteSelect,
   mapTypeId = "roadmap",
 }: {
   locations: Site[];
@@ -462,6 +481,7 @@ function GoogleMapView({
   icons: Map<string, string>;
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  onSiteSelect?: (site: Site) => void;
   mapTypeId?: "roadmap" | "satellite";
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
@@ -897,7 +917,13 @@ function GoogleMapView({
             } rounded-xl overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)]`}
             style={{ minWidth: 340, maxWidth: 360, width: "100%" }}
           >
-            <SitePreviewCard site={infoWindowSite} />
+            <SitePreviewCard
+              site={infoWindowSite}
+              onCardClick={onSiteSelect ? () => {
+                onSiteSelect(infoWindowSite);
+                setActiveId(null); // triggers the 300ms timer that closes the InfoWindow
+              } : undefined}
+            />
           </div>
         </InfoWindow>
       )}

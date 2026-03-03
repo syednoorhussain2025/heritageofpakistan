@@ -87,11 +87,14 @@ export default function SitePreviewCard({
   site,
   onClose,
   index = 0,
+  onCardClick,
 }: {
   site: Site;
   onClose?: () => void;
   /** Index from ExplorePage used to prioritise first two rows */
   index?: number;
+  /** When provided, clicking the card calls this instead of navigating to the site page. */
+  onCardClick?: () => void;
 }) {
   const router = useRouter();
 
@@ -319,6 +322,7 @@ export default function SitePreviewCard({
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
         onTouchStart={prefetchDetail}
+        onClick={onCardClick ? (e) => { e.preventDefault(); onCardClick(); } : undefined}
       >
         <div className="relative">
           {/* Image container — bg-neutral-300 ensures any transparent frame

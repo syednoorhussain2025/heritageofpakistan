@@ -611,7 +611,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const panelActive = megaOpen && !!activeSub && activeSubItems.length > 0;
 
-  const textLight = solid || panelActive || searchOverlayOpen;
+  const textLight = solid || panelActive || searchOverlayOpen || pathname === "/map";
 
   const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${
     textLight ? "[color:var(--brand-grey)]" : "text-white"
@@ -873,7 +873,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
         {/* Gradient only when transparent and no panel */}
         <div
           aria-hidden="true"
-          className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/12 via-black/5 to-transparent pointer-events-none transition-opacity duration-300 ${
             allowTransparent && !solid && !panelActive && !searchOverlayOpen
               ? "opacity-100"
               : "opacity-0"
@@ -901,10 +901,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             href="/"
             className="flex items-center gap-2 whitespace-nowrap tracking-wide"
           >
-            <Icon name="logo" size={26} style={{ color: BRAND_LOGO_GREEN }} />
+            <Icon name="logo" size={26} style={{ color: pathname === "/map" ? "#ffffff" : BRAND_LOGO_GREEN }} />
             <span
               className="hidden md:inline [font:var(--font-headerlogo-shorthand)]"
-              style={{ color: BRAND_LOGO_GREEN }}
+              style={{ color: pathname === "/map" ? "#ffffff" : BRAND_LOGO_GREEN }}
             >
               HERITAGE OF PAKISTAN
             </span>
@@ -1083,7 +1083,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           )}
 
           {/* Right side */}
-          <div className="flex items-center gap-3" data-header-user>
+          <div
+            className="flex items-center gap-3"
+            data-header-user
+          >
             {/* Desktop nav */}
             <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
               {/* Home */}
