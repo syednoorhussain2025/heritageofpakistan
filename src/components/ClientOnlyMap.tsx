@@ -488,6 +488,10 @@ const OSMLeafletView = memo(function OSMLeafletView({
                     onCardClick={onSiteSelect ? () => {
                       pendingPopupId.current = site.id;
                       onSiteSelect(site);
+                      // Disarm after a short window. If a React-triggered popupclose
+                      // was going to fire, it will have fired by now. Any close after
+                      // this timeout is intentional user action and must not reopen.
+                      setTimeout(() => { pendingPopupId.current = null; }, 300);
                     } : undefined}
                   />
                 </Popup>
@@ -886,6 +890,7 @@ function GoogleMapView({
         streetViewControl: false,
         fullscreenControl: false,
         mapTypeControl: false,
+        zoomControl: false,
         mapTypeId: mapTypeId === "satellite" ? "satellite" : "roadmap",
       }}
       onLoad={(map) => {

@@ -620,103 +620,188 @@ export default function MapPage() {
           );
         }
         const expandedWishlist = expandedWishlistId ? wishlists.find((w) => w.id === expandedWishlistId) : null;
+        const activeWishlistId = typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter
+          ? sidebarFilter.wishlistId : null;
+
         return (
-          <div className="p-4 space-y-3 flex flex-col min-h-0">
+          <div className="flex flex-col min-h-0 h-full">
             {expandedWishlistId ? (
+              /* ── Expanded: single wishlist ── */
               <>
-                <button
-                  type="button"
-                  onClick={() => setExpandedWishlistId(null)}
-                  className="flex items-center gap-2 text-sm text-[var(--brand-blue)] font-medium self-start"
-                >
-                  <Icon name="arrow-left" size={14} />
-                  Back to wishlists
-                </button>
-                {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && sidebarFilter.wishlistId === expandedWishlistId && (
+                {/* Header */}
+                <div className="px-4 pt-4 pb-3 border-b border-gray-100">
                   <button
                     type="button"
-                    onClick={() => { clearSidebarFilter(); onClose(); }}
-                    className="text-sm text-[var(--brand-orange)] font-medium"
+                    onClick={() => setExpandedWishlistId(null)}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--brand-blue)] font-medium mb-2 transition-colors"
                   >
-                    Clear · Show all on map
+                    <Icon name="arrow-left" size={12} />
+                    All wishlists
                   </button>
-                )}
-                <h3 className="font-semibold text-[var(--brand-blue)] truncate">{expandedWishlist?.name ?? "Wishlist"}</h3>
-                {wishlistItemsLoading ? (
-                  <p className="text-sm text-gray-500">Loading…</p>
-                ) : wishlistItems.length === 0 ? (
-                  <p className="text-sm text-gray-500">No sites in this wishlist.</p>
-                ) : (
-                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 flex-1 min-h-0">
-                    {wishlistItems.map((item) => {
-                      const site = item.sites;
-                      const title = site?.title ?? "Site";
-                      const cover = site?.cover_photo_url ?? null;
-                      return (
-                        <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
-                          <button
-                            type="button"
-                            onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
-                            className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                          >
-                            <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
-                              {cover ? (
-                                <img src={cover} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                  <Icon name="map-pin" size={18} />
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </>
-            ) : (
-              <>
-                {typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
-                  <button
-                    type="button"
-                    onClick={() => { clearSidebarFilter(); onClose(); }}
-                    className="text-sm text-[var(--brand-orange)] font-medium"
-                  >
-                    Clear · Show all on map
-                  </button>
-                )}
-                {wishlistsLoading ? (
-                  <p className="text-sm text-gray-500">Loading…</p>
-                ) : wishlists.length === 0 ? (
-                  <p className="text-sm text-gray-500">No wishlists yet.</p>
-                ) : (
-                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                    {wishlists.map((w) => (
-                      <li key={w.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-[var(--brand-blue)] truncate leading-tight">
+                        {expandedWishlist?.name ?? "Wishlist"}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {wishlistItems.length} {wishlistItems.length === 1 ? "site" : "sites"}
+                      </p>
+                    </div>
+                    {wishlistItems.length > 0 && (
+                      activeWishlistId === expandedWishlistId ? (
                         <button
                           type="button"
-                          onClick={() => { setExpandedWishlistId(w.id); applyWishlistFilter(w.id); }}
-                          className="flex flex-1 min-w-0 items-center justify-between gap-2 text-left"
+                          onClick={() => { clearSidebarFilter(); onClose(); }}
+                          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-orange)] border border-[var(--brand-orange)] rounded-lg px-2.5 py-1.5 hover:bg-orange-50 transition-colors"
                         >
-                          <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{w.name}</span>
-                          <span className="text-xs text-gray-500 shrink-0">
-                            {(w.wishlist_items?.[0] as { count?: number })?.count ?? 0} sites
-                          </span>
+                          <Icon name="times" size={10} />
+                          Clear filter
                         </button>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => { applyWishlistFilter(w.id); onClose(); }}
-                          className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
+                          onClick={() => { applyWishlistFilter(expandedWishlistId); onClose(); }}
+                          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-[var(--brand-orange)] rounded-lg px-2.5 py-1.5 hover:opacity-90 transition-opacity"
                         >
-                          <Icon name="map-pin" size={12} />
+                          <Icon name="map-pin" size={10} />
                           Show on map
                         </button>
-                      </li>
-                    ))}
-                  </ul>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Site list */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+                  {wishlistItemsLoading ? (
+                    <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+                      <Icon name="spinner" size={16} className="animate-spin" />
+                      <span className="text-sm">Loading sites…</span>
+                    </div>
+                  ) : wishlistItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <Icon name="heart" size={28} className="text-gray-200 mb-2" />
+                      <p className="text-sm text-gray-500">No sites in this wishlist yet.</p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {wishlistItems.map((item) => {
+                        const site = item.sites;
+                        const title = site?.title ?? "Site";
+                        const cover = site?.cover_photo_url ?? null;
+                        return (
+                          <li key={item.site_id}>
+                            <button
+                              type="button"
+                              onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
+                              className="w-full flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm hover:border-[var(--brand-orange)]/50 hover:shadow-md transition-all text-left group"
+                            >
+                              <span className="relative h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                {cover ? (
+                                  <img src={cover} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-gray-300">
+                                    <Icon name="map-pin" size={18} />
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{title}</span>
+                                <span className="block text-xs text-gray-400 mt-0.5">Tap to locate on map</span>
+                              </span>
+                              <Icon name="map-pin" size={14} className="text-gray-300 group-hover:text-[var(--brand-orange)] shrink-0 transition-colors" />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* ── List: all wishlists ── */
+              <>
+                {/* Active filter banner */}
+                {activeWishlistId && (
+                  <div className="mx-4 mt-4 flex items-center justify-between gap-2 rounded-xl bg-orange-50 border border-orange-200 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon name="map-pin" size={13} className="text-[var(--brand-orange)] shrink-0" />
+                      <span className="text-xs font-medium text-orange-800 truncate">
+                        {wishlists.find((w) => w.id === activeWishlistId)?.name ?? "Wishlist"} active
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { clearSidebarFilter(); onClose(); }}
+                      className="shrink-0 text-xs font-semibold text-[var(--brand-orange)] hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 )}
+
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+                  {wishlistsLoading ? (
+                    <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+                      <Icon name="spinner" size={16} className="animate-spin" />
+                      <span className="text-sm">Loading…</span>
+                    </div>
+                  ) : wishlists.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <Icon name="heart" size={32} className="text-gray-200 mb-2" />
+                      <p className="text-sm font-medium text-gray-500">No wishlists yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Save sites from their detail pages to create wishlists.</p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {wishlists.map((w) => {
+                        const count = (w.wishlist_items?.[0] as { count?: number })?.count ?? 0;
+                        const isActive = activeWishlistId === w.id;
+                        return (
+                          <li key={w.id}
+                            className={`rounded-xl border bg-white shadow-sm transition-all ${
+                              isActive ? "border-[var(--brand-orange)] ring-1 ring-[var(--brand-orange)]/20" : "border-gray-100 hover:border-gray-200 hover:shadow-md"
+                            }`}
+                          >
+                            <div className="flex items-center gap-0">
+                              {/* Expand row */}
+                              <button
+                                type="button"
+                                onClick={() => { setExpandedWishlistId(w.id); applyWishlistFilter(w.id); }}
+                                className="flex flex-1 min-w-0 items-center gap-3 p-3 text-left"
+                              >
+                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isActive ? "bg-[var(--brand-orange)]" : "bg-orange-50"
+                                }`}>
+                                  <Icon name="heart" size={14} className={isActive ? "text-white" : "text-[var(--brand-orange)]"} />
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{w.name}</span>
+                                  <span className="block text-xs text-gray-400 mt-0.5">{count} {count === 1 ? "site" : "sites"}</span>
+                                </span>
+                                <Icon name="arrow-right" size={13} className="text-gray-300 shrink-0" />
+                              </button>
+
+                              {/* Show on map pin button */}
+                              <button
+                                type="button"
+                                title={isActive ? "Clear filter" : "Show on map"}
+                                onClick={() => isActive ? (clearSidebarFilter(), onClose()) : (applyWishlistFilter(w.id), onClose())}
+                                className={`shrink-0 mr-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isActive
+                                    ? "bg-[var(--brand-orange)] text-white hover:bg-orange-600"
+                                    : "bg-gray-50 text-gray-400 hover:bg-orange-50 hover:text-[var(--brand-orange)] border border-gray-100"
+                                }`}
+                              >
+                                <Icon name={isActive ? "times" : "map-pin"} size={13} />
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -990,7 +1075,7 @@ export default function MapPage() {
         />
         {/* Map type switcher: OSM, Google roadmap, Google satellite */}
         <div
-          className="absolute bottom-4 left-4 lg:left-20 z-[1000] flex items-center gap-2"
+          className="absolute bottom-4 right-4 z-[1000] flex items-center gap-2"
           aria-label="Map type"
         >
           {(
