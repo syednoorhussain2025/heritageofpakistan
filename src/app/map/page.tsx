@@ -2,7 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
@@ -184,6 +184,7 @@ export default function MapPage() {
   const [mapSettings, setMapSettings] = useState<any>(null);
   const [allIcons, setAllIcons] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [sitesLoading, setSitesLoading] = useState(true);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
@@ -206,8 +207,8 @@ export default function MapPage() {
   const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
   const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
   const [wishlistItemsLoading, setWishlistItemsLoading] = useState(false);
-  const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
-  const [tripItems, setTripItems] = useState<{ site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
+  type TripItemMap = { id?: string; site_id: string; day_id?: string | null; order_index?: number; date_in?: string | null; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null };
+  const [tripItems, setTripItems] = useState<TripItemMap[]>([]);
   const [tripItemsLoading, setTripItemsLoading] = useState(false);
   const [tripTimeline, setTripTimeline] = useState<TimelineItem[]>([]);
   const [tripTimelineLoading, setTripTimelineLoading] = useState(false);
@@ -220,6 +221,7 @@ export default function MapPage() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastLoading, setToastLoading] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
   const filteredLocationsRef = useRef<MapSite[]>([]);
   const filterToastInitRef = useRef(false);
@@ -357,8 +359,16 @@ export default function MapPage() {
     return () => { cancelled = true; };
   }, [expandedWishlistId, isSignedIn]);
 
+  // Load trip items when a trip is applied to the map (for the right-hand details panel only)
+  const tripIdToLoad =
+    typeof sidebarFilter === "object" &&
+    sidebarFilter !== null &&
+    "tripId" in sidebarFilter
+      ? sidebarFilter.tripId
+      : null;
+
   useEffect(() => {
-    if (!expandedTripId || !isSignedIn) {
+    if (!tripIdToLoad || !isSignedIn) {
       setTripItems([]);
       setTripTimeline([]);
       return;
@@ -366,36 +376,36 @@ export default function MapPage() {
     let cancelled = false;
     setTripItemsLoading(true);
     setTripTimelineLoading(true);
-    getTripWithItems(expandedTripId)
+    getTripWithItems(tripIdToLoad)
       .then(({ items }) => {
-        if (!cancelled) setTripItems((items ?? []) as { site_id: string; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null }[]);
+        if (!cancelled) setTripItems((items ?? []) as TripItemMap[]);
       })
       .catch(() => { if (!cancelled) setTripItems([]); })
       .finally(() => { if (!cancelled) setTripItemsLoading(false); });
-    getTripTimeline(expandedTripId)
+    getTripTimeline(tripIdToLoad)
       .then((timeline) => { if (!cancelled) setTripTimeline(timeline ?? []); })
       .catch(() => { if (!cancelled) setTripTimeline([]); })
       .finally(() => { if (!cancelled) setTripTimelineLoading(false); });
     return () => { cancelled = true; };
-  }, [expandedTripId, isSignedIn]);
+  }, [tripIdToLoad, isSignedIn]);
 
-  /* ───────── Initial load: settings, icons, locations + province slugs ───────── */
+  /* ───────── Phase 1: Load settings, icons, categories, regions (fast) so map shell renders ───────── */
   useEffect(() => {
     let cancelled = false;
+    const QUICK_LOAD_TIMEOUT_MS = 8000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("QUICK_LOAD_TIMEOUT")), QUICK_LOAD_TIMEOUT_MS)
+    );
     (async () => {
       setLoading(true);
       setLoadError(false);
-      const LOAD_TIMEOUT_MS = 15000;
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("LOAD_TIMEOUT")), LOAD_TIMEOUT_MS)
-      );
+      setSitesLoading(true);
       let settingsRes: any;
       let iconsRes: any;
-      let locationsRes: any;
       let catsRes: any;
       let regsRes: any;
       try {
-        [settingsRes, iconsRes, locationsRes, catsRes, regsRes] = await Promise.race([
+        [settingsRes, iconsRes, catsRes, regsRes] = await Promise.race([
           Promise.all([
             supabase
               .from("global_settings")
@@ -403,15 +413,6 @@ export default function MapPage() {
               .eq("key", "map_settings")
               .maybeSingle(),
             supabase.from("icons").select("name, svg_content"),
-            supabase
-              .from("sites")
-              .select(
-                `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
-             site_categories!inner(category_id, categories(icon_key)),
-             site_regions!inner(region_id)`
-              )
-              .not("latitude", "is", null)
-              .not("longitude", "is", null),
             supabase.from("categories").select("id,name").order("name"),
             supabase.from("regions").select("id,name").order("name"),
           ]),
@@ -419,9 +420,10 @@ export default function MapPage() {
         ]);
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof Error && err.message === "LOAD_TIMEOUT") {
+        if (err instanceof Error && err.message === "QUICK_LOAD_TIMEOUT") {
           setLoadError(true);
           setLoading(false);
+          setSitesLoading(false);
           return;
         }
         throw err;
@@ -429,30 +431,74 @@ export default function MapPage() {
 
       if (cancelled) return;
 
-      if (settingsRes.data) {
+      if (settingsRes?.data) {
         setMapSettings(settingsRes.data.value as any);
       }
-
-      if (iconsRes.data) {
+      if (iconsRes?.data) {
         const iconMap = new Map<string, string>();
-        (iconsRes.data as any[]).forEach((icon) =>
+        (iconsRes.data as any[]).forEach((icon: { name: string; svg_content: string }) =>
           iconMap.set(icon.name, icon.svg_content)
         );
-        setAllIcons(iconMap); // single set; stable afterwards
+        setAllIcons(iconMap);
+      }
+      if (catsRes?.data) {
+        const m: Record<string, string> = {};
+        (catsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
+        setCategoryMap(m);
+      }
+      if (regsRes?.data) {
+        const m: Record<string, string> = {};
+        (regsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
+        setRegionMap(m);
       }
 
-      if (locationsRes.data) {
+      setLoading(false);
+
+      /* ───────── Phase 2: Load sites in background (no blocking; longer timeout) ───────── */
+      const SITES_LOAD_TIMEOUT_MS = 45000;
+      const sitesTimeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("SITES_LOAD_TIMEOUT")), SITES_LOAD_TIMEOUT_MS)
+      );
+      let locationsRes: { data?: any[]; error?: unknown } | undefined;
+      try {
+        locationsRes = await Promise.race([
+          supabase
+            .from("sites")
+            .select(
+              `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
+             site_categories!inner(category_id, categories(icon_key)),
+             site_regions!inner(region_id)`
+            )
+            .not("latitude", "is", null)
+            .not("longitude", "is", null),
+          sitesTimeoutPromise,
+        ]) as { data?: any[]; error?: unknown };
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof Error && err.message === "SITES_LOAD_TIMEOUT") {
+          setLoadError(true);
+        }
+        setSitesLoading(false);
+        return;
+      }
+
+      if (cancelled) return;
+      if (locationsRes?.error) {
+        setSitesLoading(false);
+        return;
+      }
+
+      if (locationsRes?.data && locationsRes.data.length > 0) {
         let valid: MapSite[] = (locationsRes.data as any[])
-          .map((site) => ({
+          .map((site: any) => ({
             ...site,
             latitude: parseFloat(site.latitude),
             longitude: parseFloat(site.longitude),
           }))
           .filter(
-            (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+            (s: MapSite) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
           );
 
-        // province_slug enrichment (one-time)
         const ids = valid.map((s) => s.id as string);
         const provMap = await buildProvinceSlugMapForSites(ids);
         valid = valid.map((s) => ({
@@ -463,18 +509,7 @@ export default function MapPage() {
         if (!cancelled) setAllLocations(valid);
       }
 
-      if (catsRes?.data) {
-        const m: Record<string, string> = {};
-        (catsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
-        if (!cancelled) setCategoryMap(m);
-      }
-      if (regsRes?.data) {
-        const m: Record<string, string> = {};
-        (regsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
-        if (!cancelled) setRegionMap(m);
-      }
-
-      if (!cancelled) setLoading(false);
+      if (!cancelled) setSitesLoading(false);
     })();
 
     return () => {
@@ -603,6 +638,7 @@ export default function MapPage() {
 
   const showMapToast = useCallback((message: string) => {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToastLoading(false);
     setToastMessage(message);
     setToastVisible(true);
     setToastOpen(false);
@@ -615,9 +651,36 @@ export default function MapPage() {
     }, 2500);
   }, []);
 
+  const showLoadingTripToast = useCallback(() => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToastLoading(true);
+    setToastMessage("Loading Trip");
+    setToastVisible(true);
+    setToastOpen(true);
+  }, []);
+
   useEffect(() => {
     return () => { if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current); };
   }, []);
+
+  // Show "Loading Trip" toast while trip items load; show success toast only after trip is fully loaded
+  const isTripActive =
+    typeof sidebarFilter === "object" &&
+    sidebarFilter !== null &&
+    "tripId" in sidebarFilter;
+  useEffect(() => {
+    if (isTripActive && (tripItemsLoading || tripTimelineLoading)) {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      setToastLoading(true);
+      setToastMessage("Loading Trip");
+      setToastVisible(true);
+      setToastOpen(true);
+    } else if (toastLoading && !tripItemsLoading && !tripTimelineLoading && isTripActive && tripItems.length > 0) {
+      const name = activeTripName ?? "Trip";
+      const count = tripItems.length;
+      showMapToast(`Loaded Trip '${name}' and ${count} ${count === 1 ? "site" : "sites"} loaded`);
+    }
+  }, [isTripActive, tripItemsLoading, tripTimelineLoading, toastLoading, activeTripName, tripItems.length, showMapToast]);
 
   // Keep a ref to the current filteredLocations so the filter toast effect can read it without deps
   filteredLocationsRef.current = filteredLocations;
@@ -652,18 +715,19 @@ export default function MapPage() {
   }, [showMapToast]);
 
   const applyTripFilter = useCallback(async (tripId: string, tripName?: string) => {
+    showLoadingTripToast();
     try {
       const { items } = await getTripWithItems(tripId);
       const ids = (items ?? []).map((it: { site_id: string }) => it.site_id);
       setTripSiteIds(ids);
       setSidebarFilter({ tripId });
-      const count = ids.length;
-      const label = tripName ? `"${tripName}"` : "Trip";
-      showMapToast(`${label} · ${count} ${count === 1 ? "site" : "sites"} on map`);
     } catch {
       setTripSiteIds([]);
+      setToastLoading(false);
+      setToastOpen(false);
+      window.setTimeout(() => setToastVisible(false), 220);
     }
-  }, [showMapToast]);
+  }, [showLoadingTripToast]);
 
   const clearSidebarFilter = useCallback(() => {
     setSidebarFilter(null);
@@ -1059,148 +1123,51 @@ export default function MapPage() {
             </div>
           );
         }
-        const expandedTrip = expandedTripId ? trips.find((t) => t.id === expandedTripId) : null;
         return (
           <div className="p-4 space-y-3 flex flex-col min-h-0">
-            {expandedTripId ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setExpandedTripId(null)}
-                  className="flex items-center gap-2 text-sm text-[var(--brand-blue)] font-medium self-start"
-                >
-                  <Icon name="arrow-left" size={14} />
-                  Back to trips
-                </button>
-                {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === expandedTripId && (
-                  <button
-                    type="button"
-                    onClick={() => { clearSidebarFilter(); onClose(); }}
-                    className="text-sm text-[var(--brand-orange)] font-medium"
-                  >
-                    Clear · Show all on map
-                  </button>
-                )}
-                <h3 className="font-semibold text-[var(--brand-blue)] truncate">{expandedTrip?.name ?? "Trip"}</h3>
-                {tripItemsLoading || tripTimelineLoading ? (
-                  <p className="text-sm text-gray-500">Loading…</p>
-                ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
-                  <p className="text-sm text-gray-500">No sites in this trip.</p>
-                ) : (
-                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 flex-1 min-h-0">
-                    {tripTimeline.length > 0
-                      ? tripTimeline.map((entry) => {
-                          if (entry.kind === "day") {
-                            const day = entry as TimelineItem & { kind: "day"; title?: string | null; the_date?: string | null };
-                            const dateStr = day.the_date
-                              ? new Date(day.the_date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
-                              : null;
-                            return (
-                              <li key={`day-${entry.id}`} className="pt-2 pb-1 border-b border-gray-200">
-                                <div className="flex items-center gap-2">
-                                  <Icon name="calendar-check" size={14} className="text-[var(--brand-orange)] shrink-0" />
-                                  <span className="text-sm font-semibold text-gray-800">{day.title ?? "Day"}</span>
-                                  {dateStr && <span className="text-xs text-gray-500">{dateStr}</span>}
-                                </div>
-                              </li>
-                            );
-                          }
-                          if (entry.kind === "site") {
-                            const siteItem = entry as TimelineItem & { kind: "site"; site_id: string };
-                            const item = tripItems.find((i) => i.site_id === siteItem.site_id);
-                            const site = item?.site;
-                            const title = site?.title ?? "Site";
-                            const cover = site?.cover_photo_url ?? null;
-                            return (
-                              <li key={`site-${siteItem.site_id}-${siteItem.id}`} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow ml-2">
-                                <button
-                                  type="button"
-                                  onClick={() => { setHighlightSiteId(siteItem.site_id); onClose(); }}
-                                  className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                                >
-                                  <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
-                                    {cover ? (
-                                      <img src={cover} alt="" className="h-full w-full object-cover" />
-                                    ) : (
-                                      <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                        <Icon name="map-pin" size={18} />
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
-                                </button>
-                              </li>
-                            );
-                          }
-                          return null;
-                        })
-                      : tripItems.map((item) => {
-                          const site = item.site;
-                          const title = site?.title ?? "Site";
-                          const cover = site?.cover_photo_url ?? null;
-                          return (
-                            <li key={item.site_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
-                              <button
-                                type="button"
-                                onClick={() => { setHighlightSiteId(item.site_id); onClose(); }}
-                                className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                              >
-                                <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
-                                  {cover ? (
-                                    <img src={cover} alt="" className="h-full w-full object-cover" />
-                                  ) : (
-                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                      <Icon name="map-pin" size={18} />
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{title}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                  </ul>
-                )}
-              </>
+            {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
+              <button
+                type="button"
+                onClick={() => { clearSidebarFilter(); onClose(); }}
+                className="text-sm text-[var(--brand-orange)] font-medium"
+              >
+                Clear · Show all on map
+              </button>
+            )}
+            {tripsLoading ? (
+              <p className="text-sm text-gray-500">Loading…</p>
+            ) : trips.length === 0 ? (
+              <p className="text-sm text-gray-500">No trips yet.</p>
             ) : (
-              <>
-                {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-                  <button
-                    type="button"
-                    onClick={() => { clearSidebarFilter(); onClose(); }}
-                    className="text-sm text-[var(--brand-orange)] font-medium"
-                  >
-                    Clear · Show all on map
-                  </button>
-                )}
-                {tripsLoading ? (
-                  <p className="text-sm text-gray-500">Loading…</p>
-                ) : trips.length === 0 ? (
-                  <p className="text-sm text-gray-500">No trips yet.</p>
-                ) : (
-                  <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                    {trips.map((t) => (
-                      <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
-                        <button
-                          type="button"
-                          onClick={() => { setExpandedTripId(t.id); applyTripFilter(t.id, t.name); }}
-                          className="flex flex-1 min-w-0 text-left"
-                        >
-                          <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { applyTripFilter(t.id, t.name); onClose(); }}
-                          className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
-                        >
-                          <Icon name="map-pin" size={12} />
-                          Show on map
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
+              <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                {trips.map((t) => {
+                  const isActive = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === t.id;
+                  return (
+                    <li
+                      key={t.id}
+                      className={`flex items-center justify-between gap-2 rounded-xl border bg-white p-3 shadow-sm ${
+                        isActive ? "border-[var(--brand-orange)] ring-1 ring-[var(--brand-orange)]/20" : "border-gray-200 hover:border-[var(--brand-orange)]/40"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => applyTripFilter(t.id, t.name)}
+                        className="flex flex-1 min-w-0 text-left"
+                      >
+                        <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { applyTripFilter(t.id, t.name); onClose(); }}
+                        className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
+                      >
+                        <Icon name="map-pin" size={12} />
+                        Show on map
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         );
@@ -1223,7 +1190,6 @@ export default function MapPage() {
       expandedWishlistId,
       wishlistItems,
       wishlistItemsLoading,
-      expandedTripId,
       tripItems,
       tripItemsLoading,
       tripTimeline,
@@ -1245,7 +1211,7 @@ export default function MapPage() {
               className="animate-spin text-[var(--brand-orange)]"
               size={48}
             />
-            <p className="ml-4 text-lg text-gray-600">Initializing Map...</p>
+            <p className="ml-4 text-lg text-gray-600">Loading map…</p>
           </div>
         ),
       }),
@@ -1305,6 +1271,23 @@ export default function MapPage() {
           onSiteSelect={(site) => handleSiteSelect(site as MapSite)}
           mapType={mapType}
         />
+        {sitesLoading && (
+          <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12" aria-live="polite">
+            <div
+              className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
+              role="status"
+            >
+              <span className="shrink-0 w-4 h-4 inline-block text-white" aria-hidden>
+                <svg className="animate-spin w-full h-full" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="font-medium text-[15px] leading-tight truncate">
+                Loading sites…
+              </span>
+            </div>
+          </div>
+        )}
         {/* Map type switcher: OSM, Google roadmap, Google satellite */}
         <div
           className="absolute bottom-4 right-4 z-[1000] flex items-center gap-2"
@@ -1352,51 +1335,248 @@ export default function MapPage() {
         </div>
           </>
         )}
-        {/* Dynamic headline pill — always visible, reflects current filters */}
-        {!loadError && (() => {
-          const hasActiveFilter =
-            sidebarFilter !== null ||
-            filters.name.trim() !== "" ||
-            filters.categoryIds.length > 0 ||
-            filters.regionIds.length > 0 ||
-            (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
-          return (
-            <div
-              className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-4 py-2.5 max-w-[220px] lg:max-w-[300px] flex items-center gap-2"
-              aria-label="Map view context"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-gray-800 truncate leading-snug">
-                  {mapHeadline}
+        {/* Single pill on the right: trip details (when trip loaded) or map context (otherwise) */}
+        {!loadError &&
+          (() => {
+            const isTripActive =
+              typeof sidebarFilter === "object" &&
+              sidebarFilter !== null &&
+              "tripId" in sidebarFilter;
+
+            if (isTripActive) {
+              return (
+                <div
+                  className="absolute right-10 top-[62px] z-[1000] w-[280px] max-h-[calc(100vh-88px)] flex flex-col rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 overflow-hidden"
+                  aria-label="Trip details"
+                >
+                  <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-800 truncate leading-snug">
+                    Trip: {activeTripName ?? "—"}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {tripItemsLoading || tripTimelineLoading
+                      ? "Loading…"
+                      : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}
+                  </p>
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {loading
-                    ? "Loading…"
-                    : nearbyActive && typeof filters.radiusKm === "number"
-                      ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
-                      : filteredLocations.length === allLocations.length
-                        ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
-                        : `${filteredLocations.length} of ${allLocations.length} sites`}
-                </div>
-              </div>
-              {hasActiveFilter && (
                 <button
                   type="button"
-                  onClick={() => {
-                    clearSidebarFilter();
-                    setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby() }));
-                    showMapToast("All filters cleared");
-                  }}
-                  className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
-                  title="Clear all filters"
-                  aria-label="Clear all filters"
+                  onClick={clearSidebarFilter}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
+                  title="Close trip panel"
+                  aria-label="Close trip panel"
                 >
-                  <Icon name="times" size={9} />
+                  <Icon name="times" size={12} />
                 </button>
-              )}
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2">
+                {tripItemsLoading && !tripTimeline.length ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                    <Icon name="spinner" size={16} className="animate-spin" />
+                    <span className="text-sm">Loading sites…</span>
+                  </div>
+                ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-6 text-center">No sites in this trip.</p>
+                ) : tripTimeline.length > 0 ? (
+                  <ul className="space-y-0 pb-2">
+                    {(() => {
+                      type DayEntry = TimelineItem & { kind: "day"; id: string; title?: string | null; the_date?: string | null; order_index?: number };
+                      const formatSmallDate = (dateStr: string | null | undefined) =>
+                        dateStr
+                          ? new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                          : null;
+
+                      const daysInOrder = (tripTimeline.filter((e) => e.kind === "day") as DayEntry[]).sort(
+                        (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+                      );
+                      const itemsByDayId = new Map<string | null, TripItemMap[]>();
+                      for (const item of tripItems) {
+                        const key = item.day_id ?? null;
+                        if (!itemsByDayId.has(key)) itemsByDayId.set(key, []);
+                        itemsByDayId.get(key)!.push(item);
+                      }
+                      for (const arr of itemsByDayId.values()) {
+                        arr.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                      }
+
+                      const out: React.ReactNode[] = [];
+                      daysInOrder.forEach((day, idx) => {
+                        const dayNumber = idx + 1;
+                        const title = day.title?.trim() || "Day";
+                        out.push(
+                          <li key={`day-${day.id}`} className="pt-3 pb-1.5 first:pt-0">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--brand-orange)]/90 text-white text-[10px] font-semibold">
+                                Day {dayNumber}
+                              </span>
+                              <span className="text-sm font-bold text-[var(--brand-blue)]">{title}</span>
+                            </div>
+                            <div className="border-b border-amber-200/60 mb-1.5" />
+                          </li>
+                        );
+                        const itemsForDay = itemsByDayId.get(day.id) ?? [];
+                        itemsForDay.forEach((item) => {
+                          const siteTitle = item.site?.title ?? "Site";
+                          const cover = item.site?.cover_photo_url ?? null;
+                          const smallDate = formatSmallDate(item.date_in ?? day.the_date ?? null);
+                          out.push(
+                            <li key={`site-${item.id ?? item.site_id}`} className="mb-2">
+                              <button
+                                type="button"
+                                onClick={() => setHighlightSiteId(item.site_id)}
+                                className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                              >
+                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                  {cover ? (
+                                    <img src={cover} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                      <Icon name="map-pin" size={14} />
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex-1 min-w-0 text-left">
+                                  <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{siteTitle}</span>
+                                  {smallDate && (
+                                    <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                                      <Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />
+                                      {smallDate}
+                                    </span>
+                                  )}
+                                </span>
+                                <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
+                              </button>
+                            </li>
+                          );
+                        });
+                      });
+                      const ungroupedItems = itemsByDayId.get(null) ?? [];
+                      if (ungroupedItems.length > 0) {
+                        out.push(
+                          <li key="day-ungrouped" className="pt-3 pb-1.5">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-[10px] font-semibold text-gray-500">Other sites</span>
+                            </div>
+                            <div className="border-b border-gray-100 mb-1.5" />
+                          </li>
+                        );
+                        ungroupedItems.forEach((item) => {
+                          const siteTitle = item.site?.title ?? "Site";
+                          const cover = item.site?.cover_photo_url ?? null;
+                          const smallDate = formatSmallDate(item.date_in ?? null);
+                          out.push(
+                            <li key={`site-${item.id ?? item.site_id}`} className="mb-2">
+                              <button
+                                type="button"
+                                onClick={() => setHighlightSiteId(item.site_id)}
+                                className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                              >
+                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                  {cover ? (
+                                    <img src={cover} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                      <Icon name="map-pin" size={14} />
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex-1 min-w-0 text-left">
+                                  <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{siteTitle}</span>
+                                  {smallDate && (
+                                    <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                                      <Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />
+                                      {smallDate}
+                                    </span>
+                                  )}
+                                </span>
+                                <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
+                              </button>
+                            </li>
+                          );
+                        });
+                      }
+                      return out;
+                    })()}
+                  </ul>
+                ) : (
+                  <ul className="space-y-1.5 pb-2">
+                    {tripItems.map((item) => {
+                      const site = item.site;
+                      const title = site?.title ?? "Site";
+                      const cover = site?.cover_photo_url ?? null;
+                      return (
+                        <li key={item.site_id}>
+                          <button
+                            type="button"
+                            onClick={() => setHighlightSiteId(item.site_id)}
+                            className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                          >
+                            <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                              {cover ? (
+                                <img src={cover} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                  <Icon name="map-pin" size={14} />
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate flex-1 min-w-0">{title}</span>
+                            <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
-          );
-        })()}
+              );
+            }
+
+            const hasActiveFilter =
+              sidebarFilter !== null ||
+              filters.name.trim() !== "" ||
+              filters.categoryIds.length > 0 ||
+              filters.regionIds.length > 0 ||
+              (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
+            return (
+              <div
+                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-4 py-2.5 max-w-[220px] lg:max-w-[300px] flex items-center gap-2"
+                aria-label="Map view context"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-gray-800 truncate leading-snug">
+                    {mapHeadline}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {loading || sitesLoading
+                      ? "Loading…"
+                      : nearbyActive && typeof filters.radiusKm === "number"
+                        ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
+                        : filteredLocations.length === allLocations.length
+                          ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
+                          : `${filteredLocations.length} of ${allLocations.length} sites`}
+                  </div>
+                </div>
+                {hasActiveFilter && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearSidebarFilter();
+                      setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby() }));
+                      showMapToast("All filters cleared");
+                    }}
+                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
+                    title="Clear all filters"
+                    aria-label="Clear all filters"
+                  >
+                    <Icon name="times" size={9} />
+                  </button>
+                )}
+              </div>
+            );
+          })()}
       </div>
 
       {mounted &&
@@ -1576,13 +1756,28 @@ export default function MapPage() {
             role="status"
             aria-live="polite"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <circle cx="8" cy="8" r="7.5" stroke="rgba(255,255,255,0.45)" />
-              <path d="M4.5 8.5L7 11L11.5 5.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="font-medium text-[15px] leading-tight truncate">
-              {toastMessage}
-            </span>
+            {toastLoading ? (
+              <>
+                <span className="shrink-0 w-4 h-4 inline-block text-white" aria-hidden>
+                  <svg className="animate-spin w-full h-full" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span className="font-medium text-[15px] leading-tight truncate">
+                  Loading Trip
+                </span>
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7.5" stroke="rgba(255,255,255,0.45)" />
+                  <path d="M4.5 8.5L7 11L11.5 5.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="font-medium text-[15px] leading-tight truncate">
+                  {toastMessage}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}

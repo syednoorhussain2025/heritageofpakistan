@@ -239,7 +239,7 @@ export default function ClientOnlyMap({
           className="animate-spin text-[var(--brand-orange)]"
           size={48}
         />
-        <p className="ml-4 text-lg text-gray-600">Loading Map...</p>
+        <p className="ml-4 text-lg text-gray-600">Loading map…</p>
       </div>
     );
   }
