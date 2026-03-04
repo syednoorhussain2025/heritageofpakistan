@@ -7,6 +7,8 @@ import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
+import NearbySearchModal from "@/components/NearbySearchModal";
+import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { useBookmarks } from "@/components/BookmarkProvider";
@@ -85,6 +87,25 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
   return out;
 }
 
+/* ───────────────────────────── Distance (haversine) ───────────────────────────── */
+function haversineKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 /* ───────────────────────────── Map headline helpers ───────────────────────────── */
 function humanJoinMap(list: string[]) {
   if (list.length <= 1) return list[0] ?? "";
@@ -99,6 +120,9 @@ function buildMapHeadline({
   sidebarFilter,
   wishlistName,
   tripName,
+  centerSiteTitle,
+  radiusKm,
+  nearbyActive,
 }: {
   query: string;
   categoryNames: string[];
@@ -106,6 +130,9 @@ function buildMapHeadline({
   sidebarFilter: SidebarFilter;
   wishlistName?: string | null;
   tripName?: string | null;
+  centerSiteTitle?: string | null;
+  radiusKm?: number | null;
+  nearbyActive?: boolean;
 }) {
   if (sidebarFilter === "bookmarks") return "Bookmarks";
   if (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter) {
@@ -113,6 +140,13 @@ function buildMapHeadline({
   }
   if (typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter) {
     return tripName ?? "Trip";
+  }
+
+  /* "Search Around a Site" (nearby) takes precedence over text/category/region */
+  if (nearbyActive && (typeof radiusKm === "number" || centerSiteTitle)) {
+    const siteLabel = centerSiteTitle || "Selected Site";
+    const kmLabel = typeof radiusKm === "number" ? `${radiusKm} km` : "Radius";
+    return `Sites around ${siteLabel} within ${kmLabel}`;
   }
 
   const q = (query || "").trim();
@@ -163,6 +197,8 @@ export default function MapPage() {
   const [tripsLoading, setTripsLoading] = useState(false);
 
   const [mounted, setMounted] = useState(false);
+  const [showNearbyModal, setShowNearbyModal] = useState(false);
+  const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips" | "site">("search");
@@ -218,6 +254,11 @@ export default function MapPage() {
     }
     return null;
   }, [sidebarFilter, trips]);
+  const nearbyActive =
+    filters.centerSiteId != null &&
+    filters.centerLat != null &&
+    filters.centerLng != null &&
+    filters.radiusKm != null;
   const mapHeadline = useMemo(
     () => buildMapHeadline({
       query: debouncedName,
@@ -226,9 +267,30 @@ export default function MapPage() {
       sidebarFilter,
       wishlistName: activeWishlistName,
       tripName: activeTripName,
+      centerSiteTitle,
+      radiusKm: filters.radiusKm,
+      nearbyActive,
     }),
-    [debouncedName, selectedCategoryNames, selectedRegionNames, sidebarFilter, activeWishlistName, activeTripName]
+    [debouncedName, selectedCategoryNames, selectedRegionNames, sidebarFilter, activeWishlistName, activeTripName, centerSiteTitle, filters.radiusKm, nearbyActive]
   );
+
+  /* Keep centerSiteTitle in sync when "Search Around a Site" center changes */
+  useEffect(() => {
+    let active = true;
+    if (!filters.centerSiteId) {
+      setCenterSiteTitle(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("sites")
+        .select("id,title")
+        .eq("id", filters.centerSiteId)
+        .maybeSingle();
+      if (active && data) setCenterSiteTitle((data as { title: string }).title);
+    })();
+    return () => { active = false; };
+  }, [filters.centerSiteId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,25 +496,37 @@ export default function MapPage() {
   const filteredLocations: MapSite[] = useMemo(() => {
     if (loading) return allLocations;
 
+    const clat = filters.centerLat;
+    const clng = filters.centerLng;
+    const rkm = filters.radiusKm;
+    const nearbyActive =
+      typeof clat === "number" &&
+      typeof clng === "number" &&
+      typeof rkm === "number" &&
+      rkm > 0;
+
     let res = allLocations;
 
-    if (debouncedName.trim()) {
-      const q = debouncedName.trim().toLowerCase();
-      res = res.filter((site) => site.title.toLowerCase().includes(q));
-    }
-    if (filters.categoryIds.length > 0) {
-      const setCats = new Set(filters.categoryIds);
-      res = res.filter((site) =>
-        (site as any).site_categories?.some((sc: any) =>
-          setCats.has(sc.category_id)
-        )
-      );
-    }
-    if (filters.regionIds.length > 0) {
-      const setRegs = new Set(filters.regionIds);
-      res = res.filter((site) =>
-        (site as any).site_regions?.some((sr: any) => setRegs.has(sr.region_id))
-      );
+    /* When "Search Around a Site" is active, only apply distance (and sidebar). Ignore name/category/region. */
+    if (!nearbyActive) {
+      if (debouncedName.trim()) {
+        const q = debouncedName.trim().toLowerCase();
+        res = res.filter((site) => site.title.toLowerCase().includes(q));
+      }
+      if (filters.categoryIds.length > 0) {
+        const setCats = new Set(filters.categoryIds);
+        res = res.filter((site) =>
+          (site as any).site_categories?.some((sc: any) =>
+            setCats.has(sc.category_id)
+          )
+        );
+      }
+      if (filters.regionIds.length > 0) {
+        const setRegs = new Set(filters.regionIds);
+        res = res.filter((site) =>
+          (site as any).site_regions?.some((sr: any) => setRegs.has(sr.region_id))
+        );
+      }
     }
 
     if (sidebarFilter === "bookmarks" && bookmarksLoaded) {
@@ -475,6 +549,16 @@ export default function MapPage() {
       res = res.filter((site) => set.has(site.id));
     }
 
+    /* Filter by "Search Around a Site" radius when active */
+    if (nearbyActive) {
+      res = res.filter((site) => {
+        const lat = Number(site.latitude);
+        const lng = Number(site.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+        return haversineKm(clat, clng, lat, lng) <= rkm!;
+      });
+    }
+
     /* Return stable reference when the set of locations is unchanged to avoid map re-render storms */
     const key = res.length + "|" + res.map((s) => s.id).sort().join(",");
     const prev = stableLocationsRef.current;
@@ -487,6 +571,9 @@ export default function MapPage() {
     debouncedName,
     filters.categoryIds,
     filters.regionIds,
+    filters.centerLat,
+    filters.centerLng,
+    filters.radiusKm,
     sidebarFilter,
     bookmarksLoaded,
     bookmarkedIds,
@@ -1172,6 +1259,9 @@ export default function MapPage() {
       filters={filters}
       onFilterChange={handleFilterChange}
       onSearch={closeSearchPanel}
+      onOpenNearbyModal={() => setShowNearbyModal(true)}
+      onClearNearby={() => showMapToast("Proximity filter cleared")}
+      onReset={() => showMapToast("Filters reset")}
     />
   ) : mobilePanelTab === "site" ? (
     renderToolPanel("site", () => { setSelectedMapSite(null); closeSearchPanel(); })
@@ -1268,7 +1358,8 @@ export default function MapPage() {
             sidebarFilter !== null ||
             filters.name.trim() !== "" ||
             filters.categoryIds.length > 0 ||
-            filters.regionIds.length > 0;
+            filters.regionIds.length > 0 ||
+            (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
           return (
             <div
               className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-4 py-2.5 max-w-[220px] lg:max-w-[300px] flex items-center gap-2"
@@ -1281,9 +1372,11 @@ export default function MapPage() {
                 <div className="text-xs text-gray-500 mt-0.5">
                   {loading
                     ? "Loading…"
-                    : filteredLocations.length === allLocations.length
-                      ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
-                      : `${filteredLocations.length} of ${allLocations.length} sites`}
+                    : nearbyActive && typeof filters.radiusKm === "number"
+                      ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
+                      : filteredLocations.length === allLocations.length
+                        ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
+                        : `${filteredLocations.length} of ${allLocations.length} sites`}
                 </div>
               </div>
               {hasActiveFilter && (
@@ -1291,7 +1384,8 @@ export default function MapPage() {
                   type="button"
                   onClick={() => {
                     clearSidebarFilter();
-                    setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [] }));
+                    setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby() }));
+                    showMapToast("All filters cleared");
                   }}
                   className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
                   title="Clear all filters"
@@ -1426,11 +1520,48 @@ export default function MapPage() {
           filters={filters}
           onFilterChange={handleFilterChange}
           onSearch={() => {}}
+          onOpenNearbyModal={() => setShowNearbyModal(true)}
+          onClearNearby={() => showMapToast("Proximity filter cleared")}
+          onReset={() => showMapToast("Filters reset")}
           renderToolPanel={renderToolPanel}
           controlledOpenTool={selectedMapSite ? "site" : null}
           onControlledToolClose={() => setSelectedMapSite(null)}
         />
       </aside>
+
+      {/* Nearby search modal (Search Around a Site) */}
+      <NearbySearchModal
+        isOpen={showNearbyModal}
+        onClose={() => setShowNearbyModal(false)}
+        value={{
+          centerSiteId: filters.centerSiteId,
+          centerLat: filters.centerLat,
+          centerLng: filters.centerLng,
+          radiusKm: filters.radiusKm,
+        }}
+        onApply={(v) => {
+          /* Search Around a Site is exclusive: clear text, category, and region filters */
+          handleFilterChange({
+            ...v,
+            name: "",
+            categoryIds: [],
+            regionIds: [],
+          });
+          setShowNearbyModal(false);
+          const clat = v.centerLat;
+          const clng = v.centerLng;
+          const rkm = v.radiusKm ?? 25;
+          if (typeof clat === "number" && typeof clng === "number" && rkm > 0) {
+            const count = allLocations.filter((site) => {
+              const lat = Number(site.latitude);
+              const lng = Number(site.longitude);
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+              return haversineKm(clat, clng, lat, lng) <= rkm;
+            }).length;
+            showMapToast(`${count} ${count === 1 ? "site" : "sites"} within ${rkm} km`);
+          }
+        }}
+      />
 
       {/* Map action toast */}
       {toastVisible && (

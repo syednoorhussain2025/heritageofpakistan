@@ -1077,13 +1077,13 @@ function HeritageTypeModal({
       />
 
       <div
-        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 overflow-hidden ${
+        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col h-[48rem] sm:h-[42rem] transition-all duration-200 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-2"
         }`}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
               <Icon name="landmark" size={13} className="text-[var(--brand-orange)]" />
@@ -1093,7 +1093,7 @@ function HeritageTypeModal({
           <Tooltip text="Close without applying">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 hover:scale-105 flex items-center justify-center text-gray-500 transition-all duration-150"
               aria-label="Close"
             >
               <Icon name="times" size={12} />
@@ -1102,21 +1102,25 @@ function HeritageTypeModal({
         </div>
 
         <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
-          <Tooltip text="Type to find a heritage type" wrapperClassName="w-full">
-            <input
-              type="text"
-              placeholder="Search heritage type..."
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-xl bg-white border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-            />
-          </Tooltip>
+          {/* Search box section with blue header */}
+          <div className="relative rounded-xl px-3 py-1.5 pt-3 mb-5">
+            <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Search</span>
+            <Tooltip text="Type to find a heritage type" wrapperClassName="w-full">
+              <input
+                type="text"
+                placeholder="Search heritage type..."
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                className="w-full px-3 py-1 text-sm rounded-none bg-white border-0 border-b border-b-[var(--brand-blue)] text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-b-[var(--brand-orange)] transition-colors duration-150"
+              />
+            </Tooltip>
+          </div>
 
           {/* Heritage Type list */}
-          <div>
-            <p className="text-[0.65rem] font-bold uppercase tracking-widest text-gray-400 mb-1.5 px-1">Heritage Type</p>
-            <div className="rounded-xl border border-gray-200 overflow-hidden">
-              <ul className="max-h-[260px] overflow-auto divide-y divide-gray-100">
+          <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">
+            <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Heritage Type</span>
+            <div className="rounded-xl overflow-hidden">
+              <ul className="max-h-[260px] overflow-auto divide-y divide-gray-200">
                 {filtered.length === 0 ? (
                   <li className="px-3 py-2 text-xs text-gray-500">No heritage type found</li>
                 ) : (
@@ -1126,10 +1130,10 @@ function HeritageTypeModal({
                       <li
                         key={opt.id}
                         onClick={() => onToggle(opt.id)}
-                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
+                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between transition-colors duration-150 ${
                           active
                             ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
-                            : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
+                            : "text-[var(--dark-grey)] hover:bg-[var(--brand-orange)]/15 hover:text-[var(--brand-orange)]"
                         }`}
                       >
                         <span className="text-sm">{opt.name}</span>
@@ -1144,20 +1148,20 @@ function HeritageTypeModal({
 
           {/* UNESCO Status list */}
           {filteredUnesco.length > 0 && (
-            <div>
-              <p className="text-[0.65rem] font-bold uppercase tracking-widest text-gray-400 mb-1.5 px-1">UNESCO Status</p>
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <ul className="divide-y divide-gray-100">
+            <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4">
+              <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">UNESCO Status</span>
+              <div className="rounded-xl overflow-hidden">
+                <ul className="divide-y divide-gray-200">
                   {filteredUnesco.map((opt) => {
                     const active = selectedIds.includes(opt.id);
                     return (
                       <li
                         key={opt.id}
                         onClick={() => onToggle(opt.id)}
-                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between ${
+                        className={`px-3 py-2.5 cursor-pointer flex items-center justify-between transition-colors duration-150 ${
                           active
                             ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]"
-                            : "hover:bg-[var(--ivory-cream)] text-[var(--dark-grey)]"
+                            : "text-[var(--dark-grey)] hover:bg-[var(--brand-orange)]/15 hover:text-[var(--brand-orange)]"
                         }`}
                       >
                         <span className="text-sm">{opt.name}</span>
@@ -1175,7 +1179,7 @@ function HeritageTypeModal({
           <Tooltip text="Apply selected heritage types and run search" wrapperClassName="flex-1">
             <button
               onClick={onApply}
-              className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
             >
               <Icon name="search" size={13} />
               Apply Heritage Type
@@ -1184,7 +1188,7 @@ function HeritageTypeModal({
           <Tooltip text="Clear all heritage type selections">
             <button
               onClick={onClear}
-              className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+              className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:ring-gray-300 active:scale-95 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all duration-150"
             >
               <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
               Clear
@@ -1845,6 +1849,10 @@ interface SearchFiltersProps {
   onSearch: () => void;
   onHeadingChange?: (title: string) => void;
   onOpenNearbyModal?: () => void;
+  /** Called when the user clears the "Search Around a Site" (proximity) filter. */
+  onClearNearby?: () => void;
+  /** Called when the user clicks Reset (all filters cleared to default). */
+  onReset?: () => void;
   hideFooter?: boolean;
   hideHeading?: boolean;
   resetRef?: React.MutableRefObject<(() => void) | null>;
@@ -1863,6 +1871,8 @@ export default function SearchFilters({
   onSearch,
   onHeadingChange,
   onOpenNearbyModal,
+  onClearNearby,
+  onReset,
   hideFooter,
   hideHeading,
   resetRef,
@@ -1904,6 +1914,20 @@ export default function SearchFilters({
       active = false;
     };
   }, [filters.centerSiteId]);
+
+  /* When "Search Around a Site" is active, clear domain/location/heritage UI so only nearby is shown as active */
+  useEffect(() => {
+    if (isPlacesNearbyActive(filters)) {
+      setDomainTab("all");
+      setDraftRegionIds([]);
+      setDraftHeritageTypeIds([]);
+    }
+  }, [
+    filters.centerSiteId,
+    filters.centerLat,
+    filters.centerLng,
+    filters.radiusKm,
+  ]);
 
   const [regionNames, setRegionNames] = useState<Record<string, string>>({});
   const [regionParents, setRegionParents] = useState<
@@ -2335,6 +2359,7 @@ export default function SearchFilters({
     });
     resetSharedUi();
     setDomainTab("all");
+    onReset?.();
   };
 
   // All tab handlers
@@ -2914,7 +2939,7 @@ export default function SearchFilters({
         <Tooltip text={filters.centerSiteId ? "Click to edit proximity filter" : "Find heritage sites near a specific location"} wrapperClassName="w-full">
         <button
           type="button"
-          onClick={onOpenNearbyModal}
+          onClick={() => onOpenNearbyModal?.()}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-sm ${
             filters.centerSiteId
               ? "bg-[var(--brand-orange)]/5 border-[var(--brand-orange)]/40 hover:border-[var(--brand-orange)]"
@@ -2961,6 +2986,7 @@ export default function SearchFilters({
                   e.stopPropagation();
                   onFilterChange(clearPlacesNearby());
                   onSearch();
+                  onClearNearby?.();
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -2968,6 +2994,7 @@ export default function SearchFilters({
                     e.stopPropagation();
                     onFilterChange(clearPlacesNearby());
                     onSearch();
+                    onClearNearby?.();
                   }
                 }}
                 className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"

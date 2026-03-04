@@ -17,6 +17,9 @@ const ToolPanel = ({
   filters,
   onFilterChange,
   onSearch,
+  onOpenNearbyModal,
+  onClearNearby,
+  onReset,
   renderToolPanel,
 }: {
   tool: Tool | undefined;
@@ -24,6 +27,9 @@ const ToolPanel = ({
   filters?: Filters;
   onFilterChange?: (newFilters: Partial<Filters>) => void;
   onSearch?: () => void;
+  onOpenNearbyModal?: () => void;
+  onClearNearby?: () => void;
+  onReset?: () => void;
   renderToolPanel?: (toolId: string, onClose: () => void) => React.ReactNode;
 }) => {
   if (!tool) return null;
@@ -78,6 +84,9 @@ const ToolPanel = ({
             filters={filters}
             onFilterChange={onFilterChange}
             onSearch={() => { onSearch(); onClose(); }}
+            onOpenNearbyModal={onOpenNearbyModal}
+            onClearNearby={onClearNearby}
+            onReset={onReset}
             hideHeading
           />
         ) : (
@@ -95,6 +104,9 @@ export default function CollapsibleSidebar({
   filters,
   onFilterChange,
   onSearch,
+  onOpenNearbyModal,
+  onClearNearby,
+  onReset,
   renderToolPanel,
   controlledOpenTool,
   onControlledToolClose,
@@ -103,6 +115,12 @@ export default function CollapsibleSidebar({
   filters?: Filters;
   onFilterChange?: (newFilters: Partial<Filters>) => void;
   onSearch?: () => void;
+  /** Opens the "Search Around a Site" modal (map/explore). */
+  onOpenNearbyModal?: () => void;
+  /** Called when the user clears the proximity (Search Around a Site) filter. */
+  onClearNearby?: () => void;
+  /** Called when the user clicks Reset in the search filters. */
+  onReset?: () => void;
   renderToolPanel?: (toolId: string, onClose: () => void) => React.ReactNode;
   /** When set, forces the sidebar open to this tool ID (e.g. "site" for a map pin click). */
   controlledOpenTool?: string | null;
@@ -199,6 +217,9 @@ export default function CollapsibleSidebar({
             filters={filters}
             onFilterChange={onFilterChange}
             onSearch={onSearch}
+            onOpenNearbyModal={onOpenNearbyModal}
+            onClearNearby={onClearNearby}
+            onReset={onReset}
             renderToolPanel={renderToolPanel}
           />
         )}

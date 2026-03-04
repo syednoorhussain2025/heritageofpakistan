@@ -82,22 +82,13 @@ async function urlReachable(
  */
 async function displayUrl(
   bucket: string,
-  key: string,
-  opts?: { width?: number; quality?: number; resize?: "contain" | "cover" }
+  key: string
 ): Promise<string | null> {
-  // 1) signed (works for private buckets)
+  // 1) signed URL (no transform — avoids Supabase image transformation billing)
   try {
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(key, 900, {
-        transform: opts?.width
-          ? {
-              width: opts.width,
-              quality: opts.quality ?? 75,
-              resize: opts.resize ?? "contain",
-            }
-          : undefined,
-      });
+      .createSignedUrl(key, 900);
     if (!error && data?.signedUrl) {
       const u = safeURL(data.signedUrl);
       if (u) {
@@ -110,17 +101,9 @@ async function displayUrl(
     // ignore and fallthrough
   }
 
-  // 2) public URL (works only if bucket is public)
+  // 2) public URL (no transform)
   try {
-    const { data } = supabase.storage.from(bucket).getPublicUrl(key, {
-      transform: opts?.width
-        ? {
-            width: opts.width,
-            quality: opts.quality ?? 75,
-            resize: opts.resize ?? "contain",
-          }
-        : undefined,
-    });
+    const { data } = supabase.storage.from(bucket).getPublicUrl(key);
     const u = safeURL(data?.publicUrl);
     if (u) {
       u.searchParams.set("t", String(Date.now()));
