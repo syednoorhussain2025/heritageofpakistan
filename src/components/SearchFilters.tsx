@@ -1917,7 +1917,7 @@ export default function SearchFilters({
 
   /* When "Search Around a Site" is active, clear domain/location/heritage UI so only nearby is shown as active */
   useEffect(() => {
-    if (isPlacesNearbyActive(filters)) {
+    if (hasRadius(filters)) {
       setDomainTab("all");
       setDraftRegionIds([]);
       setDraftHeritageTypeIds([]);
