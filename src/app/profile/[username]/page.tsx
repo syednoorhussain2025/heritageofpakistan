@@ -52,10 +52,7 @@ export default function PublicProfilePage() {
       <div className="flex items-center space-x-4 mb-6">
         {profile.avatar_path ? (
           <Image
-            src={getPublicUrl("avatars", profile.avatar_path, {
-              width: 120,
-              quality: 80,
-            })}
+            src={getPublicUrl("avatars", profile.avatar_path)}
             alt="avatar"
             width={80}
             height={80}

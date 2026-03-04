@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
-import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 /* ---------- Styling helpers ---------- */
@@ -73,45 +73,9 @@ const useClickOutside = (ref: any, handler: () => void, excludeRef?: any) => {
   }, [ref, handler, excludeRef]);
 };
 
-/** Simple thumbnail builder similar to the one in SearchFilters. */
-function thumbUrl(input?: string | null, size = 40) {
-  if (!input) return "";
-  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
-  let absolute = input;
-
-  if (!/^https?:\/\//i.test(input)) {
-    if (!SUPA_URL) return "";
-    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
-      /^\/+/,
-      ""
-    )}`;
-  }
-
-  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
-  if (!isSameProject) return absolute;
-
-  const PUBLIC_MARK = "/storage/v1/object/public/";
-  const SIGN_MARK = "/storage/v1/object/sign/";
-
-  let renderBase = "";
-  let tail = "";
-
-  if (absolute.includes(PUBLIC_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
-    tail = absolute.split(PUBLIC_MARK)[1];
-  } else if (absolute.includes(SIGN_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
-    tail = absolute.split(SIGN_MARK)[1];
-  } else {
-    return absolute;
-  }
-
-  const u = new URL(renderBase + tail);
-  u.searchParams.set("width", String(size));
-  u.searchParams.set("height", String(size));
-  u.searchParams.set("resize", "cover");
-  u.searchParams.set("quality", "75");
-  return u.toString();
+/** Thumbnail URL without Supabase image transformations (uses pre-generated variant or direct URL). */
+function thumbUrl(input?: string | null, _size = 40) {
+  return getThumbOrVariantUrlNoTransform(input ?? "", "thumb") || "";
 }
 
 /* Per-result avatar with spinner + fallback */
@@ -613,7 +577,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const textLight = solid || panelActive || searchOverlayOpen || pathname === "/map";
 
-  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`;
+  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`;
 
   // Stagger helper: returns inline style with animation delay for index i
   const stagger = (i: number, baseMs = 60) => ({
@@ -1094,7 +1058,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="home" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
                     Home
                   </span>
                 </Link>
@@ -1144,7 +1108,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="search" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
                     Explore
                   </span>
                 </Link>
@@ -1160,7 +1124,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="map" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
                     Map
                   </span>
                 </Link>
@@ -1185,7 +1149,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
                   <Icon name="route" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] [color:var(--brand-grey)]`}>
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
                     Trip Builder
                   </span>
                 </button>

@@ -85,6 +85,57 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
   return out;
 }
 
+/* ───────────────────────────── Map headline helpers ───────────────────────────── */
+function humanJoinMap(list: string[]) {
+  if (list.length <= 1) return list[0] ?? "";
+  if (list.length === 2) return `${list[0]} & ${list[1]}`;
+  return `${list.slice(0, -1).join(", ")} & ${list[list.length - 1]}`;
+}
+
+function buildMapHeadline({
+  query,
+  categoryNames,
+  regionNames,
+  sidebarFilter,
+  wishlistName,
+  tripName,
+}: {
+  query: string;
+  categoryNames: string[];
+  regionNames: string[];
+  sidebarFilter: SidebarFilter;
+  wishlistName?: string | null;
+  tripName?: string | null;
+}) {
+  if (sidebarFilter === "bookmarks") return "Bookmarks";
+  if (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter) {
+    return wishlistName ?? "Wishlist";
+  }
+  if (typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter) {
+    return tripName ?? "Trip";
+  }
+
+  const q = (query || "").trim();
+  const hasCats = categoryNames.length > 0;
+  const hasRegs = regionNames.length > 0;
+
+  if (q && !hasCats && !hasRegs) return `Search for "${q}"`;
+  if (hasCats && !hasRegs) {
+    const cats = humanJoinMap(categoryNames);
+    return q ? `${cats} in Pakistan matching "${q}"` : `${cats} in Pakistan`;
+  }
+  if (!hasCats && hasRegs) {
+    const regs = regionNames.length === 1 ? regionNames[0] : humanJoinMap(regionNames);
+    return q ? `Sites in ${regs} matching "${q}"` : `Sites in ${regs}`;
+  }
+  if (hasCats && hasRegs) {
+    const cats = humanJoinMap(categoryNames);
+    const regs = regionNames.length === 1 ? regionNames[0] : humanJoinMap(regionNames);
+    return q ? `${cats} in ${regs} matching "${q}"` : `${cats} in ${regs}`;
+  }
+  return "All Heritage Sites";
+}
+
 export default function MapPage() {
   const { bookmarkedIds, isLoaded: bookmarksLoaded } = useBookmarks();
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
@@ -99,6 +150,8 @@ export default function MapPage() {
   const [mapSettings, setMapSettings] = useState<any>(null);
   const [allIcons, setAllIcons] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(null);
   const [wishlistSiteIds, setWishlistSiteIds] = useState<string[]>([]);
@@ -127,6 +180,14 @@ export default function MapPage() {
   const [loadError, setLoadError] = useState(false);
   const stableLocationsRef = useRef<{ key: string; value: MapSite[] }>({ key: "", value: [] });
 
+  // ── Map action toast ──
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const toastTimerRef = useRef<number | null>(null);
+  const filteredLocationsRef = useRef<MapSite[]>([]);
+  const filterToastInitRef = useRef(false);
+
   // Selected site (from clicking a map pin) — shown in the left panel on desktop
   // and in the mobile search panel on mobile.
   const [selectedMapSite, setSelectedMapSite] = useState<MapSite | null>(null);
@@ -136,6 +197,38 @@ export default function MapPage() {
   };
 
   const debouncedName = useDebounce(filters.name, 350);
+
+  const selectedCategoryNames = useMemo(
+    () => filters.categoryIds.map((id) => categoryMap[id]).filter(Boolean) as string[],
+    [filters.categoryIds, categoryMap]
+  );
+  const selectedRegionNames = useMemo(
+    () => filters.regionIds.map((id) => regionMap[id]).filter(Boolean) as string[],
+    [filters.regionIds, regionMap]
+  );
+  const activeWishlistName = useMemo(() => {
+    if (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter) {
+      return wishlists.find((w) => w.id === sidebarFilter.wishlistId)?.name ?? null;
+    }
+    return null;
+  }, [sidebarFilter, wishlists]);
+  const activeTripName = useMemo(() => {
+    if (typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter) {
+      return trips.find((t) => t.id === sidebarFilter.tripId)?.name ?? null;
+    }
+    return null;
+  }, [sidebarFilter, trips]);
+  const mapHeadline = useMemo(
+    () => buildMapHeadline({
+      query: debouncedName,
+      categoryNames: selectedCategoryNames,
+      regionNames: selectedRegionNames,
+      sidebarFilter,
+      wishlistName: activeWishlistName,
+      tripName: activeTripName,
+    }),
+    [debouncedName, selectedCategoryNames, selectedRegionNames, sidebarFilter, activeWishlistName, activeTripName]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -237,8 +330,10 @@ export default function MapPage() {
       let settingsRes: any;
       let iconsRes: any;
       let locationsRes: any;
+      let catsRes: any;
+      let regsRes: any;
       try {
-        [settingsRes, iconsRes, locationsRes] = await Promise.race([
+        [settingsRes, iconsRes, locationsRes, catsRes, regsRes] = await Promise.race([
           Promise.all([
             supabase
               .from("global_settings")
@@ -255,6 +350,8 @@ export default function MapPage() {
               )
               .not("latitude", "is", null)
               .not("longitude", "is", null),
+            supabase.from("categories").select("id,name").order("name"),
+            supabase.from("regions").select("id,name").order("name"),
           ]),
           timeoutPromise,
         ]);
@@ -302,6 +399,17 @@ export default function MapPage() {
         }));
 
         if (!cancelled) setAllLocations(valid);
+      }
+
+      if (catsRes?.data) {
+        const m: Record<string, string> = {};
+        (catsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
+        if (!cancelled) setCategoryMap(m);
+      }
+      if (regsRes?.data) {
+        const m: Record<string, string> = {};
+        (regsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
+        if (!cancelled) setRegionMap(m);
       }
 
       if (!cancelled) setLoading(false);
@@ -406,7 +514,44 @@ export default function MapPage() {
     return () => { document.body.style.overflow = ""; };
   }, [searchPanelOpen]);
 
-  const applyWishlistFilter = useCallback(async (wishlistId: string) => {
+  const showMapToast = useCallback((message: string) => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    setToastVisible(true);
+    setToastOpen(false);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setToastOpen(true));
+    });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastOpen(false);
+      window.setTimeout(() => setToastVisible(false), 220);
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current); };
+  }, []);
+
+  // Keep a ref to the current filteredLocations so the filter toast effect can read it without deps
+  filteredLocationsRef.current = filteredLocations;
+
+  // Show a toast when the user applies text/category/region search filters
+  useEffect(() => {
+    if (!filterToastInitRef.current) {
+      filterToastInitRef.current = true;
+      return;
+    }
+    const hasActive =
+      debouncedName.trim() !== "" ||
+      filters.categoryIds.length > 0 ||
+      filters.regionIds.length > 0;
+    if (!hasActive) return;
+    const count = filteredLocationsRef.current.length;
+    showMapToast(`${count} ${count === 1 ? "site" : "sites"} found`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedName, filters.categoryIds, filters.regionIds]);
+
+  const applyWishlistFilter = useCallback(async (wishlistId: string, wishlistName?: string) => {
     const { data } = await supabase
       .from("wishlist_items")
       .select("site_id")
@@ -414,18 +559,24 @@ export default function MapPage() {
     const ids = (data ?? []).map((r: { site_id: string }) => r.site_id);
     setWishlistSiteIds(ids);
     setSidebarFilter({ wishlistId });
-  }, []);
+    const count = ids.length;
+    const label = wishlistName ? `"${wishlistName}"` : "Wishlist";
+    showMapToast(`${label} · ${count} ${count === 1 ? "site" : "sites"} on map`);
+  }, [showMapToast]);
 
-  const applyTripFilter = useCallback(async (tripId: string) => {
+  const applyTripFilter = useCallback(async (tripId: string, tripName?: string) => {
     try {
       const { items } = await getTripWithItems(tripId);
       const ids = (items ?? []).map((it: { site_id: string }) => it.site_id);
       setTripSiteIds(ids);
       setSidebarFilter({ tripId });
+      const count = ids.length;
+      const label = tripName ? `"${tripName}"` : "Trip";
+      showMapToast(`${label} · ${count} ${count === 1 ? "site" : "sites"} on map`);
     } catch {
       setTripSiteIds([]);
     }
-  }, []);
+  }, [showMapToast]);
 
   const clearSidebarFilter = useCallback(() => {
     setSidebarFilter(null);
@@ -660,7 +811,7 @@ export default function MapPage() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => { applyWishlistFilter(expandedWishlistId); onClose(); }}
+                          onClick={() => { applyWishlistFilter(expandedWishlistId, expandedWishlist?.name); onClose(); }}
                           className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-[var(--brand-orange)] rounded-lg px-2.5 py-1.5 hover:opacity-90 transition-opacity"
                         >
                           <Icon name="map-pin" size={10} />
@@ -767,7 +918,7 @@ export default function MapPage() {
                               {/* Expand row */}
                               <button
                                 type="button"
-                                onClick={() => { setExpandedWishlistId(w.id); applyWishlistFilter(w.id); }}
+                                onClick={() => { setExpandedWishlistId(w.id); applyWishlistFilter(w.id, w.name); }}
                                 className="flex flex-1 min-w-0 items-center gap-3 p-3 text-left"
                               >
                                 <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
@@ -786,7 +937,7 @@ export default function MapPage() {
                               <button
                                 type="button"
                                 title={isActive ? "Clear filter" : "Show on map"}
-                                onClick={() => isActive ? (clearSidebarFilter(), onClose()) : (applyWishlistFilter(w.id), onClose())}
+                                onClick={() => isActive ? (clearSidebarFilter(), onClose()) : (applyWishlistFilter(w.id, w.name), onClose())}
                                 className={`shrink-0 mr-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                                   isActive
                                     ? "bg-[var(--brand-orange)] text-white hover:bg-orange-600"
@@ -945,14 +1096,14 @@ export default function MapPage() {
                       <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40">
                         <button
                           type="button"
-                          onClick={() => { setExpandedTripId(t.id); applyTripFilter(t.id); }}
+                          onClick={() => { setExpandedTripId(t.id); applyTripFilter(t.id, t.name); }}
                           className="flex flex-1 min-w-0 text-left"
                         >
                           <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
                         </button>
                         <button
                           type="button"
-                          onClick={() => { applyTripFilter(t.id); onClose(); }}
+                          onClick={() => { applyTripFilter(t.id, t.name); onClose(); }}
                           className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
                         >
                           <Icon name="map-pin" size={12} />
@@ -1039,15 +1190,6 @@ export default function MapPage() {
 
       {/* Map: full size from top; header overlays transparently */}
       <div className="absolute inset-0">
-        {loading && !loadError && (
-          <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-full shadow-lg">
-            <Icon
-              name="spinner"
-              className="animate-spin text-[var(--brand-orange)]"
-              size={24}
-            />
-          </div>
-        )}
         {loadError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gray-50 p-6">
             <p className="text-center text-gray-700">
@@ -1120,23 +1262,44 @@ export default function MapPage() {
         </div>
           </>
         )}
-        {(() => {
-          const label =
-            sidebarFilter === "bookmarks"
-              ? "Bookmarks"
-              : typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter
-                ? wishlists.find((w) => w.id === sidebarFilter.wishlistId)?.name ?? "Wishlist"
-                : typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
-                  ? trips.find((t) => t.id === sidebarFilter.tripId)?.name ?? "Trip"
-                  : null;
-          if (!label) return null;
+        {/* Dynamic headline pill — always visible, reflects current filters */}
+        {!loadError && (() => {
+          const hasActiveFilter =
+            sidebarFilter !== null ||
+            filters.name.trim() !== "" ||
+            filters.categoryIds.length > 0 ||
+            filters.regionIds.length > 0;
           return (
             <div
-              className="absolute right-2 top-2 z-[1000] rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-3 py-2"
-              aria-label="Active filter"
+              className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-4 py-2.5 max-w-[220px] lg:max-w-[300px] flex items-center gap-2"
+              aria-label="Map view context"
             >
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">Viewing</span>
-              <div className="text-sm font-semibold text-gray-800 truncate max-w-[200px]">{label}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-gray-800 truncate leading-snug">
+                  {mapHeadline}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {loading
+                    ? "Loading…"
+                    : filteredLocations.length === allLocations.length
+                      ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
+                      : `${filteredLocations.length} of ${allLocations.length} sites`}
+                </div>
+              </div>
+              {hasActiveFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSidebarFilter();
+                    setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [] }));
+                  }}
+                  className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
+                  title="Clear all filters"
+                  aria-label="Clear all filters"
+                >
+                  <Icon name="times" size={9} />
+                </button>
+              )}
             </div>
           );
         })()}
@@ -1268,6 +1431,30 @@ export default function MapPage() {
           onControlledToolClose={() => setSelectedMapSite(null)}
         />
       </aside>
+
+      {/* Map action toast */}
+      {toastVisible && (
+        <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12">
+          <div
+            className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
+            style={{
+              transform: toastOpen ? "translateY(0)" : "translateY(16px)",
+              opacity: toastOpen ? 1 : 0,
+              transition: "transform 220ms ease, opacity 220ms ease",
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="7.5" stroke="rgba(255,255,255,0.45)" />
+              <path d="M4.5 8.5L7 11L11.5 5.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-medium text-[15px] leading-tight truncate">
+              {toastMessage}
+            </span>
+          </div>
+        </div>
+      )}
     </>
   );
 }

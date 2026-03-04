@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { logAIUsage } from "@/server/ai/usage";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 export type InputImage = {
   id: string;
@@ -55,14 +56,17 @@ function mapModelAlias(modelId: string): string {
   return map[modelId] || modelId;
 }
 
-/** Create a resized image URL for AI (max 500px long edge) */
+/** Use pre-generated small variant for AI (avoids Supabase image transformations). */
 function resizedForAI(url: string): string {
   try {
-    const u = new URL(url);
-    u.searchParams.set("transform", "width=500,quality=70");
-    return u.toString();
+    const idx = url.indexOf("/site-images/");
+    if (idx !== -1) {
+      const path = decodeURIComponent(url.slice(idx + "/site-images/".length).split("?")[0]);
+      return getVariantPublicUrl(path, "sm");
+    }
+    return url.split("?")[0];
   } catch {
-    return url; // fallback
+    return url;
   }
 }
 

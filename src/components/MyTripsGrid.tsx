@@ -12,6 +12,7 @@ import {
   getTripUrlById,
 } from "@/lib/trips";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 type TripRow = {
   id: string;
@@ -246,9 +247,8 @@ export default function MyTripsGrid({
               const counts = stats[t.id] ?? { sites: 0, travels: 0 };
               const coverSrc =
                 t.cover_photo_url &&
-                (t.cover_photo_url.includes("?")
-                  ? `${t.cover_photo_url}&width=600`
-                  : `${t.cover_photo_url}?width=600`);
+                (getThumbOrVariantUrlNoTransform(t.cover_photo_url, "md") ||
+                  t.cover_photo_url);
 
               return (
                 <article

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/browser";
 import Icon from "@/components/Icon";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 interface TripBuilderSearchProps {
   tripId: string;
@@ -268,12 +269,11 @@ export default function TripBuilderSearch({
     [addedIds, addingId]
   );
 
-  /** Build a sharp src/srcset for card images to avoid aliasing on HiDPI. */
+  /** Card image URLs using pre-generated variants (no Supabase image transformations). */
   const buildImageProps = (baseUrl: string) => {
-    const w1 = 600;
-    const w2 = 1200;
-    const src = `${baseUrl}?width=${w1}`;
-    const srcSet = `${baseUrl}?width=${w1} ${w1}w, ${baseUrl}?width=${w2} ${w2}w`;
+    const src = getThumbOrVariantUrlNoTransform(baseUrl, "md") || baseUrl;
+    const srcLg = getThumbOrVariantUrlNoTransform(baseUrl, "lg") || baseUrl;
+    const srcSet = `${src} 600w, ${srcLg} 1200w`;
     const sizes = "(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw";
     return { src, srcSet, sizes };
   };

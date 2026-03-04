@@ -11,6 +11,7 @@ import {
   isPlacesNearbyActive,
   type NearbyParams,
 } from "@/lib/placesNearby";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 export type FilterOptions = {
@@ -48,50 +49,9 @@ const andJoin = (arr: string[]) =>
     : `${arr.slice(0, -1).join(" & ")} & ${arr.slice(-1)[0]}`;
 const km = (n?: number | null) => (n == null ? "" : `${Number(n)} km Radius`);
 
-/** Robust square thumbnail URL builder for Supabase (public, signed, or raw key). */
-function thumbUrl(input?: string | null, size = 48) {
-  if (!input) return "";
-
-  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
-  let absolute = input;
-
-  // If not an absolute URL, assume it's a storage key under object/public
-  if (!/^https?:\/\//i.test(input)) {
-    if (!SUPA_URL) return "";
-    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
-      /^\/+/,
-      ""
-    )}`;
-  }
-
-  // If it's not our Supabase project's URL, return as-is (external URL)
-  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
-  if (!isSameProject) return absolute;
-
-  // Convert object endpoint → render endpoint (supports public and sign)
-  const PUBLIC_MARK = "/storage/v1/object/public/";
-  const SIGN_MARK = "/storage/v1/object/sign/";
-
-  let renderBase = "";
-  let tail = "";
-
-  if (absolute.includes(PUBLIC_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
-    tail = absolute.split(PUBLIC_MARK)[1];
-  } else if (absolute.includes(SIGN_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
-    tail = absolute.split(SIGN_MARK)[1];
-  } else {
-    // Not an object URL we recognize (maybe already a render URL, etc.) → return as-is
-    return absolute;
-  }
-
-  const u = new URL(renderBase + tail);
-  u.searchParams.set("width", String(size));
-  u.searchParams.set("height", String(size));
-  u.searchParams.set("resize", "cover");
-  u.searchParams.set("quality", "75");
-  return u.toString();
+/** Thumbnail URL without Supabase image transformations (uses pre-generated variant or direct URL). */
+function thumbUrl(input?: string | null, _size = 48) {
+  return getThumbOrVariantUrlNoTransform(input ?? "", "thumb") || "";
 }
 
 /** Collect all categories whose ancestry includes the given root id. */

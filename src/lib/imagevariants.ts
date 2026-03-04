@@ -126,3 +126,28 @@ export function getVariantPublicUrl(
   const variantPath = getVariantStoragePath(baseStoragePath, variant);
   return buildPublicUrlFromStoragePath(variantPath);
 }
+
+const SITE_IMAGES_MARK = "/site-images/";
+
+/**
+ * Returns a thumbnail/size URL without using Supabase Image Transformations (avoids billing).
+ * For site-images: uses pre-generated variant (thumb/md/etc). For other Supabase URLs: direct public URL.
+ */
+export function getThumbOrVariantUrlNoTransform(
+  input: string | null | undefined,
+  variant: ImageVariantKey = "thumb"
+): string {
+  if (!input?.trim()) return "";
+  const base = getSupabasePublicBaseUrl();
+  const trimmed = input.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    if (!trimmed.startsWith(base)) return trimmed;
+    const idx = trimmed.indexOf(SITE_IMAGES_MARK);
+    if (idx !== -1) {
+      const path = decodeURIComponent(trimmed.slice(idx + SITE_IMAGES_MARK.length).split("?")[0]);
+      return getVariantPublicUrl(path, variant);
+    }
+    return trimmed.split("?")[0];
+  }
+  return getVariantPublicUrl(normalizeStoragePath(trimmed), variant);
+}

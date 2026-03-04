@@ -4,6 +4,7 @@
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 // The data structure for a site shown on the user's map
 type UserSite = {
@@ -19,15 +20,9 @@ type UserSite = {
   rating?: number; // The user's specific rating for this site
 };
 
-// Helper to create a resized thumbnail URL for images
-function thumb(url?: string | null, w = 400, q = 70) {
-  if (!url) return "";
-  const marker = "/storage/v1/object/public/";
-  if (!url.includes(marker)) return url;
-  const [origin] = url.split(marker);
-  const tail = url.split(marker)[1];
-  const h = Math.round(w * 0.75);
-  return `${origin}/storage/v1/render/image/public/${tail}?width=${w}&height=${h}&resize=cover&quality=${q}`;
+/** Card image URL without Supabase image transformations (uses pre-generated md variant or direct URL). */
+function thumb(url?: string | null) {
+  return getThumbOrVariantUrlNoTransform(url ?? "", "md") || "";
 }
 
 const monthNames = [

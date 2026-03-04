@@ -23,10 +23,7 @@ export async function uploadAvatar(userId: string, file: File) {
     });
   if (error) throw error;
 
-  const publicUrl = getPublicUrl(bucket, path, {
-    width: 256,
-    quality: 70,
-  });
+  const publicUrl = getPublicUrl(bucket, path);
 
   return { bucket, path, publicUrl, size: compressed.size, mime: "image/webp" };
 }

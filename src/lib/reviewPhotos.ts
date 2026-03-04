@@ -45,11 +45,7 @@ export async function uploadReviewPhotos(params: {
       });
     if (error) throw error;
 
-    // Optional: width transform for typical display (cards)
-    const publicUrl = getPublicUrl(bucket, path, {
-      width: 1200,
-      quality: 70,
-    });
+    const publicUrl = getPublicUrl(bucket, path);
 
     results.push({
       bucket,

@@ -19,6 +19,7 @@ import SearchFilters, {
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
 
@@ -310,42 +311,9 @@ function buildHeadline({
   return "All Heritage Sites in Pakistan";
 }
 
-/** Small thumb helper kept for banner avatar only */
-function thumbUrl(input?: string | null, size = 160) {
-  if (!input) return "";
-  const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
-  let absolute = input;
-  if (!/^https?:\/\//i.test(input)) {
-    if (!SUPA_URL) return "";
-    absolute = `${SUPA_URL}/storage/v1/object/public/${input.replace(
-      /^\/+/,
-      ""
-    )}`;
-  }
-  const isSameProject = SUPA_URL && absolute.startsWith(SUPA_URL);
-  if (!isSameProject) return absolute;
-
-  const PUBLIC_MARK = "/storage/v1/object/public/";
-  const SIGN_MARK = "/storage/v1/object/sign/";
-  let renderBase = "";
-  let tail = "";
-
-  if (absolute.includes(PUBLIC_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/public/`;
-    tail = absolute.split(PUBLIC_MARK)[1];
-  } else if (absolute.includes(SIGN_MARK)) {
-    renderBase = `${SUPA_URL}/storage/v1/render/image/sign/`;
-    tail = absolute.split(SIGN_MARK)[1];
-  } else {
-    return absolute;
-  }
-
-  const u = new URL(renderBase + tail);
-  u.searchParams.set("width", String(size));
-  u.searchParams.set("height", String(size));
-  u.searchParams.set("resize", "cover");
-  u.searchParams.set("quality", "80");
-  return u.toString();
+/** Thumbnail URL without Supabase image transformations (for banner avatar). */
+function thumbUrl(input?: string | null, _size = 160) {
+  return getThumbOrVariantUrlNoTransform(input ?? "", "md") || "";
 }
 
 /** Canonical cover URL builder used only for radius banner preview */

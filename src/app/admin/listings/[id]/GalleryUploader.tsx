@@ -17,6 +17,7 @@ import {
 } from "./gallery-actions";
 import type { CaptionAltOut } from "./gallery-actions";
 import { encode } from "blurhash";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* -------------------- URL + Reachability Helpers -------------------- */
 
@@ -417,17 +418,12 @@ export default function GalleryUploader({
       return;
     }
 
-    const withUrls: Row[] = await Promise.all(
-      (data || []).map(async (r: any) => {
-        const url = r.storage_path
-          ? await displayUrl("site-images", r.storage_path, {
-              width: 800,
-              quality: 72,
-            })
-          : null;
-        return { ...r, publicUrl: url };
-      })
-    );
+    const withUrls: Row[] = (data || []).map((r: any) => {
+      const url = r.storage_path
+        ? getVariantPublicUrl(r.storage_path, "md")
+        : null;
+      return { ...r, publicUrl: url };
+    });
 
     setRows(withUrls);
     setLoading(false);
@@ -847,15 +843,7 @@ export default function GalleryUploader({
   async function bestUrlForAI(
     key: string
   ): Promise<{ url: string; variant: string }> {
-    // prefer signed + transform, but any reachable URL is fine
-    const signed = await displayUrl("site-images", key, {
-      width: 1600,
-      quality: 72,
-      resize: "contain",
-    });
-    if (signed) return { url: signed, variant: "signed-or-public" };
-    // last resort raw
-    return { url: rawUrlFromStoragePath("site-images", key), variant: "raw" };
+    return { url: getVariantPublicUrl(key, "lg"), variant: "public" };
   }
 
   async function generateFor(list: Row[]) {
