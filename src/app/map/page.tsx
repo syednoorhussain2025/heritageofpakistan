@@ -207,7 +207,7 @@ export default function MapPage() {
   const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
   const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
   const [wishlistItemsLoading, setWishlistItemsLoading] = useState(false);
-  type TripItemMap = { id?: string; site_id: string; day_id?: string | null; order_index?: number; date_in?: string | null; site?: { id: string; title: string; slug: string; cover_photo_url: string | null } | null };
+  type TripItemMap = { id?: string; site_id: string; day_id?: string | null; order_index?: number; date_in?: string | null; site?: { id: string; title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null } | null };
   const [tripItems, setTripItems] = useState<TripItemMap[]>([]);
   const [tripItemsLoading, setTripItemsLoading] = useState(false);
   const [tripTimeline, setTripTimeline] = useState<TimelineItem[]>([]);
@@ -1379,6 +1379,8 @@ export default function MapPage() {
                 ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
                   <p className="text-sm text-gray-500 py-6 text-center">No sites in this trip.</p>
                 ) : tripTimeline.length > 0 ? (
+                  <div className="relative">
+                    <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
                   <ul className="space-y-0 pb-2">
                     {(() => {
                       type DayEntry = TimelineItem & { kind: "day"; id: string; title?: string | null; the_date?: string | null; order_index?: number };
@@ -1406,35 +1408,27 @@ export default function MapPage() {
                         const title = day.title?.trim() || "Day";
                         out.push(
                           <li key={`day-${day.id}`} className="pt-3 pb-1.5 first:pt-0">
-                            <div className="flex items-center gap-2 mb-1.5">
+                            <div className="flex items-center gap-2">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-[11px] font-semibold">
                                 Day {dayNumber}: {title}
                               </span>
                             </div>
-                            <div className="border-b border-amber-200/60 mb-1.5" />
                           </li>
                         );
                         const itemsForDay = itemsByDayId.get(day.id) ?? [];
-                        itemsForDay.forEach((item) => {
+                        itemsForDay.forEach((item, itemIdx) => {
                           const siteTitle = item.site?.title ?? "Site";
                           const cover = item.site?.cover_photo_url ?? null;
+                          const thumbUrl = item.site?.cover_photo_thumb_url || cover;
                           const smallDate = formatSmallDate(item.date_in ?? day.the_date ?? null);
                           out.push(
-                            <li key={`site-${item.id ?? item.site_id}`} className="mb-2">
+                            <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
                                 onClick={() => setHighlightSiteId(item.site_id)}
-                                className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                                className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                               >
-                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                  {cover ? (
-                                    <img src={cover} alt="" className="h-full w-full object-cover" />
-                                  ) : (
-                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                      <Icon name="map-pin" size={14} />
-                                    </span>
-                                  )}
-                                </span>
+                                <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
                                 <span className="flex-1 min-w-0 text-left">
                                   <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{siteTitle}</span>
                                   {smallDate && (
@@ -1444,8 +1438,17 @@ export default function MapPage() {
                                     </span>
                                   )}
                                 </span>
-                                <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
+                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                  {thumbUrl ? (
+                                    <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                      <Icon name="map-pin" size={14} />
+                                    </span>
+                                  )}
+                                </span>
                               </button>
+                              {itemIdx < itemsForDay.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
                             </li>
                           );
                         });
@@ -1460,26 +1463,19 @@ export default function MapPage() {
                             <div className="border-b border-gray-100 mb-1.5" />
                           </li>
                         );
-                        ungroupedItems.forEach((item) => {
+                        ungroupedItems.forEach((item, itemIdx) => {
                           const siteTitle = item.site?.title ?? "Site";
                           const cover = item.site?.cover_photo_url ?? null;
+                          const thumbUrl = item.site?.cover_photo_thumb_url || cover;
                           const smallDate = formatSmallDate(item.date_in ?? null);
                           out.push(
-                            <li key={`site-${item.id ?? item.site_id}`} className="mb-2">
+                            <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
                                 onClick={() => setHighlightSiteId(item.site_id)}
-                                className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                                className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                               >
-                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                  {cover ? (
-                                    <img src={cover} alt="" className="h-full w-full object-cover" />
-                                  ) : (
-                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                                      <Icon name="map-pin" size={14} />
-                                    </span>
-                                  )}
-                                </span>
+                                <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
                                 <span className="flex-1 min-w-0 text-left">
                                   <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{siteTitle}</span>
                                   {smallDate && (
@@ -1489,8 +1485,17 @@ export default function MapPage() {
                                     </span>
                                   )}
                                 </span>
-                                <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
+                                <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                  {thumbUrl ? (
+                                    <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
+                                      <Icon name="map-pin" size={14} />
+                                    </span>
+                                  )}
+                                </span>
                               </button>
+                              {itemIdx < ungroupedItems.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
                             </li>
                           );
                         });
@@ -1498,35 +1503,41 @@ export default function MapPage() {
                       return out;
                     })()}
                   </ul>
+                  </div>
                 ) : (
-                  <ul className="space-y-1.5 pb-2">
-                    {tripItems.map((item) => {
+                  <div className="relative">
+                    <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
+                  <ul className="pb-2">
+                    {tripItems.map((item, itemIdx) => {
                       const site = item.site;
                       const title = site?.title ?? "Site";
                       const cover = site?.cover_photo_url ?? null;
+                      const thumbUrl = site?.cover_photo_thumb_url || cover;
                       return (
                         <li key={item.site_id}>
                           <button
                             type="button"
                             onClick={() => setHighlightSiteId(item.site_id)}
-                            className="w-full flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow text-left transition-all"
+                            className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                           >
-                            <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                              {cover ? (
-                                <img src={cover} alt="" className="h-full w-full object-cover" />
+                            <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
+                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate flex-1 min-w-0">{title}</span>
+                            <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                              {thumbUrl ? (
+                                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
                               ) : (
                                 <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
                                   <Icon name="map-pin" size={14} />
                                 </span>
                               )}
                             </span>
-                            <span className="text-sm font-medium text-[var(--brand-blue)] truncate flex-1 min-w-0">{title}</span>
-                            <Icon name="map-pin" size={12} className="text-gray-300 shrink-0" />
                           </button>
+                          {itemIdx < tripItems.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
                         </li>
                       );
                     })}
                   </ul>
+                  </div>
                 )}
               </div>
             </div>

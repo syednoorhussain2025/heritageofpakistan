@@ -40,7 +40,8 @@ export type SiteLite = {
   title: string;
   province_id: number | null;
   cover_photo_url: string | null;
-  tagline: string | null; // ⬅️ ensure we fetch this
+  cover_photo_thumb_url: string | null;
+  tagline: string | null;
 };
 
 export type TripDay = {
@@ -370,7 +371,7 @@ export async function getTripWithItems(tripId: string) {
   if (siteIds.length > 0) {
     const { data: sites, error: sitesErr } = await supabase
       .from("sites")
-      .select("id, slug, title, province_id, cover_photo_url, tagline") // ⬅️ include tagline
+      .select("id, slug, title, province_id, cover_photo_url, cover_photo_thumb_url, tagline")
       .in("id", siteIds);
     if (sitesErr) throw sitesErr;
     sitesById = Object.fromEntries(
