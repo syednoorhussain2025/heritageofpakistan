@@ -1407,10 +1407,9 @@ export default function MapPage() {
                         out.push(
                           <li key={`day-${day.id}`} className="pt-3 pb-1.5 first:pt-0">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--brand-orange)]/90 text-white text-[10px] font-semibold">
-                                Day {dayNumber}
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-[11px] font-semibold">
+                                Day {dayNumber}: {title}
                               </span>
-                              <span className="text-sm font-bold text-[var(--brand-blue)]">{title}</span>
                             </div>
                             <div className="border-b border-amber-200/60 mb-1.5" />
                           </li>
