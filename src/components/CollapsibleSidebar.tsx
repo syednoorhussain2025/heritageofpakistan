@@ -183,7 +183,7 @@ export default function CollapsibleSidebar({
                 ${
                   effectiveActiveTool === tool.id && effectiveIsOpen
                     ? "text-white"
-                    : "text-[var(--brand-grey)] hover:bg-gray-100 hover:text-[var(--brand-orange)]"
+                    : "text-[var(--brand-blue)] hover:bg-gray-100 hover:text-[var(--brand-orange)]"
                 }
             `}
           >
@@ -191,11 +191,11 @@ export default function CollapsibleSidebar({
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
                   effectiveActiveTool === tool.id && effectiveIsOpen
-                    ? "bg-[var(--brand-blue)]"
-                    : "bg-gray-100"
+                    ? "bg-[var(--brand-blue)] text-white"
+                    : "bg-[var(--brand-blue)]/10 text-[var(--brand-blue)]"
                 }`}
               >
-                <Icon name={tool.icon} size={20} />
+                <Icon name={tool.icon} size={20} className="shrink-0" />
               </div>
             </div>
             <span className="font-sidebar-menu whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200">

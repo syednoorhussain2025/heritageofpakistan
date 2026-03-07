@@ -1865,7 +1865,7 @@ export default function MapPage() {
               (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
             return (
               <div
-                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-xl ring-2 ring-[var(--brand-orange)]/25 border-l-4 border-[var(--brand-orange)] px-4 py-3 max-w-[220px] lg:max-w-[320px] flex items-start gap-3"
+                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 px-4 py-3 max-w-[220px] lg:max-w-[320px] flex items-start gap-3"
                 aria-label="Current map view"
                 role="status"
               >
@@ -1876,7 +1876,7 @@ export default function MapPage() {
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
                     Showing on map
                   </div>
-                  <div className="text-sm font-semibold text-gray-800 truncate leading-snug">
+                  <div className="text-sm font-semibold text-gray-800 leading-snug break-words">
                     {mapHeadline}
                   </div>
                   <div className="text-xs text-gray-600 mt-0.5">
