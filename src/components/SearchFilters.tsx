@@ -767,6 +767,221 @@ const SubRegionSelect = ({
   );
 };
 
+/* Always-visible main regions list for the two-column Search Location modal */
+function MainRegionsColumn({
+  topRegions,
+  activeParentId,
+  setActiveParentId,
+  selectedIds,
+  onClearAll,
+  onToggleWithRule,
+  regionNames,
+  regionParents,
+}: {
+  topRegions: Option[];
+  activeParentId: string | null;
+  setActiveParentId: (id: string | null) => void;
+  selectedIds: string[];
+  onClearAll: () => void;
+  onToggleWithRule: (id: string) => void | Promise<void>;
+  regionNames: Record<string, string>;
+  regionParents: Record<string, string | null>;
+}) {
+  const [term, setTerm] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<
+    { id: string; name: string; icon_key: string | null; parent_id: string | null }[]
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const q = term.trim();
+      if (q.length < 2) {
+        setResults([]);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
+      const { data } = await supabase
+        .from("regions")
+        .select("id,name,icon_key,parent_id")
+        .ilike("name", `%${q}%`)
+        .order("name")
+        .limit(40);
+      if (!active) return;
+      setSearching(false);
+      setResults(
+        ((data || []) as any[]).map((r) => ({
+          id: r.id,
+          name: r.name,
+          icon_key: r.icon_key,
+          parent_id: r.parent_id,
+        }))
+      );
+    })();
+    return () => {
+      active = false;
+    };
+  }, [term]);
+
+  const displayList = term.trim().length >= 2 ? results : topRegions;
+  const showSearchResults = term.trim().length >= 2;
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 mb-3">
+        <input
+          type="text"
+          placeholder="Search regions…"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          className="w-full px-3 py-2 text-sm rounded-xl bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+        />
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/50">
+        {showSearchResults && searching ? (
+          <div className="px-3 py-4 text-xs text-gray-500 text-center">Searching…</div>
+        ) : displayList.length === 0 ? (
+          <div className="px-3 py-4 text-xs text-gray-500 text-center">
+            {showSearchResults ? "No regions found" : "No regions"}
+          </div>
+        ) : (
+          <ul className="py-1">
+            {displayList.map((r) => {
+              const isSelected = selectedIds.includes(r.id);
+              const isActive = activeParentId === r.id;
+              return (
+                <li
+                  key={r.id}
+                  onClick={() => {
+                    onToggleWithRule(r.id);
+                    setActiveParentId(r.parent_id ?? r.id);
+                  }}
+                  className={`px-3 py-2 cursor-pointer flex items-center gap-2 text-sm transition-colors ${
+                    isActive
+                      ? "bg-[var(--brand-blue)]/15 text-[var(--brand-blue)] font-semibold"
+                      : isSelected
+                        ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium"
+                        : "text-gray-700 hover:bg-[var(--ivory-cream)]"
+                  }`}
+                >
+                  <Icon name={r.icon_key || "map"} size={14} className="text-gray-400 shrink-0" />
+                  <span className="truncate">{regionNames[r.id] ?? r.name}</span>
+                  {isSelected && <Icon name="check" size={12} className="shrink-0 text-[var(--brand-orange)]" />}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      {(selectedIds.length > 0 || activeParentId) && (
+        <button
+          type="button"
+          onClick={onClearAll}
+          className="mt-2 text-xs text-gray-500 hover:text-[var(--brand-orange)] transition-colors"
+        >
+          Clear selection
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* Always-visible subregions list for the two-column Search Location modal */
+function SubRegionsColumn({
+  parent,
+  selectedIds,
+  onToggleWithRule,
+}: {
+  parent: Option | null;
+  selectedIds: string[];
+  onToggleWithRule: (id: string) => void | Promise<void>;
+}) {
+  const [term, setTerm] = useState("");
+  const [subs, setSubs] = useState<Option[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!parent) {
+      setSubs([]);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("regions")
+        .select("id,name,icon_key")
+        .eq("parent_id", parent.id)
+        .order("name");
+      if (!active) return;
+      setLoading(false);
+      if (!error) setSubs(((data || []) as Option[]) || []);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [parent?.id]);
+
+  const filtered = subs.filter((s) =>
+    s.name.toLowerCase().includes(term.toLowerCase())
+  );
+
+  if (!parent) {
+    return (
+      <div className="flex flex-col h-full min-h-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50/30 text-center px-4">
+        <Icon name="map-marker-alt" size={24} className="text-gray-300 mb-2" />
+        <p className="text-sm text-gray-500">Select a region on the left to see subregions</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 mb-3">
+        <input
+          type="text"
+          placeholder="Search subregions…"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          className="w-full px-3 py-2 text-sm rounded-xl bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+        />
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/50">
+        {loading ? (
+          <div className="px-3 py-4 text-xs text-gray-500 text-center">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="px-3 py-4 text-xs text-gray-500 text-center">
+            No subregions
+          </div>
+        ) : (
+          <ul className="py-1">
+            {filtered.map((s) => {
+              const isSelected = selectedIds.includes(s.id);
+              return (
+                <li
+                  key={s.id}
+                  onClick={() => onToggleWithRule(s.id)}
+                  className={`px-3 py-2 cursor-pointer flex items-center justify-between text-sm transition-colors ${
+                    isSelected
+                      ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-semibold"
+                      : "text-gray-700 hover:bg-[var(--ivory-cream)]"
+                  }`}
+                >
+                  <span className="truncate">{s.name}</span>
+                  {isSelected && <Icon name="check" size={12} className="shrink-0 text-[var(--brand-orange)]" />}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────────── Location + Radius Filter ───────────────────────────── */
 function buildLocationSummary(
   selectedIds: string[],
@@ -1252,6 +1467,8 @@ function SearchLocationModal({
 
   if (!mounted) return null;
 
+  const activeParent = activeParentId ? topRegions.find((t) => t.id === activeParentId) ?? null : null;
+
   return createPortal(
     <div
       className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
@@ -1269,7 +1486,7 @@ function SearchLocationModal({
       />
 
       <div
-        className={`relative w-full min-h-[85dvh] sm:min-h-[32rem] sm:h-auto sm:max-h-[90vh] sm:max-w-lg bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`relative w-full min-h-[85dvh] sm:min-h-[32rem] sm:h-auto sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-4"
@@ -1298,13 +1515,13 @@ function SearchLocationModal({
           </Tooltip>
         </div>
 
-        {/* Body — section labels and borders inspired by Heritage Type / Add to Collection */}
-        <div className="px-6 py-5 space-y-5 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
-          <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-2xl p-3 pt-4">
-            <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">
+        {/* Body — two columns: main regions (left), subregions (right), always open */}
+        <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-4 px-6 py-5 overflow-hidden">
+          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col">
+            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit">
               Region
             </span>
-            <TopLevelRegionSelect
+            <MainRegionsColumn
               topRegions={topRegions}
               activeParentId={activeParentId}
               setActiveParentId={setActiveParentId}
@@ -1315,19 +1532,16 @@ function SearchLocationModal({
               regionParents={regionParents}
             />
           </div>
-
-          {activeParentId && topRegions.find((t) => t.id === activeParentId) && (
-            <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-2xl p-3 pt-4">
-              <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">
-                Subregion
-              </span>
-              <SubRegionSelect
-                parent={topRegions.find((t) => t.id === activeParentId)!}
-                selectedIds={selectedIds}
-                onToggleWithRule={onToggleWithRule}
-              />
-            </div>
-          )}
+          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col">
+            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit">
+              Subregion
+            </span>
+            <SubRegionsColumn
+              parent={activeParent}
+              selectedIds={selectedIds}
+              onToggleWithRule={onToggleWithRule}
+            />
+          </div>
         </div>
 
         {/* Footer — primary/secondary buttons aligned with Add to Collection & Heritage Type */}
