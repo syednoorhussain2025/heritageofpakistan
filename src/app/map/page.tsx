@@ -463,11 +463,11 @@ export default function MapPage() {
   /* ───────── Phase 1: Load settings, icons, categories, regions (or revalidate if we have cache) ─────────
    * - If we already have bootstrap (server pre-fetch or localStorage cache), only revalidate in background.
    * - Otherwise fetch with 20s timeout and up to 2 retries. On success we cache for next visit. */
-  const PHASE1_MAX_ATTEMPTS = 3; // initial + 2 auto-retries
+  const PHASE1_MAX_ATTEMPTS = 4; // initial + 3 auto-retries
   useEffect(() => {
     let cancelled = false;
     const hasInitialData = !!(initialBootstrapFromServer || getCachedBootstrap());
-    const QUICK_LOAD_TIMEOUT_MS = 20000; // 20s: allows slow networks / Supabase cold start
+    const QUICK_LOAD_TIMEOUT_MS = 45000; // 45s (same as sites) for slow networks / cold start
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("QUICK_LOAD_TIMEOUT")), QUICK_LOAD_TIMEOUT_MS)
     );
