@@ -15,6 +15,8 @@ import { useBookmarks } from "@/components/BookmarkProvider";
 import { getWishlists, getWishlistItems } from "@/lib/wishlists";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
+import { useMapBootstrap } from "@/components/MapBootstrapProvider";
+import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -170,7 +172,31 @@ function buildMapHeadline({
   return "All Heritage Sites";
 }
 
+function applyBootstrapToState(
+  b: { mapSettings: Record<string, unknown> | null; icons: Array<{ name: string; svg_content: string }>; categories: Array<{ id: string; name: string }>; regions: Array<{ id: string; name: string }> },
+  setters: { setMapSettings: (v: any) => void; setAllIcons: (v: Map<string, string>) => void; setCategoryMap: (v: Record<string, string>) => void; setRegionMap: (v: Record<string, string>) => void; setLoading: (v: boolean) => void }
+) {
+  if (b.mapSettings != null) setters.setMapSettings(b.mapSettings);
+  if (b.icons?.length) {
+    const iconMap = new Map<string, string>();
+    b.icons.forEach((icon) => iconMap.set(icon.name, icon.svg_content));
+    setters.setAllIcons(iconMap);
+  }
+  if (b.categories?.length) {
+    const m: Record<string, string> = {};
+    b.categories.forEach((r) => { m[r.id] = r.name; });
+    setters.setCategoryMap(m);
+  }
+  if (b.regions?.length) {
+    const m: Record<string, string> = {};
+    b.regions.forEach((r) => { m[r.id] = r.name; });
+    setters.setRegionMap(m);
+  }
+  setters.setLoading(false);
+}
+
 export default function MapPage() {
+  const initialBootstrapFromServer = useMapBootstrap();
   const { bookmarkedIds, isLoaded: bookmarksLoaded } = useBookmarks();
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
   const [filters, setFilters] = useState<Filters>({
@@ -219,6 +245,8 @@ export default function MapPage() {
   const [loadError, setLoadError] = useState(false);
   const [sitesLoadError, setSitesLoadError] = useState(false);
   const [sitesRetryCount, setSitesRetryCount] = useState(0);
+  /** Phase 1 (settings/icons/cats/regions) retry: effect depends on this; increment to retry (auto or manual). */
+  const [phase1RetryCount, setPhase1RetryCount] = useState(0);
   /** When hovering a site in the trip panel, highlight the matching map tooltip. */
   const [tripPanelHoveredSiteId, setTripPanelHoveredSiteId] = useState<string | null>(null);
   /** Increment when trip is closed so the map resets to default zoom/position. */
@@ -241,6 +269,23 @@ export default function MapPage() {
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
+
+  /* Apply server or localStorage bootstrap immediately so map can render without waiting (cache/pre-built). */
+  useEffect(() => {
+    const fromServer = initialBootstrapFromServer;
+    const fromCache = getCachedBootstrap();
+    const bootstrap = fromServer ?? fromCache;
+    if (!bootstrap) return;
+    const hasEnough = bootstrap.mapSettings != null && (bootstrap.icons?.length ?? 0) > 0;
+    if (!hasEnough) return;
+    applyBootstrapToState(bootstrap, {
+      setMapSettings,
+      setAllIcons,
+      setCategoryMap,
+      setRegionMap,
+      setLoading,
+    });
+  }, [initialBootstrapFromServer]);
 
   const debouncedName = useDebounce(filters.name, 350);
 
@@ -415,45 +460,65 @@ export default function MapPage() {
     return () => { cancelled = true; };
   }, [tripIdToLoad, isSignedIn]);
 
-  /* ───────── Phase 1: Load settings, icons, categories, regions (fast) so map shell renders ───────── */
+  /* ───────── Phase 1: Load settings, icons, categories, regions (or revalidate if we have cache) ─────────
+   * - If we already have bootstrap (server pre-fetch or localStorage cache), only revalidate in background.
+   * - Otherwise fetch with 20s timeout and up to 2 retries. On success we cache for next visit. */
+  const PHASE1_MAX_ATTEMPTS = 3; // initial + 2 auto-retries
   useEffect(() => {
     let cancelled = false;
-    const QUICK_LOAD_TIMEOUT_MS = 8000;
+    const hasInitialData = !!(initialBootstrapFromServer || getCachedBootstrap());
+    const QUICK_LOAD_TIMEOUT_MS = 20000; // 20s: allows slow networks / Supabase cold start
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("QUICK_LOAD_TIMEOUT")), QUICK_LOAD_TIMEOUT_MS)
     );
-    setLoading(true);
+
+    if (!hasInitialData) {
+      setLoading(true);
+    }
     setLoadError(false);
     setSitesLoadError(false);
+
     (async () => {
       let settingsRes: any;
       let iconsRes: any;
       let catsRes: any;
       let regsRes: any;
-      try {
-        [settingsRes, iconsRes, catsRes, regsRes] = await Promise.race([
-          Promise.all([
-            supabase
-              .from("global_settings")
-              .select("value")
-              .eq("key", "map_settings")
-              .maybeSingle(),
-            supabase.from("icons").select("name, svg_content"),
-            supabase.from("categories").select("id,name").order("name"),
-            supabase.from("regions").select("id,name").order("name"),
-          ]),
-          timeoutPromise,
+
+      if (hasInitialData) {
+        // Background revalidate only (no timeout)
+        const [s, i, c, r] = await Promise.all([
+          supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
+          supabase.from("icons").select("name, svg_content"),
+          supabase.from("categories").select("id,name").order("name"),
+          supabase.from("regions").select("id,name").order("name"),
         ]);
-      } catch (err) {
-        if (cancelled) return;
-        if (err instanceof Error && err.message === "QUICK_LOAD_TIMEOUT") {
+        settingsRes = s;
+        iconsRes = i;
+        catsRes = c;
+        regsRes = r;
+      } else {
+        try {
+          [settingsRes, iconsRes, catsRes, regsRes] = await Promise.race([
+            Promise.all([
+              supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
+              supabase.from("icons").select("name, svg_content"),
+              supabase.from("categories").select("id,name").order("name"),
+              supabase.from("regions").select("id,name").order("name"),
+            ]),
+            timeoutPromise,
+          ]);
+        } catch (err) {
+          if (cancelled) return;
+          const shouldRetry = phase1RetryCount < PHASE1_MAX_ATTEMPTS - 1;
+          if (shouldRetry) {
+            setPhase1RetryCount((c) => c + 1);
+            setLoading(false);
+            return;
+          }
           setLoadError(true);
           setLoading(false);
           return;
         }
-        setLoadError(true);
-        setLoading(false);
-        return;
       }
 
       if (cancelled) return;
@@ -475,17 +540,33 @@ export default function MapPage() {
         (regsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
         setRegionMap(m);
       }
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+        setCachedBootstrap({
+          mapSettings: settingsRes?.data?.value ?? null,
+          icons: (iconsRes?.data as Array<{ name: string; svg_content: string }>) ?? [],
+          categories: (catsRes?.data as Array<{ id: string; name: string }>) ?? [],
+          regions: (regsRes?.data as Array<{ id: string; name: string }>) ?? [],
+        });
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [phase1RetryCount, initialBootstrapFromServer]);
 
-  /* ───────── Phase 2: Load sites (runs after Phase 1; retry via sitesRetryCount) ───────── */
+  /* ───────── Phase 2: Load sites (runs after Phase 1; retry via sitesRetryCount). Uses cache when valid. ───────── */
   useEffect(() => {
     if (loading || loadError) return;
     let cancelled = false;
-    setSitesLoading(true);
+
+    const cached = getCachedSites();
+    if (cached?.sites?.length) {
+      setAllLocations(cached.sites as MapSite[]);
+      setSitesLoading(false);
+    } else {
+      setSitesLoading(true);
+    }
     setSitesLoadError(false);
+
     const SITES_LOAD_TIMEOUT_MS = 45000;
     const sitesTimeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("SITES_LOAD_TIMEOUT")), SITES_LOAD_TIMEOUT_MS)
@@ -545,7 +626,10 @@ export default function MapPage() {
           setSitesLoading(false);
           return;
         }
-        if (!cancelled) setAllLocations(valid);
+        if (!cancelled) {
+          setAllLocations(valid);
+          setCachedSites(valid);
+        }
       }
       if (!cancelled) {
         setSitesLoading(false);
@@ -1321,13 +1405,22 @@ export default function MapPage() {
             <p className="text-center text-gray-700">
               Map failed to load. The request may have timed out. Check your connection and try again.
             </p>
-            <button
-              type="button"
-              onClick={() => { setLoadError(false); setLoading(true); window.location.reload(); }}
-              className="rounded-lg bg-[var(--brand-orange)] px-4 py-2 text-white font-medium hover:opacity-90"
-            >
-              Refresh page
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setLoadError(false); setLoading(true); setPhase1RetryCount(0); }}
+                className="rounded-lg bg-[var(--brand-orange)] px-4 py-2 text-white font-medium hover:opacity-90"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Refresh page
+              </button>
+            </div>
           </div>
         ) : (
           <>
