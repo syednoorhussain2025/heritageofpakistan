@@ -1262,46 +1262,48 @@ function SearchLocationModal({
       aria-label="Search Location"
     >
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${
+        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
       />
 
       <div
-        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 overflow-hidden ${
+        className={`relative w-full min-h-[85dvh] sm:min-h-[32rem] sm:h-auto sm:max-h-[90vh] sm:max-w-lg bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
-            : "opacity-0 scale-95 translate-y-2"
+            : "opacity-0 scale-95 translate-y-4"
         }`}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
+        {/* Header — aligned with Add to Collection */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
               <Icon
                 name="map-marker-alt"
-                size={14}
+                size={18}
                 className="text-[var(--brand-orange)]"
               />
             </div>
-            <h2 className="text-base font-semibold text-gray-900">Search Location</h2>
+            <h2 className="text-xl font-bold text-gray-900">Search Location</h2>
           </div>
           <Tooltip text="Close without applying">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
               aria-label="Close"
             >
-              <Icon name="times" size={12} />
+              <Icon name="times" size={20} />
             </button>
           </Tooltip>
         </div>
 
-        <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
-          <div>
-            <label className="mb-1.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
+        {/* Body — section labels and borders inspired by Heritage Type / Add to Collection */}
+        <div className="px-6 py-5 space-y-5 flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
+          <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-2xl p-3 pt-4">
+            <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">
               Region
-            </label>
+            </span>
             <TopLevelRegionSelect
               topRegions={topRegions}
               activeParentId={activeParentId}
@@ -1315,10 +1317,10 @@ function SearchLocationModal({
           </div>
 
           {activeParentId && topRegions.find((t) => t.id === activeParentId) && (
-            <div>
-              <label className="mb-1.5 block text-[0.7rem] font-semibold text-gray-500 uppercase tracking-wider">
+            <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-2xl p-3 pt-4">
+              <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">
                 Subregion
-              </label>
+              </span>
               <SubRegionSelect
                 parent={topRegions.find((t) => t.id === activeParentId)!}
                 selectedIds={selectedIds}
@@ -1328,22 +1330,23 @@ function SearchLocationModal({
           )}
         </div>
 
-        <div className="flex gap-2.5 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+        {/* Footer — primary/secondary buttons aligned with Add to Collection & Heritage Type */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
           <Tooltip text="Apply selected location filters and run search" wrapperClassName="flex-1">
             <button
               onClick={onApply}
-              className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-2xl bg-[var(--brand-blue)] hover:brightness-110 text-white font-semibold shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)]/40 text-sm flex items-center justify-center gap-2"
             >
-              <Icon name="search" size={13} />
+              <Icon name="search" size={14} />
               Apply Location
             </button>
           </Tooltip>
           <Tooltip text="Clear all location filters">
             <button
               onClick={onClear}
-              className="px-4 rounded-xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-xs transition-all"
+              className="px-5 py-3 rounded-2xl bg-white ring-1 ring-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:ring-gray-300 active:scale-[0.98] inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 text-sm transition-all duration-150"
             >
-              <Icon name="redo-alt" size={12} className="text-[var(--brand-orange)]" />
+              <Icon name="redo-alt" size={14} className="text-[var(--brand-orange)]" />
               Clear
             </button>
           </Tooltip>
