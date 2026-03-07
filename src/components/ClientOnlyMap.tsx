@@ -713,6 +713,70 @@ const OSMLeafletView = memo(function OSMLeafletView({
   // the marker's popupclose event and reopen the popup immediately.
   const pendingPopupId = useRef<string | null>(null);
 
+  // Memoize marker children so that when only highlightSiteId/openPreviewWithoutZoom change
+  // (e.g. open/close saved list preview), we don't re-create markers and cause cluster flicker.
+  const markerChildren = useMemo(() => {
+    return locations.map((site) => {
+      let iconName = settings.pin_icon_name || "map-pin";
+      if (settings.icon_source === "category") {
+        const categoryIconName = site.site_categories?.find(
+          (sc) => sc.categories?.icon_key
+        )?.categories?.icon_key;
+        if (categoryIconName) iconName = categoryIconName;
+      }
+      const normalIconData = memoizedIcons.get(iconName);
+      const tripIconData = tripViewIcons.get(site.id);
+      const iconData = permanentTooltips && tripIconData ? tripIconData : normalIconData;
+      if (!iconData || !iconData.icon) return null;
+
+      return (
+        <Marker
+          key={`${site.id}-${permanentTooltips}`}
+          position={[site.latitude, site.longitude]}
+          icon={iconData.icon}
+          eventHandlers={directMarkerSelect ? {
+            click: () => onSiteSelect?.(site),
+          } : {
+            popupclose: (e) => {
+              if (pendingPopupId.current === site.id) {
+                pendingPopupId.current = null;
+                setTimeout(() => (e.target as L.Marker).openPopup(), 0);
+              }
+            },
+          }}
+        >
+          {/* In trip view, tooltips are rendered by TripViewTooltipLayer, not Leaflet */}
+          {!permanentTooltips && (
+            <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
+              {site.title}
+            </Tooltip>
+          )}
+          {!directMarkerSelect && (
+            <Popup>
+              <SitePreviewCard
+                site={site}
+                onCardClick={onSiteSelect ? () => {
+                  pendingPopupId.current = site.id;
+                  onSiteSelect(site);
+                  setTimeout(() => { pendingPopupId.current = null; }, 300);
+                } : undefined}
+              />
+            </Popup>
+          )}
+        </Marker>
+      );
+    });
+  }, [
+    locations,
+    settings.pin_icon_name,
+    settings.icon_source,
+    memoizedIcons,
+    tripViewIcons,
+    permanentTooltips,
+    directMarkerSelect,
+    onSiteSelect,
+  ]);
+
   return (
     <div className="relative w-full h-full">
       {settings.cluster_color && (
@@ -766,56 +830,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
           maxClusterRadius={settings.cluster_max_radius}
         >
-          {locations.map((site) => {
-            let iconName = settings.pin_icon_name || "map-pin";
-            if (settings.icon_source === "category") {
-              const categoryIconName = site.site_categories?.find(
-                (sc) => sc.categories?.icon_key
-              )?.categories?.icon_key;
-              if (categoryIconName) iconName = categoryIconName;
-            }
-            const normalIconData = memoizedIcons.get(iconName);
-            const tripIconData = tripViewIcons.get(site.id);
-            const iconData = permanentTooltips && tripIconData ? tripIconData : normalIconData;
-            if (!iconData || !iconData.icon) return null;
-
-            return (
-              <Marker
-                key={`${site.id}-${permanentTooltips}`}
-                position={[site.latitude, site.longitude]}
-                icon={iconData.icon}
-                eventHandlers={directMarkerSelect ? {
-                  click: () => onSiteSelect?.(site),
-                } : {
-                  popupclose: (e) => {
-                    if (pendingPopupId.current === site.id) {
-                      pendingPopupId.current = null;
-                      setTimeout(() => (e.target as L.Marker).openPopup(), 0);
-                    }
-                  },
-                }}
-              >
-                {/* In trip view, tooltips are rendered by TripViewTooltipLayer, not Leaflet */}
-                {!permanentTooltips && (
-                  <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
-                    {site.title}
-                  </Tooltip>
-                )}
-                {!directMarkerSelect && (
-                  <Popup>
-                    <SitePreviewCard
-                      site={site}
-                      onCardClick={onSiteSelect ? () => {
-                        pendingPopupId.current = site.id;
-                        onSiteSelect(site);
-                        setTimeout(() => { pendingPopupId.current = null; }, 300);
-                      } : undefined}
-                    />
-                  </Popup>
-                )}
-              </Marker>
-            );
-          })}
+          {markerChildren}
         </MarkerClusterGroup>
       </MapContainer>
     </div>

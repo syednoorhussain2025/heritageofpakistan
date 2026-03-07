@@ -204,6 +204,8 @@ export default function MapPage() {
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips" | "site">("search");
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
+  /** When true, map will open preview without zooming (e.g. click from saved list panel). */
+  const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
   const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
   const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
   const [wishlistItemsLoading, setWishlistItemsLoading] = useState(false);
@@ -1068,7 +1070,10 @@ export default function MapPage() {
                           <li key={item.site_id}>
                             <button
                               type="button"
-                              onClick={() => setHighlightSiteId(item.site_id)}
+                              onClick={() => {
+                                setHighlightFromSavedList(true);
+                                setHighlightSiteId(item.site_id);
+                              }}
                               className="w-full flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
                             >
                               <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
@@ -1332,8 +1337,14 @@ export default function MapPage() {
           settings={mapSettings}
           icons={allIcons}
           highlightSiteId={highlightSiteId}
-          onHighlightConsumed={() => setHighlightSiteId(null)}
-          openPreviewWithoutZoom={typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter}
+          onHighlightConsumed={() => {
+            setHighlightSiteId(null);
+            setHighlightFromSavedList(false);
+          }}
+          openPreviewWithoutZoom={
+            highlightFromSavedList ||
+            (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter)
+          }
           onSiteSelect={(site) => handleSiteSelect(site as MapSite)}
           mapType={mapType}
           permanentTooltips={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
