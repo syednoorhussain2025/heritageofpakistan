@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useCallback, useRef, useState, useEffect, memo } from "react";
+import { createPortal } from "react-dom";
 
 /* ------------------------ Leaflet / OSM (original path) ------------------------ */
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
@@ -206,6 +207,8 @@ export default function ClientOnlyMap({
   onSiteSelect,
   /** Override from map type switcher: osm | google | google_satellite */
   mapType: mapTypeOverride,
+  permanentTooltips = false,
+  directMarkerSelect = false,
 }: {
   locations: Site[];
   settings: MapSettings | null;
@@ -216,6 +219,10 @@ export default function ClientOnlyMap({
   /** When provided, clicking a marker calls this instead of showing a popup. */
   onSiteSelect?: (site: Site) => void;
   mapType?: MapType;
+  /** When true, tooltips are always visible (trip view). */
+  permanentTooltips?: boolean;
+  /** When true, clicking a marker calls onSiteSelect directly (no popup). */
+  directMarkerSelect?: boolean;
 }) {
   // Stabilize callbacks with refs so OSMLeafletView never re-renders just
   // because the parent passed a new inline arrow function reference.
@@ -264,6 +271,7 @@ export default function ClientOnlyMap({
         onHighlightConsumed={stableOnHighlightConsumed}
         onSiteSelect={stableOnSiteSelect}
         mapTypeId={googleMapTypeId}
+        directMarkerSelect={directMarkerSelect}
       />
     );
   }
@@ -276,7 +284,131 @@ export default function ClientOnlyMap({
       highlightSiteId={highlightSiteId}
       onHighlightConsumed={stableOnHighlightConsumed}
       onSiteSelect={stableOnSiteSelect}
+      permanentTooltips={permanentTooltips}
+      directMarkerSelect={directMarkerSelect}
     />
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * TRIP VIEW TOOLTIP LAYER
+ * Renders fully-custom React tooltip labels over the map using a portal +
+ * lat/lng → pixel projection.  Replaces Leaflet's permanent tooltip entirely
+ * so we have full control over styling.
+ * ────────────────────────────────────────────────────────────────────────────── */
+function TripViewTooltipLayer({
+  locations,
+  iconSizes,
+}: {
+  locations: Site[];
+  iconSizes: Map<string, number>;
+}) {
+  const map = useMap();
+  const tooltipRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const setPositions = useCallback((
+    getPoint: (latlng: L.LatLngExpression) => L.Point
+  ) => {
+    locations.forEach((site) => {
+      const el = tooltipRefs.current.get(site.id);
+      if (!el) return;
+      const iconSize = iconSizes.get(site.id) ?? 32;
+      const point = getPoint([site.latitude, site.longitude]);
+      const tipBottom = iconSize / 2 + 6;
+      L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
+    });
+  }, [locations, iconSizes]);
+
+  // Normal pan/zoom-end update — uses current view state
+  const updatePositions = useCallback(() => {
+    setPositions((latlng) => map.latLngToLayerPoint(latlng));
+  }, [map, setPositions]);
+
+  // Zoom animation update — mirrors exactly what Leaflet does in Marker._animateZoom
+  // and Tooltip._animateZoom: uses _latLngToNewLayerPoint with the target zoom/center
+  // so the element pre-positions itself to where it will be after the animation.
+  const animateZoom = useCallback((e: L.LeafletEvent) => {
+    const ze = e as L.ZoomAnimEvent;
+    setPositions((latlng) =>
+      (map as any)._latLngToNewLayerPoint(latlng, ze.zoom, ze.center)
+    );
+  }, [map, setPositions]);
+
+  useEffect(() => {
+    updatePositions();
+    map.on("move zoomend viewreset", updatePositions);
+    map.on("zoomanim", animateZoom);
+    return () => {
+      map.off("move zoomend viewreset", updatePositions);
+      map.off("zoomanim", animateZoom);
+    };
+  }, [map, updatePositions, animateZoom]);
+
+  // Portal into Leaflet's tooltipPane — it has the leaflet-zoom-animated class
+  // so it receives the same CSS transform as markerPane during zoom animations.
+  const tooltipPane = map.getPanes().tooltipPane;
+
+  return createPortal(
+    <>
+      {locations.map((site) => {
+        return (
+          // Outer div: ref target — L.DomUtil.setPosition writes
+          // "transform: translate3d(x,y,0)" here, matching exactly how
+          // Leaflet positions its own markers/tooltips.
+          <div
+            key={site.id}
+            ref={(el) => {
+              if (el) {
+                tooltipRefs.current.set(site.id, el);
+                // Prime the initial position before useEffect fires.
+                const iconSize = iconSizes.get(site.id) ?? 32;
+                const point = map.latLngToLayerPoint([site.latitude, site.longitude]);
+                const tipBottom = iconSize / 2 + 6;
+                L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
+              } else {
+                tooltipRefs.current.delete(site.id);
+              }
+            }}
+            style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}
+          >
+            {/* Inner div: handles centering via its own CSS transform.
+                Keeping this on a child element avoids conflicting with the
+                translate3d that DomUtil writes onto the outer div. */}
+            <div
+              style={{
+                transform: "translate(-50%, -100%)",
+                background: "#040951",
+                color: "#fff",
+                padding: "3px 10px",
+                borderRadius: "4px",
+                fontSize: "11px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                position: "relative",
+              }}
+            >
+              {site.title}
+              {/* Arrow pointing down to the pin */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -5,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "5px solid transparent",
+                  borderRight: "5px solid transparent",
+                  borderTop: "5px solid #040951",
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </>,
+    tooltipPane
   );
 }
 
@@ -328,6 +460,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
   highlightSiteId = null,
   onHighlightConsumed,
   onSiteSelect,
+  permanentTooltips = false,
+  directMarkerSelect = false,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -335,6 +469,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
   onSiteSelect?: (site: Site) => void;
+  permanentTooltips?: boolean;
+  directMarkerSelect?: boolean;
 }) {
   const createCustomIcon = useCallback(
     (iconName: string, s: MapSettings) => {
@@ -413,6 +549,23 @@ const OSMLeafletView = memo(function OSMLeafletView({
     return cache;
   }, [settings, locations, createCustomIcon, icons]);
 
+  // Map from site.id → icon pixel size, used by TripViewTooltipLayer for offset.
+  const siteIconSizes = useMemo(() => {
+    const m = new Map<string, number>();
+    locations.forEach((site) => {
+      let iconName = settings.pin_icon_name || "map-pin";
+      if (settings.icon_source === "category") {
+        const cat = site.site_categories?.find(
+          (sc) => sc.categories?.icon_key
+        )?.categories?.icon_key;
+        if (cat) iconName = cat;
+      }
+      const iconData = memoizedIcons.get(iconName);
+      if (iconData) m.set(site.id, iconData.size);
+    });
+    return m;
+  }, [locations, settings, memoizedIcons]);
+
   // Keep popup open after clicking a card. When the card click triggers a
   // state update in the parent, the Leaflet popup closes. We detect this via
   // the marker's popupclose event and reopen the popup immediately.
@@ -423,7 +576,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
       {settings.cluster_color && (
         <DynamicClusterStyles color={settings.cluster_color} />
       )}
-      <DynamicTooltipStyles settings={settings} />
+      {/* Only apply the default tooltip styles when not in trip view */}
+      {!permanentTooltips && <DynamicTooltipStyles settings={settings} />}
       {/* **NEW**: Added the popup style component here */}
       <DynamicPopupStyles />
 
@@ -444,6 +598,10 @@ const OSMLeafletView = memo(function OSMLeafletView({
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
         />
+        {/* Custom React tooltip layer for trip view — replaces Leaflet tooltips */}
+        {permanentTooltips && (
+          <TripViewTooltipLayer locations={locations} iconSizes={siteIconSizes} />
+        )}
         <OSMHighlightEffect
           locations={locations}
           highlightSiteId={highlightSiteId ?? null}
@@ -467,10 +625,12 @@ const OSMLeafletView = memo(function OSMLeafletView({
 
             return (
               <Marker
-                key={site.id}
+                key={`${site.id}-${permanentTooltips}`}
                 position={[site.latitude, site.longitude]}
                 icon={iconData.icon}
-                eventHandlers={{
+                eventHandlers={directMarkerSelect ? {
+                  click: () => onSiteSelect?.(site),
+                } : {
                   popupclose: (e) => {
                     if (pendingPopupId.current === site.id) {
                       pendingPopupId.current = null;
@@ -479,22 +639,24 @@ const OSMLeafletView = memo(function OSMLeafletView({
                   },
                 }}
               >
-                <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
-                  {site.title}
-                </Tooltip>
-                <Popup>
-                  <SitePreviewCard
-                    site={site}
-                    onCardClick={onSiteSelect ? () => {
-                      pendingPopupId.current = site.id;
-                      onSiteSelect(site);
-                      // Disarm after a short window. If a React-triggered popupclose
-                      // was going to fire, it will have fired by now. Any close after
-                      // this timeout is intentional user action and must not reopen.
-                      setTimeout(() => { pendingPopupId.current = null; }, 300);
-                    } : undefined}
-                  />
-                </Popup>
+                {/* In trip view, tooltips are rendered by TripViewTooltipLayer, not Leaflet */}
+                {!permanentTooltips && (
+                  <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
+                    {site.title}
+                  </Tooltip>
+                )}
+                {!directMarkerSelect && (
+                  <Popup>
+                    <SitePreviewCard
+                      site={site}
+                      onCardClick={onSiteSelect ? () => {
+                        pendingPopupId.current = site.id;
+                        onSiteSelect(site);
+                        setTimeout(() => { pendingPopupId.current = null; }, 300);
+                      } : undefined}
+                    />
+                  </Popup>
+                )}
               </Marker>
             );
           })}
@@ -515,6 +677,7 @@ function GoogleMapView({
   onHighlightConsumed,
   onSiteSelect,
   mapTypeId = "roadmap",
+  directMarkerSelect = false,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -523,6 +686,7 @@ function GoogleMapView({
   onHighlightConsumed?: () => void;
   onSiteSelect?: (site: Site) => void;
   mapTypeId?: "roadmap" | "satellite";
+  directMarkerSelect?: boolean;
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
   /* Call useJsApiLoader unconditionally (before any early return) to satisfy Rules of Hooks */
@@ -548,8 +712,13 @@ function GoogleMapView({
     const map = mapRef.current;
     map.panTo({ lat: highlightSite.latitude, lng: highlightSite.longitude });
     map.setZoom(14);
-    setActiveId(highlightSite.id);
-    setInfoWindowSite(highlightSite);
+    if (directMarkerSelect) {
+      onSiteSelect?.(highlightSite);
+      onHighlightConsumed?.();
+    } else {
+      setActiveId(highlightSite.id);
+      setInfoWindowSite(highlightSite);
+    }
   }, [highlightSite?.id]);
 
   const [initialCenter] = useState({
@@ -715,8 +884,12 @@ function GoogleMapView({
 
       m.addListener("click", () => {
         tooltipWindowRef.current?.close();
-        setActiveId(s.id);
-        setInfoWindowSite(s);
+        if (directMarkerSelect) {
+          onSiteSelect?.(s);
+        } else {
+          setActiveId(s.id);
+          setInfoWindowSite(s);
+        }
       });
 
       return m;
@@ -917,8 +1090,12 @@ function GoogleMapView({
 
           m.addListener("click", () => {
             tooltipWindowRef.current?.close();
-            setActiveId(s.id);
-            setInfoWindowSite(s);
+            if (directMarkerSelect) {
+              onSiteSelect?.(s);
+            } else {
+              setActiveId(s.id);
+              setInfoWindowSite(s);
+            }
           });
 
           return m;

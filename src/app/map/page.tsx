@@ -1270,6 +1270,8 @@ export default function MapPage() {
           onHighlightConsumed={() => setHighlightSiteId(null)}
           onSiteSelect={(site) => handleSiteSelect(site as MapSite)}
           mapType={mapType}
+          permanentTooltips={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
+          directMarkerSelect={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
         />
         {sitesLoading && (
           <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12" aria-live="polite">
@@ -1425,7 +1427,7 @@ export default function MapPage() {
                             <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
-                                onClick={() => setHighlightSiteId(item.site_id)}
+                                onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                                 className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                               >
                                 <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
@@ -1472,7 +1474,7 @@ export default function MapPage() {
                             <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
-                                onClick={() => setHighlightSiteId(item.site_id)}
+                                onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                                 className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                               >
                                 <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
@@ -1517,7 +1519,7 @@ export default function MapPage() {
                         <li key={item.site_id}>
                           <button
                             type="button"
-                            onClick={() => setHighlightSiteId(item.site_id)}
+                            onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                             className="w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-50 text-left transition-colors"
                           >
                             <span className="w-3 h-3 rounded-full bg-[var(--brand-blue)] shrink-0 ring-2 ring-white mt-[3px]" />
