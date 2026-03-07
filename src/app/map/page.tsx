@@ -8,6 +8,8 @@ import Icon from "@/components/Icon";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
 import NearbySearchModal from "@/components/NearbySearchModal";
+import AddToWishlistModal from "@/components/AddToWishlistModal";
+import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
@@ -265,10 +267,24 @@ export default function MapPage() {
   // Selected site (from clicking a map pin) — shown in the left panel on desktop
   // and in the mobile search panel on mobile.
   const [selectedMapSite, setSelectedMapSite] = useState<MapSite | null>(null);
+  const [showSitePanelActionsMenu, setShowSitePanelActionsMenu] = useState(false);
+  const [showSitePanelWishlistModal, setShowSitePanelWishlistModal] = useState(false);
+  const [showSitePanelTripModal, setShowSitePanelTripModal] = useState(false);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
+
+  useEffect(() => {
+    setShowSitePanelActionsMenu(false);
+  }, [selectedMapSite?.id]);
+
+  useEffect(() => {
+    if (!selectedMapSite) {
+      setShowSitePanelWishlistModal(false);
+      setShowSitePanelTripModal(false);
+    }
+  }, [selectedMapSite]);
 
   /* Apply server or localStorage bootstrap immediately so map can render without waiting (cache/pre-built). */
   useEffect(() => {
@@ -928,10 +944,67 @@ export default function MapPage() {
 
             {/* Details */}
             <div className="p-4 flex flex-col gap-3">
-              {/* Title */}
-              <h2 className="text-xl font-bold text-[var(--brand-blue)] leading-tight">
-                {selectedMapSite.title}
-              </h2>
+              {/* Title row with plus actions (same as preview card) */}
+              <div className="flex items-start gap-2">
+                <h2 className="flex-1 min-w-0 text-xl font-bold text-[var(--brand-blue)] leading-tight truncate">
+                  {selectedMapSite.title}
+                </h2>
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    title="Actions"
+                    onClick={() => setShowSitePanelActionsMenu((v) => !v)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
+                    aria-label="Add to list or trip"
+                    aria-expanded={showSitePanelActionsMenu}
+                  >
+                    <Icon name="plus" size={16} className="text-white" />
+                  </button>
+                  {showSitePanelActionsMenu && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSitePanelActionsMenu(false);
+                          setShowSitePanelWishlistModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
+                      >
+                        <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSitePanelActionsMenu(false);
+                          setShowSitePanelTripModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+                      >
+                        <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
+                        Add to Trip
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSitePanelActionsMenu(false);
+                          handleFilterChange({
+                            centerSiteId: selectedMapSite.id,
+                            centerLat: Number(selectedMapSite.latitude),
+                            centerLng: Number(selectedMapSite.longitude),
+                            radiusKm: 25,
+                          });
+                          setShowNearbyModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+                      >
+                        <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
+                        Places Nearby
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Rating */}
               {selectedMapSite.avg_rating != null && (
@@ -1386,6 +1459,12 @@ export default function MapPage() {
       applyWishlistFilter,
       applyTripFilter,
       showLoadingSavedListToast,
+      showSitePanelActionsMenu,
+      setShowSitePanelActionsMenu,
+      setShowSitePanelWishlistModal,
+      setShowSitePanelTripModal,
+      handleFilterChange,
+      setShowNearbyModal,
     ]
   );
 
@@ -1786,20 +1865,27 @@ export default function MapPage() {
               (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
             return (
               <div
-                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 px-4 py-2.5 max-w-[220px] lg:max-w-[300px] flex items-center gap-2"
-                aria-label="Map view context"
+                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-xl ring-2 ring-[var(--brand-orange)]/25 border-l-4 border-[var(--brand-orange)] px-4 py-3 max-w-[220px] lg:max-w-[320px] flex items-start gap-3"
+                aria-label="Current map view"
+                role="status"
               >
+                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center" aria-hidden>
+                  <Icon name="map-pin" size={16} className="text-[var(--brand-orange)]" />
+                </span>
                 <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
+                    Showing on map
+                  </div>
                   <div className="text-sm font-semibold text-gray-800 truncate leading-snug">
                     {mapHeadline}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-gray-600 mt-0.5">
                     {loading || sitesLoading
                       ? "Loading…"
                       : nearbyActive && typeof filters.radiusKm === "number"
                         ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
                         : filteredLocations.length === allLocations.length
-                          ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"}`
+                          ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
                           : `${filteredLocations.length} of ${allLocations.length} sites`}
                   </div>
                 </div>
@@ -1811,11 +1897,11 @@ export default function MapPage() {
                       setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby() }));
                       showMapToast("All filters cleared");
                     }}
-                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
-                    title="Clear all filters"
-                    aria-label="Clear all filters"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700"
+                    title="Clear filters and show all sites"
+                    aria-label="Clear filters and show all sites"
                   >
-                    <Icon name="times" size={9} />
+                    <Icon name="times" size={12} />
                   </button>
                 )}
               </div>
@@ -1986,6 +2072,29 @@ export default function MapPage() {
           }
         }}
       />
+
+      {/* Site panel modals: Save (wishlist) and Add to Trip — portaled so they overlay sidebar */}
+      {selectedMapSite && showSitePanelWishlistModal &&
+        createPortal(
+          <AddToWishlistModal
+            siteId={selectedMapSite.id}
+            onClose={() => setShowSitePanelWishlistModal(false)}
+            site={{
+              name: selectedMapSite.title,
+              imageUrl: selectedMapSite.cover_photo_url ?? undefined,
+              location: selectedMapSite.location_free ?? undefined,
+            }}
+          />,
+          document.body
+        )}
+      {selectedMapSite && showSitePanelTripModal &&
+        createPortal(
+          <AddToTripModal
+            siteId={selectedMapSite.id}
+            onClose={() => setShowSitePanelTripModal(false)}
+          />,
+          document.body
+        )}
 
       {/* Map action toast */}
       {toastVisible && (
