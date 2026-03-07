@@ -1869,8 +1869,8 @@ export default function MapPage() {
                 aria-label="Current map view"
                 role="status"
               >
-                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center" aria-hidden>
-                  <Icon name="map-pin" size={16} className="text-[var(--brand-orange)]" />
+                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+                  <Icon name="map-marker-alt" size={16} />
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
