@@ -170,7 +170,7 @@ export default function CollapsibleSidebar({
         bg-white border-r border-gray-200
         transition-all duration-300 ease-in-out
         ${effectiveIsOpen ? "w-[440px]" : "w-16 hover:w-56"}
-        group
+        group/sidebar
     `}
     >
       <div className="w-full h-full flex flex-col items-center pt-14 pb-4 space-y-2">
@@ -198,7 +198,7 @@ export default function CollapsibleSidebar({
                 <Icon name={tool.icon} size={20} />
               </div>
             </div>
-            <span className="font-sidebar-menu whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <span className="font-sidebar-menu whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200">
               {tool.name}
             </span>
           </button>

@@ -209,6 +209,10 @@ export default function ClientOnlyMap({
   mapType: mapTypeOverride,
   permanentTooltips = false,
   directMarkerSelect = false,
+  siteDates = null,
+  hoveredSiteId = null,
+  resetMapViewTrigger = 0,
+  openPreviewWithoutZoom = false,
 }: {
   locations: Site[];
   settings: MapSettings | null;
@@ -216,6 +220,8 @@ export default function ClientOnlyMap({
   /** When set, map flies to this site and opens its preview popup. Cleared via onHighlightConsumed. */
   highlightSiteId?: string | null;
   onHighlightConsumed?: () => void;
+  /** When true, opening the highlight popup only pans to the marker (no zoom). Used e.g. from saved list panel. */
+  openPreviewWithoutZoom?: boolean;
   /** When provided, clicking a marker calls this instead of showing a popup. */
   onSiteSelect?: (site: Site) => void;
   mapType?: MapType;
@@ -223,6 +229,12 @@ export default function ClientOnlyMap({
   permanentTooltips?: boolean;
   /** When true, clicking a marker calls onSiteSelect directly (no popup). */
   directMarkerSelect?: boolean;
+  /** Optional map of site id → formatted date string for tooltips (e.g. trip view). */
+  siteDates?: Map<string, string> | null;
+  /** When set (e.g. hover in trip panel), the matching map tooltip is highlighted (orange). */
+  hoveredSiteId?: string | null;
+  /** When this value changes and is > 0, the map flies back to default center/zoom (e.g. after closing the trip panel). */
+  resetMapViewTrigger?: number;
 }) {
   // Stabilize callbacks with refs so OSMLeafletView never re-renders just
   // because the parent passed a new inline arrow function reference.
@@ -272,21 +284,52 @@ export default function ClientOnlyMap({
         onSiteSelect={stableOnSiteSelect}
         mapTypeId={googleMapTypeId}
         directMarkerSelect={directMarkerSelect}
+        fitMapToLocations={permanentTooltips}
+        siteDates={siteDates}
+        hoveredSiteId={hoveredSiteId}
+        resetMapViewTrigger={resetMapViewTrigger}
       />
     );
   }
 
   return (
-    <OSMLeafletView
-      locations={locations}
-      settings={settings}
-      icons={icons}
-      highlightSiteId={highlightSiteId}
-      onHighlightConsumed={stableOnHighlightConsumed}
-      onSiteSelect={stableOnSiteSelect}
-      permanentTooltips={permanentTooltips}
-      directMarkerSelect={directMarkerSelect}
-    />
+    <>
+      <OSMLeafletView
+        locations={locations}
+        settings={settings}
+        icons={icons}
+        highlightSiteId={highlightSiteId}
+        onHighlightConsumed={stableOnHighlightConsumed}
+        onSiteSelect={stableOnSiteSelect}
+        permanentTooltips={permanentTooltips}
+        directMarkerSelect={directMarkerSelect}
+        siteDates={siteDates}
+        resetMapViewTrigger={resetMapViewTrigger}
+        openPreviewWithoutZoom={openPreviewWithoutZoom}
+      />
+      {permanentTooltips && <TripViewHoverStyles hoveredSiteId={hoveredSiteId} />}
+    </>
+  );
+}
+
+/* Hover highlight for trip pins and tooltips. Only this component receives hoveredSiteId so the map and tooltip layer never re-render on hover (stops flicker). */
+function TripViewHoverStyles({ hoveredSiteId }: { hoveredSiteId: string | null }) {
+  const escaped = hoveredSiteId
+    ? String(hoveredSiteId).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    : "";
+  return (
+    <style>{`
+      .hop-pin-marker[data-site-id="${escaped}"] .hop-pin-inner {
+        background-color: #f78300 !important;
+        color: #f78300 !important;
+      }
+      .hop-tooltip[data-site-id="${escaped}"] .hop-tooltip-inner {
+        background: #f78300 !important;
+      }
+      .hop-tooltip[data-site-id="${escaped}"] .hop-tooltip-arrow {
+        border-top-color: #f78300 !important;
+      }
+    `}</style>
   );
 }
 
@@ -299,12 +342,20 @@ export default function ClientOnlyMap({
 function TripViewTooltipLayer({
   locations,
   iconSizes,
+  siteDates,
 }: {
   locations: Site[];
   iconSizes: Map<string, number>;
+  siteDates?: Map<string, string> | null;
 }) {
   const map = useMap();
   const tooltipRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  /** Tracks site ids we've already run setPosition for. React 18 can call ref(null) then ref(el) on re-render; we must not re-run setPosition then or all tooltips flicker. */
+  const positionSetFor = useRef<Set<string>>(new Set());
+  const locationIdsKey = locations.map((s) => s.id).join(",");
+  useEffect(() => {
+    positionSetFor.current.clear();
+  }, [locationIdsKey]);
 
   const setPositions = useCallback((
     getPoint: (latlng: L.LatLngExpression) => L.Point
@@ -357,27 +408,31 @@ function TripViewTooltipLayer({
           // Leaflet positions its own markers/tooltips.
           <div
             key={site.id}
+            className="hop-tooltip"
+            data-site-id={site.id}
             ref={(el) => {
               if (el) {
                 tooltipRefs.current.set(site.id, el);
-                // Prime the initial position before useEffect fires.
-                const iconSize = iconSizes.get(site.id) ?? 32;
-                const point = map.latLngToLayerPoint([site.latitude, site.longitude]);
-                const tipBottom = iconSize / 2 + 6;
-                L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
+                // Only set position once per site.id. React 18 calls ref(null) then ref(el) on re-render, so "has(site.id)" would be false after null; use a separate set so we don't re-run setPosition and flicker all tooltips.
+                if (!positionSetFor.current.has(site.id)) {
+                  positionSetFor.current.add(site.id);
+                  const iconSize = iconSizes.get(site.id) ?? 32;
+                  const point = map.latLngToLayerPoint([site.latitude, site.longitude]);
+                  const tipBottom = iconSize / 2 + 6;
+                  L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
+                }
               } else {
                 tooltipRefs.current.delete(site.id);
               }
             }}
             style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none" }}
           >
-            {/* Inner div: handles centering via its own CSS transform.
-                Keeping this on a child element avoids conflicting with the
-                translate3d that DomUtil writes onto the outer div. */}
+            {/* Inner div: default black; hover highlight is applied via CSS from TripViewHoverStyles so this layer never re-renders on hover. */}
             <div
+              className="hop-tooltip-inner"
               style={{
                 transform: "translate(-50%, -100%)",
-                background: "#040951",
+                background: "#000000",
                 color: "#fff",
                 padding: "3px 10px",
                 borderRadius: "4px",
@@ -386,11 +441,17 @@ function TripViewTooltipLayer({
                 whiteSpace: "nowrap",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
                 position: "relative",
+                transition: "background 0.15s ease",
               }}
             >
-              {site.title}
-              {/* Arrow pointing down to the pin */}
+              <span>{site.title}</span>
+              {siteDates?.get(site.id) && (
+                <div style={{ fontSize: "10px", fontWeight: 500, opacity: 0.9, marginTop: 2 }}>
+                  {siteDates.get(site.id)}
+                </div>
+              )}
               <div
+                className="hop-tooltip-arrow"
                 style={{
                   position: "absolute",
                   bottom: -5,
@@ -400,7 +461,7 @@ function TripViewTooltipLayer({
                   height: 0,
                   borderLeft: "5px solid transparent",
                   borderRight: "5px solid transparent",
-                  borderTop: "5px solid #040951",
+                  borderTop: "5px solid #000000",
                 }}
               />
             </div>
@@ -415,17 +476,56 @@ function TripViewTooltipLayer({
 /* ──────────────────────────────────────────────────────────────────────────────
  * OSM / Leaflet view (unchanged)
  * ────────────────────────────────────────────────────────────────────────────── */
-/* Fly to and show popup when parent sets highlightSiteId */
+/* When in trip view, fit map bounds to show all pins */
+function FitMapToLocations({ locations, active }: { locations: Site[]; active: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!active || locations.length === 0) return;
+    const valid = locations.filter(
+      (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+    );
+    if (valid.length === 0) return;
+    const bounds = L.latLngBounds(valid.map((s) => [s.latitude, s.longitude] as L.LatLngTuple));
+    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, duration: 0.4 });
+  }, [map, active, locations]);
+  return null;
+}
+
+/* When resetMapViewTrigger increments (e.g. trip panel closed), fly map back to default center/zoom */
+function ResetMapViewEffect({
+  trigger,
+  centerLat,
+  centerLng,
+  zoom,
+}: {
+  trigger: number;
+  centerLat: number;
+  centerLng: number;
+  zoom: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (trigger > 0 && Number.isFinite(centerLat) && Number.isFinite(centerLng) && Number.isFinite(zoom)) {
+      map.flyTo([centerLat, centerLng], zoom, { duration: 0.5 });
+    }
+  }, [map, trigger, centerLat, centerLng, zoom]);
+  return null;
+}
+
+/* Fly to (or pan to) and show popup when parent sets highlightSiteId */
 function OSMHighlightEffect({
   locations,
   highlightSiteId,
   onHighlightConsumed,
   onSiteSelect,
+  openPreviewWithoutZoom = false,
 }: {
   locations: Site[];
   highlightSiteId: string | null;
   onHighlightConsumed?: () => void;
   onSiteSelect?: (site: Site) => void;
+  /** When true, only pan to the marker (no zoom). Used e.g. from saved list panel. */
+  openPreviewWithoutZoom?: boolean;
 }) {
   const map = useMap();
   const site = highlightSiteId
@@ -434,8 +534,12 @@ function OSMHighlightEffect({
 
   useEffect(() => {
     if (!site) return;
-    map.flyTo([site.latitude, site.longitude], 14, { duration: 0.5 });
-  }, [map, site?.id, site?.latitude, site?.longitude]);
+    if (openPreviewWithoutZoom) {
+      map.panTo([site.latitude, site.longitude], { animate: true, duration: 0.3 });
+    } else {
+      map.flyTo([site.latitude, site.longitude], 14, { duration: 0.5 });
+    }
+  }, [map, site?.id, site?.latitude, site?.longitude, openPreviewWithoutZoom]);
 
   if (!site) return null;
   return (
@@ -462,6 +566,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
   onSiteSelect,
   permanentTooltips = false,
   directMarkerSelect = false,
+  siteDates = null,
+  resetMapViewTrigger = 0,
+  openPreviewWithoutZoom = false,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -471,9 +578,20 @@ const OSMLeafletView = memo(function OSMLeafletView({
   onSiteSelect?: (site: Site) => void;
   permanentTooltips?: boolean;
   directMarkerSelect?: boolean;
+  siteDates?: Map<string, string> | null;
+  resetMapViewTrigger?: number;
+  openPreviewWithoutZoom?: boolean;
 }) {
   const createCustomIcon = useCallback(
-    (iconName: string, s: MapSettings) => {
+    (
+      iconName: string,
+      s: MapSettings,
+      options?: {
+        colorOverride?: { pin_color?: string; pin_circle_color?: string };
+        /** When set (trip view), add data-site-id so we can highlight the pin via CSS without changing the icon. */
+        dataSiteId?: string;
+      }
+    ) => {
       const {
         pin_style = "icon_only",
         pin_icon_size = 32,
@@ -485,10 +603,13 @@ const OSMLeafletView = memo(function OSMLeafletView({
         pin_border_color = "transparent",
       } = s;
 
+      const effectivePinColor = options?.colorOverride?.pin_color ?? pin_color;
+      const effectiveCircleColor = options?.colorOverride?.pin_circle_color ?? pin_circle_color;
+
       const svgContent = icons.get(iconName);
       if (!svgContent) return { icon: null as L.DivIcon | null, size: 0 };
 
-      let iconHtml = "";
+      let innerHtml = "";
       let finalIconSize = pin_icon_size;
 
       if (pin_style === "icon_in_circle") {
@@ -498,7 +619,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
         const wrapperStyles = [
           `width: ${pin_circle_size}px`,
           `height: ${pin_circle_size}px`,
-          `background-color: ${pin_circle_color}`,
+          `background-color: ${effectiveCircleColor}`,
           "border-radius: 50%",
           "display: flex",
           "align-items: center",
@@ -507,13 +628,17 @@ const OSMLeafletView = memo(function OSMLeafletView({
           `border: ${pin_border_thickness}px solid ${pin_border_color}`,
         ];
         const innerIconHtml = `<div style="font-size: ${pin_icon_size}px; color: ${pin_icon_color_in_circle};">${svgContent}</div>`;
-        iconHtml = `<div class="marker-hover-target" style="${wrapperStyles.join(
+        innerHtml = `<div class="marker-hover-target hop-pin-inner" style="${wrapperStyles.join(
           ";"
         )}">${innerIconHtml}</div>`;
       } else {
-        iconHtml = `<div class="marker-hover-target" style="font-size: ${pin_icon_size}px; color: ${pin_color};">${svgContent}</div>`;
+        innerHtml = `<div class="marker-hover-target hop-pin-inner" style="font-size: ${pin_icon_size}px; color: ${effectivePinColor};">${svgContent}</div>`;
         finalIconSize = pin_icon_size;
       }
+
+      const iconHtml = options?.dataSiteId
+        ? `<div class="hop-pin-marker" data-site-id="${String(options.dataSiteId).replace(/"/g, "&quot;")}">${innerHtml}</div>`
+        : innerHtml;
 
       const icon = L.divIcon({
         html: iconHtml,
@@ -549,6 +674,23 @@ const OSMLeafletView = memo(function OSMLeafletView({
     return cache;
   }, [settings, locations, createCustomIcon, icons]);
 
+  /** In trip view, one icon per site with data-site-id so we can highlight via CSS without changing the icon (avoids cluster flicker). */
+  const tripViewIcons = useMemo(() => {
+    if (!permanentTooltips || !settings) return new Map<string, { icon: L.DivIcon; size: number }>();
+    const cache = new Map<string, { icon: L.DivIcon; size: number }>();
+    const globalIconName = settings.pin_icon_name || "map-pin";
+    locations.forEach((site) => {
+      let iconName = globalIconName;
+      if (settings.icon_source === "category") {
+        const cat = site.site_categories?.find((sc) => sc.categories?.icon_key)?.categories?.icon_key;
+        if (cat) iconName = cat;
+      }
+      const data = createCustomIcon(iconName, settings, { dataSiteId: site.id });
+      if (data.icon) cache.set(site.id, { icon: data.icon, size: data.size });
+    });
+    return cache;
+  }, [permanentTooltips, settings, locations, createCustomIcon]);
+
   // Map from site.id → icon pixel size, used by TripViewTooltipLayer for offset.
   const siteIconSizes = useMemo(() => {
     const m = new Map<string, number>();
@@ -576,6 +718,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
       {settings.cluster_color && (
         <DynamicClusterStyles color={settings.cluster_color} />
       )}
+      {/* Pin/tooltip hover highlight is applied by TripViewHoverStyles outside this view so this view never re-renders on hover. */}
       {/* Only apply the default tooltip styles when not in trip view */}
       {!permanentTooltips && <DynamicTooltipStyles settings={settings} />}
       {/* **NEW**: Added the popup style component here */}
@@ -598,15 +741,26 @@ const OSMLeafletView = memo(function OSMLeafletView({
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
         />
+        {/* Fit map to pins when in trip view */}
+        {permanentTooltips && (
+          <FitMapToLocations locations={locations} active={permanentTooltips} />
+        )}
+        <ResetMapViewEffect
+          trigger={resetMapViewTrigger}
+          centerLat={settings.default_center_lat}
+          centerLng={settings.default_center_lng}
+          zoom={settings.default_zoom}
+        />
         {/* Custom React tooltip layer for trip view — replaces Leaflet tooltips */}
         {permanentTooltips && (
-          <TripViewTooltipLayer locations={locations} iconSizes={siteIconSizes} />
+          <TripViewTooltipLayer locations={locations} iconSizes={siteIconSizes} siteDates={siteDates} />
         )}
         <OSMHighlightEffect
           locations={locations}
           highlightSiteId={highlightSiteId ?? null}
           onHighlightConsumed={onHighlightConsumed}
           onSiteSelect={onSiteSelect}
+          openPreviewWithoutZoom={openPreviewWithoutZoom}
         />
         <MarkerClusterGroup
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
@@ -620,7 +774,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
               )?.categories?.icon_key;
               if (categoryIconName) iconName = categoryIconName;
             }
-            const iconData = memoizedIcons.get(iconName);
+            const normalIconData = memoizedIcons.get(iconName);
+            const tripIconData = tripViewIcons.get(site.id);
+            const iconData = permanentTooltips && tripIconData ? tripIconData : normalIconData;
             if (!iconData || !iconData.icon) return null;
 
             return (
@@ -678,6 +834,10 @@ function GoogleMapView({
   onSiteSelect,
   mapTypeId = "roadmap",
   directMarkerSelect = false,
+  fitMapToLocations = false,
+  siteDates = null,
+  hoveredSiteId = null,
+  resetMapViewTrigger = 0,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -687,6 +847,10 @@ function GoogleMapView({
   onSiteSelect?: (site: Site) => void;
   mapTypeId?: "roadmap" | "satellite";
   directMarkerSelect?: boolean;
+  fitMapToLocations?: boolean;
+  siteDates?: Map<string, string> | null;
+  hoveredSiteId?: string | null;
+  resetMapViewTrigger?: number;
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
   /* Call useJsApiLoader unconditionally (before any early return) to satisfy Rules of Hooks */
@@ -701,8 +865,18 @@ function GoogleMapView({
   const tooltipWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const containerStyle = { width: "100%", height: "100%" };
 
+  const onSiteSelectRef = useRef(onSiteSelect);
+  const onHighlightConsumedRef = useRef(onHighlightConsumed);
+  const directMarkerSelectRef = useRef(directMarkerSelect);
+  useEffect(() => {
+    onSiteSelectRef.current = onSiteSelect;
+    onHighlightConsumedRef.current = onHighlightConsumed;
+    directMarkerSelectRef.current = directMarkerSelect;
+  }, [onSiteSelect, onHighlightConsumed, directMarkerSelect]);
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [infoWindowSite, setInfoWindowSite] = useState<Site | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const highlightSite = highlightSiteId
     ? locations.find((s) => s.id === highlightSiteId) ?? null
@@ -712,9 +886,9 @@ function GoogleMapView({
     const map = mapRef.current;
     map.panTo({ lat: highlightSite.latitude, lng: highlightSite.longitude });
     map.setZoom(14);
-    if (directMarkerSelect) {
-      onSiteSelect?.(highlightSite);
-      onHighlightConsumed?.();
+    if (directMarkerSelectRef.current) {
+      onSiteSelectRef.current?.(highlightSite);
+      onHighlightConsumedRef.current?.();
     } else {
       setActiveId(highlightSite.id);
       setInfoWindowSite(highlightSite);
@@ -838,7 +1012,7 @@ function GoogleMapView({
   );
 
   const getTooltipContent = useCallback(
-    (title: string): string => {
+    (title: string, date?: string | null): string => {
       const bg = settings.tooltip_background_color ?? "#2d3748";
       const color = settings.tooltip_text_color ?? "#ffffff";
       const borderColor = settings.tooltip_border_color ?? "#4a5568";
@@ -852,7 +1026,17 @@ function GoogleMapView({
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
-      return `<div class="gm-custom-tooltip" style="position:relative;background-color:${bg};color:${color};border:${borderThickness}px solid ${borderColor};border-radius:${borderRadius}px;padding:6px 8px 10px 8px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);font-size:${fontSize}px;font-weight:${fontWeight};font-family:${fontFamily};">${escaped}<span class="gm-custom-tooltip-pointer" style="border-top-color:${bg};border-width:6px 6px 0 6px;"></span></div>`;
+      const dateEscaped = date
+        ? String(date)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+        : "";
+      const dateLine = dateEscaped
+        ? `<div style="font-size:${Math.max(10, fontSize - 2)}px;opacity:0.9;margin-top:2px;">${dateEscaped}</div>`
+        : "";
+      return `<div class="gm-custom-tooltip" style="position:relative;background-color:${bg};color:${color};border:${borderThickness}px solid ${borderColor};border-radius:${borderRadius}px;padding:6px 8px 10px 8px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);font-size:${fontSize}px;font-weight:${fontWeight};font-family:${fontFamily};">${escaped}${dateLine}<span class="gm-custom-tooltip-pointer" style="border-top-color:${bg};border-width:6px 6px 0 6px;"></span></div>`;
     },
     [settings]
   );
@@ -874,7 +1058,7 @@ function GoogleMapView({
 
       m.addListener("mouseover", () => {
         if (tooltipWindow) {
-          tooltipWindow.setContent(getTooltipContent(s.title));
+          tooltipWindow.setContent(getTooltipContent(s.title, siteDates?.get(s.id)));
           tooltipWindow.open(map, m);
         }
       });
@@ -884,8 +1068,8 @@ function GoogleMapView({
 
       m.addListener("click", () => {
         tooltipWindowRef.current?.close();
-        if (directMarkerSelect) {
-          onSiteSelect?.(s);
+        if (directMarkerSelectRef.current) {
+          onSiteSelectRef.current?.(s);
         } else {
           setActiveId(s.id);
           setInfoWindowSite(s);
@@ -896,12 +1080,38 @@ function GoogleMapView({
     });
 
     clusterer.addMarkers(newMarkers);
-  }, [locations, iconForSite, getTooltipContent]);
+  }, [locations, iconForSite, getTooltipContent, siteDates]);
 
   useEffect(() => {
     if (!clustererRef.current) return;
     renderMarkers();
   }, [renderMarkers]);
+
+  /* When in trip view, fit map bounds to show all pins */
+  useEffect(() => {
+    if (!fitMapToLocations || !mapReady || locations.length === 0 || !mapRef.current) return;
+    const valid = locations.filter(
+      (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+    );
+    if (valid.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    valid.forEach((s) => bounds.extend({ lat: s.latitude, lng: s.longitude }));
+    mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    const listener = mapRef.current.addListener("idle", () => {
+      const z = mapRef.current?.getZoom();
+      if (typeof z === "number" && z > 14) mapRef.current?.setZoom(14);
+    });
+    return () => { google.maps.event.removeListener(listener); };
+  }, [fitMapToLocations, mapReady, locations]);
+
+  /* When trip panel is closed (resetMapViewTrigger increments), fly back to default center/zoom */
+  const { default_center_lat, default_center_lng, default_zoom } = settings;
+  useEffect(() => {
+    if (resetMapViewTrigger <= 0 || !mapRef.current) return;
+    if (!Number.isFinite(default_center_lat) || !Number.isFinite(default_center_lng) || !Number.isFinite(default_zoom)) return;
+    mapRef.current.panTo({ lat: default_center_lat, lng: default_center_lng });
+    mapRef.current.setZoom(default_zoom);
+  }, [resetMapViewTrigger, default_center_lat, default_center_lng, default_zoom]);
 
   if (!apiKey) {
     return (
@@ -1068,6 +1278,7 @@ function GoogleMapView({
       }}
       onLoad={(map) => {
         mapRef.current = map;
+        setMapReady(true);
         tooltipWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });
 
         const markers = locations.map((s) => {
@@ -1080,7 +1291,7 @@ function GoogleMapView({
           m.addListener("mouseover", () => {
             const tw = tooltipWindowRef.current;
             if (tw) {
-              tw.setContent(getTooltipContent(s.title));
+              tw.setContent(getTooltipContent(s.title, siteDates?.get(s.id)));
               tw.open(map, m);
             }
           });
@@ -1090,8 +1301,8 @@ function GoogleMapView({
 
           m.addListener("click", () => {
             tooltipWindowRef.current?.close();
-            if (directMarkerSelect) {
-              onSiteSelect?.(s);
+            if (directMarkerSelectRef.current) {
+              onSiteSelectRef.current?.(s);
             } else {
               setActiveId(s.id);
               setInfoWindowSite(s);
@@ -1123,7 +1334,7 @@ function GoogleMapView({
             lng: infoWindowSite.longitude,
           }}
           onCloseClick={() => {
-            if (highlightSiteId && activeId === highlightSiteId) onHighlightConsumed?.();
+            if (highlightSiteId && activeId === highlightSiteId) onHighlightConsumedRef.current?.();
             setActiveId(null);
             setInfoWindowSite(null);
           }}
