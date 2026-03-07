@@ -1650,30 +1650,36 @@ export default function MapPage() {
             if (isTripActive) {
               return (
                 <div
-                  className="absolute right-10 top-[62px] bottom-[72px] z-[1000] w-[280px] flex flex-col rounded-2xl bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-gray-200 overflow-hidden"
+                  className="absolute right-10 top-[62px] bottom-[72px] z-[1000] w-[280px] flex flex-col rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 overflow-hidden"
                   aria-label="Trip details"
                 >
-                  <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-gray-800 truncate leading-snug">
-                    Trip: {activeTripName ?? "—"}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {tripItemsLoading || tripTimelineLoading
-                      ? "Loading…"
-                      : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={clearSidebarFilter}
-                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors text-gray-500"
-                  title="Close trip panel"
-                  aria-label="Close trip panel"
-                >
-                  <Icon name="times" size={12} />
-                </button>
-              </div>
+                  <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
+                    <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+                      <Icon name="map-marker-alt" size={16} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
+                        Showing on map
+                      </div>
+                      <h3 className="text-sm font-semibold text-gray-800 leading-snug break-words">
+                        Trip: {activeTripName ?? "—"}
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {tripItemsLoading || tripTimelineLoading
+                          ? "Loading…"
+                          : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSidebarFilter}
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700"
+                      title="Close trip panel"
+                      aria-label="Close trip panel"
+                    >
+                      <Icon name="times" size={12} />
+                    </button>
+                  </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
                 {tripItemsLoading && !tripTimeline.length ? (
                   <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
