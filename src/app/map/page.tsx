@@ -235,7 +235,7 @@ export default function MapPage() {
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
   const [expandedWishlistId, setExpandedWishlistId] = useState<string | null>(null);
-  const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[]>([]);
+  const [wishlistItems, setWishlistItems] = useState<{ site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null } | null }[]>([]);
   const [wishlistItemsLoading, setWishlistItemsLoading] = useState(false);
   type TripItemMap = { id?: string; site_id: string; day_id?: string | null; order_index?: number; date_in?: string | null; site?: { id: string; title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null } | null };
   const [tripItems, setTripItems] = useState<TripItemMap[]>([]);
@@ -433,8 +433,8 @@ export default function MapPage() {
     getWishlistItems(expandedWishlistId)
       .then((data) => {
         if (!cancelled) {
-          const raw = (data ?? []) as unknown as { site_id: string; sites?: { title: string; slug: string; cover_photo_url: string | null } | { title: string; slug: string; cover_photo_url: string | null }[] }[];
-          const normalized: { site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null } | null }[] = raw.map((item) => ({
+          const raw = (data ?? []) as unknown as { site_id: string; sites?: { title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null } | { title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null }[] }[];
+          const normalized: { site_id: string; sites: { title: string; slug: string; cover_photo_url: string | null; cover_photo_thumb_url?: string | null } | null }[] = raw.map((item) => ({
             site_id: item.site_id,
             sites: Array.isArray(item.sites) ? item.sites[0] ?? null : item.sites ?? null,
           }));
@@ -1216,7 +1216,7 @@ export default function MapPage() {
                       {wishlistItems.map((item) => {
                         const site = item.sites;
                         const title = site?.title ?? "Site";
-                        const cover = site?.cover_photo_url ?? null;
+                        const thumbUrl = site?.cover_photo_thumb_url ?? site?.cover_photo_url ?? null;
                         return (
                           <li key={item.site_id}>
                             <button
@@ -1228,8 +1228,8 @@ export default function MapPage() {
                               className="w-full cursor-pointer flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
                             >
                               <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                {cover ? (
-                                  <img src={cover} alt="" className="h-full w-full object-cover" />
+                                {thumbUrl ? (
+                                  <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
                                 ) : (
                                   <span className="flex h-full w-full items-center justify-center text-gray-300">
                                     <Icon name="map-pin" size={20} />

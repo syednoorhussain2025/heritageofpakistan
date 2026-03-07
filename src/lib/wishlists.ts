@@ -130,7 +130,7 @@ export async function getWishlistItems(wishlistId: string) {
   const supabase = supa();
   const { data, error } = await supabase
     .from("wishlist_items")
-    .select("id, site_id, sites(title, slug, cover_photo_url)")
+    .select("id, site_id, sites(title, slug, cover_photo_url, cover_photo_thumb_url)")
     .eq("wishlist_id", wishlistId);
   if (error) throw new Error(humanError(error));
   return data ?? [];
