@@ -537,6 +537,11 @@ export default function SitePreviewCard({
           <AddToWishlistModal
             siteId={site.id}
             onClose={() => setShowWishlistModal(false)}
+            site={{
+              name: site.title,
+              imageUrl: site.cover_photo_url ?? site.cover_photo_thumb_url ?? undefined,
+              location: site.location_free ?? undefined,
+            }}
           />
         </Portal>
       )}

@@ -1025,6 +1025,11 @@ export default function HeritageCover({
         <AddToWishlistModal
           siteId={site.id}
           onClose={() => setShowWishlistModal(false)}
+          site={{
+            name: site.title,
+            imageUrl: heroUrl ?? undefined,
+            location: site.location_free ?? undefined,
+          }}
         />
       )}
     </>

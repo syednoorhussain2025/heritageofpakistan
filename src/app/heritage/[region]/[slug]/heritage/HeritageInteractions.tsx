@@ -121,6 +121,7 @@ export default function HeritageInteractions({
         <AddToWishlistModal
           siteId={site.id}
           onClose={() => setShowWishlistModal(false)}
+          site={{ name: site.title }}
         />
       )}
     </>

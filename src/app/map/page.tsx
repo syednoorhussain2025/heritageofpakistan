@@ -974,6 +974,8 @@ export default function MapPage() {
               {/* Open Site button */}
               <Link
                 href={detailHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-2 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 Open Site
