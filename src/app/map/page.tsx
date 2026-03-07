@@ -461,16 +461,12 @@ export default function MapPage() {
   }, [tripIdToLoad, isSignedIn]);
 
   /* ───────── Phase 1: Load settings, icons, categories, regions (or revalidate if we have cache) ─────────
-   * - If we already have bootstrap (server pre-fetch or localStorage cache), only revalidate in background.
-   * - Otherwise fetch with 20s timeout and up to 2 retries. On success we cache for next visit. */
+   * - If we have bootstrap (server or localStorage), only revalidate in background (no timeout).
+   * - Otherwise fetch with no timeout so slow/cold Supabase can finish; retry on real failures. */
   const PHASE1_MAX_ATTEMPTS = 4; // initial + 3 auto-retries
   useEffect(() => {
     let cancelled = false;
     const hasInitialData = !!(initialBootstrapFromServer || getCachedBootstrap());
-    const QUICK_LOAD_TIMEOUT_MS = 45000; // 45s (same as sites) for slow networks / cold start
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("QUICK_LOAD_TIMEOUT")), QUICK_LOAD_TIMEOUT_MS)
-    );
 
     if (!hasInitialData) {
       setLoading(true);
@@ -485,7 +481,6 @@ export default function MapPage() {
       let regsRes: any;
 
       if (hasInitialData) {
-        // Background revalidate only (no timeout)
         const [s, i, c, r] = await Promise.all([
           supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
           supabase.from("icons").select("name, svg_content"),
@@ -498,14 +493,11 @@ export default function MapPage() {
         regsRes = r;
       } else {
         try {
-          [settingsRes, iconsRes, catsRes, regsRes] = await Promise.race([
-            Promise.all([
-              supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
-              supabase.from("icons").select("name, svg_content"),
-              supabase.from("categories").select("id,name").order("name"),
-              supabase.from("regions").select("id,name").order("name"),
-            ]),
-            timeoutPromise,
+          [settingsRes, iconsRes, catsRes, regsRes] = await Promise.all([
+            supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
+            supabase.from("icons").select("name, svg_content"),
+            supabase.from("categories").select("id,name").order("name"),
+            supabase.from("regions").select("id,name").order("name"),
           ]);
         } catch (err) {
           if (cancelled) return;
@@ -1158,7 +1150,7 @@ export default function MapPage() {
                                 setHighlightFromSavedList(true);
                                 setHighlightSiteId(item.site_id);
                               }}
-                              className="w-full flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
+                              className="w-full cursor-pointer flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
                             >
                               <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                                 {cover ? (
@@ -1265,11 +1257,15 @@ export default function MapPage() {
       if (toolId === "trips") {
         if (isSignedIn === false) {
           return (
-            <div className="p-4 flex flex-col items-center justify-center min-h-[200px] text-center bg-gray-50/80 rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600 mb-4">Sign in to View Trips</p>
+            <div className="p-6 flex flex-col items-center justify-center min-h-[220px] text-center">
+              <span className="w-14 h-14 rounded-full bg-[var(--brand-blue)]/10 flex items-center justify-center mb-4">
+                <Icon name="route" size={28} className="text-[var(--brand-blue)]" />
+              </span>
+              <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your trips</p>
+              <p className="text-xs text-gray-500 mb-5 max-w-[200px]">Your saved trips will appear here so you can show them on the map.</p>
               <Link
                 href={signInRedirectUrl}
-                className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90"
+                className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
               >
                 Sign in
               </Link>
@@ -1277,51 +1273,89 @@ export default function MapPage() {
           );
         }
         return (
-          <div className="p-4 space-y-3 flex flex-col min-h-0">
+          <div className="flex flex-col min-h-0 h-full">
+            <p className="px-4 pb-3 text-xs text-gray-500 border-b border-gray-100">
+              Select a trip to show its sites on the map
+            </p>
             {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-              <button
-                type="button"
-                onClick={() => { clearSidebarFilter(); onClose(); }}
-                className="text-sm text-[var(--brand-orange)] font-medium"
-              >
-                Clear · Show all on map
-              </button>
+              <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-xl bg-orange-50 border border-orange-100 px-3 py-2.5">
+                <span className="text-xs font-medium text-orange-800">Showing a trip on map</span>
+                <button
+                  type="button"
+                  onClick={() => { clearSidebarFilter(); onClose(); }}
+                  className="text-xs font-semibold text-[var(--brand-orange)] hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
             )}
-            {tripsLoading ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : trips.length === 0 ? (
-              <p className="text-sm text-gray-500">No trips yet.</p>
-            ) : (
-              <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                {trips.map((t) => {
-                  const isActive = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === t.id;
-                  return (
-                    <li
-                      key={t.id}
-                      className={`flex items-center justify-between gap-2 rounded-xl border bg-white p-3 shadow-sm ${
-                        isActive ? "border-[var(--brand-orange)] ring-1 ring-[var(--brand-orange)]/20" : "border-gray-200 hover:border-[var(--brand-orange)]/40"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => applyTripFilter(t.id, t.name)}
-                        className="flex flex-1 min-w-0 text-left"
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+              {tripsLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+                  <Icon name="spinner" size={24} className="animate-spin text-[var(--brand-orange)]" />
+                  <span className="text-sm">Loading your trips…</span>
+                </div>
+              ) : trips.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center px-2">
+                  <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                    <Icon name="route" size={24} className="text-gray-400" />
+                  </span>
+                  <p className="text-sm font-medium text-gray-600">No trips yet</p>
+                  <p className="text-xs text-gray-400 mt-1.5">Create a trip in your dashboard to see it here.</p>
+                  <Link
+                    href="/dashboard/mytrips"
+                    className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-blue)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    <Icon name="route" size={14} />
+                    Go to My Trips
+                  </Link>
+                </div>
+              ) : (
+                <ul className="space-y-2.5">
+                  {trips.map((t) => {
+                    const isActive = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === t.id;
+                    return (
+                      <li
+                        key={t.id}
+                        className={`rounded-xl border bg-white shadow-sm transition-all duration-200 ${
+                          isActive
+                            ? "border-[var(--brand-orange)] ring-2 ring-[var(--brand-orange)]/20 bg-orange-50/50"
+                            : "border-gray-100 hover:border-gray-200 hover:shadow-md"
+                        }`}
                       >
-                        <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{t.name}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { applyTripFilter(t.id, t.name); onClose(); }}
-                        className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--brand-orange)] py-1.5 px-2 text-white text-xs font-medium"
-                      >
-                        <Icon name="map-pin" size={12} />
-                        Show on map
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                        <button
+                          type="button"
+                          onClick={() => { applyTripFilter(t.id, t.name); onClose(); }}
+                          className="flex w-full cursor-pointer items-center gap-3 p-3.5 text-left"
+                        >
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                            isActive ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-[var(--brand-blue)]"
+                          }`}>
+                            <Icon name="route" size={18} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold truncate transition-colors ${
+                              isActive ? "text-[var(--brand-orange)]" : "text-[var(--brand-blue)]"
+                            }`}>
+                              {t.name}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                              {isActive ? "Visible on map" : "Tap to show on map"}
+                            </p>
+                          </div>
+                          <Icon
+                            name="chevron-right"
+                            size={16}
+                            className={`shrink-0 transition-colors ${isActive ? "text-[var(--brand-orange)]" : "text-gray-400"}`}
+                            aria-hidden
+                          />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         );
       }
