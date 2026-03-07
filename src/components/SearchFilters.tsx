@@ -851,12 +851,14 @@ function MainRegionsColumn({
             {displayList.map((r) => {
               const isSelected = selectedIds.includes(r.id);
               const isActive = activeParentId === r.id;
+              const item = r as Option & { parent_id?: string | null };
+              const parentId = item.parent_id ?? r.id;
               return (
                 <li
                   key={r.id}
                   onClick={() => {
                     onToggleWithRule(r.id);
-                    setActiveParentId(r.parent_id ?? r.id);
+                    setActiveParentId(parentId);
                   }}
                   className={`px-3 py-2 cursor-pointer flex items-center gap-2 text-sm transition-colors ${
                     isActive
