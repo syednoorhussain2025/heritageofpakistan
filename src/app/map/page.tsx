@@ -1608,7 +1608,7 @@ export default function MapPage() {
   }, [handleFilterChange]);
 
   /* Stable radius circle object so map doesn't get new reference on every render */
-  const radiusCircle = useMemo(() => {
+  const radiusCircle = useMemo((): { centerLat: number; centerLng: number; radiusKm: number } | null => {
     const active =
       nearbyActive &&
       typeof filters.centerLat === "number" &&
@@ -1617,9 +1617,9 @@ export default function MapPage() {
       filters.radiusKm > 0;
     if (!active) return null;
     return {
-      centerLat: filters.centerLat,
-      centerLng: filters.centerLng,
-      radiusKm: filters.radiusKm,
+      centerLat: filters.centerLat as number,
+      centerLng: filters.centerLng as number,
+      radiusKm: filters.radiusKm as number,
     };
   }, [nearbyActive, filters.centerLat, filters.centerLng, filters.radiusKm]);
 

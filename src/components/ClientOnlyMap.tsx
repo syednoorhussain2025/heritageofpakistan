@@ -213,7 +213,7 @@ function locationsKey(locations: Site[]) {
   return locations.map((s) => s.id).join(",");
 }
 
-function radiusCircleKey(rc: { centerLat: number; centerLng: number; radiusKm: number } | null) {
+function radiusCircleKey(rc: { centerLat: number; centerLng: number; radiusKm: number } | null | undefined) {
   if (!rc) return "";
   return `${rc.centerLat},${rc.centerLng},${rc.radiusKm}`;
 }
