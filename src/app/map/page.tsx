@@ -232,6 +232,12 @@ export default function MapPage() {
   const [mobileEllipsisSheetVisible, setMobileEllipsisSheetVisible] = useState(false);
   const [mobileSiteSheetOpen, setMobileSiteSheetOpen] = useState(false);
   const [mobileSiteSheetVisible, setMobileSiteSheetVisible] = useState(false);
+  const [mobileSiteSheetClosing, setMobileSiteSheetClosing] = useState(false);
+  const mobileSiteSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mobileTripSheetOpen, setMobileTripSheetOpen] = useState(false);
+  const [mobileTripSheetVisible, setMobileTripSheetVisible] = useState(false);
+  const [mobileTripSheetClosing, setMobileTripSheetClosing] = useState(false);
+  const mobileTripSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -814,11 +820,62 @@ export default function MapPage() {
   useEffect(() => {
     if (!mobileSiteSheetOpen) {
       setMobileSiteSheetVisible(false);
+      setMobileSiteSheetClosing(false);
       return;
     }
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileSiteSheetVisible(true)));
     return () => cancelAnimationFrame(id);
   }, [mobileSiteSheetOpen]);
+
+  const closeSiteSheetWithAnimation = useCallback(() => {
+    if (mobileSiteSheetCloseTimerRef.current) return;
+    setMobileSiteSheetClosing(true);
+    mobileSiteSheetCloseTimerRef.current = setTimeout(() => {
+      mobileSiteSheetCloseTimerRef.current = null;
+      setMobileSiteSheetOpen(false);
+      setSelectedMapSite(null);
+      setMobileSiteSheetClosing(false);
+    }, 300);
+  }, []);
+
+  useEffect(() => () => {
+    if (mobileSiteSheetCloseTimerRef.current) clearTimeout(mobileSiteSheetCloseTimerRef.current);
+  }, []);
+
+  /* Trip details bottom sheet visibility and close animation */
+  useEffect(() => {
+    if (!mobileTripSheetOpen) {
+      setMobileTripSheetVisible(false);
+      setMobileTripSheetClosing(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileTripSheetVisible(true)));
+    return () => cancelAnimationFrame(id);
+  }, [mobileTripSheetOpen]);
+
+  const closeTripSheetWithAnimation = useCallback(() => {
+    if (mobileTripSheetCloseTimerRef.current) return;
+    setMobileTripSheetClosing(true);
+    mobileTripSheetCloseTimerRef.current = setTimeout(() => {
+      mobileTripSheetCloseTimerRef.current = null;
+      setMobileTripSheetOpen(false);
+      setMobileTripSheetClosing(false);
+    }, 300);
+  }, []);
+
+  useEffect(() => () => {
+    if (mobileTripSheetCloseTimerRef.current) clearTimeout(mobileTripSheetCloseTimerRef.current);
+  }, []);
+
+  /* When a trip is applied on mobile, open the trip details bottom sheet automatically */
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof sidebarFilter !== "object" || sidebarFilter === null || !("tripId" in sidebarFilter)) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileTripSheetOpen(true);
+    }
+  }, [mounted, sidebarFilter]);
+
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -1715,6 +1772,19 @@ export default function MapPage() {
             </button>
           ))}
         </div>
+        {/* Mobile: floating Trip button when a trip is applied — opens trip details bottom sheet */}
+        {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
+          <button
+            type="button"
+            onClick={() => setMobileTripSheetOpen(true)}
+            className="lg:hidden fixed left-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg ring-1 ring-gray-200/80 text-sm font-semibold text-[var(--brand-blue)] hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
+            aria-label="View trip details"
+          >
+            <Icon name="route" size={18} />
+            <span>Trip</span>
+          </button>
+        )}
           </>
         )}
         {/* Single pill on the right: trip details (when trip loaded) or map context (otherwise) */}
@@ -2172,16 +2242,16 @@ export default function MapPage() {
         )}
 
       {/* Mobile: site info bottom sheet (when user taps preview card) */}
-      {mounted && mobileSiteSheetOpen && selectedMapSite &&
+      {mounted && (mobileSiteSheetOpen || mobileSiteSheetClosing) && selectedMapSite &&
         createPortal(
           <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="Site details">
             <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${mobileSiteSheetVisible ? "opacity-100" : "opacity-0"}`}
-              onClick={() => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); }}
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "opacity-100" : "opacity-0"}`}
+              onClick={closeSiteSheetWithAnimation}
               aria-hidden="true"
             />
             <div
-              className={`absolute left-0 right-0 bottom-0 top-[15%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              className={`absolute left-0 right-0 bottom-0 top-[15%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "translate-y-0" : "translate-y-full"}`}
               style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
@@ -2190,7 +2260,7 @@ export default function MapPage() {
                 <button
                   type="button"
                   aria-label="Close"
-                  onClick={() => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); }}
+                  onClick={closeSiteSheetWithAnimation}
                   className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0"
                 >
                   <Icon name="times" size={20} className="text-gray-600" />
@@ -2198,8 +2268,158 @@ export default function MapPage() {
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 scrollbar-hide">
                 <div className="rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden">
-                  {renderToolPanel("site", () => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); })}
+                  {renderToolPanel("site", closeSiteSheetWithAnimation)}
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Mobile: trip details bottom sheet (same content as desktop floating panel) */}
+      {mounted && (mobileTripSheetOpen || mobileTripSheetClosing) && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="Trip details">
+            <div
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileTripSheetVisible && !mobileTripSheetClosing ? "opacity-100" : "opacity-0"}`}
+              onClick={closeTripSheetWithAnimation}
+              aria-hidden="true"
+            />
+            <div
+              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileTripSheetVisible && !mobileTripSheetClosing ? "translate-y-0" : "translate-y-full"}`}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
+              <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
+                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+                  <Icon name="map-marker-alt" size={16} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
+                  <h3 className="text-sm font-semibold text-gray-800 leading-snug break-words">Trip: {activeTripName ?? "—"}</h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {tripItemsLoading || tripTimelineLoading ? "Loading…" : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}
+                  </p>
+                </div>
+                <button type="button" onClick={closeTripSheetWithAnimation} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700" aria-label="Close trip panel">
+                  <Icon name="times" size={12} />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
+                {tripItemsLoading && !tripTimeline.length ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                    <Icon name="spinner" size={16} className="animate-spin" />
+                    <span className="text-sm">Loading sites…</span>
+                  </div>
+                ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-6 text-center">No sites in this trip.</p>
+                ) : tripTimeline.length > 0 ? (
+                  (() => {
+                    type DayEntry = TimelineItem & { kind: "day"; id: string; title?: string | null; the_date?: string | null; order_index?: number };
+                    const formatSmallDate = (dateStr: string | null | undefined) =>
+                      dateStr ? new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+                    const daysInOrder = (tripTimeline.filter((e) => e.kind === "day") as DayEntry[]).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                    const itemsByDayId = new Map<string | null, TripItemMap[]>();
+                    for (const item of tripItems) {
+                      const key = item.day_id ?? null;
+                      if (!itemsByDayId.has(key)) itemsByDayId.set(key, []);
+                      itemsByDayId.get(key)!.push(item);
+                    }
+                    for (const arr of itemsByDayId.values()) arr.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                    return (
+                      <div className="relative">
+                        <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
+                        <ul className="space-y-0 pb-2">
+                          {daysInOrder.map((day, idx) => {
+                            const dayNumber = idx + 1;
+                            const title = day.title?.trim() || "Day";
+                            const itemsForDay = itemsByDayId.get(day.id) ?? [];
+                            return (
+                              <React.Fragment key={`day-${day.id}`}>
+                                <li className="pt-3 pb-1.5 first:pt-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-[11px] font-semibold">Day {dayNumber}: {title}</span>
+                                  </div>
+                                </li>
+                                {itemsForDay.map((item, itemIdx) => {
+                                  const siteTitle = item.site?.title ?? "Site";
+                                  const thumbUrl = item.site?.cover_photo_thumb_url || item.site?.cover_photo_url || null;
+                                  const smallDate = formatSmallDate(item.date_in ?? (day as DayEntry).the_date ?? null);
+                                  const site = allLocations.find((loc) => loc.id === item.site_id);
+                                  return (
+                                    <li key={`site-${item.id ?? item.site_id}`}>
+                                      <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
+                                        <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                                        <span className="flex-1 min-w-0 text-left">
+                                          <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
+                                          {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
+                                        </span>
+                                        <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                          {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                                        </span>
+                                      </button>
+                                      {itemIdx < itemsForDay.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                                    </li>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          })}
+                          {(itemsByDayId.get(null) ?? []).length > 0 && (
+                            <>
+                              <li className="pt-3 pb-1.5"><div className="flex items-center gap-2 mb-1.5"><span className="text-[10px] font-semibold text-gray-500">Other sites</span></div><div className="border-b border-gray-100 mb-1.5" /></li>
+                              {itemsByDayId.get(null)!.map((item, itemIdx) => {
+                                const siteTitle = item.site?.title ?? "Site";
+                                const thumbUrl = item.site?.cover_photo_thumb_url || item.site?.cover_photo_url || null;
+                                const smallDate = formatSmallDate(item.date_in ?? null);
+                                const site = allLocations.find((loc) => loc.id === item.site_id);
+                                return (
+                                  <li key={`site-${item.id ?? item.site_id}`}>
+                                    <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
+                                      <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                                      <span className="flex-1 min-w-0 text-left">
+                                        <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
+                                        {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
+                                      </span>
+                                      <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                        {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                                      </span>
+                                    </button>
+                                    {itemIdx < itemsByDayId.get(null)!.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                                  </li>
+                                );
+                              })}
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
+                    <ul className="pb-2">
+                      {tripItems.map((item, itemIdx) => {
+                        const site = item.site;
+                        const title = site?.title ?? "Site";
+                        const thumbUrl = site?.cover_photo_thumb_url || site?.cover_photo_url || null;
+                        const siteObj = allLocations.find((loc) => loc.id === item.site_id);
+                        return (
+                          <li key={item.site_id}>
+                            <button type="button" onClick={() => siteObj && handleSiteSelect(siteObj as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
+                              <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                              <span className="text-sm font-medium text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate flex-1 min-w-0 transition-colors">{title}</span>
+                              <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                              </span>
+                            </button>
+                            {itemIdx < tripItems.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           </div>,
