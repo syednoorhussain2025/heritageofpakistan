@@ -1772,18 +1772,29 @@ export default function MapPage() {
             </button>
           ))}
         </div>
-        {/* Mobile: floating Trip button when a trip is applied — opens trip details bottom sheet */}
+        {/* Mobile: floating Trip button (left) and Trip Details button (right) when a trip is applied */}
         {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-          <button
-            type="button"
-            onClick={() => setMobileTripSheetOpen(true)}
-            className="lg:hidden fixed left-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg ring-1 ring-gray-200/80 text-sm font-semibold text-[var(--brand-blue)] hover:bg-gray-50 active:bg-gray-100 transition-colors"
-            style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
-            aria-label="View trip details"
-          >
-            <Icon name="route" size={18} />
-            <span>Trip</span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setMobileTripSheetOpen(true)}
+              className="lg:hidden fixed left-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg ring-1 ring-gray-200/80 text-sm font-semibold text-[var(--brand-blue)] hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
+              aria-label="View trip details"
+            >
+              <Icon name="route" size={18} />
+              <span>Trip</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTripSheetOpen(true)}
+              className="lg:hidden fixed right-[11rem] z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
+              style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
+              aria-label="Trip details"
+            >
+              <span>Trip Details</span>
+            </button>
+          </>
         )}
           </>
         )}

@@ -191,6 +191,18 @@ const DynamicPopupStyles = () => {
       border-radius: 0.75rem !important;
       overflow: hidden !important;
     }
+    @media (max-width: 1023px) {
+      .leaflet-popup-content-wrapper {
+        min-width: 0 !important;
+        max-width: min(280px, 88vw) !important;
+        width: min(280px, 88vw) !important;
+      }
+      .map-preview-card-wrapper {
+        min-width: 0 !important;
+        max-width: min(280px, 88vw) !important;
+        width: min(280px, 88vw) !important;
+      }
+    }
   `;
   return <style>{style}</style>;
 };
@@ -1569,7 +1581,7 @@ function GoogleMapView({
           options={{ disableAutoPan: true }}
         >
           <div
-            className={`info-window-content ${
+            className={`info-window-content map-preview-card-wrapper ${
               activeId === infoWindowSite.id ? "fade-in" : "fade-out"
             } rounded-xl overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)]`}
             style={{ minWidth: 340, maxWidth: 360, width: "100%" }}
