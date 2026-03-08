@@ -1282,7 +1282,7 @@ function HeritageTypeModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[100000] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
@@ -1476,7 +1476,7 @@ function SearchLocationModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[100000] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"

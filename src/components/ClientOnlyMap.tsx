@@ -194,13 +194,13 @@ const DynamicPopupStyles = () => {
     @media (max-width: 1023px) {
       .leaflet-popup-content-wrapper {
         min-width: 0 !important;
-        max-width: min(280px, 88vw) !important;
-        width: min(280px, 88vw) !important;
+        max-width: min(256px, 82vw) !important;
+        width: min(256px, 82vw) !important;
       }
       .map-preview-card-wrapper {
         min-width: 0 !important;
-        max-width: min(280px, 88vw) !important;
-        width: min(280px, 88vw) !important;
+        max-width: min(256px, 82vw) !important;
+        width: min(256px, 82vw) !important;
       }
     }
   `;
