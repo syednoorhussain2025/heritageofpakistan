@@ -57,7 +57,7 @@ const ToolPanel = ({
             </button>
           </div>
         )}
-        <div className="flex-grow min-h-0 overflow-auto">{customContent}</div>
+        <div className="flex-grow min-h-0 overflow-auto scrollbar-hide">{customContent}</div>
       </div>
     );
   }

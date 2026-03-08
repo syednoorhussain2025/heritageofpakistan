@@ -1488,7 +1488,7 @@ function SearchLocationModal({
       />
 
       <div
-        className={`relative w-full min-h-[85dvh] sm:min-h-[32rem] sm:h-auto sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`relative w-full h-[85dvh] sm:h-[70vh] sm:min-h-[32rem] sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-4"
@@ -1517,10 +1517,10 @@ function SearchLocationModal({
           </Tooltip>
         </div>
 
-        {/* Body — two columns: main regions (left), subregions (right), always open */}
+        {/* Body — two columns: main regions (left), subregions (right), always open; equal height */}
         <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-4 px-6 py-5 overflow-hidden">
-          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col">
-            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit">
+          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col min-w-0">
+            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit shrink-0">
               Region
             </span>
             <MainRegionsColumn
@@ -1534,8 +1534,8 @@ function SearchLocationModal({
               regionParents={regionParents}
             />
           </div>
-          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col">
-            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit">
+          <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col min-w-0">
+            <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit shrink-0">
               Subregion
             </span>
             <SubRegionsColumn

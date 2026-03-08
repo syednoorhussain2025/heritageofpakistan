@@ -13,7 +13,6 @@ import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
-import { useBookmarks } from "@/components/BookmarkProvider";
 import { getWishlists, getWishlistItems } from "@/lib/wishlists";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
@@ -39,14 +38,12 @@ const useDebounce = (value: string, delay: number) => {
 /* ───────────────────────────── Sidebar tools ───────────────────────────── */
 const mapTools: Tool[] = [
   { id: "search", name: "Search", icon: "search" },
-  { id: "bookmarks", name: "Bookmarks", icon: "heart" },
   { id: "wishlist", name: "My Saved Lists", icon: "list-ul" },
   { id: "trips", name: "My Trips", icon: "route" },
 ];
 
 type SidebarFilter =
   | null
-  | "bookmarks"
   | { wishlistId: string }
   | { tripId: string };
 
@@ -138,7 +135,6 @@ function buildMapHeadline({
   radiusKm?: number | null;
   nearbyActive?: boolean;
 }) {
-  if (sidebarFilter === "bookmarks") return "Bookmarks";
   if (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter) {
     return wishlistName ?? "My Saved Lists";
   }
@@ -199,7 +195,6 @@ function applyBootstrapToState(
 
 export default function MapPage() {
   const initialBootstrapFromServer = useMapBootstrap();
-  const { bookmarkedIds, isLoaded: bookmarksLoaded } = useBookmarks();
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
   const [filters, setFilters] = useState<Filters>({
     name: "",
@@ -230,7 +225,7 @@ export default function MapPage() {
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
-  const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "bookmarks" | "wishlist" | "trips" | "site">("search");
+  const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "wishlist" | "trips" | "site">("search");
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -268,6 +263,11 @@ export default function MapPage() {
   // and in the mobile search panel on mobile.
   const [selectedMapSite, setSelectedMapSite] = useState<MapSite | null>(null);
   const [showSitePanelActionsMenu, setShowSitePanelActionsMenu] = useState(false);
+  const [sitePanelMenuPosition, setSitePanelMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const sitePanelActionsMenuRef = useRef<HTMLDivElement>(null);
+  const sitePanelActionsMenuPortalRef = useRef<HTMLDivElement>(null);
+  const sitePanelCategoriesScrollRef = useRef<HTMLDivElement>(null);
+  const sitePanelRegionsScrollRef = useRef<HTMLDivElement>(null);
   const [showSitePanelWishlistModal, setShowSitePanelWishlistModal] = useState(false);
   const [showSitePanelTripModal, setShowSitePanelTripModal] = useState(false);
 
@@ -277,7 +277,24 @@ export default function MapPage() {
 
   useEffect(() => {
     setShowSitePanelActionsMenu(false);
+    setSitePanelMenuPosition(null);
   }, [selectedMapSite?.id]);
+
+  // Position site panel actions menu in portal (open downwards below trigger)
+  useEffect(() => {
+    if (!showSitePanelActionsMenu) {
+      setSitePanelMenuPosition(null);
+      return;
+    }
+    const el = sitePanelActionsMenuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 8;
+    setSitePanelMenuPosition({
+      top: rect.bottom + gap,
+      left: rect.left,
+    });
+  }, [showSitePanelActionsMenu]);
 
   useEffect(() => {
     if (!selectedMapSite) {
@@ -576,9 +593,10 @@ export default function MapPage() {
     setSitesLoadError(false);
 
     const SITES_LOAD_TIMEOUT_MS = 45000;
-    const sitesTimeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("SITES_LOAD_TIMEOUT")), SITES_LOAD_TIMEOUT_MS)
-    );
+    let sitesTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    const sitesTimeoutPromise = new Promise<never>((_, reject) => {
+      sitesTimeoutId = setTimeout(() => reject(new Error("SITES_LOAD_TIMEOUT")), SITES_LOAD_TIMEOUT_MS);
+    });
     (async () => {
       let locationsRes: { data?: any[]; error?: unknown } | undefined;
       try {
@@ -643,7 +661,10 @@ export default function MapPage() {
         setSitesLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (sitesTimeoutId != null) clearTimeout(sitesTimeoutId);
+    };
   }, [loading, loadError, sitesRetryCount]);
 
   /* Sync map type from admin settings once when settings load */
@@ -693,9 +714,7 @@ export default function MapPage() {
       }
     }
 
-    if (sidebarFilter === "bookmarks" && bookmarksLoaded) {
-      res = res.filter((site) => bookmarkedIds.has(site.id));
-    } else if (
+    if (
       typeof sidebarFilter === "object" &&
       sidebarFilter !== null &&
       "wishlistId" in sidebarFilter &&
@@ -739,8 +758,6 @@ export default function MapPage() {
     filters.centerLng,
     filters.radiusKm,
     sidebarFilter,
-    bookmarksLoaded,
-    bookmarkedIds,
     wishlistSiteIds,
     tripSiteIds,
   ]);
@@ -909,6 +926,16 @@ export default function MapPage() {
     setSearchPanelOpen(true);
   }, []);
 
+  // Stable callbacks for the map to avoid unnecessary re-renders and listener churn
+  const onMapHighlightConsumed = useCallback(() => {
+    setHighlightSiteId(null);
+    setHighlightFromSavedList(false);
+  }, []);
+  const onMapSiteSelect = useCallback(
+    (site: ClientMapSite) => handleSiteSelect(site as MapSite),
+    [handleSiteSelect]
+  );
+
   const signInRedirectUrl = "/auth/sign-in?redirectTo=" + encodeURIComponent("/map");
 
   const renderToolPanel = useCallback(
@@ -942,67 +969,24 @@ export default function MapPage() {
               </button>
             </div>
 
-            {/* Details */}
-            <div className="p-4 flex flex-col gap-3">
-              {/* Title row with plus actions (same as preview card) */}
+            {/* Details — single column, no inner scroll; panel height = content */}
+            <div className="flex flex-col p-4 gap-3">
+              {/* Title row with ellipsis actions menu (same as preview card) */}
               <div className="flex items-start gap-2">
                 <h2 className="flex-1 min-w-0 text-xl font-bold text-[var(--brand-blue)] leading-tight truncate">
                   {selectedMapSite.title}
                 </h2>
-                <div className="relative shrink-0">
+                <div className="shrink-0 relative" ref={sitePanelActionsMenuRef}>
                   <button
                     type="button"
-                    title="Actions"
-                    onClick={() => setShowSitePanelActionsMenu((v) => !v)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
-                    aria-label="Add to list or trip"
+                    title="More actions"
+                    aria-label="More actions"
                     aria-expanded={showSitePanelActionsMenu}
+                    onClick={() => setShowSitePanelActionsMenu((v) => !v)}
+                    className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
                   >
-                    <Icon name="plus" size={16} className="text-white" />
+                    <Icon name="ellipsis" size={24} className="text-current" />
                   </button>
-                  {showSitePanelActionsMenu && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowSitePanelActionsMenu(false);
-                          setShowSitePanelWishlistModal(true);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
-                      >
-                        <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowSitePanelActionsMenu(false);
-                          setShowSitePanelTripModal(true);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-                      >
-                        <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
-                        Add to Trip
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowSitePanelActionsMenu(false);
-                          handleFilterChange({
-                            centerSiteId: selectedMapSite.id,
-                            centerLat: Number(selectedMapSite.latitude),
-                            centerLng: Number(selectedMapSite.longitude),
-                            radiusKm: 25,
-                          });
-                          setShowNearbyModal(true);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-                      >
-                        <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
-                        Places Nearby
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1037,19 +1021,125 @@ export default function MapPage() {
                 )}
               </div>
 
-              {/* Tagline */}
+              {/* Tagline — clipped to fixed lines to avoid vertical scroll */}
               {selectedMapSite.tagline && (
-                <p className="text-sm text-gray-600 leading-relaxed">
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
                   {selectedMapSite.tagline}
                 </p>
               )}
 
-              {/* Open Site button */}
+              {/* Site categories — horizontal scroll pills, scrollbar hidden, right arrow to scroll */}
+              {(() => {
+                const siteCats = (selectedMapSite as { site_categories?: { category_id?: string }[] }).site_categories;
+                const entries = (siteCats ?? [])
+                  .map((sc) => sc.category_id && categoryMap[sc.category_id] ? { id: sc.category_id, name: categoryMap[sc.category_id] } : null)
+                  .filter((x): x is { id: string; name: string } => x != null);
+                if (entries.length === 0) return null;
+                return (
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <h3 className="text-xs font-semibold text-[var(--brand-blue)] uppercase tracking-wide shrink-0">
+                      Categories
+                    </h3>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => sitePanelCategoriesScrollRef.current?.scrollBy({ left: -120, behavior: "smooth" })}
+                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
+                        aria-label="Scroll categories left"
+                      >
+                        <Icon name="chevron-left" size={18} />
+                      </button>
+                      <div
+                        ref={sitePanelCategoriesScrollRef}
+                        className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 min-w-0 flex-1"
+                        onWheel={(e) => {
+                          const el = sitePanelCategoriesScrollRef.current;
+                          if (!el) return;
+                          e.preventDefault();
+                          el.scrollLeft += e.deltaY;
+                        }}
+                      >
+                        {entries.map(({ id, name }) => (
+                          <span
+                            key={id}
+                            className="inline-flex items-center shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => sitePanelCategoriesScrollRef.current?.scrollBy({ left: 120, behavior: "smooth" })}
+                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
+                        aria-label="Scroll categories right"
+                      >
+                        <Icon name="chevron-right" size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Regions — horizontal scroll pills, scrollbar hidden, right arrow to scroll */}
+              {(() => {
+                const siteRegs = (selectedMapSite as { site_regions?: { region_id?: string }[] }).site_regions;
+                const entries = (siteRegs ?? [])
+                  .map((sr) => sr.region_id && regionMap[sr.region_id] ? { id: sr.region_id, name: regionMap[sr.region_id] } : null)
+                  .filter((x): x is { id: string; name: string } => x != null);
+                if (entries.length === 0) return null;
+                return (
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <h3 className="text-xs font-semibold text-[var(--brand-blue)] uppercase tracking-wide shrink-0">
+                      Regions
+                    </h3>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => sitePanelRegionsScrollRef.current?.scrollBy({ left: -120, behavior: "smooth" })}
+                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
+                        aria-label="Scroll regions left"
+                      >
+                        <Icon name="chevron-left" size={18} />
+                      </button>
+                      <div
+                        ref={sitePanelRegionsScrollRef}
+                        className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 min-w-0 flex-1"
+                        onWheel={(e) => {
+                          const el = sitePanelRegionsScrollRef.current;
+                          if (!el) return;
+                          e.preventDefault();
+                          el.scrollLeft += e.deltaY;
+                        }}
+                      >
+                        {entries.map(({ id, name }) => (
+                          <span
+                            key={id}
+                            className="inline-flex items-center shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => sitePanelRegionsScrollRef.current?.scrollBy({ left: 120, behavior: "smooth" })}
+                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
+                        aria-label="Scroll regions right"
+                      >
+                        <Icon name="chevron-right" size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Open Site button — slightly reduced top spacing */}
               <Link
                 href={detailHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                className="mt-0.5 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 Open Site
                 <Icon name="arrow-right" size={14} />
@@ -1059,79 +1149,6 @@ export default function MapPage() {
         );
       }
 
-      if (toolId === "bookmarks") {
-        if (isSignedIn === false) {
-          return (
-            <div className="p-4 flex flex-col items-center justify-center min-h-[200px] text-center bg-gray-50/80 rounded-xl border border-gray-200">
-              <p className="text-sm text-gray-600 mb-4">Sign in to View Bookmarks</p>
-              <Link
-                href={signInRedirectUrl}
-                className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90"
-              >
-                Sign in
-              </Link>
-            </div>
-          );
-        }
-        const bookmarkedSites = allLocations.filter((s) => bookmarkedIds.has(s.id));
-        return (
-          <div className="p-4 space-y-3">
-            {sidebarFilter === "bookmarks" && (
-              <button
-                type="button"
-                onClick={() => { clearSidebarFilter(); onClose(); }}
-                className="text-sm text-[var(--brand-orange)] font-medium"
-              >
-                Clear · Show all on map
-              </button>
-            )}
-            {!bookmarksLoaded ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : bookmarkedSites.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No bookmarks yet. Add sites from the heart icon on a site.
-              </p>
-            ) : (
-              <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                {bookmarkedSites.map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow">
-                    <button
-                      type="button"
-                      onClick={() => { setHighlightSiteId(s.id); onClose(); }}
-                      className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                    >
-                      <span className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
-                        {(s as any).cover_photo_url ? (
-                          <img
-                            src={(s as any).cover_photo_url}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]">
-                            <Icon name="map-pin" size={18} />
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-sm font-medium text-[var(--brand-blue)] truncate">{s.title}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {bookmarkedSites.length > 0 && (
-              <button
-                type="button"
-                onClick={() => { setSidebarFilter("bookmarks"); onClose(); }}
-                className="flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold"
-              >
-                <Icon name="map-pin" size={16} />
-                Show on map
-              </button>
-            )}
-          </div>
-        );
-      }
       if (toolId === "wishlist") {
         if (isSignedIn === false) {
           return (
@@ -1438,11 +1455,11 @@ export default function MapPage() {
     },
     [
       selectedMapSite,
+      categoryMap,
+      regionMap,
       isSignedIn,
       signInRedirectUrl,
       allLocations,
-      bookmarkedIds,
-      bookmarksLoaded,
       sidebarFilter,
       clearSidebarFilter,
       wishlists,
@@ -1487,7 +1504,7 @@ export default function MapPage() {
     []
   );
 
-  const tools: Tool[] = mapTools; // always show Bookmarks, My Saved Lists, Trips (signed-out users see sign-in prompt)
+  const tools: Tool[] = mapTools;
 
   const mobilePanelContent = mobilePanelTab === "search" ? (
     <SearchFilters
@@ -1500,8 +1517,6 @@ export default function MapPage() {
     />
   ) : mobilePanelTab === "site" ? (
     renderToolPanel("site", () => { setSelectedMapSite(null); closeSearchPanel(); })
-  ) : mobilePanelTab === "bookmarks" ? (
-    renderToolPanel("bookmarks", closeSearchPanel)
   ) : mobilePanelTab === "wishlist" ? (
     renderToolPanel("wishlist", closeSearchPanel)
   ) : (
@@ -1545,15 +1560,12 @@ export default function MapPage() {
           settings={mapSettings}
           icons={allIcons}
           highlightSiteId={highlightSiteId}
-          onHighlightConsumed={() => {
-            setHighlightSiteId(null);
-            setHighlightFromSavedList(false);
-          }}
+          onHighlightConsumed={onMapHighlightConsumed}
           openPreviewWithoutZoom={
             highlightFromSavedList ||
             (typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter)
           }
-          onSiteSelect={(site) => handleSiteSelect(site as MapSite)}
+          onSiteSelect={onMapSiteSelect}
           mapType={mapType}
           permanentTooltips={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
           directMarkerSelect={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
@@ -1981,9 +1993,7 @@ export default function MapPage() {
                   <span className="text-base font-bold text-gray-800 truncate">
                     {mobilePanelTab === "search"
                       ? "Search & Filters"
-                      : mobilePanelTab === "bookmarks"
-                        ? "Bookmarks"
-                        : mobilePanelTab === "wishlist"
+                      : mobilePanelTab === "wishlist"
                           ? "Saved Lists"
                           : mobilePanelTab === "trips"
                             ? "My Trips"
@@ -1993,7 +2003,7 @@ export default function MapPage() {
                 {/* Tab bar: hidden when showing a site preview */}
                 {mobilePanelTab !== "site" && (
                   <div className="flex border-t border-gray-100">
-                    {(["search", "bookmarks", "wishlist", "trips"] as const).map(
+                    {(["search", "wishlist", "trips"] as const).map(
                       (tab) => (
                         <button
                           key={tab}
@@ -2007,18 +2017,16 @@ export default function MapPage() {
                         >
                           {tab === "search"
                             ? "Search"
-                            : tab === "bookmarks"
-                              ? "Bookmarks"
-                              : tab === "wishlist"
-                                ? "Saved Lists"
-                                : "Trips"}
+                            : tab === "wishlist"
+                              ? "Saved Lists"
+                              : "Trips"}
                         </button>
                       )
                     )}
                   </div>
                 )}
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4">
+              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4 ${mobilePanelTab === "site" ? "scrollbar-hide" : ""}`}>
                 <div className={`min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden ${mobilePanelTab === "site" ? "p-0" : ""}`}>
                   {mobilePanelContent}
                 </div>
@@ -2101,6 +2109,104 @@ export default function MapPage() {
           />,
           document.body
         )}
+
+      {/* Site panel actions menu (ellipsis dropdown, same as preview card) */}
+      {selectedMapSite && showSitePanelActionsMenu && sitePanelMenuPosition && createPortal(
+        <>
+          <div
+            aria-hidden
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setShowSitePanelActionsMenu(false)}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+          <div
+            ref={sitePanelActionsMenuPortalRef}
+            className="fixed w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[9999] animate-in fade-in zoom-in-95 duration-200 origin-top-left"
+            style={{
+              top: `${sitePanelMenuPosition.top}px`,
+              left: `${sitePanelMenuPosition.left}px`,
+            }}
+          >
+            <a
+              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowSitePanelActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
+            >
+              <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" />
+              Open Site
+            </a>
+            <button
+              type="button"
+              onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelWishlistModal(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
+              Add to Trip
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSitePanelActionsMenu(false);
+                handleFilterChange({
+                  centerSiteId: selectedMapSite.id,
+                  centerLat: Number(selectedMapSite.latitude),
+                  centerLng: Number(selectedMapSite.longitude),
+                  radiusKm: 25,
+                });
+                setShowNearbyModal(true);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
+              Places Nearby
+            </button>
+            <div className="border-t border-gray-100" />
+            <a
+              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowSitePanelActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" />
+              Gallery
+            </a>
+            <a
+              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowSitePanelActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="book" size={14} className="text-[var(--brand-orange)]" />
+              Photo Story
+            </a>
+            {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${selectedMapSite.latitude},${selectedMapSite.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowSitePanelActionsMenu(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+              >
+                <Icon name="map-marker-alt" size={14} className="text-[var(--brand-orange)]" />
+                Open in Google Maps
+              </a>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Map action toast */}
       {toastVisible && (

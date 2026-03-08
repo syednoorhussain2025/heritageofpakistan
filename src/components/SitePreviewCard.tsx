@@ -58,6 +58,16 @@ function fmtKm(v?: number | null) {
   return v < 10 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`;
 }
 
+/** Format latitude/longitude for display (e.g. "28.1234, 70.5678"). */
+function fmtLatLong(lat?: number | null, lng?: number | null): string {
+  const a = lat != null && !Number.isNaN(lat) ? lat.toFixed(4) : null;
+  const b = lng != null && !Number.isNaN(lng) ? lng.toFixed(4) : null;
+  if (a && b) return `${a}, ${b}`;
+  if (a) return `${a}, —`;
+  if (b) return `—, ${b}`;
+  return "—";
+}
+
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -102,14 +112,44 @@ export default function SitePreviewCard({
   const [showTripModal, setShowTripModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ bottom: number; left: number } | null>(null);
   const closeTimerRef = useRef<number | null>(null);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
     ? `/heritage/${regionSlug}/${site.slug}`
     : `/heritage/${site.slug}`;
+  const galleryHref = regionSlug
+    ? `/heritage/${regionSlug}/${site.slug}/gallery`
+    : `/heritage/${site.slug}/gallery`;
+  const photoStoryHref = regionSlug
+    ? `/heritage/${regionSlug}/${site.slug}/photo-story`
+    : `/heritage/${site.slug}/photo-story`;
+  const googleMapsHref =
+    site.latitude != null && site.longitude != null && !Number.isNaN(site.latitude) && !Number.isNaN(site.longitude)
+      ? `https://www.google.com/maps/search/?api=1&query=${site.latitude},${site.longitude}`
+      : null;
   const prefetchedRef = useRef(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const actionsMenuPortalRef = useRef<HTMLDivElement>(null);
+
+  // Position the desktop actions menu in a portal (avoids overflow-hidden clipping). Align menu bottom with card/trigger bottom.
+  useEffect(() => {
+    if (!showActionsMenu) {
+      setMenuPosition(null);
+      return;
+    }
+    const el = actionsMenuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Align menu bottom with card bottom (trigger is inside footer; card has py-2 so nudge down)
+    const cardBottomOffset = 8;
+    const gapBetweenCardAndMenu = 12;
+    setMenuPosition({
+      bottom: rect.bottom + cardBottomOffset,
+      left: rect.right + gapBetweenCardAndMenu,
+    });
+  }, [showActionsMenu]);
 
   // Derive isSharpLoaded from which src has actually loaded.
   // This resets to false SYNCHRONOUSLY during render when sharpSrc changes,
@@ -254,16 +294,17 @@ export default function SitePreviewCard({
     void router.prefetch(detailHref);
   }, [router, detailHref]);
 
-  // Close desktop popup on outside click
+  // Close desktop popup on outside click (button or portal menu count as inside)
   useEffect(() => {
     if (!showActionsMenu) return;
     const handler = (e: MouseEvent) => {
       if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
         return;
       }
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
-        setShowActionsMenu(false);
-      }
+      const target = e.target as Node;
+      const inTrigger = actionsMenuRef.current?.contains(target);
+      const inMenu = actionsMenuPortalRef.current?.contains(target);
+      if (!inTrigger && !inMenu) setShowActionsMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -448,14 +489,15 @@ export default function SitePreviewCard({
             </div>
           </div>
 
-          {/* Mobile plus button — pinned to image bottom-right */}
+          {/* Mobile actions button — pinned to image bottom-right */}
           <button
             type="button"
-            title="Actions"
+            title="More actions"
+            aria-label="More actions"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-            className="md:hidden absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/75 hover:scale-110 transition-all cursor-pointer shadow-md z-[21] backdrop-blur-sm"
+            className="md:hidden absolute bottom-3 right-3 p-1 flex items-center justify-center text-white drop-shadow-md hover:opacity-90 transition-opacity cursor-pointer z-[21]"
           >
-            <Icon name="plus" size={13} className="text-white" />
+            <Icon name="ellipsis" size={22} className="text-current" />
           </button>
         </div>
 
@@ -476,61 +518,118 @@ export default function SitePreviewCard({
             )}
           </div>
 
-          {/* Desktop / tablet type left, actions right */}
+          {/* Desktop / tablet: Lat/Long left (pill), actions menu right */}
           <div className="hidden md:flex items-center gap-2 text-gray-700">
-            <span className="inline-flex items-center gap-2 text-sm font-medium">
-              <Icon
-                name="university"
-                className="text-[var(--brand-orange)]"
-                size={14}
-              />
-              {site.heritage_type || "—"}
+            <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 tabular-nums ring-1 ring-gray-200/80">
+              <Icon name="map-marker-alt" className="text-[var(--brand-orange)] shrink-0" size={12} aria-hidden />
+              <span className="font-mono tracking-tight">{fmtLatLong(site.latitude, site.longitude)}</span>
             </span>
 
-            {/* Plus button + popup */}
             <div className="ml-auto relative" ref={actionsMenuRef}>
               <button
                 type="button"
-                title="Actions"
+                title="More actions"
+                aria-label="More actions"
+                aria-expanded={showActionsMenu}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu((v) => !v); }}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--brand-orange)] hover:scale-110 transition-transform cursor-pointer shadow-md"
+                className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
               >
-                <Icon name="plus" size={16} className="text-white" />
+                <Icon name="ellipsis" size={24} className="text-current" />
               </button>
-
-              {showActionsMenu && (
-                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowWishlistModal(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
-                  >
-                    <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowTripModal(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-                  >
-                    <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
-                    Add to Trip
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); void handlePlacesNearby(e); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-                  >
-                    <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
-                    Places Nearby
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
         </div>
       </Link>
+
+      {/* Desktop actions menu in portal so it isn't clipped by card overflow-hidden */}
+      {showActionsMenu && menuPosition && (
+        <Portal>
+          {/* Backdrop: first click closes only the menu; card stays open until next outside click */}
+          <div
+            aria-hidden
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setShowActionsMenu(false)}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+          <div
+            ref={actionsMenuPortalRef}
+            className="fixed w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[9999] animate-in fade-in zoom-in-95 duration-200 origin-bottom-left"
+            style={{
+              bottom: typeof window !== "undefined" ? `${window.innerHeight - menuPosition.bottom}px` : 0,
+              left: `${menuPosition.left}px`,
+            }}
+          >
+            <a
+              href={detailHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
+            >
+              <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" />
+              Open Site
+            </a>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowWishlistModal(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowTripModal(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
+              Add to Trip
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); void handlePlacesNearby(e); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
+              Places Nearby
+            </button>
+            <div className="border-t border-gray-100" />
+            <a
+              href={galleryHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" />
+              Gallery
+            </a>
+            <a
+              href={photoStoryHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowActionsMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+            >
+              <Icon name="book" size={14} className="text-[var(--brand-orange)]" />
+              Photo Story
+            </a>
+            {googleMapsHref && (
+              <a
+                href={googleMapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowActionsMenu(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
+              >
+                <Icon name="map-marker-alt" size={14} className="text-[var(--brand-orange)]" />
+                Open in Google Maps
+              </a>
+            )}
+          </div>
+        </Portal>
+      )}
 
       {showWishlistModal && (
         <Portal>
@@ -574,8 +673,21 @@ export default function SitePreviewCard({
                 {site.title}
               </p>
 
-              {/* Actions group */}
+              {/* Actions group — Open Site first */}
               <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
+                <a
+                  href={detailHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => closeSheet()}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="external-link-alt" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Open Site</span>
+                </a>
+                <div className="ml-16 mr-0 h-px bg-gray-100" />
                 <button
                   type="button"
                   onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
@@ -608,6 +720,52 @@ export default function SitePreviewCard({
                   </div>
                   <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
                 </button>
+              </div>
+
+              {/* Gallery, Photo Story, Google Maps — open in new window */}
+              <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
+                <a
+                  href={galleryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => closeSheet()}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="gallery" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Gallery</span>
+                </a>
+                <div className="ml-16 mr-0 h-px bg-gray-100" />
+                <a
+                  href={photoStoryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => closeSheet()}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <Icon name="book" size={16} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
+                </a>
+                {googleMapsHref && (
+                  <>
+                    <div className="ml-16 mr-0 h-px bg-gray-100" />
+                    <a
+                      href={googleMapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => closeSheet()}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                        <Icon name="map-marker-alt" size={16} className="text-gray-700" />
+                      </div>
+                      <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
+                    </a>
+                  </>
+                )}
               </div>
 
               {/* Cancel */}

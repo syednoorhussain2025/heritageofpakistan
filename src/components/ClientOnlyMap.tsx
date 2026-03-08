@@ -1336,8 +1336,17 @@ function GoogleMapView({
       }}
       onClick={() => setActiveId(null)}
       onUnmount={() => {
+        const clusterer = clustererRef.current;
+        if (clusterer) {
+          clusterer.clearMarkers();
+          clustererRef.current = null;
+        }
+        const tooltipWindow = tooltipWindowRef.current;
+        if (tooltipWindow) {
+          tooltipWindow.close();
+          tooltipWindowRef.current = null;
+        }
         mapRef.current = null;
-        clustererRef.current = null;
       }}
     >
       <GoogleInfoWindowStyles />
