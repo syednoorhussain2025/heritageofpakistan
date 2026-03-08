@@ -221,7 +221,6 @@ export default function MapPage() {
   const [tripsLoading, setTripsLoading] = useState(false);
 
   const [mounted, setMounted] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
@@ -231,6 +230,8 @@ export default function MapPage() {
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "wishlist" | "trips" | "site">("search");
   const [mobileEllipsisSheetOpen, setMobileEllipsisSheetOpen] = useState(false);
   const [mobileEllipsisSheetVisible, setMobileEllipsisSheetVisible] = useState(false);
+  const [mobileSiteSheetOpen, setMobileSiteSheetOpen] = useState(false);
+  const [mobileSiteSheetVisible, setMobileSiteSheetVisible] = useState(false);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -784,14 +785,6 @@ export default function MapPage() {
 
   useEffect(() => setMounted(true), []);
 
-  /* Detect mobile viewport so marker tap opens bottom sheet instead of small popup */
-  useEffect(() => {
-    const mql = window.matchMedia("(max-width: 1023px)");
-    const set = () => setIsMobileViewport(mql.matches);
-    set();
-    mql.addEventListener("change", set);
-    return () => mql.removeEventListener("change", set);
-  }, []);
   useEffect(() => {
     if (!searchPanelOpen) {
       setSearchPanelVisible(false);
@@ -816,6 +809,16 @@ export default function MapPage() {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileEllipsisSheetVisible(true)));
     return () => cancelAnimationFrame(id);
   }, [mobileEllipsisSheetOpen]);
+
+  /* Site info bottom sheet visibility animation */
+  useEffect(() => {
+    if (!mobileSiteSheetOpen) {
+      setMobileSiteSheetVisible(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileSiteSheetVisible(true)));
+    return () => cancelAnimationFrame(id);
+  }, [mobileSiteSheetOpen]);
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -952,12 +955,16 @@ export default function MapPage() {
     if (wasTrip || wasWishlist) setResetMapViewTrigger((t) => t + 1);
   }, [sidebarFilter]);
 
-  // Called when the user clicks a pin on the map
+  // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
     setSelectedMapSite(site);
-    setMobilePanelMode("site");
-    setMobilePanelTab("site");
-    setSearchPanelOpen(true);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileSiteSheetOpen(true);
+    } else {
+      setMobilePanelMode("site");
+      setMobilePanelTab("site");
+      setSearchPanelOpen(true);
+    }
   }, []);
 
   // Stable callbacks for the map to avoid unnecessary re-renders and listener churn
@@ -1602,7 +1609,7 @@ export default function MapPage() {
           onSiteSelect={onMapSiteSelect}
           mapType={mapType}
           permanentTooltips={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
-          directMarkerSelect={isMobileViewport || (typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter)}
+          directMarkerSelect={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
           siteDates={tripSiteDates}
           hoveredSiteId={tripPanelHoveredSiteId}
           resetMapViewTrigger={resetMapViewTrigger}
@@ -2158,6 +2165,41 @@ export default function MapPage() {
                   </div>
                   <span className="text-[15px] font-semibold text-gray-900">My Trips</span>
                 </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Mobile: site info bottom sheet (when user taps preview card) */}
+      {mounted && mobileSiteSheetOpen && selectedMapSite &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="Site details">
+            <div
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${mobileSiteSheetVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={() => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); }}
+              aria-hidden="true"
+            />
+            <div
+              className={`absolute left-0 right-0 bottom-0 top-[15%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
+              <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                <span className="text-sm font-bold text-gray-800 truncate flex-1 min-w-0 pr-2">{selectedMapSite.title}</span>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); }}
+                  className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0"
+                >
+                  <Icon name="times" size={20} className="text-gray-600" />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 scrollbar-hide">
+                <div className="rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden">
+                  {renderToolPanel("site", () => { setMobileSiteSheetOpen(false); setSelectedMapSite(null); })}
+                </div>
               </div>
             </div>
           </div>,
