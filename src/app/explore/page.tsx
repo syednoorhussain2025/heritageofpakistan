@@ -660,7 +660,7 @@ function ExplorePageContent() {
         centerSiteId,
         centerLat: !Number.isNaN(parsedLat) ? parsedLat : null,
         centerLng: !Number.isNaN(parsedLng) ? parsedLng : null,
-        radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 25,
+        radiusKm: !Number.isNaN(parsedRkm) ? parsedRkm : 5,
       } satisfies Filters;
 
       isHydratingRef.current = true;
@@ -1241,7 +1241,7 @@ function ExplorePageContent() {
             <button
               type="button"
               onClick={() => {
-                handleFilterChange(clearPlacesNearby());
+                handleFilterChange({ ...clearPlacesNearby(), centerSiteTitle: null });
                 executeSearch();
               }}
               className="w-5 h-5 rounded-full bg-white shadow ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/50 transition-colors"

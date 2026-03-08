@@ -432,6 +432,7 @@ export default function AddToWishlistModal({
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"
           }`}
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={onCardTouchStart}
           onTouchMove={onCardTouchMove}

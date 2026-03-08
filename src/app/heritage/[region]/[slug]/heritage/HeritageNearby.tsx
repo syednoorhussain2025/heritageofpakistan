@@ -160,7 +160,7 @@ export default function HeritageNearby({
       siteId,
       lat: lat as number,
       lng: lng as number,
-      radiusKm: 25,
+      radiusKm: 5,
       basePath: "/explore",
     });
   }, [hasCoords, siteId, lat, lng]);

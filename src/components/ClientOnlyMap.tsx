@@ -5,7 +5,7 @@ import { useMemo, useCallback, useRef, useState, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 
 /* ------------------------ Leaflet / OSM (original path) ------------------------ */
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -213,6 +213,12 @@ export default function ClientOnlyMap({
   hoveredSiteId = null,
   resetMapViewTrigger = 0,
   openPreviewWithoutZoom = false,
+  /** When true, map fits bounds to current locations (e.g. after applying "Search Around a Site"). */
+  fitBoundsToLocations = false,
+  /** When set, draw a light red circle on the map showing the search radius (e.g. "Search Around a Site"). */
+  radiusCircle = null,
+  /** When provided, "Places Nearby" on a card applies this site on the map and shows results instead of navigating to Explore. */
+  onPlacesNearbyApply = null,
 }: {
   locations: Site[];
   settings: MapSettings | null;
@@ -235,10 +241,18 @@ export default function ClientOnlyMap({
   hoveredSiteId?: string | null;
   /** When this value changes and is > 0, the map flies back to default center/zoom (e.g. after closing the trip panel). */
   resetMapViewTrigger?: number;
+  /** When true, map fits bounds to current locations (e.g. after applying "Search Around a Site"). */
+  fitBoundsToLocations?: boolean;
+  /** When set, draw a light red circle on the map showing the search radius (e.g. "Search Around a Site"). */
+  radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
+  /** When provided, "Places Nearby" on a card applies this site on the map and shows results instead of navigating to Explore. */
+  onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
   // Stabilize callbacks with refs so OSMLeafletView never re-renders just
   // because the parent passed a new inline arrow function reference.
   const onSiteSelectRef = useRef(onSiteSelect);
+  const onPlacesNearbyApplyRef = useRef(onPlacesNearbyApply);
+  useEffect(() => { onPlacesNearbyApplyRef.current = onPlacesNearbyApply; }, [onPlacesNearbyApply]);
   useEffect(() => { onSiteSelectRef.current = onSiteSelect; }, [onSiteSelect]);
   const stableOnSiteSelect = useCallback((site: Site) => {
     onSiteSelectRef.current?.(site);
@@ -284,10 +298,12 @@ export default function ClientOnlyMap({
         onSiteSelect={stableOnSiteSelect}
         mapTypeId={googleMapTypeId}
         directMarkerSelect={directMarkerSelect}
-        fitMapToLocations={permanentTooltips}
+        fitMapToLocations={permanentTooltips || fitBoundsToLocations}
         siteDates={siteDates}
         hoveredSiteId={hoveredSiteId}
         resetMapViewTrigger={resetMapViewTrigger}
+        radiusCircle={radiusCircle}
+        onPlacesNearbyApply={onPlacesNearbyApply}
       />
     );
   }
@@ -306,6 +322,9 @@ export default function ClientOnlyMap({
         siteDates={siteDates}
         resetMapViewTrigger={resetMapViewTrigger}
         openPreviewWithoutZoom={openPreviewWithoutZoom}
+        fitBoundsToLocations={fitBoundsToLocations}
+        radiusCircle={radiusCircle}
+        onPlacesNearbyApply={onPlacesNearbyApply}
       />
       {permanentTooltips && <TripViewHoverStyles hoveredSiteId={hoveredSiteId} />}
     </>
@@ -476,18 +495,35 @@ function TripViewTooltipLayer({
 /* ──────────────────────────────────────────────────────────────────────────────
  * OSM / Leaflet view (unchanged)
  * ────────────────────────────────────────────────────────────────────────────── */
-/* When in trip view, fit map bounds to show all pins */
-function FitMapToLocations({ locations, active }: { locations: Site[]; active: boolean }) {
+/* When in trip view or nearby search, fit map bounds to show all pins and optionally the full radius circle */
+function FitMapToLocations({
+  locations,
+  active,
+  radiusCircle = null,
+}: {
+  locations: Site[];
+  active: boolean;
+  radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (!active || locations.length === 0) return;
+    if (!active) return;
+    const bounds = L.latLngBounds([] as L.LatLngTuple[]);
     const valid = locations.filter(
       (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
     );
-    if (valid.length === 0) return;
-    const bounds = L.latLngBounds(valid.map((s) => [s.latitude, s.longitude] as L.LatLngTuple));
-    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, duration: 0.4 });
-  }, [map, active, locations]);
+    valid.forEach((s) => bounds.extend([s.latitude, s.longitude]));
+    if (radiusCircle && Number.isFinite(radiusCircle.radiusKm) && radiusCircle.radiusKm > 0) {
+      const { centerLat, centerLng, radiusKm } = radiusCircle;
+      const degLat = radiusKm / 111;
+      const degLng = radiusKm / (111 * Math.max(0.01, Math.cos((centerLat * Math.PI) / 180)));
+      bounds.extend([centerLat - degLat, centerLng - degLng]);
+      bounds.extend([centerLat + degLat, centerLng + degLng]);
+    }
+    if (bounds.isValid() && (valid.length > 0 || radiusCircle)) {
+      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, duration: 0.4 });
+    }
+  }, [map, active, locations, radiusCircle?.centerLat, radiusCircle?.centerLng, radiusCircle?.radiusKm]);
   return null;
 }
 
@@ -519,6 +555,7 @@ function OSMHighlightEffect({
   onHighlightConsumed,
   onSiteSelect,
   openPreviewWithoutZoom = false,
+  onPlacesNearbyApply = null,
 }: {
   locations: Site[];
   highlightSiteId: string | null;
@@ -526,6 +563,7 @@ function OSMHighlightEffect({
   onSiteSelect?: (site: Site) => void;
   /** When true, only pan to the marker (no zoom). Used e.g. from saved list panel. */
   openPreviewWithoutZoom?: boolean;
+  onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
   const map = useMap();
   const site = highlightSiteId
@@ -552,6 +590,7 @@ function OSMHighlightEffect({
       <SitePreviewCard
         site={site}
         onCardClick={onSiteSelect ? () => onSiteSelect(site) : undefined}
+        onPlacesNearby={onPlacesNearbyApply ?? undefined}
       />
     </Popup>
   );
@@ -569,6 +608,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
   siteDates = null,
   resetMapViewTrigger = 0,
   openPreviewWithoutZoom = false,
+  fitBoundsToLocations = false,
+  radiusCircle = null,
+  onPlacesNearbyApply = null,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -581,6 +623,11 @@ const OSMLeafletView = memo(function OSMLeafletView({
   siteDates?: Map<string, string> | null;
   resetMapViewTrigger?: number;
   openPreviewWithoutZoom?: boolean;
+  /** When true, map fits bounds to current locations (e.g. after "Search Around a Site"). */
+  fitBoundsToLocations?: boolean;
+  /** When set, draw a light red circle showing the search radius. */
+  radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
+  onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
   const createCustomIcon = useCallback(
     (
@@ -760,6 +807,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
                   onSiteSelect(site);
                   setTimeout(() => { pendingPopupId.current = null; }, 300);
                 } : undefined}
+                onPlacesNearby={onPlacesNearbyApply ?? undefined}
               />
             </Popup>
           )}
@@ -775,6 +823,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
     permanentTooltips,
     directMarkerSelect,
     onSiteSelect,
+    onPlacesNearbyApply,
   ]);
 
   return (
@@ -805,9 +854,54 @@ const OSMLeafletView = memo(function OSMLeafletView({
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
         />
-        {/* Fit map to pins when in trip view */}
-        {permanentTooltips && (
-          <FitMapToLocations locations={locations} active={permanentTooltips} />
+        {/* Light red radius circle when "Search Around a Site" is active */}
+        {radiusCircle && (
+          <>
+            <style>{`.radius-circle-label.leaflet-marker-icon { border: none !important; background: transparent !important; }`}</style>
+            <Circle
+              center={[radiusCircle.centerLat, radiusCircle.centerLng]}
+              radius={radiusCircle.radiusKm * 1000}
+              pathOptions={{
+                color: "#dc2626",
+                fillColor: "#fca5a5",
+                fillOpacity: 0.18,
+                weight: 2,
+                dashArray: "8, 6",
+              }}
+            />
+            <Marker
+              position={[
+                radiusCircle.centerLat + radiusCircle.radiusKm / 111,
+                radiusCircle.centerLng,
+              ]}
+              icon={L.divIcon({
+                className: "radius-circle-label",
+                html: `<span style="
+                  display: inline-block;
+                  padding: 2px 6px;
+                  background: rgba(255,255,255,0.95);
+                  border: 1px solid #dc2626;
+                  border-radius: 4px;
+                  font-size: 11px;
+                  font-weight: 600;
+                  color: #991b1b;
+                  white-space: nowrap;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                ">${radiusCircle.radiusKm} km</span>`,
+                iconSize: [40, 20],
+                iconAnchor: [20, 10],
+              })}
+              zIndexOffset={0}
+            />
+          </>
+        )}
+        {/* Fit map to pins when in trip view or when "Search Around a Site" is applied (include full circle when radiusCircle set) */}
+        {(permanentTooltips || fitBoundsToLocations) && (
+          <FitMapToLocations
+            locations={locations}
+            active={permanentTooltips || fitBoundsToLocations}
+            radiusCircle={radiusCircle}
+          />
         )}
         <ResetMapViewEffect
           trigger={resetMapViewTrigger}
@@ -825,6 +919,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
           onHighlightConsumed={onHighlightConsumed}
           onSiteSelect={onSiteSelect}
           openPreviewWithoutZoom={openPreviewWithoutZoom}
+          onPlacesNearbyApply={onPlacesNearbyApply}
         />
         <MarkerClusterGroup
           disableClusteringAtZoom={settings.disable_clustering_at_zoom}
@@ -853,6 +948,8 @@ function GoogleMapView({
   siteDates = null,
   hoveredSiteId = null,
   resetMapViewTrigger = 0,
+  radiusCircle = null,
+  onPlacesNearbyApply = null,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -866,6 +963,9 @@ function GoogleMapView({
   siteDates?: Map<string, string> | null;
   hoveredSiteId?: string | null;
   resetMapViewTrigger?: number;
+  /** When set, draw a light red circle showing the search radius. */
+  radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
+  onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
   /* Call useJsApiLoader unconditionally (before any early return) to satisfy Rules of Hooks */
@@ -878,6 +978,9 @@ function GoogleMapView({
   const mapRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const tooltipWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const radiusCircleRef = useRef<google.maps.Circle | null>(null);
+  const radiusCircleStrokeRef = useRef<google.maps.Polyline | null>(null);
+  const radiusCircleLabelRef = useRef<google.maps.Marker | null>(null);
   const containerStyle = { width: "100%", height: "100%" };
 
   const onSiteSelectRef = useRef(onSiteSelect);
@@ -1102,22 +1205,31 @@ function GoogleMapView({
     renderMarkers();
   }, [renderMarkers]);
 
-  /* When in trip view, fit map bounds to show all pins */
+  /* When in trip view or nearby search, fit map bounds to show all pins and full radius circle when set */
   useEffect(() => {
-    if (!fitMapToLocations || !mapReady || locations.length === 0 || !mapRef.current) return;
+    if (!fitMapToLocations || !mapReady || !mapRef.current) return;
+    const bounds = new google.maps.LatLngBounds();
     const valid = locations.filter(
       (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
     );
-    if (valid.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
     valid.forEach((s) => bounds.extend({ lat: s.latitude, lng: s.longitude }));
-    mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    if (radiusCircle && Number.isFinite(radiusCircle.radiusKm) && radiusCircle.radiusKm > 0) {
+      const { centerLat, centerLng, radiusKm } = radiusCircle;
+      const degLat = radiusKm / 111;
+      const degLng = radiusKm / (111 * Math.max(0.01, Math.cos((centerLat * Math.PI) / 180)));
+      bounds.extend({ lat: centerLat - degLat, lng: centerLng - degLng });
+      bounds.extend({ lat: centerLat + degLat, lng: centerLng + degLng });
+    }
+    if (valid.length === 0 && !radiusCircle) return;
+    if (!bounds.isEmpty()) {
+      mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    }
     const listener = mapRef.current.addListener("idle", () => {
       const z = mapRef.current?.getZoom();
       if (typeof z === "number" && z > 14) mapRef.current?.setZoom(14);
     });
     return () => { google.maps.event.removeListener(listener); };
-  }, [fitMapToLocations, mapReady, locations]);
+  }, [fitMapToLocations, mapReady, locations, radiusCircle?.centerLat, radiusCircle?.centerLng, radiusCircle?.radiusKm]);
 
   /* When trip panel is closed (resetMapViewTrigger increments), fly back to default center/zoom */
   const { default_center_lat, default_center_lng, default_zoom } = settings;
@@ -1127,6 +1239,98 @@ function GoogleMapView({
     mapRef.current.panTo({ lat: default_center_lat, lng: default_center_lng });
     mapRef.current.setZoom(default_zoom);
   }, [resetMapViewTrigger, default_center_lat, default_center_lng, default_zoom]);
+
+  /* Light red radius circle (dashed border + label) when "Search Around a Site" is active */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!radiusCircle) {
+      if (radiusCircleRef.current) {
+        radiusCircleRef.current.setMap(null);
+        radiusCircleRef.current = null;
+      }
+      if (radiusCircleStrokeRef.current) {
+        radiusCircleStrokeRef.current.setMap(null);
+        radiusCircleStrokeRef.current = null;
+      }
+      if (radiusCircleLabelRef.current) {
+        radiusCircleLabelRef.current.setMap(null);
+        radiusCircleLabelRef.current = null;
+      }
+      return;
+    }
+    const { centerLat, centerLng, radiusKm } = radiusCircle;
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
+    const radiusM = radiusKm * 1000;
+    const degPerMeterLat = 1 / 111320;
+    const degPerMeterLng = 1 / (111320 * Math.max(0.01, Math.cos((centerLat * Math.PI) / 180)));
+    const points: { lat: number; lng: number }[] = [];
+    for (let i = 0; i <= 64; i++) {
+      const angle = (i / 64) * 2 * Math.PI;
+      points.push({
+        lat: centerLat + (radiusM * degPerMeterLat) * Math.cos(angle),
+        lng: centerLng + (radiusM * degPerMeterLng) * Math.sin(angle),
+      });
+    }
+    if (!radiusCircleRef.current) {
+      radiusCircleRef.current = new google.maps.Circle({
+        map,
+        center: { lat: centerLat, lng: centerLng },
+        radius: radiusM,
+        fillColor: "#fca5a5",
+        fillOpacity: 0.18,
+        strokeColor: "transparent",
+        strokeOpacity: 0,
+        strokeWeight: 0,
+      });
+    } else {
+      radiusCircleRef.current.setCenter({ lat: centerLat, lng: centerLng });
+      radiusCircleRef.current.setRadius(radiusM);
+    }
+    const dashedSymbol = {
+      path: "M 0,-1 0,1",
+      strokeOpacity: 1,
+      scale: 3,
+      strokeColor: "#dc2626",
+    };
+    if (!radiusCircleStrokeRef.current) {
+      radiusCircleStrokeRef.current = new google.maps.Polyline({
+        map,
+        path: points,
+        strokeOpacity: 0,
+        icons: [{ icon: dashedSymbol, offset: "0", repeat: "12px" }],
+      });
+    } else {
+      radiusCircleStrokeRef.current.setPath(points);
+    }
+    const labelPosition = { lat: centerLat + radiusKm / 111, lng: centerLng };
+    if (!radiusCircleLabelRef.current) {
+      radiusCircleLabelRef.current = new google.maps.Marker({
+        map,
+        position: labelPosition,
+        icon: {
+          url: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+          scaledSize: new google.maps.Size(1, 1),
+          anchor: new google.maps.Point(0.5, 0.5),
+        },
+        label: {
+          text: `${radiusKm} km`,
+          color: "#991b1b",
+          fontSize: "11px",
+          fontWeight: "600",
+        },
+        zIndex: 1,
+      });
+    } else {
+      radiusCircleLabelRef.current.setPosition(labelPosition);
+      radiusCircleLabelRef.current.setLabel({
+        text: `${radiusKm} km`,
+        color: "#991b1b",
+        fontSize: "11px",
+        fontWeight: "600",
+      } as google.maps.MarkerLabel);
+    }
+  }, [radiusCircle?.centerLat, radiusCircle?.centerLng, radiusCircle?.radiusKm, radiusCircle != null]);
 
   if (!apiKey) {
     return (
@@ -1373,6 +1577,7 @@ function GoogleMapView({
             <SitePreviewCard
               site={infoWindowSite}
               onCardClick={onSiteSelect ? () => onSiteSelect(infoWindowSite) : undefined}
+              onPlacesNearby={onPlacesNearbyApply ?? undefined}
             />
           </div>
         </InfoWindow>

@@ -36,7 +36,7 @@ export function buildPlacesNearbyURL(opts: {
   url.searchParams.set(PLACES_NEARBY_KEYS.site, opts.siteId);
   url.searchParams.set(PLACES_NEARBY_KEYS.lat, String(opts.lat));
   url.searchParams.set(PLACES_NEARBY_KEYS.lng, String(opts.lng));
-  url.searchParams.set(PLACES_NEARBY_KEYS.radius, String(opts.radiusKm ?? 25));
+  url.searchParams.set(PLACES_NEARBY_KEYS.radius, String(opts.radiusKm ?? 5));
 
   return url.toString();
 }

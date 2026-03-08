@@ -144,7 +144,7 @@ function buildMapHeadline({
 
   /* "Search Around a Site" (nearby) takes precedence over text/category/region */
   if (nearbyActive && (typeof radiusKm === "number" || centerSiteTitle)) {
-    const siteLabel = centerSiteTitle || "Selected Site";
+    const siteLabel = centerSiteTitle || "Selected site";
     const kmLabel = typeof radiusKm === "number" ? `${radiusKm} km` : "Radius";
     return `Sites around ${siteLabel} within ${kmLabel}`;
   }
@@ -221,6 +221,7 @@ export default function MapPage() {
   const [tripsLoading, setTripsLoading] = useState(false);
 
   const [mounted, setMounted] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
@@ -365,6 +366,16 @@ export default function MapPage() {
     filters.centerLat != null &&
     filters.centerLng != null &&
     filters.radiusKm != null;
+
+  /* When proximity filter is cleared, return map to default zoom/center */
+  const prevNearbyActiveRef = useRef(nearbyActive);
+  useEffect(() => {
+    if (prevNearbyActiveRef.current && !nearbyActive) {
+      setResetMapViewTrigger((t) => t + 1);
+    }
+    prevNearbyActiveRef.current = nearbyActive;
+  }, [nearbyActive]);
+
   const mapHeadline = useMemo(
     () => buildMapHeadline({
       query: debouncedName,
@@ -373,11 +384,11 @@ export default function MapPage() {
       sidebarFilter,
       wishlistName: activeWishlistName,
       tripName: activeTripName,
-      centerSiteTitle,
+      centerSiteTitle: filters.centerSiteTitle ?? centerSiteTitle,
       radiusKm: filters.radiusKm,
       nearbyActive,
     }),
-    [debouncedName, selectedCategoryNames, selectedRegionNames, sidebarFilter, activeWishlistName, activeTripName, centerSiteTitle, filters.radiusKm, nearbyActive]
+    [debouncedName, selectedCategoryNames, selectedRegionNames, sidebarFilter, activeWishlistName, activeTripName, filters.centerSiteTitle, centerSiteTitle, filters.radiusKm, nearbyActive]
   );
 
   /* Keep centerSiteTitle in sync when "Search Around a Site" center changes */
@@ -768,6 +779,15 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => setMounted(true), []);
+
+  /* Detect mobile viewport so marker tap opens bottom sheet instead of small popup */
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const set = () => setIsMobileViewport(mql.matches);
+    set();
+    mql.addEventListener("change", set);
+    return () => mql.removeEventListener("change", set);
+  }, []);
   useEffect(() => {
     if (!searchPanelOpen) {
       setSearchPanelVisible(false);
@@ -780,7 +800,14 @@ export default function MapPage() {
   }, [searchPanelOpen]);
   const closeSearchPanel = useCallback(() => {
     setSearchPanelVisible(false);
-    setTimeout(() => setSearchPanelOpen(false), 300);
+    setTimeout(() => setSearchPanelOpen(false), 320);
+  }, []);
+
+  /* On mobile, opening the main app menu (e.g. from Header) should open the map bottom sheet when on map page */
+  useEffect(() => {
+    const handler = () => setSearchPanelOpen(true);
+    document.addEventListener("open-mobile-menu", handler);
+    return () => document.removeEventListener("open-mobile-menu", handler);
   }, []);
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
@@ -1568,10 +1595,34 @@ export default function MapPage() {
           onSiteSelect={onMapSiteSelect}
           mapType={mapType}
           permanentTooltips={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
-          directMarkerSelect={typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter}
+          directMarkerSelect={isMobileViewport || (typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter)}
           siteDates={tripSiteDates}
           hoveredSiteId={tripPanelHoveredSiteId}
           resetMapViewTrigger={resetMapViewTrigger}
+          fitBoundsToLocations={nearbyActive}
+          radiusCircle={
+            nearbyActive &&
+            typeof filters.centerLat === "number" &&
+            typeof filters.centerLng === "number" &&
+            typeof filters.radiusKm === "number" &&
+            filters.radiusKm > 0
+              ? {
+                  centerLat: filters.centerLat,
+                  centerLng: filters.centerLng,
+                  radiusKm: filters.radiusKm,
+                }
+              : null
+          }
+          onPlacesNearbyApply={(site) => {
+            handleFilterChange({
+              centerSiteId: site.id,
+              centerLat: site.latitude,
+              centerLng: site.longitude,
+              radiusKm: 5,
+              centerSiteTitle: site.title,
+            });
+            setSelectedMapSite(null);
+          }}
         />
         {sitesLoadError && (
           <div className="fixed left-1/2 top-20 z-[2147483646] -translate-x-1/2 pointer-events-auto" aria-live="polite">
@@ -1604,9 +1655,10 @@ export default function MapPage() {
             </div>
           </div>
         )}
-        {/* Map type switcher: OSM, Google roadmap, Google satellite */}
+        {/* Map type switcher: OSM, Google roadmap, Google satellite — safe area on mobile */}
         <div
-          className="absolute bottom-4 right-4 z-[1000] flex items-center gap-2"
+          className="absolute bottom-4 right-4 z-[1000] flex items-center gap-2 lg:bottom-4 lg:right-4"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
           aria-label="Map type"
         >
           {(
@@ -1662,7 +1714,7 @@ export default function MapPage() {
             if (isTripActive) {
               return (
                 <div
-                  className="absolute right-10 top-[62px] bottom-[72px] z-[1000] w-[280px] flex flex-col rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 overflow-hidden"
+                  className="hidden lg:flex absolute right-10 top-[62px] bottom-[72px] z-[1000] w-[280px] flex-col rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 overflow-hidden"
                   aria-label="Trip details"
                 >
                   <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
@@ -1883,9 +1935,12 @@ export default function MapPage() {
               (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
             return (
               <div
-                className="absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 px-4 py-3 max-w-[220px] lg:max-w-[320px] flex items-start gap-3"
-                aria-label="Current map view"
-                role="status"
+                className={`hidden lg:flex absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 px-4 py-3 max-w-[220px] lg:max-w-[320px] items-start gap-3 ${nearbyActive ? "cursor-pointer hover:ring-[var(--brand-orange)]/30 transition-shadow hover:shadow-md" : ""}`}
+                aria-label={nearbyActive ? "Current map view – click to change places nearby" : "Current map view"}
+                role={nearbyActive ? "button" : "status"}
+                tabIndex={nearbyActive ? 0 : undefined}
+                onClick={nearbyActive ? () => setShowNearbyModal(true) : undefined}
+                onKeyDown={nearbyActive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowNearbyModal(true); } } : undefined}
               >
                 <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
                   <Icon name="map-marker-alt" size={16} />
@@ -1910,9 +1965,10 @@ export default function MapPage() {
                 {hasActiveFilter && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       clearSidebarFilter();
-                      setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby() }));
+                      setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby(), centerSiteTitle: null }));
                       showMapToast("All filters cleared");
                     }}
                     className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700"
@@ -1929,7 +1985,7 @@ export default function MapPage() {
 
       {mounted &&
         createPortal(
-          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm h-14 flex items-center px-3 gap-2">
+          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 h-14 flex items-center px-3 gap-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
             <button
               type="button"
               aria-label="Open menu"
@@ -1965,20 +2021,32 @@ export default function MapPage() {
       {mounted &&
         searchPanelOpen &&
         createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3200] touch-none">
+          <div className="lg:hidden fixed inset-0 z-[3200] touch-none" aria-modal="true" role="dialog" aria-label="Map menu">
+            {/* Backdrop — tap to close */}
             <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+              className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-out ${
                 searchPanelVisible ? "opacity-100" : "opacity-0"
               }`}
               onClick={closeSearchPanel}
+              aria-hidden="true"
             />
+            {/* Bottom sheet — full screen on mobile for native app experience */}
             <div
-              className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] flex flex-col overflow-hidden transition-[right] duration-300 ease-out"
-              style={{ right: searchPanelVisible ? 0 : "-100%" }}
+              className={`absolute left-0 right-0 bottom-0 w-full bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                searchPanelVisible ? "translate-y-0" : "translate-y-full"
+              }`}
+              style={{
+                maxHeight: "100dvh",
+                height: mobilePanelTab === "site" ? "100dvh" : "92dvh",
+                paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              }}
             >
-              <div className="shrink-0 bg-white border-b border-gray-100 shadow-sm">
-                <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5" />
-                <div className="flex items-center gap-2 px-3 py-2.5">
+              {/* Drag handle */}
+              <div className="shrink-0 flex justify-center pt-2.5 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
+              </div>
+              <div className="shrink-0 bg-white border-b border-gray-100 shadow-sm px-3 pb-2">
+                <div className="flex items-center gap-2 py-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1986,11 +2054,11 @@ export default function MapPage() {
                       closeSearchPanel();
                     }}
                     aria-label="Close"
-                    className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
+                    className="p-2 -ml-1 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0 transition-colors"
                   >
-                    <Icon name="times" size={18} className="text-gray-600" />
+                    <Icon name="times" size={20} className="text-gray-600" />
                   </button>
-                  <span className="text-base font-bold text-gray-800 truncate">
+                  <span className="flex-1 text-base font-bold text-gray-800 truncate min-w-0">
                     {mobilePanelTab === "search"
                       ? "Search & Filters"
                       : mobilePanelTab === "wishlist"
@@ -2009,7 +2077,7 @@ export default function MapPage() {
                           key={tab}
                           type="button"
                           onClick={() => setMobilePanelTab(tab)}
-                          className={`flex-1 py-2.5 text-xs font-medium ${
+                          className={`flex-1 py-3 text-sm font-medium transition-colors ${
                             mobilePanelTab === tab
                               ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
                               : "text-[var(--brand-grey)]"
@@ -2062,6 +2130,7 @@ export default function MapPage() {
           centerLat: filters.centerLat,
           centerLng: filters.centerLng,
           radiusKm: filters.radiusKm,
+          centerSiteTitle: filters.centerSiteTitle ?? centerSiteTitle,
         }}
         onApply={(v) => {
           /* Search Around a Site is exclusive: clear text, category, and region filters */
@@ -2074,7 +2143,7 @@ export default function MapPage() {
           setShowNearbyModal(false);
           const clat = v.centerLat;
           const clng = v.centerLng;
-          const rkm = v.radiusKm ?? 25;
+          const rkm = v.radiusKm ?? 5;
           if (typeof clat === "number" && typeof clng === "number" && rkm > 0) {
             const count = allLocations.filter((site) => {
               const lat = Number(site.latitude);
@@ -2110,99 +2179,99 @@ export default function MapPage() {
           document.body
         )}
 
-      {/* Site panel actions menu (ellipsis dropdown, same as preview card) */}
-      {selectedMapSite && showSitePanelActionsMenu && sitePanelMenuPosition && createPortal(
+      {/* Site panel actions: desktop = dropdown, mobile = full-screen bottom sheet */}
+      {selectedMapSite && showSitePanelActionsMenu && createPortal(
         <>
           <div
             aria-hidden
-            className="fixed inset-0 z-[9998]"
+            className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
             onClick={() => setShowSitePanelActionsMenu(false)}
             onMouseDown={(e) => e.stopPropagation()}
           />
-          <div
-            ref={sitePanelActionsMenuPortalRef}
-            className="fixed w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[9999] animate-in fade-in zoom-in-95 duration-200 origin-top-left"
-            style={{
-              top: `${sitePanelMenuPosition.top}px`,
-              left: `${sitePanelMenuPosition.left}px`,
-            }}
-          >
-            <a
-              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setShowSitePanelActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
-            >
-              <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" />
-              Open Site
-            </a>
-            <button
-              type="button"
-              onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelWishlistModal(true); }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-            >
-              <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-            >
-              <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
-              Add to Trip
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowSitePanelActionsMenu(false);
-                handleFilterChange({
-                  centerSiteId: selectedMapSite.id,
-                  centerLat: Number(selectedMapSite.latitude),
-                  centerLng: Number(selectedMapSite.longitude),
-                  radiusKm: 25,
-                });
-                setShowNearbyModal(true);
+          {/* Desktop: dropdown */}
+          {sitePanelMenuPosition && (
+            <div
+              ref={sitePanelActionsMenuPortalRef}
+              className="hidden lg:block fixed w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[9999] animate-in fade-in zoom-in-95 duration-200 origin-top-left"
+              style={{
+                top: `${sitePanelMenuPosition.top}px`,
+                left: `${sitePanelMenuPosition.left}px`,
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
-              <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
-              Places Nearby
-            </button>
-            <div className="border-t border-gray-100" />
-            <a
-              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setShowSitePanelActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-            >
-              <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" />
-              Gallery
-            </a>
-            <a
-              href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setShowSitePanelActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-            >
-              <Icon name="book" size={14} className="text-[var(--brand-orange)]" />
-              Photo Story
-            </a>
-            {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${selectedMapSite.latitude},${selectedMapSite.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowSitePanelActionsMenu(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
-              >
-                <Icon name="map-marker-alt" size={14} className="text-[var(--brand-orange)]" />
-                Open in Google Maps
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700">
+                <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" /> Open Site
               </a>
-            )}
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelWishlistModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                <Icon name="heart" size={14} className="text-[var(--brand-orange)]" /> Save
+              </button>
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                <Icon name="route" size={14} className="text-[var(--brand-orange)]" /> Add to Trip
+              </button>
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); handleFilterChange({ centerSiteId: selectedMapSite.id, centerLat: Number(selectedMapSite.latitude), centerLng: Number(selectedMapSite.longitude), radiusKm: 5, centerSiteTitle: selectedMapSite.title }); setSelectedMapSite(null); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" /> Places Nearby
+              </button>
+              <div className="border-t border-gray-100" />
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" /> Gallery
+              </a>
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                <Icon name="book" size={14} className="text-[var(--brand-orange)]" /> Photo Story
+              </a>
+              {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
+                <a href={`https://www.google.com/maps/search/?api=1&query=${selectedMapSite.latitude},${selectedMapSite.longitude}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+                  <Icon name="map-marker-alt" size={14} className="text-[var(--brand-orange)]" /> Open in Google Maps
+                </a>
+              )}
+            </div>
+          )}
+          {/* Mobile: full-screen bottom sheet */}
+          <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9999] bg-[#f2f2f7] rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] animate-bottom-sheet-in flex flex-col max-h-[85dvh]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            <div className="w-10 h-1 rounded-full bg-gray-400/40 mx-auto mt-3 shrink-0" aria-hidden="true" />
+            <p className="text-center text-[13px] text-gray-500 font-medium pt-2 pb-3 px-6 truncate shrink-0">{selectedMapSite.title}</p>
+            <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden shrink-0">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="external-link-alt" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Open Site</span>
+              </a>
+              <div className="ml-14 h-px bg-gray-100" />
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelWishlistModal(true); }} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="heart" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Save</span>
+              </button>
+              <div className="ml-14 h-px bg-gray-100" />
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="route" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
+              </button>
+              <div className="ml-14 h-px bg-gray-100" />
+              <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); handleFilterChange({ centerSiteId: selectedMapSite.id, centerLat: Number(selectedMapSite.latitude), centerLng: Number(selectedMapSite.longitude), radiusKm: 5, centerSiteTitle: selectedMapSite.title }); setSelectedMapSite(null); }} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="nearby" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
+              </button>
+            </div>
+            <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden shrink-0">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="gallery" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Gallery</span>
+              </a>
+              <div className="ml-14 h-px bg-gray-100" />
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="book" size={16} className="text-gray-700" /></div>
+                <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
+              </a>
+              {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
+                <>
+                  <div className="ml-14 h-px bg-gray-100" />
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${selectedMapSite.latitude},${selectedMapSite.longitude}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+                    <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="map-marker-alt" size={16} className="text-gray-700" /></div>
+                    <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
+                  </a>
+                </>
+              )}
+            </div>
+            <button type="button" onClick={() => setShowSitePanelActionsMenu(false)} className="mx-4 mb-4 py-4 rounded-2xl bg-white text-[15px] font-semibold text-[var(--brand-blue)] active:bg-gray-50">
+              Cancel
+            </button>
           </div>
         </>,
         document.body

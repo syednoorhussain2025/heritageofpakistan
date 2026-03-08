@@ -350,3 +350,19 @@ code {
 .animate-slideOutLeft  { animation: slideOutLeft 0.25s cubic-bezier(0.22,1,0.36,1) forwards; }
 .animate-fadeInBackdrop  { animation: fadeInBackdrop  0.2s ease-out forwards; }
 .animate-fadeOutBackdrop { animation: fadeOutBackdrop 0.25s ease-out forwards; }
+
+/* ---- Mobile bottom sheet (map / panels) ---- */
+@keyframes bottomSheetIn {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bottomSheetOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(100%); }
+}
+.animate-bottom-sheet-in {
+  animation: bottomSheetIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.animate-bottom-sheet-out {
+  animation: bottomSheetOut 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

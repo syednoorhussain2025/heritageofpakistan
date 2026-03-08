@@ -14,6 +14,7 @@ export type NearbyValue = {
   centerLat?: number | null;
   centerLng?: number | null;
   radiusKm?: number | null;
+  centerSiteTitle?: string | null;
 };
 
 type SiteRow = {
@@ -99,7 +100,7 @@ export default function NearbySearchModal({
     lng: number;
     cover?: string | null;
   } | null>(null);
-  const [draftRadius, setDraftRadius] = useState(25);
+  const [draftRadius, setDraftRadius] = useState(5);
   const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -107,13 +108,13 @@ export default function NearbySearchModal({
     setMounted(true);
   }, []);
 
-  /* Init draft when modal opens */
+  /* Init draft when modal opens – show already applied values immediately */
   useEffect(() => {
     if (!isOpen) return;
     setDraftRadius(
       typeof value.radiusKm === "number" && value.radiusKm > 0
         ? value.radiusKm
-        : 25
+        : 5
     );
     setQuery("");
     setResults([]);
@@ -122,6 +123,27 @@ export default function NearbySearchModal({
     if (!value.centerSiteId) {
       setDraftSite(null);
       return;
+    }
+
+    const lat = value.centerLat;
+    const lng = value.centerLng;
+    const title = value.centerSiteTitle;
+    if (
+      typeof lat === "number" &&
+      typeof lng === "number" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      title != null &&
+      String(title).trim() !== ""
+    ) {
+      setDraftSite({
+        id: value.centerSiteId,
+        title: String(title).trim(),
+        subtitle: null,
+        lat,
+        lng,
+        cover: null,
+      });
     }
 
     let active = true;
@@ -147,7 +169,7 @@ export default function NearbySearchModal({
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, value.centerSiteId]);
+  }, [isOpen, value.centerSiteId, value.centerLat, value.centerLng, value.radiusKm, value.centerSiteTitle]);
 
   /* Live site search */
   useEffect(() => {
@@ -228,12 +250,13 @@ export default function NearbySearchModal({
       centerLat: draftSite.lat,
       centerLng: draftSite.lng,
       radiusKm: draftRadius,
+      centerSiteTitle: draftSite.title,
     });
     onClose();
   };
 
   const handleClear = () => {
-    onApply(clearPlacesNearby());
+    onApply({ ...clearPlacesNearby(), centerSiteTitle: null });
     onClose();
   };
 
@@ -241,27 +264,32 @@ export default function NearbySearchModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
       role="dialog"
       aria-label="Search Around a Site"
     >
-      {/* Backdrop — appears instantly, no transition */}
+      {/* Backdrop — tap to close */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${
+        className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
       />
 
-      {/* Modal panel — fades + scales in */}
+      {/* Modal panel — full screen on mobile (native app experience), centered on desktop */}
       <div
-        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-200 overflow-hidden ${
-          isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
+        className={`relative w-full min-h-[92dvh] sm:min-h-0 max-h-[100dvh] sm:max-h-[90vh] sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden ${
+          isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
         }`}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
+        {/* Drag handle (mobile) */}
+        <div className="sm:hidden shrink-0 flex justify-center pt-3 pb-0">
+          <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
+        </div>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
           <div className="flex items-center gap-2.5">

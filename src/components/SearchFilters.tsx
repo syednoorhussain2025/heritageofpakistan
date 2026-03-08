@@ -28,6 +28,8 @@ export type Filters = {
   centerLat?: number | null;
   centerLng?: number | null;
   radiusKm?: number | null;
+  /** Display name for the center site (e.g. from "Search Around a Site"); avoids async flash. */
+  centerSiteTitle?: string | null;
 };
 
 type Option = { id: string; name: string; icon_key: string | null };
@@ -1583,12 +1585,14 @@ function LocationRadiusFilter({
     centerLat?: number | null;
     centerLng?: number | null;
     radiusKm?: number | null;
+    centerSiteTitle?: string | null;
   };
   onChange: (v: {
     centerSiteId?: string | null;
     centerLat?: number | null;
     centerLng?: number | null;
     radiusKm?: number | null;
+    centerSiteTitle?: string | null;
   }) => void;
   onSitePicked?: (site: { id: string; title: string } | null) => void;
 }) {
@@ -1693,7 +1697,7 @@ function LocationRadiusFilter({
       centerSiteId: row.id,
       centerLat: Number(row.latitude),
       centerLng: Number(row.longitude),
-      radiusKm: value.radiusKm ?? 25,
+      radiusKm: value.radiusKm ?? 5,
     });
     onSitePicked?.({ id: row.id, title: row.title });
 
@@ -1711,7 +1715,7 @@ function LocationRadiusFilter({
   };
 
   const clearSelection = () => {
-    onChange(clearPlacesNearby());
+    onChange({ ...clearPlacesNearby(), centerSiteTitle: null });
     onSitePicked?.(null);
     setSelectedPreview(null);
     setQuery("");
@@ -1945,7 +1949,7 @@ function LocationRadiusFilter({
               min={1}
               max={300}
               step={1}
-              value={value.radiusKm ?? 25}
+              value={value.radiusKm ?? 5}
               onChange={(e) =>
                 onChange({ ...value, radiusKm: Number(e.target.value) })
               }
@@ -1959,7 +1963,7 @@ function LocationRadiusFilter({
               min={1}
               max={1000}
               step={1}
-              value={value.radiusKm ?? 25}
+              value={value.radiusKm ?? 5}
               onChange={(e) =>
                 onChange({
                   ...value,
@@ -1973,7 +1977,7 @@ function LocationRadiusFilter({
         </div>
         <p className="mt-1 text-[0.7rem] text-gray-500">
           {value.centerSiteId
-            ? `Searching within ${value.radiusKm ?? 25} km of the selected site.`
+            ? `Searching within ${value.radiusKm ?? 5} km of the selected site.`
             : "Choose a site to enable radius search."}
         </p>
       </div>
@@ -2486,6 +2490,7 @@ export default function SearchFilters({
         regionIds: [],
         orderBy: "latest",
         ...clearPlacesNearby(),
+        centerSiteTitle: null,
       });
     }
 
@@ -2544,6 +2549,7 @@ export default function SearchFilters({
         regionIds: draftRegionIds,
         orderBy: "latest",
         ...clearPlacesNearby(),
+        centerSiteTitle: null,
       });
     } else {
       onFilterChange({ regionIds: draftRegionIds });
@@ -2575,6 +2581,7 @@ export default function SearchFilters({
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
+      centerSiteTitle: null,
     });
     resetSharedUi();
     setDomainTab("all");
@@ -2936,6 +2943,7 @@ export default function SearchFilters({
       regionIds: [],
       orderBy: "latest",
       ...clearPlacesNearby(),
+      centerSiteTitle: null,
     };
 
     if (domain === "all") {
@@ -3182,13 +3190,13 @@ export default function SearchFilters({
               }
             />
           </div>
-          {filters.centerSiteId && centerSiteTitle ? (
+          {filters.centerSiteId && (filters.centerSiteTitle ?? centerSiteTitle) ? (
             <div className="min-w-0 flex-1 text-left">
               <div className="font-medium text-gray-900 truncate text-xs leading-tight">
-                {centerSiteTitle}
+                {filters.centerSiteTitle ?? centerSiteTitle}
               </div>
               <div className="text-[0.65rem] text-gray-500 truncate leading-tight">
-                Within {filters.radiusKm ?? 25} km · tap to edit
+                Within {filters.radiusKm ?? 5} km · tap to edit
               </div>
             </div>
           ) : (
@@ -3203,7 +3211,7 @@ export default function SearchFilters({
                 tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onFilterChange(clearPlacesNearby());
+                  onFilterChange({ ...clearPlacesNearby(), centerSiteTitle: null });
                   onSearch();
                   onClearNearby?.();
                 }}
@@ -3211,7 +3219,7 @@ export default function SearchFilters({
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     e.stopPropagation();
-                    onFilterChange(clearPlacesNearby());
+                    onFilterChange({ ...clearPlacesNearby(), centerSiteTitle: null });
                     onSearch();
                     onClearNearby?.();
                   }

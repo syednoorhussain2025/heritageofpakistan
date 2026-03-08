@@ -98,6 +98,7 @@ export default function SitePreviewCard({
   onClose,
   index = 0,
   onCardClick,
+  onPlacesNearby,
 }: {
   site: Site;
   onClose?: () => void;
@@ -105,6 +106,8 @@ export default function SitePreviewCard({
   index?: number;
   /** When provided, clicking the card calls this instead of navigating to the site page. */
   onCardClick?: () => void;
+  /** When provided, "Places Nearby" applies this site on the current page (e.g. map) instead of navigating to Explore. */
+  onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
 }) {
   const router = useRouter();
 
@@ -269,11 +272,16 @@ export default function SitePreviewCard({
       return;
     }
 
+    if (onPlacesNearby) {
+      onPlacesNearby({ id: site.id, title: site.title, latitude: Number(lat), longitude: Number(lng) });
+      return;
+    }
+
     const href = buildPlacesNearbyURL({
       siteId: site.id,
       lat,
       lng,
-      radiusKm: 25,
+      radiusKm: 5,
       basePath: "/explore",
     });
 

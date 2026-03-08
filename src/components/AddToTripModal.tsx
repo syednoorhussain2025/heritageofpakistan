@@ -255,23 +255,28 @@ export default function AddToTripModal({
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[1000] flex items-center justify-center bg-black/30 backdrop-blur-[1px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/40 sm:bg-black/30 backdrop-blur-[2px] sm:backdrop-blur-[1px] transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
       >
-        {/* Card */}
+        {/* Card — full screen on mobile (bottom sheet), centered on desktop */}
         <div
-          className={`w-full max-w-xl mx-3 rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform ${
+          className={`w-full max-w-xl mx-0 sm:mx-3 rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform flex flex-col max-h-[100dvh] sm:max-h-[90vh] ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-95 translate-y-2"
+              : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
           }`}
+          style={{ minHeight: "min(85dvh, 400px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* Drag handle (mobile) */}
+          <div className="sm:hidden shrink-0 flex justify-center pt-3 pb-0">
+            <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
+          </div>
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
                 <Icon name="route" className="text-[var(--brand-orange)]" />
@@ -281,8 +286,8 @@ export default function AddToTripModal({
             <div />
           </div>
 
-          {/* Body */}
-          <div className="px-5 py-4 space-y-4">
+          {/* Body — scrollable on mobile when full screen */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
             {/* Search */}
             <div className="relative">
               <Icon
@@ -329,7 +334,7 @@ export default function AddToTripModal({
             </div>
 
             {/* Trips list */}
-            <div className="max-h-80 overflow-y-auto pr-1">
+            <div className="max-h-80 sm:max-h-80 overflow-y-auto pr-1">
               {loading ? (
                 <ul className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -445,7 +450,7 @@ export default function AddToTripModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
+          <div className="shrink-0 px-5 py-4 border-t flex items-center justify-end gap-2">
             <button
               onClick={requestClose}
               className="px-4 py-2 rounded-lg border hover:bg-gray-50"
