@@ -238,6 +238,8 @@ export default function MapPage() {
   const [mobileTripSheetVisible, setMobileTripSheetVisible] = useState(false);
   const [mobileTripSheetClosing, setMobileTripSheetClosing] = useState(false);
   const mobileTripSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
+  const [mobileMapTypeSheetVisible, setMobileMapTypeSheetVisible] = useState(false);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -815,6 +817,16 @@ export default function MapPage() {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileEllipsisSheetVisible(true)));
     return () => cancelAnimationFrame(id);
   }, [mobileEllipsisSheetOpen]);
+
+  /* Map type bottom sheet visibility animation */
+  useEffect(() => {
+    if (!mobileMapTypeSheetOpen) {
+      setMobileMapTypeSheetVisible(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileMapTypeSheetVisible(true)));
+    return () => cancelAnimationFrame(id);
+  }, [mobileMapTypeSheetOpen]);
 
   /* Site info bottom sheet visibility animation */
   useEffect(() => {
@@ -1726,11 +1738,11 @@ export default function MapPage() {
             </div>
           </div>
         )}
-        {/* Map type switcher: on mobile above bottom nav (72px); on desktop standard position */}
+        {/* Map type switcher: desktop only; on mobile use ellipsis → Switch Map Type */}
         {(() => {
           return (
         <div
-          className="absolute right-4 z-[1000] flex items-center gap-2 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] lg:bottom-4 lg:right-4"
+          className="hidden lg:flex absolute right-4 z-[1000] items-center gap-2 bottom-4 right-4"
           aria-label="Map type"
         >
           {(
@@ -1775,29 +1787,17 @@ export default function MapPage() {
         </div>
           );
         })()}
-        {/* Mobile: Trip and Trip Details buttons above map type switcher, both above bottom nav */}
+        {/* Mobile: Trip Details button only (above bottom nav) when a trip is applied */}
         {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-          <>
-            <button
-              type="button"
-              onClick={() => setMobileTripSheetOpen(true)}
-              className="lg:hidden fixed left-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg ring-1 ring-gray-200/80 text-sm font-semibold text-[var(--brand-blue)] hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ bottom: "calc(124px + env(safe-area-inset-bottom, 0px))" }}
-              aria-label="View trip details"
-            >
-              <Icon name="route" size={18} />
-              <span>Trip</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTripSheetOpen(true)}
-              className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
-              style={{ bottom: "calc(124px + env(safe-area-inset-bottom, 0px))" }}
-              aria-label="Trip details"
-            >
-              <span>Trip Details</span>
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setMobileTripSheetOpen(true)}
+            className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
+            style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
+            aria-label="Trip details"
+          >
+            <span>Trip Details</span>
+          </button>
         )}
           </>
         )}
@@ -2249,6 +2249,64 @@ export default function MapPage() {
                   </div>
                   <span className="text-[15px] font-semibold text-gray-900">My Trips</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileEllipsisSheetOpen(false);
+                    setMobileMapTypeSheetOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gray-200/80 flex items-center justify-center shrink-0">
+                    <Icon name="map" size={20} className="text-gray-600" />
+                  </div>
+                  <span className="text-[15px] font-semibold text-gray-900">Switch Map Type</span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Mobile: map type selection bottom sheet */}
+      {mounted && mobileMapTypeSheetOpen &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-[3600] touch-none" aria-modal="true" role="dialog" aria-label="Map type">
+            <div
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${mobileMapTypeSheetVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={() => setMobileMapTypeSheetOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileMapTypeSheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
+              <p className="text-center text-[13px] text-gray-500 font-medium pt-2 pb-3 px-6">Map type</p>
+              <div className="px-4 pb-6 space-y-2">
+                {[
+                  { type: "osm" as const, label: "Default (Light)", iconKey: "climate-geography-environment" as const },
+                  { type: "google" as const, label: "Road Map", iconKey: "map" as const },
+                  { type: "google_satellite" as const, label: "Terrain", iconKey: "mountain" as const },
+                ].map(({ type, label, iconKey }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setMapType(type);
+                      setMobileMapTypeSheetOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-colors ${
+                      mapType === type ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]" : "bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-900"
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${mapType === type ? "bg-[var(--brand-orange)]/20" : "bg-gray-200/80"}`}>
+                      <Icon name={iconKey} size={20} className={mapType === type ? "text-[var(--brand-orange)]" : "text-gray-600"} />
+                    </div>
+                    <span className="text-[15px] font-semibold">{label}</span>
+                    {mapType === type && <Icon name="check" size={18} className="ml-auto text-[var(--brand-orange)]" />}
+                  </button>
+                ))}
               </div>
             </div>
           </div>,
