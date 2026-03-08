@@ -1024,6 +1024,19 @@ export default function MapPage() {
     if (wasTrip || wasWishlist) setResetMapViewTrigger((t) => t + 1);
   }, [sidebarFilter]);
 
+  const hasActiveFilter =
+    sidebarFilter !== null ||
+    filters.name.trim() !== "" ||
+    filters.categoryIds.length > 0 ||
+    filters.regionIds.length > 0 ||
+    (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
+
+  const handleClearAllFilters = useCallback(() => {
+    clearSidebarFilter();
+    setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby(), centerSiteTitle: null }));
+    showMapToast("All filters cleared");
+  }, [clearSidebarFilter, showMapToast]);
+
   // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
     setSelectedMapSite(site);
@@ -2032,12 +2045,6 @@ export default function MapPage() {
               );
             }
 
-            const hasActiveFilter =
-              sidebarFilter !== null ||
-              filters.name.trim() !== "" ||
-              filters.categoryIds.length > 0 ||
-              filters.regionIds.length > 0 ||
-              (filters.centerSiteId != null && filters.centerLat != null && filters.centerLng != null && filters.radiusKm != null);
             return (
               <div
                 className={`hidden lg:flex absolute right-10 top-[62px] z-[1000] rounded-2xl bg-white shadow-lg ring-1 ring-gray-200/80 px-4 py-3 max-w-[220px] lg:max-w-[320px] items-start gap-3 ${nearbyActive ? "cursor-pointer hover:ring-[var(--brand-orange)]/30 transition-shadow hover:shadow-md" : ""}`}
@@ -2072,9 +2079,7 @@ export default function MapPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      clearSidebarFilter();
-                      setFilters((prev) => ({ ...prev, name: "", categoryIds: [], regionIds: [], ...clearPlacesNearby(), centerSiteTitle: null }));
-                      showMapToast("All filters cleared");
+                      handleClearAllFilters();
                     }}
                     className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700"
                     title="Clear filters and show all sites"
@@ -2131,6 +2136,16 @@ export default function MapPage() {
                 </div>
               </div>
             </button>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                aria-label="Clear filters and show all sites"
+                onClick={handleClearAllFilters}
+                className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-orange-50 active:bg-orange-100"
+              >
+                <Icon name="redo-alt" size={20} />
+              </button>
+            )}
             <button
               type="button"
               aria-label="Search & Filters"
@@ -2220,7 +2235,7 @@ export default function MapPage() {
                 )}
               </div>
               <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4 ${mobilePanelMode === "site" ? "scrollbar-hide" : ""}`}>
-                <div className={`min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden ${mobilePanelMode === "site" ? "p-0" : ""}`}>
+                <div className={`min-h-full rounded-xl bg-white shadow-md overflow-hidden ${mobilePanelMode === "search" ? "border-0" : "border border-gray-200"} ${mobilePanelMode === "site" ? "p-0" : ""}`}>
                   {mobilePanelContent}
                 </div>
               </div>

@@ -1297,7 +1297,7 @@ function HeritageTypeModal({
       />
 
       <div
-        className={`relative w-full sm:max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col h-[48rem] sm:h-[42rem] transition-all duration-200 overflow-hidden ${
+        className={`relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col sm:h-[42rem] transition-all duration-200 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-2"
@@ -1491,7 +1491,7 @@ function SearchLocationModal({
       />
 
       <div
-        className={`relative w-full h-[85dvh] sm:h-[70vh] sm:min-h-[32rem] sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`relative w-full h-full sm:h-[70vh] sm:min-h-[32rem] sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-4"
@@ -3003,7 +3003,7 @@ export default function SearchFilters({
       )}
 
       {/* ══ Section 1: Search ══ */}
-      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">
+      <div className={`relative rounded-xl p-3 pt-4 mb-5 ${hideHeading ? "border-0" : "border-2 border-[var(--brand-blue)]/30"}`}>
         <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Search</span>
         <Tooltip text="Search heritage sites by name — press Enter to search" wrapperClassName="w-full mb-2">
           <div className="relative rounded-2xl bg-gray-100 border border-gray-300 focus-within:ring-2 focus-within:ring-[var(--brand-orange)]/30 focus-within:border-[var(--brand-orange)] transition-all">
@@ -3026,7 +3026,7 @@ export default function SearchFilters({
             />
           </div>
         </Tooltip>
-        <div className="rounded-xl bg-[var(--ivory-cream)] border border-gray-200 p-2 space-y-2">
+        <div className={`rounded-xl bg-[var(--ivory-cream)] p-2 space-y-2 ${hideHeading ? "border-0" : "border border-gray-200"}`}>
           <HeritageTypeTrigger
             options={
               domainTab === "architecture" ? architectureTypeOptions
@@ -3057,7 +3057,7 @@ export default function SearchFilters({
       </div>
 
       {/* ══ Section 2: Explore by Domain ══ */}
-      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 mb-5">
+      <div className={`relative rounded-xl p-3 pt-4 mb-5 ${hideHeading ? "border-0" : "border-2 border-[var(--brand-blue)]/30"}`}>
         <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Explore by Domain</span>
         <div className="grid grid-cols-2 gap-2 mb-2">
           {(["architecture", "nature", "cultural", "archaeology"] as DomainTab[]).map((domain) => {
@@ -3162,7 +3162,7 @@ export default function SearchFilters({
       />
 
       {/* ══ Section 3: Search Around a Site ══ */}
-      <div className="relative border-2 border-[var(--brand-blue)]/30 rounded-xl p-3 pt-4 flex-shrink-0">
+      <div className={`relative rounded-xl p-3 pt-4 flex-shrink-0 ${hideHeading ? "border-0" : "border-2 border-[var(--brand-blue)]/30"}`}>
         <span className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full">Nearby</span>
         <Tooltip text={filters.centerSiteId ? "Click to edit proximity filter" : "Find heritage sites near a specific location"} wrapperClassName="w-full">
         <button
