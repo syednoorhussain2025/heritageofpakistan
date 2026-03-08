@@ -207,10 +207,21 @@ const DynamicPopupStyles = () => {
   return <style>{style}</style>;
 };
 
+/* Compare locations by id list so we don't re-render map when parent passes new array with same sites */
+function locationsKey(locations: Site[]) {
+  if (!locations?.length) return "";
+  return locations.map((s) => s.id).join(",");
+}
+
+function radiusCircleKey(rc: { centerLat: number; centerLng: number; radiusKm: number } | null) {
+  if (!rc) return "";
+  return `${rc.centerLat},${rc.centerLng},${rc.radiusKm}`;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────────
  * MAIN SWITCHER
  * ────────────────────────────────────────────────────────────────────────────── */
-export default function ClientOnlyMap({
+function ClientOnlyMap({
   locations,
   settings,
   icons,
@@ -260,7 +271,7 @@ export default function ClientOnlyMap({
   /** When provided, "Places Nearby" on a card applies this site on the map and shows results instead of navigating to Explore. */
   onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
-  // Stabilize callbacks with refs so OSMLeafletView never re-renders just
+  // Stabilize callbacks with refs so map/markers never re-render just
   // because the parent passed a new inline arrow function reference.
   const onSiteSelectRef = useRef(onSiteSelect);
   const onPlacesNearbyApplyRef = useRef(onPlacesNearbyApply);
@@ -268,6 +279,9 @@ export default function ClientOnlyMap({
   useEffect(() => { onSiteSelectRef.current = onSiteSelect; }, [onSiteSelect]);
   const stableOnSiteSelect = useCallback((site: Site) => {
     onSiteSelectRef.current?.(site);
+  }, []);
+  const stableOnPlacesNearbyApply = useCallback((site: { id: string; title: string; latitude: number; longitude: number }) => {
+    onPlacesNearbyApplyRef.current?.(site);
   }, []);
 
   const onHighlightConsumedRef = useRef(onHighlightConsumed);
@@ -315,7 +329,7 @@ export default function ClientOnlyMap({
         hoveredSiteId={hoveredSiteId}
         resetMapViewTrigger={resetMapViewTrigger}
         radiusCircle={radiusCircle}
-        onPlacesNearbyApply={onPlacesNearbyApply}
+        onPlacesNearbyApply={stableOnPlacesNearbyApply}
       />
     );
   }
@@ -336,12 +350,30 @@ export default function ClientOnlyMap({
         openPreviewWithoutZoom={openPreviewWithoutZoom}
         fitBoundsToLocations={fitBoundsToLocations}
         radiusCircle={radiusCircle}
-        onPlacesNearbyApply={onPlacesNearbyApply}
+        onPlacesNearbyApply={stableOnPlacesNearbyApply}
       />
       {permanentTooltips && <TripViewHoverStyles hoveredSiteId={hoveredSiteId} />}
     </>
   );
 }
+
+const ClientOnlyMapMemo = memo(ClientOnlyMap, (prev, next) => {
+  if (prev.settings !== next.settings || prev.icons !== next.icons) return false;
+  if (prev.highlightSiteId !== next.highlightSiteId) return false;
+  if (prev.mapType !== next.mapType) return false;
+  if (prev.permanentTooltips !== next.permanentTooltips) return false;
+  if (prev.directMarkerSelect !== next.directMarkerSelect) return false;
+  if (prev.resetMapViewTrigger !== next.resetMapViewTrigger) return false;
+  if (prev.openPreviewWithoutZoom !== next.openPreviewWithoutZoom) return false;
+  if (prev.fitBoundsToLocations !== next.fitBoundsToLocations) return false;
+  if (prev.hoveredSiteId !== next.hoveredSiteId) return false;
+  if (locationsKey(prev.locations) !== locationsKey(next.locations)) return false;
+  if (radiusCircleKey(prev.radiusCircle) !== radiusCircleKey(next.radiusCircle)) return false;
+  if (prev.siteDates !== next.siteDates) return false;
+  return true;
+});
+
+export default ClientOnlyMapMemo;
 
 /* Hover highlight for trip pins and tooltips. Only this component receives hoveredSiteId so the map and tooltip layer never re-render on hover (stops flicker). */
 function TripViewHoverStyles({ hoveredSiteId }: { hoveredSiteId: string | null }) {
@@ -1171,24 +1203,44 @@ function GoogleMapView({
     [settings]
   );
 
+  /* Refs so we only re-run marker effect when location IDs change, not on every parent re-render */
+  const locationsRef = useRef<Site[]>(locations);
+  const iconForSiteRef = useRef(iconForSite);
+  const getTooltipContentRef = useRef(getTooltipContent);
+  const siteDatesRef = useRef(siteDates);
+  locationsRef.current = locations;
+  iconForSiteRef.current = iconForSite;
+  getTooltipContentRef.current = getTooltipContent;
+  siteDatesRef.current = siteDates;
+
+  const locationIdsKey = useMemo(
+    () => locations.map((s) => s.id).join(","),
+    [locations]
+  );
+
   const renderMarkers = useCallback(() => {
     const map = mapRef.current;
     const clusterer = clustererRef.current;
     const tooltipWindow = tooltipWindowRef.current;
     if (!map || !clusterer) return;
 
+    const locs = locationsRef.current;
+    const iconFn = iconForSiteRef.current;
+    const tooltipFn = getTooltipContentRef.current;
+    const dates = siteDatesRef.current;
+
     clusterer.clearMarkers();
 
-    const newMarkers = locations.map((s) => {
+    const newMarkers = locs.map((s) => {
       const m = new google.maps.Marker({
         position: { lat: s.latitude, lng: s.longitude },
         title: s.title,
-        icon: iconForSite(s) ?? undefined,
+        icon: iconFn(s) ?? undefined,
       });
 
       m.addListener("mouseover", () => {
         if (tooltipWindow) {
-          tooltipWindow.setContent(getTooltipContent(s.title, siteDates?.get(s.id)));
+          tooltipWindow.setContent(tooltipFn(s.title, dates?.get(s.id)));
           tooltipWindow.open(map, m);
         }
       });
@@ -1210,12 +1262,12 @@ function GoogleMapView({
     });
 
     clusterer.addMarkers(newMarkers);
-  }, [locations, iconForSite, getTooltipContent, siteDates]);
+  }, []);
 
   useEffect(() => {
     if (!clustererRef.current) return;
     renderMarkers();
-  }, [renderMarkers]);
+  }, [locationIdsKey, renderMarkers]);
 
   /* When in trip view or nearby search, fit map bounds to show all pins and full radius circle when set */
   useEffect(() => {

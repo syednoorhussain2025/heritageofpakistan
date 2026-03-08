@@ -285,9 +285,9 @@ export default function MapPage() {
   const [showSitePanelWishlistModal, setShowSitePanelWishlistModal] = useState(false);
   const [showSitePanelTripModal, setShowSitePanelTripModal] = useState(false);
 
-  const handleFilterChange = (newFilters: Partial<Filters>) => {
+  const handleFilterChange = useCallback((newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
-  };
+  }, []);
 
   useEffect(() => {
     setShowSitePanelActionsMenu(false);
@@ -1595,6 +1595,34 @@ export default function MapPage() {
     ]
   );
 
+  /* Stable callback for "Places Nearby" from map so map pins don't re-render on every interaction */
+  const onPlacesNearbyApply = useCallback((site: { id: string; title: string; latitude: number; longitude: number }) => {
+    handleFilterChange({
+      centerSiteId: site.id,
+      centerLat: site.latitude,
+      centerLng: site.longitude,
+      radiusKm: 5,
+      centerSiteTitle: site.title,
+    });
+    setSelectedMapSite(null);
+  }, [handleFilterChange]);
+
+  /* Stable radius circle object so map doesn't get new reference on every render */
+  const radiusCircle = useMemo(() => {
+    const active =
+      nearbyActive &&
+      typeof filters.centerLat === "number" &&
+      typeof filters.centerLng === "number" &&
+      typeof filters.radiusKm === "number" &&
+      filters.radiusKm > 0;
+    if (!active) return null;
+    return {
+      centerLat: filters.centerLat,
+      centerLng: filters.centerLng,
+      radiusKm: filters.radiusKm,
+    };
+  }, [nearbyActive, filters.centerLat, filters.centerLng, filters.radiusKm]);
+
   /* ───────── Map component (no SSR) ───────── */
   const ClientOnlyMap = useMemo(
     () =>
@@ -1683,29 +1711,8 @@ export default function MapPage() {
           hoveredSiteId={tripPanelHoveredSiteId}
           resetMapViewTrigger={resetMapViewTrigger}
           fitBoundsToLocations={nearbyActive}
-          radiusCircle={
-            nearbyActive &&
-            typeof filters.centerLat === "number" &&
-            typeof filters.centerLng === "number" &&
-            typeof filters.radiusKm === "number" &&
-            filters.radiusKm > 0
-              ? {
-                  centerLat: filters.centerLat,
-                  centerLng: filters.centerLng,
-                  radiusKm: filters.radiusKm,
-                }
-              : null
-          }
-          onPlacesNearbyApply={(site) => {
-            handleFilterChange({
-              centerSiteId: site.id,
-              centerLat: site.latitude,
-              centerLng: site.longitude,
-              radiusKm: 5,
-              centerSiteTitle: site.title,
-            });
-            setSelectedMapSite(null);
-          }}
+          radiusCircle={radiusCircle}
+          onPlacesNearbyApply={onPlacesNearbyApply}
         />
         {sitesLoadError && (
           <div className="fixed left-1/2 top-20 z-[2147483646] -translate-x-1/2 pointer-events-auto" aria-live="polite">
@@ -2083,7 +2090,7 @@ export default function MapPage() {
 
       {mounted &&
         createPortal(
-          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 h-14 flex items-center gap-2 px-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 flex items-center gap-2 px-2 py-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
             <button
               type="button"
               aria-label="Open menu"
@@ -2099,9 +2106,30 @@ export default function MapPage() {
                 setMobilePanelMode("search");
                 setSearchPanelOpen(true);
               }}
-              className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
+              className="flex-1 min-w-0 flex items-start gap-2.5 text-left min-h-[44px] py-1.5 -my-1 rounded-lg active:bg-gray-100"
             >
-              <Icon name="search" size={22} />
+              <span className="shrink-0 mt-0.5 w-11 h-11 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+                <Icon name="map-marker-alt" size={22} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
+                  Showing on map
+                </div>
+                <div className="text-sm font-semibold text-gray-800 leading-tight truncate">
+                  {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
+                    ? `Trip: ${activeTripName ?? mapHeadline}`
+                    : mapHeadline}
+                </div>
+                <div className="text-xs text-gray-600 mt-0.5">
+                  {loading || sitesLoading
+                    ? "Loading…"
+                    : nearbyActive && typeof filters.radiusKm === "number"
+                      ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
+                      : filteredLocations.length === allLocations.length
+                        ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
+                        : `${filteredLocations.length} of ${allLocations.length} sites`}
+                </div>
+              </div>
             </button>
             <button
               type="button"
@@ -2110,11 +2138,9 @@ export default function MapPage() {
                 setMobilePanelMode("search");
                 setSearchPanelOpen(true);
               }}
-              className="flex-1 min-w-0 flex items-center justify-center min-h-[44px] -my-1 py-1 rounded-lg active:bg-gray-100"
+              className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
             >
-              <span className="text-sm font-semibold text-gray-800 truncate block text-center" title={mapHeadline}>
-                {mapHeadline}
-              </span>
+              <Icon name="search" size={22} />
             </button>
             <button
               type="button"
