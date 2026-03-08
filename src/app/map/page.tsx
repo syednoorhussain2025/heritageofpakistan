@@ -1726,10 +1726,13 @@ export default function MapPage() {
             </div>
           </div>
         )}
-        {/* Map type switcher: OSM, Google roadmap, Google satellite — safe area on mobile */}
+        {/* Map type switcher: OSM, Google roadmap, Google satellite — on mobile when trip active, sit above Trip Details button */}
+        {(() => {
+          const tripActiveMobile = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter;
+          return (
         <div
-          className="absolute bottom-4 right-4 z-[1000] flex items-center gap-2 lg:bottom-4 lg:right-4"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
+          className={`absolute right-4 z-[1000] flex items-center gap-2 lg:bottom-4 lg:right-4 ${tripActiveMobile ? "bottom-16 lg:bottom-4" : "bottom-4"}`}
+          style={{ paddingBottom: tripActiveMobile ? undefined : "env(safe-area-inset-bottom, 0)" }}
           aria-label="Map type"
         >
           {(
@@ -1772,6 +1775,8 @@ export default function MapPage() {
             </button>
           ))}
         </div>
+          );
+        })()}
         {/* Mobile: floating Trip button (left) and Trip Details button (right) when a trip is applied */}
         {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
           <>
@@ -1788,7 +1793,7 @@ export default function MapPage() {
             <button
               type="button"
               onClick={() => setMobileTripSheetOpen(true)}
-              className="lg:hidden fixed right-[11rem] z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
+              className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
               style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
               aria-label="Trip details"
             >
