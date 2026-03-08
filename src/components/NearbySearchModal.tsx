@@ -264,7 +264,7 @@ export default function NearbySearchModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[100000] flex flex-col sm:items-center sm:justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
