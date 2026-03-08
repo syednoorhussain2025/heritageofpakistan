@@ -2012,11 +2012,19 @@ export default function MapPage() {
             >
               <Icon name="search" size={22} />
             </button>
-            <div className="flex-1 min-w-0 flex items-center justify-center">
+            <button
+              type="button"
+              aria-label="Search & Filters"
+              onClick={() => {
+                setMobilePanelMode("search");
+                setSearchPanelOpen(true);
+              }}
+              className="flex-1 min-w-0 flex items-center justify-center min-h-[44px] -my-1 py-1 rounded-lg active:bg-gray-100"
+            >
               <span className="text-sm font-semibold text-gray-800 truncate block text-center" title={mapHeadline}>
                 {mapHeadline}
               </span>
-            </div>
+            </button>
             <button
               type="button"
               aria-label="My Saved Lists and Trips"
