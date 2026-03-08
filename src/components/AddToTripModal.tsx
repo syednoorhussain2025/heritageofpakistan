@@ -251,30 +251,26 @@ export default function AddToTripModal({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay — full screen on mobile, centered modal on desktop */}
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/40 sm:bg-black/30 backdrop-blur-[2px] sm:backdrop-blur-[1px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[1000] flex flex-col sm:items-center sm:justify-center sm:bg-black/30 sm:backdrop-blur-[1px] transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
       >
-        {/* Card — full screen on mobile (bottom sheet), centered on desktop */}
+        {/* Card — full screen on mobile, centered on desktop */}
         <div
-          className={`w-full max-w-xl mx-0 sm:mx-3 rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform flex flex-col max-h-[100dvh] sm:max-h-[90vh] ${
+          className={`w-full h-full sm:h-auto sm:max-w-xl sm:mx-3 sm:rounded-2xl sm:max-h-[90vh] bg-white sm:shadow-2xl sm:ring-1 sm:ring-black/5 transition-all duration-300 transform flex flex-col ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
           }`}
-          style={{ minHeight: "min(85dvh, 400px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {/* Drag handle (mobile) */}
-          <div className="sm:hidden shrink-0 flex justify-center pt-3 pb-0">
-            <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
-          </div>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
             <div className="flex items-center gap-2">

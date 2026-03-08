@@ -226,7 +226,11 @@ export default function MapPage() {
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
+  /** What the mobile panel shows: "search" = filters only, "lists" = Saved Lists/Trips, "site" = site detail */
+  const [mobilePanelMode, setMobilePanelMode] = useState<"search" | "lists" | "site">("search");
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "wishlist" | "trips" | "site">("search");
+  const [mobileEllipsisSheetOpen, setMobileEllipsisSheetOpen] = useState(false);
+  const [mobileEllipsisSheetVisible, setMobileEllipsisSheetVisible] = useState(false);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -803,12 +807,15 @@ export default function MapPage() {
     setTimeout(() => setSearchPanelOpen(false), 320);
   }, []);
 
-  /* On mobile, opening the main app menu (e.g. from Header) should open the map bottom sheet when on map page */
+  /* Ellipsis bottom sheet visibility animation */
   useEffect(() => {
-    const handler = () => setSearchPanelOpen(true);
-    document.addEventListener("open-mobile-menu", handler);
-    return () => document.removeEventListener("open-mobile-menu", handler);
-  }, []);
+    if (!mobileEllipsisSheetOpen) {
+      setMobileEllipsisSheetVisible(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileEllipsisSheetVisible(true)));
+    return () => cancelAnimationFrame(id);
+  }, [mobileEllipsisSheetOpen]);
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -948,7 +955,7 @@ export default function MapPage() {
   // Called when the user clicks a pin on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
     setSelectedMapSite(site);
-    // Mobile: open the slide-up panel showing site details
+    setMobilePanelMode("site");
     setMobilePanelTab("site");
     setSearchPanelOpen(true);
   }, []);
@@ -1533,7 +1540,7 @@ export default function MapPage() {
 
   const tools: Tool[] = mapTools;
 
-  const mobilePanelContent = mobilePanelTab === "search" ? (
+  const mobilePanelContent = mobilePanelMode === "search" ? (
     <SearchFilters
       filters={filters}
       onFilterChange={handleFilterChange}
@@ -1542,7 +1549,7 @@ export default function MapPage() {
       onClearNearby={() => showMapToast("Proximity filter cleared")}
       onReset={() => showMapToast("Filters reset")}
     />
-  ) : mobilePanelTab === "site" ? (
+  ) : mobilePanelMode === "site" ? (
     renderToolPanel("site", () => { setSelectedMapSite(null); closeSearchPanel(); })
   ) : mobilePanelTab === "wishlist" ? (
     renderToolPanel("wishlist", closeSearchPanel)
@@ -1985,34 +1992,38 @@ export default function MapPage() {
 
       {mounted &&
         createPortal(
-          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 h-14 flex items-center px-3 gap-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 h-14 flex items-center gap-2 px-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
             <button
               type="button"
               aria-label="Open menu"
-              onClick={() =>
-                document.dispatchEvent(new CustomEvent("open-mobile-menu"))
-              }
-              className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32]"
+              onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
+              className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
             >
               <Icon name="navigator" size={20} />
             </button>
             <button
               type="button"
               aria-label="Search & Filters"
-              onClick={() => setSearchPanelOpen(true)}
-              className="flex-1 min-w-0 flex items-center gap-2 text-left"
+              onClick={() => {
+                setMobilePanelMode("search");
+                setSearchPanelOpen(true);
+              }}
+              className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
             >
-              <span className="text-sm font-bold text-gray-800 truncate">
-                Map
+              <Icon name="search" size={22} />
+            </button>
+            <div className="flex-1 min-w-0 flex items-center justify-center">
+              <span className="text-sm font-semibold text-gray-800 truncate block text-center" title={mapHeadline}>
+                {mapHeadline}
               </span>
-              <span className="text-[10px] text-gray-500">
-                {filteredLocations.length} sites
-              </span>
-              <Icon
-                name="search"
-                size={20}
-                className="text-[var(--brand-orange)] shrink-0"
-              />
+            </div>
+            <button
+              type="button"
+              aria-label="My Saved Lists and Trips"
+              onClick={() => setMobileEllipsisSheetOpen(true)}
+              className="p-2 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
+            >
+              <Icon name="ellipsis" size={22} />
             </button>
           </div>,
           document.body
@@ -2021,36 +2032,33 @@ export default function MapPage() {
       {mounted &&
         searchPanelOpen &&
         createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3200] touch-none" aria-modal="true" role="dialog" aria-label="Map menu">
-            {/* Backdrop — tap to close */}
-            <div
-              className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-out ${
-                searchPanelVisible ? "opacity-100" : "opacity-0"
-              }`}
-              onClick={closeSearchPanel}
-              aria-hidden="true"
-            />
-            {/* Bottom sheet — full screen on mobile for native app experience */}
-            <div
-              className={`absolute left-0 right-0 bottom-0 w-full bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                searchPanelVisible ? "translate-y-0" : "translate-y-full"
-              }`}
-              style={{
-                maxHeight: "100dvh",
-                height: mobilePanelTab === "site" ? "100dvh" : "92dvh",
-                paddingBottom: "env(safe-area-inset-bottom, 0px)",
-              }}
-            >
-              {/* Drag handle */}
-              <div className="shrink-0 flex justify-center pt-2.5 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
-              </div>
-              <div className="shrink-0 bg-white border-b border-gray-100 shadow-sm px-3 pb-2">
-                <div className="flex items-center gap-2 py-2">
+          <div
+            className="lg:hidden fixed touch-none flex flex-col overflow-hidden bg-white"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100vw",
+              height: "100dvh",
+              minWidth: "100vw",
+              minHeight: "100dvh",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              zIndex: 99999,
+            }}
+            aria-modal="true"
+            role="dialog"
+            aria-label="Map menu"
+          >
+            <div className={`flex flex-col flex-1 min-h-0 w-full transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}>
+              {/* Header */}
+              <div className="shrink-0 bg-white border-b border-gray-100 shadow-sm px-3 w-full">
+                <div className="flex items-center gap-2 py-3">
                   <button
                     type="button"
                     onClick={() => {
-                      if (mobilePanelTab === "site") setSelectedMapSite(null);
+                      if (mobilePanelMode === "site") setSelectedMapSite(null);
                       closeSearchPanel();
                     }}
                     aria-label="Close"
@@ -2059,45 +2067,89 @@ export default function MapPage() {
                     <Icon name="times" size={20} className="text-gray-600" />
                   </button>
                   <span className="flex-1 text-base font-bold text-gray-800 truncate min-w-0">
-                    {mobilePanelTab === "search"
+                    {mobilePanelMode === "search"
                       ? "Search & Filters"
-                      : mobilePanelTab === "wishlist"
-                          ? "Saved Lists"
-                          : mobilePanelTab === "trips"
-                            ? "My Trips"
-                            : selectedMapSite?.title ?? "Site Details"}
+                      : mobilePanelMode === "lists"
+                          ? (mobilePanelTab === "wishlist" ? "Saved Lists" : "My Trips")
+                          : selectedMapSite?.title ?? "Site Details"}
                   </span>
                 </div>
-                {/* Tab bar: hidden when showing a site preview */}
-                {mobilePanelTab !== "site" && (
+                {/* Tab bar: only when mode is "lists" (Saved Lists | Trips) */}
+                {mobilePanelMode === "lists" && (
                   <div className="flex border-t border-gray-100">
-                    {(["search", "wishlist", "trips"] as const).map(
-                      (tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          onClick={() => setMobilePanelTab(tab)}
-                          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                            mobilePanelTab === tab
-                              ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
-                              : "text-[var(--brand-grey)]"
-                          }`}
-                        >
-                          {tab === "search"
-                            ? "Search"
-                            : tab === "wishlist"
-                              ? "Saved Lists"
-                              : "Trips"}
-                        </button>
-                      )
-                    )}
+                    {(["wishlist", "trips"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setMobilePanelTab(tab)}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                          mobilePanelTab === tab
+                            ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
+                            : "text-[var(--brand-grey)]"
+                        }`}
+                      >
+                        {tab === "wishlist" ? "Saved Lists" : "My Trips"}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4 ${mobilePanelTab === "site" ? "scrollbar-hide" : ""}`}>
-                <div className={`min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden ${mobilePanelTab === "site" ? "p-0" : ""}`}>
+              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4 ${mobilePanelMode === "site" ? "scrollbar-hide" : ""}`}>
+                <div className={`min-h-full rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden ${mobilePanelMode === "site" ? "p-0" : ""}`}>
                   {mobilePanelContent}
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Mobile: ellipsis bottom sheet — My Saved Lists & My Trips */}
+      {mounted && mobileEllipsisSheetOpen &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="My lists and trips">
+            <div
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${mobileEllipsisSheetVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={() => setMobileEllipsisSheetOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileEllipsisSheetVisible ? "translate-y-0" : "translate-y-full"}`}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
+              <p className="text-center text-[13px] text-gray-500 font-medium pt-2 pb-3 px-6">Lists & Trips</p>
+              <div className="px-4 pb-6 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileEllipsisSheetOpen(false);
+                    setMobilePanelMode("lists");
+                    setMobilePanelTab("wishlist");
+                    setSearchPanelOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
+                    <Icon name="list-ul" size={20} className="text-[var(--brand-orange)]" />
+                  </div>
+                  <span className="text-[15px] font-semibold text-gray-900">My Saved Lists</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileEllipsisSheetOpen(false);
+                    setMobilePanelMode("lists");
+                    setMobilePanelTab("trips");
+                    setSearchPanelOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[var(--brand-blue)]/10 flex items-center justify-center shrink-0">
+                    <Icon name="route" size={20} className="text-[var(--brand-blue)]" />
+                  </div>
+                  <span className="text-[15px] font-semibold text-gray-900">My Trips</span>
+                </button>
               </div>
             </div>
           </div>,
@@ -2224,11 +2276,16 @@ export default function MapPage() {
               )}
             </div>
           )}
-          {/* Mobile: full-screen bottom sheet */}
-          <div className="lg:hidden fixed inset-x-0 bottom-0 z-[9999] bg-[#f2f2f7] rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] animate-bottom-sheet-in flex flex-col max-h-[85dvh]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-            <div className="w-10 h-1 rounded-full bg-gray-400/40 mx-auto mt-3 shrink-0" aria-hidden="true" />
-            <p className="text-center text-[13px] text-gray-500 font-medium pt-2 pb-3 px-6 truncate shrink-0">{selectedMapSite.title}</p>
-            <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden shrink-0">
+          {/* Mobile: full-screen panel */}
+          <div className="lg:hidden fixed inset-0 z-[9999] bg-[#f2f2f7] flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+              <p className="text-[15px] font-semibold text-gray-900 truncate flex-1 min-w-0">{selectedMapSite.title}</p>
+              <button type="button" onClick={() => setShowSitePanelActionsMenu(false)} className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0" aria-label="Close">
+                <Icon name="times" size={20} className="text-gray-600" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto py-4">
+            <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
               <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
                 <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="external-link-alt" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Open Site</span>
@@ -2272,6 +2329,7 @@ export default function MapPage() {
             <button type="button" onClick={() => setShowSitePanelActionsMenu(false)} className="mx-4 mb-4 py-4 rounded-2xl bg-white text-[15px] font-semibold text-[var(--brand-blue)] active:bg-gray-50">
               Cancel
             </button>
+            </div>
           </div>
         </>,
         document.body

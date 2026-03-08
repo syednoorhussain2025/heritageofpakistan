@@ -264,34 +264,30 @@ export default function NearbySearchModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
       role="dialog"
       aria-label="Search Around a Site"
     >
-      {/* Backdrop — tap to close */}
+      {/* Backdrop — desktop only (tap to close); mobile is full screen so no backdrop */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`hidden sm:block absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
+        aria-hidden="true"
       />
-
-      {/* Modal panel — full screen on mobile (native app experience), centered on desktop */}
+      {/* Panel — full screen on mobile, centered card on desktop */}
       <div
-        className={`relative w-full min-h-[92dvh] sm:min-h-0 max-h-[100dvh] sm:max-h-[90vh] sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden ${
+        className={`relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] bg-white sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
         }`}
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        {/* Drag handle (mobile) */}
-        <div className="sm:hidden shrink-0 flex justify-center pt-3 pb-0">
-          <div className="w-10 h-1 rounded-full bg-gray-300/80" aria-hidden="true" />
-        </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 overflow-hidden shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
               <Icon
