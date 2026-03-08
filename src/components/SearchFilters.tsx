@@ -530,7 +530,8 @@ const TopLevelRegionSelect = ({
                     key={r.id}
                     onClick={() => {
                       onToggleWithRule(r.id);
-                      setActiveParentId(r.parent_id ?? r.id);
+                      const parentId = (r as { id: string; parent_id: string | null }).parent_id ?? r.id;
+                      setActiveParentId(parentId);
                       setIsOpen(false);
                     }}
                     className={`px-3 py-1.5 cursor-pointer hover:bg-[var(--ivory-cream)] ${
