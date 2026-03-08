@@ -1726,13 +1726,11 @@ export default function MapPage() {
             </div>
           </div>
         )}
-        {/* Map type switcher: OSM, Google roadmap, Google satellite — on mobile when trip active, sit above Trip Details button */}
+        {/* Map type switcher: on mobile above bottom nav (72px); on desktop standard position */}
         {(() => {
-          const tripActiveMobile = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter;
           return (
         <div
-          className={`absolute right-4 z-[1000] flex items-center gap-2 lg:bottom-4 lg:right-4 ${tripActiveMobile ? "bottom-16 lg:bottom-4" : "bottom-4"}`}
-          style={{ paddingBottom: tripActiveMobile ? undefined : "env(safe-area-inset-bottom, 0)" }}
+          className="absolute right-4 z-[1000] flex items-center gap-2 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] lg:bottom-4 lg:right-4"
           aria-label="Map type"
         >
           {(
@@ -1777,14 +1775,14 @@ export default function MapPage() {
         </div>
           );
         })()}
-        {/* Mobile: floating Trip button (left) and Trip Details button (right) when a trip is applied */}
+        {/* Mobile: Trip and Trip Details buttons above map type switcher, both above bottom nav */}
         {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
           <>
             <button
               type="button"
               onClick={() => setMobileTripSheetOpen(true)}
               className="lg:hidden fixed left-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg ring-1 ring-gray-200/80 text-sm font-semibold text-[var(--brand-blue)] hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
+              style={{ bottom: "calc(124px + env(safe-area-inset-bottom, 0px))" }}
               aria-label="View trip details"
             >
               <Icon name="route" size={18} />
@@ -1794,7 +1792,7 @@ export default function MapPage() {
               type="button"
               onClick={() => setMobileTripSheetOpen(true)}
               className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
-              style={{ bottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}
+              style={{ bottom: "calc(124px + env(safe-area-inset-bottom, 0px))" }}
               aria-label="Trip details"
             >
               <span>Trip Details</span>
