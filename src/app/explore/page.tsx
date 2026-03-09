@@ -22,6 +22,7 @@ import SitePreviewCard from "@/components/SitePreviewCard";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
@@ -115,6 +116,7 @@ type SearchSitesRpcArgs = {
   page: number;
   pageSize: number;
   label: string;
+  forceFallback?: boolean;
 };
 
 function isTimeoutError(error: unknown) {
@@ -189,7 +191,18 @@ async function searchSitesRpc({
   page,
   pageSize,
   label,
+  forceFallback = false,
 }: SearchSitesRpcArgs) {
+  if (forceFallback) {
+    const fallbackRows = await fetchSearchSitesFallback({
+      nameQuery,
+      categoryIds,
+      regionIds,
+      page,
+      pageSize,
+    });
+    return { data: fallbackRows, error: null };
+  }
   try {
     return await withTimeout(
       supabase.rpc("search_sites", {
@@ -584,6 +597,8 @@ async function attachActiveCovers(sites: Site[]) {
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { userId: authUserId, authLoading } = useAuthUserId();
+  const isSignedIn = !authLoading && authUserId !== null;
 
   const [filters, setFilters] = useState<Filters>({
     name: "",
@@ -817,6 +832,8 @@ function ExplorePageContent() {
                       .from("sites")
                       .select("id,title,location_free,cover_photo_url")
                       .eq("id", nextFilters.centerSiteId!)
+                      .eq("is_published", true)
+                      .is("deleted_at", null)
                       .maybeSingle(),
                     QUERY_TIMEOUT_MS,
                     "explore.loadCenterSite"
@@ -891,6 +908,8 @@ function ExplorePageContent() {
                   supabase
                     .from("sites")
                     .select("id,heritage_type")
+                    .eq("is_published", true)
+                    .is("deleted_at", null)
                     .in("id", allIds),
                   QUERY_TIMEOUT_MS,
                   "explore.filterByTypes"
@@ -937,6 +956,8 @@ function ExplorePageContent() {
               .select(
                 "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count"
               )
+              .eq("is_published", true)
+              .is("deleted_at", null)
               .in("id", ids),
             QUERY_TIMEOUT_MS,
             "explore.loadRadiusPageDetails"
@@ -981,6 +1002,7 @@ function ExplorePageContent() {
           page: 1,
           pageSize: PAGE_SIZE,
           label: "explore.searchSitesPage1",
+          forceFallback: isSignedIn,
         });
         if (rpcError) throw rpcError;
         if (gen !== searchGenRef.current) return;
@@ -1008,7 +1030,7 @@ function ExplorePageContent() {
         }
       }
     })();
-  }, [searchParams]);
+  }, [searchParams, isSignedIn]);
 
   const [categoryMapState, regionMapState] = [categoryMap, regionMap];
 
@@ -1090,6 +1112,8 @@ function ExplorePageContent() {
             .select(
               "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count"
             )
+            .eq("is_published", true)
+            .is("deleted_at", null)
             .in("id", ids),
           QUERY_TIMEOUT_MS,
           "explore.loadMoreRadiusDetails"
@@ -1139,6 +1163,7 @@ function ExplorePageContent() {
         page: nextPage,
         pageSize: PAGE_SIZE,
         label: "explore.searchSitesLoadMore",
+        forceFallback: isSignedIn,
       });
       if (rpcError) throw rpcError;
 
@@ -1175,6 +1200,7 @@ function ExplorePageContent() {
     radiusAllRows,
     page,
     searchParams,
+    isSignedIn,
     results.total,
   ]);
 

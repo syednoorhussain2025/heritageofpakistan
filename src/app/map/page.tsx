@@ -639,6 +639,8 @@ export default function MapPage() {
              site_categories!inner(category_id, categories(icon_key)),
              site_regions!inner(region_id)`
             )
+            .eq("is_published", true)
+            .is("deleted_at", null)
             .not("latitude", "is", null)
             .not("longitude", "is", null),
           sitesTimeoutPromise,
@@ -774,7 +776,7 @@ export default function MapPage() {
     }
 
     /* Return stable reference when the set of locations is unchanged to avoid map re-render storms */
-    const key = res.length + "|" + res.map((s) => s.id).sort().join(",");
+    const key = res.length + "|" + res.map((s) => s.id).join(",");
     const prev = stableLocationsRef.current;
     if (prev.key === key) return prev.value;
     stableLocationsRef.current = { key, value: res };
