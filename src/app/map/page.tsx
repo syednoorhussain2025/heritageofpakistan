@@ -13,7 +13,8 @@ import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { supabase } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
-import { getWishlists, getWishlistItems } from "@/lib/wishlists";
+import { getWishlistItems } from "@/lib/wishlists";
+import { useWishlists } from "@/components/WishlistProvider";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
@@ -228,8 +229,9 @@ export default function MapPage() {
   const [wishlistSiteIds, setWishlistSiteIds] = useState<string[]>([]);
   const [tripSiteIds, setTripSiteIds] = useState<string[]>([]);
 
-  const [wishlists, setWishlists] = useState<{ id: string; name: string; wishlist_items: { count: number }[] }[]>([]);
-  const [wishlistsLoading, setWishlistsLoading] = useState(false);
+  // Use shared WishlistProvider context — avoids a duplicate DB fetch on sign-in.
+  const { wishlists: rawWishlists, loading: wishlistsLoading } = useWishlists();
+  const wishlists = rawWishlists as { id: string; name: string; wishlist_items: { count: number }[] }[];
   const [trips, setTrips] = useState<{ id: string; name: string; slug?: string | null }[]>([]);
   const [tripsLoading, setTripsLoading] = useState(false);
 
@@ -449,23 +451,6 @@ export default function MapPage() {
     })();
     return () => { active = false; };
   }, [filters.centerSiteId]);
-
-  useEffect(() => {
-    if (!isSignedIn) return;
-    let cancelled = false;
-    (async () => {
-      setWishlistsLoading(true);
-      try {
-        const list = await getWishlists();
-        if (!cancelled) setWishlists(list as { id: string; name: string; wishlist_items: { count: number }[] }[]);
-      } catch {
-        if (!cancelled) setWishlists([]);
-      } finally {
-        if (!cancelled) setWishlistsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isSignedIn]);
 
   useEffect(() => {
     if (!isSignedIn) return;

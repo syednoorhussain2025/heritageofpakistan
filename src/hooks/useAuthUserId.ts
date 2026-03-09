@@ -93,13 +93,17 @@ async function resolveSharedAuth(fromEvent = false) {
     if (sharedState.userId !== null && !sharedState.authLoading) {
       try {
         const { data: { session } } = await getClient().auth.getSession();
-        if (
-          session?.user?.id === sharedState.userId &&
-          typeof session.expires_at === "number" &&
-          session.expires_at * 1000 > Date.now() + 60_000
-        ) {
-          // Session is valid and fresh — nothing to do.
-          return;
+        if (session?.user?.id === sharedState.userId) {
+          // userId matches — session is still valid.
+          // Only fall through to getUser() if expires_at is present AND close to expiry.
+          const expiresAt = session.expires_at;
+          if (
+            typeof expiresAt !== "number" ||
+            expiresAt * 1000 > Date.now() + 60_000
+          ) {
+            // Session is valid and fresh (or no expiry info — trust it).
+            return;
+          }
         }
       } catch {
         // Ignore — fall through to full getUser() check.

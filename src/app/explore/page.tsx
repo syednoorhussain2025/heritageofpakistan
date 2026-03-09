@@ -606,6 +606,9 @@ function ExplorePageContent() {
   // generation. Async callbacks check gen === searchGenRef.current before
   // committing state, so stale responses from earlier searches are discarded.
   const searchGenRef = useRef(0);
+  // Synchronous ref guard for loadMore — prevents the IntersectionObserver
+  // from firing a second fetch before the isLoadingMore state update commits.
+  const isLoadingMoreRef = useRef(false);
 
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
@@ -757,6 +760,7 @@ function ExplorePageContent() {
   /* Read URL → fetch first page + banner info */
   useEffect(() => {
     setLoading(true);
+    isLoadingMoreRef.current = false;
     setIsLoadingMore(false);
     setPage(1);
 
@@ -1055,10 +1059,11 @@ function ExplorePageContent() {
 
   /* Load next page when sentinel is visible */
   const loadMore = useCallback(async () => {
-    if (loading || isLoadingMore) return;
+    if (loading || isLoadingMore || isLoadingMoreRef.current) return;
     if (!hasMore) return;
 
     const currentFilters = filtersRef.current;
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
 
     try {
@@ -1160,6 +1165,7 @@ function ExplorePageContent() {
     } catch (e: any) {
       setError(e?.message || "Failed to load results");
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
   }, [
