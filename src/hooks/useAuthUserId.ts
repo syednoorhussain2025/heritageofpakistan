@@ -9,12 +9,15 @@ type AuthState = {
   userId: string | null;
   authLoading: boolean;
   authError: string | null;
+  authUnknown: boolean;
+  lastValidatedAt: number | null;
 };
 
 let sharedClient: SupabaseClient | null = null;
 let sharedInitialized = false;
 let sharedResolving = false;
 let sharedQueuedResolve = false;
+let sharedRuntimeCleanup: (() => void) | null = null;
 
 // Debounce repeated event-driven re-checks (visibility/focus/online) to avoid
 // hammering the server when the user rapidly switches tabs.
@@ -25,6 +28,8 @@ let sharedState: AuthState = {
   userId: null,
   authLoading: true,
   authError: null,
+  authUnknown: true,
+  lastValidatedAt: null,
 };
 
 const sharedListeners = new Set<(state: AuthState) => void>();
@@ -54,7 +59,9 @@ function patchState(patch: Partial<AuthState>) {
   if (
     next.userId === sharedState.userId &&
     next.authLoading === sharedState.authLoading &&
-    next.authError === sharedState.authError
+    next.authError === sharedState.authError &&
+    next.authUnknown === sharedState.authUnknown &&
+    next.lastValidatedAt === sharedState.lastValidatedAt
   ) {
     return; // nothing changed — skip the emit entirely
   }
@@ -80,6 +87,16 @@ function patchState(patch: Partial<AuthState>) {
  * @param fromEvent  true when called from a DOM event handler (applies debounce + local-cache fast-path)
  */
 async function resolveSharedAuth(fromEvent = false) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    // Offline: avoid server calls; keep any known userId and mark auth as unresolved.
+    patchState({
+      authLoading: false,
+      authError: null,
+      authUnknown: true,
+    });
+    return;
+  }
+
   if (fromEvent) {
     const now = Date.now();
     if (now - lastEventResolveMs < EVENT_RESOLVE_DEBOUNCE_MS) return;
@@ -132,10 +149,20 @@ async function resolveSharedAuth(fromEvent = false) {
       // silently sign the user out of the UI.
       const isDefinitiveAuthFailure = (error as any).__isAuthError === true;
       if (isDefinitiveAuthFailure) {
-        patchState({ userId: null, authLoading: false, authError: null });
+        patchState({
+          userId: null,
+          authLoading: false,
+          authError: null,
+          authUnknown: false,
+          lastValidatedAt: Date.now(),
+        });
       } else {
         // Transient network error — stop the loading spinner but keep state.
-        patchState({ authLoading: false, authError: null });
+        patchState({
+          authLoading: false,
+          authError: null,
+          authUnknown: true,
+        });
       }
       return;
     }
@@ -144,10 +171,16 @@ async function resolveSharedAuth(fromEvent = false) {
       userId: user?.id ?? null,
       authLoading: false,
       authError: null,
+      authUnknown: false,
+      lastValidatedAt: Date.now(),
     });
   } catch {
     // Unknown error — stop loading, preserve existing state.
-    patchState({ authLoading: false, authError: null });
+    patchState({
+      authLoading: false,
+      authError: null,
+      authUnknown: true,
+    });
   } finally {
     sharedResolving = false;
 
@@ -162,6 +195,15 @@ function initSharedAuthRuntime() {
   if (sharedInitialized) return;
   if (typeof window === "undefined") return;
 
+  if (sharedRuntimeCleanup) {
+    try {
+      sharedRuntimeCleanup();
+    } catch {
+      // no-op
+    }
+    sharedRuntimeCleanup = null;
+  }
+
   sharedInitialized = true;
   const supabase = getClient();
 
@@ -170,7 +212,13 @@ function initSharedAuthRuntime() {
 
   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
-      patchState({ userId: null, authError: null, authLoading: false });
+      patchState({
+        userId: null,
+        authError: null,
+        authLoading: false,
+        authUnknown: false,
+        lastValidatedAt: Date.now(),
+      });
       return;
     }
 
@@ -180,7 +228,13 @@ function initSharedAuthRuntime() {
     // TOKEN_REFRESHED for the same user), preventing pointless re-renders.
     const nextUserId = session?.user?.id ?? null;
     if (nextUserId) {
-      patchState({ userId: nextUserId, authError: null, authLoading: false });
+      patchState({
+        userId: nextUserId,
+        authError: null,
+        authLoading: false,
+        authUnknown: false,
+        lastValidatedAt: Date.now(),
+      });
       return;
     }
 
@@ -216,12 +270,18 @@ function initSharedAuthRuntime() {
   window.addEventListener("focus", onFocus);
   window.addEventListener("online", onOnline);
 
-  window.addEventListener("beforeunload", () => {
+  const cleanup = () => {
     sub.subscription.unsubscribe();
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("focus", onFocus);
     window.removeEventListener("online", onOnline);
-  });
+    window.removeEventListener("beforeunload", cleanup);
+    sharedRuntimeCleanup = null;
+    sharedInitialized = false;
+  };
+
+  sharedRuntimeCleanup = cleanup;
+  window.addEventListener("beforeunload", cleanup);
 }
 
 export function useAuthUserId() {
