@@ -31,6 +31,7 @@ export type Site = {
   site_categories: { categories: { icon_key: string | null } | null }[];
   // Optional richer fields (present when passed from map page)
   cover_photo_url?: string | null;
+  cover_photo_thumb_url?: string | null;
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;

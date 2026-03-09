@@ -56,6 +56,11 @@ export function normalizeStoragePath(path: string): string {
  *   baseStoragePath = "sites/123/gallery1", variant = "md"
  *   -> "sites/123/gallery1_md"
  */
+/** Strip any existing variant suffix from a base name (before extension). */
+function stripVariantSuffix(name: string): string {
+  return name.replace(/_(?:thumb|sm|md|lg|hero)$/, "");
+}
+
 export function makeVariantPath(
   baseStoragePath: string,
   variant: ImageVariantKey
@@ -65,10 +70,10 @@ export function makeVariantPath(
 
   // No extension present. Just append suffix.
   if (lastDot === -1) {
-    return `${clean}_${variant}`;
+    return `${stripVariantSuffix(clean)}_${variant}`;
   }
 
-  const name = clean.slice(0, lastDot);
+  const name = stripVariantSuffix(clean.slice(0, lastDot));
   const ext = clean.slice(lastDot);
   return `${name}_${variant}${ext}`;
 }

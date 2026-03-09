@@ -644,7 +644,7 @@ export default function MapPage() {
           supabase
             .from("sites")
             .select(
-              `id, slug, title, cover_photo_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
+              `id, slug, title, cover_photo_url, cover_photo_thumb_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
              site_categories!inner(category_id, categories(icon_key)),
              site_regions!inner(region_id)`
             )

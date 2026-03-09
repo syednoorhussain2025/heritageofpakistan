@@ -23,17 +23,18 @@ type SiteRow = {
   latitude: number | null;
   longitude: number | null;
   cover_photo_url?: string | null;
+  cover_photo_thumb_url?: string | null;
   location_free?: string | null;
 };
 
-/** Thumbnail URL without Supabase image transformations. */
-function thumbUrl(input?: string | null, _size = 48) {
-  return getThumbOrVariantUrlNoTransform(input ?? "", "thumb") || "";
+/** Resolve to thumb variant URL — same pattern as trip panel. */
+function resolveThumb(thumbUrl?: string | null, rawUrl?: string | null): string {
+  return thumbUrl || getThumbOrVariantUrlNoTransform(rawUrl, "thumb") || "";
 }
 
 /* ───────────────────────── Site thumbnail ───────────────────────── */
 function SiteThumbnail({ raw, size = 40 }: { raw?: string | null; size?: number }) {
-  const thumb = thumbUrl(raw, size);
+  const thumb = raw?.trim() || "";
   const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
   const absoluteFallback = raw
     ? /^https?:\/\//i.test(raw)
@@ -150,7 +151,7 @@ export default function NearbySearchModal({
     (async () => {
       const { data, error } = await supabase
         .from("sites")
-        .select("id,title,cover_photo_url,location_free,latitude,longitude")
+        .select("id,title,cover_photo_url,cover_photo_thumb_url,location_free,latitude,longitude")
         .eq("id", value.centerSiteId)
         .maybeSingle();
       if (!active) return;
@@ -161,7 +162,7 @@ export default function NearbySearchModal({
           subtitle: data.location_free ?? null,
           lat: Number(data.latitude),
           lng: Number(data.longitude),
-          cover: data.cover_photo_url ?? null,
+          cover: resolveThumb(data.cover_photo_thumb_url, data.cover_photo_url) || null,
         });
       }
     })();
@@ -182,7 +183,7 @@ export default function NearbySearchModal({
       setSearching(true);
       const { data, error } = await supabase
         .from("sites")
-        .select("id,title,latitude,longitude,cover_photo_url,location_free")
+        .select("id,title,latitude,longitude,cover_photo_url,cover_photo_thumb_url,location_free")
         .ilike("title", `%${query.trim()}%`)
         .not("latitude", "is", null)
         .not("longitude", "is", null)
@@ -231,7 +232,7 @@ export default function NearbySearchModal({
       subtitle: row.location_free ?? null,
       lat: Number(row.latitude),
       lng: Number(row.longitude),
-      cover: row.cover_photo_url ?? null,
+      cover: resolveThumb(row.cover_photo_thumb_url, row.cover_photo_url) || null,
     });
     setQuery("");
     setSearchOpen(false);
@@ -401,7 +402,7 @@ export default function NearbySearchModal({
                               onClick={() => chooseSite(r)}
                               className="px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex items-center gap-3"
                             >
-                              <SiteThumbnail raw={r.cover_photo_url} size={36} />
+                              <SiteThumbnail raw={resolveThumb(r.cover_photo_thumb_url, r.cover_photo_url)} size={36} />
                               <div className="min-w-0">
                                 <div className="text-gray-900 font-medium truncate text-sm">
                                   {r.title}

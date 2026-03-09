@@ -10,6 +10,7 @@ import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 type Site = {
   id: string;
@@ -163,8 +164,8 @@ export default function SitePreviewCard({
 
   const hasBlur = Boolean(site.cover_blur_data_url);
 
-  // Prefer thumbnail; fall back to full cover URL (e.g. map page) then placeholder
-  const sharpSrc = site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_SVG;
+  // Prefer thumbnail; fall back to cover URL converted to thumb variant, then placeholder
+  const sharpSrc = site.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") || FALLBACK_SVG;
 
   // isSharpLoaded is true only when the CURRENT sharpSrc has loaded
   const isSharpLoaded = loadedSrc === sharpSrc;
@@ -646,7 +647,7 @@ export default function SitePreviewCard({
             onClose={() => setShowWishlistModal(false)}
             site={{
               name: site.title,
-              imageUrl: site.cover_photo_url ?? site.cover_photo_thumb_url ?? undefined,
+              imageUrl: site.cover_photo_thumb_url ?? getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") ?? undefined,
               location: site.location_free ?? undefined,
             }}
           />
