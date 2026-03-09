@@ -403,7 +403,6 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (
-        event !== "INITIAL_SESSION" &&
         event !== "SIGNED_IN" &&
         event !== "SIGNED_OUT" &&
         event !== "USER_UPDATED"
@@ -648,9 +647,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     const handleLogout = async () => {
       try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
       await supabase.auth.signOut();
-      setIsOpen(false);
-      router.replace("/");
-      router.refresh();
+      window.location.replace("/");
     };
 
     const name = user.user_metadata?.full_name || "User";
@@ -1288,11 +1285,9 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   <button
                     type="button"
                     onClick={async () => {
-                      closeMobileMenu();
                       try { window.sessionStorage?.setItem("auth:justSignedOut", "1"); } catch {}
                       await supabase.auth.signOut();
-                      router.replace("/");
-                      router.refresh();
+                      window.location.replace("/");
                     }}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
