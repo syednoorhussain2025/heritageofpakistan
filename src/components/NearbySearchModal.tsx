@@ -281,7 +281,7 @@ export default function NearbySearchModal({
       />
       {/* Panel — full screen on mobile, centered card on desktop */}
       <div
-        className={`relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] bg-white sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`relative w-full h-full sm:h-auto sm:min-h-[520px] sm:max-w-lg sm:max-h-[90vh] bg-white sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${
           isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
         }`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}

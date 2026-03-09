@@ -18,6 +18,7 @@ import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineIt
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -1211,7 +1212,7 @@ export default function MapPage() {
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-300 flex-shrink-0">
               {selectedMapSite.cover_photo_url ? (
                 <img
-                  src={selectedMapSite.cover_photo_url}
+                  src={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || undefined}
                   alt={selectedMapSite.title}
                   className="w-full h-full object-cover"
                 />
@@ -1492,7 +1493,7 @@ export default function MapPage() {
                       {wishlistItems.map((item) => {
                         const site = item.sites;
                         const title = site?.title ?? "Site";
-                        const thumbUrl = site?.cover_photo_thumb_url ?? site?.cover_photo_url ?? null;
+                        const thumbUrl = site?.cover_photo_thumb_url ?? getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") ?? null;
                         return (
                           <li key={item.site_id}>
                             <button
@@ -2063,7 +2064,7 @@ export default function MapPage() {
                         itemsForDay.forEach((item, itemIdx) => {
                           const siteTitle = item.site?.title ?? "Site";
                           const cover = item.site?.cover_photo_url ?? null;
-                          const thumbUrl = item.site?.cover_photo_thumb_url || cover;
+                          const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(cover, "thumb") || null;
                           const smallDate = formatSmallDate(item.date_in ?? day.the_date ?? null);
                           out.push(
                             <li key={`site-${item.id ?? item.site_id}`}>
@@ -2112,7 +2113,7 @@ export default function MapPage() {
                         ungroupedItems.forEach((item, itemIdx) => {
                           const siteTitle = item.site?.title ?? "Site";
                           const cover = item.site?.cover_photo_url ?? null;
-                          const thumbUrl = item.site?.cover_photo_thumb_url || cover;
+                          const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(cover, "thumb") || null;
                           const smallDate = formatSmallDate(item.date_in ?? null);
                           out.push(
                             <li key={`site-${item.id ?? item.site_id}`}>
@@ -2160,7 +2161,7 @@ export default function MapPage() {
                       const site = item.site;
                       const title = site?.title ?? "Site";
                       const cover = site?.cover_photo_url ?? null;
-                      const thumbUrl = site?.cover_photo_thumb_url || cover;
+                      const thumbUrl = site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(cover, "thumb") || null;
                       return (
                         <li key={item.site_id}>
                           <button
@@ -2608,7 +2609,7 @@ export default function MapPage() {
                                 </li>
                                 {itemsForDay.map((item, itemIdx) => {
                                   const siteTitle = item.site?.title ?? "Site";
-                                  const thumbUrl = item.site?.cover_photo_thumb_url || item.site?.cover_photo_url || null;
+                                  const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
                                   const smallDate = formatSmallDate(item.date_in ?? (day as DayEntry).the_date ?? null);
                                   const site = allLocations.find((loc) => loc.id === item.site_id);
                                   return (
@@ -2635,7 +2636,7 @@ export default function MapPage() {
                               <li className="pt-3 pb-1.5"><div className="flex items-center gap-2 mb-1.5"><span className="text-[10px] font-semibold text-gray-500">Other sites</span></div><div className="border-b border-gray-100 mb-1.5" /></li>
                               {itemsByDayId.get(null)!.map((item, itemIdx) => {
                                 const siteTitle = item.site?.title ?? "Site";
-                                const thumbUrl = item.site?.cover_photo_thumb_url || item.site?.cover_photo_url || null;
+                                const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
                                 const smallDate = formatSmallDate(item.date_in ?? null);
                                 const site = allLocations.find((loc) => loc.id === item.site_id);
                                 return (
@@ -2667,7 +2668,7 @@ export default function MapPage() {
                       {tripItems.map((item, itemIdx) => {
                         const site = item.site;
                         const title = site?.title ?? "Site";
-                        const thumbUrl = site?.cover_photo_thumb_url || site?.cover_photo_url || null;
+                        const thumbUrl = site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") || null;
                         const siteObj = allLocations.find((loc) => loc.id === item.site_id);
                         return (
                           <li key={item.site_id}>
@@ -2743,7 +2744,7 @@ export default function MapPage() {
                     {wishlistItems.map((item) => {
                       const site = item.sites;
                       const title = site?.title ?? "Site";
-                      const thumbUrl = site?.cover_photo_thumb_url ?? site?.cover_photo_url ?? null;
+                      const thumbUrl = site?.cover_photo_thumb_url ?? getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") ?? null;
                       return (
                         <li key={item.site_id}>
                           <button
@@ -2842,7 +2843,7 @@ export default function MapPage() {
             onClose={() => setShowSitePanelWishlistModal(false)}
             site={{
               name: selectedMapSite.title,
-              imageUrl: selectedMapSite.cover_photo_url ?? undefined,
+              imageUrl: getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || undefined,
               location: selectedMapSite.location_free ?? undefined,
             }}
           />,
