@@ -235,6 +235,7 @@ function ClientOnlyMap({
   siteDates = null,
   hoveredSiteId = null,
   resetMapViewTrigger = 0,
+  fitFilteredTrigger = 0,
   openPreviewWithoutZoom = false,
   /** When true, map fits bounds to current locations (e.g. after applying "Search Around a Site"). */
   fitBoundsToLocations = false,
@@ -264,6 +265,8 @@ function ClientOnlyMap({
   hoveredSiteId?: string | null;
   /** When this value changes and is > 0, the map flies back to default center/zoom (e.g. after closing the trip panel). */
   resetMapViewTrigger?: number;
+  /** When this value increments, the map fits bounds to show all currently filtered pins (e.g. after applying search filters). */
+  fitFilteredTrigger?: number;
   /** When true, map fits bounds to current locations (e.g. after applying "Search Around a Site"). */
   fitBoundsToLocations?: boolean;
   /** When set, draw a light red circle on the map showing the search radius (e.g. "Search Around a Site"). */
@@ -325,6 +328,7 @@ function ClientOnlyMap({
         mapTypeId={googleMapTypeId}
         directMarkerSelect={directMarkerSelect}
         fitMapToLocations={permanentTooltips || fitBoundsToLocations}
+        fitFilteredTrigger={fitFilteredTrigger}
         siteDates={siteDates}
         hoveredSiteId={hoveredSiteId}
         resetMapViewTrigger={resetMapViewTrigger}
@@ -347,6 +351,7 @@ function ClientOnlyMap({
         directMarkerSelect={directMarkerSelect}
         siteDates={siteDates}
         resetMapViewTrigger={resetMapViewTrigger}
+        fitFilteredTrigger={fitFilteredTrigger}
         openPreviewWithoutZoom={openPreviewWithoutZoom}
         fitBoundsToLocations={fitBoundsToLocations}
         radiusCircle={radiusCircle}
@@ -364,6 +369,7 @@ const ClientOnlyMapMemo = memo(ClientOnlyMap, (prev, next) => {
   if (prev.permanentTooltips !== next.permanentTooltips) return false;
   if (prev.directMarkerSelect !== next.directMarkerSelect) return false;
   if (prev.resetMapViewTrigger !== next.resetMapViewTrigger) return false;
+  if (prev.fitFilteredTrigger !== next.fitFilteredTrigger) return false;
   if (prev.openPreviewWithoutZoom !== next.openPreviewWithoutZoom) return false;
   if (prev.fitBoundsToLocations !== next.fitBoundsToLocations) return false;
   if (prev.hoveredSiteId !== next.hoveredSiteId) return false;
@@ -571,6 +577,29 @@ function FitMapToLocations({
   return null;
 }
 
+/* When fitFilteredTrigger increments (user applied search filters), fly map to fit all visible pins */
+function FitFilteredEffect({
+  trigger,
+  locations,
+}: {
+  trigger: number;
+  locations: Site[];
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (trigger <= 0) return;
+    const valid = locations.filter(
+      (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+    );
+    if (valid.length === 0) return;
+    const bounds = L.latLngBounds(valid.map((s) => [s.latitude, s.longitude] as L.LatLngTuple));
+    if (bounds.isValid()) {
+      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, duration: 0.5 });
+    }
+  }, [map, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 /* When resetMapViewTrigger increments (e.g. trip panel closed), fly map back to default center/zoom */
 function ResetMapViewEffect({
   trigger,
@@ -651,6 +680,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
   directMarkerSelect = false,
   siteDates = null,
   resetMapViewTrigger = 0,
+  fitFilteredTrigger = 0,
   openPreviewWithoutZoom = false,
   fitBoundsToLocations = false,
   radiusCircle = null,
@@ -666,6 +696,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
   directMarkerSelect?: boolean;
   siteDates?: Map<string, string> | null;
   resetMapViewTrigger?: number;
+  fitFilteredTrigger?: number;
   openPreviewWithoutZoom?: boolean;
   /** When true, map fits bounds to current locations (e.g. after "Search Around a Site"). */
   fitBoundsToLocations?: boolean;
@@ -947,6 +978,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
             radiusCircle={radiusCircle}
           />
         )}
+        <FitFilteredEffect trigger={fitFilteredTrigger} locations={locations} />
         <ResetMapViewEffect
           trigger={resetMapViewTrigger}
           centerLat={settings.default_center_lat}
@@ -989,6 +1021,7 @@ function GoogleMapView({
   mapTypeId = "roadmap",
   directMarkerSelect = false,
   fitMapToLocations = false,
+  fitFilteredTrigger = 0,
   siteDates = null,
   hoveredSiteId = null,
   resetMapViewTrigger = 0,
@@ -1004,6 +1037,7 @@ function GoogleMapView({
   mapTypeId?: "roadmap" | "satellite";
   directMarkerSelect?: boolean;
   fitMapToLocations?: boolean;
+  fitFilteredTrigger?: number;
   siteDates?: Map<string, string> | null;
   hoveredSiteId?: string | null;
   resetMapViewTrigger?: number;
@@ -1308,6 +1342,23 @@ function GoogleMapView({
     mapRef.current.panTo({ lat: default_center_lat, lng: default_center_lng });
     mapRef.current.setZoom(default_zoom);
   }, [resetMapViewTrigger, default_center_lat, default_center_lng, default_zoom]);
+
+  /* When user applies search filters (fitFilteredTrigger increments), fit map to filtered pins */
+  useEffect(() => {
+    if (fitFilteredTrigger <= 0 || !mapReady || !mapRef.current) return;
+    const valid = locations.filter(
+      (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+    );
+    if (valid.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    valid.forEach((s) => bounds.extend({ lat: s.latitude, lng: s.longitude }));
+    mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    const listener = mapRef.current.addListener("idle", () => {
+      const z = mapRef.current?.getZoom();
+      if (typeof z === "number" && z > 14) mapRef.current?.setZoom(14);
+    });
+    return () => { google.maps.event.removeListener(listener); };
+  }, [fitFilteredTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Light red radius circle (dashed border + label) when "Search Around a Site" is active */
   useEffect(() => {

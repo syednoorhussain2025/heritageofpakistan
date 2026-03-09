@@ -266,6 +266,9 @@ export default function MapPage() {
   const [tripPanelHoveredSiteId, setTripPanelHoveredSiteId] = useState<string | null>(null);
   /** Increment when trip is closed so the map resets to default zoom/position. */
   const [resetMapViewTrigger, setResetMapViewTrigger] = useState(0);
+  /** Increment when user applies search filters so the map fits to the filtered pins. */
+  const [fitFilteredTrigger, setFitFilteredTrigger] = useState(0);
+  const triggerFitFiltered = useCallback(() => setFitFilteredTrigger((n) => n + 1), []);
   const stableLocationsRef = useRef<{ key: string; value: MapSite[] }>({ key: "", value: [] });
 
   // ── Map action toast ──
@@ -1794,7 +1797,7 @@ export default function MapPage() {
     <SearchFilters
       filters={filters}
       onFilterChange={handleFilterChange}
-      onSearch={closeSearchPanel}
+      onSearch={() => { closeSearchPanel(); triggerFitFiltered(); }}
       onOpenNearbyModal={() => setShowNearbyModal(true)}
       onClearNearby={() => showMapToast("Proximity filter cleared")}
       onReset={() => showMapToast("Filters reset")}
@@ -1856,6 +1859,7 @@ export default function MapPage() {
           siteDates={tripSiteDates}
           hoveredSiteId={tripPanelHoveredSiteId}
           resetMapViewTrigger={resetMapViewTrigger}
+          fitFilteredTrigger={fitFilteredTrigger}
           fitBoundsToLocations={nearbyActive}
           radiusCircle={radiusCircle}
           onPlacesNearbyApply={onPlacesNearbyApply}
@@ -2785,7 +2789,7 @@ export default function MapPage() {
           tools={tools}
           filters={filters}
           onFilterChange={handleFilterChange}
-          onSearch={() => {}}
+          onSearch={triggerFitFiltered}
           onOpenNearbyModal={() => setShowNearbyModal(true)}
           onClearNearby={() => showMapToast("Proximity filter cleared")}
           onReset={() => showMapToast("Filters reset")}
