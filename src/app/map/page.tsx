@@ -238,6 +238,10 @@ export default function MapPage() {
   const [mobileTripSheetVisible, setMobileTripSheetVisible] = useState(false);
   const [mobileTripSheetClosing, setMobileTripSheetClosing] = useState(false);
   const mobileTripSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mobileListSheetOpen, setMobileListSheetOpen] = useState(false);
+  const [mobileListSheetVisible, setMobileListSheetVisible] = useState(false);
+  const [mobileListSheetClosing, setMobileListSheetClosing] = useState(false);
+  const mobileListSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
   const [mobileMapTypeSheetVisible, setMobileMapTypeSheetVisible] = useState(false);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
@@ -270,6 +274,14 @@ export default function MapPage() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastLoading, setToastLoading] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
+  const toastRaf1Ref = useRef<number | null>(null);
+  const toastRaf2Ref = useRef<number | null>(null);
+  const searchPanelRaf2Ref = useRef<number | null>(null);
+  const ellipsisSheetRaf2Ref = useRef<number | null>(null);
+  const mapTypeSheetRaf2Ref = useRef<number | null>(null);
+  const siteSheetRaf2Ref = useRef<number | null>(null);
+  const tripSheetRaf2Ref = useRef<number | null>(null);
+  const listSheetRaf2Ref = useRef<number | null>(null);
   const filteredLocationsRef = useRef<MapSite[]>([]);
   const filterToastInitRef = useRef(false);
 
@@ -799,9 +811,18 @@ export default function MapPage() {
       return;
     }
     const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSearchPanelVisible(true));
+      searchPanelRaf2Ref.current = requestAnimationFrame(() => {
+        searchPanelRaf2Ref.current = null;
+        setSearchPanelVisible(true);
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      if (searchPanelRaf2Ref.current != null) {
+        cancelAnimationFrame(searchPanelRaf2Ref.current);
+        searchPanelRaf2Ref.current = null;
+      }
+    };
   }, [searchPanelOpen]);
   const closeSearchPanel = useCallback(() => {
     setSearchPanelVisible(false);
@@ -814,8 +835,19 @@ export default function MapPage() {
       setMobileEllipsisSheetVisible(false);
       return;
     }
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileEllipsisSheetVisible(true)));
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => {
+      ellipsisSheetRaf2Ref.current = requestAnimationFrame(() => {
+        ellipsisSheetRaf2Ref.current = null;
+        setMobileEllipsisSheetVisible(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      if (ellipsisSheetRaf2Ref.current != null) {
+        cancelAnimationFrame(ellipsisSheetRaf2Ref.current);
+        ellipsisSheetRaf2Ref.current = null;
+      }
+    };
   }, [mobileEllipsisSheetOpen]);
 
   /* Map type bottom sheet visibility animation */
@@ -824,8 +856,19 @@ export default function MapPage() {
       setMobileMapTypeSheetVisible(false);
       return;
     }
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileMapTypeSheetVisible(true)));
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => {
+      mapTypeSheetRaf2Ref.current = requestAnimationFrame(() => {
+        mapTypeSheetRaf2Ref.current = null;
+        setMobileMapTypeSheetVisible(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      if (mapTypeSheetRaf2Ref.current != null) {
+        cancelAnimationFrame(mapTypeSheetRaf2Ref.current);
+        mapTypeSheetRaf2Ref.current = null;
+      }
+    };
   }, [mobileMapTypeSheetOpen]);
 
   /* Site info bottom sheet visibility animation */
@@ -835,8 +878,19 @@ export default function MapPage() {
       setMobileSiteSheetClosing(false);
       return;
     }
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileSiteSheetVisible(true)));
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => {
+      siteSheetRaf2Ref.current = requestAnimationFrame(() => {
+        siteSheetRaf2Ref.current = null;
+        setMobileSiteSheetVisible(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      if (siteSheetRaf2Ref.current != null) {
+        cancelAnimationFrame(siteSheetRaf2Ref.current);
+        siteSheetRaf2Ref.current = null;
+      }
+    };
   }, [mobileSiteSheetOpen]);
 
   const closeSiteSheetWithAnimation = useCallback(() => {
@@ -861,8 +915,19 @@ export default function MapPage() {
       setMobileTripSheetClosing(false);
       return;
     }
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setMobileTripSheetVisible(true)));
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => {
+      tripSheetRaf2Ref.current = requestAnimationFrame(() => {
+        tripSheetRaf2Ref.current = null;
+        setMobileTripSheetVisible(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      if (tripSheetRaf2Ref.current != null) {
+        cancelAnimationFrame(tripSheetRaf2Ref.current);
+        tripSheetRaf2Ref.current = null;
+      }
+    };
   }, [mobileTripSheetOpen]);
 
   const closeTripSheetWithAnimation = useCallback(() => {
@@ -879,12 +944,58 @@ export default function MapPage() {
     if (mobileTripSheetCloseTimerRef.current) clearTimeout(mobileTripSheetCloseTimerRef.current);
   }, []);
 
+  /* List (saved list) bottom sheet visibility and close animation */
+  useEffect(() => {
+    if (!mobileListSheetOpen) {
+      setMobileListSheetVisible(false);
+      setMobileListSheetClosing(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      listSheetRaf2Ref.current = requestAnimationFrame(() => {
+        listSheetRaf2Ref.current = null;
+        setMobileListSheetVisible(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      if (listSheetRaf2Ref.current != null) {
+        cancelAnimationFrame(listSheetRaf2Ref.current);
+        listSheetRaf2Ref.current = null;
+      }
+    };
+  }, [mobileListSheetOpen]);
+
+  const closeListSheetWithAnimation = useCallback(() => {
+    if (mobileListSheetCloseTimerRef.current) return;
+    setMobileListSheetClosing(true);
+    mobileListSheetCloseTimerRef.current = setTimeout(() => {
+      mobileListSheetCloseTimerRef.current = null;
+      setMobileListSheetOpen(false);
+      setMobileListSheetClosing(false);
+    }, 300);
+  }, []);
+
+  useEffect(() => () => {
+    if (mobileListSheetCloseTimerRef.current) clearTimeout(mobileListSheetCloseTimerRef.current);
+  }, []);
+
   /* When a trip is applied on mobile, open the trip details bottom sheet automatically */
   useEffect(() => {
     if (!mounted) return;
     if (typeof sidebarFilter !== "object" || sidebarFilter === null || !("tripId" in sidebarFilter)) return;
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
       setMobileTripSheetOpen(true);
+    }
+  }, [mounted, sidebarFilter]);
+
+  /* When a saved list is applied on mobile, open the list bottom sheet automatically */
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof sidebarFilter !== "object" || sidebarFilter === null || !("wishlistId" in sidebarFilter)) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setExpandedWishlistId(sidebarFilter.wishlistId);
+      setMobileListSheetOpen(true);
     }
   }, [mounted, sidebarFilter]);
 
@@ -895,12 +1006,24 @@ export default function MapPage() {
 
   const showMapToast = useCallback((message: string) => {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    if (toastRaf1Ref.current != null) {
+      cancelAnimationFrame(toastRaf1Ref.current);
+      toastRaf1Ref.current = null;
+    }
+    if (toastRaf2Ref.current != null) {
+      cancelAnimationFrame(toastRaf2Ref.current);
+      toastRaf2Ref.current = null;
+    }
     setToastLoading(false);
     setToastMessage(message);
     setToastVisible(true);
     setToastOpen(false);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setToastOpen(true));
+    toastRaf1Ref.current = requestAnimationFrame(() => {
+      toastRaf1Ref.current = null;
+      toastRaf2Ref.current = requestAnimationFrame(() => {
+        toastRaf2Ref.current = null;
+        setToastOpen(true);
+      });
     });
     toastTimerRef.current = window.setTimeout(() => {
       setToastOpen(false);
@@ -925,7 +1048,17 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    return () => { if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current); };
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (toastRaf1Ref.current != null) {
+        cancelAnimationFrame(toastRaf1Ref.current);
+        toastRaf1Ref.current = null;
+      }
+      if (toastRaf2Ref.current != null) {
+        cancelAnimationFrame(toastRaf2Ref.current);
+        toastRaf2Ref.current = null;
+      }
+    };
   }, []);
 
   const savedListLoadingDoneRef = useRef(false);
@@ -1807,7 +1940,7 @@ export default function MapPage() {
         </div>
           );
         })()}
-        {/* Mobile: Trip Details button only (above bottom nav) when a trip is applied */}
+        {/* Mobile: Trip Details button (above bottom nav) when a trip is applied */}
         {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
           <button
             type="button"
@@ -1817,6 +1950,21 @@ export default function MapPage() {
             aria-label="Trip details"
           >
             <span>Trip Details</span>
+          </button>
+        )}
+        {/* Mobile: Show List button (same position as Trip Details) when a saved list is applied */}
+        {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setExpandedWishlistId(sidebarFilter.wishlistId);
+              setMobileListSheetOpen(true);
+            }}
+            className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
+            style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
+            aria-label="Show list"
+          >
+            <span>Show List</span>
           </button>
         )}
           </>
@@ -2532,6 +2680,97 @@ export default function MapPage() {
                       })}
                     </ul>
                   </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Mobile: saved list bottom sheet (same structure as trip sheet) */}
+      {mounted && (mobileListSheetOpen || mobileListSheetClosing) && typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="List details">
+            <div
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileListSheetVisible && !mobileListSheetClosing ? "opacity-100" : "opacity-0"}`}
+              onClick={closeListSheetWithAnimation}
+              aria-hidden="true"
+            />
+            <div
+              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileListSheetVisible && !mobileListSheetClosing ? "translate-y-0" : "translate-y-full"}`}
+              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
+              <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
+                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+                  <Icon name="list-ul" size={16} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
+                  <h3 className="text-sm font-semibold text-gray-800 leading-snug break-words">{activeWishlistName ?? "Saved list"}</h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {wishlistItemsLoading && expandedWishlistId === sidebarFilter.wishlistId ? "Loading…" : `${wishlistItems.length} ${wishlistItems.length === 1 ? "site" : "sites"}`}
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { clearSidebarFilter(); closeListSheetWithAnimation(); }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-orange)] border border-[var(--brand-orange)] rounded-lg px-3 py-2 hover:bg-orange-50 transition-colors"
+                  >
+                    <Icon name="times" size={10} />
+                    Clear from map
+                  </button>
+                  <button type="button" onClick={closeListSheetWithAnimation} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700" aria-label="Close list panel">
+                    <Icon name="times" size={12} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
+                {wishlistItemsLoading && expandedWishlistId === sidebarFilter.wishlistId ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+                    <Icon name="spinner" size={20} className="animate-spin" />
+                    <span className="text-sm">Loading sites…</span>
+                  </div>
+                ) : wishlistItems.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-6 text-center">No sites in this list yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {wishlistItems.map((item) => {
+                      const site = item.sites;
+                      const title = site?.title ?? "Site";
+                      const thumbUrl = site?.cover_photo_thumb_url ?? site?.cover_photo_url ?? null;
+                      return (
+                        <li key={item.site_id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHighlightFromSavedList(true);
+                              setHighlightSiteId(item.site_id);
+                            }}
+                            className="w-full cursor-pointer flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
+                          >
+                            <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                              {thumbUrl ? (
+                                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-gray-300">
+                                  <Icon name="map-pin" size={20} />
+                                </span>
+                              )}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate group-hover:text-[var(--brand-orange)] transition-colors">{title}</span>
+                              <span className="block text-xs text-gray-400 mt-0.5">Tap to locate on map</span>
+                            </span>
+                            <span className="shrink-0 p-2 -m-2 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors" aria-hidden>
+                              <Icon name="chevron-right" size={14} className="text-gray-300 group-hover:text-[var(--brand-orange)] transition-colors" />
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             </div>

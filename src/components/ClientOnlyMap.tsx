@@ -1021,6 +1021,7 @@ function GoogleMapView({
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const tooltipWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const radiusCircleRef = useRef<google.maps.Circle | null>(null);
   const radiusCircleStrokeRef = useRef<google.maps.Polyline | null>(null);
@@ -1229,6 +1230,9 @@ function GoogleMapView({
     const tooltipFn = getTooltipContentRef.current;
     const dates = siteDatesRef.current;
 
+    // Clear listeners on existing markers before removing to prevent memory leaks
+    markersRef.current.forEach((m) => google.maps.event.clearInstanceListeners(m));
+    markersRef.current = [];
     clusterer.clearMarkers();
 
     const newMarkers = locs.map((s) => {
@@ -1261,6 +1265,7 @@ function GoogleMapView({
       return m;
     });
 
+    markersRef.current = newMarkers;
     clusterer.addMarkers(newMarkers);
   }, []);
 
@@ -1601,9 +1606,12 @@ function GoogleMapView({
           renderer: new ThemedRenderer(settings.cluster_color_google || settings.cluster_color || "#f78300"),
         });
         clustererRef.current = clusterer;
+        markersRef.current = markers;
       }}
       onClick={() => setActiveId(null)}
       onUnmount={() => {
+        markersRef.current.forEach((m) => google.maps.event.clearInstanceListeners(m));
+        markersRef.current = [];
         const clusterer = clustererRef.current;
         if (clusterer) {
           clusterer.clearMarkers();
