@@ -44,6 +44,12 @@ type CategoryRow = {
 
 const FILTER_QUERY_TIMEOUT_MS = 12000;
 
+/* ───────────────────────────── Module-level filter data cache ───────────────────────────── */
+/** Persists across SearchFilters unmount/remount cycles so re-opening the panel
+ *  never shows empty categories due to a failed or slow refetch. */
+let _cachedFilterCats: CategoryRow[] | null = null;
+let _cachedFilterRegions: Option[] | null = null;
+
 /* ───────────────────────────── Small utils ───────────────────────────── */
 const andJoin = (arr: string[]) =>
   arr.length <= 2
@@ -2204,8 +2210,73 @@ export default function SearchFilters({
   const [unescoOptions, setUnescoOptions] = useState<Option[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    /** Apply a fetched/cached cats+regions dataset to all state setters. */
+    function applyData(cats: CategoryRow[], top: Option[]) {
+      setOptions({ categories: cats as any, regions: top });
+      setTopRegions(top);
+      setRegionNames((m) => { const next = { ...m }; top.forEach((t) => (next[t.id] = t.name)); return next; });
+      setRegionParents((m) => { const next = { ...m }; top.forEach((t) => (next[t.id] = t.id)); return next; });
+
+      const heritageRoot = cats.find((c) => c.slug === "heritage-type");
+      if (heritageRoot) {
+        setHeritageTypeOptions(collectCategorySubtree(cats, heritageRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setHeritageTypeOptions([]); }
+
+      const periodRoot = cats.find((c) => c.slug === "historical-period");
+      if (periodRoot) {
+        setHistoricalPeriodOptions(collectCategorySubtree(cats, periodRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setHistoricalPeriodOptions([]); }
+
+      const architectureRoot = cats.find((c) => c.slug === "architecture");
+      if (architectureRoot) {
+        setArchitectureRootId(architectureRoot.id);
+        setArchitectureTypeOptions(collectCategorySubtree(cats, architectureRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setArchitectureRootId(null); setArchitectureTypeOptions([]); }
+
+      const styleRoot = cats.find((c) => c.slug === "architectural-style");
+      if (styleRoot) {
+        setArchitecturalStyleOptions(collectCategorySubtree(cats, styleRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setArchitecturalStyleOptions([]); }
+
+      const featureRoot = cats.find((c) => c.slug === "architectural-features");
+      if (featureRoot) {
+        setArchitecturalFeatureOptions(collectCategorySubtree(cats, featureRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setArchitecturalFeatureOptions([]); }
+
+      const naturalRoot = cats.find((c) => c.slug === "natural-heritage-landscapes") || cats.find((c) => c.name === "Natural Heritage & Landscapes");
+      if (naturalRoot) {
+        setNaturalRootId(naturalRoot.id);
+        setNaturalTypeOptions(collectCategorySubtree(cats, naturalRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setNaturalRootId(null); setNaturalTypeOptions([]); }
+
+      const culturalRoot = cats.find((c) => c.slug === "cultural-landscape") || cats.find((c) => c.name === "Cultural Landscape" || c.name === "Cultural Landscapes");
+      if (culturalRoot) {
+        setCulturalRootId(culturalRoot.id);
+        setCulturalTypeOptions(collectCategorySubtree(cats, culturalRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setCulturalRootId(null); setCulturalTypeOptions([]); }
+
+      const archaeologyRoot = cats.find((c) => c.slug === "archaeology") || cats.find((c) => c.name === "Archaeology");
+      if (archaeologyRoot) {
+        setArchaeologyRootId(archaeologyRoot.id);
+        setArchaeologyTypeOptions(collectCategorySubtree(cats, archaeologyRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setArchaeologyRootId(null); setArchaeologyTypeOptions([]); }
+
+      const unescoRoot = cats.find((c) => c.slug === "unesco-status") || cats.find((c) => c.name?.toLowerCase().includes("unesco"));
+      if (unescoRoot) {
+        setUnescoOptions(collectCategorySubtree(cats, unescoRoot.id, false).map(({ id, name, icon_key }) => ({ id, name, icon_key })));
+      } else { setUnescoOptions([]); }
+    }
+
+    // If we have cached data (from a previous mount), apply it immediately so the
+    // panel never flashes empty on re-open while the fresh fetch is in-flight.
+    if (_cachedFilterCats?.length && _cachedFilterRegions) {
+      applyData(_cachedFilterCats, _cachedFilterRegions);
+    }
+
     (async () => {
-      const [{ data: cat }, { data: regTop }] = await Promise.all([
+      const [{ data: cat, error: catErr }, { data: regTop }] = await Promise.all([
         supabase
           .from("categories")
           .select("id,name,icon_key,parent_id,slug")
@@ -2218,6 +2289,12 @@ export default function SearchFilters({
           .order("name"),
       ]);
 
+      if (cancelled) return;
+
+      // If the fetch failed and we already applied cached data, keep it rather than
+      // overwriting with empty arrays.
+      if ((catErr || !cat?.length) && _cachedFilterCats?.length) return;
+
       const catsRaw = (cat || []) as any[];
       const cats: CategoryRow[] = catsRaw.map((c) => ({
         id: c.id,
@@ -2226,181 +2303,16 @@ export default function SearchFilters({
         parent_id: c.parent_id,
         slug: c.slug,
       }));
-
       const top = (regTop as Option[]) || [];
-      setOptions({ categories: cats as any, regions: top });
-      setTopRegions(top);
 
-      setRegionNames((m) => {
-        const next = { ...m };
-        top.forEach((t) => (next[t.id] = t.name));
-        return next;
-      });
-      setRegionParents((m) => {
-        const next = { ...m };
-        top.forEach((t) => (next[t.id] = t.id));
-        return next;
-      });
+      // Update module-level cache for future mounts.
+      _cachedFilterCats = cats;
+      _cachedFilterRegions = top;
 
-      // Heritage Type subtree (for All tab)
-      const heritageRoot = cats.find((c) => c.slug === "heritage-type");
-      if (heritageRoot) {
-        const subtree = collectCategorySubtree(cats, heritageRoot.id, false);
-        setHeritageTypeOptions(
-          subtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
-        );
-      } else {
-        setHeritageTypeOptions([]);
-      }
-
-      // Historical Period subtree (shared by All / Arch / Archaeology)
-      const periodRoot = cats.find((c) => c.slug === "historical-period");
-      if (periodRoot) {
-        const subtree = collectCategorySubtree(cats, periodRoot.id, false);
-        setHistoricalPeriodOptions(
-          subtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
-        );
-      } else {
-        setHistoricalPeriodOptions([]);
-      }
-
-      // Architecture root
-      const architectureRoot = cats.find((c) => c.slug === "architecture");
-      if (architectureRoot) {
-        setArchitectureRootId(architectureRoot.id);
-        const archSubtree = collectCategorySubtree(
-          cats,
-          architectureRoot.id,
-          false
-        );
-        setArchitectureTypeOptions(
-          archSubtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
-        );
-      } else {
-        setArchitectureRootId(null);
-        setArchitectureTypeOptions([]);
-      }
-
-      // Architectural Style root
-      const styleRoot = cats.find((c) => c.slug === "architectural-style");
-      if (styleRoot) {
-        const styleSubtree = collectCategorySubtree(cats, styleRoot.id, false);
-        setArchitecturalStyleOptions(
-          styleSubtree.map(({ id, name, icon_key }) => ({
-            id,
-            name,
-            icon_key,
-          }))
-        );
-      } else {
-        setArchitecturalStyleOptions([]);
-      }
-
-      // Architectural Features root
-      const featureRoot = cats.find((c) => c.slug === "architectural-features");
-      if (featureRoot) {
-        const featureSubtree = collectCategorySubtree(
-          cats,
-          featureRoot.id,
-          false
-        );
-        setArchitecturalFeatureOptions(
-          featureSubtree.map(({ id, name, icon_key }) => ({
-            id,
-            name,
-            icon_key,
-          }))
-        );
-      } else {
-        setArchitecturalFeatureOptions([]);
-      }
-
-      // Natural Heritage & Landscapes root (by slug OR name)
-      const naturalRoot =
-        cats.find((c) => c.slug === "natural-heritage-landscapes") ||
-        cats.find((c) => c.name === "Natural Heritage & Landscapes");
-      if (naturalRoot) {
-        setNaturalRootId(naturalRoot.id);
-        const naturalSubtree = collectCategorySubtree(
-          cats,
-          naturalRoot.id,
-          false
-        );
-        setNaturalTypeOptions(
-          naturalSubtree.map(({ id, name, icon_key }) => ({
-            id,
-            name,
-            icon_key,
-          }))
-        );
-      } else {
-        setNaturalRootId(null);
-        setNaturalTypeOptions([]);
-      }
-
-      // Cultural Landscape root (by slug OR name)
-      const culturalRoot =
-        cats.find((c) => c.slug === "cultural-landscape") ||
-        cats.find(
-          (c) =>
-            c.name === "Cultural Landscape" ||
-            c.name === "Cultural Landscapes"
-        );
-      if (culturalRoot) {
-        setCulturalRootId(culturalRoot.id);
-        const culturalSubtree = collectCategorySubtree(
-          cats,
-          culturalRoot.id,
-          false
-        );
-        setCulturalTypeOptions(
-          culturalSubtree.map(({ id, name, icon_key }) => ({
-            id,
-            name,
-            icon_key,
-          }))
-        );
-      } else {
-        setCulturalRootId(null);
-        setCulturalTypeOptions([]);
-      }
-
-      // Archaeology root (by slug OR name)
-      const archaeologyRoot =
-        cats.find((c) => c.slug === "archaeology") ||
-        cats.find((c) => c.name === "Archaeology");
-      if (archaeologyRoot) {
-        setArchaeologyRootId(archaeologyRoot.id);
-        const archaeologySubtree = collectCategorySubtree(
-          cats,
-          archaeologyRoot.id,
-          false
-        );
-        setArchaeologyTypeOptions(
-          archaeologySubtree.map(({ id, name, icon_key }) => ({
-            id,
-            name,
-            icon_key,
-          }))
-        );
-      } else {
-        setArchaeologyRootId(null);
-        setArchaeologyTypeOptions([]);
-      }
-
-      // UNESCO Status
-      const unescoRoot =
-        cats.find((c) => c.slug === "unesco-status") ||
-        cats.find((c) => c.name?.toLowerCase().includes("unesco"));
-      if (unescoRoot) {
-        const unescoSubtree = collectCategorySubtree(cats, unescoRoot.id, false);
-        setUnescoOptions(
-          unescoSubtree.map(({ id, name, icon_key }) => ({ id, name, icon_key }))
-        );
-      } else {
-        setUnescoOptions([]);
-      }
+      applyData(cats, top);
     })();
+
+    return () => { cancelled = true; };
   }, []);
 
   // Sets for grouping logic
