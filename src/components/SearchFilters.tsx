@@ -922,14 +922,24 @@ function SubRegionsColumn({
     let active = true;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("regions")
-        .select("id,name,icon_key")
-        .eq("parent_id", parent.id)
-        .order("name");
-      if (!active) return;
-      setLoading(false);
-      if (!error) setSubs(((data || []) as Option[]) || []);
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from("regions")
+            .select("id,name,icon_key")
+            .eq("parent_id", parent.id)
+            .order("name"),
+          FILTER_QUERY_TIMEOUT_MS,
+          "SubRegionsColumn.fetchSubs"
+        );
+        if (!active) return;
+        setLoading(false);
+        if (!error) setSubs(((data || []) as Option[]) || []);
+      } catch {
+        if (!active) return;
+        setLoading(false);
+        setSubs([]);
+      }
     })();
     return () => {
       active = false;
