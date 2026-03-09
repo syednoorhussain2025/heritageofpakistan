@@ -42,8 +42,23 @@ function emitState() {
   }
 }
 
+/**
+ * Only update shared state and trigger React re-renders when something
+ * actually changed.  TOKEN_REFRESHED, tab-switch re-validations, and
+ * duplicate SIGNED_IN events all fire patchState with the same userId —
+ * without this guard they would cause the entire MapPage (and every other
+ * subscriber) to re-render for no reason, causing visible UI jank.
+ */
 function patchState(patch: Partial<AuthState>) {
-  sharedState = { ...sharedState, ...patch };
+  const next = { ...sharedState, ...patch };
+  if (
+    next.userId === sharedState.userId &&
+    next.authLoading === sharedState.authLoading &&
+    next.authError === sharedState.authError
+  ) {
+    return; // nothing changed — skip the emit entirely
+  }
+  sharedState = next;
   emitState();
 }
 
@@ -57,13 +72,39 @@ function patchState(patch: Partial<AuthState>) {
  *     the access token is expired (using the refresh token), and returns null
  *     when the session is truly gone.
  *
- * @param fromEvent  true when called from a DOM event handler (applies debounce)
+ * Exception: for event-driven re-checks (tab switch, focus, online) we first
+ * consult the local session cache.  If the session is still valid and not close
+ * to expiring we skip the round-trip entirely — the Supabase client's own
+ * autoRefreshToken already handles silent renewal.
+ *
+ * @param fromEvent  true when called from a DOM event handler (applies debounce + local-cache fast-path)
  */
 async function resolveSharedAuth(fromEvent = false) {
   if (fromEvent) {
     const now = Date.now();
     if (now - lastEventResolveMs < EVENT_RESOLVE_DEBOUNCE_MS) return;
     lastEventResolveMs = now;
+
+    // Fast-path for tab-switch / focus / online events: if we already have a
+    // known userId and the local session is fresh (> 60 s to expiry), there is
+    // no need to hit the Supabase auth server.  autoRefreshToken handles silent
+    // renewal automatically; we only need a server round-trip when the session
+    // looks expired or is missing entirely.
+    if (sharedState.userId !== null && !sharedState.authLoading) {
+      try {
+        const { data: { session } } = await getClient().auth.getSession();
+        if (
+          session?.user?.id === sharedState.userId &&
+          typeof session.expires_at === "number" &&
+          session.expires_at * 1000 > Date.now() + 60_000
+        ) {
+          // Session is valid and fresh — nothing to do.
+          return;
+        }
+      } catch {
+        // Ignore — fall through to full getUser() check.
+      }
+    }
   }
 
   if (sharedResolving) {
@@ -131,6 +172,8 @@ function initSharedAuthRuntime() {
 
     // For SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — if the event carries a
     // valid session we trust it directly (it came straight from Supabase).
+    // patchState will no-op if the userId hasn't actually changed (e.g. on
+    // TOKEN_REFRESHED for the same user), preventing pointless re-renders.
     const nextUserId = session?.user?.id ?? null;
     if (nextUserId) {
       patchState({ userId: nextUserId, authError: null, authLoading: false });
@@ -149,8 +192,8 @@ function initSharedAuthRuntime() {
   });
 
   // Re-validate auth when the tab becomes visible, the window regains focus,
-  // or the device reconnects.  These use the debounce to avoid back-to-back
-  // network calls when e.g. alt-tabbing rapidly.
+  // or the device reconnects.  These use the debounce + local-cache fast-path
+  // to avoid unnecessary server calls when the session is already valid.
   const onVisible = () => {
     if (document.visibilityState === "visible") {
       void resolveSharedAuth(true);
