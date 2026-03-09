@@ -7,10 +7,13 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { withTimeout } from "@/lib/async/withTimeout";
 import Icon from "./Icon";
+
+const QUERY_TIMEOUT_MS = 12000;
 
 type Toast = {
   message: string;
@@ -32,11 +35,17 @@ const BookmarkContext = createContext<BookmarkContextType>({
 export const useBookmarks = () => useContext(BookmarkContext);
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const getSignedInUserId = useCallback(async (): Promise<string | null> => {
     try {
@@ -106,8 +115,12 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
   }, [refreshBookmarks, supabase]);
 
   const showToast = (message: string, type: "add" | "remove") => {
+    if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3000);
   };
 
   const toggleBookmark = useCallback(

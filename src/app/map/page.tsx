@@ -37,6 +37,10 @@ const useDebounce = (value: string, delay: number) => {
   return debouncedValue;
 };
 
+/* ────────────────── Phase-1 retry policy ──────────────────────────────── */
+const PHASE1_MAX_ATTEMPTS = 4; // initial + 3 auto-retries
+const PHASE1_BACKOFF_MS = [1000, 2000, 4000]; // delay before retry 1, 2, 3
+
 /* ───────────────────────────── Sidebar tools ───────────────────────────── */
 const mapTools: Tool[] = [
   { id: "search", name: "Search", icon: "search" },
@@ -208,6 +212,11 @@ export default function MapPage() {
   });
 
   const [allLocations, setAllLocations] = useState<MapSite[]>([]);
+  /** O(1) lookup by site id — rebuilt only when allLocations changes. */
+  const allLocationsById = useMemo(
+    () => new Map(allLocations.map((loc) => [loc.id, loc])),
+    [allLocations]
+  );
   const [mapSettings, setMapSettings] = useState<any>(null);
   const [allIcons, setAllIcons] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -531,7 +540,6 @@ export default function MapPage() {
   /* ───────── Phase 1: Load settings, icons, categories, regions (or revalidate if we have cache) ─────────
    * - If we have bootstrap (server or localStorage), only revalidate in background (no timeout).
    * - Otherwise fetch with no timeout so slow/cold Supabase can finish; retry on real failures. */
-  const PHASE1_MAX_ATTEMPTS = 4; // initial + 3 auto-retries
   useEffect(() => {
     let cancelled = false;
     const hasInitialData = !!(initialBootstrapFromServer || getCachedBootstrap());
@@ -571,8 +579,11 @@ export default function MapPage() {
           if (cancelled) return;
           const shouldRetry = phase1RetryCount < PHASE1_MAX_ATTEMPTS - 1;
           if (shouldRetry) {
-            setPhase1RetryCount((c) => c + 1);
             setLoading(false);
+            const delay = PHASE1_BACKOFF_MS[phase1RetryCount] ?? 4000;
+            await new Promise<void>((res) => setTimeout(res, delay));
+            if (cancelled) return;
+            setPhase1RetryCount((c) => c + 1);
             return;
           }
           setLoadError(true);
@@ -2065,7 +2076,7 @@ export default function MapPage() {
                             <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
-                                onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
+                                onClick={() => { const s = allLocationsById.get(item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                                 onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)}
                                 onMouseLeave={() => setTripPanelHoveredSiteId(null)}
                                 className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer"
@@ -2114,7 +2125,7 @@ export default function MapPage() {
                             <li key={`site-${item.id ?? item.site_id}`}>
                               <button
                                 type="button"
-                                onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
+                                onClick={() => { const s = allLocationsById.get(item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                                 onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)}
                                 onMouseLeave={() => setTripPanelHoveredSiteId(null)}
                                 className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer"
@@ -2161,7 +2172,7 @@ export default function MapPage() {
                         <li key={item.site_id}>
                           <button
                             type="button"
-                            onClick={() => { const s = allLocations.find(loc => loc.id === item.site_id); if (s) handleSiteSelect(s as MapSite); }}
+                            onClick={() => { const s = allLocationsById.get(item.site_id); if (s) handleSiteSelect(s as MapSite); }}
                             onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)}
                             onMouseLeave={() => setTripPanelHoveredSiteId(null)}
                             className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer"
@@ -2606,7 +2617,7 @@ export default function MapPage() {
                                   const siteTitle = item.site?.title ?? "Site";
                                   const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
                                   const smallDate = formatSmallDate(item.date_in ?? (day as DayEntry).the_date ?? null);
-                                  const site = allLocations.find((loc) => loc.id === item.site_id);
+                                  const site = allLocationsById.get(item.site_id);
                                   return (
                                     <li key={`site-${item.id ?? item.site_id}`}>
                                       <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
@@ -2633,7 +2644,7 @@ export default function MapPage() {
                                 const siteTitle = item.site?.title ?? "Site";
                                 const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
                                 const smallDate = formatSmallDate(item.date_in ?? null);
-                                const site = allLocations.find((loc) => loc.id === item.site_id);
+                                const site = allLocationsById.get(item.site_id);
                                 return (
                                   <li key={`site-${item.id ?? item.site_id}`}>
                                     <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
@@ -2664,7 +2675,7 @@ export default function MapPage() {
                         const site = item.site;
                         const title = site?.title ?? "Site";
                         const thumbUrl = site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") || null;
-                        const siteObj = allLocations.find((loc) => loc.id === item.site_id);
+                        const siteObj = allLocationsById.get(item.site_id);
                         return (
                           <li key={item.site_id}>
                             <button type="button" onClick={() => siteObj && handleSiteSelect(siteObj as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">

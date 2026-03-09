@@ -19,6 +19,8 @@ type Profile = {
   badge: string | null;
 };
 
+const QUERY_TIMEOUT_MS = 12000;
+
 const ProfileContext = createContext<{
   profile: Profile | null;
   loading: boolean;
@@ -28,7 +30,6 @@ const ProfileContext = createContext<{
 });
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const QUERY_TIMEOUT_MS = 12000;
   const supabase = useMemo(() => createClient(), []);
   const { userId } = useAuthUserId();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -82,7 +83,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     };
   }, [userId, supabase]);
 
-  const value = { profile, loading };
+  const value = useMemo(() => ({ profile, loading }), [profile, loading]);
 
   return (
     <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

@@ -11,6 +11,7 @@ import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import AuthPendingToast from "@/components/AuthPendingToast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function AppChrome({
   children,
@@ -24,27 +25,31 @@ export default function AppChrome({
 
   if (isAdminRoute) {
     return (
-      <LoaderEngineProvider>
-        <Header initialItems={initialHeaderItems} />
-        <main>{children}</main>
-      </LoaderEngineProvider>
+      <ErrorBoundary>
+        <LoaderEngineProvider>
+          <Header initialItems={initialHeaderItems} />
+          <main>{children}</main>
+        </LoaderEngineProvider>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <ProfileProvider>
-      <BookmarkProvider>
-        <WishlistProvider>
-          <CollectionsProvider>
-            <LoaderEngineProvider>
-              <AuthPendingToast />
-              <Header initialItems={initialHeaderItems} />
-              <main>{children}</main>
-              <BottomNav />
-            </LoaderEngineProvider>
-          </CollectionsProvider>
-        </WishlistProvider>
-      </BookmarkProvider>
-    </ProfileProvider>
+    <ErrorBoundary>
+      <ProfileProvider>
+        <BookmarkProvider>
+          <WishlistProvider>
+            <CollectionsProvider>
+              <LoaderEngineProvider>
+                <AuthPendingToast />
+                <Header initialItems={initialHeaderItems} />
+                <main>{children}</main>
+                <BottomNav />
+              </LoaderEngineProvider>
+            </CollectionsProvider>
+          </WishlistProvider>
+        </BookmarkProvider>
+      </ProfileProvider>
+    </ErrorBoundary>
   );
 }

@@ -60,6 +60,8 @@ export function CollectionsProvider({
   const [toastId, setToastId] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
   const toastCleanupRef = useRef<number | null>(null);
+  const toastRaf1Ref = useRef<number | null>(null);
+  const toastRaf2Ref = useRef<number | null>(null);
 
   // Track in-flight writes per key so multiple rapid clicks do not spawn races
   const inFlightRef = useRef<Set<string>>(new Set());
@@ -145,8 +147,12 @@ export function CollectionsProvider({
         // Also dismiss any active toast
         setToastOpen(false);
         setToastMsg(null);
+        if (toastRaf1Ref.current) window.cancelAnimationFrame(toastRaf1Ref.current);
+        if (toastRaf2Ref.current) window.cancelAnimationFrame(toastRaf2Ref.current);
         if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
         if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+        toastRaf1Ref.current = null;
+        toastRaf2Ref.current = null;
         toastTimerRef.current = null;
         toastCleanupRef.current = null;
         return;
@@ -186,6 +192,8 @@ export function CollectionsProvider({
 
   useEffect(() => {
     return () => {
+      if (toastRaf1Ref.current) window.cancelAnimationFrame(toastRaf1Ref.current);
+      if (toastRaf2Ref.current) window.cancelAnimationFrame(toastRaf2Ref.current);
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
       if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
     };
@@ -196,12 +204,18 @@ export function CollectionsProvider({
     setToastMsg(message);
     setToastOpen(false);
 
+    if (toastRaf1Ref.current) window.cancelAnimationFrame(toastRaf1Ref.current);
+    if (toastRaf2Ref.current) window.cancelAnimationFrame(toastRaf2Ref.current);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
 
     // Ensure the "closed" state paints before opening, so slide-in is visible
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setToastOpen(true));
+    toastRaf1Ref.current = window.requestAnimationFrame(() => {
+      toastRaf1Ref.current = null;
+      toastRaf2Ref.current = window.requestAnimationFrame(() => {
+        toastRaf2Ref.current = null;
+        setToastOpen(true);
+      });
     });
 
     // Match timing: 1900ms visible, 220ms exit, 220ms transition

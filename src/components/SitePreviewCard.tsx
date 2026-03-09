@@ -236,6 +236,8 @@ export default function SitePreviewCard({
       cancelled = true;
       pre.onload = null;
       pre.onerror = null;
+      // Abort any in-flight network request for this image.
+      pre.src = "";
     };
   }, [sharpSrc]);
 
