@@ -42,13 +42,15 @@ type CategoryRow = {
   slug: string;
 };
 
-const FILTER_QUERY_TIMEOUT_MS = 12000;
+const FILTER_QUERY_TIMEOUT_MS = 6000;
 
 /* ───────────────────────────── Module-level filter data cache ───────────────────────────── */
 /** Persists across SearchFilters unmount/remount cycles so re-opening the panel
  *  never shows empty categories due to a failed or slow refetch. */
 let _cachedFilterCats: CategoryRow[] | null = null;
 let _cachedFilterRegions: Option[] | null = null;
+/** Subregion cache keyed by parent region id — survives unmount/remount & auth token refresh. */
+const _cachedSubregions = new Map<string, Option[]>();
 
 /* ───────────────────────────── Small utils ───────────────────────────── */
 const andJoin = (arr: string[]) =>
@@ -919,9 +921,16 @@ function SubRegionsColumn({
       setLoading(false);
       return;
     }
+    // Apply cache immediately — no loading flash on remount or auth state change
+    const cached = _cachedSubregions.get(parent.id);
+    if (cached) {
+      setSubs(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     let active = true;
     (async () => {
-      setLoading(true);
       try {
         const { data, error } = await withTimeout(
           supabase
@@ -933,12 +942,19 @@ function SubRegionsColumn({
           "SubRegionsColumn.fetchSubs"
         );
         if (!active) return;
-        setLoading(false);
-        if (!error) setSubs(((data || []) as Option[]) || []);
+        if (!error && data?.length) {
+          const subs = (data as Option[]);
+          _cachedSubregions.set(parent.id, subs);
+          setSubs(subs);
+        } else if (!_cachedSubregions.has(parent.id)) {
+          setSubs([]);
+        }
       } catch {
+        // On timeout/error, keep cached data if available
         if (!active) return;
-        setLoading(false);
-        setSubs([]);
+        if (!_cachedSubregions.has(parent.id)) setSubs([]);
+      } finally {
+        if (active) setLoading(false);
       }
     })();
     return () => {
@@ -2286,17 +2302,26 @@ export default function SearchFilters({
     }
 
     (async () => {
+      try {
       const [{ data: cat, error: catErr }, { data: regTop }] = await Promise.all([
-        supabase
-          .from("categories")
-          .select("id,name,icon_key,parent_id,slug")
-          .order("sort_order", { ascending: true })
-          .order("name"),
-        supabase
-          .from("regions")
-          .select("id,name,icon_key")
-          .is("parent_id", null)
-          .order("name"),
+        withTimeout(
+          supabase
+            .from("categories")
+            .select("id,name,icon_key,parent_id,slug")
+            .order("sort_order", { ascending: true })
+            .order("name"),
+          FILTER_QUERY_TIMEOUT_MS,
+          "SearchFilters.fetchCategories"
+        ),
+        withTimeout(
+          supabase
+            .from("regions")
+            .select("id,name,icon_key")
+            .is("parent_id", null)
+            .order("name"),
+          FILTER_QUERY_TIMEOUT_MS,
+          "SearchFilters.fetchRegions"
+        ),
       ]);
 
       if (cancelled) return;
@@ -2320,6 +2345,9 @@ export default function SearchFilters({
       _cachedFilterRegions = top;
 
       applyData(cats, top);
+      } catch {
+        // Timeout or network error — cached data was already applied above, so silently ignore
+      }
     })();
 
     return () => { cancelled = true; };
