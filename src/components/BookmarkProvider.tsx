@@ -85,7 +85,6 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (
-        event !== "INITIAL_SESSION" &&
         event !== "SIGNED_IN" &&
         event !== "SIGNED_OUT" &&
         event !== "USER_UPDATED"

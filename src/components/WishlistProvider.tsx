@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useCallback, useState } from "react";
 import { getWishlists } from "@/lib/wishlists";
+import { createClient } from "@/lib/supabase/browser";
 
 /** Narrow type for items returned by `getWishlists()` */
 export type Wishlist = {
@@ -25,10 +26,11 @@ type WishlistContextValue = {
 const WishlistContext = createContext<WishlistContextValue | null>(null);
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
+  const sb = useMemo(() => createClient(), []);
   const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const data = (await getWishlists()) ?? [];
@@ -39,16 +41,39 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // initial load
-    refresh();
   }, []);
+
+  // Only load wishlists when a user is actually signed in, and clear them on sign-out.
+  // This avoids a wasted DB query on every unauthenticated page load.
+  useEffect(() => {
+    let active = true;
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === "SIGNED_OUT" || (!session?.user && event === "INITIAL_SESSION")) {
+        setWishlists([]);
+        setLoading(false);
+        return;
+      }
+      if (
+        (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") &&
+        session?.user
+      ) {
+        void refresh();
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [sb, refresh]);
 
   const value = useMemo<WishlistContextValue>(
     () => ({ wishlists, loading, refresh, setWishlistsUnsafe: setWishlists }),
-    [wishlists, loading]
+    [wishlists, loading, refresh]
   );
 
   return (

@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -196,7 +197,9 @@ function applyBootstrapToState(
 
 export default function MapPage() {
   const initialBootstrapFromServer = useMapBootstrap();
-  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
+  const { userId: authUserId, authLoading: authStateLoading } = useAuthUserId();
+  // null = still loading (don't flash "sign in" prompts); true/false = resolved
+  const isSignedIn: boolean | null = authStateLoading ? null : authUserId !== null;
   const [filters, setFilters] = useState<Filters>({
     name: "",
     categoryIds: [],
@@ -437,14 +440,6 @@ export default function MapPage() {
     })();
     return () => { active = false; };
   }, [filters.centerSiteId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!cancelled) setIsSignedIn(!!user?.id);
-    });
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (!isSignedIn) return;

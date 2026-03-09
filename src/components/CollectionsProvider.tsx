@@ -129,7 +129,6 @@ export function CollectionsProvider({
     } = sb.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
       if (
-        event !== "INITIAL_SESSION" &&
         event !== "SIGNED_IN" &&
         event !== "SIGNED_OUT" &&
         event !== "USER_UPDATED"
