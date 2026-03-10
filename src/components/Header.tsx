@@ -11,10 +11,12 @@ import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
 const PANEL_ANIM_MS = 420;
+const AUTH_SESSION_TIMEOUT_MS = 5000;
 
 // TripAdvisor-like header colors
 const HEADER_BG = "#f5f7f7";
@@ -321,23 +323,35 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
       setSearchLoading(true);
 
-      const { data, error } = await supabase
-        .from("sites")
-        .select(
-          `
-          id,
-          slug,
-          title,
-          cover_photo_url,
-          location_free,
-          province:provinces(slug)
-        `
-        )
-        .eq("is_published", true)
-        .is("deleted_at", null)
-        .ilike("title", `%${term}%`)
-        .order("title")
-        .limit(20);
+      let data: any[] | null = null;
+      let error: any = null;
+      try {
+        const result = await withTimeout(
+          supabase
+            .from("sites")
+            .select(
+              `
+              id,
+              slug,
+              title,
+              cover_photo_url,
+              location_free,
+              province:provinces(slug)
+            `
+            )
+            .eq("is_published", true)
+            .is("deleted_at", null)
+            .ilike("title", `%${term}%`)
+            .order("title")
+            .limit(20),
+          AUTH_SESSION_TIMEOUT_MS,
+          "header.siteSearch"
+        );
+        data = result.data as any[] | null;
+        error = result.error;
+      } catch (e) {
+        error = e;
+      }
 
       if (!active) return;
       setSearchLoading(false);
@@ -414,8 +428,11 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       setUser(session?.user ?? null);
     });
 
-    supabase.auth
-      .getSession()
+    withTimeout(
+      supabase.auth.getSession(),
+      AUTH_SESSION_TIMEOUT_MS,
+      "header.getSession"
+    )
       .then(({ data: { session } }) => {
         setUser(session?.user ?? null);
       })

@@ -11,7 +11,7 @@ import NearbySearchModal from "@/components/NearbySearchModal";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
-import { supabase } from "@/lib/supabase/browser";
+import { getPublicClient } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { getWishlistItems } from "@/lib/wishlists";
 import { useWishlists } from "@/components/WishlistProvider";
@@ -21,6 +21,7 @@ import { useMapBootstrap } from "@/components/MapBootstrapProvider";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useQuery } from "@tanstack/react-query";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -55,14 +56,16 @@ type SidebarFilter =
   | { tripId: string };
 
 /* ───────── Province helpers (sites.province_id → provinces.slug) ───────── */
-async function buildProvinceSlugMapForSites(siteIds: string[]) {
+async function buildProvinceSlugMapForSites(siteIds: string[], signal?: AbortSignal) {
   const out = new Map<string, string | null>();
   if (!siteIds.length) return out;
 
-  const { data: siteRows, error: siteErr } = await supabase
+  let sitesQ = getPublicClient()
     .from("sites")
     .select("id, province_id")
     .in("id", siteIds);
+  if (signal) sitesQ = (sitesQ as any).abortSignal(signal);
+  const { data: siteRows, error: siteErr } = await sitesQ;
 
   if (siteErr || !siteRows?.length) return out;
 
@@ -75,10 +78,12 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
 
   let slugByProvinceId = new Map<number, string>();
   if (provinceIds.size > 0) {
-    const { data: provs } = await supabase
+    let provsQ = getPublicClient()
       .from("provinces")
       .select("id, slug")
       .in("id", Array.from(provinceIds));
+    if (signal) provsQ = (provsQ as any).abortSignal(signal);
+    const { data: provs } = await provsQ;
     slugByProvinceId = new Map(
       (provs || []).map((p: any) => [
         p.id as number,
@@ -93,6 +98,43 @@ async function buildProvinceSlugMapForSites(siteIds: string[]) {
     out.set(id, slug && slug.length > 0 ? slug : null);
   }
   return out;
+}
+
+const SITES_LOAD_TIMEOUT_MS = 8000;
+
+/** Fetches all map sites (for React Query). Returns MapSite[] or throws. */
+async function fetchMapSites(signal?: AbortSignal): Promise<MapSite[]> {
+  let query = getPublicClient()
+    .from("sites")
+    .select(
+      `id, slug, title, cover_photo_url, cover_photo_thumb_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
+       site_categories!inner(category_id, categories(icon_key)),
+       site_regions!inner(region_id)`
+    )
+    .eq("is_published", true)
+    .is("deleted_at", null)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null);
+  if (signal) query = (query as any).abortSignal(signal);
+  const locationsRes = await query as { data?: any[]; error?: unknown };
+
+  if (locationsRes?.error || !locationsRes?.data?.length) return [];
+
+  let valid: MapSite[] = (locationsRes.data as any[])
+    .map((site: any) => ({
+      ...site,
+      latitude: parseFloat(site.latitude),
+      longitude: parseFloat(site.longitude),
+    }))
+    .filter((s: MapSite) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude));
+
+  const ids = valid.map((s) => s.id as string);
+  const provMap = await buildProvinceSlugMapForSites(ids, signal);
+  valid = valid.map((s) => ({
+    ...s,
+    province_slug: provMap.get(s.id) ?? null,
+  }));
+  return valid;
 }
 
 /* ───────────────────────────── Distance (haversine) ───────────────────────────── */
@@ -274,7 +316,6 @@ export default function MapPage() {
   const mapTypeInitializedRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
   const [sitesLoadError, setSitesLoadError] = useState(false);
-  const [sitesRetryCount, setSitesRetryCount] = useState(0);
   /** Phase 1 (settings/icons/cats/regions) retry: effect depends on this; increment to retry (auto or manual). */
   const [phase1RetryCount, setPhase1RetryCount] = useState(0);
   /** When hovering a site in the trip panel, highlight the matching map tooltip. */
@@ -442,7 +483,7 @@ export default function MapPage() {
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data } = await getPublicClient()
         .from("sites")
         .select("id,title")
         .eq("id", filters.centerSiteId)
@@ -541,12 +582,13 @@ export default function MapPage() {
       let catsRes: any;
       let regsRes: any;
 
+      const pub = getPublicClient();
       if (hasInitialData) {
         const [s, i, c, r] = await Promise.all([
-          supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
-          supabase.from("icons").select("name, svg_content"),
-          supabase.from("categories").select("id,name").order("name"),
-          supabase.from("regions").select("id,name").order("name"),
+          pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
+          pub.from("icons").select("name, svg_content"),
+          pub.from("categories").select("id,name").order("name"),
+          pub.from("regions").select("id,name").order("name"),
         ]);
         settingsRes = s;
         iconsRes = i;
@@ -555,10 +597,10 @@ export default function MapPage() {
       } else {
         try {
           [settingsRes, iconsRes, catsRes, regsRes] = await Promise.all([
-            supabase.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
-            supabase.from("icons").select("name, svg_content"),
-            supabase.from("categories").select("id,name").order("name"),
-            supabase.from("regions").select("id,name").order("name"),
+            pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
+            pub.from("icons").select("name, svg_content"),
+            pub.from("categories").select("id,name").order("name"),
+            pub.from("regions").select("id,name").order("name"),
           ]);
         } catch (err) {
           if (cancelled) return;
@@ -609,96 +651,38 @@ export default function MapPage() {
     return () => { cancelled = true; };
   }, [phase1RetryCount, initialBootstrapFromServer]);
 
-  /* ───────── Phase 2: Load sites (runs after Phase 1; retry via sitesRetryCount). Uses cache when valid. ───────── */
-  useEffect(() => {
-    if (loading || loadError) return;
-    let cancelled = false;
-
-    const cached = getCachedSites();
-    if (cached?.sites?.length) {
-      setAllLocations(cached.sites as MapSite[]);
-      setSitesLoading(false);
-    } else {
-      setSitesLoading(true);
-    }
-    setSitesLoadError(false);
-
-    const SITES_LOAD_TIMEOUT_MS = 45000;
-    let sitesTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    const sitesTimeoutPromise = new Promise<never>((_, reject) => {
-      sitesTimeoutId = setTimeout(() => reject(new Error("SITES_LOAD_TIMEOUT")), SITES_LOAD_TIMEOUT_MS);
-    });
-    (async () => {
-      let locationsRes: { data?: any[]; error?: unknown } | undefined;
+  const bootstrapReady = !loading && !loadError;
+  const cachedSites = getCachedSites();
+  const sitesQuery = useQuery({
+    queryKey: ["map-sites"],
+    queryFn: async ({ signal: rqSignal }) => {
+      const controller = new AbortController();
+      const abortTimer = setTimeout(
+        () => controller.abort(new Error(`map-sites staleConn abort after ${SITES_LOAD_TIMEOUT_MS}ms`)),
+        SITES_LOAD_TIMEOUT_MS
+      );
+      rqSignal?.addEventListener("abort", () => controller.abort());
       try {
-        locationsRes = await Promise.race([
-          supabase
-            .from("sites")
-            .select(
-              `id, slug, title, cover_photo_url, cover_photo_thumb_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
-             site_categories!inner(category_id, categories(icon_key)),
-             site_regions!inner(region_id)`
-            )
-            .eq("is_published", true)
-            .is("deleted_at", null)
-            .not("latitude", "is", null)
-            .not("longitude", "is", null),
-          sitesTimeoutPromise,
-        ]) as { data?: any[]; error?: unknown };
-      } catch (err) {
-        if (cancelled) return;
-        if (err instanceof Error && err.message === "SITES_LOAD_TIMEOUT") {
-          setSitesLoadError(true);
-        }
-        setSitesLoading(false);
-        return;
+        return await fetchMapSites(controller.signal);
+      } finally {
+        clearTimeout(abortTimer);
       }
+    },
+    enabled: bootstrapReady,
+    initialData: (cachedSites?.sites?.length ? (cachedSites.sites as MapSite[]) : undefined) as MapSite[] | undefined,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+  });
 
-      if (cancelled) return;
-      if (locationsRes?.error) {
-        setSitesLoadError(true);
-        setSitesLoading(false);
-        return;
-      }
-
-      if (locationsRes?.data && locationsRes.data.length > 0) {
-        let valid: MapSite[] = (locationsRes.data as any[])
-          .map((site: any) => ({
-            ...site,
-            latitude: parseFloat(site.latitude),
-            longitude: parseFloat(site.longitude),
-          }))
-          .filter(
-            (s: MapSite) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
-          );
-        try {
-          const ids = valid.map((s) => s.id as string);
-          const provMap = await buildProvinceSlugMapForSites(ids);
-          if (cancelled) return;
-          valid = valid.map((s) => ({
-            ...s,
-            province_slug: provMap.get(s.id) ?? null,
-          }));
-        } catch {
-          if (cancelled) return;
-          setSitesLoadError(true);
-          setSitesLoading(false);
-          return;
-        }
-        if (!cancelled) {
-          setAllLocations(valid);
-          setCachedSites(valid);
-        }
-      }
-      if (!cancelled) {
-        setSitesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (sitesTimeoutId != null) clearTimeout(sitesTimeoutId);
-    };
-  }, [loading, loadError, sitesRetryCount]);
+  useEffect(() => {
+    if (!bootstrapReady) return;
+    setSitesLoading(sitesQuery.isLoading);
+    setSitesLoadError(sitesQuery.isError);
+    if (sitesQuery.data?.length) {
+      setAllLocations(sitesQuery.data);
+      setCachedSites(sitesQuery.data);
+    }
+  }, [bootstrapReady, sitesQuery.isLoading, sitesQuery.isError, sitesQuery.data]);
 
   /* Sync map type from admin settings once when settings load */
   useEffect(() => {
@@ -797,8 +781,8 @@ export default function MapPage() {
 
   const retrySitesLoad = useCallback(() => {
     setSitesLoadError(false);
-    setSitesRetryCount((c) => c + 1);
-  }, []);
+    void sitesQuery.refetch();
+  }, [sitesQuery]);
 
   useEffect(() => setMounted(true), []);
 

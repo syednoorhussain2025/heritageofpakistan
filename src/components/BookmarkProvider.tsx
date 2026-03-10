@@ -14,6 +14,7 @@ import { withTimeout } from "@/lib/async/withTimeout";
 import Icon from "./Icon";
 
 const QUERY_TIMEOUT_MS = 12000;
+const AUTH_SESSION_TIMEOUT_MS = 5000;
 
 type Toast = {
   message: string;
@@ -52,7 +53,11 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       const {
         data: sessionData,
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_SESSION_TIMEOUT_MS,
+        "bookmarks.getSession"
+      );
       if (sessionError) throw sessionError;
       return sessionData.session?.user?.id ?? null;
     } catch (error) {
@@ -90,6 +95,8 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
   }, [refreshBookmarks]);
 
   useEffect(() => {
+    let deferredRefreshId: ReturnType<typeof setTimeout> | null = null;
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -102,14 +109,28 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!session?.user) {
+        if (deferredRefreshId !== null) {
+          clearTimeout(deferredRefreshId);
+          deferredRefreshId = null;
+        }
         setBookmarkedIds(new Set());
         setIsLoaded(true);
         return;
       }
-      void refreshBookmarks();
+
+      if (deferredRefreshId !== null) clearTimeout(deferredRefreshId);
+      // Defer Supabase calls out of the auth callback to avoid lock re-entry.
+      deferredRefreshId = setTimeout(() => {
+        deferredRefreshId = null;
+        void refreshBookmarks();
+      }, 0);
     });
 
     return () => {
+      if (deferredRefreshId !== null) {
+        clearTimeout(deferredRefreshId);
+        deferredRefreshId = null;
+      }
       subscription.unsubscribe();
     };
   }, [refreshBookmarks, supabase]);

@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { supabase } from "@/lib/supabase/browser";
+import { getPublicClient } from "@/lib/supabase/browser";
 import Icon from "./Icon";
 import { withTimeout } from "@/lib/async/withTimeout";
 import {
@@ -401,7 +401,7 @@ const TopLevelRegionSelect = ({
         return;
       }
       setSearching(true);
-      const { data } = await supabase
+      const { data } = await getPublicClient()
         .from("regions")
         .select("id,name,icon_key,parent_id")
         .ilike("name", `%${q}%`)
@@ -608,7 +608,7 @@ const SubRegionSelect = ({
     let active = true;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await getPublicClient()
         .from("regions")
         .select("id,name,icon_key")
         .eq("parent_id", parent.id)
@@ -814,7 +814,7 @@ function MainRegionsColumn({
         return;
       }
       setSearching(true);
-      const { data } = await supabase
+      const { data } = await getPublicClient()
         .from("regions")
         .select("id,name,icon_key,parent_id")
         .ilike("name", `%${q}%`)
@@ -933,7 +933,7 @@ function SubRegionsColumn({
     (async () => {
       try {
         const { data, error } = await withTimeout(
-          supabase
+          getPublicClient()
             .from("regions")
             .select("id,name,icon_key")
             .eq("parent_id", parent.id)
@@ -1665,7 +1665,7 @@ function LocationRadiusFilter({
       // If we already have a matching preview, keep it
       if (selectedPreview?.id === value.centerSiteId) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await getPublicClient()
         .from("sites")
         .select("id,title,cover_photo_url,location_free,latitude,longitude")
         .eq("id", value.centerSiteId)
@@ -1696,7 +1696,7 @@ function LocationRadiusFilter({
         return;
       }
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await getPublicClient()
         .from("sites")
         .select("id,title,latitude,longitude,cover_photo_url,location_free")
         .ilike("title", `%${query.trim()}%`)
@@ -2031,7 +2031,7 @@ async function fetchSitesWithinRadius({
   name?: string | null;
 }) {
   const { data, error } = await withTimeout(
-    supabase.rpc("sites_within_radius", {
+    getPublicClient().rpc("sites_within_radius", {
       center_lat: lat,
       center_lng: lng,
       radius_km: radiusKm,
@@ -2079,7 +2079,7 @@ export async function fetchSitesByFilters(filters: Filters) {
     return rows;
   }
 
-  const qb = supabase
+  const qb = getPublicClient()
     .from("sites")
     .select("id,title,latitude,longitude,avg_rating,province_id")
     .eq("is_published", true)
@@ -2159,7 +2159,7 @@ export default function SearchFilters({
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data } = await getPublicClient()
         .from("sites")
         .select("id,title")
         .eq("id", filters.centerSiteId)
@@ -2305,7 +2305,7 @@ export default function SearchFilters({
       try {
       const [{ data: cat, error: catErr }, { data: regTop }] = await Promise.all([
         withTimeout(
-          supabase
+          getPublicClient()
             .from("categories")
             .select("id,name,icon_key,parent_id,slug")
             .order("sort_order", { ascending: true })
@@ -2314,7 +2314,7 @@ export default function SearchFilters({
           "SearchFilters.fetchCategories"
         ),
         withTimeout(
-          supabase
+          getPublicClient()
             .from("regions")
             .select("id,name,icon_key")
             .is("parent_id", null)
@@ -2393,7 +2393,7 @@ export default function SearchFilters({
 
   const loadSubregions = async (parentId: string) => {
     if (subsByParent[parentId]) return;
-    const { data, error } = await supabase
+    const { data, error } = await getPublicClient()
       .from("regions")
       .select("id,name,icon_key")
       .eq("parent_id", parentId)
@@ -2418,7 +2418,7 @@ export default function SearchFilters({
   const ensureRegionMetaForId = async (id: string) => {
     if (id in regionParents) return (regionParents[id] ?? id) as string;
 
-    const { data } = await supabase
+    const { data } = await getPublicClient()
       .from("regions")
       .select("id,name,parent_id")
       .eq("id", id)

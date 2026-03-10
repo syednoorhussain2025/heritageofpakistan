@@ -5,6 +5,9 @@ import { useMemo } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
+
+const AUTH_SESSION_TIMEOUT_MS = 5000;
 
 function safeRedirectTo(next: string, fallback: string) {
   const trimmed = (next || "").trim();
@@ -39,7 +42,11 @@ export function useSignedInActions() {
     if (userId) return true;
 
     try {
-      const { data } = await sb.auth.getSession();
+      const { data } = await withTimeout(
+        sb.auth.getSession(),
+        AUTH_SESSION_TIMEOUT_MS,
+        "signedInActions.getSession"
+      );
       if (data.session?.user) {
         return true;
       }

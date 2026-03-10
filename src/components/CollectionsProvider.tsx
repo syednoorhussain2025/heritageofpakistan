@@ -30,6 +30,7 @@ export const useCollections = () => useContext(CollectionsCtx);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const jitter = (ms: number) => Math.round(ms * (0.8 + Math.random() * 0.4)); // +/-20%
 const ATTEMPT_TIMEOUT_MS = 10000;
+const AUTH_SESSION_TIMEOUT_MS = 5000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
   let timer: number | null = null;
@@ -79,7 +80,11 @@ export function CollectionsProvider({
         const {
           data: sessionData,
           error: sessionError,
-        } = await sb.auth.getSession();
+        } = await withTimeout(
+          sb.auth.getSession(),
+          AUTH_SESSION_TIMEOUT_MS,
+          "collections.getSession"
+        );
 
         if (sessionError) throw sessionError;
 
@@ -125,40 +130,10 @@ export function CollectionsProvider({
   // Keep collected state in sync with auth transitions (SIGNED_OUT, SIGNED_IN)
   useEffect(() => {
     let active = true;
+    let deferredReloadId: number | null = null;
 
-    const {
-      data: { subscription },
-    } = sb.auth.onAuthStateChange(async (event, session) => {
+    const reloadCollected = async () => {
       if (!active) return;
-      if (
-        event !== "SIGNED_IN" &&
-        event !== "SIGNED_OUT" &&
-        event !== "USER_UPDATED"
-      ) {
-        return;
-      }
-
-      if (!session?.user) {
-        // Signed out: clear client state so UI cannot behave signed-in
-        inFlightRef.current.clear();
-        setCollected(new Set());
-        setIsLoaded(true);
-
-        // Also dismiss any active toast
-        setToastOpen(false);
-        setToastMsg(null);
-        if (toastRaf1Ref.current) window.cancelAnimationFrame(toastRaf1Ref.current);
-        if (toastRaf2Ref.current) window.cancelAnimationFrame(toastRaf2Ref.current);
-        if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-        if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
-        toastRaf1Ref.current = null;
-        toastRaf2Ref.current = null;
-        toastTimerRef.current = null;
-        toastCleanupRef.current = null;
-        return;
-      }
-
-      // Signed in: reload keys so the UI matches the account immediately
       setIsLoaded(false);
       try {
         const rows = await listCollections(500);
@@ -181,10 +156,58 @@ export function CollectionsProvider({
         if (!active) return;
         setIsLoaded(true);
       }
+    };
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (
+        event !== "SIGNED_IN" &&
+        event !== "SIGNED_OUT" &&
+        event !== "USER_UPDATED"
+      ) {
+        return;
+      }
+
+      if (!session?.user) {
+        if (deferredReloadId) {
+          window.clearTimeout(deferredReloadId);
+          deferredReloadId = null;
+        }
+        // Signed out: clear client state so UI cannot behave signed-in
+        inFlightRef.current.clear();
+        setCollected(new Set());
+        setIsLoaded(true);
+
+        // Also dismiss any active toast
+        setToastOpen(false);
+        setToastMsg(null);
+        if (toastRaf1Ref.current) window.cancelAnimationFrame(toastRaf1Ref.current);
+        if (toastRaf2Ref.current) window.cancelAnimationFrame(toastRaf2Ref.current);
+        if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+        if (toastCleanupRef.current) window.clearTimeout(toastCleanupRef.current);
+        toastRaf1Ref.current = null;
+        toastRaf2Ref.current = null;
+        toastTimerRef.current = null;
+        toastCleanupRef.current = null;
+        return;
+      }
+
+      if (deferredReloadId) window.clearTimeout(deferredReloadId);
+      // Defer Supabase calls out of the auth callback to avoid lock re-entry.
+      deferredReloadId = window.setTimeout(() => {
+        deferredReloadId = null;
+        void reloadCollected();
+      }, 0);
     });
 
     return () => {
       active = false;
+      if (deferredReloadId) {
+        window.clearTimeout(deferredReloadId);
+        deferredReloadId = null;
+      }
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

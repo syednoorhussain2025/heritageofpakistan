@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { QueryProvider } from "@/components/QueryProvider";
 import Header from "@/components/Header";
 import type { HeaderMainItem } from "@/lib/fetchHeaderItems";
 import BottomNav from "@/components/BottomNav";
@@ -36,20 +37,22 @@ export default function AppChrome({
 
   return (
     <ErrorBoundary>
-      <ProfileProvider>
-        <BookmarkProvider>
-          <WishlistProvider>
-            <CollectionsProvider>
-              <LoaderEngineProvider>
-                <AuthPendingToast />
-                <Header initialItems={initialHeaderItems} />
-                <main>{children}</main>
-                <BottomNav />
-              </LoaderEngineProvider>
-            </CollectionsProvider>
-          </WishlistProvider>
-        </BookmarkProvider>
-      </ProfileProvider>
+      <QueryProvider>
+        <ProfileProvider>
+          <BookmarkProvider>
+            <WishlistProvider>
+              <CollectionsProvider>
+                <LoaderEngineProvider>
+                  <AuthPendingToast />
+                  <Header initialItems={initialHeaderItems} />
+                  <main>{children}</main>
+                  <BottomNav />
+                </LoaderEngineProvider>
+              </CollectionsProvider>
+            </WishlistProvider>
+          </BookmarkProvider>
+        </ProfileProvider>
+      </QueryProvider>
     </ErrorBoundary>
   );
 }

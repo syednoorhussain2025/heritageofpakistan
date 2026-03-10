@@ -17,16 +17,18 @@ import SearchFilters, {
   hasRadius,
 } from "@/components/SearchFilters";
 import { clearPlacesNearby } from "@/lib/placesNearby";
-import { supabase } from "@/lib/supabase/browser";
+import { getPublicClient } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useQuery } from "@tanstack/react-query";
 
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
 const SEARCH_RPC_TIMEOUT_MS = 30000;
+const SEARCH_FALLBACK_TIMEOUT_MS = 12000;
 
 function withTimeout<T = any>(
   promise: PromiseLike<T>,
@@ -117,6 +119,7 @@ type SearchSitesRpcArgs = {
   pageSize: number;
   label: string;
   forceFallback?: boolean;
+  signal?: AbortSignal;
 };
 
 function isTimeoutError(error: unknown) {
@@ -131,6 +134,7 @@ async function fetchSearchSitesFallback({
   regionIds,
   page,
   pageSize,
+  signal,
 }: Omit<SearchSitesRpcArgs, "label">) {
   const needCategoryInner = categoryIds.length > 0;
   const needRegionInner = regionIds.length > 0;
@@ -155,13 +159,15 @@ async function fetchSearchSitesFallback({
     ...joinSelectParts,
   ].join(",");
 
-  let q = supabase
+  const sb = getPublicClient();
+  let q = sb
     .from("sites")
     .select(selectCols, { count: "planned" })
     .eq("is_published", true)
     .is("deleted_at", null)
     .order("created_at", { ascending: false, nullsFirst: false })
     .range(from, to);
+  if (signal) q = q.abortSignal(signal);
 
   if (nameQuery.trim()) {
     const qv = nameQuery.trim();
@@ -192,6 +198,7 @@ async function searchSitesRpc({
   pageSize,
   label,
   forceFallback = false,
+  signal,
 }: SearchSitesRpcArgs) {
   if (forceFallback) {
     const fallbackRows = await withTimeout(
@@ -201,35 +208,43 @@ async function searchSitesRpc({
         regionIds,
         page,
         pageSize,
+        signal,
       }),
-      SEARCH_RPC_TIMEOUT_MS,
+      SEARCH_FALLBACK_TIMEOUT_MS,
       `${label}.fallback`
     );
     return { data: fallbackRows, error: null };
   }
   try {
-    return await withTimeout(
-      supabase.rpc("search_sites", {
-        p_name_query: nameQuery.trim() || null,
-        p_category_ids: categoryIds.length > 0 ? categoryIds : null,
-        p_region_ids: regionIds.length > 0 ? regionIds : null,
-        p_order_by: "latest",
-        p_page: page,
-        p_page_size: pageSize,
-      }),
-      SEARCH_RPC_TIMEOUT_MS,
-      label
-    );
+    /* .abortSignal() propagates the AbortSignal into the underlying fetch() call.
+     * When the signal fires (our 5-second tab-restore timeout OR React Query cancel),
+     * the browser actually closes the TCP connection — not just rejects the Promise.
+     * This means a retry will always use a fresh TCP connection, not the stale one. */
+    let rpcQuery = getPublicClient().rpc("search_sites", {
+      p_name_query: nameQuery.trim() || null,
+      p_category_ids: categoryIds.length > 0 ? categoryIds : null,
+      p_region_ids: regionIds.length > 0 ? regionIds : null,
+      p_order_by: "latest",
+      p_page: page,
+      p_page_size: pageSize,
+    });
+    if (signal) rpcQuery = rpcQuery.abortSignal(signal);
+    return await withTimeout(rpcQuery, SEARCH_RPC_TIMEOUT_MS, label);
   } catch (error) {
     if (!isTimeoutError(error)) throw error;
     console.warn(`[Explore] ${label} timed out, using fallback query path.`);
-    const fallbackRows = await fetchSearchSitesFallback({
-      nameQuery,
-      categoryIds,
-      regionIds,
-      page,
-      pageSize,
-    });
+    const fallbackRows = await withTimeout(
+      fetchSearchSitesFallback({
+        nameQuery,
+        categoryIds,
+        regionIds,
+        page,
+        pageSize,
+        signal,
+      }),
+      SEARCH_FALLBACK_TIMEOUT_MS,
+      `${label}.fallbackAfterTimeout`
+    );
     return { data: fallbackRows, error: null };
   }
 }
@@ -242,6 +257,190 @@ function getSelectedTypes(f: Filters): string[] {
     (anyF["types"] as string[] | undefined) ??
     [];
   return Array.isArray(arr) ? arr.filter(Boolean) : [];
+}
+
+export type ExploreFirstPageResult = {
+  sites: Site[];
+  total: number;
+  radiusAllRows: any[] | null;
+  centerSiteTitle: string | null;
+  centerSitePreview: { id: string; title: string; subtitle?: string | null; cover?: string | null } | null;
+};
+
+/** Pure async fetch for first page – used by React Query for cache + refetch-on-focus. */
+async function fetchExploreFirstPage(
+  searchParams: URLSearchParams,
+  isSignedIn: boolean,
+  signal?: AbortSignal
+): Promise<ExploreFirstPageResult> {
+  const nameQuery = searchParams.get("q") || "";
+  const catsQuery = parseMulti(searchParams.get("cats"));
+  const regsQuery = parseMulti(searchParams.get("regs"));
+  const centerSiteId = searchParams.get("center") || null;
+  const clat = searchParams.get("clat");
+  const clng = searchParams.get("clng");
+  const rkm = searchParams.get("rkm");
+  const parsedCenterLat = clat != null ? Number(clat) : null;
+  const parsedCenterLng = clng != null ? Number(clng) : null;
+  const parsedRadiusKm = rkm != null ? Number(rkm) : null;
+  const nextFilters: Filters = {
+    name: nameQuery,
+    categoryIds: catsQuery,
+    regionIds: regsQuery,
+    orderBy: "latest",
+    centerSiteId,
+    centerLat: typeof parsedCenterLat === "number" && !Number.isNaN(parsedCenterLat) ? parsedCenterLat : null,
+    centerLng: typeof parsedCenterLng === "number" && !Number.isNaN(parsedCenterLng) ? parsedCenterLng : null,
+    radiusKm: typeof parsedRadiusKm === "number" && !Number.isNaN(parsedRadiusKm) ? parsedRadiusKm : null,
+  };
+
+  if (hasRadius(nextFilters)) {
+    const [bannerResult, radiusRows] = await Promise.all([
+      nextFilters.centerSiteId
+        ? (async () => {
+            const { data: row, error: err } = await withTimeout(
+              getPublicClient()
+                .from("sites")
+                .select("id,title,location_free,cover_photo_url")
+                .eq("id", nextFilters.centerSiteId!)
+                .eq("is_published", true)
+                .is("deleted_at", null)
+                .maybeSingle(),
+              QUERY_TIMEOUT_MS,
+              "explore.loadCenterSite"
+            );
+            if (err || !row) return null;
+            const { data: coverRow } = await withTimeout(
+              getPublicClient()
+                .from("site_covers")
+                .select("storage_path")
+                .eq("site_id", row.id)
+                .eq("is_active", true)
+                .maybeSingle(),
+              QUERY_TIMEOUT_MS,
+              "explore.loadCenterCover"
+            );
+            const cover: string | null = coverRow?.storage_path
+              ? buildCoverUrlFromStoragePath(coverRow.storage_path)
+              : ((row as any).cover_photo_url as string | null) ?? null;
+            return { row, cover };
+          })()
+        : Promise.resolve(null),
+      withTimeout(fetchSitesByFilters(nextFilters), QUERY_TIMEOUT_MS, "explore.fetchSitesByFilters"),
+    ]);
+
+    let distanceOrdered = [...radiusRows].sort(
+      (a: any, b: any) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY)
+    );
+    const allIds = distanceOrdered.map((r: any) => r.id);
+    const selectedTypes = new Set(getSelectedTypes(nextFilters));
+    const [pairsResult, attrsResult] = await Promise.all([
+      allIds.length && nextFilters.categoryIds?.length
+        ? withTimeout(
+            getPublicClient()
+              .from("site_categories")
+              .select("site_id,category_id")
+              .in("site_id", allIds)
+              .in("category_id", nextFilters.categoryIds as string[]),
+            QUERY_TIMEOUT_MS,
+            "explore.filterByCategories"
+          )
+        : Promise.resolve({ data: null, error: null }),
+      allIds.length && selectedTypes.size > 0
+        ? withTimeout(
+            getPublicClient()
+              .from("sites")
+              .select("id,heritage_type")
+              .eq("is_published", true)
+              .is("deleted_at", null)
+              .in("id", allIds),
+            QUERY_TIMEOUT_MS,
+            "explore.filterByTypes"
+          )
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (pairsResult.error) throw pairsResult.error;
+    if (pairsResult.data) {
+      const allowed = new Set((pairsResult.data as any[]).map((p: any) => p.site_id));
+      distanceOrdered = distanceOrdered.filter((r: any) => allowed.has(r.id));
+    }
+    if (attrsResult.data && selectedTypes.size > 0) {
+      const typeById = new Map((attrsResult.data as any[]).map((s: any) => [s.id, s.heritage_type ?? null]));
+      distanceOrdered = distanceOrdered.filter((r: any) => {
+        const ht = typeById.get(r.id);
+        return ht && selectedTypes.has(ht);
+      });
+    }
+    const total = distanceOrdered.length;
+    const pageRows = distanceOrdered.slice(0, PAGE_SIZE);
+    const ids = pageRows.map((r: any) => r.id);
+    if (!ids.length) {
+      return {
+        sites: [],
+        total,
+        radiusAllRows: distanceOrdered,
+        centerSiteTitle: bannerResult?.row ? (bannerResult.row.title ?? null) : null,
+        centerSitePreview: bannerResult?.row
+          ? { id: bannerResult.row.id, title: bannerResult.row.title ?? "", subtitle: bannerResult.row.location_free ?? null, cover: bannerResult.cover ?? null }
+          : null,
+      };
+    }
+    const { data: details, error: detailsErr } = await withTimeout(
+      getPublicClient()
+        .from("sites")
+        .select("id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count")
+        .eq("is_published", true)
+        .is("deleted_at", null)
+        .in("id", ids),
+      QUERY_TIMEOUT_MS,
+      "explore.loadRadiusPageDetails"
+    );
+    if (detailsErr) throw detailsErr;
+    await Promise.all([
+      ensureProvinceSlugOnSites(details as Site[]),
+      attachActiveCovers(details as Site[]),
+    ]);
+    const distanceById = new Map<string, number | null>(pageRows.map((r: any) => [r.id, r.distance_km ?? null]));
+    const byId = new Map<string, Site>((details as Site[]).map((d) => [d.id, d]));
+    const ordered: Site[] = ids
+      .map((id) => {
+        const base = byId.get(id);
+        if (!base) return null;
+        return { ...base, distance_km: distanceById.get(id) ?? null };
+      })
+      .filter(Boolean) as Site[];
+    return {
+      sites: ordered,
+      total,
+      radiusAllRows: distanceOrdered,
+      centerSiteTitle: bannerResult?.row ? (bannerResult.row.title ?? null) : null,
+      centerSitePreview: bannerResult?.row
+        ? { id: bannerResult.row.id, title: bannerResult.row.title ?? "", subtitle: bannerResult.row.location_free ?? null, cover: bannerResult.cover ?? null }
+        : null,
+    };
+  }
+
+  const { data, error: rpcError } = await searchSitesRpc({
+    nameQuery,
+    categoryIds: catsQuery,
+    regionIds: regsQuery,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    label: "explore.searchSitesPage1",
+    forceFallback: false,
+    signal,
+  });
+  if (rpcError) throw rpcError;
+  const sites = ((data as any[]) || []) as Site[];
+  const total = (data as any[])?.[0]?.total_count || 0;
+  await Promise.all([ensureProvinceSlugOnSites(sites), attachActiveCovers(sites)]);
+  return {
+    sites,
+    total,
+    radiusAllRows: null,
+    centerSiteTitle: null,
+    centerSitePreview: null,
+  };
 }
 
 /* ───────────────────────────── UI Skeleton ───────────────────────────── */
@@ -438,7 +637,7 @@ function warmProvinceSlugCache(): Promise<void> {
   if (_provinceSlugCachePromise) return _provinceSlugCachePromise;
   _provinceSlugCachePromise = (async () => {
     try {
-      const { data } = await supabase.from("provinces").select("id, slug");
+      const { data } = await getPublicClient().from("provinces").select("id, slug");
       for (const p of (data || []) as { id: number; slug: string | null }[]) {
         if (p.id != null) {
           _provinceSlugCache.set(p.id, String(p.slug ?? "").trim());
@@ -476,7 +675,7 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
 
   const ids = needsSiteQuery.map((s) => s.id);
   const { data: siteRows, error: siteErr } = await withTimeout(
-    supabase.from("sites").select("id, province_id").in("id", ids),
+    getPublicClient().from("sites").select("id, province_id").in("id", ids),
     QUERY_TIMEOUT_MS,
     "explore.ensureProvinceSlug.siteQuery"
   );
@@ -506,7 +705,7 @@ async function attachActiveCovers(sites: Site[]) {
               new Set(needsThumb.map((s) => s.id))
             ).filter(Boolean);
             const { data, error } = await withTimeout(
-              supabase
+              getPublicClient()
                 .from("sites")
                 .select("id, cover_photo_thumb_url")
                 .in("id", ids),
@@ -536,7 +735,7 @@ async function attachActiveCovers(sites: Site[]) {
 
             // Step 1: get cover_image_id for each site
             const { data: siteRows, error: siteErr } = await withTimeout(
-              supabase
+              getPublicClient()
                 .from("sites")
                 .select("id, cover_image_id")
                 .in("id", ids)
@@ -558,7 +757,7 @@ async function attachActiveCovers(sites: Site[]) {
 
             // Step 2: fetch blur data from site_images by cover_image_id
             const { data: imgRows, error: imgErr } = await withTimeout(
-              supabase
+              getPublicClient()
                 .from("site_images")
                 .select("id, blur_data_url, width, height")
                 .in("id", imageIds),
@@ -621,10 +820,6 @@ function ExplorePageContent() {
   }, [filters]);
 
   const isHydratingRef = useRef(false);
-  // Monotonically-increasing counter: each search invocation stamps its own
-  // generation. Async callbacks check gen === searchGenRef.current before
-  // committing state, so stale responses from earlier searches are discarded.
-  const searchGenRef = useRef(0);
   // Synchronous ref guard for loadMore — prevents the IntersectionObserver
   // from firing a second fetch before the isLoadingMore state update commits.
   const isLoadingMoreRef = useRef(false);
@@ -639,9 +834,63 @@ function ExplorePageContent() {
     sites: [],
     total: 0,
   });
-  const [loading, setLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* When tab becomes visible, unstick load-more if it was in progress (browser may throttle/cancel in background) */
+  const loadingMoreRef = useRef(false);
+  useEffect(() => {
+    loadingMoreRef.current = isLoadingMore;
+  }, [isLoadingMore]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (loadingMoreRef.current) {
+        isLoadingMoreRef.current = false;
+        setIsLoadingMore(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  /* React Query: cache + refetch on window focus (stale-while-revalidate – no stuck spinner).
+   *
+   * Use a short AbortController timeout so stale TCP connections (which can linger after
+   * tab switches) are detected quickly and the retry opens a fresh connection. */
+  const ABORT_MS = 8000;
+  const query = useQuery({
+    queryKey: ["explore", searchParams.toString()],
+    queryFn: async ({ signal: rqSignal }) => {
+      /* Merge React Query's signal with our own abort timer so we:
+       *   - respect React Query cancellations (unmount / key change)
+       *   - cut stale TCP connections quickly so the retry opens a fresh one */
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(new Error(`explore.staleConn abort after ${ABORT_MS}ms`)), ABORT_MS);
+      // Propagate React Query cancel → our controller
+      rqSignal?.addEventListener("abort", () => controller.abort());
+
+      try {
+        return await fetchExploreFirstPage(searchParams, isSignedIn, controller.signal);
+      } finally {
+        clearTimeout(abortTimer);
+      }
+    },
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
+  });
+  const loading = query.isLoading;
+  useEffect(() => {
+    if (query.error) setError((query.error as Error)?.message ?? "Failed to load results");
+    else if (query.data) {
+      setError(null);
+      setResults({ sites: query.data.sites, total: query.data.total });
+      setCenterSiteTitle(query.data.centerSiteTitle);
+      setCenterSitePreview(query.data.centerSitePreview);
+      setRadiusAllRows(query.data.radiusAllRows);
+      isHydratingRef.current = false;
+    }
+  }, [query.data, query.error]);
 
   /* For radius mode, keep full ordered list client side for infinite scroll */
   const [radiusAllRows, setRadiusAllRows] = useState<any[] | null>(null);
@@ -713,8 +962,8 @@ function ExplorePageContent() {
       try {
         const [{ data: cats }, { data: regs }] = await withTimeout(
           Promise.all([
-            supabase.from("categories").select("id,name").order("name"),
-            supabase.from("regions").select("id,name").order("name"),
+            getPublicClient().from("categories").select("id,name").order("name"),
+            getPublicClient().from("regions").select("id,name").order("name"),
           ]),
           QUERY_TIMEOUT_MS,
           "explore.loadFilterMaps"
@@ -776,265 +1025,39 @@ function ExplorePageContent() {
     };
   }, [filters, buildParamsFrom, router, searchParams]);
 
-  /* Read URL → fetch first page + banner info */
+  /* Sync URL → filters and reset page when search params change */
   useEffect(() => {
-    setLoading(true);
-    isLoadingMoreRef.current = false;
-    setIsLoadingMore(false);
-    setPage(1);
-
     const nameQuery = searchParams.get("q") || "";
     const catsQuery = parseMulti(searchParams.get("cats"));
     const regsQuery = parseMulti(searchParams.get("regs"));
-
-    const centerSiteId = searchParams.get("center");
+    const centerSiteId = searchParams.get("center") || null;
     const clat = searchParams.get("clat");
     const clng = searchParams.get("clng");
     const rkm = searchParams.get("rkm");
-
     const parsedCenterLat = clat != null ? Number(clat) : null;
     const parsedCenterLng = clng != null ? Number(clng) : null;
     const parsedRadiusKm = rkm != null ? Number(rkm) : null;
-
     const nextFilters: Filters = {
       name: nameQuery,
       categoryIds: catsQuery,
       regionIds: regsQuery,
       orderBy: "latest",
-      centerSiteId: centerSiteId || null,
-      centerLat:
-        typeof parsedCenterLat === "number" && !Number.isNaN(parsedCenterLat)
-          ? parsedCenterLat
-          : null,
-      centerLng:
-        typeof parsedCenterLng === "number" && !Number.isNaN(parsedCenterLng)
-          ? parsedCenterLng
-          : null,
-      radiusKm:
-        typeof parsedRadiusKm === "number" && !Number.isNaN(parsedRadiusKm)
-          ? parsedRadiusKm
-          : null,
+      centerSiteId,
+      centerLat: typeof parsedCenterLat === "number" && !Number.isNaN(parsedCenterLat) ? parsedCenterLat : null,
+      centerLng: typeof parsedCenterLng === "number" && !Number.isNaN(parsedCenterLng) ? parsedCenterLng : null,
+      radiusKm: typeof parsedRadiusKm === "number" && !Number.isNaN(parsedRadiusKm) ? parsedRadiusKm : null,
     };
-
     isHydratingRef.current = true;
     setFilters(nextFilters);
     filtersRef.current = nextFilters;
-
-    (async () => {
-      setError(null);
-      const gen = ++searchGenRef.current;
-      try {
-        /* ───── Radius mode, first page ───── */
-        if (hasRadius(nextFilters)) {
-          // Run banner fetch and the radius RPC in parallel — the RPC is the
-          // slow leg, so overlapping it with the banner saves a full round-trip.
-          const [bannerResult, radiusRows] = await Promise.all([
-            nextFilters.centerSiteId
-              ? (async () => {
-                  const { data: row, error: err } = await withTimeout(
-                    supabase
-                      .from("sites")
-                      .select("id,title,location_free,cover_photo_url")
-                      .eq("id", nextFilters.centerSiteId!)
-                      .eq("is_published", true)
-                      .is("deleted_at", null)
-                      .maybeSingle(),
-                    QUERY_TIMEOUT_MS,
-                    "explore.loadCenterSite"
-                  );
-                  if (err || !row) return null;
-
-                  const { data: coverRow } = await withTimeout(
-                    supabase
-                      .from("site_covers")
-                      .select("storage_path")
-                      .eq("site_id", row.id)
-                      .eq("is_active", true)
-                      .maybeSingle(),
-                    QUERY_TIMEOUT_MS,
-                    "explore.loadCenterCover"
-                  );
-
-                  const cover: string | null = coverRow?.storage_path
-                    ? buildCoverUrlFromStoragePath(coverRow.storage_path)
-                    : ((row as any).cover_photo_url as string | null) ?? null;
-
-                  return { row, cover };
-                })()
-              : Promise.resolve(null),
-            withTimeout(
-              fetchSitesByFilters(nextFilters),
-              QUERY_TIMEOUT_MS,
-              "explore.fetchSitesByFilters"
-            ),
-          ]);
-
-          if (gen !== searchGenRef.current) return;
-
-          if (bannerResult?.row) {
-            const { row, cover } = bannerResult;
-            setCenterSiteTitle(row.title ?? null);
-            setCenterSitePreview({
-              id: row.id,
-              title: row.title,
-              subtitle: row.location_free ?? null,
-              cover,
-            });
-          } else {
-            setCenterSiteTitle(null);
-            setCenterSitePreview(null);
-          }
-
-          let distanceOrdered = [...radiusRows].sort(
-            (a: any, b: any) =>
-              (a.distance_km ?? Number.POSITIVE_INFINITY) -
-              (b.distance_km ?? Number.POSITIVE_INFINITY)
-          );
-
-          const allIds = distanceOrdered.map((r: any) => r.id);
-
-          /* Category filter + heritage type filter run in parallel */
-          const selectedTypes = new Set(getSelectedTypes(nextFilters));
-          const [pairsResult, attrsResult] = await Promise.all([
-            allIds.length && nextFilters.categoryIds?.length
-              ? withTimeout(
-                  supabase
-                    .from("site_categories")
-                    .select("site_id,category_id")
-                    .in("site_id", allIds)
-                    .in("category_id", nextFilters.categoryIds as string[]),
-                  QUERY_TIMEOUT_MS,
-                  "explore.filterByCategories"
-                )
-              : Promise.resolve({ data: null, error: null }),
-            allIds.length && selectedTypes.size > 0
-              ? withTimeout(
-                  supabase
-                    .from("sites")
-                    .select("id,heritage_type")
-                    .eq("is_published", true)
-                    .is("deleted_at", null)
-                    .in("id", allIds),
-                  QUERY_TIMEOUT_MS,
-                  "explore.filterByTypes"
-                )
-              : Promise.resolve({ data: null, error: null }),
-          ]);
-
-          if (pairsResult.error) throw pairsResult.error;
-          if (pairsResult.data) {
-            const allowed = new Set(
-              (pairsResult.data as any[]).map((p: any) => p.site_id)
-            );
-            distanceOrdered = distanceOrdered.filter((r: any) =>
-              allowed.has(r.id)
-            );
-          }
-          if (attrsResult.data && selectedTypes.size > 0) {
-            const typeById = new Map(
-              (attrsResult.data as any[]).map((s: any) => [
-                s.id,
-                s.heritage_type ?? null,
-              ])
-            );
-            distanceOrdered = distanceOrdered.filter((r: any) => {
-              const ht = typeById.get(r.id);
-              return ht && selectedTypes.has(ht);
-            });
-          }
-
-          const total = distanceOrdered.length;
-          setRadiusAllRows(distanceOrdered);
-
-          const pageRows = distanceOrdered.slice(0, PAGE_SIZE);
-          const ids = pageRows.map((r: any) => r.id);
-          if (!ids.length) {
-            setResults({ sites: [], total });
-            return;
-          }
-
-          // Include cover_photo_thumb_url so attachActiveCovers is a no-op
-          const { data: details, error: detailsErr } = await withTimeout(
-            supabase
-              .from("sites")
-              .select(
-                "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count"
-              )
-              .eq("is_published", true)
-              .is("deleted_at", null)
-              .in("id", ids),
-            QUERY_TIMEOUT_MS,
-            "explore.loadRadiusPageDetails"
-          );
-          if (detailsErr) throw detailsErr;
-          if (gen !== searchGenRef.current) return;
-
-          // Province slug resolution + cover thumb fallback in parallel
-          await Promise.all([
-            ensureProvinceSlugOnSites(details as Site[]),
-            attachActiveCovers(details as Site[]),
-          ]);
-          if (gen !== searchGenRef.current) return;
-
-          const distanceById = new Map<string, number | null>(
-            pageRows.map((r: any) => [r.id, r.distance_km ?? null])
-          );
-          const byId = new Map<string, Site>(
-            (details as Site[]).map((d) => [d.id, d])
-          );
-          const ordered: Site[] = ids
-            .map((id) => {
-              const base = byId.get(id);
-              if (!base) return null;
-              return { ...base, distance_km: distanceById.get(id) ?? null };
-            })
-            .filter(Boolean) as Site[];
-
-          setResults({ sites: ordered, total });
-          return;
-        }
-
-        /* ───── Non radius mode, first page ───── */
-        setCenterSiteTitle(null);
-        setCenterSitePreview(null);
-        setRadiusAllRows(null);
-
-        const { data, error: rpcError } = await searchSitesRpc({
-          nameQuery,
-          categoryIds: catsQuery,
-          regionIds: regsQuery,
-          page: 1,
-          pageSize: PAGE_SIZE,
-          label: "explore.searchSitesPage1",
-          forceFallback: isSignedIn,
-        });
-        if (rpcError) throw rpcError;
-        if (gen !== searchGenRef.current) return;
-
-        const sites = ((data as any[]) || []) as Site[];
-        const total = (data as any[])?.[0]?.total_count || 0;
-
-        // Province slug resolution + cover thumb fetch in parallel
-        await Promise.all([
-          ensureProvinceSlugOnSites(sites),
-          attachActiveCovers(sites),
-        ]);
-        if (gen !== searchGenRef.current) return;
-
-        setResults({ sites, total });
-      } catch (e: any) {
-        if (gen !== searchGenRef.current) return;
-        setError(e?.message || "Failed to load results");
-        setResults({ sites: [], total: 0 });
-        setRadiusAllRows(null);
-      } finally {
-        if (gen === searchGenRef.current) {
-          setLoading(false);
-          isHydratingRef.current = false;
-        }
-      }
-    })();
-  }, [searchParams, isSignedIn]);
+    setPage(1);
+    isLoadingMoreRef.current = false;
+    setIsLoadingMore(false);
+    const t = setTimeout(() => {
+      isHydratingRef.current = false;
+    }, 0);
+    return () => clearTimeout(t);
+  }, [searchParams]);
 
   const [categoryMapState, regionMapState] = [categoryMap, regionMap];
 
@@ -1111,7 +1134,7 @@ function ExplorePageContent() {
 
         const ids = pageRows.map((r: any) => r.id);
         const { data: details, error: detailsErr } = await withTimeout(
-          supabase
+          getPublicClient()
             .from("sites")
             .select(
               "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count"
@@ -1155,20 +1178,35 @@ function ExplorePageContent() {
 
       /* Non radius mode, ask RPC for next page */
       const nextPage = page + 1;
+      const controller = new AbortController();
+      const abortTimer = window.setTimeout(
+        () =>
+          controller.abort(
+            new Error("explore.searchSitesLoadMore abort after 8000ms")
+          ),
+        8000
+      );
 
       const nameQuery = searchParams.get("q") || "";
       const catsQuery = parseMulti(searchParams.get("cats"));
       const regsQuery = parseMulti(searchParams.get("regs"));
 
-      const { data, error: rpcError } = await searchSitesRpc({
-        nameQuery,
-        categoryIds: catsQuery,
-        regionIds: regsQuery,
-        page: nextPage,
-        pageSize: PAGE_SIZE,
-        label: "explore.searchSitesLoadMore",
-        forceFallback: isSignedIn,
-      });
+      const { data, error: rpcError } = await (async () => {
+        try {
+          return await searchSitesRpc({
+            nameQuery,
+            categoryIds: catsQuery,
+            regionIds: regsQuery,
+            page: nextPage,
+            pageSize: PAGE_SIZE,
+            label: "explore.searchSitesLoadMore",
+            forceFallback: false,
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(abortTimer);
+        }
+      })();
       if (rpcError) throw rpcError;
 
       const newSites = ((data as any[]) || []) as Site[];
@@ -1398,7 +1436,7 @@ function ExplorePageContent() {
                   Array.from({ length: 6 }).map((_, i) => (
                     <PreviewCardSkeleton key={i} />
                   ))
-                ) : error ? (
+                ) : error && results.sites.length === 0 ? (
                   <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">
                     {error}
                   </div>

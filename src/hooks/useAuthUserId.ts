@@ -19,10 +19,17 @@ let sharedResolving = false;
 let sharedQueuedResolve = false;
 let sharedRuntimeCleanup: (() => void) | null = null;
 
-// Debounce repeated event-driven re-checks (visibility/focus/online) to avoid
-// hammering the server when the user rapidly switches tabs.
-let lastEventResolveMs = 0;
-const EVENT_RESOLVE_DEBOUNCE_MS = 3000;
+// Used only for the initial server round-trip (getUser).
+const AUTH_GET_USER_TIMEOUT_MS = 8000;
+// getSession() should not block forever on auth lock contention.
+const AUTH_GET_SESSION_TIMEOUT_MS = 5000;
+// Token refresh is a single HTTP POST — allow a bit more time.
+const REFRESH_SESSION_TIMEOUT_MS = 12_000;
+// Refresh the access token if it expires within this many seconds.
+const TOKEN_EXPIRY_BUFFER_SECS = 300; // 5 minutes
+// Proactive refresh poll: check every 55 min while the tab is visible.
+// (Default Supabase access tokens expire after 1 hour.)
+const PROACTIVE_REFRESH_INTERVAL_MS = 55 * 60 * 1000;
 
 let sharedState: AuthState = {
   userId: null,
@@ -33,6 +40,23 @@ let sharedState: AuthState = {
 };
 
 const sharedListeners = new Set<(state: AuthState) => void>();
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 function getClient(): SupabaseClient {
   if (!sharedClient) {
@@ -48,11 +72,14 @@ function emitState() {
 }
 
 /**
- * Only update shared state and trigger React re-renders when something
- * actually changed.  TOKEN_REFRESHED, tab-switch re-validations, and
- * duplicate SIGNED_IN events all fire patchState with the same userId —
- * without this guard they would cause the entire MapPage (and every other
- * subscriber) to re-render for no reason, causing visible UI jank.
+ * Only emit to React when something meaningful changed.
+ * TOKEN_REFRESHED, tab-switch re-validations, and duplicate events all fire
+ * patchState with the same userId — without this guard they cause needless
+ * re-renders of every subscriber.
+ *
+ * lastValidatedAt is intentionally excluded from the equality check: it
+ * changes on every refresh even when the user hasn't changed, and would
+ * cause a full render of every subscriber on every token refresh.
  */
 function patchState(patch: Partial<AuthState>) {
   const next = { ...sharedState, ...patch };
@@ -60,72 +87,42 @@ function patchState(patch: Partial<AuthState>) {
     next.userId === sharedState.userId &&
     next.authLoading === sharedState.authLoading &&
     next.authError === sharedState.authError &&
-    next.authUnknown === sharedState.authUnknown &&
-    next.lastValidatedAt === sharedState.lastValidatedAt
+    next.authUnknown === sharedState.authUnknown
   ) {
-    return; // nothing changed — skip the emit entirely
+    sharedState = next; // persist lastValidatedAt silently
+    return;
   }
   sharedState = next;
   emitState();
 }
 
 /**
- * Validate auth state with the Supabase server.
+ * Resolves auth state using a two-phase approach that avoids lock contention:
  *
- * We intentionally use `getUser()` — NOT `getSession()` — because:
- *   • `getSession()` reads from localStorage/memory and can return a stale or
- *     expired token without checking the server.
- *   • `getUser()` validates the JWT with Supabase, triggers a token refresh if
- *     the access token is expired (using the refresh token), and returns null
- *     when the session is truly gone.
+ *   Phase 1 — getSession() (localStorage read, no network).
+ *             Fast; runs on every tab-return.
  *
- * Exception: for event-driven re-checks (tab switch, focus, online) we first
- * consult the local session cache.  If the session is still valid and not close
- * to expiring we skip the round-trip entirely — the Supabase client's own
- * autoRefreshToken already handles silent renewal.
+ *   Phase 2 — If the access token is expired/close to expiry: refreshSession().
+ *             One network call, under OUR control (not Supabase's auto-refresh).
+ *             With autoRefreshToken: false there is no competing lock holder,
+ *             so the lock is acquired immediately every time.
  *
- * @param fromEvent  true when called from a DOM event handler (applies debounce + local-cache fast-path)
+ *   Phase 3 — Only on initial page load (fullValidation=true): getUser().
+ *             Validates the token with the Supabase server to detect revoked
+ *             sessions. Skipped on ordinary tab-return checks to avoid an
+ *             unnecessary round-trip when the local token is still valid.
+ *
+ * Why not autoRefreshToken: true?
+ *   Supabase registers its own visibilitychange listener that calls
+ *   _recoverAndRefresh(), which acquires a navigator.locks lock with no
+ *   timeout. Our getUser() calls also acquire the same lock (acquireTimeout
+ *   = -1 = wait forever). When the tab returns after token expiry, both race
+ *   for the lock and the app freezes permanently until hard-refresh.
  */
-async function resolveSharedAuth(fromEvent = false) {
+async function resolveSharedAuth(fullValidation = false) {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
-    // Offline: avoid server calls; keep any known userId and mark auth as unresolved.
-    patchState({
-      authLoading: false,
-      authError: null,
-      authUnknown: true,
-    });
+    patchState({ authLoading: false, authError: null, authUnknown: true });
     return;
-  }
-
-  if (fromEvent) {
-    const now = Date.now();
-    if (now - lastEventResolveMs < EVENT_RESOLVE_DEBOUNCE_MS) return;
-    lastEventResolveMs = now;
-
-    // Fast-path for tab-switch / focus / online events: if we already have a
-    // known userId and the local session is fresh (> 60 s to expiry), there is
-    // no need to hit the Supabase auth server.  autoRefreshToken handles silent
-    // renewal automatically; we only need a server round-trip when the session
-    // looks expired or is missing entirely.
-    if (sharedState.userId !== null && !sharedState.authLoading) {
-      try {
-        const { data: { session } } = await getClient().auth.getSession();
-        if (session?.user?.id === sharedState.userId) {
-          // userId matches — session is still valid.
-          // Only fall through to getUser() if expires_at is present AND close to expiry.
-          const expiresAt = session.expires_at;
-          if (
-            typeof expiresAt !== "number" ||
-            expiresAt * 1000 > Date.now() + 60_000
-          ) {
-            // Session is valid and fresh (or no expiry info — trust it).
-            return;
-          }
-        }
-      } catch {
-        // Ignore — fall through to full getUser() check.
-      }
-    }
   }
 
   if (sharedResolving) {
@@ -136,34 +133,110 @@ async function resolveSharedAuth(fromEvent = false) {
 
   try {
     const supabase = getClient();
+
+    // ── Phase 1: read session from storage (no network). ────────────────────
+    const {
+      data: { session },
+    } = await withTimeout(
+      supabase.auth.getSession(),
+      AUTH_GET_SESSION_TIMEOUT_MS,
+      "auth.getSession"
+    );
+
+    if (!session) {
+      patchState({
+        userId: null,
+        authLoading: false,
+        authError: null,
+        authUnknown: false,
+        lastValidatedAt: Date.now(),
+      });
+      return;
+    }
+
+    // ── Phase 2: refresh if expired or close to expiry. ─────────────────────
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = session.expires_at ?? 0;
+
+    if (expiresAt - now < TOKEN_EXPIRY_BUFFER_SECS) {
+      try {
+        const { data: refreshData, error: refreshError } = await withTimeout(
+          supabase.auth.refreshSession(),
+          REFRESH_SESSION_TIMEOUT_MS,
+          "auth.refreshSession"
+        );
+
+        if (refreshError) {
+          // __isAuthError = true → expired/revoked refresh token → sign out.
+          // Network / AbortError → transient; keep existing userId, mark unknown.
+          const isDefinitive = (refreshError as any).__isAuthError === true;
+          patchState(
+            isDefinitive
+              ? {
+                  userId: null,
+                  authLoading: false,
+                  authError: null,
+                  authUnknown: false,
+                  lastValidatedAt: Date.now(),
+                }
+              : { authLoading: false, authError: null, authUnknown: true }
+          );
+          return;
+        }
+
+        if (refreshData?.session) {
+          patchState({
+            userId: refreshData.session.user.id,
+            authLoading: false,
+            authError: null,
+            authUnknown: false,
+            lastValidatedAt: Date.now(),
+          });
+        }
+      } catch {
+        // Network error / fetch abort (stale TCP) — transient, don't sign out.
+        patchState({ authLoading: false, authError: null, authUnknown: true });
+      }
+      return;
+    }
+
+    // ── Phase 3: token is locally valid. ────────────────────────────────────
+    if (!fullValidation) {
+      // Tab-return fast path: trust the local session. Avoids a server
+      // round-trip on every tab switch when the token is still valid.
+      patchState({
+        userId: session.user.id,
+        authLoading: false,
+        authError: null,
+        authUnknown: false,
+        lastValidatedAt: Date.now(),
+      });
+      return;
+    }
+
+    // Initial page load: validate with the server to detect revoked sessions.
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser();
+    } = await withTimeout(
+      supabase.auth.getUser(),
+      AUTH_GET_USER_TIMEOUT_MS,
+      "auth.getUser"
+    );
 
     if (error) {
-      // Supabase auth errors (JWT expired, invalid token, etc.) have
-      // __isAuthError === true.  These mean the user is definitively signed out.
-      // Plain network / fetch errors don't have that flag — in that case we
-      // preserve the existing userId so a momentary connectivity blip doesn't
-      // silently sign the user out of the UI.
-      const isDefinitiveAuthFailure = (error as any).__isAuthError === true;
-      if (isDefinitiveAuthFailure) {
-        patchState({
-          userId: null,
-          authLoading: false,
-          authError: null,
-          authUnknown: false,
-          lastValidatedAt: Date.now(),
-        });
-      } else {
-        // Transient network error — stop the loading spinner but keep state.
-        patchState({
-          authLoading: false,
-          authError: null,
-          authUnknown: true,
-        });
-      }
+      const isDefinitive = (error as any).__isAuthError === true;
+      patchState(
+        isDefinitive
+          ? {
+              userId: null,
+              authLoading: false,
+              authError: null,
+              authUnknown: false,
+              lastValidatedAt: Date.now(),
+            }
+          : { authLoading: false, authError: null, authUnknown: true }
+      );
       return;
     }
 
@@ -175,12 +248,7 @@ async function resolveSharedAuth(fromEvent = false) {
       lastValidatedAt: Date.now(),
     });
   } catch {
-    // Unknown error — stop loading, preserve existing state.
-    patchState({
-      authLoading: false,
-      authError: null,
-      authUnknown: true,
-    });
+    patchState({ authLoading: false, authError: null, authUnknown: true });
   } finally {
     sharedResolving = false;
 
@@ -207,25 +275,26 @@ function initSharedAuthRuntime() {
   sharedInitialized = true;
   const supabase = getClient();
 
-  // Initial server-validated check on page load (no debounce).
-  void resolveSharedAuth();
+  // Initial load: full server validation.
+  void resolveSharedAuth(true);
+
+  const queueResolve = (fullValidation = false) => {
+    window.setTimeout(() => void resolveSharedAuth(fullValidation), 0);
+  };
 
   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
-      patchState({
-        userId: null,
-        authError: null,
-        authLoading: false,
-        authUnknown: false,
-        lastValidatedAt: Date.now(),
-      });
+      // Re-verify with the server before clearing state.  A dropped TCP
+      // connection during a manual refreshSession() can cause Supabase to
+      // fire SIGNED_OUT even though the session is still valid server-side.
+      // Defer auth calls out of this callback to avoid lock re-entry.
+      queueResolve();
       return;
     }
 
-    // For SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — if the event carries a
-    // valid session we trust it directly (it came straight from Supabase).
-    // patchState will no-op if the userId hasn't actually changed (e.g. on
-    // TOKEN_REFRESHED for the same user), preventing pointless re-renders.
+    // For SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — trust the event's session
+    // directly. patchState no-ops when userId hasn't changed (e.g. TOKEN_REFRESHED
+    // for the same user), preventing pointless re-renders.
     const nextUserId = session?.user?.id ?? null;
     if (nextUserId) {
       patchState({
@@ -238,43 +307,70 @@ function initSharedAuthRuntime() {
       return;
     }
 
-    // Session is null for INITIAL_SESSION (no user) or unusual SIGNED_IN /
-    // USER_UPDATED without a session — fall back to a server round-trip.
     if (
       event === "INITIAL_SESSION" ||
       event === "SIGNED_IN" ||
       event === "USER_UPDATED"
     ) {
-      void resolveSharedAuth();
+      // Defer auth calls out of this callback to avoid lock re-entry.
+      queueResolve();
     }
   });
 
-  // Re-validate auth when the tab becomes visible, the window regains focus,
-  // or the device reconnects.  These use the debounce + local-cache fast-path
-  // to avoid unnecessary server calls when the session is already valid.
-  const onVisible = () => {
-    if (document.visibilityState === "visible") {
-      void resolveSharedAuth(true);
+  // On tab return, re-check auth state.
+  //
+  // With autoRefreshToken: false there is NO competing visibilitychange
+  // listener from Supabase internals. resolveSharedAuth() is now cheap:
+  //   • token still valid  → just a getSession() localStorage read (< 1 ms)
+  //   • token expired      → one refreshSession() network call
+  //
+  // We schedule a second call 16 seconds after tab return as a safety net:
+  // if the first attempt hits a stale TCP connection (global.fetch aborts it
+  // after 15 s), the second attempt uses a fresh connection and recovers.
+  let visibilityRetryTimerId: number | null = null;
+  const onVisibilityChange = () => {
+    if (document.visibilityState !== "visible") return;
+    void resolveSharedAuth();
+    // Safety-net retry in case first attempt hits a stale TCP connection.
+    if (visibilityRetryTimerId) window.clearTimeout(visibilityRetryTimerId);
+    visibilityRetryTimerId = window.setTimeout(
+      () => void resolveSharedAuth(),
+      16_000
+    );
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  // Proactive token refresh while the tab is visible.
+  // Without autoRefreshToken, we poll every 55 minutes and refresh if the
+  // token is within TOKEN_EXPIRY_BUFFER_SECS of expiry.
+  const proactiveRefreshId = window.setInterval(async () => {
+    if (document.visibilityState !== "visible") return;
+    try {
+      const {
+        data: { session },
+      } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_GET_SESSION_TIMEOUT_MS,
+        "auth.getSession(proactive)"
+      );
+      if (!session) return;
+      const now = Math.floor(Date.now() / 1000);
+      if ((session.expires_at ?? 0) - now < TOKEN_EXPIRY_BUFFER_SECS) {
+        void resolveSharedAuth();
+      }
+    } catch {
+      // Transient contention/timeout. Skip this tick.
     }
-  };
-
-  const onFocus = () => {
-    void resolveSharedAuth(true);
-  };
-
-  const onOnline = () => {
-    void resolveSharedAuth(true);
-  };
-
-  document.addEventListener("visibilitychange", onVisible);
-  window.addEventListener("focus", onFocus);
-  window.addEventListener("online", onOnline);
+  }, PROACTIVE_REFRESH_INTERVAL_MS);
 
   const cleanup = () => {
     sub.subscription.unsubscribe();
-    document.removeEventListener("visibilitychange", onVisible);
-    window.removeEventListener("focus", onFocus);
-    window.removeEventListener("online", onOnline);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    if (visibilityRetryTimerId) {
+      window.clearTimeout(visibilityRetryTimerId);
+      visibilityRetryTimerId = null;
+    }
+    window.clearInterval(proactiveRefreshId);
     window.removeEventListener("beforeunload", cleanup);
     sharedRuntimeCleanup = null;
     sharedInitialized = false;

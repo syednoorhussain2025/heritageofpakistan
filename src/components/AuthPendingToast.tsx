@@ -4,10 +4,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 const AUTH_JUST_SIGNED_IN = "auth:justSignedIn";
 const AUTH_JUST_SIGNED_OUT = "auth:justSignedOut";
 const MIN_VISIBLE_MS = 1000;
+const AUTH_SESSION_TIMEOUT_MS = 5000;
 
 export default function AuthPendingToast() {
   const sb = useMemo(() => createClient(), []);
@@ -75,8 +77,11 @@ export default function AuthPendingToast() {
       hideTimerRef.current = window.setTimeout(() => hideNow(), wait);
     };
 
-    sb.auth
-      .getSession()
+    withTimeout(
+      sb.auth.getSession(),
+      AUTH_SESSION_TIMEOUT_MS,
+      "authPendingToast.getSession"
+    )
       .then(({ data }) => {
         if (data.session?.user) hideWithMinimum();
       })
