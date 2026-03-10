@@ -1102,11 +1102,8 @@ export default function MapPage() {
   }, [debouncedName, filters.categoryIds, filters.regionIds]);
 
   const applyWishlistFilter = useCallback(async (wishlistId: string, wishlistName?: string) => {
-    const { data } = await supabase
-      .from("wishlist_items")
-      .select("site_id")
-      .eq("wishlist_id", wishlistId);
-    const ids = (data ?? []).map((r: { site_id: string }) => r.site_id);
+    const rows = (await getWishlistItems(wishlistId)) as { site_id: string }[];
+    const ids = (rows ?? []).map((r) => r.site_id);
     setWishlistSiteIds(ids);
     setSidebarFilter({ wishlistId });
     const count = ids.length;
