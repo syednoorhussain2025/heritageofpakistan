@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useCallback, useState } from "react";
 import { getWishlists } from "@/lib/wishlists";
-import { createClient } from "@/lib/supabase/browser";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 /** Narrow type for items returned by `getWishlists()` */
 export type Wishlist = {
@@ -26,7 +26,7 @@ type WishlistContextValue = {
 const WishlistContext = createContext<WishlistContextValue | null>(null);
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const sb = useMemo(() => createClient(), []);
+  const { userId, authLoading } = useAuthUserId();
   const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,33 +43,25 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Only load wishlists when a user is actually signed in, and clear them on sign-out.
-  // This avoids a wasted DB query on every unauthenticated page load.
+  // Keep wishlists in sync with server-validated auth state.
   useEffect(() => {
-    let active = true;
+    if (authLoading) return;
+    if (!userId) {
+      setWishlists([]);
+      setLoading(false);
+      return;
+    }
+    void refresh();
+  }, [userId, authLoading, refresh]);
 
-    const {
-      data: { subscription },
-    } = sb.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      if (event === "SIGNED_OUT" || (!session?.user && event === "INITIAL_SESSION")) {
-        setWishlists([]);
-        setLoading(false);
-        return;
-      }
-      if (
-        (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") &&
-        session?.user
-      ) {
-        void refresh();
-      }
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [sb, refresh]);
+  // Periodic revalidation helps recover from transient auth/storage drift.
+  useEffect(() => {
+    if (authLoading || !userId) return;
+    const id = window.setInterval(() => {
+      void refresh();
+    }, 90_000);
+    return () => window.clearInterval(id);
+  }, [userId, authLoading, refresh]);
 
   const value = useMemo<WishlistContextValue>(
     () => ({ wishlists, loading, refresh, setWishlistsUnsafe: setWishlists }),

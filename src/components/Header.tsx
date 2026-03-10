@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -167,6 +168,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     pathname === "/auth/sign-up";
 
   const [user, setUser] = useState<User | null>(null);
+  const { userId: validatedUserId, authLoading: authValidating } = useAuthUserId();
 
   // Scroll-driven solid state ONLY (no panel influence)
   const [solid, setSolid] = useState<boolean>(!allowTransparent);
@@ -425,6 +427,12 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  // Keep header UI aligned with server-validated auth state.
+  useEffect(() => {
+    if (authValidating) return;
+    if (!validatedUserId) setUser(null);
+  }, [validatedUserId, authValidating]);
 
   /* -------------------------- Header menu data + mega state -------------------------- */
 

@@ -194,13 +194,17 @@ async function searchSitesRpc({
   forceFallback = false,
 }: SearchSitesRpcArgs) {
   if (forceFallback) {
-    const fallbackRows = await fetchSearchSitesFallback({
-      nameQuery,
-      categoryIds,
-      regionIds,
-      page,
-      pageSize,
-    });
+    const fallbackRows = await withTimeout(
+      fetchSearchSitesFallback({
+        nameQuery,
+        categoryIds,
+        regionIds,
+        page,
+        pageSize,
+      }),
+      SEARCH_RPC_TIMEOUT_MS,
+      `${label}.fallback`
+    );
     return { data: fallbackRows, error: null };
   }
   try {
