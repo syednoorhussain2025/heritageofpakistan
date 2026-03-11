@@ -59,6 +59,7 @@ type HeroCoverForClient = {
 
 type SlideshowPhotoForClient = {
   url: string;
+  thumbUrl?: string | null;
   blurhash?: string | null;
   blurDataURL?: string | null;
   width?: number | null;
@@ -602,8 +603,13 @@ export default async function Page({ params }: HeritagePageProps) {
         .map((r: any) => {
           const url = getCoverVariantUrl(r.storage_path);
           if (!url) return null;
+          let thumbUrl: string | null = null;
+          if (!/^https?:\/\//i.test((r.storage_path ?? "").trim())) {
+            try { thumbUrl = getVariantPublicUrl(r.storage_path.trim(), "thumb"); } catch { /* noop */ }
+          }
           return {
             url,
+            thumbUrl,
             width: r.width ?? null,
             height: r.height ?? null,
             blurhash: r.blur_hash ?? null,

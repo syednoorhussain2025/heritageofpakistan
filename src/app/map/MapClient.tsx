@@ -19,7 +19,7 @@ import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineIt
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
-import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
 
@@ -107,7 +107,7 @@ async function fetchMapSites(signal?: AbortSignal): Promise<MapSite[]> {
   let query = getPublicClient()
     .from("sites")
     .select(
-      `id, slug, title, cover_photo_url, cover_photo_thumb_url, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
+      `id, slug, title, cover_photo_url, cover_photo_thumb_url, cover_slideshow_image_ids, location_free, heritage_type, avg_rating, review_count, tagline, latitude, longitude, province_id,
        site_categories!inner(category_id, categories(icon_key)),
        site_regions!inner(region_id)`
     )
@@ -242,6 +242,78 @@ function applyBootstrapToState(
   setters.setLoading(false);
 }
 
+/* ───────────────────────── MapSiteSlideshow ───────────────────────── */
+function MapSiteSlideshow({
+  urls,
+  fallbackUrl,
+  alt,
+  autoAdvance,
+}: {
+  urls: string[];
+  fallbackUrl?: string | null;
+  alt: string;
+  autoAdvance: boolean;
+}) {
+  const slides = urls.length > 0 ? urls : (fallbackUrl ? [fallbackUrl] : []);
+  const hasMultiple = slides.length > 1;
+  const [idx, setIdx] = React.useState(0);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  // Reset index when slides change (site changed)
+  React.useEffect(() => { setIdx(0); }, [slides.join(",")]);
+
+  // Auto-advance on desktop
+  React.useEffect(() => {
+    if (!autoAdvance || !hasMultiple) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5000);
+    return () => clearInterval(t);
+  }, [autoAdvance, hasMultiple, slides.length]);
+
+  if (slides.length === 0) {
+    return <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />;
+  }
+
+  return (
+    <div
+      className="relative w-full h-full"
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        touchStartRef.current = { x: t.clientX, y: t.clientY };
+      }}
+      onTouchEnd={(e) => {
+        if (!touchStartRef.current || !hasMultiple) return;
+        const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+        const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+        touchStartRef.current = null;
+        if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+        setIdx((i) => dx < 0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length);
+      }}
+    >
+      {slides.map((url, i) => (
+        <img
+          key={url}
+          src={url}
+          alt={i === 0 ? alt : ""}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+          style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 2 : 1 }}
+        />
+      ))}
+      {hasMultiple && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === idx ? "bg-white" : "bg-white/50"}`}
+              aria-label={`Go to slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MapClient() {
   const initialBootstrapFromServer = useMapBootstrap();
   const { userId: authUserId, authLoading: authStateLoading } = useAuthUserId();
@@ -372,6 +444,36 @@ export default function MapClient() {
   const sitePanelRegionsScrollRef = useRef<HTMLDivElement>(null);
   const [showSitePanelWishlistModal, setShowSitePanelWishlistModal] = useState(false);
   const [showSitePanelTripModal, setShowSitePanelTripModal] = useState(false);
+
+  // Slideshow: resolved image URLs for the selected site
+  const [slideshowUrls, setSlideshowUrls] = useState<string[]>([]);
+
+  // Fetch slideshow image URLs when selected site changes
+  useEffect(() => {
+    setSlideshowUrls([]);
+    const ids = selectedMapSite?.cover_slideshow_image_ids;
+    if (!ids?.length) return;
+    let cancelled = false;
+    getPublicClient()
+      .from("site_images")
+      .select("id, storage_path")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled || !data?.length) return;
+        // Preserve admin order
+        const byId = new Map<string, string>(data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path]));
+        const urls = ids
+          .map((id) => {
+            const path = byId.get(id);
+            if (!path) return null;
+            try { return getVariantPublicUrl(path, "thumb"); } catch { return null; }
+          })
+          .filter((u): u is string => !!u);
+        setSlideshowUrls(urls);
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMapSite?.id]);
 
   const handleFilterChange = useCallback((newFilters: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -1209,7 +1311,7 @@ export default function MapClient() {
   const signInRedirectUrl = "/auth/sign-in?redirectTo=" + encodeURIComponent("/map");
 
   const renderToolPanel = useCallback(
-    (toolId: string, onClose: () => void) => {
+    (toolId: string, onClose: () => void, opts?: { autoAdvanceSlideshow?: boolean }) => {
       if (toolId === "site") {
         if (!selectedMapSite) return null;
         const regionSlug = selectedMapSite.province_slug ?? null;
@@ -1218,21 +1320,18 @@ export default function MapClient() {
           : `/heritage/${selectedMapSite.slug}`;
         return (
           <div className="flex flex-col">
-            {/* Cover photo */}
+            {/* Cover photo / slideshow */}
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-300 flex-shrink-0">
-              {selectedMapSite.cover_photo_url ? (
-                <img
-                  src={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || undefined}
-                  alt={selectedMapSite.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />
-              )}
+              <MapSiteSlideshow
+                urls={slideshowUrls}
+                fallbackUrl={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || selectedMapSite.cover_photo_url}
+                alt={selectedMapSite.title}
+                autoAdvance={opts?.autoAdvanceSlideshow ?? false}
+              />
               {/* Close button overlaid on photo */}
               <button
                 onClick={onClose}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                className="absolute top-2 right-2 z-20 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
                 title="Close"
               >
                 <Icon name="times" size={16} />
@@ -1752,6 +1851,7 @@ export default function MapClient() {
       setShowSitePanelTripModal,
       handleFilterChange,
       setShowNearbyModal,
+      slideshowUrls,
     ]
   );
 
@@ -2804,7 +2904,7 @@ export default function MapClient() {
           onOpenNearbyModal={() => setShowNearbyModal(true)}
           onClearNearby={() => showMapToast("Proximity filter cleared")}
           onReset={() => showMapToast("Filters reset")}
-          renderToolPanel={renderToolPanel}
+          renderToolPanel={(toolId, onClose) => renderToolPanel(toolId, onClose, { autoAdvanceSlideshow: true })}
           controlledOpenTool={selectedMapSite ? "site" : null}
           onControlledToolClose={() => setSelectedMapSite(null)}
         />

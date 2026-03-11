@@ -66,6 +66,7 @@ function BlurhashImage({
 
 type SlideshowPhoto = {
   url: string;
+  thumbUrl?: string | null;
   blurhash?: string | null;
   blurDataURL?: string | null;
   width?: number | null;
@@ -310,7 +311,7 @@ export default function HeritageCover({
                     </div>
                   )}
                   <Image
-                    src={slide.url}
+                    src={slide.thumbUrl ?? slide.url}
                     alt={site.title}
                     width={slideW ?? 1600}
                     height={slideH ?? 900}

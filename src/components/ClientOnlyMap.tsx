@@ -32,6 +32,7 @@ export type Site = {
   // Optional richer fields (present when passed from map page)
   cover_photo_url?: string | null;
   cover_photo_thumb_url?: string | null;
+  cover_slideshow_image_ids?: string[] | null;
   location_free?: string | null;
   heritage_type?: string | null;
   avg_rating?: number | null;

@@ -5,7 +5,7 @@
  */
 
 const BOOTSTRAP_KEY = "hop:map:bootstrap:v1";
-const SITES_KEY = "hop:map:sites:v1";
+const SITES_KEY = "hop:map:sites:v2";
 
 /** Cache max-age in seconds (like Cache-Control max-age). 30 days. */
 const BOOTSTRAP_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
