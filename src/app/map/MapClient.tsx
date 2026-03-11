@@ -249,12 +249,13 @@ function MapSiteSlideshow({
   alt,
   autoAdvance,
 }: {
-  urls: string[];
+  urls: string[] | null; // null = still loading; [] = no slideshow, use fallback
   fallbackUrl?: string | null;
   alt: string;
   autoAdvance: boolean;
 }) {
-  const slides = urls.length > 0 ? urls : (fallbackUrl ? [fallbackUrl] : []);
+  // While loading (null), show neutral bg — avoids cover→slideshow flash
+  const slides = urls === null ? [] : (urls.length > 0 ? urls : (fallbackUrl ? [fallbackUrl] : []));
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -446,20 +447,27 @@ export default function MapClient() {
   const [showSitePanelTripModal, setShowSitePanelTripModal] = useState(false);
 
   // Slideshow: resolved image URLs for the selected site
-  const [slideshowUrls, setSlideshowUrls] = useState<string[]>([]);
+  // null = still loading (has IDs but fetch pending); [] = no slideshow (use cover fallback)
+  const [slideshowUrls, setSlideshowUrls] = useState<string[] | null>(null);
 
   // Fetch slideshow image URLs when selected site changes
   useEffect(() => {
-    setSlideshowUrls([]);
     const ids = selectedMapSite?.cover_slideshow_image_ids;
-    if (!ids?.length) return;
+    if (!ids?.length) {
+      // No slideshow IDs — immediately use cover fallback, no flash
+      setSlideshowUrls([]);
+      return;
+    }
+    // Has IDs: set null (loading) so the cover fallback is suppressed until fetch resolves
+    setSlideshowUrls(null);
     let cancelled = false;
     getPublicClient()
       .from("site_images")
       .select("id, storage_path")
       .in("id", ids)
       .then(({ data }) => {
-        if (cancelled || !data?.length) return;
+        if (cancelled) return;
+        if (!data?.length) { setSlideshowUrls([]); return; }
         // Preserve admin order
         const byId = new Map<string, string>(data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path]));
         const urls = ids
