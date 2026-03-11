@@ -605,7 +605,7 @@ export default async function Page({ params }: HeritagePageProps) {
           if (!url) return null;
           let thumbUrl: string | null = null;
           if (!/^https?:\/\//i.test((r.storage_path ?? "").trim())) {
-            try { thumbUrl = getVariantPublicUrl(r.storage_path.trim(), "thumb"); } catch { /* noop */ }
+            try { thumbUrl = getVariantPublicUrl(r.storage_path.trim(), "md"); } catch { /* noop */ }
           }
           return {
             url,

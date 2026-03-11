@@ -474,7 +474,7 @@ export default function MapClient() {
           .map((id) => {
             const path = byId.get(id);
             if (!path) return null;
-            try { return getVariantPublicUrl(path, "thumb"); } catch { return null; }
+            try { return getVariantPublicUrl(path, "md"); } catch { return null; }
           })
           .filter((u): u is string => !!u);
         setSlideshowUrls(urls);
