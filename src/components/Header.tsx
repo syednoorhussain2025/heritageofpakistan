@@ -174,6 +174,15 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   // Scroll-driven solid state ONLY (no panel influence)
   const [solid, setSolid] = useState<boolean>(!allowTransparent);
+  // On non-transparent routes, always treat as solid regardless of scroll state.
+  // This ensures the correct value is used synchronously on the render where
+  // pathname changes, before the useEffect has a chance to call setSolid.
+  const effectiveSolid = !allowTransparent ? true : solid;
+  // Suppress transition-colors for one render when pathname changes so the
+  // header doesn't visually animate between transparent/solid on navigation.
+  const prevPathnameRef = useRef(pathname);
+  const suppressTransition = prevPathnameRef.current !== pathname;
+  prevPathnameRef.current = pathname;
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(72);
 
@@ -304,7 +313,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   // Visual booleans for transparent header + search
   const isTransparentHeader =
-    allowTransparent && !solid && !searchOverlayOpen;
+    allowTransparent && !effectiveSolid && !searchOverlayOpen;
   const isSearchActive = searchOverlayOpen || isSearchFocused;
 
   // Live Supabase query – same pattern as LocationRadiusFilter.
@@ -599,9 +608,9 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const panelActive = megaOpen && !!activeSub && activeSubItems.length > 0;
 
-  const textLight = solid || panelActive || searchOverlayOpen || pathname === "/map";
+  const textLight = effectiveSolid || panelActive || searchOverlayOpen || pathname === "/map";
 
-  const megaTextClass = `transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`;
+  const megaTextClass = `${suppressTransition ? "" : "transition-colors duration-200"} group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`;
 
   // Stagger helper: returns inline style with animation delay for index i
   const stagger = (i: number, baseMs = 60) => ({
@@ -844,21 +853,21 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       {/* HEADER */}
       <header
         ref={headerRef as any}
-        className={`fixed lg:sticky top-0 z-[1100] w-full transition-colors duration-300 ${
-          solid || searchOverlayOpen
+        className={`fixed lg:sticky top-0 z-[1100] w-full ${suppressTransition ? "" : "transition-colors duration-300"} ${
+          effectiveSolid || searchOverlayOpen
             ? "backdrop-blur shadow-none lg:shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
         }${pathname === "/explore" ? " hidden lg:block" : ""}`}
         style={{
           backgroundColor:
-            solid || searchOverlayOpen ? "#ffffff" : "transparent",
+            effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
         }}
       >
         {/* Gradient only when transparent and no panel */}
         <div
           aria-hidden="true"
           className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 via-black/10 to-transparent pointer-events-none transition-opacity duration-300 ${
-            allowTransparent && !solid && !panelActive && !searchOverlayOpen
+            allowTransparent && !effectiveSolid && !panelActive && !searchOverlayOpen
               ? "opacity-100"
               : "opacity-0"
           }`}
@@ -894,9 +903,14 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             </span>
           </Link>
 
-          {/* Search pill (hidden on map page; spacer keeps nav position) */}
+          {/* Search pill (hidden on map page; invisible clone keeps identical height) */}
           {pathname === "/map" ? (
-          <div className="flex-1 max-w-2xl ml-2" aria-hidden="true" />
+          <div className="relative flex-1 max-w-2xl ml-2 invisible pointer-events-none" aria-hidden="true">
+            <div className="flex items-center gap-2 rounded-full px-4 py-2" style={{ border: "1px solid transparent" }}>
+              <Icon name="search" size={18} />
+              <span className="w-full text-sm">&nbsp;</span>
+            </div>
+          </div>
           ) : (
           <div className="relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
             <div
@@ -1074,7 +1088,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             {/* Desktop nav */}
             <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
               {/* Home */}
-              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(0)}>
+              <div className="relative" style={stagger(0)}>
                 <Link
                   href="/"
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
@@ -1106,7 +1120,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   </>
                 );
                 return (
-                  <div key={m.id} className="relative opacity-0 animate-fadeSlideUp" style={stagger(i + 1)}>
+                  <div key={m.id} className="relative" style={stagger(i + 1)}>
                     {!hasPanel && m.url ? (
                       <Link href={m.url} className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5">
                         {inner}
@@ -1124,7 +1138,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               })}
 
               {/* Explore */}
-              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 1)}>
+              <div className="relative" style={stagger(headerItems.length + 1)}>
                 <Link
                   href="/explore"
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
@@ -1140,7 +1154,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </div>
 
               {/* Map */}
-              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 2)}>
+              <div className="relative" style={stagger(headerItems.length + 2)}>
                 <Link
                   href="/map"
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
@@ -1156,7 +1170,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </div>
 
               {/* Trip Builder */}
-              <div className="relative opacity-0 animate-fadeSlideUp" style={stagger(headerItems.length + 3)}>
+              <div className="relative" style={stagger(headerItems.length + 3)}>
                 <button
                   onClick={() => {
                     if (user?.user_metadata?.username) {

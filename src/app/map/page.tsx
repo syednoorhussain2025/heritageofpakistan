@@ -254,16 +254,33 @@ export default function MapPage() {
     orderBy: "latest",
   });
 
-  const [allLocations, setAllLocations] = useState<MapSite[]>([]);
+  const [allLocations, setAllLocations] = useState<MapSite[]>(() => {
+    const cached = getCachedSites();
+    return cached?.sites?.length ? (cached.sites as MapSite[]) : [];
+  });
   /** O(1) lookup by site id — rebuilt only when allLocations changes. */
   const allLocationsById = useMemo(
     () => new Map(allLocations.map((loc) => [loc.id, loc])),
     [allLocations]
   );
-  const [mapSettings, setMapSettings] = useState<any>(null);
-  const [allIcons, setAllIcons] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [sitesLoading, setSitesLoading] = useState(true);
+  const [mapSettings, setMapSettings] = useState<any>(() => {
+    const cached = getCachedBootstrap();
+    return cached?.mapSettings ?? null;
+  });
+  const [allIcons, setAllIcons] = useState<Map<string, string>>(() => {
+    const cached = getCachedBootstrap();
+    if (!cached?.icons?.length) return new Map();
+    const m = new Map<string, string>();
+    cached.icons.forEach((ic) => m.set(ic.name, ic.svg_content));
+    return m;
+  });
+  const [loading, setLoading] = useState(() => {
+    return !(getCachedBootstrap());
+  });
+  const [sitesLoading, setSitesLoading] = useState(() => {
+    const cached = getCachedSites();
+    return !(cached?.sites?.length);
+  });
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
@@ -620,13 +637,25 @@ export default function MapPage() {
       }
 
       if (cancelled) return;
-      if (settingsRes?.data) setMapSettings(settingsRes.data.value as any);
+      if (settingsRes?.data) {
+        const newSettings = settingsRes.data.value as any;
+        setMapSettings((prev: any) => {
+          if (JSON.stringify(prev) === JSON.stringify(newSettings)) return prev;
+          return newSettings;
+        });
+      }
       if (iconsRes?.data) {
-        const iconMap = new Map<string, string>();
-        (iconsRes.data as any[]).forEach((icon: { name: string; svg_content: string }) =>
-          iconMap.set(icon.name, icon.svg_content)
-        );
-        setAllIcons(iconMap);
+        const newIconData = iconsRes.data as Array<{ name: string; svg_content: string }>;
+        setAllIcons((prev) => {
+          // Only replace the Map if content actually changed
+          if (prev.size === newIconData.length &&
+              newIconData.every((ic) => prev.get(ic.name) === ic.svg_content)) {
+            return prev;
+          }
+          const iconMap = new Map<string, string>();
+          newIconData.forEach((icon) => iconMap.set(icon.name, icon.svg_content));
+          return iconMap;
+        });
       }
       if (catsRes?.data) {
         const m: Record<string, string> = {};
@@ -679,7 +708,14 @@ export default function MapPage() {
     setSitesLoading(sitesQuery.isLoading);
     setSitesLoadError(sitesQuery.isError);
     if (sitesQuery.data?.length) {
-      setAllLocations(sitesQuery.data);
+      setAllLocations((prev) => {
+        // Avoid re-render if site IDs and data are identical (e.g. revalidation returned same data)
+        if (prev.length === sitesQuery.data!.length &&
+            prev.every((s, i) => s.id === sitesQuery.data![i].id)) {
+          return prev;
+        }
+        return sitesQuery.data!;
+      });
       setCachedSites(sitesQuery.data);
     }
   }, [bootstrapReady, sitesQuery.isLoading, sitesQuery.isError, sitesQuery.data]);

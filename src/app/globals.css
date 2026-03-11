@@ -2,7 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
+html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #fafafa;
+  overflow-y: scroll;
+}
+
 body {
   height: 100%;
   margin: 0;
