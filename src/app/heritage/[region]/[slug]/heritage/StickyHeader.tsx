@@ -429,16 +429,41 @@ export default function StickyHeader({
 
   const [showTripModal, setShowTripModal] = useState(false);
 
-  if (!site) return null;
+  // Build hrefs — use province_slug prop (works on SSR + client).
+  // Fall back to window.location only after mount to avoid hydration mismatch.
+  const propBasedGallery = site
+    ? site.province_slug
+      ? `/heritage/${site.province_slug}/${site.slug}/gallery`
+      : null
+    : null;
+  const propBasedStory = site
+    ? site.province_slug
+      ? `/heritage/${site.province_slug}/${site.slug}/photo-story`
+      : null
+    : null;
 
-  // Robust route building
-  const provinceSlug = deriveProvinceSlug(site);
-  const galleryHref = provinceSlug
-    ? `/heritage/${provinceSlug}/${site.slug}/gallery`
-    : buildFallbackPath("gallery");
-  const storyHref = provinceSlug
-    ? `/heritage/${provinceSlug}/${site.slug}/photo-story`
-    : buildFallbackPath("photo-story");
+  const [galleryHref, setGalleryHref] = useState<string>(
+    propBasedGallery ?? "#"
+  );
+  const [storyHref, setStoryHref] = useState<string>(propBasedStory ?? "#");
+
+  useEffect(() => {
+    if (!site) return;
+    const provinceSlug = deriveProvinceSlug(site);
+    setGalleryHref(
+      provinceSlug
+        ? `/heritage/${provinceSlug}/${site.slug}/gallery`
+        : buildFallbackPath("gallery")
+    );
+    setStoryHref(
+      provinceSlug
+        ? `/heritage/${provinceSlug}/${site.slug}/photo-story`
+        : buildFallbackPath("photo-story")
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [site?.id]);
+
+  if (!site) return null;
 
   return (
     <div

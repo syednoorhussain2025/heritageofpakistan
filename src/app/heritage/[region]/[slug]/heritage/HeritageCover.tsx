@@ -375,7 +375,7 @@ export default function HeritageCover({
         }}
       >
         {/* IMAGE + PLACEHOLDERS */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 pointer-events-none">
           {heroUrl ? (
             <>
               {showSpinner && (
