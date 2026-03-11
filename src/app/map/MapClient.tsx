@@ -295,8 +295,8 @@ function MapSiteSlideshow({
           key={url}
           src={url}
           alt={i === 0 ? alt : ""}
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-          style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 2 : 1 }}
+          className="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700"
+          style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 2 : 1, transform: "scale(1.07)", transformOrigin: "top center" }}
         />
       ))}
       {hasMultiple && (

@@ -319,9 +319,10 @@ export default function HeritageCover({
                     priority={i === 0}
                     placeholder="empty"
                     unoptimized
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                    className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ${
                       heroLoaded ? "opacity-100" : "opacity-0"
                     }`}
+                    style={{ transform: "scale(1.07)", transformOrigin: "top center" }}
                     draggable={false}
                     onLoadingComplete={i === 0 ? handleHeroLoadComplete : undefined}
                   />
