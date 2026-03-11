@@ -34,9 +34,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/* ---------------- Removed ALL SEO ---------------- */
+/* ---------------- Root metadata (fallback + template) ---------------- */
 
-export const metadata: Metadata = {};
+const siteBase =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://heritageofpakistan.org";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteBase),
+  title: {
+    default: "Heritage of Pakistan",
+    template: "%s | Heritage of Pakistan",
+  },
+  description:
+    "Discover, explore and preserve the remarkable heritage sites of Pakistan — forts, mosques, temples, ruins and natural wonders.",
+  openGraph: {
+    siteName: "Heritage of Pakistan",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+};
 
 /* ---------------- Layout ---------------- */
 
