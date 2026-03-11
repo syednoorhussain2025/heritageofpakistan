@@ -1343,6 +1343,7 @@ function ListingForm({
 }) {
   const [form, setForm] = useState<any>(site);
   const [deletingCover, setDeletingCover] = useState(false);
+  const [slideshowModalOpen, setSlideshowModalOpen] = useState(false);
   const [coverMeta, setCoverMeta] = useState<{
     w?: number;
     h?: number;
@@ -1685,10 +1686,42 @@ function ListingForm({
                     siteId={form.id}
                     showPreview={false}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setSlideshowModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 bg-teal-600 text-white text-sm font-semibold hover:bg-teal-500"
+                  >
+                    Slideshow Photos
+                    {(form.cover_slideshow_image_ids?.length ?? 0) > 0 && (
+                      <span className="ml-1 bg-white/25 rounded-full px-1.5 py-0.5 text-xs font-bold">
+                        {form.cover_slideshow_image_ids.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
+
+              {/* Slideshow strip preview */}
+              {(form.cover_slideshow_image_ids?.length ?? 0) > 0 && (
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  {(form.cover_slideshow_image_ids as string[]).map((imgId, idx) => (
+                    <div key={imgId} className="relative h-14 w-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
+                      <span className="absolute top-0.5 left-0.5 z-10 bg-black/60 text-white text-[10px] font-bold rounded px-1">{idx + 1}</span>
+                      <SlideshowThumbById siteId={String(form.id)} imageId={imgId} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          <SlideshowLibraryModal
+            siteId={String(form.id)}
+            open={slideshowModalOpen}
+            selectedIds={form.cover_slideshow_image_ids ?? []}
+            onClose={() => setSlideshowModalOpen(false)}
+            onConfirm={(ids) => set("cover_slideshow_image_ids", ids)}
+          />
 
           <div className="mt-6">
             <Field label="Tagline">
@@ -1824,6 +1857,8 @@ type LibraryImage = {
   heroUrl: string; // hero variant
   thumbUrl: string; // thumbnail variant
   name: string;
+  width?: number | null;
+  height?: number | null;
 };
 
 function CoverUploader({
@@ -1911,7 +1946,7 @@ function CoverLibraryThumb({
       fill
       unoptimized
       className={className}
-      sizes="288px"
+      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
       draggable={false}
       onError={() => {
         setIndex((curr) => (curr + 1 < candidates.length ? curr + 1 : curr));
@@ -1954,7 +1989,7 @@ function CoverLibraryModal({
     try {
       const { data, error } = await supabase
         .from("site_images")
-        .select("id, storage_path")
+        .select("id, storage_path, width, height")
         .eq("site_id", siteId)
         .order("sort_order", { ascending: true });
 
@@ -1983,6 +2018,8 @@ function CoverLibraryModal({
             heroUrl,
             thumbUrl,
             name,
+            width: row.width ?? null,
+            height: row.height ?? null,
           };
         })
       );
@@ -2041,7 +2078,7 @@ function CoverLibraryModal({
               No gallery photos yet. Add images in the Gallery section first.
             </div>
           ) : (
-            <div className="flex flex-wrap items-start gap-3">
+            <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 space-y-3">
               {images.map((img) => {
                 const isCurrent =
                   !!currentUrl &&
@@ -2051,16 +2088,17 @@ function CoverLibraryModal({
                     img.url === currentUrl
                   );
 
-                const imageClass = isCurrent
-                  ? "opacity-90"
-                  : "hover:ring-2 hover:ring-indigo-500 cursor-pointer transition";
+                const aspectPct =
+                  img.width && img.height
+                    ? `${((img.height / img.width) * 100).toFixed(2)}%`
+                    : "66.67%"; // fallback 3:2
 
                 return (
                   <div
                     key={img.id}
-                    className={`relative rounded-lg border ${
-                      isCurrent ? "border-indigo-500" : "border-gray-200"
-                    } bg-white overflow-hidden`}
+                    className={`relative rounded-lg border break-inside-avoid overflow-hidden ${
+                      isCurrent ? "border-indigo-500" : "border-gray-200 hover:border-indigo-400"
+                    } bg-gray-100 ${isCurrent ? "cursor-default" : "cursor-pointer"} transition`}
                     onClick={() => {
                       if (isCurrent) return;
                       onPick(img);
@@ -2071,27 +2109,249 @@ function CoverLibraryModal({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        if (!isCurrent) {
-                          onPick(img);
-                        }
+                        if (!isCurrent) onPick(img);
                       }
                     }}
                   >
-                    <div className="relative h-44 w-72">
+                    <div className="relative w-full" style={{ paddingTop: aspectPct }}>
                       <CoverLibraryThumb
                         img={img}
                         alt={img.name}
-                        className={`object-cover ${imageClass}`}
+                        className={`object-cover ${isCurrent ? "opacity-90" : ""}`}
                       />
                     </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
                       <div className="truncate">{img.name}</div>
                     </div>
-                    {isCurrent ? (
+                    {isCurrent && (
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-600 text-white">
                         Current cover
                       </div>
-                    ) : null}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Small thumb helper used in the slideshow preview strip -------- */
+
+function SlideshowThumbById({ siteId, imageId }: { siteId: string; imageId: string }) {
+  const BUCKET = "site-images";
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("site_images")
+        .select("storage_path")
+        .eq("id", imageId)
+        .eq("site_id", siteId)
+        .maybeSingle();
+      if (cancelled || !data?.storage_path) return;
+      const thumbPath = makeVariantPath(data.storage_path, "thumb");
+      const url = await publicUrl(BUCKET, thumbPath);
+      setSrc(url);
+    })();
+    return () => { cancelled = true; };
+  }, [siteId, imageId]);
+
+  if (!src) return null;
+  return <NextImage src={src} alt="" fill unoptimized className="object-cover" sizes="80px" />;
+}
+
+/* -------- Slideshow library modal — multi-select up to 5 photos -------- */
+
+function SlideshowLibraryModal({
+  siteId,
+  open,
+  selectedIds,
+  onClose,
+  onConfirm,
+}: {
+  siteId: string;
+  open: boolean;
+  selectedIds: string[];
+  onClose: () => void;
+  onConfirm: (ids: string[]) => void;
+}) {
+  const BUCKET = "site-images";
+  const MAX = 5;
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [picked, setPicked] = useState<string[]>(selectedIds);
+
+  useEffect(() => {
+    setPicked(selectedIds);
+  }, [open, selectedIds]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  const refresh = useCallback(async () => {
+    if (!open) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("site_images")
+        .select("id, storage_path, width, height")
+        .eq("site_id", siteId)
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      const rows = data ?? [];
+      const mapped: LibraryImage[] = await Promise.all(
+        rows.map(async (row: any) => {
+          const storagePath = row.storage_path as string;
+          const originalUrl = await publicUrl(BUCKET, storagePath);
+          const heroPath = makeVariantPath(storagePath, "hero");
+          const thumbPath = makeVariantPath(storagePath, "thumb");
+          const heroUrl = await publicUrl(BUCKET, heroPath);
+          const thumbUrl = await publicUrl(BUCKET, thumbPath);
+          const name = storagePath.split("/").pop() || storagePath;
+          return { id: row.id, storage_path: storagePath, url: originalUrl, heroUrl, thumbUrl, name, width: row.width ?? null, height: row.height ?? null };
+        })
+      );
+
+      setImages(mapped);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load gallery images.");
+    } finally {
+      setLoading(false);
+    }
+  }, [open, siteId]);
+
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+
+  function toggle(id: string) {
+    setPicked((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX) return prev;
+      return [...prev, id];
+    });
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white w-full max-w-5xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="font-semibold text-gray-900">
+            Select Slideshow Photos{" "}
+            <span className="text-sm font-normal text-gray-500">
+              ({picked.length}/{MAX} selected)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-xs text-gray-500">
+              Select up to {MAX} photos for the cover slideshow.
+            </span>
+            {picked.length > 0 && (
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-white border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50"
+                onClick={() => setPicked([])}
+              >
+                Clear Selection
+              </button>
+            )}
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
+              onClick={() => { onConfirm(picked); onClose(); }}
+            >
+              Confirm ({picked.length})
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="text-sm text-gray-600">Loading photos…</div>
+          ) : images.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              No gallery photos yet. Add images in the Gallery section first.
+            </div>
+          ) : (
+            <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 space-y-3">
+              {images.map((img) => {
+                const isSelected = picked.includes(img.id);
+                const order = picked.indexOf(img.id);
+                const isDisabled = !isSelected && picked.length >= MAX;
+
+                const aspectPct =
+                  img.width && img.height
+                    ? `${((img.height / img.width) * 100).toFixed(2)}%`
+                    : "66.67%"; // fallback 3:2
+
+                return (
+                  <div
+                    key={img.id}
+                    className={`relative rounded-lg border break-inside-avoid overflow-hidden ${
+                      isSelected ? "border-indigo-500" : "border-gray-200 hover:border-indigo-400"
+                    } bg-gray-100 ${
+                      isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                    } transition`}
+                    onClick={() => { if (!isDisabled) toggle(img.id); }}
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if ((e.key === "Enter" || e.key === " ") && !isDisabled) {
+                        e.preventDefault();
+                        toggle(img.id);
+                      }
+                    }}
+                  >
+                    <div className="relative w-full" style={{ paddingTop: aspectPct }}>
+                      <CoverLibraryThumb
+                        img={img}
+                        alt={img.name}
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-white text-xs">
+                      <div className="truncate">{img.name}</div>
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow">
+                        {order + 1}
+                      </div>
+                    )}
                   </div>
                 );
               })}

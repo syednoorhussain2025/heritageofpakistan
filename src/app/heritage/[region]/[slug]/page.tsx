@@ -57,6 +57,14 @@ type HeroCoverForClient = {
   credit?: string | null;
 };
 
+type SlideshowPhotoForClient = {
+  url: string;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
 type TravelGuideSummary = {
   location?: string | null;
   how_to_reach?: string | null;
@@ -574,10 +582,43 @@ export default async function Page({ params }: HeritagePageProps) {
     };
   }
 
+  /* Slideshow photos */
+  const slideshowIds: string[] = (site as any).cover_slideshow_image_ids ?? [];
+  let slideshowPhotos: SlideshowPhotoForClient[] = [];
+
+  if (slideshowIds.length > 0) {
+    const { data: ssImgs } = await supabase
+      .from("site_images")
+      .select("id, storage_path, width, height, blur_hash, blur_data_url")
+      .eq("site_id", site.id)
+      .in("id", slideshowIds);
+
+    if (ssImgs && ssImgs.length > 0) {
+      // Preserve the admin-defined order
+      const byId = new Map(ssImgs.map((r: any) => [r.id, r]));
+      slideshowPhotos = slideshowIds
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .map((r: any) => {
+          const url = getCoverVariantUrl(r.storage_path);
+          if (!url) return null;
+          return {
+            url,
+            width: r.width ?? null,
+            height: r.height ?? null,
+            blurhash: r.blur_hash ?? null,
+            blurDataURL: r.blur_data_url ?? null,
+          } as SlideshowPhotoForClient;
+        })
+        .filter((x): x is SlideshowPhotoForClient => x !== null);
+    }
+  }
+
   const siteDataForClient = {
     ...site,
     province_slug: provinceSlug,
     cover: coverForClient,
+    slideshowPhotos,
   };
 
   /* Format bibliography — CPU only, data already fetched in phase 2 */

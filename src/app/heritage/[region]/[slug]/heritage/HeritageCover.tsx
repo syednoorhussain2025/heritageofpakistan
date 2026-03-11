@@ -63,6 +63,15 @@ function BlurhashImage({
    Rule: hero comes from site.cover.url (hero variant from
    cover_photo_url), cover_photo_url is a fallback.
 --------------------------------------------------------*/
+
+type SlideshowPhoto = {
+  url: string;
+  blurhash?: string | null;
+  blurDataURL?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
 export default function HeritageCover({
   site,
   hasPhotoStory,
@@ -93,6 +102,8 @@ export default function HeritageCover({
           blurDataURL?: string | null;
         }
       | null;
+
+    slideshowPhotos?: SlideshowPhoto[] | null;
   };
   hasPhotoStory: boolean;
 }) {
@@ -105,16 +116,30 @@ export default function HeritageCover({
   const heroUrl: string | null =
     cover?.url || cover?.heroUrl || site.cover_photo_url || null;
 
-  // Blur metadata only from cover if available
-  const activeBlurDataURL = cover?.blurDataURL ?? undefined;
-  const activeBlurhash = cover?.blurhash ?? null;
-  const activeWidth = cover?.width ?? null;
-  const activeHeight = cover?.height ?? null;
+  // Build slideshow frames: if slideshow photos are provided use them,
+  // otherwise fall back to single cover photo.
+  const rawSlideshow = site.slideshowPhotos;
+  const slides: SlideshowPhoto[] =
+    rawSlideshow && rawSlideshow.length > 0
+      ? rawSlideshow
+      : heroUrl
+      ? [{ url: heroUrl, blurhash: cover?.blurhash, blurDataURL: cover?.blurDataURL, width: cover?.width, height: cover?.height }]
+      : [];
 
-  const hasBlurDataURL = !!activeBlurDataURL;
-  const hasBlurhashFallback =
-    !!activeBlurhash && !!activeWidth && !!activeHeight;
+  const hasSlideshow = slides.length > 1;
 
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  // Auto-advance slideshow every 5 seconds
+  useEffect(() => {
+    if (!hasSlideshow) return;
+    const t = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [hasSlideshow, slides.length]);
+
+  // For single-photo mode keep old loaded state; for slideshow track per slide
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [showSpinner, setShowSpinner] = useState(true);
 
@@ -224,57 +249,104 @@ export default function HeritageCover({
     <>
       {/* ---------- MOBILE HERO (phones) ---------- */}
       <section aria-label="Hero" className="block md:hidden bg-white">
-        {heroUrl ? (
-          <div className="relative w-full bg-black aspect-[5/4] overflow-hidden">
+        {slides.length > 0 ? (
+          <div
+            className="relative w-full bg-black aspect-[5/4] overflow-hidden"
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              (e.currentTarget as any)._swipeStartX = t.clientX;
+              (e.currentTarget as any)._swipeStartY = t.clientY;
+            }}
+            onTouchEnd={(e) => {
+              const startX = (e.currentTarget as any)._swipeStartX;
+              const startY = (e.currentTarget as any)._swipeStartY;
+              if (startX == null || !hasSlideshow) return;
+              const dx = e.changedTouches[0].clientX - startX;
+              const dy = e.changedTouches[0].clientY - startY;
+              // Only register horizontal swipes (dx dominant, min 40px)
+              if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+              setSlideIndex((prev) =>
+                dx < 0
+                  ? (prev + 1) % slides.length
+                  : (prev - 1 + slides.length) % slides.length
+              );
+            }}
+          >
             {showSpinner && (
               <div className="absolute inset-0 z-20 flex items-center justify-center">
                 <div className="h-10 w-10 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
               </div>
             )}
 
-            {hasBlurDataURL && (
-              <img
-                src={activeBlurDataURL}
-                alt={site.title}
-                className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
-                  heroLoaded ? "opacity-0" : "opacity-100"
-                }`}
-                draggable={false}
-              />
-            )}
-
-            {!hasBlurDataURL &&
-              hasBlurhashFallback &&
-              activeWidth &&
-              activeHeight && (
+            {/* Crossfade layers — one per slide */}
+            {slides.map((slide, i) => {
+              const isActive = i === slideIndex;
+              const slideBlurDataURL = slide.blurDataURL ?? undefined;
+              const slideBlurhash = slide.blurhash ?? null;
+              const slideW = slide.width ?? null;
+              const slideH = slide.height ?? null;
+              return (
                 <div
-                  className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
-                    heroLoaded ? "opacity-0" : "opacity-100"
-                  }`}
+                  key={slide.url + i}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? "opacity-100 z-[2]" : "opacity-0 z-[1]"}`}
                 >
-                  <BlurhashImage
-                    hash={activeBlurhash!}
-                    width={activeWidth}
-                    height={activeHeight}
+                  {slideBlurDataURL && (
+                    <img
+                      src={slideBlurDataURL}
+                      alt=""
+                      className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
+                        heroLoaded ? "opacity-0" : "opacity-100"
+                      }`}
+                      draggable={false}
+                    />
+                  )}
+                  {!slideBlurDataURL && slideBlurhash && slideW && slideH && (
+                    <div
+                      className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
+                        heroLoaded ? "opacity-0" : "opacity-100"
+                      }`}
+                    >
+                      <BlurhashImage hash={slideBlurhash} width={slideW} height={slideH} />
+                    </div>
+                  )}
+                  <Image
+                    src={slide.url}
+                    alt={site.title}
+                    width={slideW ?? 1600}
+                    height={slideH ?? 900}
+                    sizes="100vw"
+                    priority={i === 0}
+                    placeholder="empty"
+                    unoptimized
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                      heroLoaded ? "opacity-100" : "opacity-0"
+                    }`}
+                    draggable={false}
+                    onLoadingComplete={i === 0 ? handleHeroLoadComplete : undefined}
                   />
                 </div>
-              )}
+              );
+            })}
 
-            <Image
-              src={heroUrl}
-              alt={site.title}
-              width={activeWidth ?? 1600}
-              height={activeHeight ?? 900}
-              sizes="100vw"
-              priority
-              placeholder="empty"
-              unoptimized
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-                heroLoaded ? "opacity-100" : "opacity-0"
-              }`}
-              draggable={false}
-              onLoadingComplete={handleHeroLoadComplete}
-            />
+            {/* Dot indicators — only when slideshow */}
+            {hasSlideshow && (
+              <div className="absolute bottom-3 left-0 right-0 z-10 flex justify-center gap-2">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setSlideIndex(i)}
+                    aria-label={`Go to slide ${i + 1}`}
+                    aria-current={i === slideIndex ? "true" : undefined}
+                    className={`rounded-full transition-all duration-300 ${
+                      i === slideIndex
+                        ? "h-2.5 w-2.5 bg-white shadow-md"
+                        : "h-2 w-2 bg-white/50 hover:bg-white/75"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="w-full aspect-[5/4] bg-gray-200" />
@@ -376,7 +448,7 @@ export default function HeritageCover({
       >
         {/* IMAGE + PLACEHOLDERS */}
         <div className="absolute inset-0 pointer-events-none">
-          {heroUrl ? (
+          {slides.length > 0 ? (
             <>
               {showSpinner && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
@@ -384,58 +456,84 @@ export default function HeritageCover({
                 </div>
               )}
 
-              {hasBlurDataURL && (
-                <img
-                  src={activeBlurDataURL}
-                  alt={site.title}
-                  className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
-                    heroLoaded ? "opacity-0" : "opacity-100"
-                  }`}
-                  draggable={false}
-                />
-              )}
-
-              {!hasBlurDataURL &&
-                hasBlurhashFallback &&
-                activeWidth &&
-                activeHeight && (
+              {/* Crossfade layers — one per slide */}
+              {slides.map((slide, i) => {
+                const isActive = i === slideIndex;
+                const slideBlurDataURL = slide.blurDataURL ?? undefined;
+                const slideBlurhash = slide.blurhash ?? null;
+                const slideW = slide.width ?? null;
+                const slideH = slide.height ?? null;
+                return (
                   <div
-                    className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
-                      heroLoaded ? "opacity-0" : "opacity-100"
-                    }`}
+                    key={slide.url + i}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? "opacity-100 z-[2]" : "opacity-0 z-[1]"}`}
                   >
-                    <BlurhashImage
-                      hash={activeBlurhash!}
-                      width={activeWidth}
-                      height={activeHeight}
+                    {slideBlurDataURL && (
+                      <img
+                        src={slideBlurDataURL}
+                        alt=""
+                        className={`absolute inset-0 w-full h-full object-cover object-top blur-lg scale-105 transition-opacity duration-700 ${
+                          heroLoaded ? "opacity-0" : "opacity-100"
+                        }`}
+                        draggable={false}
+                      />
+                    )}
+                    {!slideBlurDataURL && slideBlurhash && slideW && slideH && (
+                      <div
+                        className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
+                          heroLoaded ? "opacity-0" : "opacity-100"
+                        }`}
+                      >
+                        <BlurhashImage hash={slideBlurhash} width={slideW} height={slideH} />
+                      </div>
+                    )}
+                    <Image
+                      src={slide.url}
+                      alt={site.title}
+                      fill
+                      sizes="100vw"
+                      priority={false}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      placeholder="empty"
+                      unoptimized
+                      className={`object-cover object-top transition-opacity duration-700 ${
+                        heroLoaded ? "opacity-100" : "opacity-0"
+                      }`}
+                      draggable={false}
+                      onLoadingComplete={i === 0 ? handleHeroLoadComplete : undefined}
                     />
                   </div>
-                )}
-
-              <Image
-                src={heroUrl}
-                alt={site.title}
-                fill
-                sizes="100vw"
-                priority={false}
-                loading="lazy"
-                placeholder="empty"
-                unoptimized
-                className={`object-cover object-top transition-opacity duration-700 ${
-                  heroLoaded ? "opacity-100" : "opacity-0"
-                }`}
-                draggable={false}
-                onLoadingComplete={handleHeroLoadComplete}
-              />
+                );
+              })}
             </>
           ) : (
             <div className="w-full h-full bg-gray-200" />
           )}
         </div>
 
+        {/* DOT INDICATORS — desktop slideshow */}
+        {hasSlideshow && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[4] flex gap-2.5 pointer-events-auto">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSlideIndex(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                aria-current={i === slideIndex ? "true" : undefined}
+                className={`rounded-full transition-all duration-300 ${
+                  i === slideIndex
+                    ? "h-3 w-3 bg-white shadow-md"
+                    : "h-2.5 w-2.5 bg-white/50 hover:bg-white/75"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
         {/* 1) DARK READABILITY GRADIENT */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%] z-[3]"
           style={{
             backgroundImage:
               "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)",
@@ -444,7 +542,7 @@ export default function HeritageCover({
 
         {/* 2) PIXEL-CONTROLLED BLUR WITH FADED MASK */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] z-[3]"
           style={{
             backdropFilter: "blur(1px)",
             WebkitBackdropFilter: "blur(2px)",
@@ -458,7 +556,7 @@ export default function HeritageCover({
         {/* OVERLAY CONTENT */}
         <div
           ref={overlayRef}
-          className={`absolute inset-0 flex items-end hero-overlay pointer-events-none ${
+          className={`absolute inset-0 flex items-end hero-overlay pointer-events-none z-[3] ${
             mounted ? "blocks-in" : ""
           }`}
         >
