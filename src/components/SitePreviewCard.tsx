@@ -305,7 +305,7 @@ export default function SitePreviewCard({
     void router.prefetch(detailHref);
   }, [router, detailHref]);
 
-  // Close desktop popup on outside click (button or portal menu count as inside)
+  // Close desktop popup on outside click(button or portal menu count as inside)
   useEffect(() => {
     if (!showActionsMenu) return;
     const handler = (e: MouseEvent) => {
