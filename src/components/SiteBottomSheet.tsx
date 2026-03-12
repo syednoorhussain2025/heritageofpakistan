@@ -68,6 +68,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
     if (!ids?.length) return; // no slideshow — thumb is enough
 
     let cancelled = false;
+    let preloadImg: HTMLImageElement | null = null;
     getPublicClient()
       .from("site_images")
       .select("id, storage_path")
@@ -88,12 +89,22 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
         if (!rest.length) return;
 
-        // Keep thumb as slide 0, append full-res slides after.
-        // This avoids any track geometry change so slide 0 never flashes or jumps.
-        setSlides(thumbUrl ? [thumbUrl, ...rest] : rest);
+        // Phase 1: append full-res slides after the thumb so track geometry is stable
+        // (same count, idx stays at 0, no jump).
+        if (!cancelled) setSlides(thumbUrl ? [thumbUrl, ...rest] : rest);
+
+        // Phase 2: once rest[0] is decoded, silently upgrade slide 0 from thumb to full-res.
+        // Same slide count → no geometry change → no flash.
+        preloadImg = new window.Image();
+        preloadImg.onload = () => { if (!cancelled) setSlides([...rest]); };
+        preloadImg.onerror = () => { if (!cancelled) setSlides([...rest]); };
+        preloadImg.src = rest[0];
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (preloadImg) { preloadImg.onload = null; preloadImg.onerror = null; }
+    };
   }, [site?.id]);
 
   // Open/close animation
