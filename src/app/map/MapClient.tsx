@@ -1370,7 +1370,7 @@ export default function MapClient() {
               {/* Close button overlaid on photo */}
               <button
                 onClick={onClose}
-                className="absolute top-2 right-2 z-20 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                className="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
                 title="Close"
               >
                 <Icon name="times" size={16} />
@@ -1432,8 +1432,6 @@ export default function MapClient() {
               {/* Open Site button */}
               <Link
                 href={detailHref}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 Open Site
@@ -2556,7 +2554,7 @@ export default function MapClient() {
               className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "translate-y-0" : "translate-y-full"}`}
               style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
             >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-2 shrink-0" aria-hidden="true" />
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-6 shrink-0" aria-hidden="true" />
               {renderToolPanel("site", closeSiteSheetWithAnimation)}
             </div>
           </div>,
