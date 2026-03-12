@@ -12,19 +12,16 @@ import React from "react";
  */
 export default function SiteCarousel({
   slides,
-  blurDataUrl,
   alt,
   autoAdvance = false,
 }: {
   slides: string[];        // first entry = thumb shown immediately; rest added progressively
-  blurDataUrl?: string | null;
   alt: string;
   autoAdvance?: boolean;
 }) {
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
   const [firstLoaded, setFirstLoaded] = React.useState(false);
-  const [allowBlur, setAllowBlur] = React.useState(false);
   const trackRef = React.useRef<HTMLDivElement>(null);
   const idxRef = React.useRef(idx);
 
@@ -33,16 +30,8 @@ export default function SiteCarousel({
   React.useEffect(() => {
     setIdx(0);
     setFirstLoaded(false);
-    setAllowBlur(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slidesKey]);
-
-  // Show blur placeholder only after a short delay — cached images skip it entirely
-  React.useEffect(() => {
-    if (firstLoaded || !blurDataUrl) return;
-    const t = window.setTimeout(() => setAllowBlur(true), 80);
-    return () => window.clearTimeout(t);
-  }, [firstLoaded, blurDataUrl, slidesKey]);
 
   // Auto-advance (desktop only)
   React.useEffect(() => {
@@ -124,18 +113,6 @@ export default function SiteCarousel({
   if (slides.length === 0) {
     return (
       <div className="w-full h-full relative bg-neutral-200">
-        {blurDataUrl && allowBlur && (
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `url(${blurDataUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              filter: "blur(14px)",
-              transform: "scale(1.05)",
-            }}
-          />
-        )}
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
         </div>
@@ -143,24 +120,8 @@ export default function SiteCarousel({
     );
   }
 
-  const showBlur = !!blurDataUrl && !firstLoaded && allowBlur;
-
   return (
     <div className="relative w-full h-full overflow-hidden bg-neutral-200">
-      {/* Blur placeholder */}
-      {showBlur && (
-        <div
-          className="absolute inset-0 z-10"
-          style={{
-            backgroundImage: `url(${blurDataUrl})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            filter: "blur(14px)",
-            transform: "scale(1.05)",
-          }}
-        />
-      )}
-
       {/* Spinner — shown while first image hasn't decoded */}
       {!firstLoaded && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">

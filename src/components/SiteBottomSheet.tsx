@@ -38,24 +38,30 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
 
+  // Compute thumb synchronously so useState starts with it — no flash on first render
+  const getThumb = (s: BottomSheetSite | null) => {
+    if (!s) return null;
+    return s.cover_photo_thumb_url ||
+      getThumbOrVariantUrlNoTransform(s.cover_photo_url, "thumb") ||
+      s.cover_photo_url ||
+      null;
+  };
+
   // slides[0] = thumb (shown immediately); rest loaded progressively after open
-  const [slides, setSlides] = useState<string[]>([]);
+  const [slides, setSlides] = useState<string[]>(() => {
+    const t = getThumb(site);
+    return t ? [t] : [];
+  });
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Build slide list when site changes:
-  // 1. Immediately put the thumb as slide[0] — no waiting
-  // 2. After sheet opens, fetch the remaining slideshow images in the background
+  // Sync slides when site changes, then fetch remaining slideshow images in background
   useEffect(() => {
     if (!site) { setSlides([]); return; }
 
-    const thumbUrl =
-      site.cover_photo_thumb_url ||
-      getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") ||
-      site.cover_photo_url ||
-      null;
+    const thumbUrl = getThumb(site);
 
-    // Show thumb immediately — carousel renders right away
+    // Re-seed with thumb for the new site immediately
     setSlides(thumbUrl ? [thumbUrl] : []);
 
     const ids = site.cover_slideshow_image_ids;
@@ -164,7 +170,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
           <div className="absolute inset-0">
             <SiteCarousel
               slides={slides}
-              blurDataUrl={site.cover_blur_data_url}
               alt={site.title}
             />
             {/* Close button — above carousel z layers */}
