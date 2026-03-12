@@ -33,9 +33,16 @@ export default function SiteCarousel({
 
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
-  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const [dragging, setDragging] = React.useState(false);
-  const [dragDx, setDragDx] = React.useState(0);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+
+  // All gesture state lives in refs — never causes async stale-closure bugs
+  const gesture = React.useRef<{
+    startX: number;
+    startY: number;
+    dx: number;
+    locked: "none" | "horizontal" | "vertical"; // direction lock for this gesture
+    currentIdx: number;
+  } | null>(null);
 
   // Reset to first slide when the site changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,53 +55,124 @@ export default function SiteCarousel({
     return () => clearInterval(t);
   }, [autoAdvance, hasMultiple, slides.length]);
 
+  // Apply transform directly on the track DOM node — zero re-renders during drag
+  const applyTransform = React.useCallback((dx: number, currentIdx: number, animated: boolean) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const pct = -currentIdx * (100 / slides.length);
+    el.style.transition = animated ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none";
+    el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
+  }, [slides.length]);
+
+  const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
+    if (!hasMultiple) return;
+    const t = e.touches[0];
+    // Read current idx synchronously via the ref pattern below
+    gesture.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      dx: 0,
+      locked: "none",
+      currentIdx: 0, // will be set by the idx captured at render time
+    };
+  }, [hasMultiple]);
+
+  // We need idx inside touch handlers without stale closure — use a ref mirror
+  const idxRef = React.useRef(idx);
+  React.useEffect(() => { idxRef.current = idx; }, [idx]);
+
+  // Attach native (non-passive) listeners so we can preventDefault on horizontal swipes
+  React.useEffect(() => {
+    const el = trackRef.current?.parentElement;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!hasMultiple) return;
+      const t = e.touches[0];
+      gesture.current = {
+        startX: t.clientX,
+        startY: t.clientY,
+        dx: 0,
+        locked: "none",
+        currentIdx: idxRef.current,
+      };
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const g = gesture.current;
+      if (!g || !hasMultiple) return;
+      const dx = e.touches[0].clientX - g.startX;
+      const dy = e.touches[0].clientY - g.startY;
+
+      // Determine direction lock on first significant movement
+      if (g.locked === "none") {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return; // too small to decide
+        g.locked = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+      }
+
+      if (g.locked === "vertical") return; // let the page scroll
+
+      // Horizontal — take over scroll
+      e.preventDefault();
+      g.dx = dx;
+
+      // Rubber-band resistance at the edges
+      const atStart = g.currentIdx === 0 && dx > 0;
+      const atEnd = g.currentIdx === slides.length - 1 && dx < 0;
+      const displayDx = (atStart || atEnd) ? dx * 0.25 : dx;
+
+      applyTransform(displayDx, g.currentIdx, false);
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const g = gesture.current;
+      gesture.current = null;
+      if (!g || g.locked !== "horizontal") return;
+
+      const dx = g.dx;
+      const SWIPE_THRESHOLD = 50; // px — must move this much to change slide
+      const VELOCITY_THRESHOLD = 0.3; // rough px/ms — fast flick still counts
+
+      // Rough velocity from total dx and touch duration is not tracked here,
+      // so use threshold only — 50px is reliable on mobile
+      let nextIdx = g.currentIdx;
+      if (dx < -SWIPE_THRESHOLD && g.currentIdx < slides.length - 1) {
+        nextIdx = g.currentIdx + 1;
+      } else if (dx > SWIPE_THRESHOLD && g.currentIdx > 0) {
+        nextIdx = g.currentIdx - 1;
+      }
+
+      applyTransform(0, nextIdx, true);
+      setIdx(nextIdx);
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [hasMultiple, slides.length, applyTransform]);
+
+  // Keep track position in sync with idx changes from dot clicks / auto-advance
+  React.useEffect(() => {
+    applyTransform(0, idx, true);
+  }, [idx, applyTransform]);
+
   if (slides.length === 0) {
     return <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />;
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-    setDragging(false);
-    setDragDx(0);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || !hasMultiple) return;
-    const dx = e.touches[0].clientX - touchStartRef.current.x;
-    const dy = e.touches[0].clientY - touchStartRef.current.y;
-    if (!dragging && Math.abs(dy) > Math.abs(dx)) return;
-    setDragging(true);
-    setDragDx(dx);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-    touchStartRef.current = null;
-    setDragging(false);
-    setDragDx(0);
-    if (!hasMultiple || Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-    setIdx((i) =>
-      dx < 0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length
-    );
-  };
-
   return (
-    <div
-      className="relative w-full h-full overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Sliding track */}
+    <div className="relative w-full h-full overflow-hidden">
+      {/* Sliding track — manipulated directly via ref */}
       <div
+        ref={trackRef}
         className="flex h-full"
         style={{
           width: `${slides.length * 100}%`,
-          transform: `translateX(calc(${-idx * (100 / slides.length)}% + ${dragging ? dragDx : 0}px))`,
-          transition: dragging ? "none" : "transform 0.3s cubic-bezier(0.22,1,0.36,1)",
           willChange: "transform",
         }}
       >
@@ -108,6 +186,7 @@ export default function SiteCarousel({
               src={url}
               alt={i === 0 ? alt : ""}
               className="w-full h-full object-cover object-top"
+              draggable={false}
             />
           </div>
         ))}

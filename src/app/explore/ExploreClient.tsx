@@ -438,7 +438,7 @@ async function fetchExploreFirstPage(
   if (rpcError) throw rpcError;
   const sites = ((data as any[]) || []) as Site[];
   const total = (data as any[])?.[0]?.total_count || 0;
-  await Promise.all([ensureProvinceSlugOnSites(sites), attachActiveCovers(sites)]);
+  await Promise.all([ensureProvinceSlugOnSites(sites), attachActiveCovers(sites), attachSlideshowAndTagline(sites)]);
   return {
     sites,
     total,
@@ -691,6 +691,32 @@ async function ensureProvinceSlugOnSites(sites: Site[]) {
     if (site && row.province_id != null) {
       site.province_slug = _provinceSlugCache.get(row.province_id) ?? null;
     }
+  }
+}
+
+/* ── Attach slideshow IDs + tagline (missing from search_sites RPC) ── */
+async function attachSlideshowAndTagline(sites: Site[]) {
+  const needsPatch = sites.filter(
+    (s) => s.cover_slideshow_image_ids === undefined || s.tagline === undefined
+  );
+  if (!needsPatch.length) return;
+  const ids = Array.from(new Set(needsPatch.map((s) => s.id))).filter(Boolean);
+  const { data, error } = await withTimeout(
+    getPublicClient()
+      .from("sites")
+      .select("id, cover_slideshow_image_ids, tagline")
+      .in("id", ids),
+    QUERY_TIMEOUT_MS,
+    "explore.attachSlideshowAndTagline"
+  );
+  if (error || !data) return;
+  type Row = { id: string; cover_slideshow_image_ids: string[] | null; tagline: string | null };
+  const byId = new Map<string, Row>((data as Row[]).map((r) => [r.id, r]));
+  for (const s of needsPatch) {
+    const row = byId.get(s.id);
+    if (!row) continue;
+    s.cover_slideshow_image_ids = row.cover_slideshow_image_ids ?? null;
+    s.tagline = row.tagline ?? null;
   }
 }
 
@@ -1228,6 +1254,7 @@ function ExplorePageContent() {
       await Promise.all([
         ensureProvinceSlugOnSites(newSites),
         attachActiveCovers(newSites),
+        attachSlideshowAndTagline(newSites),
       ]);
 
       setResults((prev) => ({
