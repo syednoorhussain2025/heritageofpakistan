@@ -153,7 +153,7 @@ export default function SiteCarousel({
               src={url}
               alt={i === 0 ? alt : ""}
               className="w-full h-full object-cover object-top"
-              style={{ transform: "scale(1.07)", transformOrigin: "top center" }}
+              style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
               draggable={false}
               onLoad={() => { if (!firstLoaded) setFirstLoaded(true); }}
             />

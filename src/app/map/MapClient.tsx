@@ -1285,6 +1285,44 @@ export default function MapClient() {
                 </p>
               )}
 
+              {/* Categories */}
+              {(() => {
+                const cats: string[] = ((selectedMapSite as any).site_categories ?? [])
+                  .map((sc: any) => categoryMap[sc.category_id])
+                  .filter(Boolean);
+                return cats.length ? (
+                  <div className="shrink-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Categories</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cats.map((name) => (
+                        <span key={name} className="px-2 py-0.5 rounded-full bg-blue-50 text-[var(--brand-blue)] text-xs font-medium">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Regions */}
+              {(() => {
+                const regs: string[] = ((selectedMapSite as any).site_regions ?? [])
+                  .map((sr: any) => regionMap[sr.region_id])
+                  .filter(Boolean);
+                return regs.length ? (
+                  <div className="shrink-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Regions</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {regs.map((name) => (
+                        <span key={name} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
               {/* Spacer pushes button to bottom */}
               <div className="flex-1" />
 
