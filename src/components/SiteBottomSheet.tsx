@@ -155,7 +155,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
         <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-6 shrink-0" aria-hidden="true" />
 
         {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
-        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
+        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "62%" }}>
           <div className="absolute inset-0">
             <SiteCarousel
               slides={slides}
