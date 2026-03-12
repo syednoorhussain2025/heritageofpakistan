@@ -145,7 +145,7 @@ export default function SiteCarousel({
       >
         {slides.map((url, i) => (
           <div
-            key={url}
+            key={i}
             className="h-full flex-shrink-0 overflow-hidden"
             style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
           >
