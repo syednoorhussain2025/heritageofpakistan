@@ -51,10 +51,15 @@ export default function SiteCarousel({
     el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
   }, [slides.length]);
 
-  // Keep track in sync when idx changes from dot clicks / auto-advance
+  // Keep track in sync when idx changes from dot clicks / auto-advance.
+  // Use prevSlidesLenRef to detect when slides were appended vs idx actually changed —
+  // on append we reposition without animation so there's no visible jump.
+  const prevSlidesLenRef = React.useRef(slides.length);
   React.useEffect(() => {
-    applyTransform(0, idx, true);
-  }, [idx, applyTransform]);
+    const slidesExpanded = slides.length !== prevSlidesLenRef.current;
+    prevSlidesLenRef.current = slides.length;
+    applyTransform(0, idx, !slidesExpanded);
+  }, [idx, applyTransform, slides.length]);
 
   // Native touch listeners (non-passive touchmove so we can preventDefault)
   React.useEffect(() => {
@@ -141,13 +146,14 @@ export default function SiteCarousel({
         {slides.map((url, i) => (
           <div
             key={url}
-            className="h-full flex-shrink-0"
+            className="h-full flex-shrink-0 overflow-hidden"
             style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
           >
             <img
               src={url}
               alt={i === 0 ? alt : ""}
               className="w-full h-full object-cover object-top"
+              style={{ transform: "scale(1.07)", transformOrigin: "top center" }}
               draggable={false}
               onLoad={() => { if (!firstLoaded) setFirstLoaded(true); }}
             />
