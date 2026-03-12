@@ -88,19 +88,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
         if (!rest.length) return;
 
-        // Replace thumb with full-res first image, append the rest
-        // If the thumb URL happens to be one of them already, de-dupe
-        setSlides((prev) => {
-          const thumb = prev[0] ?? null;
-          // Use full-res for slide 0 too — browser will use cached decode
-          const all = rest;
-          // If thumb is different from rest[0], keep thumb as first until rest[0] loads
-          // by prepending it only if it's not already there
-          if (thumb && thumb !== all[0]) {
-            return [thumb, ...all];
-          }
-          return all;
-        });
+        // Replace thumb entirely with full-res slideshow images
+        setSlides(rest);
       });
 
     return () => { cancelled = true; };
@@ -170,6 +159,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
           <div className="absolute inset-0">
             <SiteCarousel
               slides={slides}
+              siteId={site.id}
               alt={site.title}
             />
             {/* Close button — above carousel z layers */}

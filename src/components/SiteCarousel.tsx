@@ -12,10 +12,12 @@ import React from "react";
  */
 export default function SiteCarousel({
   slides,
+  siteId,
   alt,
   autoAdvance = false,
 }: {
   slides: string[];        // first entry = thumb shown immediately; rest added progressively
+  siteId?: string | null;  // pass site.id so carousel knows when it's a genuinely new site
   alt: string;
   autoAdvance?: boolean;
 }) {
@@ -25,13 +27,11 @@ export default function SiteCarousel({
   const trackRef = React.useRef<HTMLDivElement>(null);
   const idxRef = React.useRef(idx);
 
-  // Reset when slide list changes (new site)
-  const slidesKey = slides.join(",");
+  // Reset idx + spinner only when the site itself changes, not when more slides are appended
   React.useEffect(() => {
     setIdx(0);
     setFirstLoaded(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slidesKey]);
+  }, [siteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-advance (desktop only)
   React.useEffect(() => {
@@ -149,7 +149,7 @@ export default function SiteCarousel({
               alt={i === 0 ? alt : ""}
               className="w-full h-full object-cover object-top"
               draggable={false}
-              onLoad={() => { if (i === 0) setFirstLoaded(true); }}
+              onLoad={() => { if (!firstLoaded) setFirstLoaded(true); }}
             />
           </div>
         ))}
