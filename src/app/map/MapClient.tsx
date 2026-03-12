@@ -254,16 +254,17 @@ function MapSiteSlideshow({
   alt: string;
   autoAdvance: boolean;
 }) {
-  // While loading (null), show neutral bg — avoids cover→slideshow flash
   const slides = urls === null ? [] : (urls.length > 0 ? urls : (fallbackUrl ? [fallbackUrl] : []));
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = React.useState(false);
+  const [dragDx, setDragDx] = React.useState(0);
 
   // Reset index when slides change (site changed)
   React.useEffect(() => { setIdx(0); }, [slides.join(",")]);
 
-  // Auto-advance on desktop
+  // Auto-advance only if explicitly requested (desktop panel)
   React.useEffect(() => {
     if (!autoAdvance || !hasMultiple) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5000);
@@ -274,38 +275,68 @@ function MapSiteSlideshow({
     return <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />;
   }
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+    setDragging(false);
+    setDragDx(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || !hasMultiple) return;
+    const dx = e.touches[0].clientX - touchStartRef.current.x;
+    const dy = e.touches[0].clientY - touchStartRef.current.y;
+    if (!dragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll intent
+    setDragging(true);
+    setDragDx(dx);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    setDragging(false);
+    setDragDx(0);
+    if (!hasMultiple || Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+    setIdx((i) => dx < 0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length);
+  };
+
   return (
     <div
-      className="relative w-full h-full"
-      onTouchStart={(e) => {
-        const t = e.touches[0];
-        touchStartRef.current = { x: t.clientX, y: t.clientY };
-      }}
-      onTouchEnd={(e) => {
-        if (!touchStartRef.current || !hasMultiple) return;
-        const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-        const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-        touchStartRef.current = null;
-        if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-        setIdx((i) => dx < 0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length);
-      }}
+      className="relative w-full h-full overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {slides.map((url, i) => (
-        <img
-          key={url}
-          src={url}
-          alt={i === 0 ? alt : ""}
-          className="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700"
-          style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 2 : 1, transform: "scale(1.07)", transformOrigin: "top center" }}
-        />
-      ))}
+      {/* Sliding track */}
+      <div
+        className="flex h-full"
+        style={{
+          width: `${slides.length * 100}%`,
+          transform: `translateX(calc(${-idx * (100 / slides.length)}% + ${dragging ? dragDx : 0}px))`,
+          transition: dragging ? "none" : "transform 0.3s cubic-bezier(0.22,1,0.36,1)",
+          willChange: "transform",
+        }}
+      >
+        {slides.map((url, i) => (
+          <div key={url} className="h-full flex-shrink-0" style={{ width: `${100 / slides.length}%` }}>
+            <img
+              src={url}
+              alt={i === 0 ? alt : ""}
+              className="w-full h-full object-cover object-top"
+            />
+          </div>
+        ))}
+      </div>
+      {/* Dot indicators */}
       {hasMultiple && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setIdx(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === idx ? "bg-white" : "bg-white/50"}`}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-white scale-125" : "bg-white/50"}`}
               aria-label={`Go to slide ${i + 1}`}
             />
           ))}
@@ -1327,9 +1358,9 @@ export default function MapClient() {
           ? `/heritage/${regionSlug}/${selectedMapSite.slug}`
           : `/heritage/${selectedMapSite.slug}`;
         return (
-          <div className="flex flex-col">
-            {/* Cover photo / slideshow */}
-            <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-300 flex-shrink-0">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            {/* Carousel — fills available vertical space proportionally */}
+            <div className="relative w-full overflow-hidden bg-neutral-300 flex-shrink-0" style={{ aspectRatio: "4/3" }}>
               <MapSiteSlideshow
                 urls={slideshowUrls}
                 fallbackUrl={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || selectedMapSite.cover_photo_url}
@@ -1346,11 +1377,11 @@ export default function MapClient() {
               </button>
             </div>
 
-            {/* Details — single column, no inner scroll; panel height = content */}
-            <div className="flex flex-col p-4 gap-3">
-              {/* Title row with ellipsis actions menu (same as preview card) */}
-              <div className="flex items-start gap-2">
-                <h2 className="flex-1 min-w-0 text-xl font-bold text-[var(--brand-blue)] leading-tight truncate">
+            {/* Details — no scroll, everything must fit */}
+            <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
+              {/* Title row with ellipsis actions menu */}
+              <div className="flex items-start gap-2 shrink-0">
+                <h2 className="flex-1 min-w-0 text-lg font-bold text-[var(--brand-blue)] leading-tight truncate">
                   {selectedMapSite.title}
                 </h2>
                 <div className="shrink-0 relative" ref={sitePanelActionsMenuRef}>
@@ -1362,31 +1393,21 @@ export default function MapClient() {
                     onClick={() => setShowSitePanelActionsMenu((v) => !v)}
                     className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
                   >
-                    <Icon name="ellipsis" size={24} className="text-current" />
+                    <Icon name="ellipsis" size={22} className="text-current" />
                   </button>
                 </div>
               </div>
 
-              {/* Rating */}
-              {selectedMapSite.avg_rating != null && (
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#00b78b] text-white text-sm font-semibold inline-flex items-center gap-1">
-                    <Icon name="star" size={12} />
+              {/* Rating + type badge + location */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {selectedMapSite.avg_rating != null && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-xs font-semibold inline-flex items-center gap-1">
+                    <Icon name="star" size={11} />
                     {selectedMapSite.avg_rating.toFixed(1)}
                   </span>
-                  {selectedMapSite.review_count != null && selectedMapSite.review_count > 0 && (
-                    <span className="text-sm text-gray-500">
-                      {selectedMapSite.review_count}{" "}
-                      {selectedMapSite.review_count === 1 ? "Review" : "Reviews"}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Tagline */}
-              <div className="flex flex-wrap items-center gap-2">
+                )}
                 {selectedMapSite.heritage_type && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
+                  <span className="px-2 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
                     {selectedMapSite.heritage_type}
                   </span>
                 )}
@@ -1398,125 +1419,22 @@ export default function MapClient() {
                 )}
               </div>
 
-              {/* Tagline — clipped to fixed lines to avoid vertical scroll */}
+              {/* Description — clamped so it never causes overflow */}
               {selectedMapSite.tagline && (
-                <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-3 shrink-0">
                   {selectedMapSite.tagline}
                 </p>
               )}
 
-              {/* Site categories — horizontal scroll pills, scrollbar hidden, right arrow to scroll */}
-              {(() => {
-                const siteCats = (selectedMapSite as { site_categories?: { category_id?: string }[] }).site_categories;
-                const entries = (siteCats ?? [])
-                  .map((sc) => sc.category_id && categoryMap[sc.category_id] ? { id: sc.category_id, name: categoryMap[sc.category_id] } : null)
-                  .filter((x): x is { id: string; name: string } => x != null);
-                if (entries.length === 0) return null;
-                return (
-                  <div className="flex flex-col gap-1.5 min-w-0">
-                    <h3 className="text-xs font-semibold text-[var(--brand-blue)] uppercase tracking-wide shrink-0">
-                      Categories
-                    </h3>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => sitePanelCategoriesScrollRef.current?.scrollBy({ left: -120, behavior: "smooth" })}
-                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
-                        aria-label="Scroll categories left"
-                      >
-                        <Icon name="chevron-left" size={18} />
-                      </button>
-                      <div
-                        ref={sitePanelCategoriesScrollRef}
-                        className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 min-w-0 flex-1"
-                        onWheel={(e) => {
-                          const el = sitePanelCategoriesScrollRef.current;
-                          if (!el) return;
-                          e.preventDefault();
-                          el.scrollLeft += e.deltaY;
-                        }}
-                      >
-                        {entries.map(({ id, name }) => (
-                          <span
-                            key={id}
-                            className="inline-flex items-center shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
-                          >
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => sitePanelCategoriesScrollRef.current?.scrollBy({ left: 120, behavior: "smooth" })}
-                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
-                        aria-label="Scroll categories right"
-                      >
-                        <Icon name="chevron-right" size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Spacer pushes button to bottom */}
+              <div className="flex-1" />
 
-              {/* Regions — horizontal scroll pills, scrollbar hidden, right arrow to scroll */}
-              {(() => {
-                const siteRegs = (selectedMapSite as { site_regions?: { region_id?: string }[] }).site_regions;
-                const entries = (siteRegs ?? [])
-                  .map((sr) => sr.region_id && regionMap[sr.region_id] ? { id: sr.region_id, name: regionMap[sr.region_id] } : null)
-                  .filter((x): x is { id: string; name: string } => x != null);
-                if (entries.length === 0) return null;
-                return (
-                  <div className="flex flex-col gap-1.5 min-w-0">
-                    <h3 className="text-xs font-semibold text-[var(--brand-blue)] uppercase tracking-wide shrink-0">
-                      Regions
-                    </h3>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => sitePanelRegionsScrollRef.current?.scrollBy({ left: -120, behavior: "smooth" })}
-                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
-                        aria-label="Scroll regions left"
-                      >
-                        <Icon name="chevron-left" size={18} />
-                      </button>
-                      <div
-                        ref={sitePanelRegionsScrollRef}
-                        className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 min-w-0 flex-1"
-                        onWheel={(e) => {
-                          const el = sitePanelRegionsScrollRef.current;
-                          if (!el) return;
-                          e.preventDefault();
-                          el.scrollLeft += e.deltaY;
-                        }}
-                      >
-                        {entries.map(({ id, name }) => (
-                          <span
-                            key={id}
-                            className="inline-flex items-center shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
-                          >
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => sitePanelRegionsScrollRef.current?.scrollBy({ left: 120, behavior: "smooth" })}
-                        className="shrink-0 p-1 rounded-full text-gray-400 hover:text-[var(--brand-orange)] hover:bg-gray-100 transition-colors"
-                        aria-label="Scroll regions right"
-                      >
-                        <Icon name="chevron-right" size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Open Site button — slightly reduced top spacing */}
+              {/* Open Site button */}
               <Link
                 href={detailHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-0.5 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 Open Site
                 <Icon name="arrow-right" size={14} />
@@ -2635,26 +2553,11 @@ export default function MapClient() {
               aria-hidden="true"
             />
             <div
-              className={`absolute left-0 right-0 bottom-0 top-[15%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "translate-y-0" : "translate-y-full"}`}
+              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "translate-y-0" : "translate-y-full"}`}
               style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
             >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
-              <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                <span className="text-sm font-bold text-gray-800 truncate flex-1 min-w-0 pr-2">{selectedMapSite.title}</span>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  onClick={closeSiteSheetWithAnimation}
-                  className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0"
-                >
-                  <Icon name="times" size={20} className="text-gray-600" />
-                </button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 scrollbar-hide">
-                <div className="rounded-xl bg-white shadow-md border border-gray-200 overflow-hidden">
-                  {renderToolPanel("site", closeSiteSheetWithAnimation)}
-                </div>
-              </div>
+              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-2 shrink-0" aria-hidden="true" />
+              {renderToolPanel("site", closeSiteSheetWithAnimation)}
             </div>
           </div>,
           document.body
