@@ -5,174 +5,175 @@ import React from "react";
 /**
  * Instagram-style swipe carousel for site images.
  *
- * - urls: null = still loading (shows gradient placeholder)
- *         []   = no images (shows gradient placeholder)
- *         [...] = slide through images
- * - fallbackUrl: used when urls resolves to []
- * - autoAdvance: if true, auto-cycles every 5 s (for desktop panels)
+ * - slides: array of URLs to show. The first URL should be the thumb/cover
+ *           so it renders immediately. Additional URLs are added as they load.
+ * - blurDataUrl: shown as a blurred placeholder while the first slide is loading.
+ * - autoAdvance: if true, auto-cycles every 5 s (desktop panels only).
  */
 export default function SiteCarousel({
-  urls,
-  fallbackUrl,
+  slides,
+  blurDataUrl,
   alt,
   autoAdvance = false,
 }: {
-  urls: string[] | null;
-  fallbackUrl?: string | null;
+  slides: string[];        // first entry = thumb shown immediately; rest added progressively
+  blurDataUrl?: string | null;
   alt: string;
   autoAdvance?: boolean;
 }) {
-  const slides =
-    urls === null
-      ? []
-      : urls.length > 0
-      ? urls
-      : fallbackUrl
-      ? [fallbackUrl]
-      : [];
-
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
+  const [firstLoaded, setFirstLoaded] = React.useState(false);
+  const [allowBlur, setAllowBlur] = React.useState(false);
   const trackRef = React.useRef<HTMLDivElement>(null);
+  const idxRef = React.useRef(idx);
 
-  // All gesture state lives in refs — never causes async stale-closure bugs
-  const gesture = React.useRef<{
-    startX: number;
-    startY: number;
-    dx: number;
-    locked: "none" | "horizontal" | "vertical"; // direction lock for this gesture
-    currentIdx: number;
-  } | null>(null);
-
-  // Reset to first slide when the site changes
+  // Reset when slide list changes (new site)
+  const slidesKey = slides.join(",");
+  React.useEffect(() => {
+    setIdx(0);
+    setFirstLoaded(false);
+    setAllowBlur(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  React.useEffect(() => { setIdx(0); }, [slides.join(",")]);
+  }, [slidesKey]);
 
-  // Optional auto-advance (desktop only)
+  // Show blur placeholder only after a short delay — cached images skip it entirely
+  React.useEffect(() => {
+    if (firstLoaded || !blurDataUrl) return;
+    const t = window.setTimeout(() => setAllowBlur(true), 80);
+    return () => window.clearTimeout(t);
+  }, [firstLoaded, blurDataUrl, slidesKey]);
+
+  // Auto-advance (desktop only)
   React.useEffect(() => {
     if (!autoAdvance || !hasMultiple) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5000);
     return () => clearInterval(t);
   }, [autoAdvance, hasMultiple, slides.length]);
 
-  // Apply transform directly on the track DOM node — zero re-renders during drag
-  const applyTransform = React.useCallback((dx: number, currentIdx: number, animated: boolean) => {
+  React.useEffect(() => { idxRef.current = idx; }, [idx]);
+
+  // Apply transform directly on DOM — zero re-renders during drag
+  const applyTransform = React.useCallback((dx: number, atIdx: number, animated: boolean) => {
     const el = trackRef.current;
     if (!el) return;
-    const pct = -currentIdx * (100 / slides.length);
+    const pct = slides.length > 1 ? -atIdx * (100 / slides.length) : 0;
     el.style.transition = animated ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none";
     el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
   }, [slides.length]);
 
-  const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
-    if (!hasMultiple) return;
-    const t = e.touches[0];
-    // Read current idx synchronously via the ref pattern below
-    gesture.current = {
-      startX: t.clientX,
-      startY: t.clientY,
-      dx: 0,
-      locked: "none",
-      currentIdx: 0, // will be set by the idx captured at render time
-    };
-  }, [hasMultiple]);
-
-  // We need idx inside touch handlers without stale closure — use a ref mirror
-  const idxRef = React.useRef(idx);
-  React.useEffect(() => { idxRef.current = idx; }, [idx]);
-
-  // Attach native (non-passive) listeners so we can preventDefault on horizontal swipes
-  React.useEffect(() => {
-    const el = trackRef.current?.parentElement;
-    if (!el) return;
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (!hasMultiple) return;
-      const t = e.touches[0];
-      gesture.current = {
-        startX: t.clientX,
-        startY: t.clientY,
-        dx: 0,
-        locked: "none",
-        currentIdx: idxRef.current,
-      };
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      const g = gesture.current;
-      if (!g || !hasMultiple) return;
-      const dx = e.touches[0].clientX - g.startX;
-      const dy = e.touches[0].clientY - g.startY;
-
-      // Determine direction lock on first significant movement
-      if (g.locked === "none") {
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return; // too small to decide
-        g.locked = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
-      }
-
-      if (g.locked === "vertical") return; // let the page scroll
-
-      // Horizontal — take over scroll
-      e.preventDefault();
-      g.dx = dx;
-
-      // Rubber-band resistance at the edges
-      const atStart = g.currentIdx === 0 && dx > 0;
-      const atEnd = g.currentIdx === slides.length - 1 && dx < 0;
-      const displayDx = (atStart || atEnd) ? dx * 0.25 : dx;
-
-      applyTransform(displayDx, g.currentIdx, false);
-    };
-
-    const onTouchEnd = (e: TouchEvent) => {
-      const g = gesture.current;
-      gesture.current = null;
-      if (!g || g.locked !== "horizontal") return;
-
-      const dx = g.dx;
-      const SWIPE_THRESHOLD = 50; // px — must move this much to change slide
-      const VELOCITY_THRESHOLD = 0.3; // rough px/ms — fast flick still counts
-
-      // Rough velocity from total dx and touch duration is not tracked here,
-      // so use threshold only — 50px is reliable on mobile
-      let nextIdx = g.currentIdx;
-      if (dx < -SWIPE_THRESHOLD && g.currentIdx < slides.length - 1) {
-        nextIdx = g.currentIdx + 1;
-      } else if (dx > SWIPE_THRESHOLD && g.currentIdx > 0) {
-        nextIdx = g.currentIdx - 1;
-      }
-
-      applyTransform(0, nextIdx, true);
-      setIdx(nextIdx);
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [hasMultiple, slides.length, applyTransform]);
-
-  // Keep track position in sync with idx changes from dot clicks / auto-advance
+  // Keep track in sync when idx changes from dot clicks / auto-advance
   React.useEffect(() => {
     applyTransform(0, idx, true);
   }, [idx, applyTransform]);
 
+  // Native touch listeners (non-passive touchmove so we can preventDefault)
+  React.useEffect(() => {
+    const container = trackRef.current?.parentElement;
+    if (!container || !hasMultiple) return;
+
+    type GestureState = {
+      startX: number; startY: number; dx: number;
+      locked: "none" | "horizontal" | "vertical";
+      currentIdx: number;
+    };
+    let g: GestureState | null = null;
+
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      g = { startX: t.clientX, startY: t.clientY, dx: 0, locked: "none", currentIdx: idxRef.current };
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!g) return;
+      const dx = e.touches[0].clientX - g.startX;
+      const dy = e.touches[0].clientY - g.startY;
+      if (g.locked === "none") {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+        g.locked = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+      }
+      if (g.locked === "vertical") return;
+      e.preventDefault();
+      g.dx = dx;
+      const atStart = g.currentIdx === 0 && dx > 0;
+      const atEnd = g.currentIdx === slides.length - 1 && dx < 0;
+      applyTransform((atStart || atEnd) ? dx * 0.25 : dx, g.currentIdx, false);
+    };
+
+    const onEnd = () => {
+      if (!g || g.locked !== "horizontal") { g = null; return; }
+      const dx = g.dx;
+      let next = g.currentIdx;
+      if (dx < -50 && g.currentIdx < slides.length - 1) next = g.currentIdx + 1;
+      else if (dx > 50 && g.currentIdx > 0) next = g.currentIdx - 1;
+      g = null;
+      applyTransform(0, next, true);
+      setIdx(next);
+    };
+
+    container.addEventListener("touchstart", onStart, { passive: true });
+    container.addEventListener("touchmove", onMove, { passive: false });
+    container.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", onStart);
+      container.removeEventListener("touchmove", onMove);
+      container.removeEventListener("touchend", onEnd);
+    };
+  }, [hasMultiple, slides.length, applyTransform]);
+
   if (slides.length === 0) {
-    return <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />;
+    return (
+      <div className="w-full h-full relative bg-neutral-200">
+        {blurDataUrl && allowBlur && (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${blurDataUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "blur(14px)",
+              transform: "scale(1.05)",
+            }}
+          />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+        </div>
+      </div>
+    );
   }
 
+  const showBlur = !!blurDataUrl && !firstLoaded && allowBlur;
+
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Sliding track — manipulated directly via ref */}
+    <div className="relative w-full h-full overflow-hidden bg-neutral-200">
+      {/* Blur placeholder */}
+      {showBlur && (
+        <div
+          className="absolute inset-0 z-10"
+          style={{
+            backgroundImage: `url(${blurDataUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            filter: "blur(14px)",
+            transform: "scale(1.05)",
+          }}
+        />
+      )}
+
+      {/* Spinner — shown while first image hasn't decoded */}
+      {!firstLoaded && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <span className="w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md" />
+        </div>
+      )}
+
+      {/* Sliding track */}
       <div
         ref={trackRef}
         className="flex h-full"
         style={{
-          width: `${slides.length * 100}%`,
+          width: slides.length > 1 ? `${slides.length * 100}%` : "100%",
           willChange: "transform",
         }}
       >
@@ -180,13 +181,14 @@ export default function SiteCarousel({
           <div
             key={url}
             className="h-full flex-shrink-0"
-            style={{ width: `${100 / slides.length}%` }}
+            style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
           >
             <img
               src={url}
               alt={i === 0 ? alt : ""}
               className="w-full h-full object-cover object-top"
               draggable={false}
+              onLoad={() => { if (i === 0) setFirstLoaded(true); }}
             />
           </div>
         ))}
@@ -194,7 +196,7 @@ export default function SiteCarousel({
 
       {/* Dot indicators */}
       {hasMultiple && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
           {slides.map((_, i) => (
             <button
               key={i}

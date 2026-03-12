@@ -15,6 +15,7 @@ export type BottomSheetSite = {
   title: string;
   cover_photo_url?: string | null;
   cover_photo_thumb_url?: string | null;
+  cover_blur_data_url?: string | null;
   cover_slideshow_image_ids?: string[] | null;
   avg_rating?: number | null;
   review_count?: number | null;
@@ -37,10 +38,67 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
 
-  // Slideshow URLs: null = loading, [] = use cover fallback
-  const [slideshowUrls, setSlideshowUrls] = useState<string[] | null>(null);
+  // slides[0] = thumb (shown immediately); rest loaded progressively after open
+  const [slides, setSlides] = useState<string[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Build slide list when site changes:
+  // 1. Immediately put the thumb as slide[0] — no waiting
+  // 2. After sheet opens, fetch the remaining slideshow images in the background
+  useEffect(() => {
+    if (!site) { setSlides([]); return; }
+
+    const thumbUrl =
+      site.cover_photo_thumb_url ||
+      getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") ||
+      site.cover_photo_url ||
+      null;
+
+    // Show thumb immediately — carousel renders right away
+    setSlides(thumbUrl ? [thumbUrl] : []);
+
+    const ids = site.cover_slideshow_image_ids;
+    if (!ids?.length) return; // no slideshow — thumb is enough
+
+    let cancelled = false;
+    getPublicClient()
+      .from("site_images")
+      .select("id, storage_path")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (!data?.length) return;
+        const byId = new Map<string, string>(
+          data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path])
+        );
+        const rest = ids
+          .map((id) => {
+            const path = byId.get(id);
+            if (!path) return null;
+            try { return getVariantPublicUrl(path, "md"); } catch { return null; }
+          })
+          .filter((u): u is string => !!u);
+
+        if (!rest.length) return;
+
+        // Replace thumb with full-res first image, append the rest
+        // If the thumb URL happens to be one of them already, de-dupe
+        setSlides((prev) => {
+          const thumb = prev[0] ?? null;
+          // Use full-res for slide 0 too — browser will use cached decode
+          const all = rest;
+          // If thumb is different from rest[0], keep thumb as first until rest[0] loads
+          // by prepending it only if it's not already there
+          if (thumb && thumb !== all[0]) {
+            return [thumb, ...all];
+          }
+          return all;
+        });
+      });
+
+    return () => { cancelled = true; };
+  }, [site?.id]);
 
   // Open/close animation
   useEffect(() => {
@@ -70,35 +128,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
       onClose();
     }, 300);
   }, [onClose]);
-
-  // Fetch slideshow image URLs when site changes
-  useEffect(() => {
-    if (!site) { setSlideshowUrls([]); return; }
-    const ids = site.cover_slideshow_image_ids;
-    if (!ids?.length) { setSlideshowUrls([]); return; }
-    setSlideshowUrls(null);
-    let cancelled = false;
-    getPublicClient()
-      .from("site_images")
-      .select("id, storage_path")
-      .in("id", ids)
-      .then(({ data }) => {
-        if (cancelled) return;
-        if (!data?.length) { setSlideshowUrls([]); return; }
-        const byId = new Map<string, string>(
-          data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path])
-        );
-        const urls = ids
-          .map((id) => {
-            const path = byId.get(id);
-            if (!path) return null;
-            try { return getVariantPublicUrl(path, "md"); } catch { return null; }
-          })
-          .filter((u): u is string => !!u);
-        setSlideshowUrls(urls);
-      });
-    return () => { cancelled = true; };
-  }, [site?.id]);
 
   if (!mounted || (!isOpen && !closing) || !site) return null;
 
@@ -132,21 +161,18 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
         {/* Carousel */}
         <div
-          className="relative w-full overflow-hidden bg-neutral-300 flex-shrink-0"
+          className="relative w-full flex-shrink-0"
           style={{ aspectRatio: "4/3" }}
         >
           <SiteCarousel
-            urls={slideshowUrls}
-            fallbackUrl={
-              getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") ||
-              site.cover_photo_url
-            }
+            slides={slides}
+            blurDataUrl={site.cover_blur_data_url}
             alt={site.title}
           />
-          {/* Close button */}
+          {/* Close button — above carousel z layers */}
           <button
             onClick={closeWithAnimation}
-            className="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
             title="Close"
           >
             <Icon name="times" size={16} />

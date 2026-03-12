@@ -1217,8 +1217,12 @@ export default function MapClient() {
             {/* Carousel — fills available vertical space proportionally */}
             <div className="relative w-full overflow-hidden bg-neutral-300 flex-shrink-0" style={{ aspectRatio: "4/3" }}>
               <SiteCarousel
-                urls={slideshowUrls}
-                fallbackUrl={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || selectedMapSite.cover_photo_url}
+                slides={(() => {
+                  const thumb = getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || selectedMapSite.cover_photo_url || null;
+                  if (slideshowUrls === null) return thumb ? [thumb] : [];
+                  if (slideshowUrls.length === 0) return thumb ? [thumb] : [];
+                  return thumb && thumb !== slideshowUrls[0] ? [thumb, ...slideshowUrls] : slideshowUrls;
+                })()}
                 alt={selectedMapSite.title}
                 autoAdvance={opts?.autoAdvanceSlideshow ?? false}
               />
