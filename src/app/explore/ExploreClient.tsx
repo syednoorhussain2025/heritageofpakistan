@@ -19,6 +19,7 @@ import SearchFilters, {
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { getPublicClient } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
+import SiteBottomSheet from "@/components/SiteBottomSheet";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
@@ -99,6 +100,8 @@ type Site = {
   review_count?: number | null;
   distance_km?: number | null;
   category_id?: string | null;
+  tagline?: string | null;
+  cover_slideshow_image_ids?: string[] | null;
 };
 
 type NamedRow = { id: string; name: string };
@@ -155,6 +158,8 @@ async function fetchSearchSitesFallback({
     "heritage_type",
     "avg_rating",
     "review_count",
+    "tagline",
+    "cover_slideshow_image_ids",
     "created_at",
     ...joinSelectParts,
   ].join(",");
@@ -388,7 +393,7 @@ async function fetchExploreFirstPage(
     const { data: details, error: detailsErr } = await withTimeout(
       getPublicClient()
         .from("sites")
-        .select("id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count")
+        .select("id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count,tagline,cover_slideshow_image_ids")
         .eq("is_published", true)
         .is("deleted_at", null)
         .in("id", ids),
@@ -824,6 +829,7 @@ function ExplorePageContent() {
   // from firing a second fetch before the isLoadingMore state update commits.
   const isLoadingMoreRef = useRef(false);
 
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
@@ -1137,7 +1143,7 @@ function ExplorePageContent() {
           getPublicClient()
             .from("sites")
             .select(
-              "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count"
+              "id,slug,province_id,title,cover_photo_url,cover_photo_thumb_url,location_free,heritage_type,avg_rating,review_count,tagline,cover_slideshow_image_ids"
             )
             .eq("is_published", true)
             .is("deleted_at", null)
@@ -1453,7 +1459,11 @@ function ExplorePageContent() {
                         animationDelay: `${Math.min(index, 8) * 55}ms`,
                       }}
                     >
-                      <SitePreviewCard site={s} index={index} />
+                      <SitePreviewCard
+                        site={s}
+                        index={index}
+                        onCardClick={() => setSelectedSite(s)}
+                      />
                     </div>
                   ))
                 )}
@@ -1582,6 +1592,13 @@ function ExplorePageContent() {
         </div>,
         document.body
       )}
+
+      {/* Mobile site bottom sheet */}
+      <SiteBottomSheet
+        site={selectedSite}
+        isOpen={selectedSite !== null}
+        onClose={() => setSelectedSite(null)}
+      />
     </div>
   );
 }

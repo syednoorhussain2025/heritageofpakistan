@@ -20,6 +20,8 @@ import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
+import SiteCarousel from "@/components/SiteCarousel";
+import SiteBottomSheet from "@/components/SiteBottomSheet";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
 
@@ -242,110 +244,6 @@ function applyBootstrapToState(
   setters.setLoading(false);
 }
 
-/* ───────────────────────── MapSiteSlideshow ───────────────────────── */
-function MapSiteSlideshow({
-  urls,
-  fallbackUrl,
-  alt,
-  autoAdvance,
-}: {
-  urls: string[] | null; // null = still loading; [] = no slideshow, use fallback
-  fallbackUrl?: string | null;
-  alt: string;
-  autoAdvance: boolean;
-}) {
-  const slides = urls === null ? [] : (urls.length > 0 ? urls : (fallbackUrl ? [fallbackUrl] : []));
-  const hasMultiple = slides.length > 1;
-  const [idx, setIdx] = React.useState(0);
-  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const [dragging, setDragging] = React.useState(false);
-  const [dragDx, setDragDx] = React.useState(0);
-
-  // Reset index when slides change (site changed)
-  React.useEffect(() => { setIdx(0); }, [slides.join(",")]);
-
-  // Auto-advance only if explicitly requested (desktop panel)
-  React.useEffect(() => {
-    if (!autoAdvance || !hasMultiple) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5000);
-    return () => clearInterval(t);
-  }, [autoAdvance, hasMultiple, slides.length]);
-
-  if (slides.length === 0) {
-    return <div className="w-full h-full bg-gradient-to-br from-[#F78300] to-[#00b78b]" />;
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-    setDragging(false);
-    setDragDx(0);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || !hasMultiple) return;
-    const dx = e.touches[0].clientX - touchStartRef.current.x;
-    const dy = e.touches[0].clientY - touchStartRef.current.y;
-    if (!dragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll intent
-    setDragging(true);
-    setDragDx(dx);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-    touchStartRef.current = null;
-    setDragging(false);
-    setDragDx(0);
-    if (!hasMultiple || Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-    setIdx((i) => dx < 0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length);
-  };
-
-  return (
-    <div
-      className="relative w-full h-full overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Sliding track */}
-      <div
-        className="flex h-full"
-        style={{
-          width: `${slides.length * 100}%`,
-          transform: `translateX(calc(${-idx * (100 / slides.length)}% + ${dragging ? dragDx : 0}px))`,
-          transition: dragging ? "none" : "transform 0.3s cubic-bezier(0.22,1,0.36,1)",
-          willChange: "transform",
-        }}
-      >
-        {slides.map((url, i) => (
-          <div key={url} className="h-full flex-shrink-0" style={{ width: `${100 / slides.length}%` }}>
-            <img
-              src={url}
-              alt={i === 0 ? alt : ""}
-              className="w-full h-full object-cover object-top"
-            />
-          </div>
-        ))}
-      </div>
-      {/* Dot indicators */}
-      {hasMultiple && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIdx(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-white scale-125" : "bg-white/50"}`}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function MapClient() {
   const initialBootstrapFromServer = useMapBootstrap();
   const { userId: authUserId, authLoading: authStateLoading } = useAuthUserId();
@@ -408,10 +306,6 @@ export default function MapClient() {
   const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "wishlist" | "trips" | "site">("search");
   const [mobileEllipsisSheetOpen, setMobileEllipsisSheetOpen] = useState(false);
   const [mobileEllipsisSheetVisible, setMobileEllipsisSheetVisible] = useState(false);
-  const [mobileSiteSheetOpen, setMobileSiteSheetOpen] = useState(false);
-  const [mobileSiteSheetVisible, setMobileSiteSheetVisible] = useState(false);
-  const [mobileSiteSheetClosing, setMobileSiteSheetClosing] = useState(false);
-  const mobileSiteSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileTripSheetOpen, setMobileTripSheetOpen] = useState(false);
   const [mobileTripSheetVisible, setMobileTripSheetVisible] = useState(false);
   const [mobileTripSheetClosing, setMobileTripSheetClosing] = useState(false);
@@ -459,7 +353,6 @@ export default function MapClient() {
   const searchPanelRaf2Ref = useRef<number | null>(null);
   const ellipsisSheetRaf2Ref = useRef<number | null>(null);
   const mapTypeSheetRaf2Ref = useRef<number | null>(null);
-  const siteSheetRaf2Ref = useRef<number | null>(null);
   const tripSheetRaf2Ref = useRef<number | null>(null);
   const listSheetRaf2Ref = useRef<number | null>(null);
   const filteredLocationsRef = useRef<MapSite[]>([]);
@@ -1029,42 +922,6 @@ export default function MapClient() {
     };
   }, [mobileMapTypeSheetOpen]);
 
-  /* Site info bottom sheet visibility animation */
-  useEffect(() => {
-    if (!mobileSiteSheetOpen) {
-      setMobileSiteSheetVisible(false);
-      setMobileSiteSheetClosing(false);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      siteSheetRaf2Ref.current = requestAnimationFrame(() => {
-        siteSheetRaf2Ref.current = null;
-        setMobileSiteSheetVisible(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id);
-      if (siteSheetRaf2Ref.current != null) {
-        cancelAnimationFrame(siteSheetRaf2Ref.current);
-        siteSheetRaf2Ref.current = null;
-      }
-    };
-  }, [mobileSiteSheetOpen]);
-
-  const closeSiteSheetWithAnimation = useCallback(() => {
-    if (mobileSiteSheetCloseTimerRef.current) return;
-    setMobileSiteSheetClosing(true);
-    mobileSiteSheetCloseTimerRef.current = setTimeout(() => {
-      mobileSiteSheetCloseTimerRef.current = null;
-      setMobileSiteSheetOpen(false);
-      setSelectedMapSite(null);
-      setMobileSiteSheetClosing(false);
-    }, 300);
-  }, []);
-
-  useEffect(() => () => {
-    if (mobileSiteSheetCloseTimerRef.current) clearTimeout(mobileSiteSheetCloseTimerRef.current);
-  }, []);
 
   /* Trip details bottom sheet visibility and close animation */
   useEffect(() => {
@@ -1328,9 +1185,7 @@ export default function MapClient() {
   // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
     setSelectedMapSite(site);
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
-      setMobileSiteSheetOpen(true);
-    } else {
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 1023px)").matches) {
       setMobilePanelMode("site");
       setMobilePanelTab("site");
       setSearchPanelOpen(true);
@@ -1361,7 +1216,7 @@ export default function MapClient() {
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             {/* Carousel — fills available vertical space proportionally */}
             <div className="relative w-full overflow-hidden bg-neutral-300 flex-shrink-0" style={{ aspectRatio: "4/3" }}>
-              <MapSiteSlideshow
+              <SiteCarousel
                 urls={slideshowUrls}
                 fallbackUrl={getThumbOrVariantUrlNoTransform(selectedMapSite.cover_photo_url, "thumb") || selectedMapSite.cover_photo_url}
                 alt={selectedMapSite.title}
@@ -2541,25 +2396,12 @@ export default function MapClient() {
           document.body
         )}
 
-      {/* Mobile: site info bottom sheet (when user taps preview card) */}
-      {mounted && (mobileSiteSheetOpen || mobileSiteSheetClosing) && selectedMapSite &&
-        createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="Site details">
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "opacity-100" : "opacity-0"}`}
-              onClick={closeSiteSheetWithAnimation}
-              aria-hidden="true"
-            />
-            <div
-              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileSiteSheetVisible && !mobileSiteSheetClosing ? "translate-y-0" : "translate-y-full"}`}
-              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-            >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-6 shrink-0" aria-hidden="true" />
-              {renderToolPanel("site", closeSiteSheetWithAnimation)}
-            </div>
-          </div>,
-          document.body
-        )}
+      {/* Mobile: site info bottom sheet */}
+      <SiteBottomSheet
+        site={selectedMapSite}
+        isOpen={selectedMapSite !== null}
+        onClose={() => setSelectedMapSite(null)}
+      />
 
       {/* Mobile: trip details bottom sheet (same content as desktop floating panel) */}
       {mounted && (mobileTripSheetOpen || mobileTripSheetClosing) && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter &&
