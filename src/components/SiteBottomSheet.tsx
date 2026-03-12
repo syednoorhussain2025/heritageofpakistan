@@ -38,19 +38,15 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
 
-  // Compute thumb synchronously so useState starts with it — no flash on first render
-  const getThumb = (s: BottomSheetSite | null) => {
+  // Use the md-variant cover URL as slide 0 — good quality, available immediately.
+  const getCover = (s: BottomSheetSite | null): string | null => {
     if (!s) return null;
-    return s.cover_photo_thumb_url ||
-      getThumbOrVariantUrlNoTransform(s.cover_photo_url, "thumb") ||
-      s.cover_photo_url ||
-      null;
+    return getThumbOrVariantUrlNoTransform(s.cover_photo_url, "md") || s.cover_photo_url || null;
   };
 
-  // slides[0] = thumb (shown immediately); rest loaded progressively after open
   const [slides, setSlides] = useState<string[]>(() => {
-    const t = getThumb(site);
-    return t ? [t] : [];
+    const c = getCover(site);
+    return c ? [c] : [];
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -59,16 +55,15 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
   useEffect(() => {
     if (!site) { setSlides([]); return; }
 
-    const thumbUrl = getThumb(site);
+    const coverUrl = getCover(site);
 
-    // Re-seed with thumb for the new site immediately
-    setSlides(thumbUrl ? [thumbUrl] : []);
+    // Seed with full-res cover immediately — no low-quality thumb, no later swap
+    setSlides(coverUrl ? [coverUrl] : []);
 
     const ids = site.cover_slideshow_image_ids;
-    if (!ids?.length) return; // no slideshow — thumb is enough
+    if (!ids?.length) return;
 
     let cancelled = false;
-    let preloadImg: HTMLImageElement | null = null;
     getPublicClient()
       .from("site_images")
       .select("id, storage_path")
@@ -89,22 +84,11 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
         if (!rest.length) return;
 
-        // Phase 1: append full-res slides after the thumb so track geometry is stable
-        // (same count, idx stays at 0, no jump).
-        if (!cancelled) setSlides(thumbUrl ? [thumbUrl, ...rest] : rest);
-
-        // Phase 2: once rest[0] is decoded, silently upgrade slide 0 from thumb to full-res.
-        // Same slide count → no geometry change → no flash.
-        preloadImg = new window.Image();
-        preloadImg.onload = () => { if (!cancelled) setSlides([...rest]); };
-        preloadImg.onerror = () => { if (!cancelled) setSlides([...rest]); };
-        preloadImg.src = rest[0];
+        // Append additional slides — cover stays as slide 0, no geometry snap
+        if (!cancelled) setSlides(coverUrl ? [coverUrl, ...rest] : rest);
       });
 
-    return () => {
-      cancelled = true;
-      if (preloadImg) { preloadImg.onload = null; preloadImg.onerror = null; }
-    };
+    return () => { cancelled = true; };
   }, [site?.id]);
 
   // Open/close animation
