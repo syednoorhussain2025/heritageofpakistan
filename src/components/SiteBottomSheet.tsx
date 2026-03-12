@@ -159,24 +159,23 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
         {/* Drag handle */}
         <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-6 shrink-0" aria-hidden="true" />
 
-        {/* Carousel */}
-        <div
-          className="relative w-full flex-shrink-0"
-          style={{ aspectRatio: "4/3" }}
-        >
-          <SiteCarousel
-            slides={slides}
-            blurDataUrl={site.cover_blur_data_url}
-            alt={site.title}
-          />
-          {/* Close button — above carousel z layers */}
-          <button
-            onClick={closeWithAnimation}
-            className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
-            title="Close"
-          >
-            <Icon name="times" size={16} />
-          </button>
+        {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
+        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
+          <div className="absolute inset-0">
+            <SiteCarousel
+              slides={slides}
+              blurDataUrl={site.cover_blur_data_url}
+              alt={site.title}
+            />
+            {/* Close button — above carousel z layers */}
+            <button
+              onClick={closeWithAnimation}
+              className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              title="Close"
+            >
+              <Icon name="times" size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Details */}
