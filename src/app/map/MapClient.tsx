@@ -346,6 +346,9 @@ export default function MapClient() {
   const toastRaf1Ref = useRef<number | null>(null);
   const toastRaf2Ref = useRef<number | null>(null);
   const searchPanelRaf2Ref = useRef<number | null>(null);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const sheetDragStartRef = useRef<number | null>(null);
+  const sheetIsDraggingRef = useRef(false);
   const ellipsisSheetRaf2Ref = useRef<number | null>(null);
   const mapTypeSheetRaf2Ref = useRef<number | null>(null);
   const tripSheetRaf2Ref = useRef<number | null>(null);
@@ -2257,39 +2260,66 @@ export default function MapClient() {
         searchPanelOpen &&
         createPortal(
           <div
-            className="lg:hidden fixed touch-none flex flex-col overflow-hidden bg-white"
-            style={{
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: "100vw",
-              height: "100dvh",
-              minWidth: "100vw",
-              minHeight: "100dvh",
-              paddingTop: "env(safe-area-inset-top, 0px)",
-              paddingBottom: "env(safe-area-inset-bottom, 0px)",
-              zIndex: 99999,
-            }}
+            className="lg:hidden fixed inset-0 touch-none"
+            style={{ zIndex: 99999 }}
             aria-modal="true"
             role="dialog"
             aria-label="Map menu"
           >
-            <div className={`flex flex-col flex-1 min-h-0 w-full transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}>
-              {/* Header */}
-              <div className="shrink-0 bg-white border-b border-gray-100 shadow-sm px-3 w-full">
-                <div className="flex items-center gap-2 py-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (mobilePanelMode === "site") setSelectedMapSite(null);
-                      closeSearchPanel();
-                    }}
-                    aria-label="Close"
-                    className="p-2 -ml-1 rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0 transition-colors"
-                  >
-                    <Icon name="times" size={20} className="text-gray-600" />
-                  </button>
+            {/* Backdrop */}
+            <div
+              className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
+              onClick={() => {
+                if (mobilePanelMode === "site") setSelectedMapSite(null);
+                closeSearchPanel();
+              }}
+            />
+
+            {/* Bottom sheet */}
+            <div
+              className="absolute inset-x-0 bottom-0 bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-2xl shadow-2xl"
+              style={{
+                maxHeight: "92dvh",
+                paddingBottom: "env(safe-area-inset-bottom, 0px)",
+                transform: searchPanelVisible
+                  ? `translateY(${sheetDragY}px)`
+                  : "translateY(100%)",
+                transition: sheetIsDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+              }}
+            >
+              {/* Drag handle + header */}
+              <div
+                className="shrink-0 bg-white border-b border-gray-100 select-none cursor-grab active:cursor-grabbing"
+                onTouchStart={(e) => {
+                  sheetDragStartRef.current = e.touches[0].clientY;
+                  sheetIsDraggingRef.current = false;
+                }}
+                onTouchMove={(e) => {
+                  if (sheetDragStartRef.current === null) return;
+                  const dy = e.touches[0].clientY - sheetDragStartRef.current;
+                  if (dy > 0) { sheetIsDraggingRef.current = true; setSheetDragY(dy); }
+                }}
+                onTouchEnd={(e) => {
+                  if (sheetDragStartRef.current === null) return;
+                  const dy = e.changedTouches[0].clientY - sheetDragStartRef.current;
+                  sheetDragStartRef.current = null;
+                  sheetIsDraggingRef.current = false;
+                  setSheetDragY(0);
+                  if (dy > 80) {
+                    if (mobilePanelMode === "site") setSelectedMapSite(null);
+                    closeSearchPanel();
+                  }
+                }}
+              >
+                <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1" />
+                <div className="flex items-center gap-2 px-4 py-2.5">
+                  <div className="w-7 h-7 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
+                    <Icon
+                      name={mobilePanelMode === "site" ? "map-marker-alt" : mobilePanelMode === "lists" ? "list-ul" : "search"}
+                      size={13}
+                      className="text-[var(--brand-orange)]"
+                    />
+                  </div>
                   <span className="flex-1 text-base font-bold text-gray-800 truncate min-w-0">
                     {mobilePanelMode === "search"
                       ? "Search & Filters"
@@ -2297,8 +2327,19 @@ export default function MapClient() {
                           ? (mobilePanelTab === "wishlist" ? "Saved Lists" : "My Trips")
                           : selectedMapSite?.title ?? "Site Details"}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mobilePanelMode === "site") setSelectedMapSite(null);
+                      closeSearchPanel();
+                    }}
+                    aria-label="Close"
+                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
+                  >
+                    <Icon name="times" size={13} />
+                  </button>
                 </div>
-                {/* Tab bar: only when mode is "lists" (Saved Lists | Trips) */}
+                {/* Tab bar: only when mode is "lists" */}
                 {mobilePanelMode === "lists" && (
                   <div className="flex border-t border-gray-100">
                     {(["wishlist", "trips"] as const).map((tab) => (
@@ -2318,8 +2359,10 @@ export default function MapClient() {
                   </div>
                 )}
               </div>
-              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain p-4 ${mobilePanelMode === "site" ? "scrollbar-hide" : ""}`}>
-                <div className={`min-h-full rounded-xl bg-white shadow-md overflow-hidden ${mobilePanelMode === "search" ? "border-0" : "border border-gray-200"} ${mobilePanelMode === "site" ? "p-0" : ""}`}>
+
+              {/* Scrollable content */}
+              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain ${mobilePanelMode === "search" ? "" : "p-4"} ${mobilePanelMode === "site" ? "scrollbar-hide p-0" : ""}`}>
+                <div className={`min-h-full overflow-hidden ${mobilePanelMode === "search" ? "" : "rounded-xl bg-white shadow-md border border-gray-200"} ${mobilePanelMode === "site" ? "p-0 border-0 shadow-none rounded-none" : ""}`}>
                   {mobilePanelContent}
                 </div>
               </div>
