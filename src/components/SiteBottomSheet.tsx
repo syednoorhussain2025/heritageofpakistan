@@ -242,7 +242,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 top-[15%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+        className={`absolute left-0 right-0 bottom-0 top-[12%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
         style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
