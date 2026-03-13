@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
+import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
@@ -115,9 +116,7 @@ export default function SitePreviewCard({
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const [sheetVisible, setSheetVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ bottom: number; left: number } | null>(null);
-  const closeTimerRef = useRef<number | null>(null);
 
   const regionSlug = resolveProvinceSlug(site);
   const detailHref = regionSlug
@@ -321,40 +320,6 @@ export default function SitePreviewCard({
     return () => document.removeEventListener("mousedown", handler);
   }, [showActionsMenu]);
 
-  // Animate bottom sheet in after mount
-  useEffect(() => {
-    if (!showActionsMenu) {
-      setSheetVisible(false);
-      return;
-    }
-    if (closeTimerRef.current != null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    let id2: number;
-    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setSheetVisible(true)); });
-    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
-  }, [showActionsMenu]);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current != null) {
-        window.clearTimeout(closeTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Close: transition down first, then unmount.
-  const closeSheet = useCallback(() => {
-    setSheetVisible(false);
-    if (closeTimerRef.current != null) {
-      window.clearTimeout(closeTimerRef.current);
-    }
-    closeTimerRef.current = window.setTimeout(() => {
-      setShowActionsMenu(false);
-      closeTimerRef.current = null;
-    }, 300);
-  }, []);
 
   return (
     <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[#e5e5e5]">
@@ -665,137 +630,13 @@ export default function SitePreviewCard({
         </Portal>
       )}
 
-      {/* Mobile bottom sheet */}
-      {showActionsMenu && (
-        <Portal>
-          <div className="md:hidden fixed inset-0 z-[3100] touch-none">
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${sheetVisible ? "opacity-100" : "opacity-0"}`}
-              onClick={closeSheet}
-            />
-            <div
-              className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-out ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-            >
-              {/* Drag handle */}
-              <div className="w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-3" />
-
-              {/* Site name header */}
-              <p className="text-center text-[13px] text-gray-500 font-medium pt-3 pb-2 px-8 truncate">
-                {site.title}
-              </p>
-
-              {/* Actions group — Open Site first */}
-              <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
-                <a
-                  href={detailHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => closeSheet()}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="external-link-alt" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Open Site</span>
-                </a>
-                <div className="ml-16 mr-0 h-px bg-gray-100" />
-                <button
-                  type="button"
-                  onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="heart" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Save</span>
-                </button>
-                <div className="ml-16 mr-0 h-px bg-gray-100" />
-                <button
-                  type="button"
-                  onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="route" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
-                </button>
-                <div className="ml-16 mr-0 h-px bg-gray-100" />
-                <button
-                  type="button"
-                  onClick={(e) => { void handlePlacesNearby(e as unknown as React.MouseEvent); closeSheet(); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="nearby" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
-                </button>
-              </div>
-
-              {/* Gallery, Photo Story, Google Maps — open in new window */}
-              <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
-                <a
-                  href={galleryHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => closeSheet()}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="gallery" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Gallery</span>
-                </a>
-                <div className="ml-16 mr-0 h-px bg-gray-100" />
-                <a
-                  href={photoStoryHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => closeSheet()}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="book" size={16} className="text-gray-700" />
-                  </div>
-                  <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
-                </a>
-                {googleMapsHref && (
-                  <>
-                    <div className="ml-16 mr-0 h-px bg-gray-100" />
-                    <a
-                      href={googleMapsHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => closeSheet()}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                        <Icon name="map-marker-alt" size={16} className="text-gray-700" />
-                      </div>
-                      <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
-                    </a>
-                  </>
-                )}
-              </div>
-
-              {/* Cancel */}
-              <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={closeSheet}
-                  className="w-full px-4 py-4 text-[15px] font-semibold text-[var(--brand-blue)] active:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {/* Safe area spacer */}
-              <div className="pb-[env(safe-area-inset-bottom,0.5rem)]" />
-            </div>
-          </div>
-        </Portal>
-      )}
+      {/* Mobile actions sheet */}
+      <SiteActionsSheet
+        site={site}
+        isOpen={showActionsMenu}
+        onClose={() => setShowActionsMenu(false)}
+        onPlacesNearby={onPlacesNearby}
+      />
     </div>
   );
 }

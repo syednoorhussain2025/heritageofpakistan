@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import SiteCarousel from "@/components/SiteCarousel";
+import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
@@ -28,15 +29,18 @@ interface Props {
   site: BottomSheetSite | null;
   isOpen: boolean;
   onClose: () => void;
+  onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
 }
 
-export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
+export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby }: Props) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
+
+  const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
 
   // Swipe-to-close state
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -168,7 +172,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
     const DISMISS_VELOCITY = 0.4; // px/ms
 
     if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
-      // Animate out then close
+      // Animate out then close — set closing so backdrop fades in sync
+      setClosing(true);
       if (el) el.style.transform = "translateY(100%)";
       closeTimerRef.current = setTimeout(() => {
         closeTimerRef.current = null;
@@ -193,7 +198,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
   const sheetVisible = visible && !closing;
 
-  return createPortal(
+  const sheet = createPortal(
     <div
       className="lg:hidden fixed inset-0 z-[3500] touch-none"
       aria-modal="true"
@@ -215,7 +220,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
       >
         {/* Drag handle — touch target for swipe-to-close */}
         <div
-          className="w-full flex justify-center pt-3 pb-4 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          className="w-full flex justify-center pt-3 pb-4 shrink-0 cursor-grab active:cursor-grabbing"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -245,11 +250,20 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
         {/* Details */}
         <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Title */}
-          <div className="flex items-start gap-2 shrink-0">
+          {/* Title + ellipsis */}
+          <div className="flex items-center gap-2 shrink-0">
             <h2 className="flex-1 min-w-0 text-lg font-bold text-[var(--brand-blue)] leading-tight truncate">
               {site.title}
             </h2>
+            <button
+              type="button"
+              onClick={() => setActionsSheetOpen(true)}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              title="More actions"
+              aria-label="More actions"
+            >
+              <Icon name="ellipsis" size={18} />
+            </button>
           </div>
 
           {/* Rating + type + location */}
@@ -295,5 +309,19 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
       </div>
     </div>,
     document.body
+  );
+
+  return (
+    <>
+      {sheet}
+      {site && (
+        <SiteActionsSheet
+          site={site}
+          isOpen={actionsSheetOpen}
+          onClose={() => setActionsSheetOpen(false)}
+          onPlacesNearby={onPlacesNearby}
+        />
+      )}
+    </>
   );
 }

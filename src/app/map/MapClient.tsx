@@ -276,13 +276,8 @@ export default function MapClient() {
     cached.icons.forEach((ic) => m.set(ic.name, ic.svg_content));
     return m;
   });
-  const [loading, setLoading] = useState(() => {
-    return !(getCachedBootstrap());
-  });
-  const [sitesLoading, setSitesLoading] = useState(() => {
-    const cached = getCachedSites();
-    return !(cached?.sites?.length);
-  });
+  const [loading, setLoading] = useState(true);
+  const [sitesLoading, setSitesLoading] = useState(true);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
 
@@ -438,6 +433,11 @@ export default function MapClient() {
       setShowSitePanelTripModal(false);
     }
   }, [selectedMapSite]);
+
+  /* Resolve localStorage-dependent initial states after mount to avoid SSR/client hydration mismatch. */
+  useEffect(() => {
+    if (getCachedSites()?.sites?.length) setSitesLoading(false);
+  }, []);
 
   /* Apply server or localStorage bootstrap immediately so map can render without waiting (cache/pre-built). */
   useEffect(() => {
