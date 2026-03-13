@@ -131,12 +131,17 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
     }, 300);
   }, [onClose]);
 
+  const dragStartX = useRef<number>(0);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (closeTimerRef.current) return;
     dragStartY.current = e.touches[0].clientY;
+    dragStartX.current = e.touches[0].clientX;
     dragStartTime.current = Date.now();
     dragCurrentY.current = 0;
     isDragging.current = true;
+    dragDirectionLocked.current = null;
     const el = sheetRef.current;
     if (el) el.style.transition = "none";
   }, []);
@@ -144,8 +149,28 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging.current || dragStartY.current === null) return;
     const dy = e.touches[0].clientY - dragStartY.current;
+    const dx = e.touches[0].clientX - dragStartX.current;
+
+    // Lock direction on first significant movement
+    if (!dragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        dragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        dragDirectionLocked.current = "vertical";
+      }
+    }
+
+    // If horizontal (carousel swipe) — don't interfere
+    if (dragDirectionLocked.current === "horizontal") {
+      isDragging.current = false;
+      const el = sheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (dragDirectionLocked.current !== "vertical") return;
+
     if (dy < 0) {
-      // Dragging up — don't follow
       dragCurrentY.current = 0;
       const el = sheetRef.current;
       if (el) el.style.transform = "translateY(0)";
@@ -217,15 +242,12 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
         ref={sheetRef}
         className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
         style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Drag handle — touch target for swipe-to-close */}
-        <div
-          className="w-full flex justify-center pt-3 pb-4 shrink-0 cursor-grab active:cursor-grabbing"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          aria-hidden="true"
-        >
+        {/* Drag handle (visual only) */}
+        <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
           <div className="w-10 h-1 rounded-full bg-gray-300/80" />
         </div>
 

@@ -209,15 +209,12 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         <div
           ref={sheetElRef}
           className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Drag handle — touch target for swipe-to-close */}
-          <div
-            className="w-full flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            aria-hidden="true"
-          >
+          {/* Drag handle (visual only) */}
+          <div className="w-full flex justify-center pt-3 pb-2 shrink-0" aria-hidden="true">
             <div className="w-10 h-1 bg-gray-400/40 rounded-full" />
           </div>
 
