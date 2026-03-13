@@ -227,7 +227,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
 
   const sheet = createPortal(
     <div
-      className="lg:hidden fixed inset-0 z-[3500] touch-none"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
+      style={{ top: 0, height: "100dvh" }}
       aria-modal="true"
       role="dialog"
       aria-label="Site details"
@@ -242,8 +243,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 top-[12%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
