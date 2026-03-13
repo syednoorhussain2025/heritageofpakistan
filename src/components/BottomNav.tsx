@@ -42,17 +42,16 @@ function NavItem({
   label,
   icon,
   isActive,
-  onClick,
+  href,
 }: {
   label: string;
   icon: string;
   isActive: boolean;
-  onClick: () => void;
+  href: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={href}
       aria-label={label}
       className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-700 ease-out active:scale-140"
     >
@@ -68,7 +67,7 @@ function NavItem({
       >
         {label}
       </span>
-    </button>
+    </Link>
   );
 }
 
@@ -274,7 +273,6 @@ export default function BottomNav() {
   const { profile } = useProfile();
   const { startNavigation } = useLoaderEngine();
 
-  const [activePath, setActivePath] = useState(pathname);
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
 
   // Profile panel state
@@ -282,24 +280,14 @@ export default function BottomNav() {
   const [panelClosing, setPanelClosing] = useState(false);
 
   useEffect(() => {
-    setActivePath(pathname);
-  }, [pathname]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("lastHeritagePath");
     setLastHeritagePath(stored);
   }, [pathname]);
 
-  const go = (href: string) => {
-    if (!href) return;
-    setActivePath(href);
-    startNavigation(href);
-  };
-
   const openPanel = () => {
     if (!userId) {
-      go("/auth/sign-in?redirectTo=/");
+      if (typeof window !== "undefined") window.location.href = "/auth/sign-in?redirectTo=/";
       return;
     }
     setPanelOpen(true);
@@ -316,16 +304,14 @@ export default function BottomNav() {
 
   const handlePanelNavigate = (href: string) => {
     closePanel();
-    setTimeout(() => go(href), PANEL_ANIM_MS);
+    setTimeout(() => startNavigation(href), PANEL_ANIM_MS);
   };
 
-  const currentPath = activePath || pathname;
-
-  const isHomeActive = currentPath === "/";
-  const isHeritageActive = currentPath.startsWith("/heritage");
-  const isExploreActive = currentPath.startsWith("/explore");
-  const isMapActive = currentPath.startsWith("/map");
-  const isDashboardActive = currentPath.startsWith("/dashboard");
+  const isHomeActive = pathname === "/";
+  const isHeritageActive = pathname.startsWith("/heritage");
+  const isExploreActive = pathname.startsWith("/explore");
+  const isMapActive = pathname.startsWith("/map");
+  const isDashboardActive = pathname.startsWith("/dashboard");
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
@@ -344,30 +330,10 @@ export default function BottomNav() {
 
       <div id="bottom-nav" className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden" style={{ willChange: "transform", transform: "translateZ(0)" }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
-          <NavItem
-            label="Home"
-            icon="home"
-            isActive={isHomeActive}
-            onClick={() => go("/")}
-          />
-          <NavItem
-            label="Heritage"
-            icon="map-marker-alt"
-            isActive={isHeritageActive}
-            onClick={() => go(heritageHref)}
-          />
-          <NavItem
-            label="Explore"
-            icon="search"
-            isActive={isExploreActive}
-            onClick={() => go("/explore")}
-          />
-          <NavItem
-            label="Map"
-            icon="map"
-            isActive={isMapActive}
-            onClick={() => go("/map")}
-          />
+          <NavItem label="Home" icon="home" isActive={isHomeActive} href="/" />
+          <NavItem label="Heritage" icon="map-marker-alt" isActive={isHeritageActive} href={heritageHref} />
+          <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" />
+          <NavItem label="Map" icon="map" isActive={isMapActive} href="/map" />
 
           {/* Profile / Sign-in tab */}
           <button
