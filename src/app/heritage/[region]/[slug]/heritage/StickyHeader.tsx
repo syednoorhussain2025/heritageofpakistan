@@ -58,7 +58,7 @@ function ActionButton({
 }) {
   const base =
     "group inline-flex items-center gap-2.5 px-4 py-1 rounded-full text-sm font-medium " +
-    "bg-white text-slate-800 cursor-pointer transition-colors whitespace-nowrap active:scale-95 transition-transform duration-100";
+    "bg-white text-slate-800 cursor-pointer transition-colors whitespace-nowrap";
   const hoverClass = "hover:text-[var(--brand-orange,#F78300)]";
   const cls = `${base} ${hoverClass}`;
 
@@ -486,7 +486,7 @@ export default function StickyHeader({
           <button
             type="button"
             aria-label="Open page navigator"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:scale-95 transition-transform duration-100"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
           >
             <Icon name="navigator" size={16} className="text-current" />
           </button>

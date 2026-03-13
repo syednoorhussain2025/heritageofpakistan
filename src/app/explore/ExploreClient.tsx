@@ -1367,7 +1367,7 @@ function ExplorePageContent() {
   // Mount guard for portals
   useEffect(() => { setMounted(true); }, []);
 
-  // Bottom sheet animation
+  // Search panel slide animation
   useEffect(() => {
     if (!searchPanelOpen) { setSearchPanelVisible(false); return; }
     let id2: number;
@@ -1377,19 +1377,16 @@ function ExplorePageContent() {
 
   const closeSearchPanel = useCallback(() => {
     setSearchPanelVisible(false);
-    setTimeout(() => setSearchPanelOpen(false), 320);
+    setTimeout(() => setSearchPanelOpen(false), 300);
   }, []);
 
-  // Lock body scroll while sheet is open
+  // Lock body scroll while panel is open
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, [searchPanelOpen]);
 
-  // Drag-to-dismiss state
   const panelSwipeRef = useRef<{ x: number; y: number } | null>(null);
-  const [sheetDragY, setSheetDragY] = useState(0);
-  const isDraggingRef = useRef(false);
 
   return (
     <div className="relative min-h-screen bg-[var(--ivory-cream)]">
@@ -1456,7 +1453,7 @@ function ExplorePageContent() {
             </div>
 
             {/* Grid + centered spinner overlay for first load only */}
-            <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
+            <div className="relative">
               {loading && results.sites.length === 0 && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
                   <Spinner size={40} />
@@ -1468,11 +1465,15 @@ function ExplorePageContent() {
                 className="grid grid-cols-2 xl:grid-cols-3 gap-5"
                 style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
               >
-                {error && results.sites.length === 0 && !loading ? (
+                {loading && results.sites.length === 0 ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <PreviewCardSkeleton key={i} />
+                  ))
+                ) : error && results.sites.length === 0 ? (
                   <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">
                     {error}
                   </div>
-                ) : results.sites.length === 0 && !loading ? (
+                ) : results.sites.length === 0 ? (
                   <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">
                     No sites match your filters.
                   </div>
@@ -1559,68 +1560,48 @@ function ExplorePageContent() {
         document.body
       )}
 
-      {/* ── Mobile Search Bottom Sheet ── */}
+      {/* ── Mobile Search Panel ── */}
       {mounted && searchPanelOpen && createPortal(
         <div className="lg:hidden fixed inset-0 z-[3200] touch-none">
           {/* Backdrop */}
           <div
-            className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
+            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
             onClick={closeSearchPanel}
           />
-          {/* Bottom sheet — slides up from bottom */}
+          {/* Panel slides from right — uses `right` not transform to avoid stacking context issues */}
           <div
-            className="absolute inset-x-0 bottom-0 bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-2xl shadow-2xl"
-            style={{
-              maxHeight: "92dvh",
-              transform: searchPanelVisible
-                ? `translateY(${sheetDragY}px)`
-                : "translateY(100%)",
-              transition: isDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
-            }}
+            className="absolute top-0 bottom-0 w-full bg-[var(--ivory-cream)] flex flex-col overflow-hidden transition-[right] duration-300 ease-out"
+            style={{ right: searchPanelVisible ? 0 : "-100%" }}
           >
-            {/* Drag handle + header */}
+            {/* Panel header — fixed, not sticky — same pattern as HeritageTypeModal */}
             <div
-              className="shrink-0 bg-white border-b border-gray-100 select-none cursor-grab active:cursor-grabbing"
-              onTouchStart={(e) => {
-                panelSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                isDraggingRef.current = false;
-              }}
-              onTouchMove={(e) => {
-                if (!panelSwipeRef.current) return;
-                const dy = e.touches[0].clientY - panelSwipeRef.current.y;
-                if (dy > 0) {
-                  isDraggingRef.current = true;
-                  setSheetDragY(dy);
-                }
-              }}
+              className="shrink-0 bg-white border-b border-gray-100 shadow-sm select-none"
+              onTouchStart={(e) => { panelSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
               onTouchEnd={(e) => {
                 if (!panelSwipeRef.current) return;
+                const dx = e.changedTouches[0].clientX - panelSwipeRef.current.x;
                 const dy = e.changedTouches[0].clientY - panelSwipeRef.current.y;
                 panelSwipeRef.current = null;
-                isDraggingRef.current = false;
-                setSheetDragY(0);
-                if (dy > 80) closeSearchPanel();
+                if ((Math.abs(dx) > Math.abs(dy) && dx > 60) || (Math.abs(dy) > Math.abs(dx) && dy > 60)) {
+                  closeSearchPanel();
+                }
               }}
             >
-              {/* Pill */}
-              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1" />
-              <div className="flex items-center gap-2 px-4 py-2.5">
-                <div className="w-7 h-7 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
-                  <Icon name="search" size={13} className="text-[var(--brand-orange)]" />
-                </div>
-                <span className="text-base font-bold text-[var(--dark-grey)] flex-1">Search & Filters</span>
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5" />
+              <div className="flex items-center gap-2 px-3 py-2.5">
                 <button
                   type="button"
                   onClick={closeSearchPanel}
                   aria-label="Close"
-                  className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
+                  className="p-1.5 -ml-1 rounded-full hover:bg-gray-100 shrink-0"
                 >
-                  <Icon name="times" size={13} />
+                  <Icon name="times" size={18} className="text-gray-600" />
                 </button>
+                <span className="text-base font-bold text-[var(--dark-grey)]">Search & Filters</span>
               </div>
             </div>
 
-            {/* Scrollable filter content */}
+            {/* Scrollable content — flex-1 min-h-0 keeps it within screen bounds */}
             <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
               <SearchFilters
                 filters={filters}

@@ -306,7 +306,7 @@ export default function SitePreviewCard({
     void router.prefetch(detailHref);
   }, [router, detailHref]);
 
-  // Close desktop popup on outside click(button ovsr portal menu count as inside)
+  // Close desktop popup on outside click(button or portal menu count as inside)
   useEffect(() => {
     if (!showActionsMenu) return;
     const handler = (e: MouseEvent) => {
@@ -328,7 +328,7 @@ export default function SitePreviewCard({
       {onClose && (
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 z-10 p-1 bg-black/40 text-white rounded-full hover:bg-black/60 active:scale-95 transition-transform duration-100"
+          className="absolute top-2 right-2 z-10 p-1 bg-black/40 text-white rounded-full hover:bg-black/60"
           title="Close"
         >
           <Icon name="times" size={16} />
@@ -491,7 +491,7 @@ export default function SitePreviewCard({
               title="More actions"
               aria-label="More actions"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer active:scale-95 transition-transform duration-100"
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               <Icon name="ellipsis" size={18} />
             </button>
@@ -511,7 +511,7 @@ export default function SitePreviewCard({
                 aria-label="More actions"
                 aria-expanded={showActionsMenu}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu((v) => !v); }}
-                className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer active:scale-95 transition-transform duration-100"
+                className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
               >
                 <Icon name="ellipsis" size={24} className="text-current" />
               </button>
@@ -544,7 +544,7 @@ export default function SitePreviewCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
             >
               <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" />
               Open Site
@@ -552,7 +552,7 @@ export default function SitePreviewCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowWishlistModal(true); }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
               <Icon name="heart" size={14} className="text-[var(--brand-orange)]" />
               Save
@@ -560,7 +560,7 @@ export default function SitePreviewCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowTripModal(true); }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
               <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
               Add to Trip
@@ -568,7 +568,7 @@ export default function SitePreviewCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); void handlePlacesNearby(e); }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
               <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" />
               Places Nearby
@@ -579,7 +579,7 @@ export default function SitePreviewCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
               <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" />
               Gallery
@@ -589,7 +589,7 @@ export default function SitePreviewCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
               <Icon name="book" size={14} className="text-[var(--brand-orange)]" />
               Photo Story
@@ -600,7 +600,7 @@ export default function SitePreviewCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowActionsMenu(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100 active:scale-95 transition-transform duration-100"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
               >
                 <Icon name="map-marker-alt" size={14} className="text-[var(--brand-orange)]" />
                 Open in Google Maps

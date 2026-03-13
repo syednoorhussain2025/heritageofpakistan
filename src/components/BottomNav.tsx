@@ -53,7 +53,7 @@ function NavItem({
     <a
       href={href}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-100 active:scale-95"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
     >
       <Icon
         name={icon}
@@ -326,9 +326,9 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden h-[72px]" />}
+      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: "calc(72px + env(safe-area-inset-bottom, 0px))" }} />}
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: "-40px", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 40px)" }}>
+      <div id="bottom-nav" className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[0.4rem]">
           <NavItem label="Home" icon="home" isActive={isHomeActive} href="/" />
           <NavItem label="Heritage" icon="map-marker-alt" isActive={isHeritageActive} href={heritageHref} />
@@ -340,7 +340,7 @@ export default function BottomNav() {
             type="button"
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-100 active:scale-95"
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-700 ease-out active:scale-140"
           >
             {userId ? (
               <ProfileTabIcon

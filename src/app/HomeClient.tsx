@@ -500,7 +500,7 @@ export default function HomeClient() {
               onClick={() => setHeroIndex(i)}
               aria-label={`Go to slide ${i + 1} of ${heroImages.length}`}
               aria-current={i === heroIndex ? "true" : undefined}
-              className={`rounded-full transition-all duration-300 active:scale-95 ${
+              className={`rounded-full transition-all duration-300 ${
                 i === heroIndex
                   ? "h-2.5 w-2.5 bg-white shadow-md"
                   : "h-2 w-2 bg-white/50 hover:bg-white/70"
@@ -558,7 +558,7 @@ export default function HomeClient() {
                 type="button"
                 onClick={onSearch}
                 disabled={searching}
-                className="w-full rounded-xl bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90 active:scale-95 transition-transform duration-100 disabled:opacity-80 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2"
+                className="w-full rounded-xl bg-[var(--terracotta-red)] py-3 font-semibold text-white transition hover:opacity-95 active:opacity-90 disabled:opacity-80 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2"
               >
                 {searching ? (
                   <>
