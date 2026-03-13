@@ -292,7 +292,7 @@ export default function BottomNav() {
   }, [pathname]);
 
   const go = (href: string) => {
-    if (!href || href === pathname) return;
+    if (!href) return;
     setActivePath(href);
     startNavigation(href);
   };
