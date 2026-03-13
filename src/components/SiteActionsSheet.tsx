@@ -250,7 +250,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
               <span className="text-[15px] font-medium text-gray-900">Open Site</span>
             </a>
-            <div className="mx-6 h-px bg-gray-300" />
+            <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
@@ -261,7 +261,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
               <span className="text-[15px] font-medium text-gray-900">Save</span>
             </button>
-            <div className="mx-6 h-px bg-gray-300" />
+            <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
@@ -272,7 +272,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
-            <div className="mx-6 h-px bg-gray-300" />
+            <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
               onClick={() => { void handlePlacesNearby(); }}
@@ -299,7 +299,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
               <span className="text-[15px] font-medium text-gray-900">Gallery</span>
             </a>
-            <div className="mx-6 h-px bg-gray-300" />
+            <div className="mx-6 h-[0.5px] bg-gray-300" />
             <a
               href={photoStoryHref}
               target="_blank"
@@ -314,7 +314,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             </a>
             {googleMapsHref && (
               <>
-                <div className="mx-6 h-px bg-gray-300" />
+                <div className="mx-6 h-[0.5px] bg-gray-300" />
                 <a
                   href={googleMapsHref}
                   target="_blank"
