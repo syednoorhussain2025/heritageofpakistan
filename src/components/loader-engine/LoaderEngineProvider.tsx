@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type Direction = "prev" | "next" | "forward" | "back" | null;
 type LoaderVariant = "listing" | "simple";
@@ -31,14 +31,17 @@ export function LoaderEngineProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
 
   const startNavigation = useCallback(
     (href: string) => {
-      if (!href || href === pathname) return;
-      router.push(href);
+      if (!href) return;
+      try {
+        router.push(href);
+      } catch {
+        if (typeof window !== "undefined") window.location.href = href;
+      }
     },
-    [pathname, router]
+    [router]
   );
 
   const showLoader = useCallback(
