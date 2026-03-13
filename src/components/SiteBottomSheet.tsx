@@ -38,6 +38,13 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
 
+  // Swipe-to-close state
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartTime = useRef<number>(0);
+  const dragCurrentY = useRef<number>(0);
+  const isDragging = useRef(false);
+
   // Use the md-variant cover URL as slide 0 — good quality, available immediately.
   const getCover = (s: BottomSheetSite | null): string | null => {
     if (!s) return null;
@@ -120,6 +127,64 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
     }, 300);
   }, [onClose]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (closeTimerRef.current) return;
+    dragStartY.current = e.touches[0].clientY;
+    dragStartTime.current = Date.now();
+    dragCurrentY.current = 0;
+    isDragging.current = true;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy < 0) {
+      // Dragging up — don't follow
+      dragCurrentY.current = 0;
+      const el = sheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    dragCurrentY.current = dy;
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    const dy = dragCurrentY.current;
+    const elapsed = Date.now() - dragStartTime.current;
+    const velocity = dy / elapsed; // px/ms
+
+    const el = sheetRef.current;
+    // Re-enable transition
+    if (el) el.style.transition = "";
+
+    const DISMISS_DISTANCE = 80;
+    const DISMISS_VELOCITY = 0.4; // px/ms
+
+    if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
+      // Animate out then close
+      if (el) el.style.transform = "translateY(100%)";
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
+        setClosing(false);
+        onClose();
+        if (el) el.style.transform = "";
+      }, 300);
+    } else {
+      // Spring back
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+  }, [onClose]);
+
   if (!mounted || (!isOpen && !closing) || !site) return null;
 
   const detailHref = site.province_slug
@@ -144,11 +209,20 @@ export default function SiteBottomSheet({ site, isOpen, onClose }: Props) {
 
       {/* Sheet */}
       <div
+        ref={sheetRef}
         className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
         style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
       >
-        {/* Drag handle */}
-        <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 mb-6 shrink-0" aria-hidden="true" />
+        {/* Drag handle — touch target for swipe-to-close */}
+        <div
+          className="w-full flex justify-center pt-3 pb-4 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          aria-hidden="true"
+        >
+          <div className="w-10 h-1 rounded-full bg-gray-300/80" />
+        </div>
 
         {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
         <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
