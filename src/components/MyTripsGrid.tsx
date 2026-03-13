@@ -152,8 +152,8 @@ export default function MyTripsGrid({
       setCreating(true);
       const trip = await createTrip("Default Trip");
       const pretty = await getTripUrlById(trip.id);
-      const fallback = `/${username}/trip/${trip.slug || "default-trip"}`;
-      router.push(pretty ?? fallback);
+      const href = pretty ?? `/${username}/trip/${trip.slug || "default-trip"}`;
+      try { router.push(href); } catch { window.location.href = href; }
     } catch (e: any) {
       setErrMsg(e?.message || "Failed to create trip.");
     } finally {
@@ -163,7 +163,8 @@ export default function MyTripsGrid({
 
   const toTrip = (slug?: string | null) => {
     if (!slug) return;
-    router.push(`/${username}/trip/${slug}`);
+    const href = `/${username}/trip/${slug}`;
+    try { router.push(href); } catch { window.location.href = href; }
   };
 
   const wrapperClasses =

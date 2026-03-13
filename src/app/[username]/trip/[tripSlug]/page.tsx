@@ -1103,16 +1103,13 @@ export default function TripBuilderPage() {
 
           <div className="flex items-center gap-3">
             {/* Finalize Trip */}
-            <button
-              onClick={() =>
-                router.push(`/${username}/trip/${tripSlug}/finalize`)
-              }
+            <Link
+              href={`/${username}/trip/${tripSlug}/finalize`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-              type="button"
               title="Finalize Trip"
             >
               Finalize Trip
-            </button>
+            </Link>
 
             {/* Save (manual) */}
             <button

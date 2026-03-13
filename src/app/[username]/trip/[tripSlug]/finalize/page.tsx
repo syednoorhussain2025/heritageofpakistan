@@ -469,14 +469,13 @@ export default function FinalizedTripPage() {
         </header>
 
         <div className="mb-6 flex flex-wrap items-center justify-end gap-3 z-10 relative">
-          <button
-            onClick={() => router.push(`/${username}/trip/${tripSlug}`)}
+          <Link
+            href={`/${username}/trip/${tripSlug}`}
             className="rounded-lg border border-[var(--taupe-grey)] px-4 py-2 text-sm text-[var(--navy-deep)] hover:bg-white"
-            type="button"
             title="Back to Builder"
           >
             Back to Builder
-          </button>
+          </Link>
 
           <button
             onClick={() => window.print()}

@@ -389,7 +389,8 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   const submitQuickSearch = () => {
     if (!q.trim()) return;
-    router.push(`/explore?q=${encodeURIComponent(q.trim())}`);
+    const href = `/explore?q=${encodeURIComponent(q.trim())}`;
+    try { router.push(href); } catch { window.location.href = href; }
     setSearchOverlayOpen(false);
     setOpenSuggest(false);
     setIsSearchFocused(false);
@@ -623,7 +624,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
     url: string | null
   ) => {
     if (!hasPanel) {
-      if (url) router.push(url);
+      if (url) { try { router.push(url); } catch { window.location.href = url; } }
       return;
     }
 
@@ -1173,14 +1174,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               <div className="relative" style={stagger(headerItems.length + 3)}>
                 <button
                   onClick={() => {
+                    let href = "/auth/sign-in";
                     if (user?.user_metadata?.username) {
-                      router.push(`/${user.user_metadata.username}/mytrips`);
+                      href = `/${user.user_metadata.username}/mytrips`;
                     } else if (user?.email) {
-                      const safeSlug = user.email.split("@")[0];
-                      router.push(`/${safeSlug}/mytrips`);
-                    } else {
-                      router.push("/auth/sign-in");
+                      href = `/${user.email.split("@")[0]}/mytrips`;
                     }
+                    try { router.push(href); } catch { window.location.href = href; }
                   }}
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >

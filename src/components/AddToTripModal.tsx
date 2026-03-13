@@ -231,8 +231,8 @@ export default function AddToTripModal({
   async function pushTripById(id: string) {
     const pretty = await getTripUrlById(id);
     requestClose();
-    if (pretty) router.push(pretty);
-    else router.push(`/trip/${id}`); // fallback (legacy)
+    const href = pretty ?? `/trip/${id}`;
+    try { router.push(href); } catch { window.location.href = href; }
   }
 
   async function openTripBuilder() {

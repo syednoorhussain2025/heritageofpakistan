@@ -410,7 +410,8 @@ export default function HomeClient() {
     if (q) sp.set("q", q);
     if (categoryId) sp.set("cats", categoryId);
     if (regionId) sp.set("regs", regionId);
-    router.push(`/explore?${sp.toString()}`);
+    const href = `/explore?${sp.toString()}`;
+    try { router.push(href); } catch { window.location.href = href; }
   }
 
   return (
