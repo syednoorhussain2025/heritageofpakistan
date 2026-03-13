@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+
 import Image from "next/image";
 import Icon from "./Icon";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
@@ -50,10 +50,10 @@ function NavItem({
   href: string;
 }) {
   return (
-    <Link
+    <a
       href={href}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-700 ease-out active:scale-140"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
     >
       <Icon
         name={icon}
@@ -67,7 +67,7 @@ function NavItem({
       >
         {label}
       </span>
-    </Link>
+    </a>
   );
 }
 
@@ -326,10 +326,10 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden h-[72px]" />}
+      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: "calc(72px + env(safe-area-inset-bottom, 0px))" }} />}
 
-      <div id="bottom-nav" className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white/100 backdrop-blur-lg lg:hidden" style={{ willChange: "transform", transform: "translateZ(0)" }}>
-        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))]">
+      <div id="bottom-nav" className="fixed inset-x-0 bottom-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[0.4rem]">
           <NavItem label="Home" icon="home" isActive={isHomeActive} href="/" />
           <NavItem label="Heritage" icon="map-marker-alt" isActive={isHeritageActive} href={heritageHref} />
           <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" />
