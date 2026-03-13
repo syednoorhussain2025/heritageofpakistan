@@ -78,9 +78,8 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   }, []);
 
   const closeSheet = useCallback(() => {
+    if (closeTimerRef.current != null) return;
     setClosing(true);
-    setSheetVisible(false);
-    if (closeTimerRef.current != null) window.clearTimeout(closeTimerRef.current);
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
       setClosing(false);

@@ -311,7 +311,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
 
           {/* Description */}
           {site.tagline && (
-            <p className="text-sm text-gray-600 leading-relaxed line-clamp-3 shrink-0">
+            <p className="text-sm text-gray-600 leading-relaxed line-clamp-6 shrink-0">
               {site.tagline}
             </p>
           )}

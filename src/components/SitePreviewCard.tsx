@@ -142,6 +142,8 @@ export default function SitePreviewCard({
       setMenuPosition(null);
       return;
     }
+    // Desktop only — md breakpoint (768px)
+    if (window.matchMedia("(max-width: 767px)").matches) return;
     const el = actionsMenuRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
