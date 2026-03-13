@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -35,8 +35,21 @@ interface Props {
 
 export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby }: Props) {
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
+
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const raf1Ref = useRef<number | null>(null);
+  const raf2Ref = useRef<number | null>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartX = useRef<number>(0);
+  const dragStartTime = useRef<number>(0);
+  const dragCurrentY = useRef<number>(0);
+  const isDragging = useRef(false);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
 
   // Use the md-variant cover URL as slide 0 — good quality, available immediately.
   const getCover = (s: BottomSheetSite | null): string | null => {
@@ -92,50 +105,134 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
     return () => { cancelled = true; };
   }, [site?.id]);
 
-  if (!mounted || !site) return null;
+  // Open/close animation
+  useEffect(() => {
+    if (!isOpen) {
+      setVisible(false);
+      setClosing(false);
+      return;
+    }
+    raf1Ref.current = requestAnimationFrame(() => {
+      raf2Ref.current = requestAnimationFrame(() => {
+        raf2Ref.current = null;
+        setVisible(true);
+      });
+    });
+    return () => {
+      if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+    };
+  }, [isOpen]);
+
+  const closeWithAnimation = useCallback(() => {
+    if (closeTimerRef.current) return;
+    setClosing(true);
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      setClosing(false);
+      onClose();
+    }, 300);
+  }, [onClose]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (closeTimerRef.current) return;
+    dragStartY.current = e.touches[0].clientY;
+    dragStartX.current = e.touches[0].clientX;
+    dragStartTime.current = Date.now();
+    dragCurrentY.current = 0;
+    isDragging.current = true;
+    dragDirectionLocked.current = null;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    const dx = e.touches[0].clientX - dragStartX.current;
+    if (!dragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        dragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        dragDirectionLocked.current = "vertical";
+      }
+    }
+    if (dragDirectionLocked.current === "horizontal") {
+      isDragging.current = false;
+      const el = sheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+    if (dragDirectionLocked.current !== "vertical") return;
+    if (dy < 0) {
+      dragCurrentY.current = 0;
+      const el = sheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    dragCurrentY.current = dy;
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const dy = dragCurrentY.current;
+    const elapsed = Date.now() - dragStartTime.current;
+    const velocity = dy / elapsed;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "";
+    if (dy >= 80 || velocity >= 0.4) {
+      setClosing(true);
+      if (el) el.style.transform = "translateY(100%)";
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
+        setClosing(false);
+        onClose();
+        if (el) el.style.transform = "";
+      }, 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+  }, [onClose]);
+
+  if (!mounted || (!isOpen && !closing) || !site) return null;
 
   const detailHref = site.province_slug
     ? `/heritage/${site.province_slug}/${site.slug}`
     : `/heritage/${site.slug}`;
 
-  const sheet = createPortal(
-    <AnimatePresence>
-      {isOpen && (
-        <div
-          className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
-          style={{ top: 0, height: "100dvh" }}
-          aria-modal="true"
-          role="dialog"
-          aria-label="Site details"
-        >
-          {/* Backdrop */}
-          <motion.div
-            className="absolute inset-0 bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            onClick={onClose}
-            aria-hidden="true"
-          />
+  const sheetVisible = visible && !closing;
 
-          {/* Sheet */}
-          <motion.div
-            className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
-            style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 32, stiffness: 300 }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={{ top: 0, bottom: 0.2 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 500) {
-                onClose();
-              }
-            }}
-          >
+  const sheet = createPortal(
+    <div
+      className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
+      style={{ top: 0, height: "100dvh", display: isOpen || closing ? undefined : "none" }}
+      aria-modal="true"
+      role="dialog"
+      aria-label="Site details"
+    >
+      {/* Backdrop — Framer Motion for smooth fade */}
+      <motion.div
+        className="absolute inset-0 bg-black/40"
+        animate={{ opacity: sheetVisible ? 1 : 0 }}
+        transition={{ duration: 0.25 }}
+        onClick={closeWithAnimation}
+        aria-hidden="true"
+      />
+
+      {/* Sheet — CSS transition for smooth drag */}
+      <div
+        ref={sheetRef}
+        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
             {/* Drag handle */}
             <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
               <div className="w-10 h-1 rounded-full bg-gray-300/80" />
@@ -153,7 +250,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
                 />
                 {/* Close button — above carousel z layers */}
                 <button
-                  onClick={onClose}
+                  onClick={closeWithAnimation}
                   className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors active:scale-95 transition-transform duration-100"
                   title="Close"
                 >
@@ -234,10 +331,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
                 <Icon name="arrow-right" size={14} />
               </Link>
             </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>,
+      </div>
+    </div>,
     document.body
   );
 
