@@ -2,16 +2,13 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 // Pages that manage their own full-screen layout — skip transition wrapper
 const NO_TRANSITION_PATHS = ["/map"];
 
 // Tab-level routes (bottom nav) — use fade transition
 const TAB_PATHS = ["/", "/explore", "/heritage", "/dashboard", "/profile", "/portfolio"];
-
-// Drill-down routes — use slide left/right
-const DRILLDOWN_PATHS = ["/heritage/"];
 
 function getPathDepth(path: string) {
   return path.split("/").filter(Boolean).length;
@@ -20,7 +17,6 @@ function getPathDepth(path: string) {
 function isTabSwitch(from: string, to: string) {
   const fromTab = TAB_PATHS.find((t) => from === t || (t !== "/" && from.startsWith(t)));
   const toTab = TAB_PATHS.find((t) => to === t || (t !== "/" && to.startsWith(t)));
-  // Different top-level tabs
   return fromTab !== toTab;
 }
 
@@ -62,23 +58,22 @@ export default function PageTransition({ children }: { children: ReactNode }) {
 
   const skip = NO_TRANSITION_PATHS.some((p) => pathname.startsWith(p));
 
-  useEffect(() => {
+  // Compute transition type synchronously during render so AnimatePresence
+  // picks up the correct variant for the current navigation.
+  if (pathname !== prevPathname.current) {
     const from = prevPathname.current;
     const to = pathname;
-
-    if (from !== to) {
-      if (isTabSwitch(from, to)) {
-        transitionType.current = "fade";
-      } else if (isDrillDown(from, to)) {
-        transitionType.current = "slide-left";
-      } else if (isGoingBack(from, to)) {
-        transitionType.current = "slide-right";
-      } else {
-        transitionType.current = "fade";
-      }
-      prevPathname.current = to;
+    if (isTabSwitch(from, to)) {
+      transitionType.current = "fade";
+    } else if (isDrillDown(from, to)) {
+      transitionType.current = "slide-left";
+    } else if (isGoingBack(from, to)) {
+      transitionType.current = "slide-right";
+    } else {
+      transitionType.current = "fade";
     }
-  }, [pathname]);
+    prevPathname.current = to;
+  }
 
   if (skip) return <>{children}</>;
 

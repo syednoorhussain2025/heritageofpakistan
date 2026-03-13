@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import SiteCarousel from "@/components/SiteCarousel";
@@ -215,11 +214,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
       role="dialog"
       aria-label="Site details"
     >
-      {/* Backdrop — Framer Motion for smooth fade */}
-      <motion.div
-        className="absolute inset-0 bg-black/40"
-        animate={{ opacity: sheetVisible ? 1 : 0 }}
-        transition={{ duration: 0.25 }}
+      {/* Backdrop — CSS transition, same as SiteActionsSheet */}
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 touch-none ${sheetVisible ? "opacity-100" : "opacity-0"}`}
         onClick={closeWithAnimation}
         aria-hidden="true"
       />
