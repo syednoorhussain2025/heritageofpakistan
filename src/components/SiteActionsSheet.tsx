@@ -243,7 +243,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeSheet}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="external-link-alt" size={18} className="text-gray-800" />
@@ -254,7 +254,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="heart" size={18} className="text-gray-800" />
@@ -265,7 +265,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="route" size={18} className="text-gray-800" />
@@ -276,7 +276,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <button
               type="button"
               onClick={() => { void handlePlacesNearby(); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="nearby" size={18} className="text-gray-800" />
@@ -292,7 +292,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeSheet}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="gallery" size={18} className="text-gray-800" />
@@ -305,7 +305,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeSheet}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="book" size={18} className="text-gray-800" />
@@ -320,7 +320,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={closeSheet}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform duration-100"
                 >
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                     <Icon name="map-marker-alt" size={18} className="text-gray-800" />

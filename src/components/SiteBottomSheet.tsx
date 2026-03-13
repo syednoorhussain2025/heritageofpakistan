@@ -267,7 +267,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
             {/* Close button — above carousel z layers */}
             <button
               onClick={closeWithAnimation}
-              className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors active:scale-95 transition-transform duration-100"
               title="Close"
             >
               <Icon name="times" size={16} />
@@ -299,7 +299,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
             <button
               type="button"
               onClick={() => setActionsSheetOpen(true)}
-              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors active:scale-95 transition-transform duration-100"
               title="More actions"
               aria-label="More actions"
             >

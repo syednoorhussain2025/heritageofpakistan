@@ -879,7 +879,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           {/* Burger mobile */}
           <button
             type="button"
-            className="lg:hidden p-2 -ml-1 flex items-center justify-center"
+            className="lg:hidden p-2 -ml-1 flex items-center justify-center active:scale-95 transition-transform duration-100"
             aria-label="Open menu"
             onClick={() => setMobileMenuOpen(true)}
           >
@@ -1248,7 +1248,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               <button
                 type="button"
                 onClick={closeMobileMenu}
-                className="p-2 rounded-full hover:bg-gray-100"
+                className="p-2 rounded-full hover:bg-gray-100 active:scale-95 transition-transform duration-100"
                 aria-label="Close menu"
               >
                 <Icon name="times" size={18} className="text-gray-600" />
@@ -1371,7 +1371,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
               <button
                 type="button"
-                className="p-2 -ml-1 flex items-center justify-center lg:hidden"
+                className="p-2 -ml-1 flex items-center justify-center lg:hidden active:scale-95 transition-transform duration-100"
                 aria-label="Open menu"
                 onClick={() => setMobileMenuOpen(true)}
               >
@@ -1442,7 +1442,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
               <button
                 type="button"
-                className="p-2 rounded-full hover:bg-gray-100"
+                className="p-2 rounded-full hover:bg-gray-100 active:scale-95 transition-transform duration-100"
                 aria-label="Close search"
                 onClick={() => {
                   setSearchOverlayOpen(false);

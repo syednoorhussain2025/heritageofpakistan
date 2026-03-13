@@ -53,7 +53,7 @@ function NavItem({
     <a
       href={href}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-100 active:scale-95"
     >
       <Icon
         name={icon}
@@ -340,7 +340,7 @@ export default function BottomNav() {
             type="button"
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-700 ease-out active:scale-140"
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-100 active:scale-95"
           >
             {userId ? (
               <ProfileTabIcon
