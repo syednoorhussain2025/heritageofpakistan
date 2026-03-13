@@ -1272,11 +1272,25 @@ function HeritageTypeModal({
   onClear: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [term, setTerm] = useState("");
+  const [dragY, setDragY] = useState(0);
+  const dragStartRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
+    setIsMobile(window.matchMedia("(max-width: 639px)").matches);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) { setVisible(false); return; }
+    setIsMobile(window.matchMedia("(max-width: 639px)").matches);
+    let id2: number;
+    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setVisible(true)); });
+    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1314,28 +1328,59 @@ function HeritageTypeModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[100000] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
       role="dialog"
       aria-label="Heritage Type"
     >
+      {/* Backdrop — only on desktop; on mobile the search sheet backdrop is already present */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`absolute inset-0 sm:bg-black/50 sm:backdrop-blur-sm transition-opacity duration-300 ${
+          visible ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
       />
 
+      {/* Sheet — bottom sheet on mobile, centered modal on sm+ */}
       <div
-        className={`relative w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] bg-white rounded-none sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col sm:h-[42rem] transition-all duration-200 overflow-hidden ${
-          isOpen
-            ? "opacity-100 scale-100 translate-y-0"
-            : "opacity-0 scale-95 translate-y-2"
+        className={`relative w-full sm:max-w-lg sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl ring-1 ring-gray-200 flex flex-col overflow-hidden sm:h-[42rem] ${
+          !isMobile ? (visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2") : ""
         }`}
+        style={isMobile ? {
+          maxHeight: "92dvh",
+          transform: visible ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+        } : {
+          transition: "opacity 0.2s, transform 0.2s",
+        }}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-2xl overflow-hidden flex-shrink-0">
+        {/* Drag handle — mobile only */}
+        <div
+          className="sm:hidden shrink-0 pt-2 pb-1 cursor-grab active:cursor-grabbing select-none"
+          onTouchStart={(e) => {
+            dragStartRef.current = e.touches[0].clientY;
+            isDraggingRef.current = false;
+          }}
+          onTouchMove={(e) => {
+            if (dragStartRef.current === null) return;
+            const dy = e.touches[0].clientY - dragStartRef.current;
+            if (dy > 0) { isDraggingRef.current = true; setDragY(dy); }
+          }}
+          onTouchEnd={(e) => {
+            if (dragStartRef.current === null) return;
+            const dy = e.changedTouches[0].clientY - dragStartRef.current;
+            dragStartRef.current = null;
+            isDraggingRef.current = false;
+            setDragY(0);
+            if (dy > 80) onClose();
+          }}
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 overflow-hidden flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
               <Icon name="landmark" size={13} className="text-[var(--brand-orange)]" />
@@ -1481,10 +1526,24 @@ function SearchLocationModal({
   regionParents: Record<string, string | null>;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const dragStartRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
+    setIsMobile(window.matchMedia("(max-width: 639px)").matches);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) { setVisible(false); return; }
+    setIsMobile(window.matchMedia("(max-width: 639px)").matches);
+    let id2: number;
+    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setVisible(true)); });
+    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1508,27 +1567,58 @@ function SearchLocationModal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[100000] flex items-stretch sm:items-center justify-center p-0 sm:p-4 touch-none ${
+      className={`fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
       aria-modal="true"
       role="dialog"
       aria-label="Search Location"
     >
+      {/* Backdrop — only on desktop; on mobile the search sheet backdrop is already present */}
       <div
-        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`absolute inset-0 sm:bg-black/40 sm:backdrop-blur-sm transition-opacity duration-300 ${
+          visible ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
       />
 
+      {/* Sheet — bottom sheet on mobile, centered modal on sm+ */}
       <div
-        className={`relative w-full h-full sm:h-[70vh] sm:min-h-[32rem] sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col transition-all duration-300 overflow-hidden ${
-          isOpen
-            ? "opacity-100 scale-100 translate-y-0"
-            : "opacity-0 scale-95 translate-y-4"
+        className={`relative w-full sm:h-[70vh] sm:min-h-[32rem] sm:max-h-[90vh] sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl ring-1 ring-black/5 flex flex-col overflow-hidden ${
+          !isMobile ? (visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4") : ""
         }`}
+        style={isMobile ? {
+          maxHeight: "92dvh",
+          transform: visible ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+        } : {
+          transition: "opacity 0.3s, transform 0.3s",
+        }}
       >
+        {/* Drag handle — mobile only */}
+        <div
+          className="sm:hidden shrink-0 pt-2 pb-1 cursor-grab active:cursor-grabbing select-none"
+          onTouchStart={(e) => {
+            dragStartRef.current = e.touches[0].clientY;
+            isDraggingRef.current = false;
+          }}
+          onTouchMove={(e) => {
+            if (dragStartRef.current === null) return;
+            const dy = e.touches[0].clientY - dragStartRef.current;
+            if (dy > 0) { isDraggingRef.current = true; setDragY(dy); }
+          }}
+          onTouchEnd={(e) => {
+            if (dragStartRef.current === null) return;
+            const dy = e.changedTouches[0].clientY - dragStartRef.current;
+            dragStartRef.current = null;
+            isDraggingRef.current = false;
+            setDragY(0);
+            if (dy > 80) onClose();
+          }}
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+        </div>
+
         {/* Header — aligned with Add to Collection */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
@@ -1553,7 +1643,7 @@ function SearchLocationModal({
         </div>
 
         {/* Body — two columns: main regions (left), subregions (right), always open; equal height */}
-        <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-4 px-6 py-5 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-4 px-6 py-5 overflow-y-auto sm:overflow-hidden touch-auto overscroll-contain">
           <div className="flex-1 min-h-[200px] sm:min-h-0 flex flex-col min-w-0">
             <span className="inline-block mb-2 px-2.5 py-0.5 bg-[var(--brand-blue)] text-white text-[0.6rem] font-bold uppercase tracking-widest rounded-full w-fit shrink-0">
               Region
