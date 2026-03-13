@@ -467,16 +467,6 @@ export default function SitePreviewCard({
             </div>
           </div>
 
-          {/* Mobile actions button — pinned to image bottom-right */}
-          <button
-            type="button"
-            title="More actions"
-            aria-label="More actions"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-            className="md:hidden absolute bottom-3 right-3 p-1 flex items-center justify-center text-white drop-shadow-md hover:opacity-90 transition-opacity cursor-pointer z-[21]"
-          >
-            <Icon name="ellipsis" size={22} className="text-current" />
-          </button>
         </div>
 
         {/* Footer */}
@@ -484,16 +474,27 @@ export default function SitePreviewCard({
           className="px-2 py-2"
           onClick={(e) => e.preventDefault()}
         >
-          {/* Mobile title + location inside white card, no pin */}
-          <div className="md:hidden text-gray-900 px-0 pt-0 pb-2">
-            <h3 className="text-[16px] font-extrabold leading-tight truncate">
-              {site.title}
-            </h3>
-            {site.location_free && (
-              <div className="mt-[1px] text-[11px] text-gray-400 truncate">
-                {site.location_free}
-              </div>
-            )}
+          {/* Mobile title + location + ellipsis inside white card */}
+          <div className="md:hidden flex items-center gap-2 pt-0 pb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[16px] font-extrabold leading-tight truncate">
+                {site.title}
+              </h3>
+              {site.location_free && (
+                <div className="mt-[1px] text-[11px] text-gray-400 truncate">
+                  {site.location_free}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              title="More actions"
+              aria-label="More actions"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              <Icon name="ellipsis" size={18} />
+            </button>
           </div>
 
           {/* Desktop / tablet: Lat/Long left (pill), actions menu right */}

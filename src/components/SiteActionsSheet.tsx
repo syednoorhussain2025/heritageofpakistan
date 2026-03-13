@@ -196,7 +196,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[4000]">
+      <div className="fixed inset-0 z-[4000] touch-none">
         {/* Backdrop */}
         <div
           className={`absolute inset-0 bg-black/40 transition-opacity duration-300 touch-none ${visible ? "opacity-100" : "opacity-0"}`}
@@ -207,7 +207,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         {/* Sheet */}
         <div
           ref={sheetElRef}
-          className={`absolute bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-3xl transition-transform duration-300 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
+          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl transition-transform duration-300 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -237,7 +237,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           </div>
 
           {/* Primary actions group */}
-          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
+          <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <a
               href={detailHref}
               target="_blank"
@@ -245,48 +245,48 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               onClick={closeSheet}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="external-link-alt" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="external-link-alt" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Open Site</span>
             </a>
-            <div className="ml-16 mr-0 h-px bg-gray-100" />
+            <div className="mx-6 h-px bg-gray-300" />
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="heart" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="heart" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Save</span>
             </button>
-            <div className="ml-16 mr-0 h-px bg-gray-100" />
+            <div className="mx-6 h-px bg-gray-300" />
             <button
               type="button"
               onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="route" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="route" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
-            <div className="ml-16 mr-0 h-px bg-gray-100" />
+            <div className="mx-6 h-px bg-gray-300" />
             <button
               type="button"
               onClick={() => { void handlePlacesNearby(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="nearby" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="nearby" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
             </button>
           </div>
 
           {/* Secondary actions group */}
-          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
+          <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <a
               href={galleryHref}
               target="_blank"
@@ -294,12 +294,12 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               onClick={closeSheet}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="gallery" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="gallery" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Gallery</span>
             </a>
-            <div className="ml-16 mr-0 h-px bg-gray-100" />
+            <div className="mx-6 h-px bg-gray-300" />
             <a
               href={photoStoryHref}
               target="_blank"
@@ -307,14 +307,14 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               onClick={closeSheet}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                <Icon name="book" size={16} className="text-gray-700" />
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="book" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
             </a>
             {googleMapsHref && (
               <>
-                <div className="ml-16 mr-0 h-px bg-gray-100" />
+                <div className="mx-6 h-px bg-gray-300" />
                 <a
                   href={googleMapsHref}
                   target="_blank"
@@ -322,8 +322,8 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   onClick={closeSheet}
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <Icon name="map-marker-alt" size={16} className="text-gray-700" />
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                    <Icon name="map-marker-alt" size={18} className="text-gray-800" />
                   </div>
                   <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
                 </a>
@@ -332,7 +332,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           </div>
 
           {/* Cancel */}
-          <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden">
+          <div className="mx-4 mb-4 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <button
               type="button"
               onClick={closeSheet}

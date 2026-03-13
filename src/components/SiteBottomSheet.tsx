@@ -41,6 +41,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
   const raf2Ref = useRef<number | null>(null);
 
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
+  const [carouselIdx, setCarouselIdx] = useState(0);
 
   // Swipe-to-close state
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -70,6 +71,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
 
     // Seed with full-res cover immediately — no low-quality thumb, no later swap
     setSlides(coverUrl ? [coverUrl] : []);
+    setCarouselIdx(0);
 
     const ids = site.cover_slideshow_image_ids;
     if (!ids?.length) return;
@@ -258,6 +260,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
               slides={slides}
               siteId={site.id}
               alt={site.title}
+              hideDots
+              onIndexChange={setCarouselIdx}
             />
             {/* Close button — above carousel z layers */}
             <button
@@ -272,19 +276,33 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
 
         {/* Details */}
         <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
+          {/* Dot indicators — row always reserves height to prevent layout shift */}
+          <div className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
+            {slides.length > 1 && slides.map((_, i) => (
+              <div
+                key={i}
+                className={`rounded-full transition-all duration-200 ${
+                  i === carouselIdx
+                    ? "w-2 h-2 bg-[var(--brand-orange)]"
+                    : "w-1.5 h-1.5 bg-gray-300 self-center"
+                }`}
+              />
+            ))}
+          </div>
+
           {/* Title + ellipsis */}
           <div className="flex items-center gap-2 shrink-0">
-            <h2 className="flex-1 min-w-0 text-lg font-bold text-[var(--brand-blue)] leading-tight truncate">
+            <h2 className="flex-1 min-w-0 text-2xl font-bold text-[var(--brand-blue)] leading-tight truncate">
               {site.title}
             </h2>
             <button
               type="button"
               onClick={() => setActionsSheetOpen(true)}
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
               title="More actions"
               aria-label="More actions"
             >
-              <Icon name="ellipsis" size={18} />
+              <Icon name="ellipsis" size={22} />
             </button>
           </div>
 

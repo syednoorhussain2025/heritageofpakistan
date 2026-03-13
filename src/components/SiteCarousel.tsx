@@ -15,11 +15,17 @@ export default function SiteCarousel({
   siteId,
   alt,
   autoAdvance = false,
+  hideDots = false,
+  onIndexChange,
 }: {
   slides: string[];        // first entry = thumb shown immediately; rest added progressively
   siteId?: string | null;  // pass site.id so carousel knows when it's a genuinely new site
   alt: string;
   autoAdvance?: boolean;
+  /** Hide the built-in dot indicators (e.g. when the parent renders them externally) */
+  hideDots?: boolean;
+  /** Called whenever the active slide index changes */
+  onIndexChange?: (idx: number) => void;
 }) {
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
@@ -40,7 +46,7 @@ export default function SiteCarousel({
     return () => clearInterval(t);
   }, [autoAdvance, hasMultiple, slides.length]);
 
-  React.useEffect(() => { idxRef.current = idx; }, [idx]);
+  React.useEffect(() => { idxRef.current = idx; onIndexChange?.(idx); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply transform directly on DOM — zero re-renders during drag
   const applyTransform = React.useCallback((dx: number, atIdx: number, animated: boolean) => {
@@ -161,8 +167,8 @@ export default function SiteCarousel({
         ))}
       </div>
 
-      {/* Dot indicators */}
-      {hasMultiple && (
+      {/* Dot indicators (built-in — hidden when parent renders them externally) */}
+      {hasMultiple && !hideDots && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
           {slides.map((_, i) => (
             <button
