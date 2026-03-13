@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import SiteCarousel from "@/components/SiteCarousel";
@@ -34,21 +35,8 @@ interface Props {
 
 export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const raf1Ref = useRef<number | null>(null);
-  const raf2Ref = useRef<number | null>(null);
-
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
-
-  // Swipe-to-close state
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef<number | null>(null);
-  const dragStartTime = useRef<number>(0);
-  const dragCurrentY = useRef<number>(0);
-  const isDragging = useRef(false);
 
   // Use the md-variant cover URL as slide 0 — good quality, available immediately.
   const getCover = (s: BottomSheetSite | null): string | null => {
@@ -104,251 +92,152 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
     return () => { cancelled = true; };
   }, [site?.id]);
 
-  // Open/close animation
-  useEffect(() => {
-    if (!isOpen) {
-      setVisible(false);
-      setClosing(false);
-      return;
-    }
-    raf1Ref.current = requestAnimationFrame(() => {
-      raf2Ref.current = requestAnimationFrame(() => {
-        raf2Ref.current = null;
-        setVisible(true);
-      });
-    });
-    return () => {
-      if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
-      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
-    };
-  }, [isOpen]);
-
-  const closeWithAnimation = useCallback(() => {
-    if (closeTimerRef.current) return;
-    setClosing(true);
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null;
-      setClosing(false);
-      onClose();
-    }, 300);
-  }, [onClose]);
-
-  const dragStartX = useRef<number>(0);
-  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (closeTimerRef.current) return;
-    dragStartY.current = e.touches[0].clientY;
-    dragStartX.current = e.touches[0].clientX;
-    dragStartTime.current = Date.now();
-    dragCurrentY.current = 0;
-    isDragging.current = true;
-    dragDirectionLocked.current = null;
-    const el = sheetRef.current;
-    if (el) el.style.transition = "none";
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current || dragStartY.current === null) return;
-    const dy = e.touches[0].clientY - dragStartY.current;
-    const dx = e.touches[0].clientX - dragStartX.current;
-
-    // Lock direction on first significant movement
-    if (!dragDirectionLocked.current) {
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
-        dragDirectionLocked.current = "horizontal";
-      } else if (Math.abs(dy) > 4) {
-        dragDirectionLocked.current = "vertical";
-      }
-    }
-
-    // If horizontal (carousel swipe) — don't interfere
-    if (dragDirectionLocked.current === "horizontal") {
-      isDragging.current = false;
-      const el = sheetRef.current;
-      if (el) { el.style.transition = ""; el.style.transform = ""; }
-      return;
-    }
-
-    if (dragDirectionLocked.current !== "vertical") return;
-
-    if (dy < 0) {
-      dragCurrentY.current = 0;
-      const el = sheetRef.current;
-      if (el) el.style.transform = "translateY(0)";
-      return;
-    }
-    dragCurrentY.current = dy;
-    const el = sheetRef.current;
-    if (el) el.style.transform = `translateY(${dy}px)`;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    const dy = dragCurrentY.current;
-    const elapsed = Date.now() - dragStartTime.current;
-    const velocity = dy / elapsed; // px/ms
-
-    const el = sheetRef.current;
-    // Re-enable transition
-    if (el) el.style.transition = "";
-
-    const DISMISS_DISTANCE = 80;
-    const DISMISS_VELOCITY = 0.4; // px/ms
-
-    if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
-      // Animate out then close — set closing so backdrop fades in sync
-      setClosing(true);
-      if (el) el.style.transform = "translateY(100%)";
-      closeTimerRef.current = setTimeout(() => {
-        closeTimerRef.current = null;
-        setClosing(false);
-        onClose();
-        if (el) el.style.transform = "";
-      }, 300);
-    } else {
-      // Spring back
-      if (el) el.style.transform = "translateY(0)";
-    }
-
-    dragStartY.current = null;
-    dragCurrentY.current = 0;
-  }, [onClose]);
-
-  if (!mounted || (!isOpen && !closing) || !site) return null;
+  if (!mounted || !site) return null;
 
   const detailHref = site.province_slug
     ? `/heritage/${site.province_slug}/${site.slug}`
     : `/heritage/${site.slug}`;
 
-  const sheetVisible = visible && !closing;
-
   const sheet = createPortal(
-    <div
-      className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
-      style={{ top: 0, height: "100dvh" }}
-      aria-modal="true"
-      role="dialog"
-      aria-label="Site details"
-    >
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${sheetVisible ? "opacity-100" : "opacity-0"}`}
-        onClick={closeWithAnimation}
-        aria-hidden="true"
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
+          style={{ top: 0, height: "100dvh" }}
+          aria-modal="true"
+          role="dialog"
+          aria-label="Site details"
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-      {/* Sheet */}
-      <div
-        ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Drag handle (visual only) */}
-        <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
-          <div className="w-10 h-1 rounded-full bg-gray-300/80" />
-        </div>
-
-        {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
-        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
-          <div className="absolute inset-0">
-            <SiteCarousel
-              slides={slides}
-              siteId={site.id}
-              alt={site.title}
-              hideDots
-              onIndexChange={setCarouselIdx}
-            />
-            {/* Close button — above carousel z layers */}
-            <button
-              onClick={closeWithAnimation}
-              className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors active:scale-95 transition-transform duration-100"
-              title="Close"
-            >
-              <Icon name="times" size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Dot indicators — row always reserves height to prevent layout shift */}
-          <div className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
-            {slides.length > 1 && slides.map((_, i) => (
-              <div
-                key={i}
-                className={`rounded-full transition-all duration-200 ${
-                  i === carouselIdx
-                    ? "w-2 h-2 bg-[var(--brand-orange)]"
-                    : "w-1.5 h-1.5 bg-gray-300 self-center"
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Title + ellipsis */}
-          <div className="flex items-center gap-2 shrink-0">
-            <h2 className="flex-1 min-w-0 text-xl font-bold text-[var(--brand-blue)] leading-tight truncate">
-              {site.title}
-            </h2>
-            <button
-              type="button"
-              onClick={() => setActionsSheetOpen(true)}
-              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors active:scale-95 transition-transform duration-100"
-              title="More actions"
-              aria-label="More actions"
-            >
-              <Icon name="ellipsis" size={22} />
-            </button>
-          </div>
-
-          {/* Rating + type + location */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {site.avg_rating != null && (
-              <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-xs font-semibold inline-flex items-center gap-1">
-                <Icon name="star" size={11} />
-                {site.avg_rating.toFixed(1)}
-              </span>
-            )}
-            {site.heritage_type && (
-              <span className="px-2 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
-                {site.heritage_type}
-              </span>
-            )}
-            {site.location_free && (
-              <span className="flex items-center gap-1 text-gray-500 text-xs">
-                <Icon name="map-marker-alt" size={11} />
-                {site.location_free}
-              </span>
-            )}
-          </div>
-
-          {/* Description */}
-          {site.tagline && (
-            <p className="text-sm text-gray-600 leading-relaxed line-clamp-5 shrink-0">
-              {site.tagline}
-            </p>
-          )}
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Open Site */}
-          <Link
-            href={detailHref}
-            className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+          {/* Sheet */}
+          <motion.div
+            className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
+            style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 300 }}
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0, bottom: 0.2 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 80 || info.velocity.y > 500) {
+                onClose();
+              }
+            }}
           >
-            Open Site
-            <Icon name="arrow-right" size={14} />
-          </Link>
+            {/* Drag handle */}
+            <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
+              <div className="w-10 h-1 rounded-full bg-gray-300/80" />
+            </div>
+
+            {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
+            <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
+              <div className="absolute inset-0">
+                <SiteCarousel
+                  slides={slides}
+                  siteId={site.id}
+                  alt={site.title}
+                  hideDots
+                  onIndexChange={setCarouselIdx}
+                />
+                {/* Close button — above carousel z layers */}
+                <button
+                  onClick={onClose}
+                  className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors active:scale-95 transition-transform duration-100"
+                  title="Close"
+                >
+                  <Icon name="times" size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
+              {/* Dot indicators */}
+              <div className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
+                {slides.length > 1 && slides.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-200 ${
+                      i === carouselIdx
+                        ? "w-2 h-2 bg-[var(--brand-orange)]"
+                        : "w-1.5 h-1.5 bg-gray-300 self-center"
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Title + ellipsis */}
+              <div className="flex items-center gap-2 shrink-0">
+                <h2 className="flex-1 min-w-0 text-xl font-bold text-[var(--brand-blue)] leading-tight truncate">
+                  {site.title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setActionsSheetOpen(true)}
+                  className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors active:scale-95 transition-transform duration-100"
+                  title="More actions"
+                  aria-label="More actions"
+                >
+                  <Icon name="ellipsis" size={22} />
+                </button>
+              </div>
+
+              {/* Rating + type + location */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {site.avg_rating != null && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-xs font-semibold inline-flex items-center gap-1">
+                    <Icon name="star" size={11} />
+                    {site.avg_rating.toFixed(1)}
+                  </span>
+                )}
+                {site.heritage_type && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
+                    {site.heritage_type}
+                  </span>
+                )}
+                {site.location_free && (
+                  <span className="flex items-center gap-1 text-gray-500 text-xs">
+                    <Icon name="map-marker-alt" size={11} />
+                    {site.location_free}
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {site.tagline && (
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-5 shrink-0">
+                  {site.tagline}
+                </p>
+              )}
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Open Site */}
+              <Link
+                href={detailHref}
+                className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95 transition-transform duration-100"
+              >
+                Open Site
+                <Icon name="arrow-right" size={14} />
+              </Link>
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>,
+      )}
+    </AnimatePresence>,
     document.body
   );
 

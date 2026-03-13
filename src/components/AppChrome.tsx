@@ -13,6 +13,7 @@ import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import PageTransition from "@/components/PageTransition";
 
 export default function AppChrome({
   children,
@@ -45,7 +46,9 @@ export default function AppChrome({
                 <LoaderEngineProvider>
                   <AuthPendingToast />
                   <Header initialItems={initialHeaderItems} />
-                  <main>{children}</main>
+                  <main>
+                    <PageTransition>{children}</PageTransition>
+                  </main>
                   <BottomNav />
                 </LoaderEngineProvider>
               </CollectionsProvider>
