@@ -13,6 +13,7 @@ import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MobileHeaderSlotProvider } from "@/components/MobileHeaderSlot";
 
 export default function AppChrome({
   children,
@@ -43,10 +44,12 @@ export default function AppChrome({
             <WishlistProvider>
               <CollectionsProvider>
                 <LoaderEngineProvider>
-                  <AuthPendingToast />
-                  <Header initialItems={initialHeaderItems} />
-                  <main>{children}</main>
-                  <BottomNav />
+                  <MobileHeaderSlotProvider>
+                    <AuthPendingToast />
+                    <Header initialItems={initialHeaderItems} />
+                    <main>{children}</main>
+                    <BottomNav />
+                  </MobileHeaderSlotProvider>
                 </LoaderEngineProvider>
               </CollectionsProvider>
             </WishlistProvider>

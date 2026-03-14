@@ -18,6 +18,7 @@ import { useWishlists } from "@/components/WishlistProvider";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
+import { useMobileHeaderSlot } from "@/components/MobileHeaderSlot";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
 import SiteCarousel from "@/components/SiteCarousel";
@@ -1185,6 +1186,81 @@ export default function MapClient() {
     showMapToast("All filters cleared");
   }, [clearSidebarFilter, showMapToast]);
 
+  // Register mobile header slot — always visible, updates when state changes
+  const setMobileHeaderSlot = useMobileHeaderSlot();
+  useEffect(() => {
+    const displayText = loading || sitesLoading
+      ? "Loading…"
+      : nearbyActive && typeof filters.radiusKm === "number"
+        ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
+        : filteredLocations.length === allLocations.length
+          ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
+          : `${filteredLocations.length} of ${allLocations.length} sites`;
+    const titleText = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
+      ? `Trip: ${activeTripName ?? mapHeadline}`
+      : mapHeadline;
+    setMobileHeaderSlot(
+      <div className="w-full flex items-center gap-2 px-2 py-2 min-h-14" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <button
+          type="button"
+          aria-label="Open menu"
+          onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
+          className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
+        >
+          <Icon name="navigator" size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="Search & Filters"
+          onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
+          className="flex-1 min-w-0 flex items-start gap-2.5 text-left min-h-[44px] py-1.5 -my-1 rounded-lg active:bg-gray-100"
+        >
+          <span className="shrink-0 mt-0.5 w-11 h-11 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
+            <Icon name="map-marker-alt" size={22} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
+            <div className="text-sm font-semibold text-gray-800 leading-tight truncate">{titleText}</div>
+            <div className="text-xs text-gray-600 mt-0.5">{displayText}</div>
+          </div>
+        </button>
+        {hasActiveFilter && (
+          <button
+            type="button"
+            aria-label="Clear filters and show all sites"
+            onClick={handleClearAllFilters}
+            className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-orange-50 active:bg-orange-100"
+          >
+            <Icon name="redo-alt" size={20} />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label="Search & Filters"
+          onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
+          className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
+        >
+          <Icon name="search" size={22} />
+        </button>
+        <button
+          type="button"
+          aria-label="My Saved Lists and Trips"
+          onClick={() => setMobileEllipsisSheetOpen(true)}
+          className="p-2 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
+        >
+          <Icon name="ellipsis" size={22} />
+        </button>
+      </div>
+    );
+    return () => setMobileHeaderSlot(null);
+  }, [
+    loading, sitesLoading, nearbyActive, filters.radiusKm,
+    filteredLocations.length, allLocations.length, sidebarFilter,
+    activeTripName, mapHeadline, hasActiveFilter,
+    setMobileHeaderSlot, setMobilePanelMode, setSearchPanelOpen,
+    setMobileEllipsisSheetOpen, handleClearAllFilters,
+  ]);
+
   // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
     setSelectedMapSite(site);
@@ -1814,7 +1890,7 @@ export default function MapClient() {
           </div>
         )}
         {sitesLoading && (
-          <div className="fixed inset-0 z-[2147483647] pointer-events-none flex items-end justify-center pb-14 sm:pb-12" aria-live="polite">
+          <div className="fixed inset-x-0 bottom-0 z-[2900] pointer-events-none flex justify-center pb-20 sm:pb-16" aria-live="polite">
             <div
               className="px-6 py-3.5 rounded-2xl bg-gray-900 text-white shadow-2xl flex items-center gap-3 max-w-[90vw] sm:max-w-lg w-max"
               role="status"
@@ -2179,82 +2255,6 @@ export default function MapClient() {
             );
           })()}
       </div>
-
-      {mounted &&
-        createPortal(
-          <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm min-h-14 flex items-center gap-2 px-2 py-2" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-            <button
-              type="button"
-              aria-label="Open menu"
-              onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
-              className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
-            >
-              <Icon name="navigator" size={20} />
-            </button>
-            <button
-              type="button"
-              aria-label="Search & Filters"
-              onClick={() => {
-                setMobilePanelMode("search");
-                setSearchPanelOpen(true);
-              }}
-              className="flex-1 min-w-0 flex items-start gap-2.5 text-left min-h-[44px] py-1.5 -my-1 rounded-lg active:bg-gray-100"
-            >
-              <span className="shrink-0 mt-0.5 w-11 h-11 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
-                <Icon name="map-marker-alt" size={22} />
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">
-                  Showing on map
-                </div>
-                <div className="text-sm font-semibold text-gray-800 leading-tight truncate">
-                  {typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
-                    ? `Trip: ${activeTripName ?? mapHeadline}`
-                    : mapHeadline}
-                </div>
-                <div className="text-xs text-gray-600 mt-0.5">
-                  {loading || sitesLoading
-                    ? "Loading…"
-                    : nearbyActive && typeof filters.radiusKm === "number"
-                      ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
-                      : filteredLocations.length === allLocations.length
-                        ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
-                        : `${filteredLocations.length} of ${allLocations.length} sites`}
-                </div>
-              </div>
-            </button>
-            {hasActiveFilter && (
-              <button
-                type="button"
-                aria-label="Clear filters and show all sites"
-                onClick={handleClearAllFilters}
-                className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-orange-50 active:bg-orange-100"
-              >
-                <Icon name="redo-alt" size={20} />
-              </button>
-            )}
-            <button
-              type="button"
-              aria-label="Search & Filters"
-              onClick={() => {
-                setMobilePanelMode("search");
-                setSearchPanelOpen(true);
-              }}
-              className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
-            >
-              <Icon name="search" size={22} />
-            </button>
-            <button
-              type="button"
-              aria-label="My Saved Lists and Trips"
-              onClick={() => setMobileEllipsisSheetOpen(true)}
-              className="p-2 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
-            >
-              <Icon name="ellipsis" size={22} />
-            </button>
-          </div>,
-          document.body
-        )}
 
       {mounted &&
         searchPanelOpen &&

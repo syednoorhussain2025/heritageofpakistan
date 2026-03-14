@@ -80,22 +80,22 @@ const IconContext = createContext<IconContextType>({
  * 3) Revalidate from Supabase in the background and update cache if changed
  */
 export function IconProvider({ children }: { children: React.ReactNode }) {
-  // Keep first client render identical to server render to avoid hydration mismatch.
-  const [icons, setIcons] = useState<Map<string, string>>(new Map());
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  // Initialise synchronously from localStorage so the first client paint
+  // already has icons — no empty-then-filled flash on cached visits.
+  const [icons, setIcons] = useState<Map<string, string>>(() => {
+    const cached = loadCachedIconPairs();
+    return cached && cached.length > 0 ? new Map(cached) : new Map();
+  });
+  const [isLoaded, setIsLoaded] = useState<boolean>(() => {
+    const cached = loadCachedIconPairs();
+    return !!(cached && cached.length > 0);
+  });
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchIconsAndUpdateCache() {
-      // Step 1: hydrate quickly from local cache on the client after mount.
-      const cached = loadCachedIconPairs();
-      if (!cancelled && cached && cached.length > 0) {
-        setIcons(new Map(cached));
-        setIsLoaded(true);
-      }
-
-      // Step 2: always revalidate from Supabase and update only if changed.
+      // Revalidate from Supabase in the background and update only if changed.
       try {
         const { data, error } = await supabase.from("icons").select("name, svg_content");
         if (error) {
@@ -179,6 +179,7 @@ export default function Icon({ name, size, className, ...props }: IconProps) {
         className={`inline-block bg-transparent ${className || ""}`}
         style={{ width: size || "1em", height: size || "1em" }}
         aria-label={`Icon: ${name}`}
+        suppressHydrationWarning
         {...props}
       />
     );
@@ -190,6 +191,7 @@ export default function Icon({ name, size, className, ...props }: IconProps) {
       style={{ fontSize: size }}
       // svg_content should already be sanitized at creation time
       dangerouslySetInnerHTML={{ __html: svgContent }}
+      suppressHydrationWarning
       {...props}
     />
   );

@@ -12,6 +12,7 @@ import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imag
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { useMobileHeaderSlotContent } from "@/components/MobileHeaderSlot";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -157,6 +158,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useLoaderEngine();
+  const mobileHeaderSlot = useMobileHeaderSlotContent();
 
   // Use one consistent browser Supabase client throughout this component
   const supabase = useMemo(() => createClient(), []);
@@ -858,7 +860,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           effectiveSolid || searchOverlayOpen
             ? "backdrop-blur shadow-none lg:shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
-        }${pathname === "/explore" ? " hidden lg:block" : ""}`}
+        }`}
         style={{
           backgroundColor:
             effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
@@ -873,6 +875,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               : "opacity-0"
           }`}
         />
+
+        {/* Mobile header slot: pages inject custom mobile header content here */}
+        {mobileHeaderSlot && (
+          <div className="lg:hidden absolute inset-0 z-40 bg-white border-b border-gray-200 shadow-sm flex items-center">
+            {mobileHeaderSlot}
+          </div>
+        )}
 
         {/* Top bar */}
         <div className="relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">

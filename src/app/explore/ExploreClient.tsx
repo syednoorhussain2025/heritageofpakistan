@@ -10,6 +10,7 @@ import {
   Suspense,
 } from "react";
 import { createPortal } from "react-dom";
+import { useMobileHeaderSlot } from "@/components/MobileHeaderSlot";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
   Filters,
@@ -1367,6 +1368,40 @@ function ExplorePageContent() {
   // Mount guard for portals
   useEffect(() => { setMounted(true); }, []);
 
+  // Register mobile header slot — updates whenever reactive values change
+  const setMobileHeaderSlot = useMobileHeaderSlot();
+  useEffect(() => {
+    setMobileHeaderSlot(
+      <div className="w-full flex items-center px-3 gap-2 h-full">
+        <button
+          type="button"
+          aria-label="Open menu"
+          onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
+          className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32]"
+        >
+          <Icon name="navigator" size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="Search & Filters"
+          onClick={() => setSearchPanelOpen(true)}
+          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
+              {headline}
+            </div>
+            <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
+              {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
+            </div>
+          </div>
+          <Icon name="search" size={20} className="text-[var(--brand-orange)] shrink-0" />
+        </button>
+      </div>
+    );
+    return () => setMobileHeaderSlot(null);
+  }, [headline, loading, results.sites.length, results.total, setMobileHeaderSlot, setSearchPanelOpen]);
+
   // Bottom sheet animation
   useEffect(() => {
     if (!searchPanelOpen) { setSearchPanelVisible(false); return; }
@@ -1524,40 +1559,6 @@ function ExplorePageContent() {
           executeSearch();
         }}
       />
-
-      {/* ── Mobile Explore Header ── */}
-      {mounted && createPortal(
-        <div className="lg:hidden fixed top-0 inset-x-0 z-[1200] bg-white border-b border-gray-200 shadow-sm h-14 flex items-center px-3 gap-2">
-          {/* Burger → opens global nav drawer */}
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
-            className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32]"
-          >
-            <Icon name="navigator" size={20} />
-          </button>
-
-          {/* Headline + search icon — entire area opens search panel */}
-          <button
-            type="button"
-            aria-label="Search & Filters"
-            onClick={() => setSearchPanelOpen(true)}
-            className="flex-1 min-w-0 flex items-center gap-2 text-left"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
-                {headline}
-              </div>
-              <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
-                {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
-              </div>
-            </div>
-            <Icon name="search" size={20} className="text-[var(--brand-orange)] shrink-0" />
-          </button>
-        </div>,
-        document.body
-      )}
 
       {/* ── Mobile Search Bottom Sheet ── */}
       {mounted && searchPanelOpen && createPortal(

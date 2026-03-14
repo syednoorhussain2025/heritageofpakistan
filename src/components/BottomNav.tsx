@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import Image from "next/image";
 import Icon from "./Icon";
@@ -12,7 +13,7 @@ import { createClient } from "@/lib/supabase/browser";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#474747]";
-const ICON_SIZE = 23;
+const ICON_SIZE = 28;
 
 const PANEL_ANIM_MS = 320;
 
@@ -50,7 +51,7 @@ function NavItem({
   href: string;
 }) {
   return (
-    <a
+    <Link
       href={href}
       aria-label={label}
       className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
@@ -67,7 +68,7 @@ function NavItem({
       >
         {label}
       </span>
-    </a>
+    </Link>
   );
 }
 
