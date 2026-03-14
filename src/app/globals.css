@@ -399,3 +399,18 @@ code {
   transition: transform 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   transform: scale(1.25);
 }
+
+/* Base: always respect safe area */
+.pwa-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* PWA standalone: extra bottom padding on nav + spacer */
+@media (display-mode: standalone) {
+  .pwa-bottom-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
+  #bottom-nav-spacer {
+    height: calc(52px + env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+}

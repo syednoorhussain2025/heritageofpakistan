@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/browser";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#111111]";
-const ICON_SIZE = 26;
+const ICON_SIZE = 29;
 
 const PANEL_ANIM_MS = 320;
 
@@ -56,7 +56,7 @@ function NavItem({
     <Link
       href={href}
       aria-label={label}
-      className="flex flex-1 items-center justify-center pt-3 pb-10 nav-item-tap"
+      className="flex flex-1 items-center justify-center py-3 nav-item-tap"
       onTouchStart={() => onPress?.()}
       onMouseDown={() => onPress?.()}
     >
@@ -275,9 +275,18 @@ export default function BottomNav() {
 
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true) ||
+      !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    setIsStandalone(standalone);
+  }, []);
 
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
@@ -330,10 +339,10 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden h-[84px]" />}
+      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: `calc(52px + env(safe-area-inset-bottom, 0px)${isStandalone ? " + 32px" : ""})` }} />}
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: "-40px", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 40px)" }}>
-        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2">
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: 0, paddingBottom: `calc(env(safe-area-inset-bottom, 0px)${isStandalone ? " + 32px" : ""})` }}>
+        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
           <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />
           <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" onPress={() => setOptimisticHref("/explore")} />
@@ -344,7 +353,7 @@ export default function BottomNav() {
             type="button"
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
-            className="flex flex-1 items-center justify-center pt-3 pb-10 nav-item-tap"
+            className="flex flex-1 items-center justify-center py-3 nav-item-tap"
           >
             <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
               {userId ? (
