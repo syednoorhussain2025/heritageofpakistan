@@ -1,7 +1,7 @@
 // src/app/heritage/[region]/[slug]/HeritageClient.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -184,6 +184,24 @@ export default function HeritageClient({
   hasPhotoStory,
   travelGuideSummary,
 }: HeritagePageProps) {
+  // Slide-in animation on mobile for client-side navigations (and direct loads)
+  const pageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el || window.innerWidth >= 768) return;
+    el.style.transform = "translateX(100%)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)";
+      el.style.transform = "translateX(0)";
+      el.addEventListener("transitionend", () => {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.style.willChange = "";
+      }, { once: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   // Deep-link highlight: read ?note= on the client so the server page stays
   // fully static (searchParams in a Server Component forces dynamic rendering).
   const searchParams = useSearchParams();
@@ -241,7 +259,7 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div className="min-h-screen bg-[#f8f8f8]">
+    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8]" style={{ willChange: "transform" }}>
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />
