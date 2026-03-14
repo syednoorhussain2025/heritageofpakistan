@@ -241,7 +241,7 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div className="min-h-screen bg-[#f8f8f8] mobile-slide-in">
+    <div className="min-h-screen bg-[#f8f8f8]">
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />
@@ -600,23 +600,6 @@ export default function HeritageClient({
       </div>
 
       <style jsx global>{`
-        @media (max-width: 768px) {
-          @keyframes slideInFromRight {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-
-          .mobile-slide-in {
-            animation: slideInFromRight 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-          }
-        }
-
         :root {
           --amber-50: #fffaf2;
           --amber-100: #fff4e3;
