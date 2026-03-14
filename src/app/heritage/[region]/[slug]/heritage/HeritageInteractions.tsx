@@ -79,26 +79,28 @@ export default function HeritageInteractions({
 
   return (
     <>
-      <StickyHeader
-        site={{ id: site.id, slug: site.slug, title: site.title }}
-        isBookmarked={isBookmarked}
-        wishlisted={wishlisted}
-        inTrip={inTrip}
-        mapsLink={mapsLink}
-        isLoaded={isLoaded}
-        toggleBookmark={toggleBookmark}
-        setShowWishlistModal={setShowWishlistModal}
-        setInTrip={setInTrip}
-        doShare={doShare}
-        setShowReviewModal={setShowReviewModal}
-        researchMode={researchEnabled}
-        onChangeResearchMode={v => {
-          setResearchEnabled(v);
-          try {
-            localStorage.setItem("researchMode", v ? "1" : "0");
-          } catch {}
-        }}
-      />
+      <div className="hidden md:block">
+        <StickyHeader
+          site={{ id: site.id, slug: site.slug, title: site.title }}
+          isBookmarked={isBookmarked}
+          wishlisted={wishlisted}
+          inTrip={inTrip}
+          mapsLink={mapsLink}
+          isLoaded={isLoaded}
+          toggleBookmark={toggleBookmark}
+          setShowWishlistModal={setShowWishlistModal}
+          setInTrip={setInTrip}
+          doShare={doShare}
+          setShowReviewModal={setShowReviewModal}
+          researchMode={researchEnabled}
+          onChangeResearchMode={v => {
+            setResearchEnabled(v);
+            try {
+              localStorage.setItem("researchMode", v ? "1" : "0");
+            } catch {}
+          }}
+        />
+      </div>
 
       {site && (
         <GlobalResearchDebug

@@ -71,6 +71,11 @@ export default async function RootLayout({
           href="https://opkndnjdeartooxhmfsr.supabase.co"
           crossOrigin="anonymous"
         />
+        {/* Capacitor: viewport-fit=cover exposes safe-area-inset-* on iOS */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
       </head>
 
       <body

@@ -236,6 +236,49 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   // Full-screen search overlay state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
 
+  // Mobile hide-on-scroll-down / show-on-scroll-up (Instagram style)
+  const [mobileHidden, setMobileHidden] = useState(false);
+  const lastScrollY = useRef(0);
+  const scrollDelta = useRef(0);
+  const HIDE_THRESHOLD = 10;
+  const SHOW_THRESHOLD = 6;
+
+  // Always show header on route change
+  useEffect(() => {
+    setMobileHidden(false);
+    scrollDelta.current = 0;
+  }, [pathname]);
+
+  useEffect(() => {
+    const onScrollMobile = () => {
+      if (window.innerWidth >= 1024) return;
+      if (mobileMenuOpen || searchOverlayOpen) return;
+
+      const current = window.scrollY;
+      const diff = current - lastScrollY.current;
+      lastScrollY.current = current;
+
+      if (current < 40) {
+        setMobileHidden(false);
+        scrollDelta.current = 0;
+        return;
+      }
+
+      scrollDelta.current += diff;
+
+      if (scrollDelta.current > HIDE_THRESHOLD) {
+        setMobileHidden(true);
+        scrollDelta.current = 0;
+      } else if (scrollDelta.current < -SHOW_THRESHOLD) {
+        setMobileHidden(false);
+        scrollDelta.current = 0;
+      }
+    };
+
+    window.addEventListener("scroll", onScrollMobile, { passive: true });
+    return () => window.removeEventListener("scroll", onScrollMobile);
+  }, [mobileMenuOpen, searchOverlayOpen]);
+
   useEffect(() => {
     const HEADER_FALLBACK =
       typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches
@@ -864,6 +907,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
         style={{
           backgroundColor:
             effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
+          transform: mobileHidden ? "translateY(-100%)" : "translateY(0)",
+          transition: suppressTransition
+            ? "transform 300ms ease"
+            : "transform 300ms ease, background-color 300ms",
         }}
       >
         {/* Gradient only when transparent and no panel */}

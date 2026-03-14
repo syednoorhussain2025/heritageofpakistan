@@ -12,8 +12,8 @@ import { useProfile } from "@/components/ProfileProvider";
 import { createClient } from "@/lib/supabase/browser";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
-const INACTIVE_COLOR_CLASS = "text-[#474747]";
-const ICON_SIZE = 28;
+const INACTIVE_COLOR_CLASS = "text-[#111111]";
+const ICON_SIZE = 26;
 
 const PANEL_ANIM_MS = 320;
 
@@ -44,29 +44,28 @@ function NavItem({
   icon,
   isActive,
   href,
+  onPress,
 }: {
   label: string;
   icon: string;
   isActive: boolean;
   href: string;
+  onPress?: () => void;
 }) {
   return (
     <Link
       href={href}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
+      className="flex flex-1 items-center justify-center pt-3 pb-10 nav-item-tap"
+      onTouchStart={() => onPress?.()}
+      onMouseDown={() => onPress?.()}
     >
-      <Icon
-        name={icon}
-        size={ICON_SIZE}
-        className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
-      />
-      <span
-        className={`text-[11px] font-medium ${
-          isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS
-        }`}
-      >
-        {label}
+      <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+        <Icon
+          name={icon}
+          size={ICON_SIZE}
+          className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
+        />
       </span>
     </Link>
   );
@@ -275,6 +274,10 @@ export default function BottomNav() {
   const { startNavigation } = useLoaderEngine();
 
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
+  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+
+  // Clear optimistic state once navigation completes
+  useEffect(() => { setOptimisticHref(null); }, [pathname]);
 
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
@@ -308,10 +311,10 @@ export default function BottomNav() {
     setTimeout(() => startNavigation(href), PANEL_ANIM_MS);
   };
 
-  const isHomeActive = pathname === "/";
-  const isHeritageActive = pathname.startsWith("/heritage");
-  const isExploreActive = pathname.startsWith("/explore");
-  const isMapActive = pathname.startsWith("/map");
+  const isHomeActive = optimisticHref === "/" || (!optimisticHref && pathname === "/");
+  const isHeritageActive = optimisticHref?.startsWith("/heritage") || (!optimisticHref && pathname.startsWith("/heritage"));
+  const isExploreActive = optimisticHref === "/explore" || (!optimisticHref && pathname.startsWith("/explore"));
+  const isMapActive = optimisticHref === "/map" || (!optimisticHref && pathname.startsWith("/map"));
   const isDashboardActive = pathname.startsWith("/dashboard");
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
@@ -327,43 +330,36 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden h-[72px]" />}
+      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden h-[84px]" />}
 
       <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: "-40px", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 40px)" }}>
-        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 pt-1 pb-[0.4rem]">
-          <NavItem label="Home" icon="home" isActive={isHomeActive} href="/" />
-          <NavItem label="Heritage" icon="map-marker-alt" isActive={isHeritageActive} href={heritageHref} />
-          <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" />
-          <NavItem label="Map" icon="map" isActive={isMapActive} href="/map" />
+        <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2">
+          <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
+          <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />
+          <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" onPress={() => setOptimisticHref("/explore")} />
+          <NavItem label="Map" icon="adminmap" isActive={isMapActive} href="/map" onPress={() => setOptimisticHref("/map")} />
 
           {/* Profile / Sign-in tab */}
           <button
             type="button"
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-transform duration-700 ease-out active:scale-140"
+            className="flex flex-1 items-center justify-center pt-3 pb-10 nav-item-tap"
           >
-            {userId ? (
-              <ProfileTabIcon
-                avatarUrl={avatarUrl}
-                initial={displayName.charAt(0).toUpperCase()}
-                isActive={isDashboardActive || panelOpen}
-              />
-            ) : (
-              <Icon
-                name="user"
-                size={ICON_SIZE}
-                className={isDashboardActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
-              />
-            )}
-            <span
-              className={`text-[11px] font-medium ${
-                isDashboardActive || panelOpen
-                  ? ACTIVE_COLOR_CLASS
-                  : INACTIVE_COLOR_CLASS
-              }`}
-            >
-              {userId ? "You" : "Sign In"}
+            <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+              {userId ? (
+                <ProfileTabIcon
+                  avatarUrl={avatarUrl}
+                  initial={displayName.charAt(0).toUpperCase()}
+                  isActive={isDashboardActive || panelOpen}
+                />
+              ) : (
+                <Icon
+                  name="user"
+                  size={ICON_SIZE}
+                  className={isDashboardActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
+                />
+              )}
             </span>
           </button>
         </nav>

@@ -177,7 +177,7 @@ export default function Icon({ name, size, className, ...props }: IconProps) {
     return (
       <span
         className={`inline-block bg-transparent ${className || ""}`}
-        style={{ width: size || "1em", height: size || "1em" }}
+        style={{ width: typeof size === "number" ? `${size}px` : (size || "1em"), height: typeof size === "number" ? `${size}px` : (size || "1em") }}
         aria-label={`Icon: ${name}`}
         suppressHydrationWarning
         {...props}
@@ -185,10 +185,11 @@ export default function Icon({ name, size, className, ...props }: IconProps) {
     );
   }
 
+  const px = typeof size === "number" ? `${size}px` : (size || "1em");
   return (
     <span
-      className={`inline-block ${className || ""}`}
-      style={{ fontSize: size }}
+      className={`inline-block shrink-0 ${className || ""}`}
+      style={{ width: px, height: px, lineHeight: 0, fontSize: px }}
       // svg_content should already be sanitized at creation time
       dangerouslySetInnerHTML={{ __html: svgContent }}
       suppressHydrationWarning
