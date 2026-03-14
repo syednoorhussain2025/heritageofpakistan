@@ -1,7 +1,7 @@
 // src/app/heritage/[region]/[slug]/heritage/HeritageInteractions.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -10,6 +10,12 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
 import { createPortal } from "react-dom";
+import { useMobileHeaderSlot, useMobileHeaderOpenSearch } from "@/components/MobileHeaderSlot";
+
+const SiteActionsSheet = dynamic(
+  () => import("@/components/SiteActionsSheet"),
+  { ssr: false }
+);
 
 const ReviewModal = dynamic(
   () => import("@/components/reviews/ReviewModal"),
@@ -22,7 +28,16 @@ const AddToWishlistModal = dynamic(
 );
 
 type HeritageInteractionsProps = {
-  site: { id: string; slug: string; title: string };
+  site: {
+    id: string;
+    slug: string;
+    title: string;
+    province_slug?: string | null;
+    cover_photo_url?: string | null;
+    location_free?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  };
   hasPhotoStory: boolean;
   mapsLink: string | null;
 };
@@ -34,6 +49,57 @@ export default function HeritageInteractions({
 }: HeritageInteractionsProps) {
   const pathname = usePathname();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
+  const setMobileHeaderSlot = useMobileHeaderSlot();
+  const openSearch = useMobileHeaderOpenSearch();
+  const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
+
+  /* Register mobile header slot — transparent overlay with back, search, ellipsis */
+  useLayoutEffect(() => {
+    setMobileHeaderSlot({
+      transparent: true,
+      content: (
+        <div className="flex items-center justify-between w-full px-3">
+          {/* Back button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                window.location.href = "/explore";
+              }
+            }}
+            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+            aria-label="Go back"
+          >
+            <Icon name="chevron-left" size={28} style={{ color: "#ffffff", width: 28, height: 28, minWidth: 28, minHeight: 28 }} />
+          </button>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openSearch?.()}
+              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+              aria-label="Search"
+            >
+              <Icon name="search" size={24} style={{ color: "#ffffff", width: 24, height: 24, minWidth: 24, minHeight: 24 }} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionsSheetOpen(true)}
+              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+              aria-label="More actions"
+            >
+              <Icon name="plus" size={26} style={{ color: "#ffffff", width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
+            </button>
+          </div>
+        </div>
+      ),
+    });
+    return () => setMobileHeaderSlot(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSearch]);
 
   /* Remember last opened heritage page for mobile Heritage tab */
   useEffect(() => {
@@ -110,6 +176,22 @@ export default function HeritageInteractions({
           siteTitle={site.title}
         />
       )}
+
+      {/* Mobile actions sheet (ellipsis button) */}
+      <SiteActionsSheet
+        site={{
+          id: site.id,
+          slug: site.slug,
+          title: site.title,
+          province_slug: site.province_slug,
+          cover_photo_url: site.cover_photo_url,
+          location_free: site.location_free,
+          latitude: site.latitude,
+          longitude: site.longitude,
+        }}
+        isOpen={actionsSheetOpen}
+        onClose={() => setActionsSheetOpen(false)}
+      />
 
       {showReviewModal && site && (
         <ReviewModal

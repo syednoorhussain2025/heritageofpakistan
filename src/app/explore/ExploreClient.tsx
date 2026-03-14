@@ -1371,7 +1371,7 @@ function ExplorePageContent() {
   // Register mobile header slot — updates whenever reactive values change
   const setMobileHeaderSlot = useMobileHeaderSlot();
   useEffect(() => {
-    setMobileHeaderSlot(
+    setMobileHeaderSlot({ content:
       <div className="w-full flex items-center px-3 gap-2 h-full">
         <button
           type="button"
@@ -1398,7 +1398,7 @@ function ExplorePageContent() {
           <Icon name="search" size={20} className="text-[var(--brand-orange)] shrink-0" />
         </button>
       </div>
-    );
+    });
     return () => setMobileHeaderSlot(null);
   }, [headline, loading, results.sites.length, results.total, setMobileHeaderSlot, setSearchPanelOpen]);
 

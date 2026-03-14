@@ -270,7 +270,7 @@ export default function HeritageClient({
       {/* Sticky header, bookmarks, modals, research bubble (client island) */}
       {site && (
         <HeritageInteractions
-          site={{ id: site.id, slug: site.slug, title: site.title }}
+          site={{ id: site.id, slug: site.slug, title: site.title, province_slug: site.province_slug, cover_photo_url: site.cover && typeof site.cover === "object" && "url" in site.cover ? site.cover.url : null, location_free: site.location_free ?? null, latitude: site.latitude ? Number(site.latitude) : null, longitude: site.longitude ? Number(site.longitude) : null }}
           hasPhotoStory={hasPhotoStory}
           mapsLink={maps.link}
         />

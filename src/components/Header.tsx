@@ -12,7 +12,7 @@ import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imag
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { withTimeout } from "@/lib/async/withTimeout";
-import { useMobileHeaderSlotContent } from "@/components/MobileHeaderSlot";
+import { useMobileHeaderSlotContent, useMobileHeaderRegisterOpenSearch } from "@/components/MobileHeaderSlot";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -158,7 +158,10 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useLoaderEngine();
-  const mobileHeaderSlot = useMobileHeaderSlotContent();
+  const mobileHeaderSlotConfig = useMobileHeaderSlotContent();
+  const mobileHeaderSlot = mobileHeaderSlotConfig.content;
+  const mobileHeaderTransparent = mobileHeaderSlotConfig.transparent ?? false;
+  const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
 
   // Use one consistent browser Supabase client throughout this component
   const supabase = useMemo(() => createClient(), []);
@@ -235,6 +238,16 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
   // Full-screen search overlay state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
+
+  // Register openSearch so mobile header slots can trigger it
+  useEffect(() => {
+    registerOpenSearch(() => {
+      setSearchOverlayOpen(true);
+      setIsSearchFocused(true);
+      setOpenSuggest(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerOpenSearch]);
 
   // Mobile hide-on-scroll-down / show-on-scroll-up (Instagram style)
   const [mobileHidden, setMobileHidden] = useState(false);
@@ -925,13 +938,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
         {/* Mobile header slot: pages inject custom mobile header content here */}
         {mobileHeaderSlot && (
-          <div className="lg:hidden absolute inset-0 z-40 bg-white border-b border-gray-200 shadow-sm flex items-center">
+          <div className={`lg:hidden absolute inset-0 z-40 flex items-center ${mobileHeaderTransparent ? "" : "bg-white border-b border-gray-200 shadow-sm"}`}>
             {mobileHeaderSlot}
           </div>
         )}
 
-        {/* Top bar */}
-        <div className="relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
+        {/* Top bar — invisible on mobile when a slot is active (slot overlays at z-40) */}
+        <div className={`relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 ${mobileHeaderSlot ? "max-lg:invisible max-lg:pointer-events-none" : ""}`}>
           {/* Burger mobile */}
           <button
             type="button"
@@ -1251,13 +1264,13 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               </div>
             </nav>
 
-            {/* User / auth */}
+            {/* User / auth — hidden on mobile, desktop only */}
             {user ? (
-              <UserMenu user={user} lightOn={textLight} />
+              <div className="hidden lg:block"><UserMenu user={user} lightOn={textLight} /></div>
             ) : (
               <Link
                 href="/auth/sign-in"
-                className="group flex items-center gap-2 cursor-pointer"
+                className="hidden lg:flex items-center gap-2 cursor-pointer group"
               >
                 <div className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white/80">
                   <Icon

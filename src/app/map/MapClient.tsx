@@ -1199,7 +1199,7 @@ export default function MapClient() {
     const titleText = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
       ? `Trip: ${activeTripName ?? mapHeadline}`
       : mapHeadline;
-    setMobileHeaderSlot(
+    setMobileHeaderSlot({ content:
       <div className="w-full flex items-center gap-2 px-2 py-2 min-h-14" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <button
           type="button"
@@ -1251,7 +1251,7 @@ export default function MapClient() {
           <Icon name="ellipsis" size={22} />
         </button>
       </div>
-    );
+    });
     return () => setMobileHeaderSlot(null);
   }, [
     loading, sitesLoading, nearbyActive, filters.radiusKm,
