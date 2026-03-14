@@ -1441,13 +1441,17 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               <button
                 type="button"
                 className="p-2 -ml-1 flex items-center justify-center lg:hidden"
-                aria-label="Open menu"
-                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Close search"
+                onClick={() => {
+                  setSearchOverlayOpen(false);
+                  setIsSearchFocused(false);
+                  setOpenSuggest(false);
+                }}
               >
                 <Icon
-                  name="navigator"
-                  size={20}
-                  style={{ color: BRAND_GREEN }}
+                  name="chevron-left"
+                  size={26}
+                  style={{ color: "#111111" }}
                 />
               </button>
 
