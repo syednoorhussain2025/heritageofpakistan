@@ -243,7 +243,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeSheet}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                 <Icon name="external-link-alt" size={18} className="text-gray-800" />

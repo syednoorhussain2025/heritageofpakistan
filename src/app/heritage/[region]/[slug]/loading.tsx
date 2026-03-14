@@ -51,7 +51,7 @@ export default function HeritageLoading() {
       */}
       <div
         ref={ref}
-        className="md:hidden fixed inset-0 z-[9999] bg-[#f8f8f8] overflow-y-auto"
+        className="md:hidden fixed inset-0 z-[1000] bg-[#f8f8f8] overflow-y-auto"
         style={{ willChange: "transform" }}
       >
         {/* MOBILE HERO */}
