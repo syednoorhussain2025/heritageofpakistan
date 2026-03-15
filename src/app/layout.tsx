@@ -78,7 +78,9 @@ export default async function RootLayout({
         />
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/* PWA theme color — colors the Android Chrome status bar / browser chrome */}
+        <meta name="theme-color" content="#00c9a7" />
       </head>
 
       <body

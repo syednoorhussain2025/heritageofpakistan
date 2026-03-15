@@ -1199,66 +1199,37 @@ export default function MapClient() {
     const titleText = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
       ? `Trip: ${activeTripName ?? mapHeadline}`
       : mapHeadline;
-    setMobileHeaderSlot({ content:
-      <div className="w-full flex items-center gap-2 px-2 py-2 min-h-14" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <button
-          type="button"
-          aria-label="Open menu"
-          onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
-          className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
-        >
-          <Icon name="navigator" size={20} />
-        </button>
-        <button
-          type="button"
-          aria-label="Search & Filters"
-          onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-          className="flex-1 min-w-0 flex items-start gap-2.5 text-left min-h-[44px] py-1.5 -my-1 rounded-lg active:bg-gray-100"
-        >
-          <span className="shrink-0 mt-0.5 w-11 h-11 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
-            <Icon name="map-marker-alt" size={22} />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
-            <div className="text-sm font-semibold text-gray-800 leading-tight truncate">{titleText}</div>
-            <div className="text-xs text-gray-600 mt-0.5">{displayText}</div>
+    setMobileHeaderSlot({ transparent: true, mobileMinHeight: "100px", content:
+      <div className="w-full h-full flex flex-col justify-center px-6 gap-2" style={{ backgroundColor: "#00c9a7" }}>
+        {/* Row 1: Map title + search pill */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Icon name="adminmap" size={22} className="text-white shrink-0" />
+            <div className="text-3xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Map</div>
           </div>
-        </button>
-        {hasActiveFilter && (
           <button
             type="button"
-            aria-label="Clear filters and show all sites"
-            onClick={handleClearAllFilters}
-            className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-orange-50 active:bg-orange-100"
+            aria-label="Search & Filters"
+            onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
+            className="flex-1 flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm"
           >
-            <Icon name="redo-alt" size={20} />
+            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
+            <span className="text-sm text-gray-400 flex-1 text-left truncate">Search heritage sites...</span>
           </button>
-        )}
-        <button
-          type="button"
-          aria-label="Search & Filters"
-          onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-          className="p-2 shrink-0 flex items-center justify-center text-[var(--brand-orange)] rounded-full hover:bg-gray-100 active:bg-gray-200"
-        >
-          <Icon name="search" size={22} />
-        </button>
-        <button
-          type="button"
-          aria-label="My Saved Lists and Trips"
-          onClick={() => setMobileEllipsisSheetOpen(true)}
-          className="p-2 shrink-0 flex items-center justify-center text-[#004f32] rounded-full hover:bg-gray-100 active:bg-gray-200"
-        >
-          <Icon name="ellipsis" size={22} />
-        </button>
+        </div>
+        {/* Row 2: current filter + count */}
+        <div className="flex items-center justify-between">
+          <div className="text-base font-semibold text-white truncate">{titleText}</div>
+          <div className="text-sm text-white/70 shrink-0 ml-2">{displayText}</div>
+        </div>
       </div>
     });
     return () => setMobileHeaderSlot(null);
   }, [
     loading, sitesLoading, nearbyActive, filters.radiusKm,
     filteredLocations.length, allLocations.length, sidebarFilter,
-    activeTripName, mapHeadline, hasActiveFilter,
+    activeTripName, mapHeadline,
     setMobileHeaderSlot, setMobilePanelMode, setSearchPanelOpen,
-    setMobileEllipsisSheetOpen, handleClearAllFilters,
   ]);
 
   // Called when the user clicks a pin or the preview card on the map

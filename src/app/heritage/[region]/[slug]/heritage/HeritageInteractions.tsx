@@ -52,9 +52,24 @@ export default function HeritageInteractions({
   const setMobileHeaderSlot = useMobileHeaderSlot();
   const openSearch = useMobileHeaderOpenSearch();
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  /* Track scroll to toggle icon style */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onScroll = () => setScrolled(window.scrollY > 80);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   /* Register mobile header slot — transparent overlay with back, search, ellipsis */
   useLayoutEffect(() => {
+    const iconColor = scrolled ? "#555555" : "#ffffff";
+    const btnClass = scrolled
+      ? "w-11 h-11 flex items-center justify-center rounded-full bg-white/50 shadow-sm active:bg-white/70 transition-all"
+      : "w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-all";
+
     setMobileHeaderSlot({
       transparent: true,
       content: (
@@ -69,10 +84,10 @@ export default function HeritageInteractions({
                 window.location.href = "/explore";
               }
             }}
-            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+            className={btnClass}
             aria-label="Go back"
           >
-            <Icon name="chevron-left" size={28} style={{ color: "#ffffff", width: 28, height: 28, minWidth: 28, minHeight: 28 }} />
+            <Icon name="chevron-left" size={28} style={{ color: iconColor, width: 28, height: 28, minWidth: 28, minHeight: 28 }} />
           </button>
 
           {/* Right actions */}
@@ -80,18 +95,18 @@ export default function HeritageInteractions({
             <button
               type="button"
               onClick={() => openSearch?.()}
-              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+              className={btnClass}
               aria-label="Search"
             >
-              <Icon name="search" size={24} style={{ color: "#ffffff", width: 24, height: 24, minWidth: 24, minHeight: 24 }} />
+              <Icon name="search" size={24} style={{ color: iconColor, width: 24, height: 24, minWidth: 24, minHeight: 24 }} />
             </button>
             <button
               type="button"
               onClick={() => setActionsSheetOpen(true)}
-              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-colors"
+              className={btnClass}
               aria-label="More actions"
             >
-              <Icon name="plus" size={26} style={{ color: "#ffffff", width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
+              <Icon name="plus" size={26} style={{ color: iconColor, width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
             </button>
           </div>
         </div>
@@ -99,7 +114,7 @@ export default function HeritageInteractions({
     });
     return () => setMobileHeaderSlot(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSearch]);
+  }, [openSearch, scrolled]);
 
   /* Remember last opened heritage page for mobile Heritage tab */
   useEffect(() => {

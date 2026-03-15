@@ -1372,31 +1372,29 @@ function ExplorePageContent() {
   const setMobileHeaderSlot = useMobileHeaderSlot();
   useEffect(() => {
     setMobileHeaderSlot({ content:
-      <div className="w-full flex items-center px-3 gap-2 h-full">
-        <button
-          type="button"
-          aria-label="Open menu"
-          onClick={() => document.dispatchEvent(new CustomEvent("open-mobile-menu"))}
-          className="p-2 -ml-1 shrink-0 flex items-center justify-center text-[#004f32]"
-        >
-          <Icon name="navigator" size={20} />
-        </button>
+      <div className="w-full h-full flex flex-col justify-center px-6 gap-2">
+        {/* Row 1: Explore heading */}
+        <div className="flex items-center gap-1 mb-1 mt-2">
+          <Icon name="search" size={26} className="text-white shrink-0" />
+          <div className="text-4xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Explore</div>
+        </div>
+        {/* Row 2: White search bar */}
         <button
           type="button"
           aria-label="Search & Filters"
           onClick={() => setSearchPanelOpen(true)}
-          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+          className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm my-2"
         >
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-[var(--dark-grey)] truncate leading-tight">
-              {headline}
-            </div>
-            <div className="text-[10px] text-[var(--espresso-brown)]/70 leading-tight">
-              {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total} results
-            </div>
-          </div>
-          <Icon name="search" size={20} className="text-[var(--brand-orange)] shrink-0" />
+          <Icon name="search" size={18} className="text-gray-400 shrink-0" />
+          <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites...</span>
         </button>
+        {/* Row 3: current filter + count */}
+        <div className="flex items-center justify-between">
+          <div className="text-base font-semibold text-white truncate">{headline}</div>
+          <div className="text-sm text-white/70 shrink-0 ml-2">
+            {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total}
+          </div>
+        </div>
       </div>
     });
     return () => setMobileHeaderSlot(null);
@@ -1427,7 +1425,9 @@ function ExplorePageContent() {
   const isDraggingRef = useRef(false);
 
   return (
-    <div className="relative min-h-screen bg-[var(--ivory-cream)]">
+    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0 pt-[270px]">
+      {/* Fixed green backdrop on mobile so body grey doesn't show at the sides */}
+      <div className="lg:hidden fixed inset-0 -z-10" style={{ backgroundColor: "#00c9a7" }} />
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -1468,7 +1468,7 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] px-4 pb-4 pt-14 lg:pt-4 w-full">
+          <main className="lg:ml-[380px] px-4 pb-4 pt-8 lg:pt-4 w-full lg:rounded-none rounded-t-[40px] bg-[#f2f2f2] lg:bg-transparent -mt-10 relative z-10 min-h-screen">
             <div className="hidden lg:block px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
               {/* Desktop-only headline + count; shown in mobile header instead */}
               <div className="hidden lg:block">

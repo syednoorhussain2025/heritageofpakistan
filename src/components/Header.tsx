@@ -24,7 +24,7 @@ const HEADER_BG = "#f5f7f7";
 const SEARCH_BG = "#f5f5f5";
 const SEARCH_BORDER = "#e0e0e0";
 const BRAND_GREEN = "#004f32"; // deep green for icons / search text
-const BRAND_LOGO_GREEN = "#00b5a5"; // bright logo/text green
+const BRAND_LOGO_GREEN = "#00c9a7"; // bright logo/text green
 
 /* ---------- Types ---------- */
 type SiteSearchRow = {
@@ -161,7 +161,8 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const mobileHeaderSlotConfig = useMobileHeaderSlotContent();
   const mobileHeaderSlot = mobileHeaderSlotConfig.content;
   const mobileHeaderTransparent = mobileHeaderSlotConfig.transparent ?? false;
-  const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
+  const mobileHeaderMinHeight = mobileHeaderSlotConfig.mobileMinHeight ?? "180px";
+const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
 
   // Use one consistent browser Supabase client throughout this component
   const supabase = useMemo(() => createClient(), []);
@@ -913,13 +914,17 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
       <header
         ref={headerRef as any}
         className={`fixed lg:sticky top-0 z-[1100] w-full ${suppressTransition ? "" : "transition-colors duration-300"} ${
-          effectiveSolid || searchOverlayOpen
+          mobileHeaderTransparent
+            ? "!bg-transparent !shadow-none !backdrop-blur-0"
+            : effectiveSolid || searchOverlayOpen
             ? "backdrop-blur shadow-none lg:shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
         }`}
         style={{
           backgroundColor:
-            effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
+            mobileHeaderTransparent
+              ? "transparent"
+              : effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
           transform: mobileHidden ? "translateY(-100%)" : "translateY(0)",
           transition: suppressTransition
             ? "transform 300ms ease"
@@ -938,17 +943,17 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
         {/* Mobile header slot: pages inject custom mobile header content here */}
         {mobileHeaderSlot && (
-          <div className={`lg:hidden absolute inset-0 z-40 flex items-center ${mobileHeaderTransparent ? "" : "bg-white border-b border-gray-200 shadow-sm"}`}>
+          <div className={`lg:hidden absolute inset-0 z-40 flex items-center`} style={mobileHeaderTransparent ? undefined : { backgroundColor: "#00c9a7", paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}>
             {mobileHeaderSlot}
           </div>
         )}
 
         {/* Top bar — invisible on mobile when a slot is active (slot overlays at z-40) */}
-        <div className={`relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 ${mobileHeaderSlot ? "max-lg:invisible max-lg:pointer-events-none" : ""}`}>
-          {/* Burger mobile */}
+        <div className={`relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 ${mobileHeaderSlot ? "max-lg:invisible max-lg:pointer-events-none" : ""}`} style={{ minHeight: mobileHeaderMinHeight }}>
+          {/* Burger mobile — hidden, each page injects its own mobile header via slot */}
           <button
             type="button"
-            className="lg:hidden p-2 -ml-1 flex items-center justify-center"
+            className="hidden p-2 -ml-1 flex items-center justify-center"
             aria-label="Open menu"
             onClick={() => setMobileMenuOpen(true)}
           >
@@ -962,7 +967,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           {/* Logo / text */}
           <Link
             href="/"
-            className="flex items-center gap-2 whitespace-nowrap tracking-wide"
+            className="hidden lg:flex items-center gap-2 whitespace-nowrap tracking-wide"
           >
             <Icon name="logo" size={26} style={{ color: pathname === "/map" ? "#ffffff" : BRAND_LOGO_GREEN }} />
             <span
@@ -973,16 +978,16 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
             </span>
           </Link>
 
-          {/* Search pill (hidden on map page; invisible clone keeps identical height) */}
+          {/* Search pill — hidden on mobile (pages use slot); hidden on map page */}
           {pathname === "/map" ? (
-          <div className="relative flex-1 max-w-2xl ml-2 invisible pointer-events-none" aria-hidden="true">
+          <div className="hidden lg:block relative flex-1 max-w-2xl ml-2 invisible pointer-events-none" aria-hidden="true">
             <div className="flex items-center gap-2 rounded-full px-4 py-2" style={{ border: "1px solid transparent" }}>
               <Icon name="search" size={18} />
               <span className="w-full text-sm">&nbsp;</span>
             </div>
           </div>
           ) : (
-          <div className="relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
+          <div className="hidden lg:block relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out cursor-text"
               style={{
