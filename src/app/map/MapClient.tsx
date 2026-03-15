@@ -18,7 +18,7 @@ import { useWishlists } from "@/components/WishlistProvider";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
-import { useMobileHeaderSlot } from "@/components/MobileHeaderSlot";
+import MobilePageHeader from "@/components/MobilePageHeader";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
 import SiteCarousel from "@/components/SiteCarousel";
@@ -1187,50 +1187,16 @@ export default function MapClient() {
   }, [clearSidebarFilter, showMapToast]);
 
   // Register mobile header slot — always visible, updates when state changes
-  const setMobileHeaderSlot = useMobileHeaderSlot();
-  useEffect(() => {
-    const displayText = loading || sitesLoading
-      ? "Loading…"
-      : nearbyActive && typeof filters.radiusKm === "number"
-        ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
-        : filteredLocations.length === allLocations.length
-          ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
-          : `${filteredLocations.length} of ${allLocations.length} sites`;
-    const titleText = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
-      ? `Trip: ${activeTripName ?? mapHeadline}`
-      : mapHeadline;
-    setMobileHeaderSlot({ transparent: true, mobileMinHeight: "100px", content:
-      <div className="w-full h-full flex flex-col justify-center px-6 gap-2" style={{ backgroundColor: "#00c9a7" }}>
-        {/* Row 1: Map title + search pill */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Icon name="adminmap" size={22} className="text-white shrink-0" />
-            <div className="text-3xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Map</div>
-          </div>
-          <button
-            type="button"
-            aria-label="Search & Filters"
-            onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-            className="flex-1 flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm"
-          >
-            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
-            <span className="text-sm text-gray-400 flex-1 text-left truncate">Search heritage sites...</span>
-          </button>
-        </div>
-        {/* Row 2: current filter + count */}
-        <div className="flex items-center justify-between">
-          <div className="text-base font-semibold text-white truncate">{titleText}</div>
-          <div className="text-sm text-white/70 shrink-0 ml-2">{displayText}</div>
-        </div>
-      </div>
-    });
-    return () => setMobileHeaderSlot(null);
-  }, [
-    loading, sitesLoading, nearbyActive, filters.radiusKm,
-    filteredLocations.length, allLocations.length, sidebarFilter,
-    activeTripName, mapHeadline,
-    setMobileHeaderSlot, setMobilePanelMode, setSearchPanelOpen,
-  ]);
+  const mapDisplayText = loading || sitesLoading
+    ? "Loading…"
+    : nearbyActive && typeof filters.radiusKm === "number"
+      ? `${filteredLocations.length} ${filteredLocations.length === 1 ? "site" : "sites"} within ${filters.radiusKm} km`
+      : filteredLocations.length === allLocations.length
+        ? `${allLocations.length} ${allLocations.length === 1 ? "site" : "sites"} total`
+        : `${filteredLocations.length} of ${allLocations.length} sites`;
+  const mapTitleText = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter
+    ? `Trip: ${activeTripName ?? mapHeadline}`
+    : mapHeadline;
 
   // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
@@ -1794,6 +1760,32 @@ export default function MapClient() {
 
   return (
     <>
+    {/* Mobile header — rendered directly, no slot system */}
+    <MobilePageHeader backgroundColor="#00c9a7" minHeight="100px">
+      <div className="w-full h-full flex flex-col justify-center px-6 gap-2">
+        {/* Row 1: Map title + search pill */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Icon name="adminmap" size={22} className="text-white shrink-0" />
+            <div className="text-3xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Map</div>
+          </div>
+          <button
+            type="button"
+            aria-label="Search & Filters"
+            onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
+            className="flex-1 flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm"
+          >
+            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
+            <span className="text-sm text-gray-400 flex-1 text-left truncate">Search heritage sites...</span>
+          </button>
+        </div>
+        {/* Row 2: current filter + count */}
+        <div className="flex items-center justify-between">
+          <div className="text-base font-semibold text-white truncate">{mapTitleText}</div>
+          <div className="text-sm text-white/70 shrink-0 ml-2">{mapDisplayText}</div>
+        </div>
+      </div>
+    </MobilePageHeader>
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 

@@ -12,6 +12,7 @@ type SlotConfig = {
   content: ReactNode | null;
   transparent?: boolean;
   mobileMinHeight?: string;
+  backgroundColor?: string;
 };
 
 // Read context — changes whenever slot content changes (only Header consumes this)

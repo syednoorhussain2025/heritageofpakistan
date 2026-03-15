@@ -12,7 +12,6 @@ import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imag
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { withTimeout } from "@/lib/async/withTimeout";
-import { useMobileHeaderSlotContent, useMobileHeaderRegisterOpenSearch } from "@/components/MobileHeaderSlot";
 
 /* ---------- Styling helpers ---------- */
 const iconStyles = "text-[var(--brand-orange)]";
@@ -158,11 +157,6 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useLoaderEngine();
-  const mobileHeaderSlotConfig = useMobileHeaderSlotContent();
-  const mobileHeaderSlot = mobileHeaderSlotConfig.content;
-  const mobileHeaderTransparent = mobileHeaderSlotConfig.transparent ?? false;
-  const mobileHeaderMinHeight = mobileHeaderSlotConfig.mobileMinHeight ?? "180px";
-const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
 
   // Use one consistent browser Supabase client throughout this component
   const supabase = useMemo(() => createClient(), []);
@@ -180,6 +174,7 @@ const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
 
   // Scroll-driven solid state ONLY (no panel influence)
   const [solid, setSolid] = useState<boolean>(!allowTransparent);
+  // Reset solid to false when navigating to a transparent route, synchronously
   // On non-transparent routes, always treat as solid regardless of scroll state.
   // This ensures the correct value is used synchronously on the render where
   // pathname changes, before the useEffect has a chance to call setSolid.
@@ -240,15 +235,6 @@ const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
   // Full-screen search overlay state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
 
-  // Register openSearch so mobile header slots can trigger it
-  useEffect(() => {
-    registerOpenSearch(() => {
-      setSearchOverlayOpen(true);
-      setIsSearchFocused(true);
-      setOpenSuggest(true);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerOpenSearch]);
 
   // Mobile hide-on-scroll-down / show-on-scroll-up (Instagram style)
   const [mobileHidden, setMobileHidden] = useState(false);
@@ -910,21 +896,16 @@ const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
         }
       `}</style>
 
-      {/* HEADER */}
+      {/* HEADER — hidden on mobile (each page renders its own MobilePageHeader) */}
       <header
         ref={headerRef as any}
-        className={`fixed lg:sticky top-0 z-[1100] w-full ${suppressTransition ? "" : "transition-colors duration-300"} ${
-          mobileHeaderTransparent
-            ? "!bg-transparent !shadow-none !backdrop-blur-0"
-            : effectiveSolid || searchOverlayOpen
+        className={`hidden lg:block lg:sticky top-0 z-[1100] w-full ${suppressTransition ? "" : "transition-colors duration-300"} ${
+          effectiveSolid || searchOverlayOpen
             ? "backdrop-blur shadow-none lg:shadow-sm"
             : "!bg-transparent !shadow-none !backdrop-blur-0"
         }`}
         style={{
-          backgroundColor:
-            mobileHeaderTransparent
-              ? "transparent"
-              : effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
+          backgroundColor: effectiveSolid || searchOverlayOpen ? "#ffffff" : "transparent",
           transform: mobileHidden ? "translateY(-100%)" : "translateY(0)",
           transition: suppressTransition
             ? "transform 300ms ease"
@@ -941,15 +922,8 @@ const registerOpenSearch = useMobileHeaderRegisterOpenSearch();
           }`}
         />
 
-        {/* Mobile header slot: pages inject custom mobile header content here */}
-        {mobileHeaderSlot && (
-          <div className={`lg:hidden absolute inset-0 z-40 flex items-center`} style={mobileHeaderTransparent ? undefined : { backgroundColor: "#00c9a7", paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}>
-            {mobileHeaderSlot}
-          </div>
-        )}
-
-        {/* Top bar — invisible on mobile when a slot is active (slot overlays at z-40) */}
-        <div className={`relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3 ${mobileHeaderSlot ? "max-lg:invisible max-lg:pointer-events-none" : ""}`} style={{ minHeight: mobileHeaderMinHeight }}>
+        {/* Top bar */}
+        <div className="relative z-30 max-w-[1400px] mx-auto px-4 py-2 flex items-center gap-3">
           {/* Burger mobile — hidden, each page injects its own mobile header via slot */}
           <button
             type="button"

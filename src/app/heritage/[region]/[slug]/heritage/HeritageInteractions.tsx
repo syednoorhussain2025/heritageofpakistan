@@ -1,7 +1,7 @@
 // src/app/heritage/[region]/[slug]/heritage/HeritageInteractions.tsx
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -10,7 +10,7 @@ import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
 import { createPortal } from "react-dom";
-import { useMobileHeaderSlot, useMobileHeaderOpenSearch } from "@/components/MobileHeaderSlot";
+import MobilePageHeader from "@/components/MobilePageHeader";
 
 const SiteActionsSheet = dynamic(
   () => import("@/components/SiteActionsSheet"),
@@ -49,8 +49,6 @@ export default function HeritageInteractions({
 }: HeritageInteractionsProps) {
   const pathname = usePathname();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
-  const setMobileHeaderSlot = useMobileHeaderSlot();
-  const openSearch = useMobileHeaderOpenSearch();
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -62,59 +60,6 @@ export default function HeritageInteractions({
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  /* Register mobile header slot — transparent overlay with back, search, ellipsis */
-  useLayoutEffect(() => {
-    const iconColor = scrolled ? "#555555" : "#ffffff";
-    const btnClass = scrolled
-      ? "w-11 h-11 flex items-center justify-center rounded-full bg-white/50 shadow-sm active:bg-white/70 transition-all"
-      : "w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-all";
-
-    setMobileHeaderSlot({
-      transparent: true,
-      content: (
-        <div className="flex items-center justify-between w-full px-3">
-          {/* Back button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (window.history.length > 1) {
-                window.history.back();
-              } else {
-                window.location.href = "/explore";
-              }
-            }}
-            className={btnClass}
-            aria-label="Go back"
-          >
-            <Icon name="chevron-left" size={28} style={{ color: iconColor, width: 28, height: 28, minWidth: 28, minHeight: 28 }} />
-          </button>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => openSearch?.()}
-              className={btnClass}
-              aria-label="Search"
-            >
-              <Icon name="search" size={24} style={{ color: iconColor, width: 24, height: 24, minWidth: 24, minHeight: 24 }} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setActionsSheetOpen(true)}
-              className={btnClass}
-              aria-label="More actions"
-            >
-              <Icon name="plus" size={26} style={{ color: iconColor, width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
-            </button>
-          </div>
-        </div>
-      ),
-    });
-    return () => setMobileHeaderSlot(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSearch, scrolled]);
 
   /* Remember last opened heritage page for mobile Heritage tab */
   useEffect(() => {
@@ -158,8 +103,42 @@ export default function HeritageInteractions({
     }
   }
 
+  const iconColor = scrolled ? "#555555" : "#ffffff";
+  const btnClass = scrolled
+    ? "w-11 h-11 flex items-center justify-center rounded-full bg-white/50 shadow-sm active:bg-white/70 transition-all"
+    : "w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-all";
+
   return (
     <>
+      {/* Mobile header — transparent overlay with back + actions */}
+      <MobilePageHeader backgroundColor="transparent" minHeight="64px">
+        <div className="flex items-center justify-between w-full px-3 h-full">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                window.location.href = "/explore";
+              }
+            }}
+            className={btnClass}
+            aria-label="Go back"
+          >
+            <Icon name="chevron-left" size={28} style={{ color: iconColor, width: 28, height: 28, minWidth: 28, minHeight: 28 }} />
+          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActionsSheetOpen(true)}
+              className={btnClass}
+              aria-label="More actions"
+            >
+              <Icon name="plus" size={26} style={{ color: iconColor, width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
+            </button>
+          </div>
+        </div>
+      </MobilePageHeader>
       <div className="hidden md:block">
         <StickyHeader
           site={{ id: site.id, slug: site.slug, title: site.title }}
