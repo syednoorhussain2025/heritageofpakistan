@@ -249,11 +249,10 @@ export default function HeritageCover({
   return (
     <>
       {/* ---------- MOBILE HERO (phones) ---------- */}
-      <section aria-label="Hero" className="block md:hidden bg-white" style={{ marginTop: "calc(-1 * (64px + env(safe-area-inset-top, 0px)))" }}>
+      <section aria-label="Hero" className="block md:hidden bg-white">
         {slides.length > 0 ? (
           <div
-            className="relative w-full bg-black overflow-hidden"
-            style={{ paddingTop: "calc(80% + 64px + env(safe-area-inset-top, 0px))" }}
+            className="relative w-full bg-black aspect-[5/4] overflow-hidden"
             onTouchStart={(e) => {
               const t = e.touches[0];
               (e.currentTarget as any)._swipeStartX = t.clientX;

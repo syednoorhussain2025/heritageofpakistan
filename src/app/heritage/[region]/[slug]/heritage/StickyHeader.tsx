@@ -413,13 +413,10 @@ export default function StickyHeader({
 
   // Sync from prop to internal without loops
   useEffect(() => {
-    if (
-      typeof researchMode === "boolean" &&
-      researchMode !== researchModeInternal
-    ) {
+    if (typeof researchMode === "boolean") {
       setResearchModeInternal(researchMode);
     }
-  }, [researchMode, researchModeInternal]);
+  }, [researchMode]);
 
   // Notify parent when internal changes
   useEffect(() => {

@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
     // Run `ipconfig` (Windows) to find your IP (e.g. 192.168.1.x)
     //
     // Comment this block out entirely for production (app will use bundled build).
-    url: 'http://localhost:3000',
+    url: 'http://10.0.2.2:3000',
     cleartext: true, // allow HTTP on local network (dev only)
   },
 
@@ -22,6 +22,16 @@ const config: CapacitorConfig = {
 
   android: {
     allowMixedContent: true, // allow HTTP in dev (cleartext)
+  },
+
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 5000,
+      launchAutoHide: true,
+      backgroundColor: '#00b050',
+      androidSplashResourceName: 'splash',
+      showSpinner: false,
+    },
   },
 };
 
