@@ -1762,7 +1762,7 @@ export default function MapClient() {
     <>
     {/* Mobile header — rendered directly, no slot system */}
     <MobilePageHeader backgroundColor="#00c9a7" minHeight="100px">
-      <div className="w-full h-full flex flex-col justify-center px-6 gap-2">
+      <div className="w-full h-full flex flex-col justify-center px-6 gap-2 pt-2">
         {/* Row 1: Map title + search pill */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 shrink-0">

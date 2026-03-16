@@ -1399,7 +1399,7 @@ function ExplorePageContent() {
       <MobilePageHeader backgroundColor="#00c9a7" minHeight="180px">
         <div className="w-full h-full flex flex-col justify-center px-6 gap-2">
           {/* Row 1: Explore heading */}
-          <div className="flex items-center gap-1 mb-1 mt-2">
+          <div className="flex items-center gap-1 mb-1 mt-4">
             <Icon name="search" size={26} className="text-white shrink-0" />
             <div className="text-4xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Explore</div>
           </div>
