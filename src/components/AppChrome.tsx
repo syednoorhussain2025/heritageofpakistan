@@ -71,7 +71,7 @@ export default function AppChrome({
                     </div>
                   )}
 
-                  {/* ── Mobile: non-tab pages (heritage detail etc.) fade in normally ── */}
+                  {/* ── Mobile: non-tab pages + Map fade in normally ── */}
                   {/* ── Desktop: all pages render via children as before ── */}
                   <AnimatePresence mode="sync" initial={false}>
                     <motion.div

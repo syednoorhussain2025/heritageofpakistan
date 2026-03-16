@@ -1,21 +1,25 @@
 "use client";
 
+/**
+ * TabShell — persistent tab mount for mobile.
+ *
+ * Home and Explore are always mounted. Switching between them is a
+ * CSS display toggle — zero re-mount cost.
+ *
+ * Map is intentionally excluded — it has its own server bootstrap
+ * pipeline (map/layout.tsx + MapBootstrapProvider) that requires it
+ * to be a normal routed page. Map still loads fast via its own cache.
+ */
+
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import HomeClient from "@/app/HomeClient";
 import ExploreClient from "@/app/explore/ExploreClient";
-
-const MapClient = dynamic(() => import("@/app/map/MapClient"), {
-  ssr: false,
-  loading: () => null,
-});
 
 export function isTabRoute(pathname: string) {
   return (
     pathname === "/" ||
-    pathname.startsWith("/explore") ||
-    pathname.startsWith("/map")
+    pathname.startsWith("/explore")
   );
 }
 
@@ -26,32 +30,35 @@ function TabPane({
   active: boolean;
   children: React.ReactNode;
 }) {
-  const [opacity, setOpacity] = useState(active ? 1 : 0);
+  const divRef = useRef<HTMLDivElement>(null);
   const prevActive = useRef(active);
 
   useEffect(() => {
+    const el = divRef.current;
+    if (!el) return;
+
     if (active && !prevActive.current) {
       // Just became active — fade in
-      setOpacity(0);
+      el.style.opacity = "0";
+      el.style.transition = "none";
       const raf = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setOpacity(1));
+        requestAnimationFrame(() => {
+          el.style.transition = "opacity 0.12s cubic-bezier(0.25,0.1,0.25,1)";
+          el.style.opacity = "1";
+        });
       });
+      prevActive.current = true;
       return () => cancelAnimationFrame(raf);
     }
-    if (!active) {
-      setOpacity(0);
-    }
+
     prevActive.current = active;
   }, [active]);
 
   return (
     <div
+      ref={divRef}
       aria-hidden={!active}
-      style={{
-        display: active ? "block" : "none",
-        opacity,
-        transition: active ? "opacity 0.12s cubic-bezier(0.25,0.1,0.25,1)" : "none",
-      }}
+      style={{ display: active ? "block" : "none", opacity: active ? 1 : 0 }}
     >
       {children}
     </div>
@@ -63,13 +70,11 @@ export default function TabShell() {
 
   const isHome    = pathname === "/";
   const isExplore = pathname.startsWith("/explore");
-  const isMap     = pathname.startsWith("/map");
 
   return (
     <>
       <TabPane active={isHome}><HomeClient /></TabPane>
       <TabPane active={isExplore}><ExploreClient /></TabPane>
-      <TabPane active={isMap}><MapClient /></TabPane>
     </>
   );
 }
