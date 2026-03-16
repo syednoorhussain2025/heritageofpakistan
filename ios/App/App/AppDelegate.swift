@@ -9,6 +9,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.disableWebViewBounce()
+        }
         return true
     }
 
@@ -27,26 +30,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.disableWebViewBounce()
-        }
     }
 
     private func disableWebViewBounce() {
-        guard let rootVC = window?.rootViewController else { return }
-        findAndDisableBounce(in: rootVC.view)
-    }
-
-    private func findAndDisableBounce(in view: UIView) {
-        if let webView = view as? WKWebView {
-            webView.scrollView.bounces = false
-            webView.scrollView.alwaysBounceVertical = false
-            webView.scrollView.alwaysBounceHorizontal = false
-            return
-        }
-        for subview in view.subviews {
-            findAndDisableBounce(in: subview)
-        }
+        guard let bridge = (window?.rootViewController as? CAPBridgeViewController)?.bridge else { return }
+        bridge.webView?.scrollView.bounces = false
+        bridge.webView?.scrollView.alwaysBounceVertical = false
+        bridge.webView?.scrollView.alwaysBounceHorizontal = false
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
