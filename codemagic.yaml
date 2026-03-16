@@ -11,12 +11,17 @@ workflows:
       vars:
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
+        BUILD_NUMBER: $PROJECT_BUILD_NUMBER
       node: v22.11.0
     scripts:
       - name: Install dependencies
         script: npm ci
       - name: Capacitor sync
         script: npx cap sync ios
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $BUILD_NUMBER
       - name: Build and sign iOS
         script: |
           xcode-project use-profiles
