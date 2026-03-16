@@ -382,7 +382,12 @@ export default function HomeClient() {
   // Mark body so CSS can strip header items on mobile homepage only
   useEffect(() => {
     document.body.dataset.page = "home";
-    return () => { delete document.body.dataset.page; };
+    const prevent = (e: TouchEvent) => e.preventDefault();
+    document.addEventListener("touchmove", prevent, { passive: false });
+    return () => {
+      delete document.body.dataset.page;
+      document.removeEventListener("touchmove", prevent);
+    };
   }, []);
 
   useEffect(() => {
@@ -443,6 +448,20 @@ export default function HomeClient() {
             height: 100% !important;
             background-color: black !important;
           }
+          /* Make bounce overscroll areas black instead of white */
+          html:has(body[data-page="home"])::before,
+          html:has(body[data-page="home"])::after {
+            content: '';
+            display: block;
+            position: fixed;
+            left: 0;
+            right: 0;
+            height: 50vh;
+            background: black;
+            z-index: -1;
+          }
+          html:has(body[data-page="home"])::before { top: -50vh; }
+          html:has(body[data-page="home"])::after  { bottom: -50vh; }
         }
       `}</style>
 
