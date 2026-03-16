@@ -18,12 +18,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 const pageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
-  exit:    { opacity: 0 },
+  exit:    { opacity: 1 }, // no exit fade — new page just overlaps instantly
 };
 
 const pageTransition = {
-  duration: 0.15,
-  ease: "easeOut",
+  duration: 0.12,
+  ease: [0.25, 0.1, 0.25, 1], // cubic-bezier: fast start, smooth settle
 };
 
 export default function AppChrome({
@@ -61,7 +61,7 @@ export default function AppChrome({
                     <Header initialItems={initialHeaderItems} />
                   </div>
 
-                  <AnimatePresence mode="wait" initial={false}>
+                  <AnimatePresence mode="sync" initial={false}>
                     <motion.div
                       key={pathname}
                       variants={pageVariants}
