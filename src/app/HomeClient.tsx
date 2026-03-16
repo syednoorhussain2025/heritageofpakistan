@@ -438,24 +438,6 @@ export default function HomeClient() {
           body[data-page="home"] {
             overflow: hidden;
             background-color: black !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-          }
-          body[data-page="home"] header {
-            background-color: transparent !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            z-index: 3010 !important;
-          }
-          body[data-page="home"] header a[href="/"],
-          body[data-page="home"] header [class*="max-w-2xl"],
-          body[data-page="home"] header [data-header-user] {
-            display: none !important;
-          }
-          body[data-page="home"] #bottom-nav,
-          body[data-page="home"] #bottom-nav-spacer {
-            display: none !important;
           }
         }
       `}</style>
@@ -464,10 +446,9 @@ export default function HomeClient() {
       <div
         className="md:hidden relative flex flex-col items-center justify-center"
         style={{
-          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
-          height: "calc(100dvh + var(--sticky-offset, 72px))",
-          paddingTop: "var(--sticky-offset, 72px)",
-          paddingBottom: "24px",
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         {/* Black backdrop — prevents body/html background from showing during transitions */}

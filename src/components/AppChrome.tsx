@@ -23,6 +23,7 @@ export default function AppChrome({
 }) {
   const pathname = usePathname() || "";
   const isAdminRoute = pathname.startsWith("/admin");
+  const isHomePage = pathname === "/";
 
   if (isAdminRoute) {
     return (
@@ -44,9 +45,13 @@ export default function AppChrome({
               <CollectionsProvider>
                 <LoaderEngineProvider>
                     <AuthPendingToast />
-                    <Header initialItems={initialHeaderItems} />
+                    <div className={isHomePage ? "md:block hidden" : ""}>
+                      <Header initialItems={initialHeaderItems} />
+                    </div>
                     <main>{children}</main>
-                    <BottomNav />
+                    <div className={isHomePage ? "md:block hidden" : ""}>
+                      <BottomNav />
+                    </div>
                 </LoaderEngineProvider>
               </CollectionsProvider>
             </WishlistProvider>
