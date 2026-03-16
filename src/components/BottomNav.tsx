@@ -10,7 +10,6 @@ import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
 import { createClient } from "@/lib/supabase/browser";
-import { useTabNav } from "@/components/TabNavContext";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#111111]";
@@ -275,8 +274,11 @@ export default function BottomNav() {
   const { startNavigation } = useLoaderEngine();
 
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
+  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
-  const { optimisticHref, setOptimisticHref } = useTabNav();
+
+  // Clear optimistic state once navigation completes
+  useEffect(() => { setOptimisticHref(null); }, [pathname]);
 
   useEffect(() => {
     const standalone =
