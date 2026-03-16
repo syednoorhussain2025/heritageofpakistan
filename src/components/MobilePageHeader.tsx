@@ -30,7 +30,7 @@ export default function MobilePageHeader({
       className={`lg:hidden fixed inset-x-0 top-0 z-[1100] w-full ${className}`}
       style={{
         backgroundColor,
-        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingTop: "var(--sat)",
         minHeight,
       }}
     >

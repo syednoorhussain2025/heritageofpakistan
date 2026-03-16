@@ -18,6 +18,14 @@ html {
   overflow-y: auto;
 }
 
+/* Safe area insets for Capacitor iOS edge-to-edge */
+:root {
+  --sat: env(safe-area-inset-top, 44px);
+  --sab: env(safe-area-inset-bottom, 34px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
 body {
   height: 100%;
   margin: 0;
