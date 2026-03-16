@@ -6,14 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'out',
 
   server: {
-    // During development: point to your local Next.js dev server.
-    // Replace the IP below with your machine's local network IP so real
-    // devices on the same WiFi can connect.
-    // Run `ipconfig` (Windows) to find your IP (e.g. 192.168.1.x)
-    //
-    // Comment this block out entirely for production (app will use bundled build).
-    url: 'http://10.0.2.2:3000',
-    cleartext: true, // allow HTTP on local network (dev only)
+    url: 'https://heritageofpakistan.vercel.app',
+    cleartext: false,
   },
 
   ios: {
