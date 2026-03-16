@@ -1,33 +1,60 @@
 "use client";
 
-/**
- * TabShell — persistent tab mount for mobile.
- *
- * Home, Explore and Map are always mounted once the shell is rendered.
- * Switching tabs is a single CSS display toggle — zero re-mount cost.
- *
- * Only rendered on mobile (lg:hidden equivalent via JS check).
- * Desktop continues to use normal Next.js routing via {children} in AppChrome.
- */
-
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import HomeClient from "@/app/HomeClient";
 import ExploreClient from "@/app/explore/ExploreClient";
 
-// Map is large — code-split so it doesn't bloat the initial bundle
 const MapClient = dynamic(() => import("@/app/map/MapClient"), {
   ssr: false,
   loading: () => null,
 });
-
-const TAB_ROUTES = ["/", "/explore", "/map"];
 
 export function isTabRoute(pathname: string) {
   return (
     pathname === "/" ||
     pathname.startsWith("/explore") ||
     pathname.startsWith("/map")
+  );
+}
+
+function TabPane({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  const [opacity, setOpacity] = useState(active ? 1 : 0);
+  const prevActive = useRef(active);
+
+  useEffect(() => {
+    if (active && !prevActive.current) {
+      // Just became active — fade in
+      setOpacity(0);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setOpacity(1));
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    if (!active) {
+      setOpacity(0);
+    }
+    prevActive.current = active;
+  }, [active]);
+
+  return (
+    <div
+      aria-hidden={!active}
+      style={{
+        display: active ? "block" : "none",
+        opacity,
+        transition: active ? "opacity 0.12s cubic-bezier(0.25,0.1,0.25,1)" : "none",
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -40,29 +67,9 @@ export default function TabShell() {
 
   return (
     <>
-      {/* Home */}
-      <div
-        aria-hidden={!isHome}
-        style={{ display: isHome ? "block" : "none" }}
-      >
-        <HomeClient />
-      </div>
-
-      {/* Explore */}
-      <div
-        aria-hidden={!isExplore}
-        style={{ display: isExplore ? "block" : "none" }}
-      >
-        <ExploreClient />
-      </div>
-
-      {/* Map */}
-      <div
-        aria-hidden={!isMap}
-        style={{ display: isMap ? "block" : "none" }}
-      >
-        <MapClient />
-      </div>
+      <TabPane active={isHome}><HomeClient /></TabPane>
+      <TabPane active={isExplore}><ExploreClient /></TabPane>
+      <TabPane active={isMap}><MapClient /></TabPane>
     </>
   );
 }
