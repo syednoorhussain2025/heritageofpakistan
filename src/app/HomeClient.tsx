@@ -588,12 +588,6 @@ export default function HomeClient() {
               Create an account
             </a>
           </div>
-          <a
-            href="/test"
-            className="text-xs text-white/40 text-center underline"
-          >
-            test page
-          </a>
         </div>
       </div>
 
