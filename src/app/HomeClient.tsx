@@ -435,8 +435,12 @@ export default function HomeClient() {
         }
         /* ── Homepage mobile: keep only burger in header; hide bottom nav ── */
         @media (max-width: 767px) {
-          body[data-page="home"] {
-            overflow: hidden;
+          body[data-page="home"],
+          html:has(body[data-page="home"]) {
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
             background-color: black !important;
           }
         }
