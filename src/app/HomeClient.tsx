@@ -382,12 +382,7 @@ export default function HomeClient() {
   // Mark body so CSS can strip header items on mobile homepage only
   useEffect(() => {
     document.body.dataset.page = "home";
-    const prevent = (e: TouchEvent) => e.preventDefault();
-    document.addEventListener("touchmove", prevent, { passive: false });
-    return () => {
-      delete document.body.dataset.page;
-      document.removeEventListener("touchmove", prevent);
-    };
+    return () => { delete document.body.dataset.page; };
   }, []);
 
   useEffect(() => {

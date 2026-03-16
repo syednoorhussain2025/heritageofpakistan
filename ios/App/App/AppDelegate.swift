@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -26,7 +27,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Disable bounce scroll on the Capacitor WebView — permanent fix for iOS rubber-band effect
+        disableWebViewBounce()
+    }
+
+    private func disableWebViewBounce() {
+        guard let rootVC = window?.rootViewController else { return }
+        findAndDisableBounce(in: rootVC.view)
+    }
+
+    private func findAndDisableBounce(in view: UIView) {
+        if let webView = view as? WKWebView {
+            webView.scrollView.bounces = false
+            webView.scrollView.alwaysBounceVertical = false
+            webView.scrollView.alwaysBounceHorizontal = false
+            return
+        }
+        for subview in view.subviews {
+            findAndDisableBounce(in: subview)
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
