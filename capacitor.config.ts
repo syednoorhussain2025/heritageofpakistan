@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    contentInset: 'always', // respect safe areas (notch, home indicator)
+    contentInset: 'never',
   },
 
   android: {
