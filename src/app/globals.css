@@ -26,6 +26,7 @@ html {
   --sar: env(safe-area-inset-right, 0px);
 }
 
+
 body {
   height: 100%;
   margin: 0;
