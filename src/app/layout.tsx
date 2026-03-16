@@ -6,6 +6,8 @@ import "./globals.css";
 import "@/modules/flow-layout/flow-layout.css";
 import AppChrome from "@/components/AppChrome";
 import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
+import { fetchMapBootstrap } from "@/lib/mapBootstrap";
+import { MapBootstrapProvider } from "@/components/MapBootstrapProvider";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -61,7 +63,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const initialHeaderItems = await fetchHeaderItems();
+  const [initialHeaderItems, initialMapBootstrap] = await Promise.all([
+    fetchHeaderItems(),
+    fetchMapBootstrap().catch(() => null),
+  ]);
 
   return (
     <html lang="en">
@@ -87,7 +92,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
-          <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
+          <MapBootstrapProvider initialBootstrap={initialMapBootstrap}>
+            <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
+          </MapBootstrapProvider>
           <SpeedInsights />
         </IconProvider>
       </body>
