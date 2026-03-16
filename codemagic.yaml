@@ -9,7 +9,7 @@ workflows:
       groups:
         - ios_credentials
       vars:
-        XCODE_WORKSPACE: ios/App/App.xcworkspace
+        XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
       node: v22.11.0
     scripts:
@@ -17,15 +17,11 @@ workflows:
         script: npm ci
       - name: Capacitor sync
         script: npx cap sync ios
-      - name: Install CocoaPods
-        script: |
-          cd ios/App
-          pod install
       - name: Build and sign iOS
         script: |
           xcode-project use-profiles
           xcodebuild \
-            -workspace "$XCODE_WORKSPACE" \
+            -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
