@@ -176,11 +176,13 @@ export default function SignInForm() {
         }
         /* ── Sign-in mobile: burger only, fixed full-screen layout ── */
         @media (max-width: 767px) {
-          body[data-page="sign-in"] {
-            overflow: hidden;
+          body[data-page="sign-in"],
+          html:has(body[data-page="sign-in"]) {
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
             background-color: black !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
           }
           body[data-page="sign-in"] header a[href="/"],
           body[data-page="sign-in"] header [class*="max-w-2xl"],
@@ -204,10 +206,9 @@ export default function SignInForm() {
       <div
         className="md:hidden relative flex flex-col items-center justify-center overflow-hidden"
         style={{
-          marginTop: "calc(var(--sticky-offset, 72px) * -1)",
-          height: "calc(100dvh + var(--sticky-offset, 72px))",
-          paddingTop: "var(--sticky-offset, 72px)",
-          paddingBottom: "72px",
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         {/* Black backdrop */}

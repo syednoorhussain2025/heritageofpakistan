@@ -23,7 +23,7 @@ export default function AppChrome({
 }) {
   const pathname = usePathname() || "";
   const isAdminRoute = pathname.startsWith("/admin");
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === "/" || pathname.startsWith("/auth");
 
   if (isAdminRoute) {
     return (
