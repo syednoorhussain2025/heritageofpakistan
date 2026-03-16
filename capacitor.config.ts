@@ -12,10 +12,11 @@ const config: CapacitorConfig = {
 
   ios: {
     contentInset: 'never',
+    backgroundColor: '#000000',
   },
 
   android: {
-    allowMixedContent: true, // allow HTTP in dev (cleartext)
+    allowMixedContent: true,
   },
 
   plugins: {
@@ -25,6 +26,11 @@ const config: CapacitorConfig = {
       backgroundColor: '#00b050',
       androidSplashResourceName: 'splash',
       showSpinner: false,
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#000000',
+      overlaysWebView: true,
     },
   },
 };
