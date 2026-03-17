@@ -37,6 +37,11 @@ function TabPane({
     const el = divRef.current;
     if (!el) return;
 
+    if (!active && prevActive.current) {
+      // Just became hidden — release any body scroll lock set by children
+      document.body.style.overflow = "";
+    }
+
     if (active && !prevActive.current) {
       // Just became active — fade in
       el.style.opacity = "0";
