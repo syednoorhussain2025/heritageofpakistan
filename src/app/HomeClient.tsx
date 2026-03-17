@@ -229,46 +229,128 @@ function HomeCardCarousel({
 function FeaturedHeroCarousel({ sites }: { sites: SiteCard[] }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
+
+  // Auto-advance — paused once user swipes manually
+  const userSwipedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
+  function startTimer() {
+    if (timerRef.current) clearInterval(timerRef.current);
     if (sites.length <= 1) return;
     timerRef.current = setInterval(() => {
-      setIndex((i) => (i + 1) % sites.length);
-    }, 4000);
+      if (!userSwipedRef.current) {
+        setIndex((i) => (i + 1) % sites.length);
+      }
+    }, 5000);
+  }
+
+  useEffect(() => {
+    startTimer();
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [sites.length]);
 
+  // Touch swipe
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const isDragging = useRef(false);
+  const dragDeltaRef = useRef(0);
+  const [dragDelta, setDragDelta] = useState(0);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isDragging.current = false;
+    dragDeltaRef.current = 0;
+    setDragDelta(0);
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    // Lock to horizontal swipe only — ignore if mostly vertical
+    if (!isDragging.current && Math.abs(dy) > Math.abs(dx)) return;
+    isDragging.current = true;
+    // Resist at edges
+    const resistance = (index === 0 && dx > 0) || (index === sites.length - 1 && dx < 0) ? 0.3 : 1;
+    dragDeltaRef.current = dx * resistance;
+    setDragDelta(dragDeltaRef.current);
+  }
+
+  function onTouchEnd() {
+    if (!isDragging.current) { setDragDelta(0); return; }
+    const threshold = 50;
+    if (dragDeltaRef.current < -threshold && index < sites.length - 1) {
+      userSwipedRef.current = true;
+      setIndex((i) => i + 1);
+    } else if (dragDeltaRef.current > threshold && index > 0) {
+      userSwipedRef.current = true;
+      setIndex((i) => i - 1);
+    }
+    setDragDelta(0);
+    touchStartX.current = null;
+    isDragging.current = false;
+  }
+
+  // Tap to navigate — only if not a swipe
+  function onTap() {
+    if (Math.abs(dragDeltaRef.current) > 5) return;
+    router.push(`/site/${sites[index]?.slug}`);
+  }
+
   if (sites.length === 0) return null;
 
+  const containerWidth = typeof window !== "undefined" ? window.innerWidth - 32 : 350; // mx-4 = 16px each side
+
   return (
-    <div className="relative mx-4 rounded-2xl overflow-hidden shadow-lg" style={{ aspectRatio: "16/9" }}>
-      {/* Images */}
-      {sites.map((site, i) => (
-        <img
-          key={site.id}
-          src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
-          alt={site.title}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === index ? "opacity-100" : "opacity-0"}`}
-          loading={i === 0 ? "eager" : "lazy"}
-          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
-        />
-      ))}
+    <div
+      className="relative mx-4 rounded-2xl overflow-hidden shadow-lg select-none"
+      style={{ aspectRatio: "16/9" }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Sliding track */}
+      <div
+        className="absolute inset-0 flex"
+        style={{
+          width: `${sites.length * 100}%`,
+          transform: `translateX(calc(${-index * (100 / sites.length)}% + ${dragDelta}px))`,
+          transition: dragDelta !== 0 ? "none" : "transform 0.35s cubic-bezier(0.25,0.1,0.25,1)",
+        }}
+      >
+        {sites.map((site, i) => (
+          <div
+            key={site.id}
+            className="relative h-full"
+            style={{ width: `${100 / sites.length}%` }}
+          >
+            <img
+              src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
+              alt={site.title}
+              className="w-full h-full object-cover"
+              loading={i === 0 ? "eager" : "lazy"}
+              draggable={false}
+              onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
+            />
+          </div>
+        ))}
+      </div>
 
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
 
-      {/* Content */}
+      {/* Tap target + content */}
       <button
         className="absolute inset-0 w-full h-full text-left p-4 flex flex-col justify-end"
-        onClick={() => router.push(`/site/${sites[index]?.slug}`)}
+        onClick={onTap}
       >
         {sites[index]?.heritage_type && (
           <span className="mb-1.5 inline-flex self-start bg-[#F78300] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
             {sites[index].heritage_type}
           </span>
         )}
-        <h3 className="text-white font-extrabold text-lg leading-tight line-clamp-2">
+        <h3 className="text-white font-extrabold text-lg leading-tight line-clamp-2 transition-all duration-300">
           {sites[index]?.title}
         </h3>
         <p className="text-white/70 text-xs mt-0.5 line-clamp-1">
@@ -276,13 +358,12 @@ function FeaturedHeroCarousel({ sites }: { sites: SiteCard[] }) {
         </p>
       </button>
 
-      {/* Dots */}
+      {/* Dot indicators */}
       {sites.length > 1 && (
-        <div className="absolute bottom-3 right-4 flex gap-1.5">
+        <div className="absolute bottom-3 right-4 flex gap-1.5 pointer-events-none">
           {sites.map((_, i) => (
-            <button
+            <div
               key={i}
-              onClick={(e) => { e.stopPropagation(); setIndex(i); }}
               className={`rounded-full transition-all duration-300 ${i === index ? "w-4 h-2 bg-white" : "w-2 h-2 bg-white/40"}`}
             />
           ))}
