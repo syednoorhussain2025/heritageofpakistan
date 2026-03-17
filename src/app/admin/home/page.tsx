@@ -25,8 +25,17 @@ type SitePick = {
 
 type MobileHomepageConfig = {
   featured: string[];
+  popular: string[];
   unknown_pakistan: string[];
   category_pills: string[];
+  province_covers: Record<string, string>; // province_id → cover_photo_url
+};
+
+type ProvinceRow = { id: string; name: string; slug: string };
+
+type SiteImage = {
+  id: string;
+  url: string;
 };
 
 type Category = { id: string; name: string; slug: string };
@@ -358,6 +367,177 @@ function CategoryPillsEditor({
   );
 }
 
+// ─── ProvinceCoversEditor ─────────────────────────────────────────────────────
+
+function ProvinceCoversEditor({
+  covers,
+  onChange,
+}: {
+  covers: Record<string, string>;
+  onChange: (covers: Record<string, string>) => void;
+}) {
+  const [provinces, setProvinces] = useState<ProvinceRow[]>([]);
+  const [activeProvince, setActiveProvince] = useState<ProvinceRow | null>(null);
+  const [siteQuery, setSiteQuery] = useState("");
+  const [siteResults, setSiteResults] = useState<SitePick[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
+  const [siteImages, setSiteImages] = useState<{ id: string; url: string }[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    supabase.from("regions").select("id, name, slug").is("parent_id", null).order("name")
+      .then(({ data }) => setProvinces((data as ProvinceRow[]) || []));
+  }, []);
+
+  // Search sites
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!siteQuery.trim()) { setSiteResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      const { data } = await supabase.from("sites")
+        .select("id, title, location_free, cover_photo_thumb_url, heritage_type")
+        .eq("is_published", true)
+        .ilike("title", `%${siteQuery.trim()}%`)
+        .limit(15);
+      setSiteResults((data as SitePick[]) || []);
+      setSearching(false);
+    }, 300);
+  }, [siteQuery]);
+
+  // Load gallery images for selected site
+  async function loadSiteImages(siteId: string) {
+    setActiveSiteId(siteId);
+    setSiteImages([]);
+    setLoadingImages(true);
+    // Get cover + gallery images
+    const { data: siteData } = await supabase.from("sites")
+      .select("cover_photo_url, cover_photo_thumb_url")
+      .eq("id", siteId)
+      .maybeSingle();
+    const { data: gallery } = await supabase.from("site_images")
+      .select("id, image_url")
+      .eq("site_id", siteId)
+      .limit(30);
+    const imgs: { id: string; url: string }[] = [];
+    if (siteData?.cover_photo_url) imgs.push({ id: "cover", url: siteData.cover_photo_url });
+    if (gallery) for (const g of gallery as { id: string; image_url: string }[]) {
+      if (g.image_url) imgs.push({ id: g.id, url: g.image_url });
+    }
+    setSiteImages(imgs);
+    setLoadingImages(false);
+  }
+
+  function selectCover(url: string) {
+    if (!activeProvince) return;
+    onChange({ ...covers, [activeProvince.id]: url });
+    setActiveProvince(null);
+    setSiteQuery("");
+    setSiteResults([]);
+    setActiveSiteId(null);
+    setSiteImages([]);
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 space-y-4">
+      <div>
+        <h3 className="text-white font-semibold text-base">Explore by Province</h3>
+        <p className="text-gray-400 text-xs mt-0.5">Set a cover photo for each province tile. Search a site, pick a photo from its gallery.</p>
+      </div>
+
+      {/* Province list */}
+      <div className="grid grid-cols-2 gap-3">
+        {provinces.map((prov) => {
+          const coverUrl = covers[prov.id];
+          return (
+            <button
+              key={prov.id}
+              onClick={() => { setActiveProvince(prov); setSiteQuery(""); setSiteResults([]); setActiveSiteId(null); setSiteImages([]); }}
+              className={`relative rounded-xl overflow-hidden border-2 transition-colors ${activeProvince?.id === prov.id ? "border-blue-500" : "border-gray-600 hover:border-gray-400"}`}
+              style={{ aspectRatio: "3/2" }}
+            >
+              {coverUrl
+                ? <img src={coverUrl} className="w-full h-full object-cover" alt={prov.name} />
+                : <div className="w-full h-full bg-gradient-to-br from-orange-400/30 to-teal-500/30 flex items-center justify-center"><span className="text-gray-500 text-xs">No cover</span></div>
+              }
+              <div className="absolute inset-0 bg-black/40 flex items-end p-2">
+                <span className="text-white text-xs font-bold">{prov.name}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Photo picker — shown when a province is selected */}
+      {activeProvince && (
+        <div className="border border-gray-600 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-white text-sm font-semibold">Setting cover for: <span className="text-blue-400">{activeProvince.name}</span></span>
+            <button onClick={() => setActiveProvince(null)} className="text-gray-400 hover:text-white text-lg">&times;</button>
+          </div>
+
+          {/* Site search */}
+          <input
+            type="text"
+            value={siteQuery}
+            onChange={(e) => setSiteQuery(e.target.value)}
+            placeholder="Search a site by name..."
+            className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            autoFocus
+          />
+
+          {/* Site results */}
+          {searching && <p className="text-gray-400 text-xs">Searching…</p>}
+          {siteResults.length > 0 && !activeSiteId && (
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {siteResults.map((site) => (
+                <button
+                  key={site.id}
+                  onClick={() => loadSiteImages(site.id)}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 text-left"
+                >
+                  <div className="w-8 h-8 rounded overflow-hidden shrink-0 bg-gray-600">
+                    {site.cover_photo_thumb_url
+                      ? <img src={site.cover_photo_thumb_url} className="w-full h-full object-cover" alt="" />
+                      : <div className="w-full h-full bg-gradient-to-br from-orange-400 to-teal-500" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white truncate">{site.title}</div>
+                    <div className="text-xs text-gray-400 truncate">{site.location_free || "—"}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Image gallery */}
+          {loadingImages && <p className="text-gray-400 text-xs">Loading photos…</p>}
+          {siteImages.length > 0 && (
+            <>
+              <p className="text-xs text-gray-400">Click a photo to use as province cover:</p>
+              <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                {siteImages.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={() => selectCover(img.url)}
+                    className="relative rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all"
+                    style={{ aspectRatio: "4/3" }}
+                  >
+                    <img src={img.url} className="w-full h-full object-cover" alt="" />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminHomeEditor() {
@@ -378,11 +558,13 @@ export default function AdminHomeEditor() {
   const [mobileSaving, setMobileSaving] = useState(false);
   const [mobileMessage, setMobileMessage] = useState<string | null>(null);
   const [featuredIds, setFeaturedIds] = useState<string[]>([]);
+  const [popularIds, setPopularIds] = useState<string[]>([]);
   const [unknownPakistanIds, setUnknownPakistanIds] = useState<string[]>([]);
   const [categoryPills, setCategoryPills] = useState<string[]>([]);
+  const [provinceCovers, setProvinceCovers] = useState<Record<string, string>>({});
 
   // Modal state
-  const [openModal, setOpenModal] = useState<null | "featured" | "unknown_pakistan">(null);
+  const [openModal, setOpenModal] = useState<null | "featured" | "popular" | "unknown_pakistan">(null);
 
   // Cleanup preview URL
   useEffect(() => {
@@ -418,8 +600,10 @@ export default function AdminHomeEditor() {
       if (!mobileRes.error && mobileRes.data) {
         const cfg = (mobileRes.data.value || {}) as MobileHomepageConfig;
         setFeaturedIds(cfg.featured || []);
+        setPopularIds(cfg.popular || []);
         setUnknownPakistanIds(cfg.unknown_pakistan || []);
         setCategoryPills(cfg.category_pills || []);
+        setProvinceCovers(cfg.province_covers || {});
       }
 
       setLoading(false);
@@ -484,8 +668,10 @@ export default function AdminHomeEditor() {
     try {
       const cfg: MobileHomepageConfig = {
         featured: featuredIds,
+        popular: popularIds,
         unknown_pakistan: unknownPakistanIds,
         category_pills: categoryPills,
+        province_covers: provinceCovers,
       };
       const { error } = await supabase.from("global_settings").upsert(
         { key: "mobile_homepage", value: cfg },
@@ -623,6 +809,14 @@ export default function AdminHomeEditor() {
               onEdit={() => setOpenModal("featured")}
             />
 
+            {/* Popular */}
+            <SectionCard
+              label="Popular Tourist Sites"
+              description="Famous, iconic sites every visitor should know. Lahore Fort, Mohenjo-daro, Badshahi Mosque etc."
+              ids={popularIds}
+              onEdit={() => setOpenModal("popular")}
+            />
+
             {/* Unknown Pakistan */}
             <SectionCard
               label="Beyond the Tourist Trail"
@@ -635,6 +829,12 @@ export default function AdminHomeEditor() {
             <CategoryPillsEditor
               selected={categoryPills}
               onChange={setCategoryPills}
+            />
+
+            {/* Province Covers */}
+            <ProvinceCoversEditor
+              covers={provinceCovers}
+              onChange={setProvinceCovers}
             />
 
             {/* Save */}
@@ -666,6 +866,14 @@ export default function AdminHomeEditor() {
           title="Featured Sites"
           selectedIds={featuredIds}
           onSave={setFeaturedIds}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "popular" && (
+        <SiteSelectorModal
+          title="Popular Tourist Sites"
+          selectedIds={popularIds}
+          onSave={setPopularIds}
           onClose={() => setOpenModal(null)}
         />
       )}

@@ -275,18 +275,8 @@ export default function BottomNav() {
 
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
-
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
-
-  useEffect(() => {
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      ("standalone" in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true) ||
-      !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
-    setIsStandalone(standalone);
-  }, []);
 
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
@@ -328,6 +318,7 @@ export default function BottomNav() {
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
+  const isHomePage = pathname === "/";
 
   const heritageHref =
     lastHeritagePath && lastHeritagePath.startsWith("/heritage/")
@@ -339,9 +330,9 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: `calc(52px + env(safe-area-inset-bottom, 0px)${isStandalone ? " + 32px" : ""})` }} />}
+      {!isHeritageDetail && !isHomePage && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: `calc(52px + env(safe-area-inset-bottom, 0px))` }} />}
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: 0, paddingBottom: `calc(env(safe-area-inset-bottom, 0px)${isStandalone ? " + 32px" : ""})` }}>
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: 0, paddingBottom: `env(safe-area-inset-bottom, 0px)` }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
           <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />

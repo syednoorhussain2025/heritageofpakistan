@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import { getPublicClient } from "@/lib/supabase/browser";
 import Link from "next/link";
+import SiteBottomSheet from "@/components/SiteBottomSheet";
+import type { BottomSheetSite } from "@/components/SiteBottomSheet";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -22,13 +24,18 @@ type SiteCard = {
   cover_photo_url: string | null;
   heritage_type: string | null;
   avg_rating: number | null;
+  review_count?: number | null;
   province_id: string | null;
+  tagline?: string | null;
+  cover_slideshow_image_ids?: string[] | null;
 };
 
 type MobileConfig = {
   featured: string[];
+  popular: string[];
   unknown_pakistan: string[];
   category_pills: string[];
+  province_covers: Record<string, string>;
 };
 
 type Province = {
@@ -170,26 +177,63 @@ const RegionSelect = ({
 
 function HomeCardCarousel({
   sites,
-  onSeeAll,
+  onCardClick,
 }: {
   sites: SiteCard[];
-  onSeeAll?: () => void;
+  onCardClick?: (site: SiteCard) => void;
 }) {
   const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const rafRef = useRef<number | null>(null);
+
+  const updateScales = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const cRect = container.getBoundingClientRect();
+      const cCenter = cRect.left + cRect.width / 2;
+      cardRefs.current.forEach((el) => {
+        if (!el) return;
+        const eRect = el.getBoundingClientRect();
+        const eCenter = eRect.left + eRect.width / 2;
+        const dist = Math.abs(cCenter - eCenter);
+        const maxDist = cRect.width * 0.6;
+        const ratio = Math.min(dist / maxDist, 1);
+        el.style.transform = `scale(${Math.min(1, 0.91 + 0.09 * (1 - ratio))})`;
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    updateScales();
+    container.addEventListener("scroll", updateScales, { passive: true });
+    return () => container.removeEventListener("scroll", updateScales);
+  }, [updateScales, sites]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(updateScales);
+    return () => cancelAnimationFrame(id);
+  }, [updateScales, sites]);
 
   if (sites.length === 0) return null;
 
   return (
     <div
-      className="flex gap-3 overflow-x-auto pb-1 scrollbar-none"
+      ref={scrollRef}
+      className="flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none"
       style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
     >
-      {sites.map((site) => (
+      {sites.map((site, i) => (
         <button
           key={site.id}
-          onClick={() => router.push(`/site/${site.slug}`)}
-          className="shrink-0 rounded-2xl overflow-hidden bg-white shadow-sm active:scale-[0.98] transition-transform"
-          style={{ width: "52vw", maxWidth: 200, scrollSnapAlign: "start" }}
+          ref={(el) => { cardRefs.current[i] = el; }}
+          onClick={() => onCardClick ? onCardClick(site) : router.push(`/site/${site.slug}`)}
+          className="shrink-0 rounded-2xl overflow-hidden bg-white shadow-sm"
+          style={{ width: "52vw", maxWidth: 200, scrollSnapAlign: "start", willChange: "transform" }}
         >
           {/* Image */}
           <div className="relative" style={{ aspectRatio: "4/3" }}>
@@ -224,9 +268,127 @@ function HomeCardCarousel({
   );
 }
 
+/* ─── StoryCarousel ─────────────────────────────────────────────────────── */
+
+function StoryCarousel({
+  sites,
+  onCardClick,
+}: {
+  sites: SiteCard[];
+  onCardClick?: (site: SiteCard) => void;
+}) {
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const rafRef = useRef<number | null>(null);
+
+  const updateScales = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const cRect = container.getBoundingClientRect();
+      const cCenter = cRect.left + cRect.width / 2;
+      cardRefs.current.forEach((el) => {
+        if (!el) return;
+        const eRect = el.getBoundingClientRect();
+        const eCenter = eRect.left + eRect.width / 2;
+        const dist = Math.abs(cCenter - eCenter);
+        const maxDist = cRect.width * 0.6;
+        const ratio = Math.min(dist / maxDist, 1);
+        const s = Math.min(1, 0.92 + 0.08 * (1 - ratio));
+        el.style.transform = `scale(${s})`;
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    // Run once on mount
+    updateScales();
+    // Listen on the carousel's own horizontal scroll
+    container.addEventListener("scroll", updateScales, { passive: true });
+    return () => container.removeEventListener("scroll", updateScales);
+  }, [updateScales, sites]);
+
+  // Re-run scales whenever sites load (images paint, layout shifts)
+  useEffect(() => {
+    const id = requestAnimationFrame(updateScales);
+    return () => cancelAnimationFrame(id);
+  }, [updateScales, sites]);
+
+  if (sites.length === 0) return null;
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex gap-3 overflow-x-auto px-4 pb-4 scrollbar-none"
+      style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollPaddingLeft: "1rem" }}
+    >
+      {sites.map((site, i) => (
+        <button
+          key={site.id}
+          ref={(el) => { cardRefs.current[i] = el; }}
+          onClick={() => onCardClick ? onCardClick(site) : router.push(`/heritage/${site.slug}`)}
+          className="relative shrink-0 rounded-3xl overflow-hidden"
+          style={{
+            width: "75vw",
+            maxWidth: 300,
+            aspectRatio: "9/16",
+            scrollSnapAlign: "start",
+            transform: "scale(0.88)",
+            transformOrigin: "center center",
+            willChange: "transform",
+          }}
+        >
+          <img
+            src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
+            alt={site.title}
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+            {site.heritage_type && (
+              <span className="bg-[#F78300] text-white text-[10px] font-bold px-2.5 py-1 rounded-full leading-tight">
+                {site.heritage_type}
+              </span>
+            )}
+            {site.avg_rating != null && (
+              <span className="ml-auto bg-black/40 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-1 rounded-full leading-tight flex items-center gap-0.5">
+                ★ {site.avg_rating.toFixed(1)}
+              </span>
+            )}
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 px-3.5 pb-4 pt-8 text-left">
+            <p className="text-white text-[15px] font-bold leading-tight line-clamp-2">{site.title}</p>
+            {site.location_free && (
+              <p className="text-white/70 text-[11px] mt-1 leading-tight flex items-center gap-1">
+                <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                {site.location_free}
+              </p>
+            )}
+            {site.tagline && (
+              <p className="text-white/60 text-[10.5px] mt-1.5 leading-snug line-clamp-2 italic">{site.tagline}</p>
+            )}
+            <span className="inline-block mt-2.5 bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
+              Explore →
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ─── FeaturedHeroCarousel ───────────────────────────────────────────────── */
 
-function FeaturedHeroCarousel({ sites }: { sites: SiteCard[] }) {
+function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCardClick?: (site: SiteCard) => void }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
 
@@ -295,7 +457,10 @@ function FeaturedHeroCarousel({ sites }: { sites: SiteCard[] }) {
   // Tap to navigate — only if not a swipe
   function onTap() {
     if (Math.abs(dragDeltaRef.current) > 5) return;
-    router.push(`/site/${sites[index]?.slug}`);
+    const site = sites[index];
+    if (!site) return;
+    if (onCardClick) onCardClick(site);
+    else router.push(`/site/${site.slug}`);
   }
 
   if (sites.length === 0) return null;
@@ -399,7 +564,7 @@ const PROVINCE_IMAGES: Record<string, string> = {
   gilgit: "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/c7ffcc06-e765-4e4e-a6ad-cffc2fc1b441/1771690397771-Royal%20Garden%20Altit-8.jpg",
 };
 
-function ProvinceTiles({ provinces }: { provinces: Province[] }) {
+function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: Record<string, string> }) {
   const router = useRouter();
 
   if (provinces.length === 0) return null;
@@ -407,10 +572,12 @@ function ProvinceTiles({ provinces }: { provinces: Province[] }) {
   return (
     <div className="flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
       {provinces.map((province) => {
+        // Admin-set cover takes priority, fall back to static map
+        const adminCover = covers[province.id];
         const imgKey = Object.keys(PROVINCE_IMAGES).find((k) =>
           province.name.toLowerCase().includes(k) || province.slug?.toLowerCase().includes(k)
         );
-        const img = imgKey ? PROVINCE_IMAGES[imgKey] : FALLBACK_GRADIENT;
+        const img = adminCover || (imgKey ? PROVINCE_IMAGES[imgKey] : FALLBACK_GRADIENT);
 
         return (
           <button
@@ -459,7 +626,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
           <button
             key={cat.id}
             onClick={() => router.push(`/explore?cats=${cat.id}`)}
-            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold text-[#1c1f4c] bg-white border border-gray-200 shadow-sm active:bg-gray-100 transition-colors"
+            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[#3d4d7a] bg-white/90 border border-white/30 active:bg-white transition-colors"
             style={{ scrollSnapAlign: "start" }}
           >
             {cat.name}
@@ -468,11 +635,6 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
         {/* Right padding so last pill doesn't sit flush against edge */}
         <div className="shrink-0 w-4" />
       </div>
-      {/* Fade-out right edge — hints there's more to scroll */}
-      <div
-        className="absolute top-0 right-0 bottom-1 w-10 pointer-events-none"
-        style={{ background: "linear-gradient(to right, transparent, #f2f2f2)" }}
-      />
     </div>
   );
 }
@@ -491,10 +653,11 @@ function MobileHomepage() {
   const router = useRouter();
 
   // Config from admin
-  const [config, setConfig] = useState<MobileConfig>({ featured: [], unknown_pakistan: [], category_pills: [] });
+  const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], category_pills: [], province_covers: {} });
 
   // Site data
   const [featuredSites, setFeaturedSites] = useState<SiteCard[]>([]);
+  const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
   const [unknownSites, setUnknownSites] = useState<SiteCard[]>([]);
   const [nearbySites, setNearbySites] = useState<SiteCard[]>([]);
   const [categories, setCategories] = useState<Option[]>([]);
@@ -502,6 +665,9 @@ function MobileHomepage() {
 
   // GPS
   const [gpsStatus, setGpsStatus] = useState<"idle" | "loading" | "done" | "denied">("idle");
+
+  // Bottom sheet
+  const [selectedSite, setSelectedSite] = useState<BottomSheetSite | null>(null);
 
   // Search bar
   const [searchFocused, setSearchFocused] = useState(false);
@@ -521,18 +687,20 @@ function MobileHomepage() {
       setConfig(cfg);
       setCategories((catRes.data as Option[]) || []);
 
-      // Count sites per province
+      // Count sites per province using group-by
       const provRows = (provRes.data || []) as Province[];
-      const countRes = await sb.from("sites").select("province_id").eq("is_published", true);
-      if (countRes.data) {
-        const counts: Record<string, number> = {};
-        for (const row of countRes.data as { province_id: string | null }[]) {
+      const { data: countData } = await sb
+        .from("sites")
+        .select("province_id, count:id")
+        .eq("is_published", true)
+        .not("province_id", "is", null);
+      const counts: Record<string, number> = {};
+      if (countData) {
+        for (const row of countData as { province_id: string; count: number }[]) {
           if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
         }
-        setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
-      } else {
-        setProvinces(provRows);
       }
+      setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
     })();
   }, []);
 
@@ -540,7 +708,7 @@ function MobileHomepage() {
   useEffect(() => {
     if (config.featured.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, province_id")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", config.featured)
         .eq("is_published", true)
         .then(({ data }) => {
@@ -551,9 +719,22 @@ function MobileHomepage() {
         });
     }
 
+    if (config.popular.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .in("id", config.popular)
+        .eq("is_published", true)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            setPopularSites(config.popular.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+
     if (config.unknown_pakistan.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, province_id")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", config.unknown_pakistan)
         .eq("is_published", true)
         .then(({ data }) => {
@@ -563,7 +744,7 @@ function MobileHomepage() {
           }
         });
     }
-  }, [config.featured.join(","), config.unknown_pakistan.join(",")]);
+  }, [config.featured.join(","), config.popular.join(","), config.unknown_pakistan.join(",")]);
 
   // ── GPS / Nearby ──
   function requestNearby() {
@@ -575,7 +756,7 @@ function MobileHomepage() {
         // Use PostgREST RPC if available, else fallback to simple query
         const { data } = await sb
           .from("sites")
-          .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, province_id")
+          .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
           .eq("is_published", true)
           .not("latitude", "is", null)
           .not("longitude", "is", null)
@@ -597,7 +778,7 @@ function MobileHomepage() {
         className="fixed inset-x-0 top-0 z-[100] bg-[#00c9a7]"
         style={{ paddingTop: safeTop }}
       >
-        <div className="px-4 pb-3 pt-2">
+        <div className="px-4 pb-2 pt-2">
           {/* Top row: app name + notification */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
@@ -620,26 +801,34 @@ function MobileHomepage() {
             <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites…</span>
           </button>
         </div>
+        {/* Category pills — inside header, below search, full-width scroll */}
+        {categories.length > 0 && (
+          <div className="mt-2 pb-2">
+            <CategoryPills pills={config.category_pills} categories={categories} />
+          </div>
+        )}
       </div>
 
       {/* ── Scrollable content — fixed position card, only inner content scrolls ── */}
       <div
         className="fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10"
-        style={{ top: `calc(${safeTop} + 112px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(${safeTop} + 152px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="pb-24">
-        {/* Category pills */}
-        {categories.length > 0 && (
-          <div className="pt-4 pb-2">
-            <CategoryPills pills={config.category_pills} categories={categories} />
-          </div>
-        )}
 
         {/* Featured hero carousel */}
         {featuredSites.length > 0 && (
           <div className="mt-5">
             <SectionHeader label="Featured" />
-            <FeaturedHeroCarousel sites={featuredSites} />
+            <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
+          </div>
+        )}
+
+        {/* Popular Tourist Sites */}
+        {popularSites.length > 0 && (
+          <div className="mt-6">
+            <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
+            <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
           </div>
         )}
 
@@ -679,30 +868,26 @@ function MobileHomepage() {
             <p className="mx-4 text-xs text-gray-400">Location access denied. Enable in settings to see nearby sites.</p>
           )}
           {gpsStatus === "done" && nearbySites.length > 0 && (
-            <div className="px-4">
-              <HomeCardCarousel sites={nearbySites} />
-            </div>
+            <HomeCardCarousel sites={nearbySites} onCardClick={setSelectedSite} />
           )}
           {gpsStatus === "done" && nearbySites.length === 0 && (
             <p className="mx-4 text-xs text-gray-400">No sites found nearby.</p>
           )}
         </div>
 
-        {/* Unknown Pakistan */}
-        {unknownSites.length > 0 && (
-          <div className="mt-6">
-            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
-            <div className="px-4">
-              <HomeCardCarousel sites={unknownSites} />
-            </div>
-          </div>
-        )}
-
         {/* Explore by Province */}
         {provinces.length > 0 && (
           <div className="mt-6">
             <SectionHeader label="Explore by Province" onSeeAll={() => router.push("/explore")} />
-            <ProvinceTiles provinces={provinces} />
+            <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+          </div>
+        )}
+
+        {/* Beyond the Tourist Trail */}
+        {unknownSites.length > 0 && (
+          <div className="mt-6">
+            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
+            <StoryCarousel sites={unknownSites} onCardClick={setSelectedSite} />
           </div>
         )}
 
@@ -710,6 +895,13 @@ function MobileHomepage() {
         <div className="h-6" />
       </div>
       </div>
+
+      {/* Site bottom sheet */}
+      <SiteBottomSheet
+        site={selectedSite}
+        isOpen={selectedSite !== null}
+        onClose={() => setSelectedSite(null)}
+      />
     </div>
   );
 }

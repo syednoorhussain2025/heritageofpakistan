@@ -1407,32 +1407,29 @@ function ExplorePageContent() {
   const isDraggingRef = useRef(false);
 
   return (
-    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0 pt-[270px]">
+    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0 pt-[200px]">
       {/* Mobile header — rendered directly, no slot system */}
-      <MobilePageHeader backgroundColor="#00c9a7" minHeight="180px">
-        <div className="w-full h-full flex flex-col justify-center px-6 gap-2">
-          {/* Row 1: Explore heading */}
-          <div className="flex items-center gap-1 mb-1 mt-4">
-            <Icon name="search" size={26} className="text-white shrink-0" />
-            <div className="text-4xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Explore</div>
+      <MobilePageHeader backgroundColor="#00c9a7" minHeight="120px">
+        <div className="w-full flex flex-col px-4 pt-2 pb-2 gap-0">
+          {/* Row 1: title + icon */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
+              Explore
+            </span>
+            <div className="flex items-center gap-1.5 text-white/70 text-xs">
+              <span>{loading && results.sites.length === 0 ? "…" : results.sites.length} of {results.total}</span>
+            </div>
           </div>
-          {/* Row 2: White search bar */}
+          {/* Row 2: search bar */}
           <button
             type="button"
             aria-label="Search & Filters"
             onClick={() => setSearchPanelOpen(true)}
-            className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm my-2"
+            className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
           >
-            <Icon name="search" size={18} className="text-gray-400 shrink-0" />
-            <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites...</span>
+            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
+            <span className="text-sm text-gray-400 flex-1 text-left">{headline !== "All Heritage Sites" ? headline : "Search heritage sites…"}</span>
           </button>
-          {/* Row 3: current filter + count */}
-          <div className="flex items-center justify-between">
-            <div className="text-base font-semibold text-white truncate">{headline}</div>
-            <div className="text-sm text-white/70 shrink-0 ml-2">
-              {loading && results.sites.length === 0 ? 0 : results.sites.length} of {results.total}
-            </div>
-          </div>
         </div>
       </MobilePageHeader>
       {/* Fixed green backdrop on mobile so body grey doesn't show at the sides */}
@@ -1477,7 +1474,7 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] px-4 pb-4 pt-8 lg:pt-4 w-full lg:rounded-none rounded-t-[40px] bg-[#f2f2f2] lg:bg-transparent -mt-10 relative z-10 min-h-screen">
+          <main className="lg:ml-[380px] px-4 pb-4 pt-8 lg:pt-4 w-full lg:rounded-none rounded-t-[32px] bg-[#f2f2f2] lg:bg-transparent -mt-10 relative z-10 min-h-screen">
             <div className="hidden lg:block px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
               {/* Desktop-only headline + count; shown in mobile header instead */}
               <div className="hidden lg:block">
