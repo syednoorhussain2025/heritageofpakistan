@@ -440,7 +440,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
   const router = useRouter();
 
   const pillOptions = useMemo(() => {
-    if (pills.length === 0) return categories.slice(0, 6);
+    if (pills.length === 0) return categories;
     return pills
       .map((slug) => categories.find((c) => c.id === slug || c.name.toLowerCase() === slug.toLowerCase()))
       .filter(Boolean) as Option[];
@@ -449,16 +449,30 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
   if (pillOptions.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
-      {pillOptions.map((cat) => (
-        <button
-          key={cat.id}
-          onClick={() => router.push(`/explore?cats=${cat.id}`)}
-          className="shrink-0 px-4 py-2 rounded-full bg-white border border-gray-200 text-[#1c1f4c] text-sm font-semibold shadow-sm active:bg-[#F78300] active:text-white active:border-[#F78300] transition-colors"
-        >
-          {cat.name}
-        </button>
-      ))}
+    <div className="relative">
+      {/* Scroll row */}
+      <div
+        className="flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none"
+        style={{ WebkitOverflowScrolling: "touch", scrollSnapType: "x mandatory" }}
+      >
+        {pillOptions.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => router.push(`/explore?cats=${cat.id}`)}
+            className="shrink-0 px-4 py-2 rounded-full bg-white border border-gray-200 text-[#1c1f4c] text-sm font-semibold shadow-sm active:bg-[#F78300] active:text-white active:border-[#F78300] transition-colors"
+            style={{ scrollSnapAlign: "start" }}
+          >
+            {cat.name}
+          </button>
+        ))}
+        {/* Right padding so last pill doesn't sit flush against edge */}
+        <div className="shrink-0 w-4" />
+      </div>
+      {/* Fade-out right edge — hints there's more to scroll */}
+      <div
+        className="absolute top-0 right-0 bottom-1 w-10 pointer-events-none"
+        style={{ background: "linear-gradient(to right, transparent, #f2f2f2)" }}
+      />
     </div>
   );
 }
