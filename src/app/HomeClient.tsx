@@ -689,33 +689,6 @@ export default function HomeClient() {
 
   return (
     <main className="w-full">
-      <style jsx global>{`
-        :root {
-          --navy-deep: var(--brand-blue);
-          --sand-gold: var(--brand-orange);
-          --espresso-brown: #4b2e05;
-          --ivory-cream: #ffffff;
-          --taupe-grey: #d4d4d4;
-          --terracotta-red: var(--brand-orange);
-          --mustard-accent: var(--brand-orange);
-          --olive-green: #7b6e3f;
-          --dark-grey: #2b2b2b;
-        }
-        button, input { outline: none !important; }
-        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-none::-webkit-scrollbar { display: none; }
-        /* Mobile homepage: lock scroll, hide bottom nav */
-        @media (max-width: 767px) {
-          body[data-page="home"],
-          html:has(body[data-page="home"]) {
-            overflow: hidden !important;
-            position: fixed !important;
-            width: 100% !important;
-            height: 100% !important;
-          }
-        }
-      `}</style>
-
       {/* ── MOBILE ── */}
       <div className="md:hidden h-[100dvh] overflow-y-auto">
         <MobileHomepage />
