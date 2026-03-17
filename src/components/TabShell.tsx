@@ -38,8 +38,11 @@ function TabPane({
     if (!el) return;
 
     if (!active && prevActive.current) {
-      // Just became hidden — release any body scroll lock set by children
+      // Just became hidden — release scroll lock and signal children to close panels
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.paddingRight = "";
+      el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
     }
 
     if (active && !prevActive.current) {

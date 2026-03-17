@@ -1388,6 +1388,19 @@ function ExplorePageContent() {
     return () => { document.body.style.overflow = ""; };
   }, [searchPanelOpen]);
 
+  // When TabShell hides this pane, force-close all open panels so
+  // body scroll lock is released before switching to another tab
+  useEffect(() => {
+    const handler = () => {
+      document.body.style.overflow = "";
+      setSearchPanelOpen(false);
+      setSearchPanelVisible(false);
+      setShowNearbyModal(false);
+    };
+    document.addEventListener("tab-hidden", handler);
+    return () => document.removeEventListener("tab-hidden", handler);
+  }, []);
+
   // Drag-to-dismiss state
   const panelSwipeRef = useRef<{ x: number; y: number } | null>(null);
   const [sheetDragY, setSheetDragY] = useState(0);
