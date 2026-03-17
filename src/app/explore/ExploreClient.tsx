@@ -10,7 +10,6 @@ import {
   Suspense,
 } from "react";
 import { createPortal } from "react-dom";
-import MobilePageHeader from "@/components/MobilePageHeader";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
   Filters,
@@ -861,6 +860,7 @@ function ExplorePageContent() {
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [safeTop, setSafeTop] = useState("44px");
 
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
@@ -1128,6 +1128,7 @@ function ExplorePageContent() {
 
   const cardsRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const mobileLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const executeSearch = useCallback(() => {
     const f = filtersRef.current;
@@ -1283,21 +1284,17 @@ function ExplorePageContent() {
   /* IntersectionObserver for infinite scroll */
   useEffect(() => {
     if (!hasMore) return;
-    const el = loadMoreRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const first = entries[0];
-        if (first.isIntersecting) {
-          loadMore();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    const observers: IntersectionObserver[] = [];
+    [loadMoreRef.current, mobileLoadMoreRef.current].forEach((el) => {
+      if (!el) return;
+      const observer = new IntersectionObserver(
+        (entries) => { if (entries[0].isIntersecting) loadMore(); },
+        { rootMargin: "200px" }
+      );
+      observer.observe(el);
+      observers.push(observer);
+    });
+    return () => observers.forEach((o) => o.disconnect());
   }, [hasMore, loadMore]);
 
   /* Locked radius banner — clicking opens the NearbySearchModal */
@@ -1366,7 +1363,15 @@ function ExplorePageContent() {
     ) : null;
 
   // Mount guard for portals
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;top:env(safe-area-inset-top,0px);left:0;width:1px;height:1px;pointer-events:none;";
+    document.body.appendChild(el);
+    const top = el.getBoundingClientRect().top;
+    document.body.removeChild(el);
+    setSafeTop(top > 0 ? `${top}px` : "44px");
+  }, []);
 
 
   // Bottom sheet animation
@@ -1407,20 +1412,19 @@ function ExplorePageContent() {
   const isDraggingRef = useRef(false);
 
   return (
-    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0 pt-[200px]">
-      {/* Mobile header — rendered directly, no slot system */}
-      <MobilePageHeader backgroundColor="#00c9a7" minHeight="120px">
-        <div className="w-full flex flex-col px-4 pt-2 pb-2 gap-0">
-          {/* Row 1: title + icon */}
+    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0">
+      {/* ── Mobile: fixed teal header (matches Home) ── */}
+      <div
+        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[#00c9a7]"
+        style={{ paddingTop: safeTop }}
+      >
+        <div className="px-4 pb-2 pt-2">
           <div className="flex items-center justify-between mb-2">
             <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
               Explore
             </span>
-            <div className="flex items-center gap-1.5 text-white/70 text-xs">
-              <span>{loading && results.sites.length === 0 ? "…" : results.sites.length} of {results.total}</span>
-            </div>
+            <span className="text-white/70 text-xs">{loading && results.sites.length === 0 ? "…" : results.sites.length} of {results.total}</span>
           </div>
-          {/* Row 2: search bar */}
           <button
             type="button"
             aria-label="Search & Filters"
@@ -1431,9 +1435,7 @@ function ExplorePageContent() {
             <span className="text-sm text-gray-400 flex-1 text-left">{headline !== "All Heritage Sites" ? headline : "Search heritage sites…"}</span>
           </button>
         </div>
-      </MobilePageHeader>
-      {/* Fixed green backdrop on mobile so body grey doesn't show at the sides */}
-      <div className="lg:hidden fixed inset-0 -z-10" style={{ backgroundColor: "#00c9a7" }} />
+      </div>
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -1474,7 +1476,43 @@ function ExplorePageContent() {
             </div>
           </aside>
 
-          <main className="lg:ml-[380px] px-4 pb-4 pt-8 lg:pt-4 w-full lg:rounded-none rounded-t-[32px] bg-[#f2f2f2] lg:bg-transparent -mt-10 relative z-10 min-h-screen">
+          <main className="lg:ml-[380px] w-full">
+            {/* ── Mobile fixed content card ── */}
+            <div
+              className="lg:hidden fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10 px-4 pt-4 pb-8"
+              style={{ top: `calc(${safeTop} + 108px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+            >
+              <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
+                {loading && results.sites.length === 0 && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                    <Spinner size={40} />
+                  </div>
+                )}
+                <div
+                  className="grid grid-cols-2 gap-4"
+                  style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
+                >
+                  {error && results.sites.length === 0 && !loading ? (
+                    <div className="p-6 col-span-2">{error}</div>
+                  ) : results.sites.length === 0 && !loading ? (
+                    <div className="p-6 col-span-2 text-gray-500">No sites match your filters.</div>
+                  ) : (
+                    results.sites.map((s, index) => (
+                      <div key={s.id} style={{ animation: "cardIn 0.4s ease both", animationDelay: `${Math.min(index, 8) * 55}ms` }}>
+                        <SitePreviewCard site={s} index={index} onCardClick={() => setSelectedSite(s)} />
+                      </div>
+                    ))
+                  )}
+                </div>
+                {results.sites.length > 0 && (
+                  <div ref={mobileLoadMoreRef} className="flex items-center justify-center py-6">
+                    {hasMore && isLoadingMore && <Spinner size={32} />}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Desktop layout ── */}
             <div className="hidden lg:block px-3 sm:px-4 pt-0 lg:pt-5 pb-0 mb-0 lg:mb-10 relative xl:pr-[260px]">
               {/* Desktop-only headline + count; shown in mobile header instead */}
               <div className="hidden lg:block">
@@ -1496,55 +1534,37 @@ function ExplorePageContent() {
               <CenterBanner />
             </div>
 
-            {/* Grid + centered spinner overlay for first load only */}
-            <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
-              {loading && results.sites.length === 0 && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                  <Spinner size={40} />
+            {/* Grid — desktop only (mobile uses the fixed card above) */}
+            <div className="hidden lg:block">
+              <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
+                {loading && results.sites.length === 0 && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                    <Spinner size={40} />
+                  </div>
+                )}
+                <div
+                  ref={cardsRef}
+                  className="grid grid-cols-2 xl:grid-cols-3 gap-5"
+                  style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
+                >
+                  {error && results.sites.length === 0 && !loading ? (
+                    <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">{error}</div>
+                  ) : results.sites.length === 0 && !loading ? (
+                    <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">No sites match your filters.</div>
+                  ) : (
+                    results.sites.map((s, index) => (
+                      <div key={s.id} style={{ animation: "cardIn 0.4s ease both", animationDelay: `${Math.min(index, 8) * 55}ms` }}>
+                        <SitePreviewCard site={s} index={index} onCardClick={() => setSelectedSite(s)} />
+                      </div>
+                    ))
+                  )}
                 </div>
-              )}
-
-              <div
-                ref={cardsRef}
-                className="grid grid-cols-2 xl:grid-cols-3 gap-5"
-                style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
-              >
-                {error && results.sites.length === 0 && !loading ? (
-                  <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">
-                    {error}
+                {results.sites.length > 0 && (
+                  <div ref={loadMoreRef} className="flex items-center justify-center py-6">
+                    {hasMore && isLoadingMore && <Spinner size={32} />}
                   </div>
-                ) : results.sites.length === 0 && !loading ? (
-                  <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">
-                    No sites match your filters.
-                  </div>
-                ) : (
-                  results.sites.map((s, index) => (
-                    <div
-                      key={s.id}
-                      style={{
-                        animation: "cardIn 0.4s ease both",
-                        animationDelay: `${Math.min(index, 8) * 55}ms`,
-                      }}
-                    >
-                      <SitePreviewCard
-                        site={s}
-                        index={index}
-                        onCardClick={() => setSelectedSite(s)}
-                      />
-                    </div>
-                  ))
                 )}
               </div>
-
-              {/* Infinite scroll sentinel and bottom spinner */}
-              {results.sites.length > 0 && (
-                <div
-                  ref={loadMoreRef}
-                  className="flex items-center justify-center py-6"
-                >
-                  {hasMore && isLoadingMore && <Spinner size={32} />}
-                </div>
-              )}
             </div>
           </main>
         </div>
