@@ -625,7 +625,7 @@ export default function AdminHomeEditor() {
 
             {/* Unknown Pakistan */}
             <SectionCard
-              label="Unknown Pakistan"
+              label="Beyond the Tourist Trail"
               description="Lesser-known, off the beaten path sites. Hand-pick obscure gems to spark curiosity."
               ids={unknownPakistanIds}
               onEdit={() => setOpenModal("unknown_pakistan")}
@@ -671,7 +671,7 @@ export default function AdminHomeEditor() {
       )}
       {openModal === "unknown_pakistan" && (
         <SiteSelectorModal
-          title="Unknown Pakistan"
+          title="Beyond the Tourist Trail"
           selectedIds={unknownPakistanIds}
           onSave={setUnknownPakistanIds}
           onClose={() => setOpenModal(null)}

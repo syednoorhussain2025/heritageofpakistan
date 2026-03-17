@@ -690,7 +690,7 @@ function MobileHomepage() {
         {/* Unknown Pakistan */}
         {unknownSites.length > 0 && (
           <div className="mt-6">
-            <SectionHeader label="Unknown Pakistan" onSeeAll={() => router.push("/explore")} />
+            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
             <div className="px-4">
               <HomeCardCarousel sites={unknownSites} />
             </div>
