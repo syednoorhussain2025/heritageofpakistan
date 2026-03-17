@@ -33,16 +33,6 @@ body[data-page="sign-up"] {
   padding-top: 0 !important;
 }
 
-/* Mobile homepage: lock scroll */
-@media (max-width: 767px) {
-  body[data-page="home"],
-  html:has(body[data-page="home"]) {
-    overflow: hidden !important;
-    position: fixed !important;
-    width: 100% !important;
-    height: 100% !important;
-  }
-}
 
 /* Hide scrollbars */
 .scrollbar-none {

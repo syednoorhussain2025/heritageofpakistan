@@ -9,7 +9,7 @@ import Link from "next/link";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; slug?: string };
 type Region = { id: string; name: string; parent_id: string | null };
 type SubRegionsMap = Record<string, Region[]>;
 
@@ -442,7 +442,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
   const pillOptions = useMemo(() => {
     if (pills.length === 0) return categories;
     return pills
-      .map((slug) => categories.find((c) => c.id === slug || c.name.toLowerCase() === slug.toLowerCase()))
+      .map((slug) => categories.find((c) => c.slug === slug || c.id === slug || c.name.toLowerCase() === slug.toLowerCase()))
       .filter(Boolean) as Option[];
   }, [pills, categories]);
 
@@ -459,7 +459,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
           <button
             key={cat.id}
             onClick={() => router.push(`/explore?cats=${cat.id}`)}
-            className="shrink-0 px-4 py-2 rounded-full bg-white border border-gray-200 text-[#1c1f4c] text-sm font-semibold shadow-sm active:bg-[#F78300] active:text-white active:border-[#F78300] transition-colors"
+            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold text-[#1c1f4c] bg-white border border-gray-200 shadow-sm active:bg-gray-100 transition-colors"
             style={{ scrollSnapAlign: "start" }}
           >
             {cat.name}
@@ -513,7 +513,7 @@ function MobileHomepage() {
     (async () => {
       const [cfgRes, catRes, provRes] = await Promise.all([
         supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
-        sb.from("categories").select("id, name").order("name"),
+        sb.from("categories").select("id, name, slug").order("name"),
         sb.from("regions").select("id, name, slug, parent_id").is("parent_id", null).order("name"),
       ]);
 
@@ -591,7 +591,7 @@ function MobileHomepage() {
   const safeTop = "env(safe-area-inset-top, 44px)";
 
   return (
-    <div className="min-h-screen bg-[#f2f2f2]">
+    <div className="min-h-screen bg-[#00c9a7]">
       {/* ── Fixed teal header ── */}
       <div
         className="fixed inset-x-0 top-0 z-[100] bg-[#00c9a7]"
@@ -622,11 +622,12 @@ function MobileHomepage() {
         </div>
       </div>
 
-      {/* ── Scrollable content ── (push below fixed header ~110px + safe area) */}
+      {/* ── Scrollable content — fixed position card, only inner content scrolls ── */}
       <div
-        className="pb-24"
-        style={{ paddingTop: `calc(${safeTop} + 100px)` }}
+        className="fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10"
+        style={{ top: `calc(${safeTop} + 112px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
+        <div className="pb-24">
         {/* Category pills */}
         {categories.length > 0 && (
           <div className="pt-4 pb-2">
@@ -708,6 +709,7 @@ function MobileHomepage() {
         {/* Bottom spacer */}
         <div className="h-6" />
       </div>
+      </div>
     </div>
   );
 }
@@ -731,11 +733,6 @@ export default function HomeClient() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // Mark body for mobile CSS (hide bottom nav on homepage)
-  useEffect(() => {
-    document.body.dataset.page = "home";
-    return () => { delete document.body.dataset.page; };
-  }, []);
 
   // Desktop: preload hero + fetch data
   useEffect(() => {
