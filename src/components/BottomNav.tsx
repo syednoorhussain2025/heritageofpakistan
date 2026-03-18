@@ -10,6 +10,7 @@ import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
 import { createClient } from "@/lib/supabase/browser";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
 const INACTIVE_COLOR_CLASS = "text-[#111111]";
@@ -57,7 +58,7 @@ function NavItem({
       href={href}
       aria-label={label}
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
-      onTouchStart={() => onPress?.()}
+      onTouchStart={() => { void hapticLight(); onPress?.(); }}
       onMouseDown={() => onPress?.()}
     >
       <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
@@ -164,7 +165,7 @@ function ProfilePanel({
         <span className="text-[17px] font-semibold text-gray-800">Profile</span>
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => { void hapticLight(); onClose(); }}
           aria-label="Close"
           className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-gray-500 active:bg-white"
         >
@@ -213,7 +214,7 @@ function ProfilePanel({
                 <div key={item.href}>
                   <button
                     type="button"
-                    onClick={() => onNavigate(item.href)}
+                    onClick={() => { void hapticLight(); onNavigate(item.href); }}
                     className={`w-full flex items-center gap-3 px-4 py-[13px] transition-colors duration-100 active:bg-gray-50 ${
                       isActive ? "bg-orange-50/60" : ""
                     }`}
@@ -248,7 +249,7 @@ function ProfilePanel({
           <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => { void hapticMedium(); void handleLogout(); }}
               className="w-full flex items-center gap-3 px-4 py-[13px] active:bg-red-50 transition-colors duration-100"
             >
               <Icon name="logout" size={20} className="text-red-500" />
@@ -357,6 +358,7 @@ export default function BottomNav() {
           {/* Profile / Sign-in tab */}
           <button
             type="button"
+            onTouchStart={() => void hapticLight()}
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
             className="flex flex-1 items-center justify-center py-3 nav-item-tap"
