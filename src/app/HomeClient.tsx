@@ -1018,13 +1018,13 @@ function HomeSearchOverlay({
       {/* Content slides up from bottom inside the already-white screen */}
       <div
         className={`fixed inset-x-0 bottom-0 z-[401] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${visible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ top: 0 }}
+        style={{ top: 0, height: "100dvh", overflow: "hidden" }}
       >
         {/* ── Search bar row — just below status bar ── */}
         <div className="flex items-center gap-2 px-3 shrink-0" style={{ paddingTop: "calc(env(safe-area-inset-top, 44px) + 8px)", paddingBottom: 12 }}>
           {/* Back button — large tap target */}
           <button
-            onClick={onClose}
+            onClick={() => { void hapticLight(); onClose(); }}
             className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 text-[#1c1f4c]"
             aria-label="Back"
           >
@@ -1050,7 +1050,7 @@ function HomeSearchOverlay({
               spellCheck={false}
             />
             {query.length > 0 && (
-              <button onClick={() => setQuery("")} className="text-gray-400 shrink-0">
+              <button onClick={() => { void hapticLight(); setQuery(""); }} className="text-gray-400 shrink-0">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1077,7 +1077,7 @@ function HomeSearchOverlay({
               <div className="flex items-center justify-between px-4 mb-2">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Recent</p>
                 <button
-                  onClick={() => { clearRecent(); setRecents([]); }}
+                  onClick={() => { void hapticLight(); clearRecent(); setRecents([]); }}
                   className="text-xs text-[#00c9a7] font-semibold"
                 >
                   Clear
@@ -1086,7 +1086,7 @@ function HomeSearchOverlay({
               {recents.map((term) => (
                 <button
                   key={term}
-                  onClick={() => handleRecentSelect(term)}
+                  onClick={() => { void hapticLight(); handleRecentSelect(term); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 active:bg-gray-50"
                 >
                   <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1122,7 +1122,7 @@ function HomeSearchOverlay({
                         {row.map((site) => (
                           <button
                             key={site.id}
-                            onClick={() => handleSiteSelect(site)}
+                            onClick={() => { void hapticMedium(); handleSiteSelect(site); }}
                             className="flex items-center gap-3 py-2 pr-4 active:bg-gray-50 rounded-xl text-left"
                             style={{ width: "56vw", maxWidth: 240 }}
                           >
@@ -1156,7 +1156,7 @@ function HomeSearchOverlay({
                     {regions.map((region) => (
                       <button
                         key={region.id}
-                        onClick={() => handleRegionSelect(region)}
+                        onClick={() => { void hapticLight(); handleRegionSelect(region); }}
                         className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 border border-gray-200 active:bg-gray-200"
                       >
                         <svg className="w-3 h-3 text-[#00c9a7] shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -1368,15 +1368,14 @@ function MobileHomepage() {
             {gpsStatus === "loading" ? (
               <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : gpsStatus === "granted" ? (
-              /* Solid filled pin — clearly active */
+              /* Solid green pin — clearly active */
               <svg className="w-4 h-4" fill="#4ade80" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
               </svg>
             ) : (
-              /* Outline-style pin — inactive */
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.55)" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              /* Solid white pin — clearly visible, inactive */
+              <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
               </svg>
             )}
           </div>
