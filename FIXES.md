@@ -4,6 +4,52 @@ A record of difficult bugs and their solutions for future reference.
 
 ---
 
+## Technique: "Card over colored header" rounded corners
+
+**Goal:** White scrollable content card with rounded top corners sitting over a colored header, with the header color visibly peeking around the curves — like a native iOS app.
+
+**Why it's tricky:**
+- `overflow-hidden` on the card div clips the border-radius itself, making corners appear cut off
+- `overflow-y-auto` alone doesn't clip border-radius in modern browsers — safe to use directly on the card
+- The page background color shows in the corner "gaps" — if it doesn't match the header color, you see a white/grey halo around the curves instead of the header color
+- High z-index on the header (e.g. `z-[100]`) will draw over the card corners if the card has a lower z-index
+
+**Solution:** Use a dedicated teal "gap strip" div between the header and the card:
+
+```
+┌─────────────────────────────┐  ← fixed header (z-[100])
+│   Heritage of Pakistan  🔔  │
+│   [ Search... ]             │
+│   Pills...                  │
+├─────────────────────────────┤  ← teal strip starts (z-[98], ~48px tall)
+│                      ╭──────┤
+│                      │      │  ← white card (z-[99]), rounded-t-[28px]
+│   Featured           │      │    starts ~20px into the teal strip
+```
+
+```tsx
+{/* Teal strip — fills the gap around the rounded corners */}
+<div
+  className="fixed inset-x-0 bg-[#00c9a7] z-[98]"
+  style={{ top: `calc(${safeTop} + 124px)`, height: "48px" }}
+/>
+
+{/* White card — rounded corners overlap the teal strip */}
+<div
+  className="fixed inset-x-0 bg-[#f2f2f2] rounded-t-[28px] overflow-y-auto z-[99]"
+  style={{ top: `calc(${safeTop} + 152px)`, bottom: "..." }}
+>
+```
+
+**Key rules:**
+1. Do NOT use `overflow-hidden` on the card div — it clips the border-radius
+2. Use `overflow-y-auto` directly on the card — this scrolls without clipping corners
+3. The teal strip must be tall enough to fully wrap the corner radius (strip height > card offset from strip top + corner radius)
+4. Card z-index must be higher than strip, but both below the header
+5. The strip color must match the header background exactly
+
+---
+
 ## Issue: Bottom nav height differs across mobile pages (iOS PWA / TestFlight)
 
 **Symptom:** The bottom navigation bar appeared taller on the Home page than on Explore, Heritage, and Map pages. The safe-area padding below the icons was visibly different.

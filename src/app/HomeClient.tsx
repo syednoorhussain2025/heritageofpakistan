@@ -891,26 +891,75 @@ function MobileHomepage() {
 
   const safeTop = "env(safe-area-inset-top, 44px)";
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const titleRowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const titleRow = titleRowRef.current;
+    if (!container || !titleRow) return;
+
+    // Phase 1: title fades/slides over first ~50px of scroll
+    const TITLE_END = 50;
+
+    const onScroll = () => {
+      const scrollY = container.scrollTop;
+
+      // Phase 1 — title fade + slide up
+      const p1 = Math.min(1, scrollY / TITLE_END);
+      titleRow.style.opacity = `${1 - p1}`;
+      titleRow.style.transform = `translateY(-${p1 * 10}px)`;
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#f2f2f2]">
-      {/* ── Fixed teal header ── */}
-      <div
-        className="fixed inset-x-0 top-0 z-[100] bg-[#00c9a7]"
-        style={{ paddingTop: safeTop }}
-      >
-        <div className="px-4 pb-2 pt-2">
-          {/* Top row: app name + notification */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
-              Heritage of Pakistan
-            </span>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
-          </div>
-          {/* Search bar — taps open Explore search */}
+    <>
+    {/* Teal status bar cover — always visible behind the notch/status area */}
+    <div className="fixed inset-x-0 top-0 z-[101] bg-[#00c9a7]" style={{ height: safeTop }} />
+
+    {/* Single scroll container — teal background, the whole page scrolls inside this */}
+    <div
+      ref={scrollContainerRef}
+      className="fixed inset-x-0 overflow-y-auto bg-[#00c9a7]"
+      style={{ top: 0, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+    >
+      {/* DEFAULT: Title row — scrolls away naturally */}
+      <div ref={titleRowRef} className="px-4 pb-6 relative flex items-center justify-center" style={{ paddingTop: `calc(${safeTop} + 22px)`, willChange: "transform, opacity" }}>
+        {/* GPS indicator — left side */}
+        <button
+          onClick={gpsStatus === "idle" ? requestNearby : undefined}
+          className="absolute left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+          aria-label="Location"
+        >
+          {gpsStatus === "loading" ? (
+            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
+              style={{ color: gpsStatus === "done" ? "#4ade80" : "rgba(255,255,255,0.6)" }}>
+              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            </svg>
+          )}
+        </button>
+
+        <span className="text-white font-extrabold text-2xl tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
+          Heritage of Pakistan
+        </span>
+
+        {/* Bell — right side */}
+        <button className="absolute right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30">
+          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        </button>
+      </div>
+
+      {/* COLLAPSED: Sticky bar — search + pills */}
+      <div className="sticky bg-[#00c9a7] pb-5" style={{ top: safeTop, zIndex: 100 }}>
+        {/* Search bar */}
+        <div className="px-4 pt-1 pb-3">
           <button
             onClick={() => router.push("/explore")}
             className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
@@ -921,107 +970,104 @@ function MobileHomepage() {
             <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites…</span>
           </button>
         </div>
-        {/* Category pills — inside header, below search, full-width scroll */}
+        {/* Category pills */}
         {categories.length > 0 && (
-          <div className="mt-2 pb-2">
+          <div style={{ marginBottom: "0" }}>
             <CategoryPills pills={config.category_pills} categories={categories} />
           </div>
         )}
       </div>
 
-      {/* ── Scrollable content — fixed position card, only inner content scrolls ── */}
-      <div
-        className="fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10"
-        style={{ top: `calc(${safeTop} + 152px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
-      >
-        <div className="pb-24">
+      {/* White card */}
+      <div className="bg-[#f2f2f2] rounded-t-[28px]">
+        <div className="pb-24 pt-7">
 
-        {/* Featured hero carousel */}
-        {featuredSites.length > 0 && (
-          <div className="mt-7">
-            <SectionHeader label="Featured" />
-            <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
-          </div>
-        )}
-
-        {/* Popular Tourist Sites */}
-        {popularSites.length > 0 && (
-          <div className="mt-9">
-            <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
-            <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
-          </div>
-        )}
-
-        {/* Explore by Province */}
-        {provinces.length > 0 && (
-          <div className="mt-9">
-            <SectionHeader label="Explore by Region" onSeeAll={() => router.push("/explore")} />
-            <ProvinceTiles provinces={provinces} covers={config.province_covers} />
-          </div>
-        )}
-
-        {/* Nearby You */}
-        <div className="mt-9">
-          <SectionHeader
-            label="Nearby You"
-            onSeeAll={gpsStatus === "done" ? () => router.push("/explore?nearby=1") : undefined}
-          />
-          {gpsStatus === "idle" && (
-            <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-[#00c9a7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1c1f4c]">See heritage sites near you</p>
-                <p className="text-xs text-gray-400 mt-0.5">Enable location to discover what's close by</p>
-              </div>
-              <button
-                onClick={requestNearby}
-                className="shrink-0 px-3 py-1.5 rounded-full bg-[#00c9a7] text-white text-xs font-bold"
-              >
-                Enable
-              </button>
+          {/* Featured hero carousel */}
+          {featuredSites.length > 0 && (
+            <div>
+              <SectionHeader label="Featured" />
+              <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
             </div>
           )}
-          {gpsStatus === "loading" && (
-            <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-3">
-              <span className="inline-block w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-500">Finding sites near you…</p>
+
+          {/* Popular Tourist Sites */}
+          {popularSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
+              <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
             </div>
           )}
-          {gpsStatus === "denied" && (
-            <p className="mx-4 text-xs text-gray-400">Location access denied. Enable in settings to see nearby sites.</p>
+
+          {/* Nearby You */}
+          <div className="mt-9">
+            <SectionHeader
+              label="Nearby You"
+              onSeeAll={gpsStatus === "done" ? () => router.push("/explore?nearby=1") : undefined}
+            />
+            {gpsStatus === "idle" && (
+              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-[#00c9a7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#1c1f4c]">See heritage sites near you</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Enable location to discover what's close by</p>
+                </div>
+                <button
+                  onClick={requestNearby}
+                  className="shrink-0 px-3 py-1.5 rounded-full bg-[#00c9a7] text-white text-xs font-bold"
+                >
+                  Enable
+                </button>
+              </div>
+            )}
+            {gpsStatus === "loading" && (
+              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-3">
+                <span className="inline-block w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-gray-500">Finding sites near you…</p>
+              </div>
+            )}
+            {gpsStatus === "denied" && (
+              <p className="mx-4 text-xs text-gray-400">Location access denied. Enable in settings to see nearby sites.</p>
+            )}
+            {gpsStatus === "done" && nearbySites.length > 0 && (
+              <HomeCardCarousel sites={nearbySites} onCardClick={setSelectedSite} />
+            )}
+            {gpsStatus === "done" && nearbySites.length === 0 && (
+              <p className="mx-4 text-xs text-gray-400">No sites found nearby.</p>
+            )}
+          </div>
+
+          {/* Architectural Wonders */}
+          {architectureSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Architectural Wonders" onSeeAll={() => router.push("/explore")} />
+              <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
+            </div>
           )}
-          {gpsStatus === "done" && nearbySites.length > 0 && (
-            <HomeCardCarousel sites={nearbySites} onCardClick={setSelectedSite} />
+
+          {/* Explore by Region */}
+          {provinces.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Explore by Region" onSeeAll={() => router.push("/explore")} />
+              <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+            </div>
           )}
-          {gpsStatus === "done" && nearbySites.length === 0 && (
-            <p className="mx-4 text-xs text-gray-400">No sites found nearby.</p>
+
+          {/* Beyond the Tourist Trail */}
+          {beyondTrailSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
+              <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
+            </div>
           )}
+
+          {/* Bottom spacer */}
+          <div className="h-6" />
         </div>
-
-        {/* Architectural Wonders */}
-        {architectureSites.length > 0 && (
-          <div className="mt-9">
-            <SectionHeader label="Architectural Wonders" onSeeAll={() => router.push("/explore")} />
-            <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
-          </div>
-        )}
-
-        {/* Beyond the Tourist Trail */}
-        {beyondTrailSites.length > 0 && (
-          <div className="mt-9">
-            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
-            <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
-          </div>
-        )}
-
-        {/* Bottom spacer */}
-        <div className="h-6" />
-      </div>
       </div>
 
       {/* Site bottom sheet */}
@@ -1031,6 +1077,7 @@ function MobileHomepage() {
         onClose={() => setSelectedSite(null)}
       />
     </div>
+    </>
   );
 }
 
