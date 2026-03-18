@@ -8,6 +8,7 @@ import SiteCarousel from "@/components/SiteCarousel";
 import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 
 export type BottomSheetSite = {
   id: string;
@@ -199,6 +200,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
     const DISMISS_VELOCITY = 0.4; // px/ms
 
     if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
+      void hapticLight();
       // Animate out then close — set closing so backdrop fades in sync
       setClosing(true);
       if (el) el.style.transform = "translateY(100%)";
@@ -298,7 +300,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
             </h2>
             <button
               type="button"
-              onClick={() => setActionsSheetOpen(true)}
+              onClick={() => { void hapticMedium(); setActionsSheetOpen(true); }}
               className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
               title="More actions"
               aria-label="More actions"
@@ -341,6 +343,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
           {/* Open Site */}
           <Link
             href={detailHref}
+            onClick={() => void hapticMedium()}
             className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 active:scale-95 transition-all"
           >
             Open Site

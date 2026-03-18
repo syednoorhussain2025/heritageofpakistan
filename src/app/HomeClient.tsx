@@ -10,6 +10,9 @@ import Link from "next/link";
 import SiteBottomSheet from "@/components/SiteBottomSheet";
 import type { BottomSheetSite } from "@/components/SiteBottomSheet";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import NearbyMeSheet from "@/components/NearbyMeSheet";
+import { useNativeLocation } from "@/hooks/useNativeLocation";
+import { hapticLight, hapticMedium, hapticSelection } from "@/lib/haptics";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -378,7 +381,7 @@ function HomeCardCarousel({
         <button
           key={site.id}
           ref={(el) => { cardRefs.current[i] = el; }}
-          onClick={() => onCardClick ? onCardClick(site) : router.push(`/site/${site.slug}`)}
+          onClick={() => { void hapticMedium(); onCardClick ? onCardClick(site) : router.push(`/site/${site.slug}`); }}
           className="shrink-0 rounded-2xl overflow-hidden bg-white shadow-sm"
           style={{ width: "52vw", maxWidth: 200, scrollSnapAlign: "start", willChange: "transform" }}
         >
@@ -464,6 +467,7 @@ function StoryCarousel({
   const snapToIndex = useCallback((newIndex: number) => {
     const track = trackRef.current;
     if (!track) return;
+    if (newIndex !== indexRef.current) void hapticSelection();
     indexRef.current = newIndex;
     track.style.transition = "transform 0.38s cubic-bezier(0.25,0.1,0.25,1)";
     track.style.transform = `translateX(calc(50vw - ${STORY_CARD_W / 2}vw - ${newIndex} * (${STORY_CARD_W}vw + ${STORY_GAP}px)))`;
@@ -875,7 +879,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
           : pillOptions.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => router.push(`/explore?cats=${cat.id}`)}
+                onClick={() => { void hapticLight(); router.push(`/explore?cats=${cat.id}`); }}
                 className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[#3d4d7a] bg-white/90 border border-white/30 active:bg-white transition-colors"
                 style={{ scrollSnapAlign: "start" }}
               >
@@ -1194,12 +1198,12 @@ function MobileHomepage() {
   const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
   const [architectureSites, setArchitectureSites] = useState<SiteCard[]>([]);
   const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>([]);
-  const [nearbySites, setNearbySites] = useState<SiteCard[]>([]);
   const [categories, setCategories] = useState<Option[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
 
-  // GPS
-  const [gpsStatus, setGpsStatus] = useState<"idle" | "loading" | "done" | "denied">("idle");
+  // GPS — native-aware location hook
+  const { status: gpsStatus, coords: gpsCoords, requestLocation } = useNativeLocation();
+  const [nearbySheetOpen, setNearbySheetOpen] = useState(false);
 
   // Bottom sheet
   const [selectedSite, setSelectedSite] = useState<BottomSheetSite | null>(null);
@@ -1305,30 +1309,11 @@ function MobileHomepage() {
   }, [config.featured.join(","), config.popular.join(","), (config.architecture || config.unknown_pakistan || []).join(","), (config.beyond_tourist_trail || []).join(",")]);
 
   // ── GPS / Nearby ──
-  function requestNearby() {
-    if (!navigator.geolocation) { setGpsStatus("denied"); return; }
-    setGpsStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        void lat; void lng; // coords fetched for future distance sorting
-        // Use PostgREST RPC if available, else fallback to simple query
-        const { data } = await sb
-          .from("sites")
-          .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
-          .eq("is_published", true)
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .limit(10);
-        if (data) {
-          await ensureProvinceSlugOnSites(data as SiteCard[]);
-          setNearbySites(data as SiteCard[]);
-        }
-        setGpsStatus("done");
-      },
-      () => setGpsStatus("denied"),
-      { timeout: 8000 }
-    );
+  async function requestNearby() {
+    const coords = await requestLocation();
+    if (coords) {
+      setNearbySheetOpen(true);
+    }
   }
 
   const safeTop = "env(safe-area-inset-top, 44px)";
@@ -1372,7 +1357,7 @@ function MobileHomepage() {
       <div ref={titleRowRef} className="px-4 pb-6 relative flex items-center justify-center" style={{ paddingTop: `calc(${safeTop} + 22px)`, willChange: "transform, opacity" }}>
         {/* GPS indicator — left side */}
         <button
-          onClick={gpsStatus === "idle" ? requestNearby : undefined}
+          onClick={gpsStatus === "granted" ? () => { void hapticLight(); setNearbySheetOpen(true); } : requestNearby}
           className="absolute left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30"
           aria-label="Location"
         >
@@ -1380,7 +1365,7 @@ function MobileHomepage() {
             <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
-              style={{ color: gpsStatus === "done" ? "#4ade80" : "rgba(255,255,255,0.6)" }}>
+              style={{ color: gpsStatus === "granted" ? "#4ade80" : "rgba(255,255,255,0.6)" }}>
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
           )}
@@ -1446,9 +1431,9 @@ function MobileHomepage() {
           <div className="mt-9">
             <SectionHeader
               label="Nearby You"
-              onSeeAll={gpsStatus === "done" ? () => router.push("/explore?nearby=1") : undefined}
+              onSeeAll={gpsStatus === "granted" ? () => setNearbySheetOpen(true) : undefined}
             />
-            {gpsStatus === "idle" && (
+            {(gpsStatus === "idle" || gpsStatus === "denied") && (
               <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-[#00c9a7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1457,31 +1442,49 @@ function MobileHomepage() {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#1c1f4c]">See heritage sites near you</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Enable location to discover what's close by</p>
+                  <p className="text-sm font-semibold text-[#1c1f4c]">
+                    {gpsStatus === "denied" ? "Location access denied" : "See heritage sites near you"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {gpsStatus === "denied"
+                      ? "Enable location in your device settings to see nearby sites."
+                      : "Enable location to discover what's close by"}
+                  </p>
                 </div>
-                <button
-                  onClick={requestNearby}
-                  className="shrink-0 px-3 py-1.5 rounded-full bg-[#00c9a7] text-white text-xs font-bold"
-                >
-                  Enable
-                </button>
+                {gpsStatus === "idle" && (
+                  <button
+                    onClick={() => { void hapticMedium(); void requestNearby(); }}
+                    className="shrink-0 px-3 py-1.5 rounded-full bg-[#00c9a7] text-white text-xs font-bold"
+                  >
+                    Enable
+                  </button>
+                )}
               </div>
             )}
             {gpsStatus === "loading" && (
               <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-3">
                 <span className="inline-block w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-gray-500">Finding sites near you…</p>
+                <p className="text-sm text-gray-500">Getting your location…</p>
               </div>
             )}
-            {gpsStatus === "denied" && (
-              <p className="mx-4 text-xs text-gray-400">Location access denied. Enable in settings to see nearby sites.</p>
-            )}
-            {gpsStatus === "done" && nearbySites.length > 0 && (
-              <HomeCardCarousel sites={nearbySites} onCardClick={setSelectedSite} />
-            )}
-            {gpsStatus === "done" && nearbySites.length === 0 && (
-              <p className="mx-4 text-xs text-gray-400">No sites found nearby.</p>
+            {gpsStatus === "granted" && (
+              <button
+                onClick={() => { void hapticMedium(); setNearbySheetOpen(true); }}
+                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4 text-left active:bg-gray-50"
+              >
+                <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-[#00c9a7]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#1c1f4c]">Nearby Me</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Tap to see heritage sites within 20 km</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             )}
           </div>
 
@@ -1527,6 +1530,15 @@ function MobileHomepage() {
         site={selectedSite}
         isOpen={selectedSite !== null}
         onClose={() => setSelectedSite(null)}
+      />
+
+      {/* Nearby Me sheet */}
+      <NearbyMeSheet
+        isOpen={nearbySheetOpen}
+        lat={gpsCoords?.lat ?? null}
+        lng={gpsCoords?.lng ?? null}
+        onClose={() => setNearbySheetOpen(false)}
+        onSiteSelect={(site) => setSelectedSite(site)}
       />
     </div>
     </>

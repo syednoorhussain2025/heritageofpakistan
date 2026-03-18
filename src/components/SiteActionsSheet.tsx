@@ -9,6 +9,7 @@ import AddToTripModal from "@/components/AddToTripModal";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 
 export type SiteActionsSheetSite = {
   id: string;
@@ -123,6 +124,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
     if (el) el.style.transition = "";
 
     if (dy >= 80 || velocity >= 0.4) {
+      void hapticLight();
       setClosing(true);
       if (el) el.style.transform = "translateY(100%)";
       closeTimerRef.current = window.setTimeout(() => {
@@ -242,7 +244,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               href={detailHref}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={closeSheet}
+              onClick={() => { void hapticMedium(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -253,7 +255,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
-              onClick={() => { closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -264,7 +266,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
-              onClick={() => { closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -275,7 +277,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="mx-6 h-[0.5px] bg-gray-300" />
             <button
               type="button"
-              onClick={() => { void handlePlacesNearby(); }}
+              onClick={() => { void hapticMedium(); void handlePlacesNearby(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -291,7 +293,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               href={galleryHref}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={closeSheet}
+              onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -304,7 +306,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               href={photoStoryHref}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={closeSheet}
+              onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -319,7 +321,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   href={googleMapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={closeSheet}
+                  onClick={() => { void hapticLight(); closeSheet(); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
@@ -335,7 +337,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           <div className="mx-4 mb-4 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <button
               type="button"
-              onClick={closeSheet}
+              onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full px-4 py-4 text-[15px] font-semibold text-[var(--brand-blue)] active:bg-gray-50"
             >
               Cancel

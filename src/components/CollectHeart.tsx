@@ -6,6 +6,7 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import Icon from "@/components/Icon";
 import { motion } from "framer-motion";
+import { hapticSuccess } from "@/lib/haptics";
 
 type Props = {
   siteImageId?: string | null;
@@ -89,6 +90,7 @@ export default function CollectHeart({
       if (!ok) return;
     }
 
+    void hapticSuccess();
     // trigger popping animation
     setPopping(true);
     if (popTimerRef.current !== null) {
