@@ -112,6 +112,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
       setClosing(false);
       return;
     }
+    void hapticMedium();
     raf1Ref.current = requestAnimationFrame(() => {
       raf2Ref.current = requestAnimationFrame(() => {
         raf2Ref.current = null;
@@ -126,6 +127,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
+    void hapticLight();
     setClosing(true);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;

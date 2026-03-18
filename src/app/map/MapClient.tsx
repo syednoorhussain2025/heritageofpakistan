@@ -11,6 +11,7 @@ import NearbySearchModal from "@/components/NearbySearchModal";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
+import { hapticMedium } from "@/lib/haptics";
 import { getPublicClient } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { getWishlistItems } from "@/lib/wishlists";
@@ -1200,6 +1201,7 @@ export default function MapClient() {
 
   // Called when the user clicks a pin or the preview card on the map
   const handleSiteSelect = useCallback((site: MapSite) => {
+    void hapticMedium();
     setSelectedMapSite(site);
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 1023px)").matches) {
       setMobilePanelMode("site");

@@ -14,10 +14,14 @@ export interface LocationCoords {
  * On Capacitor (iOS/Android) it uses @capacitor/geolocation which
  * triggers the native permission dialog.
  * On web it falls back to the browser Geolocation API.
+ *
+ * Also reverse-geocodes the position to a city name using
+ * OpenStreetMap Nominatim (free, no API key required).
  */
 export function useNativeLocation() {
   const [status, setStatus] = useState<LocationStatus>("idle");
   const [coords, setCoords] = useState<LocationCoords | null>(null);
+  const [cityName, setCityName] = useState<string | null>(null);
 
   const requestLocation = useCallback(async (): Promise<LocationCoords | null> => {
     setStatus("loading");
@@ -29,11 +33,11 @@ export function useNativeLocation() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         !!(window as any).Capacitor?.isNativePlatform?.();
 
+      let result: LocationCoords;
+
       if (isNative) {
-        // Dynamically import so the server bundle is not affected
         const { Geolocation } = await import("@capacitor/geolocation");
 
-        // Request permission first (required on iOS)
         const perm = await Geolocation.requestPermissions();
         if (
           perm.location !== "granted" &&
@@ -48,15 +52,11 @@ export function useNativeLocation() {
           timeout: 10000,
         });
 
-        const result: LocationCoords = {
+        result = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        setCoords(result);
-        setStatus("granted");
-        return result;
       } else {
-        // Browser fallback
         if (!navigator.geolocation) {
           setStatus("denied");
           return null;
@@ -70,19 +70,48 @@ export function useNativeLocation() {
             })
         );
 
-        const result: LocationCoords = {
+        result = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        setCoords(result);
-        setStatus("granted");
-        return result;
       }
+
+      setCoords(result);
+      setStatus("granted");
+
+      // Reverse geocode in background — non-blocking
+      reverseGeocode(result.lat, result.lng).then(setCityName).catch(() => {});
+
+      return result;
     } catch {
       setStatus("denied");
       return null;
     }
   }, []);
 
-  return { status, coords, requestLocation };
+  return { status, coords, cityName, requestLocation };
+}
+
+/**
+ * Reverse geocode using OpenStreetMap Nominatim.
+ * Returns the most specific locality name available:
+ * city > town > village > county > state
+ */
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1`;
+  const res = await fetch(url, {
+    headers: { "Accept-Language": "en" },
+  });
+  if (!res.ok) throw new Error("Nominatim error");
+  const json = await res.json();
+  const a = json.address ?? {};
+  return (
+    a.city ||
+    a.town ||
+    a.village ||
+    a.suburb ||
+    a.county ||
+    a.state ||
+    "Your Location"
+  );
 }

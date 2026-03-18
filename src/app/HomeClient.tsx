@@ -555,6 +555,7 @@ function StoryCarousel({
               onClick={() => {
                 if (isSwiping.current) return;
                 if (!isActive) { snapToIndex(i); return; }
+                void hapticMedium();
                 if (onCardClick) onCardClick(site);
                 else router.push(`/heritage/${site.slug}`);
               }}
@@ -697,6 +698,7 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
     if (Math.abs(dragDeltaRef.current) > 5) return;
     const site = sites[index];
     if (!site) return;
+    void hapticMedium();
     if (onCardClick) onCardClick(site);
     else router.push(`/site/${site.slug}`);
   }
@@ -1202,7 +1204,7 @@ function MobileHomepage() {
   const [provinces, setProvinces] = useState<Province[]>([]);
 
   // GPS — native-aware location hook
-  const { status: gpsStatus, coords: gpsCoords, requestLocation } = useNativeLocation();
+  const { status: gpsStatus, coords: gpsCoords, cityName: gpsCityName, requestLocation } = useNativeLocation();
   const [nearbySheetOpen, setNearbySheetOpen] = useState(false);
 
   // Bottom sheet
@@ -1358,16 +1360,36 @@ function MobileHomepage() {
         {/* GPS indicator — left side */}
         <button
           onClick={gpsStatus === "granted" ? () => { void hapticLight(); setNearbySheetOpen(true); } : requestNearby}
-          className="absolute left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+          className="absolute left-4 flex flex-col items-center gap-0.5 active:opacity-70"
           aria-label="Location"
         >
-          {gpsStatus === "loading" ? (
-            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
-              style={{ color: gpsStatus === "granted" ? "#4ade80" : "rgba(255,255,255,0.6)" }}>
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            </svg>
+          {/* Icon row */}
+          <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" ? "bg-white/30" : "bg-white/20"}`}>
+            {gpsStatus === "loading" ? (
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : gpsStatus === "granted" ? (
+              /* Solid filled pin — clearly active */
+              <svg className="w-4 h-4" fill="#4ade80" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              /* Outline-style pin — inactive */
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.55)" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            )}
+          </div>
+          {/* City label — only when granted */}
+          {gpsStatus === "granted" && (
+            <span className="text-[9px] font-semibold text-white/90 leading-none max-w-[56px] truncate text-center">
+              {gpsCityName ?? "Located"}
+            </span>
+          )}
+          {gpsStatus === "idle" && (
+            <span className="text-[9px] font-medium text-white/50 leading-none">
+              Tap
+            </span>
           )}
         </button>
 
@@ -1470,16 +1492,21 @@ function MobileHomepage() {
             {gpsStatus === "granted" && (
               <button
                 onClick={() => { void hapticMedium(); setNearbySheetOpen(true); }}
-                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4 text-left active:bg-gray-50"
+                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50"
               >
-                <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[#00c9a7]" fill="currentColor" viewBox="0 0 20 20">
+                <div className="w-10 h-10 rounded-full bg-[#00c9a7] flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#1c1f4c]">Nearby Me</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Tap to see heritage sites within 20 km</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-bold text-[#1c1f4c]">See Nearby Sites</p>
+                    <span className="text-[10px] font-semibold text-white bg-[#00c9a7] px-1.5 py-0.5 rounded-full leading-none">20 km</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">
+                    {gpsCityName ? `Near ${gpsCityName}` : "Heritage sites around you"}
+                  </p>
                 </div>
                 <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1537,6 +1564,7 @@ function MobileHomepage() {
         isOpen={nearbySheetOpen}
         lat={gpsCoords?.lat ?? null}
         lng={gpsCoords?.lng ?? null}
+        cityName={gpsCityName}
         onClose={() => setNearbySheetOpen(false)}
         onSiteSelect={(site) => setSelectedSite(site)}
       />

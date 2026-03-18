@@ -73,6 +73,7 @@ interface Props {
   isOpen: boolean;
   lat: number | null;
   lng: number | null;
+  cityName?: string | null;
   onClose: () => void;
   onSiteSelect: (site: { id: string; slug: string; province_slug?: string | null; title: string; cover_photo_url?: string | null; cover_photo_thumb_url?: string | null; heritage_type?: string | null; avg_rating?: number | null; review_count?: number | null; location_free?: string | null; tagline?: string | null; cover_slideshow_image_ids?: string[] | null }) => void;
 }
@@ -81,6 +82,7 @@ export default function NearbyMeSheet({
   isOpen,
   lat,
   lng,
+  cityName,
   onClose,
   onSiteSelect,
 }: Props) {
@@ -235,7 +237,8 @@ export default function NearbyMeSheet({
         className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] flex flex-col transition-transform duration-300 ease-out"
         style={{
           transform: visible ? "translateY(0)" : "translateY(100%)",
-          maxHeight: "85dvh",
+          minHeight: "75dvh",
+          maxHeight: "90dvh",
           paddingBottom: "env(safe-area-inset-bottom, 16px)",
         }}
         onTouchStart={onTouchStart}
@@ -252,7 +255,7 @@ export default function NearbyMeSheet({
           <div>
             <h2 className="text-lg font-bold text-[#1c1f4c]">Nearby Me</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Heritage sites within {RADIUS_KM} km
+              {cityName ? `Within ${RADIUS_KM} km of ${cityName}` : `Heritage sites within ${RADIUS_KM} km`}
             </p>
           </div>
           <button
