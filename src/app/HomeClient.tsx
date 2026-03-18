@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import { getPublicClient } from "@/lib/supabase/browser";
@@ -11,6 +12,29 @@ import type { BottomSheetSite } from "@/components/SiteBottomSheet";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
+
+type SearchSite = {
+  id: string;
+  slug: string;
+  province_slug?: string | null;
+  province_id?: string | null;
+  title: string;
+  cover_photo_thumb_url?: string | null;
+  cover_photo_url?: string | null;
+  heritage_type?: string | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+  location_free?: string | null;
+  tagline?: string | null;
+  cover_slideshow_image_ids?: string[] | null;
+};
+
+type SearchRegion = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  parent_id?: string | null;
+};
 
 type Option = { id: string; name: string; slug?: string };
 type Region = { id: string; name: string; parent_id: string | null };
@@ -27,6 +51,7 @@ type SiteCard = {
   avg_rating: number | null;
   review_count?: number | null;
   province_id: string | null;
+  province_slug?: string | null;
   tagline?: string | null;
   cover_slideshow_image_ids?: string[] | null;
 };
@@ -48,11 +73,130 @@ type Province = {
   site_count?: number;
 };
 
+/* ─── Province slug cache ─────────────────────────────────────────────────── */
+
+const _provinceSlugCache = new Map<string, string>();
+let _provinceSlugCachePromise: Promise<void> | null = null;
+
+function warmProvinceSlugCache(): Promise<void> {
+  if (_provinceSlugCachePromise) return _provinceSlugCachePromise;
+  _provinceSlugCachePromise = (async () => {
+    try {
+      const { data } = await getPublicClient().from("provinces").select("id, slug");
+      for (const p of (data || []) as { id: string; slug: string | null }[]) {
+        if (p.id != null) _provinceSlugCache.set(String(p.id), p.slug ?? "");
+      }
+    } catch { /* safe — province_slug will be absent but no crash */ }
+  })();
+  return _provinceSlugCachePromise;
+}
+
+async function ensureProvinceSlugOnSites(sites: SiteCard[]) {
+  const missing = sites.filter((s) => !s.province_slug);
+  if (!missing.length) return;
+  await warmProvinceSlugCache();
+  for (const s of missing) {
+    if (s.province_id != null) {
+      const slug = _provinceSlugCache.get(String(s.province_id)) ?? null;
+      s.province_slug = slug && slug.length > 0 ? slug : null;
+    }
+  }
+}
+
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 const FALLBACK_GRADIENT = "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="#00b78b"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
 );
+
+/* ─── Skeleton components ─────────────────────────────────────────────────── */
+
+
+const SK = "animate-pulse bg-gray-200 rounded-2xl";
+
+// Section header placeholder — matches `px-4 mb-3` + text-xl height (~28px)
+function SkHeader({ width }: { width: string }) {
+  return (
+    <div className="flex items-center px-4 mb-3" style={{ height: 28 }}>
+      <div className={`animate-pulse bg-gray-200 rounded-full h-5`} style={{ width }} />
+    </div>
+  );
+}
+
+function HomeSkeleton() {
+  return (
+    <div className="pb-24 pt-7">
+
+      {/* ── Featured hero ── mx-4 rounded-2xl aspect-[16/9] */}
+      <SkHeader width="72px" />
+      <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
+
+      {/* ── Popular Tourist Sites ── gap-3 px-4, cards 52vw/200 4:3 + ~40px footer */}
+      <div className="mt-9">
+        <SkHeader width="160px" />
+        <div className="flex gap-3 px-4 pb-1 overflow-hidden">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="shrink-0 animate-pulse bg-gray-200 rounded-2xl overflow-hidden shadow-sm" style={{ width: "52vw", maxWidth: 200 }}>
+              <div className="bg-gray-300" style={{ aspectRatio: "4/3" }} />
+              <div className="px-2.5 py-2 space-y-1.5">
+                <div className="h-3 bg-gray-300 rounded-full w-3/4" />
+                <div className="h-2.5 bg-gray-300 rounded-full w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Nearby You ── static prompt card height ~88px */}
+      <div className="mt-9">
+        <SkHeader width="80px" />
+        <div className={`${SK} mx-4`} style={{ height: 88 }} />
+      </div>
+
+      {/* ── Architectural Wonders ── StoryCarousel: height calc(72vw * 5/4) */}
+      <div className="mt-9">
+        <SkHeader width="176px" />
+        <div className="relative overflow-hidden pb-4" style={{ height: "calc(72vw * 5 / 4)" }}>
+          <div className="flex items-center gap-3 absolute inset-0" style={{ paddingLeft: "calc(50vw - 36vw)" }}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="shrink-0 animate-pulse bg-gray-200 rounded-3xl"
+                style={{
+                  width: "72vw",
+                  height: "calc(72vw * 5 / 4)",
+                  transform: `scale(${i === 0 ? 1 : 0.88})`,
+                  transformOrigin: "center center",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Explore by Region ── horizontal scroll, cards 70vw/280 × 44vw/176 */}
+      <div className="mt-9">
+        <SkHeader width="140px" />
+        <div className="flex gap-3 px-4 pb-2 overflow-hidden">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={`shrink-0 ${SK}`}
+              style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Beyond the Tourist Trail ── same as Featured: mx-4 aspect-[16/9] */}
+      <div className="mt-9">
+        <SkHeader width="192px" />
+        <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
+      </div>
+
+    </div>
+  );
+}
 
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
@@ -717,29 +861,314 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
       .filter(Boolean) as Option[];
   }, [pills, categories]);
 
-  if (pillOptions.length === 0) return null;
-
   return (
     <div className="relative">
-      {/* Scroll row */}
       <div
         className="flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none"
         style={{ WebkitOverflowScrolling: "touch", scrollSnapType: "x mandatory" }}
       >
-        {pillOptions.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => router.push(`/explore?cats=${cat.id}`)}
-            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[#3d4d7a] bg-white/90 border border-white/30 active:bg-white transition-colors"
-            style={{ scrollSnapAlign: "start" }}
-          >
-            {cat.name}
-          </button>
-        ))}
-        {/* Right padding so last pill doesn't sit flush against edge */}
+        {pillOptions.length === 0
+          ? /* height-reserving ghost pills while loading */
+            [80, 64, 96, 72, 88].map((w, i) => (
+              <div key={i} className="shrink-0 px-3 py-1.5 rounded-full bg-transparent" style={{ width: w }} />
+            ))
+          : pillOptions.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => router.push(`/explore?cats=${cat.id}`)}
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[#3d4d7a] bg-white/90 border border-white/30 active:bg-white transition-colors"
+                style={{ scrollSnapAlign: "start" }}
+              >
+                {cat.name}
+              </button>
+            ))}
         <div className="shrink-0 w-4" />
       </div>
     </div>
+  );
+}
+
+/* ─── HomeSearchOverlay ──────────────────────────────────────────────────── */
+
+const RECENT_KEY = "home_recent_searches";
+const MAX_RECENT = 8;
+
+function loadRecent(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; }
+}
+function saveRecent(q: string) {
+  try {
+    const prev = loadRecent().filter((s) => s !== q);
+    localStorage.setItem(RECENT_KEY, JSON.stringify([q, ...prev].slice(0, MAX_RECENT)));
+  } catch {}
+}
+function clearRecent() {
+  try { localStorage.removeItem(RECENT_KEY); } catch {}
+}
+
+function HomeSearchOverlay({
+  isOpen,
+  onClose,
+  onSiteSelect,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSiteSelect: (site: BottomSheetSite) => void;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sites, setSites] = useState<SearchSite[]>([]);
+  const [regions, setRegions] = useState<SearchRegion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [recents, setRecents] = useState<string[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mount → next frame → slide in (same double-RAF as SiteBottomSheet)
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      setRecents(loadRecent());
+      const r1 = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setVisible(true);
+          // Focus after the slide starts so keyboard doesn't jank the animation
+          setTimeout(() => inputRef.current?.focus(), 50);
+        });
+      });
+      return () => cancelAnimationFrame(r1);
+    } else {
+      setVisible(false);
+      const t = setTimeout(() => {
+        setMounted(false);
+        setQuery("");
+        setSites([]);
+        setRegions([]);
+      }, 320);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  // Debounced search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) { setSites([]); setRegions([]); setLoading(false); return; }
+    setLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      const q = query.trim();
+      const sb = getPublicClient();
+      const [sitesRes, regionsRes] = await Promise.all([
+        sb.from("sites")
+          .select("id, slug, province_id, title, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, location_free, tagline, cover_slideshow_image_ids")
+          .eq("is_published", true)
+          .or(`title.ilike.%${q}%,location_free.ilike.%${q}%`)
+          .limit(15),
+        sb.from("regions")
+          .select("id, name, slug, parent_id")
+          .ilike("name", `%${q}%`)
+          .order("name")
+          .limit(10),
+      ]);
+      const fetchedSites = (sitesRes.data || []) as SearchSite[];
+      await ensureProvinceSlugOnSites(fetchedSites as any[]);
+      setSites(fetchedSites);
+      setRegions((regionsRes.data || []) as SearchRegion[]);
+      setLoading(false);
+    }, 280);
+  }, [query]);
+
+  function handleSiteSelect(site: SearchSite) {
+    saveRecent(site.title);
+    onSiteSelect(site as BottomSheetSite);
+    onClose();
+  }
+
+  function handleRegionSelect(region: SearchRegion) {
+    saveRecent(region.name);
+    router.push(`/explore?regs=${region.id}`);
+    onClose();
+  }
+
+  function handleRecentSelect(term: string) {
+    setQuery(term);
+    inputRef.current?.focus();
+  }
+
+  const hasResults = sites.length > 0 || regions.length > 0;
+  const showEmpty = !loading && query.trim().length > 0 && !hasResults;
+  // Split sites into columns of 4 for horizontal scroll grid
+  const siteRows: SearchSite[][] = [];
+  for (let i = 0; i < sites.length; i += 4) siteRows.push(sites.slice(i, i + 4));
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <>
+      {/* Full-screen white backdrop — renders into body, escaping scroll container stacking context */}
+      <div className="fixed inset-0 z-[400] bg-white" />
+
+      {/* Content slides up from bottom inside the already-white screen */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[401] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${visible ? "translate-y-0" : "translate-y-full"}`}
+        style={{ top: 0 }}
+      >
+        {/* ── Search bar row — just below status bar ── */}
+        <div className="flex items-center gap-2 px-3 shrink-0" style={{ paddingTop: "calc(env(safe-area-inset-top, 44px) + 8px)", paddingBottom: 12 }}>
+          {/* Back button — large tap target */}
+          <button
+            onClick={onClose}
+            className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 text-[#1c1f4c]"
+            aria-label="Back"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Pill input */}
+          <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5">
+            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search sites, places, regions…"
+              className="flex-1 text-sm text-gray-800 placeholder-gray-400 outline-none bg-transparent"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            {query.length > 0 && (
+              <button onClick={() => setQuery("")} className="text-gray-400 shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-gray-100 shrink-0" />
+
+        {/* ── Scrollable results area ── */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex justify-center py-10">
+              <span className="w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {/* Recent searches — shown when idle */}
+          {!loading && !query.trim() && recents.length > 0 && (
+            <div className="pt-5 pb-4">
+              <div className="flex items-center justify-between px-4 mb-2">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Recent</p>
+                <button
+                  onClick={() => { clearRecent(); setRecents([]); }}
+                  className="text-xs text-[#00c9a7] font-semibold"
+                >
+                  Clear
+                </button>
+              </div>
+              {recents.map((term) => (
+                <button
+                  key={term}
+                  onClick={() => handleRecentSelect(term)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 active:bg-gray-50"
+                >
+                  <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-gray-600">{term}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Idle, no recents */}
+          {!loading && !query.trim() && recents.length === 0 && (
+            <p className="text-center text-sm text-gray-400 mt-16">Start typing to search…</p>
+          )}
+
+          {/* Empty */}
+          {showEmpty && (
+            <p className="text-center text-sm text-gray-400 mt-16">No results for "<span className="text-gray-600">{query}</span>"</p>
+          )}
+
+          {/* Results */}
+          {!loading && hasResults && (
+            <div className="pt-4 pb-12 space-y-6">
+
+              {/* ── Sites — horizontal scroll, 3 rows ── */}
+              {sites.length > 0 && (
+                <div>
+                  <p className="px-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Sites</p>
+                  <div className="flex gap-3 px-4 overflow-x-auto pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
+                    {siteRows.map((row, ri) => (
+                      <div key={ri} className="flex flex-col gap-1 shrink-0">
+                        {row.map((site) => (
+                          <button
+                            key={site.id}
+                            onClick={() => handleSiteSelect(site)}
+                            className="flex items-center gap-3 py-2 pr-4 active:bg-gray-50 rounded-xl text-left"
+                            style={{ width: "56vw", maxWidth: 240 }}
+                          >
+                            <div className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-gray-100">
+                              <img
+                                src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
+                                alt={site.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-[#1c1f4c] leading-tight truncate">{site.title}</div>
+                              {site.location_free && (
+                                <div className="text-[11px] text-gray-400 truncate">{site.location_free}</div>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Regions / Locations ── */}
+              {regions.length > 0 && (
+                <div>
+                  <p className="px-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Regions & Locations</p>
+                  <div className="flex gap-2.5 px-4 overflow-x-auto pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
+                    {regions.map((region) => (
+                      <button
+                        key={region.id}
+                        onClick={() => handleRegionSelect(region)}
+                        className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 border border-gray-200 active:bg-gray-200"
+                      >
+                        <svg className="w-3 h-3 text-[#00c9a7] shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-semibold text-[#1c1f4c] whitespace-nowrap">{region.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
   );
 }
 
@@ -757,6 +1186,7 @@ function MobileHomepage() {
   const router = useRouter();
 
   // Config from admin
+  const [configLoading, setConfigLoading] = useState(true);
   const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
 
   // Site data
@@ -774,8 +1204,8 @@ function MobileHomepage() {
   // Bottom sheet
   const [selectedSite, setSelectedSite] = useState<BottomSheetSite | null>(null);
 
-  // Search bar
-  const [searchFocused, setSearchFocused] = useState(false);
+  // Search overlay
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const sb = getPublicClient();
 
@@ -806,19 +1236,24 @@ function MobileHomepage() {
         }
       }
       setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
+      setConfigLoading(false);
     })();
   }, []);
 
   // ── Load featured + unknown once config is ready ──
   useEffect(() => {
+    // Pre-warm the province slug cache so lookups are instant when sites load
+    warmProvinceSlugCache();
+
     if (config.featured.length > 0) {
       sb.from("sites")
         .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", config.featured)
         .eq("is_published", true)
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data) {
-            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
             setFeaturedSites(config.featured.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
           }
         });
@@ -829,9 +1264,10 @@ function MobileHomepage() {
         .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", config.popular)
         .eq("is_published", true)
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data) {
-            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
             setPopularSites(config.popular.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
           }
         });
@@ -844,9 +1280,10 @@ function MobileHomepage() {
         .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", archIds)
         .eq("is_published", true)
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data) {
-            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
             setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
           }
         });
@@ -857,9 +1294,10 @@ function MobileHomepage() {
         .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
         .in("id", config.beyond_tourist_trail)
         .eq("is_published", true)
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data) {
-            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
             setBeyondTrailSites(config.beyond_tourist_trail.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
           }
         });
@@ -873,6 +1311,7 @@ function MobileHomepage() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
+        void lat; void lng; // coords fetched for future distance sorting
         // Use PostgREST RPC if available, else fallback to simple query
         const { data } = await sb
           .from("sites")
@@ -881,7 +1320,10 @@ function MobileHomepage() {
           .not("latitude", "is", null)
           .not("longitude", "is", null)
           .limit(10);
-        if (data) setNearbySites(data as SiteCard[]);
+        if (data) {
+          await ensureProvinceSlugOnSites(data as SiteCard[]);
+          setNearbySites(data as SiteCard[]);
+        }
         setGpsStatus("done");
       },
       () => setGpsStatus("denied"),
@@ -961,7 +1403,7 @@ function MobileHomepage() {
         {/* Search bar */}
         <div className="px-4 pt-1 pb-3">
           <button
-            onClick={() => router.push("/explore")}
+            onClick={() => setSearchOpen(true)}
             className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
           >
             <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -970,17 +1412,19 @@ function MobileHomepage() {
             <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites…</span>
           </button>
         </div>
-        {/* Category pills */}
-        {categories.length > 0 && (
-          <div style={{ marginBottom: "0" }}>
-            <CategoryPills pills={config.category_pills} categories={categories} />
-          </div>
-        )}
+        {/* Category pills — fixed height to prevent layout shift */}
+        <div
+          className="transition-opacity duration-300"
+          style={{ minHeight: 32, opacity: categories.length > 0 ? 1 : 0 }}
+        >
+          <CategoryPills pills={config.category_pills} categories={categories} />
+        </div>
       </div>
 
-      {/* White card */}
-      <div className="bg-[#f2f2f2] rounded-t-[28px]">
-        <div className="pb-24 pt-7">
+      {/* Content card — min-h ensures teal bg never flickers through */}
+      <div className="bg-[#f2f2f2] rounded-t-[28px] min-h-screen">
+        {configLoading ? <HomeSkeleton /> : (
+        <div className="pb-24 pt-7 animate-fadeIn">
 
           {/* Featured hero carousel */}
           {featuredSites.length > 0 && (
@@ -1068,7 +1512,15 @@ function MobileHomepage() {
           {/* Bottom spacer */}
           <div className="h-6" />
         </div>
+        )}
       </div>
+
+      {/* Search overlay */}
+      <HomeSearchOverlay
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSiteSelect={(site) => { setSelectedSite(site); }}
+      />
 
       {/* Site bottom sheet */}
       <SiteBottomSheet
