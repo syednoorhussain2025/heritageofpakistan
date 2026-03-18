@@ -150,7 +150,7 @@ export function useNativeLocation() {
  * city > town > village > county > state
  */
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1`;
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1&accept-language=en`;
   const res = await fetch(url, {
     headers: { "Accept-Language": "en" },
   });
