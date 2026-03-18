@@ -1368,13 +1368,13 @@ function MobileHomepage() {
             {gpsStatus === "loading" ? (
               <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : gpsStatus === "granted" ? (
-              /* Solid green pin — clearly active */
-              <svg className="w-4 h-4" fill="#4ade80" viewBox="0 0 20 20">
+              /* Solid white pin — granted, visible on teal */
+              <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
               </svg>
             ) : (
-              /* Solid white pin — clearly visible, inactive */
-              <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20">
+              /* Dim white pin — idle, not yet enabled */
+              <svg className="w-4 h-4" fill="rgba(255,255,255,0.35)" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
               </svg>
             )}
