@@ -26,7 +26,9 @@ type SitePick = {
 type MobileHomepageConfig = {
   featured: string[];
   popular: string[];
-  unknown_pakistan: string[];
+  unknown_pakistan: string[]; // legacy
+  architecture: string[];
+  beyond_tourist_trail: string[];
   category_pills: string[];
   province_covers: Record<string, string>; // province_id → cover_photo_url
 };
@@ -559,12 +561,13 @@ export default function AdminHomeEditor() {
   const [mobileMessage, setMobileMessage] = useState<string | null>(null);
   const [featuredIds, setFeaturedIds] = useState<string[]>([]);
   const [popularIds, setPopularIds] = useState<string[]>([]);
-  const [unknownPakistanIds, setUnknownPakistanIds] = useState<string[]>([]);
+  const [architectureIds, setArchitectureIds] = useState<string[]>([]);
+  const [beyondTrailIds, setBeyondTrailIds] = useState<string[]>([]);
   const [categoryPills, setCategoryPills] = useState<string[]>([]);
   const [provinceCovers, setProvinceCovers] = useState<Record<string, string>>({});
 
   // Modal state
-  const [openModal, setOpenModal] = useState<null | "featured" | "popular" | "unknown_pakistan">(null);
+  const [openModal, setOpenModal] = useState<null | "featured" | "popular" | "architecture" | "beyond_tourist_trail">(null);
 
   // Cleanup preview URL
   useEffect(() => {
@@ -601,7 +604,9 @@ export default function AdminHomeEditor() {
         const cfg = (mobileRes.data.value || {}) as MobileHomepageConfig;
         setFeaturedIds(cfg.featured || []);
         setPopularIds(cfg.popular || []);
-        setUnknownPakistanIds(cfg.unknown_pakistan || []);
+        // architecture falls back to legacy unknown_pakistan
+        setArchitectureIds(cfg.architecture?.length > 0 ? cfg.architecture : (cfg.unknown_pakistan || []));
+        setBeyondTrailIds(cfg.beyond_tourist_trail || []);
         setCategoryPills(cfg.category_pills || []);
         setProvinceCovers(cfg.province_covers || {});
       }
@@ -669,7 +674,9 @@ export default function AdminHomeEditor() {
       const cfg: MobileHomepageConfig = {
         featured: featuredIds,
         popular: popularIds,
-        unknown_pakistan: unknownPakistanIds,
+        unknown_pakistan: [], // cleared — replaced by architecture
+        architecture: architectureIds,
+        beyond_tourist_trail: beyondTrailIds,
         category_pills: categoryPills,
         province_covers: provinceCovers,
       };
@@ -817,12 +824,20 @@ export default function AdminHomeEditor() {
               onEdit={() => setOpenModal("popular")}
             />
 
-            {/* Unknown Pakistan */}
+            {/* Architectural Wonders */}
+            <SectionCard
+              label="Architectural Wonders"
+              description="Showcase Pakistan's finest architecture — forts, mosques, havelis, colonial buildings. Uses the centered story-card carousel."
+              ids={architectureIds}
+              onEdit={() => setOpenModal("architecture")}
+            />
+
+            {/* Beyond the Tourist Trail */}
             <SectionCard
               label="Beyond the Tourist Trail"
-              description="Lesser-known, off the beaten path sites. Hand-pick obscure gems to spark curiosity."
-              ids={unknownPakistanIds}
-              onEdit={() => setOpenModal("unknown_pakistan")}
+              description="Lesser-known, off the beaten path sites. Uses the full-width hero slideshow style."
+              ids={beyondTrailIds}
+              onEdit={() => setOpenModal("beyond_tourist_trail")}
             />
 
             {/* Category Pills */}
@@ -877,11 +892,19 @@ export default function AdminHomeEditor() {
           onClose={() => setOpenModal(null)}
         />
       )}
-      {openModal === "unknown_pakistan" && (
+      {openModal === "architecture" && (
+        <SiteSelectorModal
+          title="Architectural Wonders"
+          selectedIds={architectureIds}
+          onSave={setArchitectureIds}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "beyond_tourist_trail" && (
         <SiteSelectorModal
           title="Beyond the Tourist Trail"
-          selectedIds={unknownPakistanIds}
-          onSave={setUnknownPakistanIds}
+          selectedIds={beyondTrailIds}
+          onSave={setBeyondTrailIds}
           onClose={() => setOpenModal(null)}
         />
       )}

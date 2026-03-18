@@ -26,6 +26,13 @@ html {
   --sar: env(safe-area-inset-right, 0px);
 }
 
+/* Tab routes: lock scroll — all content is in fixed divs */
+html.tab-route,
+body.tab-route {
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
 /* Fullscreen pages override body padding-top */
 body[data-page="home"],
 body[data-page="sign-in"],
@@ -50,8 +57,7 @@ body {
   padding: 0;
   background: #fafafa;
 
-  /* Capacitor: respect iOS notch and Android nav bar */
-  padding-top: env(safe-area-inset-top);
+  /* Capacitor: left/right safe areas only — top is handled per-component */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }

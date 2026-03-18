@@ -1412,7 +1412,7 @@ function ExplorePageContent() {
   const isDraggingRef = useRef(false);
 
   return (
-    <div className="relative min-h-screen bg-[#00c9a7] lg:bg-[var(--ivory-cream)] lg:pt-0">
+    <div className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
       {/* ── Mobile: fixed teal header (matches Home) ── */}
       <div
         className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[#00c9a7]"
@@ -1458,7 +1458,7 @@ function ExplorePageContent() {
         }
       `}</style>
 
-      <div className="relative z-10">
+      <div className="lg:relative lg:z-10">
         <div className="lg:flex">
           <aside className="hidden lg:block w-[360px] fixed left-4 top-[88px] bottom-4 z-20">
             <div className="h-full rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 overflow-hidden flex flex-col">

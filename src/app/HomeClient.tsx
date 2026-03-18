@@ -8,6 +8,7 @@ import { getPublicClient } from "@/lib/supabase/browser";
 import Link from "next/link";
 import SiteBottomSheet from "@/components/SiteBottomSheet";
 import type { BottomSheetSite } from "@/components/SiteBottomSheet";
+import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -33,7 +34,9 @@ type SiteCard = {
 type MobileConfig = {
   featured: string[];
   popular: string[];
-  unknown_pakistan: string[];
+  unknown_pakistan: string[]; // legacy key, now used for architecture
+  architecture: string[];
+  beyond_tourist_trail: string[];
   category_pills: string[];
   province_covers: Record<string, string>;
 };
@@ -270,6 +273,9 @@ function HomeCardCarousel({
 
 /* ─── StoryCarousel ─────────────────────────────────────────────────────── */
 
+const STORY_CARD_W = 72; // vw
+const STORY_GAP = 12; // px
+
 function StoryCarousel({
   sites,
   onCardClick,
@@ -278,110 +284,184 @@ function StoryCarousel({
   onCardClick?: (site: SiteCard) => void;
 }) {
   const router = useRouter();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const indexRef = useRef(0);
+  const [index, setIndex] = useState(0);
 
-  const rafRef = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const axisLocked = useRef<boolean | null>(null);
+  const dragDeltaRef = useRef(0);
+  const isSwiping = useRef(false);
 
-  const updateScales = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      const container = scrollRef.current;
-      if (!container) return;
-      const cRect = container.getBoundingClientRect();
-      const cCenter = cRect.left + cRect.width / 2;
-      cardRefs.current.forEach((el) => {
-        if (!el) return;
-        const eRect = el.getBoundingClientRect();
-        const eCenter = eRect.left + eRect.width / 2;
-        const dist = Math.abs(cCenter - eCenter);
-        const maxDist = cRect.width * 0.6;
-        const ratio = Math.min(dist / maxDist, 1);
-        const s = Math.min(1, 0.92 + 0.08 * (1 - ratio));
-        el.style.transform = `scale(${s})`;
-      });
+  // Direct DOM update — zero React re-renders during drag
+  const applyDrag = useCallback((delta: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const idx = indexRef.current;
+    track.style.transition = "none";
+    track.style.transform = `translateX(calc(50vw - ${STORY_CARD_W / 2}vw - ${idx} * (${STORY_CARD_W}vw + ${STORY_GAP}px) + ${delta}px))`;
+
+    // Scale cards directly
+    const progress = Math.min(Math.abs(delta) / 120, 1);
+    cardRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const offset = i - idx;
+      let scale = offset === 0 ? 1 : 0.88;
+      if (offset === 0) scale = 1 - 0.12 * progress;
+      else if (offset === -1 && delta > 0) scale = 0.88 + 0.12 * progress;
+      else if (offset === 1 && delta < 0) scale = 0.88 + 0.12 * progress;
+      el.style.transform = `scale(${scale})`;
     });
   }, []);
 
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    // Run once on mount
-    updateScales();
-    // Listen on the carousel's own horizontal scroll
-    container.addEventListener("scroll", updateScales, { passive: true });
-    return () => container.removeEventListener("scroll", updateScales);
-  }, [updateScales, sites]);
+  const snapToIndex = useCallback((newIndex: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    indexRef.current = newIndex;
+    track.style.transition = "transform 0.38s cubic-bezier(0.25,0.1,0.25,1)";
+    track.style.transform = `translateX(calc(50vw - ${STORY_CARD_W / 2}vw - ${newIndex} * (${STORY_CARD_W}vw + ${STORY_GAP}px)))`;
 
-  // Re-run scales whenever sites load (images paint, layout shifts)
+    cardRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const isActive = i === newIndex;
+      el.style.transition = "transform 0.38s cubic-bezier(0.25,0.1,0.25,1)";
+      el.style.transform = `scale(${isActive ? 1 : 0.88})`;
+    });
+
+    setIndex(newIndex); // only re-render to update text overlay
+  }, []);
+
   useEffect(() => {
-    const id = requestAnimationFrame(updateScales);
-    return () => cancelAnimationFrame(id);
-  }, [updateScales, sites]);
+    const el = containerRef.current;
+    if (!el) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (axisLocked.current === null) {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+        axisLocked.current = Math.abs(dx) >= Math.abs(dy);
+      }
+      if (!axisLocked.current) return;
+      e.preventDefault();
+      isSwiping.current = true;
+      const idx = indexRef.current;
+      const resistance = (idx === 0 && dx > 0) || (idx === sites.length - 1 && dx < 0) ? 0.25 : 1;
+      dragDeltaRef.current = dx * resistance;
+      applyDrag(dragDeltaRef.current);
+    };
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", handleTouchMove);
+  }, [sites.length, applyDrag]);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    axisLocked.current = null;
+    dragDeltaRef.current = 0;
+    isSwiping.current = false;
+  }
+
+  function onTouchEnd() {
+    if (axisLocked.current !== true) return;
+    const threshold = 50;
+    const idx = indexRef.current;
+    if (dragDeltaRef.current < -threshold && idx < sites.length - 1) snapToIndex(idx + 1);
+    else if (dragDeltaRef.current > threshold && idx > 0) snapToIndex(idx - 1);
+    else snapToIndex(idx); // snap back
+    touchStartX.current = null;
+    axisLocked.current = null;
+  }
 
   if (sites.length === 0) return null;
 
   return (
     <div
-      ref={scrollRef}
-      className="flex gap-3 overflow-x-auto px-4 pb-4 scrollbar-none"
-      style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollPaddingLeft: "1rem" }}
+      ref={containerRef}
+      className="relative overflow-hidden pb-4"
+      style={{ height: `calc(${STORY_CARD_W}vw * 5 / 4)` }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
     >
-      {sites.map((site, i) => (
-        <button
-          key={site.id}
-          ref={(el) => { cardRefs.current[i] = el; }}
-          onClick={() => onCardClick ? onCardClick(site) : router.push(`/heritage/${site.slug}`)}
-          className="relative shrink-0 rounded-3xl overflow-hidden"
-          style={{
-            width: "75vw",
-            maxWidth: 300,
-            aspectRatio: "9/16",
-            scrollSnapAlign: "start",
-            transform: "scale(0.88)",
-            transformOrigin: "center center",
-            willChange: "transform",
-          }}
-        >
-          <img
-            src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
-            alt={site.title}
-            className="absolute inset-0 w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
-            {site.heritage_type && (
-              <span className="bg-[#F78300] text-white text-[10px] font-bold px-2.5 py-1 rounded-full leading-tight">
-                {site.heritage_type}
-              </span>
-            )}
-            {site.avg_rating != null && (
-              <span className="ml-auto bg-black/40 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-1 rounded-full leading-tight flex items-center gap-0.5">
-                ★ {site.avg_rating.toFixed(1)}
-              </span>
-            )}
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 px-3.5 pb-4 pt-8 text-left">
-            <p className="text-white text-[15px] font-bold leading-tight line-clamp-2">{site.title}</p>
-            {site.location_free && (
-              <p className="text-white/70 text-[11px] mt-1 leading-tight flex items-center gap-1">
-                <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-                {site.location_free}
-              </p>
-            )}
-            {site.tagline && (
-              <p className="text-white/60 text-[10.5px] mt-1.5 leading-snug line-clamp-2 italic">{site.tagline}</p>
-            )}
-            <span className="inline-block mt-2.5 bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
-              Explore →
-            </span>
-          </div>
-        </button>
-      ))}
+      {/* Single GPU track */}
+      <div
+        ref={trackRef}
+        className="absolute inset-0"
+        style={{
+          transform: `translateX(calc(50vw - ${STORY_CARD_W / 2}vw))`,
+          willChange: "transform",
+          display: "flex",
+          alignItems: "center",
+          gap: `${STORY_GAP}px`,
+        }}
+      >
+        {sites.map((site, i) => {
+          const isActive = i === index;
+          return (
+            <button
+              key={site.id}
+              ref={(el) => { cardRefs.current[i] = el; }}
+              onClick={() => {
+                if (isSwiping.current) return;
+                if (!isActive) { snapToIndex(i); return; }
+                if (onCardClick) onCardClick(site);
+                else router.push(`/heritage/${site.slug}`);
+              }}
+              className="relative shrink-0 rounded-3xl overflow-hidden"
+              style={{
+                width: `${STORY_CARD_W}vw`,
+                height: `calc(${STORY_CARD_W}vw * 5 / 4)`,
+                transform: `scale(${isActive ? 1 : 0.88})`,
+                transformOrigin: "center center",
+                willChange: "transform",
+              }}
+            >
+              <img
+                src={getThumbOrVariantUrlNoTransform(site.cover_photo_url, "md") || site.cover_photo_url || FALLBACK_GRADIENT}
+                alt={site.title}
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+                {site.heritage_type && (
+                  <span className="bg-[#F78300] text-white text-[10px] font-bold px-2.5 py-1 rounded-full leading-tight">
+                    {site.heritage_type}
+                  </span>
+                )}
+                {site.avg_rating != null && (
+                  <span className="ml-auto bg-black/40 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-1 rounded-full leading-tight flex items-center gap-0.5">
+                    ★ {site.avg_rating.toFixed(1)}
+                  </span>
+                )}
+              </div>
+              {isActive && (
+                <div className="absolute bottom-0 left-0 right-0 px-3.5 pb-4 pt-8 text-left">
+                  <p className="text-white text-[20px] font-extrabold leading-tight line-clamp-2" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>{site.title}</p>
+                  {site.location_free && (
+                    <p className="text-white/70 text-[11px] mt-1 leading-tight flex items-center gap-1">
+                      <svg className="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                      </svg>
+                      {site.location_free}
+                    </p>
+                  )}
+                  {site.tagline && (
+                    <p className="text-white/60 text-[11px] mt-1.5 leading-snug line-clamp-4 italic">{site.tagline}</p>
+                  )}
+                  <span className="inline-block mt-2.5 bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
+                    Explore →
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -390,6 +470,7 @@ function StoryCarousel({
 
 function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCardClick?: (site: SiteCard) => void }) {
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
 
   // Auto-advance — paused once user swipes manually
@@ -414,33 +495,42 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
   // Touch swipe
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
-  const isDragging = useRef(false);
+  const axisLocked = useRef<boolean | null>(null); // true = horizontal, false = vertical
   const dragDeltaRef = useRef(0);
   const [dragDelta, setDragDelta] = useState(0);
+
+  // Non-passive touchmove so we can preventDefault on horizontal swipes
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (axisLocked.current === null) {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+        axisLocked.current = Math.abs(dx) >= Math.abs(dy);
+      }
+      if (!axisLocked.current) return;
+      e.preventDefault();
+      const resistance = (index === 0 && dx > 0) || (index === sites.length - 1 && dx < 0) ? 0.3 : 1;
+      dragDeltaRef.current = dx * resistance;
+      setDragDelta(dragDeltaRef.current);
+    };
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", handleTouchMove);
+  }, [index, sites.length]);
 
   function onTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
-    isDragging.current = false;
+    axisLocked.current = null;
     dragDeltaRef.current = 0;
     setDragDelta(0);
   }
 
-  function onTouchMove(e: React.TouchEvent) {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    const dy = e.touches[0].clientY - touchStartY.current;
-    // Lock to horizontal swipe only — ignore if mostly vertical
-    if (!isDragging.current && Math.abs(dy) > Math.abs(dx)) return;
-    isDragging.current = true;
-    // Resist at edges
-    const resistance = (index === 0 && dx > 0) || (index === sites.length - 1 && dx < 0) ? 0.3 : 1;
-    dragDeltaRef.current = dx * resistance;
-    setDragDelta(dragDeltaRef.current);
-  }
-
   function onTouchEnd() {
-    if (!isDragging.current) { setDragDelta(0); return; }
+    if (axisLocked.current !== true) { setDragDelta(0); return; }
     const threshold = 50;
     if (dragDeltaRef.current < -threshold && index < sites.length - 1) {
       userSwipedRef.current = true;
@@ -451,7 +541,7 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
     }
     setDragDelta(0);
     touchStartX.current = null;
-    isDragging.current = false;
+    axisLocked.current = null;
   }
 
   // Tap to navigate — only if not a swipe
@@ -465,14 +555,12 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
 
   if (sites.length === 0) return null;
 
-  const containerWidth = typeof window !== "undefined" ? window.innerWidth - 32 : 350; // mx-4 = 16px each side
-
   return (
     <div
+      ref={containerRef}
       className="relative mx-4 rounded-2xl overflow-hidden shadow-lg select-none"
       style={{ aspectRatio: "16/9" }}
       onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       {/* Sliding track */}
@@ -543,9 +631,9 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
 function SectionHeader({ label, onSeeAll }: { label: string; onSeeAll?: () => void }) {
   return (
     <div className="flex items-center justify-between px-4 mb-3">
-      <h2 className="text-base font-extrabold text-[#1c1f4c]">{label}</h2>
+      <h2 className="text-xl font-extrabold text-[#1c1f4c]" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>{label}</h2>
       {onSeeAll && (
-        <button onClick={onSeeAll} className="text-xs font-semibold text-[#F78300]">
+        <button onClick={onSeeAll} className="text-sm font-semibold text-[#F78300]">
           See All →
         </button>
       )}
@@ -570,9 +658,8 @@ function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: R
   if (provinces.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
       {provinces.map((province) => {
-        // Admin-set cover takes priority, fall back to static map
         const adminCover = covers[province.id];
         const imgKey = Object.keys(PROVINCE_IMAGES).find((k) =>
           province.name.toLowerCase().includes(k) || province.slug?.toLowerCase().includes(k)
@@ -583,16 +670,33 @@ function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: R
           <button
             key={province.id}
             onClick={() => router.push(`/explore?regs=${province.id}`)}
-            className="shrink-0 relative rounded-2xl overflow-hidden active:scale-[0.98] transition-transform shadow-md"
-            style={{ width: "38vw", maxWidth: 150, aspectRatio: "3/4" }}
+            className="relative shrink-0 rounded-2xl overflow-hidden active:scale-[0.97] transition-transform shadow-sm"
+            style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
           >
-            <img src={img} alt={province.name} className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-2.5 text-left">
-              <div className="text-white font-extrabold text-sm leading-tight">{province.name}</div>
-              {province.site_count != null && (
-                <div className="text-white/60 text-[10px] mt-0.5">{province.site_count} sites</div>
-              )}
+            <img
+              src={img}
+              alt={province.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
+            />
+            {/* Dark gradient — stronger at bottom */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
+            {/* Site count badge — top right */}
+            {province.site_count != null && (
+              <span className="absolute top-2.5 right-2.5 bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[9px] font-semibold px-2 py-0.5 rounded-full">
+                {province.site_count} sites
+              </span>
+            )}
+            {/* Province name — bottom left, large */}
+            <div className="absolute bottom-0 left-0 right-0 px-3 pb-3">
+              <p
+                className="text-white font-extrabold text-[18px] leading-tight tracking-tight"
+                style={{ fontFamily: "var(--font-futura, sans-serif)" }}
+              >
+                {province.name}
+              </p>
+              <p className="text-white/60 text-[10px] mt-0.5 font-medium tracking-wide uppercase">Explore →</p>
             </div>
           </button>
         );
@@ -653,12 +757,13 @@ function MobileHomepage() {
   const router = useRouter();
 
   // Config from admin
-  const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], category_pills: [], province_covers: {} });
+  const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
 
   // Site data
   const [featuredSites, setFeaturedSites] = useState<SiteCard[]>([]);
   const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
-  const [unknownSites, setUnknownSites] = useState<SiteCard[]>([]);
+  const [architectureSites, setArchitectureSites] = useState<SiteCard[]>([]);
+  const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>([]);
   const [nearbySites, setNearbySites] = useState<SiteCard[]>([]);
   const [categories, setCategories] = useState<Option[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -732,19 +837,34 @@ function MobileHomepage() {
         });
     }
 
-    if (config.unknown_pakistan.length > 0) {
+    // architecture — falls back to legacy unknown_pakistan key
+    const archIds = config.architecture?.length > 0 ? config.architecture : (config.unknown_pakistan || []);
+    if (archIds.length > 0) {
       sb.from("sites")
         .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
-        .in("id", config.unknown_pakistan)
+        .in("id", archIds)
         .eq("is_published", true)
         .then(({ data }) => {
           if (data) {
             const map = new Map(data.map((s: SiteCard) => [s.id, s]));
-            setUnknownSites(config.unknown_pakistan.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+            setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
           }
         });
     }
-  }, [config.featured.join(","), config.popular.join(","), config.unknown_pakistan.join(",")]);
+
+    if (config.beyond_tourist_trail?.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .in("id", config.beyond_tourist_trail)
+        .eq("is_published", true)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map(data.map((s: SiteCard) => [s.id, s]));
+            setBeyondTrailSites(config.beyond_tourist_trail.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+  }, [config.featured.join(","), config.popular.join(","), (config.architecture || config.unknown_pakistan || []).join(","), (config.beyond_tourist_trail || []).join(",")]);
 
   // ── GPS / Nearby ──
   function requestNearby() {
@@ -772,7 +892,7 @@ function MobileHomepage() {
   const safeTop = "env(safe-area-inset-top, 44px)";
 
   return (
-    <div className="min-h-screen bg-[#00c9a7]">
+    <div className="min-h-screen bg-[#f2f2f2]">
       {/* ── Fixed teal header ── */}
       <div
         className="fixed inset-x-0 top-0 z-[100] bg-[#00c9a7]"
@@ -818,7 +938,7 @@ function MobileHomepage() {
 
         {/* Featured hero carousel */}
         {featuredSites.length > 0 && (
-          <div className="mt-5">
+          <div className="mt-7">
             <SectionHeader label="Featured" />
             <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
           </div>
@@ -826,14 +946,22 @@ function MobileHomepage() {
 
         {/* Popular Tourist Sites */}
         {popularSites.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-9">
             <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
             <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
           </div>
         )}
 
+        {/* Explore by Province */}
+        {provinces.length > 0 && (
+          <div className="mt-9">
+            <SectionHeader label="Explore by Region" onSeeAll={() => router.push("/explore")} />
+            <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+          </div>
+        )}
+
         {/* Nearby You */}
-        <div className="mt-6">
+        <div className="mt-9">
           <SectionHeader
             label="Nearby You"
             onSeeAll={gpsStatus === "done" ? () => router.push("/explore?nearby=1") : undefined}
@@ -875,19 +1003,19 @@ function MobileHomepage() {
           )}
         </div>
 
-        {/* Explore by Province */}
-        {provinces.length > 0 && (
-          <div className="mt-6">
-            <SectionHeader label="Explore by Province" onSeeAll={() => router.push("/explore")} />
-            <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+        {/* Architectural Wonders */}
+        {architectureSites.length > 0 && (
+          <div className="mt-9">
+            <SectionHeader label="Architectural Wonders" onSeeAll={() => router.push("/explore")} />
+            <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
           </div>
         )}
 
         {/* Beyond the Tourist Trail */}
-        {unknownSites.length > 0 && (
-          <div className="mt-6">
+        {beyondTrailSites.length > 0 && (
+          <div className="mt-9">
             <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
-            <StoryCarousel sites={unknownSites} onCardClick={setSelectedSite} />
+            <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
           </div>
         )}
 

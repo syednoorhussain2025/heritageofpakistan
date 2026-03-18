@@ -275,8 +275,19 @@ export default function BottomNav() {
 
   const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+  const [safeBottom, setSafeBottom] = useState(0);
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
+
+  // Read safe-area-inset-bottom once on mount and lock it
+  useEffect(() => {
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;bottom:env(safe-area-inset-bottom,0px);left:0;width:1px;height:1px;pointer-events:none;";
+    document.body.appendChild(el);
+    const bottom = window.innerHeight - el.getBoundingClientRect().bottom;
+    document.body.removeChild(el);
+    if (bottom > 0) setSafeBottom(bottom);
+  }, []);
 
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
@@ -318,7 +329,8 @@ export default function BottomNav() {
 
   const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
   const isHeritageDetail = heritageDetailRe.test(pathname || "");
-  const isHomePage = pathname === "/";
+  const isTabPage = pathname === "/" || pathname.startsWith("/explore");
+  const isHomePage = isTabPage;
 
   const heritageHref =
     lastHeritagePath && lastHeritagePath.startsWith("/heritage/")
@@ -330,9 +342,12 @@ export default function BottomNav() {
 
   return (
     <>
-      {!isHeritageDetail && !isHomePage && <div id="bottom-nav-spacer" className="lg:hidden" style={{ height: `calc(52px + env(safe-area-inset-bottom, 0px))` }} />}
+      {/* Spacer suppressed — pages handle their own bottom padding */}
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: 0, paddingBottom: `env(safe-area-inset-bottom, 0px)` }}>
+      {/* White fill below nav to cover any background bleed under safe area */}
+      <div className="fixed inset-x-0 bottom-0 z-[2999] lg:hidden bg-white" style={{ height: safeBottom }} />
+
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
           <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />

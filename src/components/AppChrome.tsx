@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QueryProvider } from "@/components/QueryProvider";
 import Header from "@/components/Header";
@@ -38,6 +39,21 @@ export default function AppChrome({
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomePage = pathname.startsWith("/auth");
   const onTabRoute = isTabRoute(pathname);
+
+  // Prevent body scroll on tab routes — all content is in fixed divs
+  useEffect(() => {
+    if (onTabRoute) {
+      document.documentElement.classList.add("tab-route");
+      document.body.classList.add("tab-route");
+    } else {
+      document.documentElement.classList.remove("tab-route");
+      document.body.classList.remove("tab-route");
+    }
+    return () => {
+      document.documentElement.classList.remove("tab-route");
+      document.body.classList.remove("tab-route");
+    };
+  }, [onTabRoute]);
 
   if (isAdminRoute) {
     return (
