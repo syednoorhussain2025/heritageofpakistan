@@ -2913,7 +2913,7 @@ export default function MapClient() {
       {!loadError && (
         <div
           className="lg:hidden fixed inset-x-0 z-[3001]"
-          style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
+          style={{ bottom: "calc(52px + var(--safe-bottom, 0px))" }}
         >
           <div
             className="flex flex-col bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.1)]"

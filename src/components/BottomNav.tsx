@@ -290,7 +290,10 @@ export default function BottomNav() {
       requestAnimationFrame(() => {
         const h = el.offsetHeight;
         document.body.removeChild(el);
-        if (h > 0) setSafeBottom(`${h}px`);
+        if (h > 0) {
+          setSafeBottom(`${h}px`);
+          document.documentElement.style.setProperty("--safe-bottom", `${h}px`);
+        }
       });
     });
   }, []);
