@@ -14,6 +14,52 @@ import NearbyMeSheet from "@/components/NearbyMeSheet";
 import { useNativeLocation } from "@/hooks/useNativeLocation";
 import { hapticLight, hapticMedium, hapticSelection } from "@/lib/haptics";
 
+/* ─── Search bar typewriter animation ────────────────────────────────────── */
+
+const SEARCH_SUFFIXES = ["Forts", "Lahore Fort", "National Parks", "Mughal Sites", "Ancient Ruins"];
+
+function useSearchPlaceholderAnimation() {
+  const [displayed, setDisplayed] = useState("");
+  const stateRef = useRef({ suffixIndex: 0, charIndex: 0, phase: "typing" as "typing" | "pause" | "deleting" });
+
+  useEffect(() => {
+    function tick() {
+      const s = stateRef.current;
+      const suffix = SEARCH_SUFFIXES[s.suffixIndex];
+
+      if (s.phase === "typing") {
+        if (s.charIndex <= suffix.length) {
+          setDisplayed(suffix.slice(0, s.charIndex));
+          s.charIndex += 1;
+          timer = setTimeout(tick, 90);
+        } else {
+          s.phase = "pause";
+          timer = setTimeout(tick, 1400);
+        }
+      } else if (s.phase === "pause") {
+        s.phase = "deleting";
+        timer = setTimeout(tick, 600);
+      } else {
+        // deleting
+        if (s.charIndex > 0) {
+          s.charIndex -= 1;
+          setDisplayed(suffix.slice(0, s.charIndex));
+          timer = setTimeout(tick, 45);
+        } else {
+          s.suffixIndex = (s.suffixIndex + 1) % SEARCH_SUFFIXES.length;
+          s.phase = "typing";
+          timer = setTimeout(tick, 120);
+        }
+      }
+    }
+
+    let timer = setTimeout(tick, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return displayed;
+}
+
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
 type SearchSite = {
@@ -1188,6 +1234,23 @@ const heroImages = [
   "https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/site-images/gallery/c7ffcc06-e765-4e4e-a6ad-cffc2fc1b441/1771690397771-Royal%20Garden%20Altit-8.jpg",
 ];
 
+function SearchBarWithAnimation({ onOpen }: { onOpen: () => void }) {
+  const suffix = useSearchPlaceholderAnimation();
+  return (
+    <button
+      onClick={onOpen}
+      className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
+    >
+      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <span className="text-sm text-gray-400 flex-1 text-left">
+        Search {suffix}<span className="inline-block w-px h-3.5 bg-gray-400 ml-px align-middle animate-blink" />
+      </span>
+    </button>
+  );
+}
+
 function MobileHomepage() {
   const router = useRouter();
 
@@ -1408,15 +1471,7 @@ function MobileHomepage() {
       <div className="sticky bg-[#00c9a7] pb-5" style={{ top: safeTop, zIndex: 100 }}>
         {/* Search bar */}
         <div className="px-4 pt-1 pb-3">
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
-          >
-            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <span className="text-sm text-gray-400 flex-1 text-left">Search heritage sites…</span>
-          </button>
+          <SearchBarWithAnimation onOpen={() => setSearchOpen(true)} />
         </div>
         {/* Category pills — fixed height to prevent layout shift */}
         <div

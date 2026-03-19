@@ -42,6 +42,10 @@ const config: Config = {
           "0%": { transform: "scaleX(0)", opacity: "0" },
           "100%": { transform: "scaleX(1)", opacity: "1" },
         },
+        blink: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
+        },
       },
       animation: {
         fadeIn: "fadeIn 0.25s ease-out forwards",
@@ -50,6 +54,7 @@ const config: Config = {
         slideInLeft: "slideInLeft 0.3s cubic-bezier(0.22,1,0.36,1) forwards",
         fadeInImage: "fadeInImage 0.5s ease-out forwards",
         underlineGrow: "underlineGrow 0.25s ease-out forwards",
+        blink: "blink 1s step-end infinite",
       },
     },
   },
