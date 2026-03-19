@@ -1471,8 +1471,8 @@ function MobileHomepage() {
 
     container.addEventListener("scroll", onScroll, { passive: true });
 
-    // Reset when tab becomes active again (tab-shown fired by TabPane)
-    container.addEventListener("tab-shown", resetScroll);
+    // Reset when tab becomes active again (tab-shown fired by TabPane, bubbles to window)
+    window.addEventListener("tab-shown", resetScroll);
 
     // iOS BFCache / Capacitor: reset on page restore or app foreground
     window.addEventListener("pageshow", resetScroll);
@@ -1482,7 +1482,7 @@ function MobileHomepage() {
 
     return () => {
       container.removeEventListener("scroll", onScroll);
-      container.removeEventListener("tab-shown", resetScroll);
+      window.removeEventListener("tab-shown", resetScroll);
       window.removeEventListener("pageshow", resetScroll);
     };
   }, []);
