@@ -11,7 +11,7 @@ import NearbySearchModal from "@/components/NearbySearchModal";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import { clearPlacesNearby } from "@/lib/placesNearby";
-import { hapticMedium } from "@/lib/haptics";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { getPublicClient } from "@/lib/supabase/browser";
 import type { Site as ClientMapSite, MapType } from "@/components/ClientOnlyMap";
 import { getWishlistItems } from "@/lib/wishlists";
@@ -2972,6 +2972,41 @@ export default function MapClient() {
               <span className="text-[9px] font-medium text-gray-500 leading-tight">Near me</span>
             </div>
           </div>
+
+          {/* Category pills */}
+          {Object.keys(categoryMap).length > 0 && (
+            <div
+              className="flex gap-2 overflow-x-auto px-4 pb-3 scrollbar-none"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              {Object.entries(categoryMap).map(([id, name]) => {
+                const active = filters.categoryIds.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      void hapticLight();
+                      setFilters((prev) => ({
+                        ...prev,
+                        categoryIds: active
+                          ? prev.categoryIds.filter((c) => c !== id)
+                          : [...prev.categoryIds, id],
+                      }));
+                    }}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      active
+                        ? "bg-[var(--brand-blue)] text-white"
+                        : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+              <div className="shrink-0 w-2" />
+            </div>
+          )}
           </div>
         </div>
       )}

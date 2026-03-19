@@ -250,7 +250,7 @@ export default function NearbyMeSheet({
 
   const content = (
     <div
-      className="fixed inset-0 z-[200]"
+      className="fixed inset-0 z-[3002]"
       style={{ pointerEvents: visible ? "auto" : "none" }}
     >
       {/* Backdrop — only visible when fully expanded */}
