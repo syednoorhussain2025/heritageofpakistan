@@ -2916,15 +2916,14 @@ export default function MapClient() {
           style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
         >
           <div
-            className="flex items-center gap-3 px-4 py-5"
-            style={{ background: "var(--brand-blue)" }}
+            className="flex items-center gap-3 px-4 py-8 bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.08)]"
           >
             {/* Search + result info — tapping opens search filters sheet */}
             <button
               type="button"
               aria-label="Search & Filters"
               onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-              className="flex-1 min-w-0 flex items-center gap-2.5 bg-white rounded-full px-4 py-2.5 active:bg-gray-50 transition-colors text-left shadow-sm"
+              className="flex-1 min-w-0 flex items-center gap-2.5 bg-gray-100 rounded-full px-4 py-2.5 active:bg-gray-200 transition-colors text-left"
             >
               <Icon name="search" size={14} className="text-gray-400 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -2953,7 +2952,7 @@ export default function MapClient() {
                 type="button"
                 aria-label="Near me"
                 onClick={() => { void handleNearMe(); }}
-                className={`w-11 h-11 rounded-full bg-white flex items-center justify-center active:bg-gray-50 transition-colors shadow-sm ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+                className={`w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200 transition-colors ${gpsStatus === "loading" ? "opacity-60" : ""}`}
               >
                 {gpsStatus === "loading" ? (
                   <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
@@ -2965,7 +2964,7 @@ export default function MapClient() {
                   </svg>
                 )}
               </button>
-              <span className="text-[9px] font-medium text-white/70 leading-tight">Near me</span>
+              <span className="text-[9px] font-medium text-gray-500 leading-tight">Near me</span>
             </div>
           </div>
         </div>
