@@ -2912,11 +2912,11 @@ export default function MapClient() {
       {/* ── Mobile: solid panel above bottom nav ── */}
       {!loadError && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[3001]"
+          className="lg:hidden fixed inset-x-0 z-[2998]"
           style={{ bottom: "calc(52px + var(--safe-bottom, 0px))" }}
         >
           <div
-            className="flex flex-col bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.1)]"
+            className="flex flex-col bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.08)]"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-2.5 pb-1 shrink-0">
