@@ -852,11 +852,29 @@ const PROVINCE_IMAGES: Record<string, string> = {
 
 function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: Record<string, string> }) {
   const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastHapticIndex = useRef<number>(-1);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // card width + gap (12px). card is min(70vw, 280px)
+    const cardW = Math.min(window.innerWidth * 0.7, 280);
+    const GAP = 12;
+    const step = cardW + GAP;
+    // left padding is 16px (px-4)
+    const scrollLeft = el.scrollLeft;
+    const index = Math.round(scrollLeft / step);
+    if (index !== lastHapticIndex.current) {
+      lastHapticIndex.current = index;
+      void hapticLight();
+    }
+  }, []);
 
   if (provinces.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div ref={scrollRef} onScroll={handleScroll} className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
       {provinces.map((province) => {
         const adminCover = covers[province.id];
         const imgKey = Object.keys(PROVINCE_IMAGES).find((k) =>
