@@ -2912,12 +2912,17 @@ export default function MapClient() {
       {/* ── Mobile: solid panel above bottom nav ── */}
       {!loadError && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[3050]"
-          style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
+          className="lg:hidden fixed inset-x-0 z-[2998]"
+          style={{ bottom: 0, paddingBottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
         >
           <div
-            className="flex items-center gap-3 px-4 py-8 bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.08)]"
+            className="flex flex-col bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.1)]"
           >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+              <div className="w-8 h-1 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex items-center gap-3 px-4 py-4">
             {/* Search + result info — tapping opens search filters sheet */}
             <button
               type="button"
@@ -2966,6 +2971,7 @@ export default function MapClient() {
               </button>
               <span className="text-[9px] font-medium text-gray-500 leading-tight">Near me</span>
             </div>
+          </div>
           </div>
         </div>
       )}
