@@ -384,6 +384,19 @@ function HomeCardCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const rafRef = useRef<number | null>(null);
+  const lastHapticIndex = useRef(-1);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cardW = Math.min(window.innerWidth * 0.52, 200);
+    const GAP = 12;
+    const index = Math.round(el.scrollLeft / (cardW + GAP));
+    if (index !== lastHapticIndex.current) {
+      lastHapticIndex.current = index;
+      void hapticLight();
+    }
+  }, []);
 
   const updateScales = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -408,9 +421,10 @@ function HomeCardCarousel({
     const container = scrollRef.current;
     if (!container) return;
     updateScales();
-    container.addEventListener("scroll", updateScales, { passive: true });
-    return () => container.removeEventListener("scroll", updateScales);
-  }, [updateScales, sites]);
+    const onScroll = () => { updateScales(); handleScroll(); };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [updateScales, handleScroll, sites]);
 
   useEffect(() => {
     const id = requestAnimationFrame(updateScales);
@@ -515,7 +529,7 @@ function StoryCarousel({
   const snapToIndex = useCallback((newIndex: number) => {
     const track = trackRef.current;
     if (!track) return;
-    if (newIndex !== indexRef.current) void hapticSelection();
+    if (newIndex !== indexRef.current) void hapticLight();
     indexRef.current = newIndex;
     track.style.transition = "transform 0.38s cubic-bezier(0.25,0.1,0.25,1)";
     track.style.transform = `translateX(calc(50vw - ${STORY_CARD_W / 2}vw - ${newIndex} * (${STORY_CARD_W}vw + ${STORY_GAP}px)))`;
@@ -731,9 +745,11 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
     const threshold = 50;
     if (dragDeltaRef.current < -threshold && index < sites.length - 1) {
       userSwipedRef.current = true;
+      void hapticLight();
       setIndex((i) => i + 1);
     } else if (dragDeltaRef.current > threshold && index > 0) {
       userSwipedRef.current = true;
+      void hapticLight();
       setIndex((i) => i - 1);
     }
     setDragDelta(0);
