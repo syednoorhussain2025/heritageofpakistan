@@ -1022,8 +1022,9 @@ function HomeSearchOverlay({
       const r1 = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setVisible(true);
-          // Focus after the slide starts so keyboard doesn't jank the animation
-          setTimeout(() => inputRef.current?.focus(), 50);
+          // Focus after the slide-in animation finishes so the keyboard
+          // doesn't resize the viewport mid-animation on iOS
+          setTimeout(() => inputRef.current?.focus(), 320);
         });
       });
       return () => cancelAnimationFrame(r1);
@@ -1100,7 +1101,7 @@ function HomeSearchOverlay({
       {/* Content slides up from bottom inside the already-white screen */}
       <div
         className={`fixed inset-x-0 bottom-0 z-[401] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${visible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ top: 0, height: "100dvh", overflow: "hidden" }}
+        style={{ top: 0, height: "100svh", overflow: "hidden" }}
       >
         {/* ── Search bar row — just below status bar ── */}
         <div className="flex items-center gap-2 px-3 shrink-0" style={{ paddingTop: "calc(env(safe-area-inset-top, 44px) + 8px)", paddingBottom: 12 }}>
@@ -1274,7 +1275,7 @@ function SearchBarWithAnimation({ onOpen }: { onOpen: () => void }) {
   const suffix = useSearchPlaceholderAnimation();
   return (
     <button
-      onClick={onOpen}
+      onClick={() => { void hapticMedium(); onOpen(); }}
       className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
     >
       <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
