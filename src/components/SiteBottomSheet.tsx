@@ -24,6 +24,8 @@ export type BottomSheetSite = {
   heritage_type?: string | null;
   location_free?: string | null;
   tagline?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 interface Props {
@@ -31,9 +33,21 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
+  userLat?: number | null;
+  userLng?: number | null;
 }
 
-export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby }: Props) {
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng }: Props) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -338,6 +352,26 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby 
               {site.tagline}
             </p>
           )}
+
+          {/* Distance from user */}
+          {userLat != null && userLng != null && site.latitude != null && site.longitude != null && (() => {
+            const km = haversineKm(userLat, userLng, site.latitude, site.longitude);
+            const display = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+            const canWalk = km <= 0.5;
+            return (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--brand-blue)]/10 text-[var(--brand-blue)] text-xs font-bold">
+                  <Icon name="map-marker-alt" size={11} />
+                  {display} away from your location
+                </span>
+                {canWalk && (
+                  <span className="text-[#00b78b] text-xs font-semibold">
+                    🚶 You can easily walk
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Spacer */}
           <div className="flex-1" />

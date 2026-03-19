@@ -103,6 +103,8 @@ type SiteCard = {
   province_slug?: string | null;
   tagline?: string | null;
   cover_slideshow_image_ids?: string[] | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type MobileConfig = {
@@ -1316,7 +1318,7 @@ function MobileHomepage() {
 
     if (config.featured.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
         .in("id", config.featured)
         .eq("is_published", true)
         .then(async ({ data }) => {
@@ -1330,7 +1332,7 @@ function MobileHomepage() {
 
     if (config.popular.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
         .in("id", config.popular)
         .eq("is_published", true)
         .then(async ({ data }) => {
@@ -1346,7 +1348,7 @@ function MobileHomepage() {
     const archIds = config.architecture?.length > 0 ? config.architecture : (config.unknown_pakistan || []);
     if (archIds.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
         .in("id", archIds)
         .eq("is_published", true)
         .then(async ({ data }) => {
@@ -1360,7 +1362,7 @@ function MobileHomepage() {
 
     if (config.beyond_tourist_trail?.length > 0) {
       sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
         .in("id", config.beyond_tourist_trail)
         .eq("is_published", true)
         .then(async ({ data }) => {
@@ -1419,7 +1421,7 @@ function MobileHomepage() {
       style={{ top: 0, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
     >
       {/* DEFAULT: Title row — scrolls away naturally */}
-      <div ref={titleRowRef} className="px-4 pb-6 relative flex items-center justify-center" style={{ paddingTop: `calc(${safeTop} + 22px)`, willChange: "transform, opacity" }}>
+      <div ref={titleRowRef} className="px-4 pb-6 relative flex items-center justify-center" style={{ paddingTop: `calc(${safeTop} + 12px)`, willChange: "transform, opacity" }}>
         {/* GPS indicator — left side */}
         <button
           onClick={gpsStatus === "granted" ? () => { void hapticLight(); setNearbySheetOpen(true); } : requestNearby}
@@ -1455,9 +1457,9 @@ function MobileHomepage() {
           )}
         </button>
 
-        <div className="flex flex-col items-center gap-1">
-          <img src="/icon.png" alt="" className="w-8 h-8 object-contain" />
-          <span className="text-white font-extrabold text-2xl tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
+        <div className="flex flex-col items-center gap-0">
+          <img src="/icon.png" alt="" className="w-14 h-14 object-contain" />
+          <span className="text-white font-extrabold text-2xl tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)", marginTop: '-6px' }}>
             Heritage of Pakistan
           </span>
         </div>
@@ -1614,6 +1616,8 @@ function MobileHomepage() {
         site={selectedSite}
         isOpen={selectedSite !== null}
         onClose={() => setSelectedSite(null)}
+        userLat={gpsCoords?.lat ?? null}
+        userLng={gpsCoords?.lng ?? null}
       />
 
       {/* Nearby Me sheet */}
