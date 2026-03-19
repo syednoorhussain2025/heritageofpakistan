@@ -80,12 +80,12 @@ export default function AppChrome({
                     <Header initialItems={initialHeaderItems} />
                   </div>
 
-                  {/* ── Mobile: persistent tab shell ── */}
-                  {onTabRoute && (
-                    <div className="lg:hidden">
-                      <TabShell />
-                    </div>
-                  )}
+                  {/* ── Mobile: persistent tab shell — always mounted so HomeClient/ExploreClient
+                      never unmount. TabPane uses display:none internally when inactive,
+                      which hides fixed children in WebKit too. */}
+                  <div className="lg:hidden">
+                    <TabShell />
+                  </div>
 
                   {/* ── Mobile: non-tab pages + Map fade in normally ── */}
                   {/* ── Desktop: all pages render via children as before ── */}

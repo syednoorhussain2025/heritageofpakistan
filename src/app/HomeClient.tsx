@@ -1,7 +1,7 @@
 // src/app/HomeClient.tsx
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
@@ -1448,17 +1448,6 @@ function MobileHomepage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const titleRowRef = useRef<HTMLDivElement>(null);
 
-  // Reset scroll synchronously before paint to prevent iOS WebKit scroll-position
-  // restoration from briefly showing a non-zero scrollTop on remount.
-  useLayoutEffect(() => {
-    const container = scrollContainerRef.current;
-    const titleRow = titleRowRef.current;
-    if (!container || !titleRow) return;
-    container.scrollTop = 0;
-    titleRow.style.opacity = "1";
-    titleRow.style.transform = "translateY(0)";
-  }, []);
-
   useEffect(() => {
     const container = scrollContainerRef.current;
     const titleRow = titleRowRef.current;
@@ -1474,14 +1463,18 @@ function MobileHomepage() {
       titleRow.style.transform = `translateY(-${p1 * 10}px)`;
     };
 
-    container.addEventListener("scroll", onScroll, { passive: true });
-
-    // iOS BFCache / Capacitor: reset on page restore or tab re-focus
     const resetScroll = () => {
       container.scrollTop = 0;
       titleRow.style.opacity = "1";
       titleRow.style.transform = "translateY(0)";
     };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+
+    // Reset when tab becomes active again (tab-shown fired by TabPane)
+    container.addEventListener("tab-shown", resetScroll);
+
+    // iOS BFCache / Capacitor: reset on page restore or app foreground
     window.addEventListener("pageshow", resetScroll);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") resetScroll();
@@ -1489,6 +1482,7 @@ function MobileHomepage() {
 
     return () => {
       container.removeEventListener("scroll", onScroll);
+      container.removeEventListener("tab-shown", resetScroll);
       window.removeEventListener("pageshow", resetScroll);
     };
   }, []);

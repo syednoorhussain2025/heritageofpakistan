@@ -46,7 +46,8 @@ function TabPane({
     }
 
     if (active && !prevActive.current) {
-      // Just became active — fade in
+      // Just became active — signal children to reset, then fade in
+      el.dispatchEvent(new CustomEvent("tab-shown", { bubbles: true }));
       el.style.opacity = "0";
       el.style.transition = "none";
       const raf = requestAnimationFrame(() => {
