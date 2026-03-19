@@ -245,6 +245,11 @@ function ClientOnlyMap({
   radiusCircle = null,
   /** When provided, "Places Nearby" on a card applies this site on the map and shows results instead of navigating to Explore. */
   onPlacesNearbyApply = null,
+  /** When set, shows a blue dot at the user's location. */
+  userLat = null,
+  userLng = null,
+  /** When set (object changes), the map flies to this location. */
+  flyToTrigger = null,
 }: {
   locations: Site[];
   settings: MapSettings | null;
@@ -263,6 +268,9 @@ function ClientOnlyMap({
   directMarkerSelect?: boolean;
   /** Optional map of site id → formatted date string for tooltips (e.g. trip view). */
   siteDates?: Map<string, string> | null;
+  userLat?: number | null;
+  userLng?: number | null;
+  flyToTrigger?: { lat: number; lng: number } | null;
   /** When set (e.g. hover in trip panel), the matching map tooltip is highlighted (orange). */
   hoveredSiteId?: string | null;
   /** When this value changes and is > 0, the map flies back to default center/zoom (e.g. after closing the trip panel). */
@@ -336,6 +344,9 @@ function ClientOnlyMap({
         resetMapViewTrigger={resetMapViewTrigger}
         radiusCircle={radiusCircle}
         onPlacesNearbyApply={stableOnPlacesNearbyApply}
+        userLat={userLat}
+        userLng={userLng}
+        flyToTrigger={flyToTrigger}
       />
     );
   }
@@ -358,6 +369,9 @@ function ClientOnlyMap({
         fitBoundsToLocations={fitBoundsToLocations}
         radiusCircle={radiusCircle}
         onPlacesNearbyApply={stableOnPlacesNearbyApply}
+        userLat={userLat}
+        userLng={userLng}
+        flyToTrigger={flyToTrigger}
       />
       {permanentTooltips && <TripViewHoverStyles hoveredSiteId={hoveredSiteId} />}
     </>
@@ -378,6 +392,8 @@ const ClientOnlyMapMemo = memo(ClientOnlyMap, (prev, next) => {
   if (locationsKey(prev.locations) !== locationsKey(next.locations)) return false;
   if (radiusCircleKey(prev.radiusCircle) !== radiusCircleKey(next.radiusCircle)) return false;
   if (prev.siteDates !== next.siteDates) return false;
+  if (prev.userLat !== next.userLat || prev.userLng !== next.userLng) return false;
+  if (prev.flyToTrigger !== next.flyToTrigger) return false;
   return true;
 });
 
@@ -602,6 +618,16 @@ function FitFilteredEffect({
   return null;
 }
 
+/* Fly the map to a given lat/lng whenever flyToTrigger object reference changes (e.g. Near Me button pressed). */
+function FlyToEffect({ trigger }: { trigger: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!trigger || !Number.isFinite(trigger.lat) || !Number.isFinite(trigger.lng)) return;
+    map.flyTo([trigger.lat, trigger.lng], 14, { duration: 0.8 });
+  }, [map, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 /* When resetMapViewTrigger increments (e.g. trip panel closed), fly map back to default center/zoom */
 function ResetMapViewEffect({
   trigger,
@@ -687,6 +713,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
   fitBoundsToLocations = false,
   radiusCircle = null,
   onPlacesNearbyApply = null,
+  userLat = null,
+  userLng = null,
+  flyToTrigger = null,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -705,6 +734,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
   /** When set, draw a light red circle showing the search radius. */
   radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
   onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
+  userLat?: number | null;
+  userLng?: number | null;
+  flyToTrigger?: { lat: number; lng: number } | null;
 }) {
   const createCustomIcon = useCallback(
     (
@@ -1005,6 +1037,27 @@ const OSMLeafletView = memo(function OSMLeafletView({
         >
           {markerChildren}
         </MarkerClusterGroup>
+        {/* User location blue dot */}
+        {userLat != null && userLng != null && Number.isFinite(userLat) && Number.isFinite(userLng) && (
+          <Marker
+            position={[userLat, userLng]}
+            zIndexOffset={2000}
+            icon={L.divIcon({
+              className: "",
+              html: `<div style="
+                width:18px;height:18px;border-radius:50%;
+                background:#2563eb;
+                border:3px solid #fff;
+                box-shadow:0 0 0 2px rgba(37,99,235,0.35),0 2px 6px rgba(0,0,0,0.25);
+              "></div>`,
+              iconSize: [18, 18],
+              iconAnchor: [9, 9],
+            })}
+          >
+            <Tooltip direction="top" offset={[0, -12]} permanent={false}>Your location</Tooltip>
+          </Marker>
+        )}
+        <FlyToEffect trigger={flyToTrigger ?? null} />
       </MapContainer>
     </div>
   );
@@ -1029,6 +1082,9 @@ function GoogleMapView({
   resetMapViewTrigger = 0,
   radiusCircle = null,
   onPlacesNearbyApply = null,
+  userLat = null,
+  userLng = null,
+  flyToTrigger = null,
 }: {
   locations: Site[];
   settings: MapSettings;
@@ -1046,6 +1102,9 @@ function GoogleMapView({
   /** When set, draw a light red circle showing the search radius. */
   radiusCircle?: { centerLat: number; centerLng: number; radiusKm: number } | null;
   onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
+  userLat?: number | null;
+  userLng?: number | null;
+  flyToTrigger?: { lat: number; lng: number } | null;
 }) {
   const apiKey = (settings.google_maps_api_key || "").trim();
   /* Call useJsApiLoader unconditionally (before any early return) to satisfy Rules of Hooks */
@@ -1062,6 +1121,7 @@ function GoogleMapView({
   const radiusCircleRef = useRef<google.maps.Circle | null>(null);
   const radiusCircleStrokeRef = useRef<google.maps.Polyline | null>(null);
   const radiusCircleLabelRef = useRef<google.maps.Marker | null>(null);
+  const userDotMarkerRef = useRef<google.maps.Marker | null>(null);
   const containerStyle = { width: "100%", height: "100%" };
 
   const onSiteSelectRef = useRef(onSiteSelect);
@@ -1344,6 +1404,51 @@ function GoogleMapView({
     mapRef.current.panTo({ lat: default_center_lat, lng: default_center_lng });
     mapRef.current.setZoom(default_zoom);
   }, [resetMapViewTrigger, default_center_lat, default_center_lng, default_zoom]);
+
+  /* Fly Google map to user location when flyToTrigger changes */
+  useEffect(() => {
+    if (!flyToTrigger || !mapRef.current) return;
+    if (!Number.isFinite(flyToTrigger.lat) || !Number.isFinite(flyToTrigger.lng)) return;
+    mapRef.current.panTo({ lat: flyToTrigger.lat, lng: flyToTrigger.lng });
+    mapRef.current.setZoom(14);
+  }, [flyToTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Blue dot for user location on Google Maps */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (userLat == null || userLng == null || !Number.isFinite(userLat) || !Number.isFinite(userLng)) {
+      if (userDotMarkerRef.current) {
+        userDotMarkerRef.current.setMap(null);
+        userDotMarkerRef.current = null;
+      }
+      return;
+    }
+    if (userDotMarkerRef.current) {
+      userDotMarkerRef.current.setPosition({ lat: userLat, lng: userLng });
+    } else {
+      userDotMarkerRef.current = new google.maps.Marker({
+        position: { lat: userLat, lng: userLng },
+        map,
+        zIndex: 2000,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: "#2563eb",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 3,
+        },
+        title: "Your location",
+      });
+    }
+    return () => {
+      if (userDotMarkerRef.current) {
+        userDotMarkerRef.current.setMap(null);
+        userDotMarkerRef.current = null;
+      }
+    };
+  }, [userLat, userLng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* When user applies search filters (fitFilteredTrigger increments), fit map to filtered pins */
   useEffect(() => {

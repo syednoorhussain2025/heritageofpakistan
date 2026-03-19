@@ -19,7 +19,8 @@ import { useWishlists } from "@/components/WishlistProvider";
 import { listTripsByUsername, getTripWithItems, getTripTimeline, type TimelineItem } from "@/lib/trips";
 import Link from "next/link";
 import { useMapBootstrap } from "@/components/MapBootstrapProvider";
-import MobilePageHeader from "@/components/MobilePageHeader";
+import { useNativeLocation } from "@/hooks/useNativeLocation";
+import NearbyMeSheet from "@/components/NearbyMeSheet";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
 import SiteCarousel from "@/components/SiteCarousel";
@@ -1187,6 +1188,25 @@ export default function MapClient() {
     showMapToast("All filters cleared");
   }, [clearSidebarFilter, showMapToast]);
 
+  // ── Near Me (user location) ──
+  const { status: gpsStatus, coords: gpsCoords, requestLocation } = useNativeLocation();
+  const [nearbyMeSheetOpen, setNearbyMeSheetOpen] = useState(false);
+  const [mapFlyToTrigger, setMapFlyToTrigger] = useState<{ lat: number; lng: number } | null>(null);
+
+  async function handleNearMe() {
+    void hapticMedium();
+    if (gpsStatus === "granted" && gpsCoords) {
+      setNearbyMeSheetOpen(true);
+      setMapFlyToTrigger({ lat: gpsCoords.lat, lng: gpsCoords.lng });
+    } else {
+      const coords = await requestLocation();
+      if (coords) {
+        setNearbyMeSheetOpen(true);
+        setMapFlyToTrigger({ lat: coords.lat, lng: coords.lng });
+      }
+    }
+  }
+
   // Register mobile header slot — always visible, updates when state changes
   const mapDisplayText = loading || sitesLoading
     ? "Loading…"
@@ -1762,32 +1782,6 @@ export default function MapClient() {
 
   return (
     <>
-    {/* Mobile header — rendered directly, no slot system */}
-    <MobilePageHeader backgroundColor="#00c9a7" minHeight="100px">
-      <div className="w-full h-full flex flex-col justify-center px-6 gap-2 pt-2">
-        {/* Row 1: Map title + search pill */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Icon name="adminmap" size={22} className="text-white shrink-0" />
-            <div className="text-3xl font-bold text-white leading-none" style={{ fontFamily: "var(--font-futura)" }}>Map</div>
-          </div>
-          <button
-            type="button"
-            aria-label="Search & Filters"
-            onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-            className="flex-1 flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm"
-          >
-            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
-            <span className="text-sm text-gray-400 flex-1 text-left truncate">Search heritage sites...</span>
-          </button>
-        </div>
-        {/* Row 2: current filter + count */}
-        <div className="flex items-center justify-between">
-          <div className="text-base font-semibold text-white truncate">{mapTitleText}</div>
-          <div className="text-sm text-white/70 shrink-0 ml-2">{mapDisplayText}</div>
-        </div>
-      </div>
-    </MobilePageHeader>
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
@@ -1839,6 +1833,9 @@ export default function MapClient() {
           fitBoundsToLocations={nearbyActive}
           radiusCircle={radiusCircle}
           onPlacesNearbyApply={onPlacesNearbyApply}
+          userLat={gpsCoords?.lat ?? null}
+          userLng={gpsCoords?.lng ?? null}
+          flyToTrigger={mapFlyToTrigger}
         />
         {sitesLoadError && (
           <div className="fixed left-1/2 top-20 z-[2147483646] -translate-x-1/2 pointer-events-auto" aria-live="polite">
@@ -2910,6 +2907,82 @@ export default function MapClient() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Mobile: floating search + Near Me bar (above bottom nav) ── */}
+      {!loadError && (
+        <div
+          className="lg:hidden fixed inset-x-0 z-[3050] pointer-events-none"
+          style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <div className="flex items-end gap-3 px-3 pb-2.5 pointer-events-auto">
+            {/* Search + result info pill — tapping opens search filters sheet */}
+            <button
+              type="button"
+              aria-label="Search & Filters"
+              onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
+              className="flex-1 min-w-0 flex flex-col gap-0.5 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-lg ring-1 ring-black/8 active:bg-gray-50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Icon name="search" size={14} className="text-gray-400 shrink-0" />
+                <span className="text-[13px] text-gray-500 flex-1 truncate">
+                  {hasActiveFilter
+                    ? (mapTitleText.length > 30 ? mapTitleText.slice(0, 28) + "…" : mapTitleText)
+                    : "Search heritage sites…"}
+                </span>
+                {hasActiveFilter && (
+                  <button
+                    type="button"
+                    aria-label="Clear filters"
+                    onClick={(e) => { e.stopPropagation(); handleClearAllFilters(); }}
+                    className="shrink-0 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                  >
+                    <Icon name="times" size={9} className="text-gray-600" />
+                  </button>
+                )}
+              </div>
+              <div className="text-[11px] text-gray-400 pl-[22px] truncate">{mapDisplayText}</div>
+            </button>
+
+            {/* Near Me circular button */}
+            <button
+              type="button"
+              aria-label="Near me"
+              onClick={() => { void handleNearMe(); }}
+              className={`shrink-0 flex flex-col items-center justify-center gap-0.5 w-[62px] bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg ring-1 ring-black/8 py-2.5 active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+            >
+              {gpsStatus === "loading" ? (
+                <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${gpsStatus === "granted" ? "bg-[var(--brand-blue)]" : "bg-gray-100"}`}>
+                  <svg className={`w-4 h-4 ${gpsStatus === "granted" ? "text-white" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+              <span className="text-[10px] font-medium text-gray-600 leading-tight">Near me</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* NearbyMeSheet — shows sites within 20 km of user */}
+      {mounted && (
+        <NearbyMeSheet
+          isOpen={nearbyMeSheetOpen}
+          lat={gpsCoords?.lat ?? null}
+          lng={gpsCoords?.lng ?? null}
+          onClose={() => setNearbyMeSheetOpen(false)}
+          onSiteSelect={(site) => {
+            const mapSite = allLocationsById.get(site.id);
+            if (mapSite) {
+              setNearbyMeSheetOpen(false);
+              handleSiteSelect(mapSite as MapSite);
+            }
+          }}
+        />
       )}
     </>
   );
