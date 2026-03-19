@@ -1,7 +1,7 @@
 // src/app/HomeClient.tsx
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
@@ -1448,15 +1448,21 @@ function MobileHomepage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const titleRowRef = useRef<HTMLDivElement>(null);
 
+  // Reset scroll synchronously before paint to prevent iOS WebKit scroll-position
+  // restoration from briefly showing a non-zero scrollTop on remount.
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    const titleRow = titleRowRef.current;
+    if (!container || !titleRow) return;
+    container.scrollTop = 0;
+    titleRow.style.opacity = "1";
+    titleRow.style.transform = "translateY(0)";
+  }, []);
+
   useEffect(() => {
     const container = scrollContainerRef.current;
     const titleRow = titleRowRef.current;
     if (!container || !titleRow) return;
-
-    // Reset scroll position when returning to this page (iOS BFCache / navigation)
-    container.scrollTop = 0;
-    titleRow.style.opacity = "1";
-    titleRow.style.transform = "translateY(0)";
 
     // Phase 1: title fades/slides over first ~50px of scroll
     const TITLE_END = 50;
