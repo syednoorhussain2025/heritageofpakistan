@@ -359,9 +359,10 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
             const display = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
             const canWalk = km <= 0.5;
             return (
-              <div className={`border-l-2 pl-3 shrink-0 flex flex-col gap-0.5 ${canWalk ? "border-[#00b78b]" : "border-[var(--brand-orange)]"}`}>
-                <span className="text-xs text-gray-600">
-                  <span className="font-bold text-gray-800">{display}</span> away from your location
+              <div className={`border-l-2 pl-3 shrink-0 flex flex-col gap-0.5 mt-1 ${canWalk ? "border-[#00b78b]" : "border-[var(--brand-orange)]"}`}>
+                <span className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-white text-xs font-bold ${canWalk ? "bg-[#00b78b]" : "bg-[var(--brand-orange)]"}`}>{display}</span>
+                  away from your location
                 </span>
                 {canWalk && (
                   <span className="text-xs text-[#00b78b] font-medium">🚶 You can easily walk</span>

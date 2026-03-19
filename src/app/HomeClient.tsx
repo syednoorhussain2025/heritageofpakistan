@@ -1272,6 +1272,48 @@ function MobileHomepage() {
   const { status: gpsStatus, coords: gpsCoords, cityName: gpsCityName, requestLocation } = useNativeLocation();
   const [nearbySheetOpen, setNearbySheetOpen] = useState(false);
 
+  // Nearby toast
+  const [nearbyToast, setNearbyToast] = useState<{ count: number } | null>(null);
+  const nearbyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (gpsStatus !== "granted" || !gpsCoords) return;
+
+    const COOLDOWN_KEY = "hop:nearby_toast_last";
+    const SESSION_KEY = "hop:nearby_toast_session";
+    const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+    // Once per session
+    if (sessionStorage.getItem(SESSION_KEY)) return;
+    // Cooldown check
+    const last = Number(localStorage.getItem(COOLDOWN_KEY) ?? "0");
+    if (Date.now() - last < COOLDOWN_MS) return;
+
+    sessionStorage.setItem(SESSION_KEY, "1");
+
+    (async () => {
+      try {
+        const { data } = await getPublicClient().rpc("sites_within_radius", {
+          center_lat: gpsCoords.lat,
+          center_lng: gpsCoords.lng,
+          radius_km: 20,
+          name_ilike: null,
+        });
+        const count = (data as { id: string }[] | null)?.length ?? 0;
+        if (count === 0) return;
+        localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+        setNearbyToast({ count });
+        nearbyToastTimer.current = setTimeout(() => setNearbyToast(null), 4000);
+      } catch {
+        // silently ignore
+      }
+    })();
+
+    return () => {
+      if (nearbyToastTimer.current) clearTimeout(nearbyToastTimer.current);
+    };
+  }, [gpsStatus, gpsCoords?.lat, gpsCoords?.lng]);
+
   // Bottom sheet
   const [selectedSite, setSelectedSite] = useState<BottomSheetSite | null>(null);
 
@@ -1629,6 +1671,34 @@ function MobileHomepage() {
         onClose={() => setNearbySheetOpen(false)}
         onSiteSelect={(site) => setSelectedSite(site)}
       />
+
+      {/* Nearby toast */}
+      {nearbyToast && (
+        <div
+          className={`lg:hidden fixed left-4 right-4 z-[4000] transition-all duration-300 ease-out ${nearbyToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+          style={{ bottom: `calc(52px + env(safe-area-inset-bottom, 0px) + 12px)` }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              void hapticMedium();
+              setNearbyToast(null);
+              if (nearbyToastTimer.current) clearTimeout(nearbyToastTimer.current);
+              setNearbySheetOpen(true);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
+          >
+            <span className="text-lg">📍</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-semibold leading-tight">
+                {nearbyToast.count} heritage site{nearbyToast.count !== 1 ? "s" : ""} near you
+              </p>
+              <p className="text-gray-400 text-xs mt-0.5">Tap to explore what&apos;s close by</p>
+            </div>
+            <span className="text-gray-400 text-xs shrink-0">→</span>
+          </button>
+        </div>
+      )}
     </div>
     </>
   );
