@@ -1278,18 +1278,6 @@ function MobileHomepage() {
   useEffect(() => {
     if (gpsStatus !== "granted" || !gpsCoords) return;
 
-    const COOLDOWN_KEY = "hop:nearby_toast_last";
-    const SESSION_KEY = "hop:nearby_toast_session";
-    const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-    // Once per session
-    if (sessionStorage.getItem(SESSION_KEY)) return;
-    // Cooldown check
-    const last = Number(localStorage.getItem(COOLDOWN_KEY) ?? "0");
-    if (Date.now() - last < COOLDOWN_MS) return;
-
-    sessionStorage.setItem(SESSION_KEY, "1");
-
     (async () => {
       try {
         const { data } = await getPublicClient().rpc("sites_within_radius", {
@@ -1300,7 +1288,6 @@ function MobileHomepage() {
         });
         const count = (data as { id: string }[] | null)?.length ?? 0;
         if (count === 0) return;
-        localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
         setNearbyToast({ count });
       } catch {
         // silently ignore
