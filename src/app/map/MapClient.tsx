@@ -2912,8 +2912,8 @@ export default function MapClient() {
       {/* ── Mobile: solid panel above bottom nav ── */}
       {!loadError && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[2998]"
-          style={{ bottom: 0, paddingBottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
+          className="lg:hidden fixed inset-x-0 z-[3001]"
+          style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
         >
           <div
             className="flex flex-col bg-white shadow-[0_-2px_12px_rgba(0,0,0,0.1)]"

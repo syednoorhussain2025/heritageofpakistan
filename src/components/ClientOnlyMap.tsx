@@ -450,7 +450,7 @@ function TripViewTooltipLayer({
     locations.forEach((site) => {
       const el = tooltipRefs.current.get(site.id);
       if (!el) return;
-      const iconSize = iconSizes.get(site.id) ?? 32;
+      const iconSize = iconSizes.get(site.id) ?? 38;
       const point = getPoint([site.latitude, site.longitude]);
       const tipBottom = iconSize / 2 + 6;
       L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
@@ -503,7 +503,7 @@ function TripViewTooltipLayer({
                 // Only set position once per site.id. React 18 calls ref(null) then ref(el) on re-render, so "has(site.id)" would be false after null; use a separate set so we don't re-run setPosition and flicker all tooltips.
                 if (!positionSetFor.current.has(site.id)) {
                   positionSetFor.current.add(site.id);
-                  const iconSize = iconSizes.get(site.id) ?? 32;
+                  const iconSize = iconSizes.get(site.id) ?? 38;
                   const point = map.latLngToLayerPoint([site.latitude, site.longitude]);
                   const tipBottom = iconSize / 2 + 6;
                   L.DomUtil.setPosition(el, L.point(point.x, point.y - tipBottom));
@@ -750,9 +750,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
     ) => {
       const {
         pin_style = "icon_only",
-        pin_icon_size = 32,
+        pin_icon_size = 38,
         pin_color = "#f78300",
-        pin_circle_size = 40,
+        pin_circle_size = 48,
         pin_circle_color = "#f78300",
         pin_icon_color_in_circle = "#ffffff",
         pin_border_thickness = 0,
@@ -1259,9 +1259,9 @@ function GoogleMapView({
       if (!rawSvg) return undefined;
 
       if (settings.pin_style === "icon_in_circle") {
-        const circleSize = Math.max(8, settings.pin_circle_size ?? 40);
+        const circleSize = Math.max(8, settings.pin_circle_size ?? 48);
         const borderThickness = Math.max(0, settings.pin_border_thickness ?? 0);
-        const iconSize = Math.max(8, settings.pin_icon_size ?? 32);
+        const iconSize = Math.max(8, settings.pin_icon_size ?? 38);
         const finalSvg = buildCircleWrappedSvg(
           rawSvg,
           iconSize,
@@ -1279,7 +1279,7 @@ function GoogleMapView({
         };
       }
 
-      const iconSize = Math.max(8, settings.pin_icon_size ?? 32);
+      const iconSize = Math.max(8, settings.pin_icon_size ?? 38);
       const normalized = normalizeSvg(
         rawSvg,
         iconSize,
