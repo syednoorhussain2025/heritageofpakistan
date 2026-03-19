@@ -1274,7 +1274,6 @@ function MobileHomepage() {
 
   // Nearby toast
   const [nearbyToast, setNearbyToast] = useState<{ count: number } | null>(null);
-  const nearbyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (gpsStatus !== "granted" || !gpsCoords) return;
@@ -1303,15 +1302,11 @@ function MobileHomepage() {
         if (count === 0) return;
         localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
         setNearbyToast({ count });
-        nearbyToastTimer.current = setTimeout(() => setNearbyToast(null), 4000);
       } catch {
         // silently ignore
       }
     })();
 
-    return () => {
-      if (nearbyToastTimer.current) clearTimeout(nearbyToastTimer.current);
-    };
   }, [gpsStatus, gpsCoords?.lat, gpsCoords?.lng]);
 
   // Bottom sheet
@@ -1672,32 +1667,42 @@ function MobileHomepage() {
         onSiteSelect={(site) => setSelectedSite(site)}
       />
 
-      {/* Nearby toast */}
+      {/* Nearby toast — dismissed by tapping outside or scrolling */}
       {nearbyToast && (
-        <div
-          className={`lg:hidden fixed left-4 right-4 z-[4000] transition-all duration-300 ease-out ${nearbyToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
-          style={{ bottom: `calc(52px + env(safe-area-inset-bottom, 0px) + 12px)` }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              void hapticMedium();
-              setNearbyToast(null);
-              if (nearbyToastTimer.current) clearTimeout(nearbyToastTimer.current);
-              setNearbySheetOpen(true);
-            }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
+        <>
+          {/* Invisible full-screen dismiss layer */}
+          <div
+            className="lg:hidden fixed inset-0 z-[3999]"
+            onClick={() => setNearbyToast(null)}
+            onTouchMove={() => setNearbyToast(null)}
+            aria-hidden="true"
+          />
+          <div
+            className="lg:hidden fixed left-4 right-4 z-[4000] transition-all duration-300 ease-out opacity-100 translate-y-0"
+            style={{ bottom: `calc(52px + env(safe-area-inset-bottom, 0px) + 12px)` }}
           >
-            <span className="text-lg">📍</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-semibold leading-tight">
-                {nearbyToast.count} heritage site{nearbyToast.count !== 1 ? "s" : ""} near you
-              </p>
-              <p className="text-gray-400 text-xs mt-0.5">Tap to explore what&apos;s close by</p>
-            </div>
-            <span className="text-gray-400 text-xs shrink-0">→</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                void hapticMedium();
+                setNearbyToast(null);
+                setNearbySheetOpen(true);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
+            >
+              <svg className="w-5 h-5 shrink-0" fill="#ef4444" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold leading-tight">
+                  {nearbyToast.count} heritage site{nearbyToast.count !== 1 ? "s" : ""} near you
+                </p>
+                <p className="text-gray-400 text-xs mt-0.5">Tap to explore what&apos;s close by</p>
+              </div>
+              <span className="text-gray-400 text-xs shrink-0">→</span>
+            </button>
+          </div>
+        </>
       )}
     </div>
     </>
