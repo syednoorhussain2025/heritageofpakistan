@@ -1455,9 +1455,12 @@ function MobileHomepage() {
           )}
         </button>
 
-        <span className="text-white font-extrabold text-2xl tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
-          Heritage of Pakistan
-        </span>
+        <div className="flex flex-col items-center gap-1">
+          <img src="/icon.png" alt="" className="w-8 h-8 object-contain" />
+          <span className="text-white font-extrabold text-2xl tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
+            Heritage of Pakistan
+          </span>
+        </div>
 
         {/* Bell — right side */}
         <button className="absolute right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30">
