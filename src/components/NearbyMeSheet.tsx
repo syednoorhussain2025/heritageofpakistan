@@ -33,7 +33,7 @@ const FALLBACK_GRADIENT =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="#00b78b"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
   );
 
-/* ─── Province cache (shared with HomeClient) ─────────────────────────────── */
+/* ─── Province cache ─────────────────────────────────────────────────────── */
 
 const _cache = new Map<string, string>();
 let _cachePromise: Promise<void> | null = null;
@@ -78,6 +78,10 @@ interface Props {
   onSiteSelect: (site: { id: string; slug: string; province_slug?: string | null; title: string; cover_photo_url?: string | null; cover_photo_thumb_url?: string | null; heritage_type?: string | null; avg_rating?: number | null; review_count?: number | null; location_free?: string | null; tagline?: string | null; cover_slideshow_image_ids?: string[] | null }) => void;
 }
 
+// Heights as viewport percentages (for math)
+const PEEK_VH = 32;
+const FULL_VH = 88;
+
 export default function NearbyMeSheet({
   isOpen,
   lat,
@@ -89,7 +93,6 @@ export default function NearbyMeSheet({
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
-  /** "peek" = ~30% height, "full" = full height */
   const [expanded, setExpanded] = useState(false);
 
   const [sites, setSites] = useState<NearbyResult[]>([]);
@@ -97,14 +100,21 @@ export default function NearbyMeSheet({
   const [error, setError] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
+
+  // Drag state — all in refs to avoid re-renders during gesture
   const dragStartY = useRef<number | null>(null);
-  const dragDeltaRef = useRef(0);
+  const dragCurrentY = useRef<number>(0);
   const isDragging = useRef(false);
+  const expandedRef = useRef(false);
+
+  // Keep expandedRef in sync
+  useEffect(() => { expandedRef.current = expanded; }, [expanded]);
 
   /* ── mount / open — always start in peek mode ── */
   useEffect(() => {
     if (isOpen) {
       setExpanded(false);
+      expandedRef.current = false;
       setMounted(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setVisible(true));
@@ -120,11 +130,12 @@ export default function NearbyMeSheet({
       setClosing(false);
       setMounted(false);
       setExpanded(false);
+      expandedRef.current = false;
       onClose();
     }, 320);
   }, [onClose]);
 
-  /* ── fetch sites when opened with coords ── */
+  /* ── fetch sites ── */
   useEffect(() => {
     if (!isOpen || lat == null || lng == null) return;
     setSites([]);
@@ -135,46 +146,27 @@ export default function NearbyMeSheet({
       try {
         const { data, error: rpcError } = await supabase.rpc(
           "sites_within_radius",
-          {
-            center_lat: lat,
-            center_lng: lng,
-            radius_km: RADIUS_KM,
-            name_ilike: null,
-          }
+          { center_lat: lat, center_lng: lng, radius_km: RADIUS_KM, name_ilike: null }
         );
-
         if (rpcError) throw rpcError;
 
         const ids = ((data as { id: string }[]) || []).map((r) => r.id);
         const distMap = new Map<string, number>(
-          ((data as { id: string; distance_km: number }[]) || []).map((r) => [
-            r.id,
-            r.distance_km,
-          ])
+          ((data as { id: string; distance_km: number }[]) || []).map((r) => [r.id, r.distance_km])
         );
 
-        if (ids.length === 0) {
-          setSites([]);
-          setLoading(false);
-          return;
-        }
+        if (ids.length === 0) { setSites([]); setLoading(false); return; }
 
         const { data: full } = await supabase
           .from("sites")
-          .select(
-            "id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude"
-          )
+          .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
           .in("id", ids)
           .eq("is_published", true);
 
         type RawSite = Omit<NearbyResult, "distance_km">;
         const enriched: NearbyResult[] = ((full || []) as unknown as RawSite[]).map(
-          (s) => ({
-            ...s,
-            distance_km: distMap.get(s.id) ?? 0,
-          })
+          (s) => ({ ...s, distance_km: distMap.get(s.id) ?? 0 })
         );
-
         enriched.sort((a, b) => a.distance_km - b.distance_km);
         await attachProvinceSlugs(enriched);
         setSites(enriched);
@@ -186,10 +178,19 @@ export default function NearbyMeSheet({
     })();
   }, [isOpen, lat, lng]);
 
-  /* ── drag: swipe up → expand, swipe down → collapse/close ── */
+  /* ── drag handlers ── */
+  const setSheetTransform = (dy: number, animated: boolean) => {
+    const el = sheetRef.current;
+    if (!el) return;
+    el.style.transition = animated
+      ? "transform 0.35s cubic-bezier(0.32,0.72,0,1)"
+      : "none";
+    el.style.transform = dy === 0 ? "" : `translateY(${dy}px)`;
+  };
+
   const onTouchStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
-    dragDeltaRef.current = 0;
+    dragCurrentY.current = 0;
     isDragging.current = false;
   };
 
@@ -197,63 +198,71 @@ export default function NearbyMeSheet({
     if (dragStartY.current == null) return;
     const delta = e.touches[0].clientY - dragStartY.current;
     isDragging.current = true;
-    dragDeltaRef.current = delta;
-    if (sheetRef.current) {
-      // Only allow dragging in the natural direction
-      if (!expanded && delta < 0) return; // peek → don't drag up past origin
-      if (expanded && delta > 0) {
-        // expanded → dragging down is allowed
-        sheetRef.current.style.transform = `translateY(${delta}px)`;
-        sheetRef.current.style.transition = "none";
-      } else if (!expanded && delta > 0) {
-        sheetRef.current.style.transform = `translateY(${delta}px)`;
-        sheetRef.current.style.transition = "none";
-      }
-    }
+    dragCurrentY.current = delta;
+
+    const isExp = expandedRef.current;
+    // Peek: only allow dragging down. Full: only allow dragging down.
+    // Allow upward drag in peek too (feels natural), but clamp it.
+    if (!isExp && delta < -40) return; // don't drag above peek origin much
+    if (delta < 0 && !isExp) return;   // in peek, resist upward beyond small threshold
+
+    setSheetTransform(Math.max(0, delta), false);
   };
 
   const onTouchEnd = () => {
-    if (!isDragging.current) return;
-    const delta = dragDeltaRef.current;
+    if (!isDragging.current) {
+      dragStartY.current = null;
+      return;
+    }
+    const delta = dragCurrentY.current;
     isDragging.current = false;
     dragStartY.current = null;
 
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = "";
-      sheetRef.current.style.transition = "";
-    }
+    const isExp = expandedRef.current;
 
-    if (!expanded) {
-      // In peek mode: swipe up to expand
+    if (!isExp) {
       if (delta < -60) {
-        void hapticLight();
-        setExpanded(true);
+        // Swiped up enough from peek → expand
+        // Animate sheet back to origin first, then let height transition take over
+        setSheetTransform(0, true);
+        setTimeout(() => { void hapticLight(); setExpanded(true); }, 10);
       } else if (delta > 80) {
-        // swipe down in peek → close
+        // Swiped down from peek → close (animate down then close)
         void hapticLight();
-        handleClose();
+        const el = sheetRef.current;
+        if (el) {
+          el.style.transition = "transform 0.32s cubic-bezier(0.32,0.72,0,1)";
+          el.style.transform = "translateY(100%)";
+          setTimeout(() => handleClose(), 320);
+        } else {
+          handleClose();
+        }
+      } else {
+        // Snap back to peek
+        setSheetTransform(0, true);
       }
     } else {
-      // In full mode: swipe down enough → collapse to peek
       if (delta > 100) {
-        void hapticLight();
-        setExpanded(false);
+        // Swiped down enough from full → collapse to peek
+        setSheetTransform(0, true);
+        setTimeout(() => { void hapticLight(); setExpanded(false); }, 10);
+      } else {
+        // Snap back to full
+        setSheetTransform(0, true);
       }
     }
-    dragDeltaRef.current = 0;
+
+    dragCurrentY.current = 0;
   };
 
   if (!mounted && !closing) return null;
-
-  const PEEK_HEIGHT = "32dvh";
-  const FULL_HEIGHT = "88dvh";
 
   const content = (
     <div
       className="fixed inset-0 z-[3002]"
       style={{ pointerEvents: visible ? "auto" : "none" }}
     >
-      {/* Backdrop — only visible when fully expanded */}
+      {/* Backdrop */}
       <div
         className="absolute inset-0 transition-opacity duration-300"
         style={{
@@ -269,11 +278,12 @@ export default function NearbyMeSheet({
         ref={sheetRef}
         className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] flex flex-col"
         style={{
-          height: expanded ? FULL_HEIGHT : PEEK_HEIGHT,
+          height: expanded ? `${FULL_VH}dvh` : `${PEEK_VH}dvh`,
           transform: visible ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.32s cubic-bezier(0.32,0.72,0,1), height 0.32s cubic-bezier(0.32,0.72,0,1)",
+          transition: "transform 0.32s cubic-bezier(0.32,0.72,0,1), height 0.35s cubic-bezier(0.32,0.72,0,1)",
           paddingBottom: "env(safe-area-inset-bottom, 12px)",
           willChange: "transform, height",
+          touchAction: "none",
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -287,7 +297,7 @@ export default function NearbyMeSheet({
           <div className="w-9 h-1 rounded-full bg-gray-300" />
         </div>
 
-        {/* Header row — always visible in peek */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-1.5 pb-3 shrink-0">
           <div>
             <h2 className="text-base font-bold text-[#1c1f4c]">Nearby Me</h2>
@@ -302,14 +312,13 @@ export default function NearbyMeSheet({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Expand / collapse toggle */}
             <button
               onClick={() => { void hapticLight(); setExpanded((v) => !v); }}
               className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
               aria-label={expanded ? "Collapse" : "Expand"}
             >
               <svg
-                className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -327,7 +336,7 @@ export default function NearbyMeSheet({
           </div>
         </div>
 
-        {/* Body — scrollable, only properly usable when expanded */}
+        {/* Body */}
         <div className={`flex-1 min-h-0 overflow-y-auto px-4 pb-2 ${!expanded ? "overflow-hidden" : ""}`}>
           {loading && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
@@ -366,16 +375,13 @@ export default function NearbyMeSheet({
                   }}
                   className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-left active:bg-gray-50"
                 >
-                  {/* Thumbnail */}
                   <div className="shrink-0 w-20 h-20 relative">
                     <img
                       src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
                       alt={site.title}
                       className="w-full h-full object-cover"
                       loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = FALLBACK_GRADIENT;
-                      }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
                     />
                     {site.heritage_type && (
                       <span className="absolute bottom-1 left-1 bg-[#F78300] text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-tight">
@@ -384,7 +390,6 @@ export default function NearbyMeSheet({
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0 py-3 pr-3">
                     <p className="text-sm font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
@@ -406,7 +411,6 @@ export default function NearbyMeSheet({
                     </div>
                   </div>
 
-                  {/* Chevron */}
                   <div className="pr-3 shrink-0">
                     <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

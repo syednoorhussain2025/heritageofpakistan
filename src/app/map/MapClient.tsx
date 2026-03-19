@@ -282,6 +282,7 @@ export default function MapClient() {
   const [loading, setLoading] = useState(true);
   const [sitesLoading, setSitesLoading] = useState(true);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [categorySlugToId, setCategorySlugToId] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
   const [categoryPills, setCategoryPills] = useState<string[]>([]);
 
@@ -646,7 +647,7 @@ export default function MapClient() {
         const [s, i, c, r, h] = await Promise.all([
           pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
           pub.from("icons").select("name, svg_content"),
-          pub.from("categories").select("id,name").order("name"),
+          pub.from("categories").select("id,name,slug").order("name"),
           pub.from("regions").select("id,name").order("name"),
           pub.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
         ]);
@@ -660,7 +661,7 @@ export default function MapClient() {
           [settingsRes, iconsRes, catsRes, regsRes, homeCfgRes] = await Promise.all([
             pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
             pub.from("icons").select("name, svg_content"),
-            pub.from("categories").select("id,name").order("name"),
+            pub.from("categories").select("id,name,slug").order("name"),
             pub.from("regions").select("id,name").order("name"),
             pub.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
           ]);
@@ -704,8 +705,13 @@ export default function MapClient() {
       }
       if (catsRes?.data) {
         const m: Record<string, string> = {};
-        (catsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
+        const slugMap: Record<string, string> = {};
+        (catsRes.data as { id: string; name: string; slug?: string }[]).forEach((r) => {
+          m[r.id] = r.name;
+          if (r.slug) slugMap[r.slug] = r.id;
+        });
         setCategoryMap(m);
+        setCategorySlugToId(slugMap);
       }
       if (regsRes?.data) {
         const m: Record<string, string> = {};
@@ -2984,15 +2990,13 @@ export default function MapClient() {
           {/* Category pills — only the ones selected in admin settings */}
           {categoryPills.length > 0 && (
             <div
-              className="flex gap-2 overflow-x-auto px-4 pb-3 scrollbar-none"
+              className="flex gap-2 overflow-x-auto px-4 pt-1 pb-4 scrollbar-none"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               {categoryPills.map((slug) => {
-                const entry = Object.entries(categoryMap).find(
-                  ([id, name]) => id === slug || name.toLowerCase() === slug.toLowerCase()
-                );
-                if (!entry) return null;
-                const [id, name] = entry;
+                const id = categorySlugToId[slug];
+                const name = id ? categoryMap[id] : undefined;
+                if (!id || !name) return null;
                 const active = filters.categoryIds.includes(id);
                 return (
                   <button
