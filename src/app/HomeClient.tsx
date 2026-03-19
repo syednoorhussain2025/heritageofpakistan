@@ -1453,20 +1453,38 @@ function MobileHomepage() {
     const titleRow = titleRowRef.current;
     if (!container || !titleRow) return;
 
+    // Reset scroll position when returning to this page (iOS BFCache / navigation)
+    container.scrollTop = 0;
+    titleRow.style.opacity = "1";
+    titleRow.style.transform = "translateY(0)";
+
     // Phase 1: title fades/slides over first ~50px of scroll
     const TITLE_END = 50;
 
     const onScroll = () => {
       const scrollY = container.scrollTop;
-
-      // Phase 1 — title fade + slide up
       const p1 = Math.min(1, scrollY / TITLE_END);
       titleRow.style.opacity = `${1 - p1}`;
       titleRow.style.transform = `translateY(-${p1 * 10}px)`;
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
+
+    // iOS BFCache / Capacitor: reset on page restore or tab re-focus
+    const resetScroll = () => {
+      container.scrollTop = 0;
+      titleRow.style.opacity = "1";
+      titleRow.style.transform = "translateY(0)";
+    };
+    window.addEventListener("pageshow", resetScroll);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") resetScroll();
+    });
+
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pageshow", resetScroll);
+    };
   }, []);
 
   return (
