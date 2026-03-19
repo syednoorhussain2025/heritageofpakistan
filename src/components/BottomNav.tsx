@@ -279,6 +279,22 @@ export default function BottomNav() {
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
 
+  // Lock safe-area-inset-bottom once after first paint — prevents it from
+  // collapsing to 0 on pages where iOS dynamically adjusts the value.
+  const [safeBottom, setSafeBottom] = useState<string>("env(safe-area-inset-bottom, 0px)");
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const el = document.createElement("div");
+      el.style.cssText = "position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;";
+      document.body.appendChild(el);
+      requestAnimationFrame(() => {
+        const h = el.offsetHeight;
+        document.body.removeChild(el);
+        if (h > 0) setSafeBottom(`${h}px`);
+      });
+    });
+  }, []);
+
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
@@ -335,9 +351,9 @@ export default function BottomNav() {
       {/* Spacer suppressed — pages handle their own bottom padding */}
 
       {/* White fill below nav to cover any background bleed under safe area */}
-      <div className="fixed inset-x-0 bottom-0 z-[2999] lg:hidden bg-white" style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
+      <div className="fixed inset-x-0 bottom-0 z-[2999] lg:hidden bg-white" style={{ height: safeBottom }} />
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
           <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />
