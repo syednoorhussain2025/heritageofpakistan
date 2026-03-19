@@ -420,6 +420,8 @@ export default function GalleryClient({
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Mobile: push content below status bar */}
+      <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 44px)" }} />
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}

@@ -75,7 +75,7 @@ export default function DashboardShellClient({
       <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
         {/* Mobile safe-area top spacer — only on mobile, only when not full-bleed */}
         {!fullBleed && (
-          <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 0px)" }} />
+          <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 44px)" }} />
         )}
         {children}
         {/* Mobile bottom nav clearance */}
