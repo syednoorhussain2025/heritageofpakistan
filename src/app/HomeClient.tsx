@@ -1324,6 +1324,7 @@ function MobileHomepage() {
         const count = (data as { id: string }[] | null)?.length ?? 0;
         if (count === 0) return;
         setNearbyToast({ count });
+        setTimeout(() => setNearbyToast(null), 7500);
       } catch {
         // silently ignore
       }
@@ -1689,40 +1690,46 @@ function MobileHomepage() {
         onSiteSelect={(site) => setSelectedSite(site)}
       />
 
-      {/* Nearby toast — dismissed by tapping outside or scrolling */}
+      {/* Nearby toast — auto-dismisses after 7.5s */}
       {nearbyToast && (
         <>
-          {/* Invisible full-screen dismiss layer */}
-          <div
-            className="lg:hidden fixed inset-0 z-[3999]"
-            onClick={() => setNearbyToast(null)}
-            onTouchMove={() => setNearbyToast(null)}
-            aria-hidden="true"
-          />
           <div
             className="lg:hidden fixed left-4 right-4 z-[4000] transition-all duration-300 ease-out opacity-100 translate-y-0"
             style={{ bottom: `calc(52px + env(safe-area-inset-bottom, 0px) + 12px)` }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                void hapticMedium();
-                setNearbyToast(null);
-                setNearbySheetOpen(true);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
-            >
-              <svg className="w-5 h-5 shrink-0" fill="#ef4444" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-semibold leading-tight">
-                  {nearbyToast.count} heritage site{nearbyToast.count !== 1 ? "s" : ""} near you
-                </p>
-                <p className="text-gray-400 text-xs mt-0.5">Tap to explore what&apos;s close by</p>
-              </div>
-              <span className="text-gray-400 text-xs shrink-0">→</span>
-            </button>
+            <div className="relative">
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={() => { void hapticLight(); setNearbyToast(null); }}
+                className="absolute -top-2 -right-2 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-gray-600 text-white"
+                aria-label="Dismiss"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void hapticMedium();
+                  setNearbyToast(null);
+                  setNearbySheetOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
+              >
+                <svg className="w-5 h-5 shrink-0" fill="#ef4444" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold leading-tight">
+                    {nearbyToast.count} heritage site{nearbyToast.count !== 1 ? "s" : ""} near you
+                  </p>
+                  <p className="text-gray-400 text-xs mt-0.5">Tap to explore what&apos;s close by</p>
+                </div>
+                <span className="text-gray-400 text-xs shrink-0">→</span>
+              </button>
+            </div>
           </div>
         </>
       )}
