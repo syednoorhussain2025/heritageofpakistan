@@ -2909,60 +2909,63 @@ export default function MapClient() {
         </div>
       )}
 
-      {/* ── Mobile: floating search + Near Me bar (above bottom nav) ── */}
+      {/* ── Mobile: solid panel above bottom nav ── */}
       {!loadError && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[3050] pointer-events-none"
+          className="lg:hidden fixed inset-x-0 z-[3050]"
           style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
         >
-          <div className="flex items-end gap-3 px-3 py-2 pointer-events-auto">
-            {/* Search + result info pill — tapping opens search filters sheet */}
+          <div
+            className="flex items-center gap-3 px-4 py-5"
+            style={{ background: "var(--brand-blue)" }}
+          >
+            {/* Search + result info — tapping opens search filters sheet */}
             <button
               type="button"
               aria-label="Search & Filters"
               onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-              className="flex-1 min-w-0 flex flex-col gap-0.5 bg-white/95 backdrop-blur-sm rounded-full px-4 py-3 shadow-lg ring-1 ring-black/8 active:bg-gray-50 transition-colors text-left"
+              className="flex-1 min-w-0 flex items-center gap-2.5 bg-white rounded-full px-4 py-2.5 active:bg-gray-50 transition-colors text-left shadow-sm"
             >
-              <div className="flex items-center gap-2">
-                <Icon name="search" size={14} className="text-gray-400 shrink-0" />
-                <span className="text-[13px] text-gray-500 flex-1 truncate">
+              <Icon name="search" size={14} className="text-gray-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] text-gray-700 font-medium truncate leading-tight">
                   {hasActiveFilter
-                    ? (mapTitleText.length > 30 ? mapTitleText.slice(0, 28) + "…" : mapTitleText)
+                    ? (mapTitleText.length > 32 ? mapTitleText.slice(0, 30) + "…" : mapTitleText)
                     : "Search heritage sites…"}
-                </span>
-                {hasActiveFilter && (
-                  <button
-                    type="button"
-                    aria-label="Clear filters"
-                    onClick={(e) => { e.stopPropagation(); handleClearAllFilters(); }}
-                    className="shrink-0 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-                  >
-                    <Icon name="times" size={9} className="text-gray-600" />
-                  </button>
-                )}
+                </div>
+                <div className="text-[11px] text-gray-400 truncate leading-tight">{mapDisplayText}</div>
               </div>
-              <div className="text-[11px] text-gray-400 pl-[22px] truncate">{mapDisplayText}</div>
+              {hasActiveFilter && (
+                <button
+                  type="button"
+                  aria-label="Clear filters"
+                  onClick={(e) => { e.stopPropagation(); handleClearAllFilters(); }}
+                  className="shrink-0 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center active:bg-gray-300 transition-colors"
+                >
+                  <Icon name="times" size={9} className="text-gray-600" />
+                </button>
+              )}
             </button>
 
             {/* Near Me circular button */}
-            <div className="shrink-0 flex flex-col items-center gap-1">
+            <div className="shrink-0 flex flex-col items-center gap-0.5">
               <button
                 type="button"
                 aria-label="Near me"
                 onClick={() => { void handleNearMe(); }}
-                className={`w-12 h-12 rounded-full bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-black/8 flex items-center justify-center active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+                className={`w-11 h-11 rounded-full bg-white flex items-center justify-center active:bg-gray-50 transition-colors shadow-sm ${gpsStatus === "loading" ? "opacity-60" : ""}`}
               >
                 {gpsStatus === "loading" ? (
                   <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
                   </svg>
                 ) : (
-                  <svg className={`w-5 h-5 ${gpsStatus === "granted" ? "text-[var(--brand-blue)]" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
+                  <svg className={`w-5 h-5 ${gpsStatus === "granted" ? "text-[#00c9a7]" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
                 )}
               </button>
-              <span className="text-[10px] font-medium text-gray-500 leading-tight">Near me</span>
+              <span className="text-[9px] font-medium text-white/70 leading-tight">Near me</span>
             </div>
           </div>
         </div>
