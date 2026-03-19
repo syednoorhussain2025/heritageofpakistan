@@ -36,9 +36,9 @@ type BuilderTravelItem = Extract<TimelineItem, { kind: "travel" }> & {
 };
 type BuilderItem = BuilderSiteItem | BuilderTravelItem;
 
-/* Slim 3-column grid: number | left block | wide tagline */
+/* Slim 3-column grid: number | left block | wide tagline (desktop only) */
 const GRID =
-  "grid items-start gap-4 grid-cols-[36px_minmax(260px,4fr)_minmax(520px,6fr)]";
+  "grid items-start gap-4 grid-cols-1 md:grid-cols-[36px_minmax(200px,4fr)_minmax(320px,6fr)]";
 
 function KIcon({
   name,
@@ -205,7 +205,44 @@ export default function TripPublicClient() {
 
     return (
       <div className="py-4">
-        <div className={GRID}>
+        {/* Mobile layout: horizontal card */}
+        <div className="md:hidden flex items-start gap-3">
+          <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--olive-green)] text-white text-[11px] font-semibold">
+            {siteNumber}
+          </span>
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]">
+            {it.site?.cover_photo_url && (
+              <img src={it.site.cover_photo_url} alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-[16px] text-[var(--navy-deep)] leading-snug">
+              {it.site ? (
+                <Link href={`/site/${it.site.slug}`} className="hover:underline">{it.site.title}</Link>
+              ) : (
+                <span className="text-[var(--espresso-brown)]/70">Unknown site</span>
+              )}
+            </div>
+            <div className="mt-0.5 flex items-center gap-1 text-sm text-[var(--espresso-brown)]">
+              <KIcon name="map-marker-alt" size={12} className="text-[var(--mustard-accent)]" />
+              <span className="truncate">{it.provinceName || "—"}</span>
+            </div>
+            <div className="mt-0.5 flex items-center gap-1 text-[12px] text-[var(--espresso-brown)]">
+              <KIcon name="calendar-check" size={12} className="text-[var(--mustard-accent)]" />
+              <span>{formatVisitLabel(currentVisit)}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {it.experience?.length ? (
+                it.experience.map((e, idx) => (
+                  <span key={idx} className="rounded-full bg-[var(--ivory-cream)] px-2 py-[2px] text-[11px] text-[var(--espresso-brown)] whitespace-nowrap ring-1 ring-[var(--taupe-grey)]">{e}</span>
+                ))
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout: 3-column grid */}
+        <div className={`hidden md:grid ${GRID}`}>
           {/* No. */}
           <div className="flex items-start justify-center pt-1">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--olive-green)] text-white text-[11px] font-semibold">
@@ -297,8 +334,27 @@ export default function TripPublicClient() {
     const modeMeta = MODE_META[it.mode] || MODE_META.car;
 
     return (
-      <div className="py-4">
-        <div className={GRID}>
+      <div className="py-3">
+        {/* Mobile: compact horizontal travel bar */}
+        <div className="md:hidden flex items-center gap-2 px-2 py-2 rounded-xl bg-[var(--ivory-cream)]/60 border border-[var(--taupe-grey)]/50 text-[var(--navy-deep)]">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <KIcon name="map-marker-alt" size={13} className="text-[var(--mustard-accent)] shrink-0" />
+            <span className="truncate text-sm font-medium">{fromName}</span>
+          </div>
+          <div className="flex flex-col items-center shrink-0 px-2">
+            <KIcon name={modeMeta.icon} size={14} className="text-[var(--mustard-accent)]" />
+            <span className="text-[10px] text-[var(--espresso-brown)]/70 whitespace-nowrap">
+              {durationLabel(it.duration_minutes)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+            <span className="truncate text-sm font-medium">{toName}</span>
+            <KIcon name="map-marker-alt" size={13} className="text-[var(--mustard-accent)] shrink-0" />
+          </div>
+        </div>
+
+        {/* Desktop: original 3-column layout */}
+        <div className={`hidden md:grid ${GRID}`}>
           <div /> {/* spacer for number column */}
           <div className="col-span-2">
             <div className="flex items-center justify-center gap-6 w-full text-[var(--navy-deep)]">
@@ -349,8 +405,10 @@ export default function TripPublicClient() {
   /* ---------- UI ---------- */
   return (
     <main
-      className="min-h-screen py-6"
+      className="min-h-screen py-4 sm:py-6"
       style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top, 0px))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
         backgroundImage:
           'url("https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/background.png")',
         backgroundRepeat: "repeat",
@@ -388,10 +446,10 @@ export default function TripPublicClient() {
         />
 
         <header className="relative mb-6 text-center z-10">
-          <h1 className="text-6xl font-black leading-tight text-[var(--terracotta-red)]">
+          <h1 className="text-4xl sm:text-6xl font-black leading-tight text-[var(--terracotta-red)]">
             Travel Itinerary
           </h1>
-          <h2 className="mt-2 text-4xl font-black text-[var(--dark-grey)]">
+          <h2 className="mt-2 text-2xl sm:text-4xl font-black text-[var(--dark-grey)]">
             {tripName || "—"}
           </h2>
           <div className="mt-2 text-base text-[var(--espresso-brown)]">
@@ -427,14 +485,14 @@ export default function TripPublicClient() {
               return (
                 <section key={day.id} className="p-4">
                   {/* Day header */}
-                  <div className="flex items-center gap-4">
-                    <span className="inline-flex items-center rounded-full bg-[var(--terracotta-red)] px-6 py-2 text-white text-sm font-bold">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="inline-flex items-center rounded-full bg-[var(--terracotta-red)] px-4 sm:px-6 py-1.5 sm:py-2 text-white text-sm font-bold shrink-0">
                       {`Day ${i + 1}`}
                     </span>
-                    <span className="text-2xl font-bold text-[var(--navy-deep)]">
+                    <span className="text-lg sm:text-2xl font-bold text-[var(--navy-deep)] min-w-0 truncate">
                       {day.title?.trim() || "—"}
                     </span>
-                    <span className="ml-auto text-lg font-bold text-[var(--navy-deep)]">
+                    <span className="ml-auto text-sm sm:text-lg font-bold text-[var(--navy-deep)] shrink-0">
                       {day.the_date ? formatVisitLabel(day.the_date) : "—"}
                     </span>
                   </div>

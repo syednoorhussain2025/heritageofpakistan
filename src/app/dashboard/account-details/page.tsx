@@ -31,22 +31,22 @@ export default async function AccountDetailsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-2xl font-semibold mb-6">Account Details</h1>
-      <div className="space-y-4 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b">
-          <span className="text-gray-600">Full Name</span>
-          <span className="font-medium text-gray-900">
+    <div className="max-w-2xl">
+      <h1 className="text-xl font-bold mb-5">Account Details</h1>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex flex-col gap-0.5 py-3 px-5 border-b border-gray-100">
+          <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Full Name</span>
+          <span className="font-semibold text-gray-900 text-base">
             {user.user_metadata.full_name || "Not provided"}
           </span>
         </div>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b">
-          <span className="text-gray-600">Email Address</span>
-          <span className="font-medium text-gray-900">{user.email}</span>
+        <div className="flex flex-col gap-0.5 py-3 px-5 border-b border-gray-100">
+          <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Email Address</span>
+          <span className="font-semibold text-gray-900 text-base">{user.email}</span>
         </div>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2">
-          <span className="text-gray-600">Account Created On</span>
-          <span className="font-medium text-gray-900">
+        <div className="flex flex-col gap-0.5 py-3 px-5">
+          <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Account Created</span>
+          <span className="font-semibold text-gray-900 text-base">
             {formatDate(user.created_at)}
           </span>
         </div>

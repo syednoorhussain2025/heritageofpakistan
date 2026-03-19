@@ -156,7 +156,7 @@ export default function SignUpForm() {
           marginTop: "calc(var(--sticky-offset, 72px) * -1)",
           height: "calc(100dvh + var(--sticky-offset, 72px))",
           paddingTop: "var(--sticky-offset, 72px)",
-          paddingBottom: "72px",
+          paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         {/* Black backdrop */}

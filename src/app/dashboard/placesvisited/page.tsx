@@ -265,132 +265,84 @@ export default function PlacesVisitedPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-3xl font-semibold mb-4">My Visited Places</h1>
+    <div className="max-w-7xl mx-auto">
+      <h1 className="text-xl font-bold mb-4">My Visited Places</h1>
 
       {/* Header: avatar + map button */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          {profile ? (
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-orange-400">
-                <Image
-                  src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
-                  alt="User avatar"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div>
-                <div className="font-semibold text-xl">{profile.full_name}</div>
-                <div className="text-md text-green-600">{profile.badge}</div>
-              </div>
+      <div className="flex items-center justify-between mb-5">
+        {profile ? (
+          <div className="flex items-center gap-3">
+            <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-orange-400 shrink-0">
+              <Image src={avatarSrc(profile.avatar_url) || "/default-avatar.png"} alt="User avatar" fill className="object-cover" />
             </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <AvatarSkeleton />
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-44" />
-                <Skeleton className="h-4 w-24" />
-              </div>
+            <div>
+              <div className="font-semibold text-base">{profile.full_name}</div>
+              <div className="text-sm text-green-600 font-medium">{profile.badge}</div>
             </div>
-          )}
-        </div>
-
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <AvatarSkeleton />
+            <div className="space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div>
+          </div>
+        )}
         {sitesForMap.length > 0 && (
-          <button
-            onClick={() => setShowMap(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
-          >
-            <Icon name="map-marker-alt" />
-            Show on Map
+          <button onClick={() => setShowMap(true)} className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium active:opacity-80 transition">
+            <Icon name="map-marker-alt" size={14} /> Map
           </button>
         )}
       </div>
 
-      {/* Stats + badge summary */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg border-4 border-white">
-            {visitedCount}
+      {/* Stats card */}
+      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow border-4 border-white shrink-0">
+              {visitedCount}
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">Heritage Sites</p>
+              <p className="text-xs text-gray-500">Reviewed by you</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xl font-bold">Heritage Sites</p>
-            <p className="text-sm text-gray-500">Reviewed by you</p>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-green-600">{progress.current}</p>
+            {progress.next && <p className="text-xs text-gray-400">{progress.remaining} more → {progress.next}</p>}
+            <button onClick={() => setShowBadgeModal(true)} className="mt-1 text-xs text-[#F78300] font-medium active:opacity-70">
+              About Badges →
+            </button>
           </div>
         </div>
-        <div className="text-right">
-          <p className="font-medium text-green-600">{progress.current} Badge</p>
-          {progress.next && (
-            <p className="text-xs text-gray-500">
-              {progress.remaining} more sites → {progress.next}
-            </p>
-          )}
-          <button
-            onClick={() => setShowBadgeModal(true)}
-            className="mt-1 text-xs text-blue-600 hover:underline"
-          >
-            Learn about Badges
-          </button>
-        </div>
+        {progress.next && visitedCount > 0 && (
+          <div className="mt-3 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min((visitedCount / (visitedCount + progress.remaining)) * 100, 100)}%` }} />
+          </div>
+        )}
       </div>
 
-      {/* Progress bar */}
-      {progress.next && visitedCount > 0 ? (
-        <div className="w-full bg-gray-200 h-3 rounded-full mb-8">
-          <div
-            className="bg-green-600 h-3 rounded-full"
-            style={{
-              width: `${Math.min(
-                (visitedCount / (visitedCount + progress.remaining)) * 100,
-                100
-              )}%`,
-            }}
-          />
-        </div>
-      ) : (
-        <div className="mb-8">
-          <Skeleton className="h-3 w-full rounded-full" />
-        </div>
-      )}
-
       {/* Grid of visited sites */}
-      {reviews.length === 0 && <p>You haven’t reviewed any places yet.</p>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+      {reviews.length === 0 && <p className="text-gray-400 text-center py-8">You haven’t reviewed any places yet.</p>}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-start">
         {reviews.length > 0
           ? reviews.map((r) => (
-              <div key={r.id} className="text-center group">
-                <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden shadow-lg border-4 border-white transition-all duration-300">
+              <div key={r.id} className="text-center">
+                <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden shadow border-4 border-white">
                   {r.site?.cover_photo_url ? (
-                    <Image
-                      src={r.site.cover_photo_url}
-                      alt={r.site.title}
-                      fill
-                      className="object-cover"
-                    />
+                    <Image src={r.site.cover_photo_url} alt={r.site.title} fill className="object-cover" />
                   ) : (
-                    <div className="bg-gray-300 w-full h-full" />
+                    <div className="bg-gray-200 w-full h-full" />
                   )}
                 </div>
-                <div className="p-3">
-                  <h3 className="font-medium">
-                    {r.site?.title ?? "Unknown Site"}
-                  </h3>
+                <div className="pt-2 pb-1">
+                  <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{r.site?.title ?? "Unknown Site"}</h3>
                   {r.rating && (
-                    <div className="mt-1 flex items-center justify-center gap-1">
-                      <div className="text-amber-500 text-sm leading-none">
-                        {"★".repeat(Math.round(r.rating))}
-                      </div>
-                      <div className="text-gray-300 text-sm leading-none">
-                        {"★".repeat(5 - Math.round(r.rating))}
-                      </div>
+                    <div className="mt-1 flex items-center justify-center gap-0.5">
+                      <span className="text-amber-400 text-xs">{"★".repeat(Math.round(r.rating))}</span>
+                      <span className="text-gray-200 text-xs">{"★".repeat(5 - Math.round(r.rating))}</span>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Visited in{" "}
-                    {r.visited_month && r.visited_year
-                      ? `${monthNames[r.visited_month]} ${r.visited_year}`
-                      : new Date(r.created_at).toLocaleDateString()}
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {r.visited_month && r.visited_year ? `${monthNames[r.visited_month]} ${r.visited_year}` : new Date(r.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -398,51 +350,36 @@ export default function PlacesVisitedPage() {
           : [1, 2, 3, 4].map((k) => <CardSkeleton key={k} />)}
       </div>
 
-      {/* Badge modal */}
+      {/* Badge bottom sheet (mobile) / modal (desktop) */}
       {showBadgeModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowBadgeModal(false)}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full border-t-4 border-[#f78300]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Badge Tiers
-              </h2>
-              <button
-                onClick={() => setShowBadgeModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <Icon name="times" />
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-[3600] bg-black/40 backdrop-blur-sm" onClick={() => setShowBadgeModal(false)} />
+          {/* Sheet */}
+          <div className="fixed inset-x-0 bottom-0 z-[3700] bg-white rounded-t-3xl shadow-2xl" style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}>
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="px-5 pb-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800">Badge Tiers</h2>
+                <button onClick={() => setShowBadgeModal(false)} className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200">
+                  <Icon name="times" size={18} />
+                </button>
+              </div>
+              <div className="space-y-3 mb-5">
+                {BADGE_TIERS.map((tier) => (
+                  <div key={tier.name} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                    <span className="font-semibold text-[#f78300]">{tier.name}</span>
+                    <span className="text-sm text-gray-500 font-medium">{tier.min}{tier.max ? `–${tier.max}` : "+"} reviews</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowBadgeModal(false)} className="w-full bg-[#f78300] text-white font-bold py-3.5 rounded-2xl active:opacity-80 transition">
+                Got it
               </button>
             </div>
-            <div className="space-y-3 text-sm">
-              {BADGE_TIERS.map((tier) => (
-                <div
-                  key={tier.name}
-                  className="flex justify-between items-center border-b pb-2"
-                >
-                  <span className="font-semibold text-[#f78300]">
-                    {tier.name}
-                  </span>
-                  <span className="text-blue-600 font-medium">
-                    {tier.min}
-                    {tier.max ? `–${tier.max}` : "+"} reviews
-                  </span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowBadgeModal(false)}
-              className="mt-6 w-full bg-[#f78300] hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition"
-            >
-              Close
-            </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -47,14 +47,11 @@ export default function BookmarksPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-semibold mb-4">My Bookmarks</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="w-full h-72 bg-gray-200 rounded-xl animate-pulse"
-            />
+      <div>
+        <h1 className="text-xl font-bold mb-4">My Bookmarks</h1>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-full aspect-[3/4] bg-gray-200 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -62,20 +59,16 @@ export default function BookmarksPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">My Bookmarks</h1>
+    <div>
+      <h1 className="text-xl font-bold mb-4">My Bookmarks</h1>
       {bookmarkedSites.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <Icon name="heart" size={48} className="text-gray-400 mx-auto" />
-          <p className="mt-4 text-gray-600">
-            You haven't bookmarked any sites yet.
-          </p>
-          <p className="text-sm text-gray-500">
-            Click the heart icon on a site to save it here.
-          </p>
+        <div className="text-center py-16 rounded-2xl bg-gray-50">
+          <Icon name="heart" size={40} className="text-gray-300 mx-auto" />
+          <p className="mt-3 text-gray-500 font-medium">No bookmarks yet</p>
+          <p className="text-sm text-gray-400 mt-1">Tap the heart icon on any site to save it here.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6">
           {bookmarkedSites.map((site) => (
             <SitePreviewCard key={site.id} site={site} />
           ))}

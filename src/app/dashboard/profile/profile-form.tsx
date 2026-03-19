@@ -127,59 +127,55 @@ export default function ProfileForm({ account, categories, interests }: Props) {
   }
 
   return (
-    <form onSubmit={saveProfile} className="space-y-6 max-w-2xl">
+    <form onSubmit={saveProfile} className="space-y-5 max-w-2xl">
       <h1 className="text-xl font-semibold">Edit Your Profile</h1>
 
       {/* Avatar + Upload UI */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-5">
         {avatarSrc ? (
           <Image
             src={avatarSrc}
             alt="Profile photo"
             width={96}
             height={96}
-            className="rounded-full object-cover"
-            unoptimized // Good for Supabase URLs that aren't in next.config.js
+            className="rounded-full object-cover ring-2 ring-gray-100 shrink-0"
+            unoptimized
           />
         ) : (
-          <div className="w-24 h-24 rounded-full bg-gray-300" />
+          <div className="w-24 h-24 rounded-full bg-gray-200 shrink-0" />
         )}
         <div>
           <label
             htmlFor="avatar-upload"
-            className="cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50"
+            className="cursor-pointer inline-flex items-center rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium active:bg-gray-50 hover:bg-gray-50 transition"
           >
-            Upload Photo
+            {saving ? "Uploading..." : "Upload Photo"}
           </label>
           <input
             id="avatar-upload"
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={handlePickAvatar}
-            className="sr-only" // Hide the default ugly input
+            className="sr-only"
           />
-          <p className="text-xs text-gray-500 mt-2">
-            JPG, PNG, or WEBP. Max 5MB.
-          </p>
+          <p className="text-xs text-gray-500 mt-2">JPG, PNG, or WEBP. Max 5MB.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Full name</span>
-          <input
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-            placeholder="Your name"
-            value={form.full_name ?? ""}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-          />
-        </label>
-      </div>
+      <label className="block">
+        <span className="text-sm font-medium text-gray-700">Full name</span>
+        <input
+          className="mt-1.5 block w-full rounded-xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-orange-500 focus:ring-orange-500 outline-none"
+          placeholder="Your name"
+          value={form.full_name ?? ""}
+          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+        />
+      </label>
 
       <label className="block">
         <span className="text-sm font-medium text-gray-700">Bio</span>
         <textarea
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+          className="mt-1.5 block w-full rounded-xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-orange-500 focus:ring-orange-500 outline-none"
           rows={3}
           placeholder="Tell us a bit about yourself"
           value={form.bio ?? ""}
@@ -187,26 +183,26 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         />
       </label>
 
-      <label className="flex items-center gap-2">
+      <label className="flex items-center gap-3 py-1">
         <input
           type="checkbox"
-          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+          className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
           checked={!!form.public_profile}
           onChange={(e) =>
             setForm({ ...form, public_profile: e.target.checked })
           }
         />
-        Make my profile public
+        <span className="text-sm font-medium text-gray-700">Make my profile public</span>
       </label>
 
       <div>
-        <div className="font-medium mb-2">Interests (categories)</div>
-        <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto border p-2 rounded-md">
+        <div className="text-sm font-medium text-gray-700 mb-2">Interests (categories)</div>
+        <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto border border-gray-200 p-3 rounded-xl bg-gray-50">
           {categories.map((c) => (
-            <label key={c.id} className="flex items-center gap-2">
+            <label key={c.id} className="flex items-center gap-2 py-1">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                 checked={selectedCats.includes(c.id)}
                 onChange={(e) => {
                   setSelectedCats((s) =>
@@ -216,20 +212,22 @@ export default function ProfileForm({ account, categories, interests }: Props) {
                   );
                 }}
               />
-              <span>{c.name}</span>
+              <span className="text-sm">{c.name}</span>
             </label>
           ))}
         </div>
       </div>
 
-      <button
-        className="rounded-md bg-black text-white px-4 py-2 font-semibold hover:bg-gray-800 disabled:opacity-50"
-        disabled={saving}
-      >
-        {saving ? "Saving..." : "Save changes"}
-      </button>
+      <div className="pt-1">
+        <button
+          className="w-full sm:w-auto rounded-2xl bg-[#f78300] text-white px-6 py-3.5 font-bold active:opacity-80 transition disabled:opacity-50"
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </div>
 
-      {msg && <p className="text-sm text-emerald-600">{msg}</p>}
+      {msg && <p className="text-sm text-emerald-600 font-medium">{msg}</p>}
       {err && <p className="text-sm text-red-600">{err}</p>}
     </form>
   );

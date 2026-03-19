@@ -405,14 +405,15 @@ export default function PhotoStoryClient() {
       {/* ===== HEADER (BEHAVIOR RESTORED) ===== */}
       <header
         className={`
-          fixed top-0 z-50 w-full px-6 py-3
+          fixed top-0 z-50 w-full px-4 sm:px-6
           transition-colors duration-500 ease-in-out
           ${isScrolled ? "bg-transparent" : "bg-black/80 backdrop-blur-sm"}
         `}
+        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)", paddingBottom: "12px" }}
       >
         <div className="flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
           <div className="flex-shrink-0 min-w-0">
-            <h1 className="text-base md:text-lg font-semibold truncate">
+            <h1 className="text-sm sm:text-base md:text-lg font-semibold truncate">
               {site.title}
               {story?.subtitle && (
                 <span className="ml-2 font-normal opacity-80 hidden md:inline">
@@ -431,30 +432,9 @@ export default function PhotoStoryClient() {
 
       {/* ===== HERO (MODIFIED) ===== */}
       {story?.hero_photo_url ? (
-        <section className="relative mb-12 h-screen w-full flex js-animate hero-wrap">
-          {/* Left Div: Black Background + Text */}
-          <div className="w-2/5 bg-black flex items-center justify-center p-6 sm:p-12 md:p-16 lg:p-24">
-            <div className="max-w-md w-full">
-              <div className="hero-title text-left">
-                <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-                  {site.title}
-                </h1>
-                {story?.subtitle ? (
-                  <p className="mt-2 text-xl md:text-2xl font-light opacity-90">
-                    {story.subtitle}
-                  </p>
-                ) : null}
-                {site?.tagline ? (
-                  <p className="mt-6 text-lg md:text-xl font-medium italic opacity-80">
-                    "{site.tagline}"
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Div: Image */}
-          <div className="w-3/5 h-full overflow-hidden">
+        <section className="relative mb-12 w-full js-animate hero-wrap">
+          {/* Mobile: full-screen image with overlay text */}
+          <div className="sm:hidden relative h-svh w-full">
             <img
               src={story.hero_photo_url}
               alt={site.title}
@@ -462,6 +442,40 @@ export default function PhotoStoryClient() {
               loading="eager"
               decoding="async"
             />
+            <div className="hero-gradient absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="hero-title absolute inset-x-0 bottom-0 p-6 text-white">
+              <h1 className="text-3xl font-extrabold tracking-tight leading-tight">{site.title}</h1>
+              {story?.subtitle && <p className="mt-1 text-base font-light opacity-90">{story.subtitle}</p>}
+              {site?.tagline && <p className="mt-3 text-sm font-medium italic opacity-80">"{site.tagline}"</p>}
+            </div>
+          </div>
+
+          {/* Desktop: original 40/60 split */}
+          <div className="hidden sm:flex h-screen w-full">
+            <div className="w-2/5 bg-black flex items-center justify-center p-6 sm:p-12 md:p-16 lg:p-24">
+              <div className="max-w-md w-full">
+                <div className="hero-title text-left">
+                  <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
+                    {site.title}
+                  </h1>
+                  {story?.subtitle ? (
+                    <p className="mt-2 text-xl md:text-2xl font-light opacity-90">{story.subtitle}</p>
+                  ) : null}
+                  {site?.tagline ? (
+                    <p className="mt-6 text-lg md:text-xl font-medium italic opacity-80">"{site.tagline}"</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            <div className="w-3/5 h-full overflow-hidden">
+              <img
+                src={story.hero_photo_url}
+                alt={site.title}
+                className="w-full h-full object-cover object-center"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
           </div>
         </section>
       ) : null}

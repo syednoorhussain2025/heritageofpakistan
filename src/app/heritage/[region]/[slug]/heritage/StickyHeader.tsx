@@ -467,6 +467,7 @@ export default function StickyHeader({
       ref={stickyRef}
       className="sticky top-0 z-40 bg-white border-b border-slate-200"
       aria-label="Sticky site header"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
       <div className="relative">
         <div

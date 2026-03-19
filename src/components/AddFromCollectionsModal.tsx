@@ -370,21 +370,25 @@ export default function AddFromCollectionsModal({
     loading ||
     (tab === "collections" && activeCollection && photos.length === 0);
 
-  const BODY_HEIGHT = "h-[520px]"; // stable, ~two rows
+  const BODY_HEIGHT = "flex-1 min-h-0 sm:h-[520px] sm:flex-none"; // full height on mobile, fixed on desktop
 
   return (
     <div
-      className={`fixed inset-0 z-[999] flex items-center justify-center bg-black/35 backdrop-blur-md ${
+      className={`fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/35 backdrop-blur-md ${
         leaving ? "animate-fadeOut" : "animate-fadeIn"
       }`}
     >
       <div
-        className={`w-[95vw] max-w-5xl rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden ${
+        className={`w-full h-[92svh] sm:h-auto sm:w-[95vw] sm:max-w-5xl rounded-t-3xl sm:rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden flex flex-col ${
           leaving ? "animate-popOut" : "animate-popIn"
         }`}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b px-4 py-3 flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               className={`px-3 py-1 rounded-lg text-sm ${
@@ -424,8 +428,8 @@ export default function AddFromCollectionsModal({
           <div className="flex items-center gap-3">
             {loading && <TinySpinner />}
             <input
-              placeholder="Search photos…"
-              className="h-9 w-56 rounded-lg border px-3 text-sm"
+              placeholder="Search…"
+              className="h-9 w-32 sm:w-56 rounded-lg border px-3 text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />

@@ -208,19 +208,19 @@ function ReviewCardSkeleton() {
 
 function PageSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6 max-w-5xl mx-auto">
-        <Skeleton className="h-7 w-44 mb-4" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
+    <div className="max-w-5xl mx-auto">
+      <Skeleton className="h-7 w-44 mb-4" />
+      <div className="flex flex-col gap-2 mb-5">
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
         </div>
-        <div className="space-y-4">
-          <ReviewCardSkeleton />
-          <ReviewCardSkeleton />
-          <ReviewCardSkeleton />
-        </div>
+      </div>
+      <div className="space-y-4">
+        <ReviewCardSkeleton />
+        <ReviewCardSkeleton />
+        <ReviewCardSkeleton />
       </div>
     </div>
   );
@@ -348,59 +348,55 @@ export default function MyReviewsPage() {
     return <div className="p-6 text-red-700">Error: {pageError}</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6 max-w-5xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-4">My Reviews</h1>
+    <div className="max-w-5xl mx-auto">
+      <h1 className="text-xl font-bold mb-4">My Reviews</h1>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search reviews or site name…"
-            className="border rounded-lg px-3 py-2 w-full"
-          />
+      {/* Filters */}
+      <div className="flex flex-col gap-2 mb-5">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search reviews or site name…"
+          className="border border-gray-200 rounded-xl px-4 py-3 w-full text-sm bg-gray-50 focus:outline-none focus:border-[#F78300] focus:ring-1 focus:ring-[#F78300]"
+        />
+        <div className="grid grid-cols-2 gap-2">
           <select
             value={regionFilter}
             onChange={(e) => setRegionFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 w-full"
+            className="border border-gray-200 rounded-xl px-3 py-3 w-full text-sm bg-gray-50 focus:outline-none"
           >
             <option value="">All Regions</option>
             {regions.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
+              <option key={r.id} value={r.id}>{r.name}</option>
             ))}
           </select>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 w-full"
+            className="border border-gray-200 rounded-xl px-3 py-3 w-full text-sm bg-gray-50 focus:outline-none"
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
+      </div>
 
         {filtered.length === 0 && (
-          <p className="text-gray-600">No reviews found.</p>
-        )}
+        <p className="text-gray-500 text-center py-8">No reviews found.</p>
+      )}
 
-        <div className="space-y-4">
-          {filtered.map((r) => (
-            <ReviewRowCard
-              key={r.id}
-              review={r}
-              site={siteMap[r.site_id]}
-              onDelete={() => handleDeletePermanently(r.id)}
-              deleting={deleting === r.id}
-            />
-          ))}
-        </div>
+      <div className="space-y-4">
+        {filtered.map((r) => (
+          <ReviewRowCard
+            key={r.id}
+            review={r}
+            site={siteMap[r.site_id]}
+            onDelete={() => handleDeletePermanently(r.id)}
+            deleting={deleting === r.id}
+          />
+        ))}
       </div>
     </div>
   );

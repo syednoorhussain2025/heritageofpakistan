@@ -103,7 +103,13 @@ export default function UpdatePasswordClient() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div
+      className="min-h-screen flex items-center justify-center p-6"
+      style={{
+        paddingTop: "max(1.5rem, env(safe-area-inset-top, 0px))",
+        paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+      }}
+    >
       <div className="w-full max-w-md rounded-xl border p-6 shadow-sm bg-white">
         <h1 className="text-2xl font-semibold mb-1">Set a new password</h1>
         <p className="text-sm text-gray-500 mb-6">
@@ -129,7 +135,7 @@ export default function UpdatePasswordClient() {
             <label className="block text-sm font-medium text-gray-700">
               New password
               <input
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-[15px] outline-none
+                className="mt-1 w-full border rounded-xl px-4 py-3 text-[15px] outline-none bg-gray-50
                            focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]
                            transition"
                 type="password"
@@ -144,7 +150,7 @@ export default function UpdatePasswordClient() {
             <label className="block text-sm font-medium text-gray-700">
               Confirm new password
               <input
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-[15px] outline-none
+                className="mt-1 w-full border rounded-xl px-4 py-3 text-[15px] outline-none bg-gray-50
                            focus:ring-2 focus:ring-[var(--brand-orange)] focus:border-[var(--brand-orange)]
                            transition"
                 type="password"
@@ -170,9 +176,9 @@ export default function UpdatePasswordClient() {
 
             <button
               type="submit"
-              className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[var(--brand-orange)]
-                         px-4 py-2.5 text-sm font-medium text-white shadow-sm
-                         hover:bg-[var(--brand-orange-dark)] transition disabled:opacity-60"
+              className="mt-2 inline-flex w-full items-center justify-center rounded-2xl bg-[var(--brand-orange)]
+                         px-4 py-3.5 text-sm font-bold text-white shadow-sm
+                         active:opacity-80 hover:bg-[var(--brand-orange-dark)] transition disabled:opacity-60"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Updating…" : "Update password"}

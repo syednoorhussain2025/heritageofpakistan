@@ -51,6 +51,13 @@ export default function HeritageInteractions({
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
+  const showToast = (msg: string) => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2200);
+  };
 
   /* Track scroll to toggle icon style */
   useEffect(() => {
@@ -98,8 +105,7 @@ export default function HeritageInteractions({
         url,
       });
     } else {
-      navigator.clipboard.writeText(url);
-      alert("Link copied");
+      navigator.clipboard.writeText(url).then(() => showToast("Link copied"));
     }
   }
 
@@ -110,6 +116,13 @@ export default function HeritageInteractions({
 
   return (
     <>
+      {/* Global toast */}
+      {toast && (
+        <div className="pointer-events-none fixed left-1/2 top-5 -translate-x-1/2 z-[9999] rounded-lg bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg">
+          {toast}
+        </div>
+      )}
+
       {/* Mobile header — transparent overlay with back + actions */}
       <MobilePageHeader backgroundColor="transparent" minHeight="64px">
         <div className="flex items-center justify-between w-full px-3 h-full">
@@ -168,6 +181,7 @@ export default function HeritageInteractions({
           siteId={site.id}
           siteSlug={site.slug}
           siteTitle={site.title}
+          onToast={showToast}
         />
       )}
 
@@ -213,11 +227,13 @@ function GlobalResearchDebug({
   siteId,
   siteSlug,
   siteTitle,
+  onToast,
 }: {
   enabled: boolean;
   siteId: string;
   siteSlug: string;
   siteTitle: string;
+  onToast: (msg: string) => void;
 }) {
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [bubble, setBubble] = useState({ visible: false, top: 0, left: 0 });
@@ -329,10 +345,10 @@ function GlobalResearchDebug({
         context_after: after,
       });
       clearAll();
-      alert("Saved to Notebook → Research");
+      onToast("Saved to Notebook → Research");
     } catch (e) {
       console.error(e);
-      alert("Could not save. Please sign in and try again.");
+      onToast("Could not save. Please sign in and try again.");
       setSaving(false);
     }
   };

@@ -113,6 +113,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
   const { userId } = useAuthUserId();
   const { profile } = useProfile(); // ✅ Get profile data from the global context
 
+  const [successToast, setSuccessToast] = useState(false);
   const [visible, setVisible] = useState(open);
   useEffect(() => {
     if (open) setVisible(true);
@@ -325,12 +326,11 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         anyPhotos = true;
       }
 
-      alert(
-        `Review submitted!${
-          anyPhotos ? "\n\nPhotos added to your Portfolio." : ""
-        }`
-      );
-      onClose();
+      setSuccessToast(true);
+      setTimeout(() => {
+        setSuccessToast(false);
+        onClose();
+      }, 1800);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to submit review.");
@@ -350,32 +350,43 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-      <div className="absolute inset-0 flex items-center justify-center px-3 py-6">
+      {/* Success toast */}
+      {successToast && (
+        <div className="pointer-events-none absolute left-1/2 top-5 -translate-x-1/2 z-[60] rounded-lg bg-green-700/90 text-white text-sm px-4 py-2.5 shadow-lg">
+          Review submitted!
+        </div>
+      )}
+
+      <div className="absolute inset-0 flex items-end sm:items-center justify-center sm:px-3 sm:py-6">
         <div
           ref={cardRef}
           onMouseDown={(e) => e.stopPropagation()}
-          className={`relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-gray-200 ${
+          className={`relative w-full sm:max-w-4xl rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl border border-gray-200 ${
             open ? "scale-100 opacity-100" : "scale-95 opacity-0"
           } transition-all duration-300`}
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
-          <div className="flex items-center justify-between p-5 border-b">
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
+          </div>
+          <div className="flex items-center justify-between px-5 py-3 sm:p-5 border-b">
             <div className="flex items-center gap-2">
               <Icon name="star" className="text-amber-500" />
-              <h3 className="text-xl font-semibold">
+              <h3 className="text-base sm:text-xl font-semibold">
                 {siteTitle ? `${siteTitle}: ` : ""}Share Your Experience
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-100"
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200"
             >
               <Icon name="times" />
             </button>
           </div>
 
-          <div className="p-5 space-y-6 max-h-[75vh] overflow-y-auto">
+          <div className="px-5 py-4 space-y-5 max-h-[75svh] overflow-y-auto">
             <section>
-              <div className="flex items-start justify-between gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Rate your Experience
@@ -388,7 +399,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                           onMouseEnter={() => setHoverRating(n)}
                           onMouseLeave={() => setHoverRating(0)}
                           onClick={() => setRating(n)}
-                          className="p-1 transition-transform hover:-translate-y-0.5"
+                          className="p-1.5 transition-transform hover:-translate-y-0.5"
                           aria-label={`Rate ${n}`}
                         >
                           <Icon
@@ -408,7 +419,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 mr-24">
+                <div className="flex items-center gap-3">
                   <div className="h-20 w-20 rounded-full overflow-hidden ring-2 ring-amber-400/70 bg-gray-100 flex-shrink-0">
                     {avatarUrl ? (
                       <img
@@ -549,18 +560,18 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
 
-          <div className="p-5 border-t flex items-center justify-end gap-3">
+          <div className="px-5 py-4 border-t flex items-center justify-end gap-3">
             <button
               onClick={onClose}
               disabled={busy}
-              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+              className="px-5 py-3 rounded-xl border hover:bg-gray-50 active:bg-gray-100 font-medium"
             >
               Cancel
             </button>
             <button
               onClick={onSubmit}
               disabled={busy}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-600 text-white font-semibold hover:bg-amber-700 active:opacity-80 disabled:opacity-60"
             >
               {busy && (
                 <span className="inline-block h-4 w-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />

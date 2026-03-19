@@ -56,9 +56,9 @@ export default function MyWishlistsPage() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">My Wishlists</h1>
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-bold">My Wishlists</h1>
       </div>
 
       {loading ? (
@@ -96,7 +96,7 @@ export default function MyWishlistsPage() {
                     e.stopPropagation();
                     handleDelete(w.id, w.name);
                   }}
-                  className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="absolute top-2 right-2 w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                   aria-label="Delete list"
                   title="Delete list"
                 >

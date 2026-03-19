@@ -275,6 +275,7 @@ export default function TravelNotebookPage() {
   const titleDebounceTimer = useRef<any>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [mobileSheetNote, setMobileSheetNote] = useState<Active>(null);
 
   // --- Lock page scrolling while notebook is mounted
   useEffect(() => {
@@ -430,9 +431,13 @@ export default function TravelNotebookPage() {
     setContentLoading(true);
     if (item.kind === "travel") {
       const full = await getNote(item.id);
-      if (full) setActive({ kind: "travel", note: full });
+      if (full) {
+        setActive({ kind: "travel", note: full });
+        setMobileSheetNote({ kind: "travel", note: full });
+      }
     } else {
       setActive({ kind: "research", note: item });
+      setMobileSheetNote({ kind: "research", note: item });
     }
     setTimeout(() => setContentLoading(false), 120);
   };
@@ -468,17 +473,17 @@ export default function TravelNotebookPage() {
   return (
     <div
       ref={frameRef}
-      className="w-full p-4 bg-white font-sans overflow-hidden overscroll-contain"
+      className="w-full lg:p-4 bg-white font-sans overflow-hidden overscroll-contain"
       style={{ height: frameHeight ? `${frameHeight}px` : undefined }}
     >
       <div
         ref={shellRef}
         id="notebook-shell"
-        className={`h-full w-full max-w-7xl mx-auto bg-white shadow-2xl flex min-h-0 overflow-hidden ring-1 ring-black/10 transition-all duration-300 ${
-          isFullScreen ? "rounded-none max-w-none" : "rounded-xl"
+        className={`h-full w-full max-w-7xl mx-auto bg-white lg:shadow-2xl flex min-h-0 overflow-hidden lg:ring-1 lg:ring-black/10 transition-all duration-300 ${
+          isFullScreen ? "rounded-none max-w-none" : "lg:rounded-xl"
         }`}
       >
-        <aside className="w-[300px] flex-shrink-0 bg-gray-100 border-r border-gray-200 flex flex-col min-h-0">
+        <aside className="w-full lg:w-[300px] flex-shrink-0 bg-gray-100 border-r border-gray-200 flex flex-col min-h-0">
           <div className="h-16 flex-shrink-0 px-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="font-bold text-lg text-gray-800">My Notebook</h2>
             <div className="relative" ref={menuRef}>
@@ -537,7 +542,7 @@ export default function TravelNotebookPage() {
                   <li
                     key={n.id}
                     onClick={() => openListItem(n)}
-                    className={`p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors hover:bg-gray-200/50`}
+                    className={`p-3 lg:p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors hover:bg-gray-200/50 active:bg-gray-200`}
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -576,7 +581,7 @@ export default function TravelNotebookPage() {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col bg-white min-h-0">
+        <main className="hidden lg:flex flex-1 flex-col bg-white min-h-0">
           {!active ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500 p-6">
               <Icon name="book" size={48} className="text-gray-300 mb-4" />
@@ -704,6 +709,68 @@ export default function TravelNotebookPage() {
           )}
         </main>
       </div>
+
+      {/* Mobile-only note viewer bottom sheet */}
+      {mobileSheetNote && (
+        <div className="lg:hidden">
+          <div
+            className="fixed inset-0 z-[3600] bg-black/40 backdrop-blur-sm"
+            onClick={() => setMobileSheetNote(null)}
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-[3700] bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            style={{ maxHeight: "85svh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+          >
+            <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+            <div className="px-5 pb-2 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide ${mobileSheetNote.kind === "travel" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  {mobileSheetNote.kind}
+                </span>
+                <h2 className="text-base font-bold text-gray-800 truncate max-w-[220px]">
+                  {mobileSheetNote.kind === "travel" ? mobileSheetNote.note.title : mobileSheetNote.note.site_title ?? "Research Excerpt"}
+                </h2>
+              </div>
+              <button
+                onClick={() => setMobileSheetNote(null)}
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200 flex-shrink-0"
+              >
+                <Icon name="times" size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
+              {mobileSheetNote.kind === "travel" ? (
+                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {mobileSheetNote.note.content_text || mobileSheetNote.note.title || "This note is empty."}
+                </div>
+              ) : (
+                <div>
+                  {mobileSheetNote.note.section_title && (
+                    <p className="text-xs text-gray-500 mb-3">Section: {mobileSheetNote.note.section_title}</p>
+                  )}
+                  <blockquote className="border-l-4 border-emerald-300 pl-4 text-gray-800 text-sm leading-relaxed">
+                    {mobileSheetNote.note.summary}
+                  </blockquote>
+                  <p className="mt-4 text-xs text-gray-400">
+                    Saved on {new Date(mobileSheetNote.note.created_at).toLocaleString()}
+                  </p>
+                  {mobileSheetNote.note.site_slug && (
+                    <a
+                      href={`/heritage/${mobileSheetNote.note.site_slug}${mobileSheetNote.note.section_id ? `#${mobileSheetNote.note.section_id}` : ""}`}
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-medium"
+                    >
+                      <Icon name="external-link-alt" size={14} />
+                      View in context
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .animate-fadeIn {

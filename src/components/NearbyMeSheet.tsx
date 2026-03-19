@@ -260,7 +260,7 @@ export default function NearbyMeSheet({
           </div>
           <button
             onClick={() => { void hapticLight(); handleClose(); }}
-            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
             aria-label="Close"
           >
             <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

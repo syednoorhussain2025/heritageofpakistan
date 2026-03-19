@@ -38,9 +38,7 @@ export default function DashboardShellClient({
     typeof pathname === "string" && pathname.startsWith("/dashboard/notebook");
 
   return (
-    <div
-      className="min-h-screen lg:flex lg:p-6 lg:gap-6 lg:items-start bg-gray-100"
-    >
+    <div className="min-h-screen bg-white lg:bg-gray-100 lg:flex lg:p-6 lg:gap-6 lg:items-start">
       {/* Fixed Sidebar — desktop only */}
       <aside className="hidden lg:flex fixed w-64 bg-white border border-gray-200 rounded-2xl shadow-md flex-col h-[calc(100vh-3rem)]">
         <div className="p-6 border-b border-gray-100">
@@ -61,9 +59,7 @@ export default function DashboardShellClient({
               >
                 <Icon
                   name={item.icon}
-                  className={`w-5 h-5 mr-3 ${
-                    isActive ? "text-orange-700" : ""
-                  }`}
+                  className={`w-5 h-5 mr-3 ${isActive ? "text-orange-700" : ""}`}
                 />
                 {item.label}
               </Link>
@@ -76,12 +72,14 @@ export default function DashboardShellClient({
       <div className="hidden lg:block w-64" />
 
       {/* Main Content */}
-      <main
-        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${
-          fullBleed ? "" : "p-4 lg:p-8"
-        }`}
-      >
+      <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
+        {/* Mobile safe-area top spacer — only on mobile, only when not full-bleed */}
+        {!fullBleed && (
+          <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 0px)" }} />
+        )}
         {children}
+        {/* Mobile bottom nav clearance */}
+        <div className="lg:hidden" style={{ height: "calc(52px + env(safe-area-inset-bottom, 0px) + 8px)" }} />
       </main>
     </div>
   );

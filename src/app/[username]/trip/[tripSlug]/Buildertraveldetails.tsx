@@ -126,7 +126,7 @@ function FadeModal({
 
   return (
     <div
-      className={`fixed inset-0 z-[${z}] flex items-center justify-center p-4 transition-colors duration-200 ${
+      className={`fixed inset-0 z-[${z}] flex items-end sm:items-center justify-center sm:p-4 transition-colors duration-200 ${
         visible ? "bg-black/30" : "bg-black/0"
       }`}
       role="dialog"
@@ -136,10 +136,14 @@ function FadeModal({
       }}
     >
       <div
-        className={`w-full ${maxWidthClass} transform rounded-2xl border bg-white shadow-2xl transition-all duration-200 ${
-          visible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        className={`w-full ${maxWidthClass} transform rounded-t-3xl sm:rounded-2xl border bg-white shadow-2xl transition-all duration-200 ${
+          visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
         }`}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
         {children}
       </div>
     </div>
@@ -496,7 +500,7 @@ export default function Buildertraveldetails({
           {/* Actions */}
           <div className="mt-4 flex justify-end gap-2">
             <button
-              className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 active:bg-slate-200"
               onClick={onClose}
               disabled={saving}
               type="button"
@@ -504,7 +508,7 @@ export default function Buildertraveldetails({
               Cancel
             </button>
             <button
-              className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-sm font-semibold text-white hover:brightness-95 disabled:opacity-60"
+              className="rounded-xl bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95 active:opacity-80 disabled:opacity-60"
               onClick={handleSave}
               disabled={saving}
               type="button"

@@ -154,7 +154,7 @@ function FadeModal({
 
   return (
     <div
-      className={`fixed inset-0 z-[${z}] flex items-center justify-center p-4 transition-colors duration-200 ${
+      className={`fixed inset-0 z-[${z}] flex items-end sm:items-center justify-center sm:p-4 transition-colors duration-200 ${
         visible ? "bg-black/30" : "bg-black/0"
       }`}
       role="dialog"
@@ -164,8 +164,8 @@ function FadeModal({
       }}
     >
       <div
-        className={`w-full ${maxWidthClass} transform rounded-2xl border bg-white shadow-2xl transition-all duration-200 ${
-          visible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        className={`w-full ${maxWidthClass} transform rounded-t-3xl sm:rounded-2xl border bg-white shadow-2xl transition-all duration-200 ${
+          visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
         }`}
       >
         {children}
@@ -1082,7 +1082,7 @@ export default function TripBuilderPage() {
     >
       {/* Global toast */}
       {toastMsg && (
-        <div className="fixed left-1/2 top-4 z-[95] -translate-x-1/2 rounded-md bg-black/85 px-3 py-2 text-sm text-white shadow">
+        <div className="fixed left-1/2 z-[95] -translate-x-1/2 rounded-md bg-black/85 px-3 py-2 text-sm text-white shadow" style={{ top: "max(env(safe-area-inset-top, 0px), 16px)" }}>
           {toastMsg}
         </div>
       )}
@@ -1096,12 +1096,12 @@ export default function TripBuilderPage() {
           / <span className="text-gray-700">{tripSlug}</span>
         </div>
 
-        <div className="mb-5 flex items-center justify-between">
-          <h1 className="text-5xl font-black leading-tight text-[#0A1B4D]">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight text-[#0A1B4D]">
             Trip Builder
           </h1>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Finalize Trip */}
             <Link
               href={`/${username}/trip/${tripSlug}/finalize`}
@@ -1386,7 +1386,7 @@ export default function TripBuilderPage() {
           <div className="mt-3 flex items-center justify-end gap-2">
             <button
               onClick={() => setOpenNotesFor(null)}
-              className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
+              className="rounded-xl border px-4 py-2.5 text-sm hover:bg-gray-50 active:bg-gray-100"
               type="button"
             >
               Cancel
@@ -1394,7 +1394,7 @@ export default function TripBuilderPage() {
             {openNotesFor && (
               <button
                 onClick={() => applyNotes(openNotesFor)}
-                className="rounded-md bg-[var(--brand-orange,#f59e0b)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
+                className="rounded-xl bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-95 active:opacity-80"
                 type="button"
               >
                 Save

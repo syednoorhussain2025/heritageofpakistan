@@ -281,28 +281,34 @@ export default function TripBuilderSearch({
   /* ───────────────────────── Render ───────────────────────── */
   return (
     <div
-      className={`relative bg-white w-full h-[80vh] rounded-2xl shadow-lg flex overflow-hidden transition-all duration-200 ease-out ${
+      className={`relative bg-white w-full h-[92svh] sm:h-[80vh] rounded-t-3xl sm:rounded-2xl shadow-lg flex flex-col sm:flex-row overflow-hidden transition-all duration-200 ease-out ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
       }`}
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      {/* Close Button (fade-aware) */}
+      {/* Drag handle on mobile */}
+      <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+        <div className="w-10 h-1 rounded-full bg-gray-300" />
+      </div>
+
+      {/* Close Button */}
       <button
         onClick={handleCloseWithFade}
-        className="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition"
+        className="absolute top-3 right-3 z-50 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700 w-11 h-11 rounded-full flex items-center justify-center transition"
         aria-label="Close"
       >
         <Icon name="times" size={16} />
       </button>
 
-      {/* Local toast (if no global toast provided) */}
+      {/* Local toast */}
       {localToast && (
         <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 z-[60] rounded-md bg-black/85 text-white px-3 py-2 text-sm shadow-md">
           {localToast}
         </div>
       )}
 
-      {/* LEFT: universal filters */}
-      <div className="w-1/3 border-r border-gray-200 p-4 flex flex-col">
+      {/* Filters — full width on mobile (collapsible header), sidebar on desktop */}
+      <div className="sm:w-1/3 border-b sm:border-b-0 sm:border-r border-gray-200 p-4 flex flex-col flex-shrink-0">
         <SearchFilters
           filters={filters}
           onFilterChange={(patch) =>
@@ -312,8 +318,8 @@ export default function TripBuilderSearch({
         />
       </div>
 
-      {/* RIGHT: results */}
-      <div className="w-2/3 p-6 overflow-y-auto bg-gray-50">
+      {/* Results */}
+      <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-gray-50 min-h-0">
         {errMsg && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {errMsg}

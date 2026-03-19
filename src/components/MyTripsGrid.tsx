@@ -175,8 +175,8 @@ export default function MyTripsGrid({
   return (
     <section className="w-full">
       <div className={`${wrapperClasses} min-h-[360px]`}>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
             {title}
           </h2>
           <div className="flex items-center gap-2">
@@ -184,12 +184,12 @@ export default function MyTripsGrid({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search trips..."
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm bg-gray-50 min-w-0"
             />
             <select
               value={order}
               onChange={(e) => setOrder(e.target.value as any)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="rounded-xl border border-gray-300 px-3 py-3 text-sm bg-gray-50 shrink-0"
               title="Sort"
             >
               <option value="recent">Recent</option>
@@ -243,7 +243,7 @@ export default function MyTripsGrid({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filtered.map((t) => {
               const counts = stats[t.id] ?? { sites: 0, travels: 0 };
               const coverSrc =
@@ -262,7 +262,7 @@ export default function MyTripsGrid({
                   }}
                   className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-lg cursor-pointer"
                 >
-                  <div className="relative h-36 w-full bg-gray-100 overflow-hidden">
+                  <div className="relative h-28 sm:h-36 w-full bg-gray-100 overflow-hidden">
                     <div className="absolute top-2 left-2 z-10">
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#00b78b] px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
                         <Icon name="route" size={12} />
@@ -311,23 +311,21 @@ export default function MyTripsGrid({
                     </div>
 
                     {allowDelete && (
-                      <div className="mt-4 flex items-center justify-end">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(t);
-                          }}
-                          disabled={deletingId === t.id}
-                          className={
-                            "inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm transition " +
-                            (deletingId === t.id
-                              ? "bg-red-300/60 text-white cursor-not-allowed"
-                              : "bg-red-600 text-white hover:bg-red-700")
-                          }
-                        >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(t);
+                        }}
+                        disabled={deletingId === t.id}
+                        className="absolute top-2 right-2 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/30 text-white active:bg-red-600/80 transition"
+                        aria-label="Delete trip"
+                      >
+                        {deletingId === t.id ? (
+                          <span className="inline-block w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                        ) : (
                           <Icon name="trash" size={14} />
-                        </button>
-                      </div>
+                        )}
+                      </button>
                     )}
                   </div>
                 </article>

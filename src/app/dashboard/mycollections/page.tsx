@@ -1,7 +1,7 @@
 // src/app/dashboard/mycollections/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import dynamicImport from "next/dynamic";
 import Link from "next/link";
 import Icon from "@/components/Icon";
@@ -86,6 +86,13 @@ export default function MyCollectionsDashboard() {
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
+  const showToast = (msg: string) => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2200);
+  };
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [selectedPhoto, setSelectedPhoto] =
@@ -279,6 +286,7 @@ export default function MyCollectionsDashboard() {
     try {
       await deletePhotoCollection(id);
       setAlbums((prev) => prev.filter((a) => a.id !== id));
+      showToast(`"${name}" deleted`);
     } finally {
       setDeletingId(null);
     }
@@ -350,8 +358,14 @@ export default function MyCollectionsDashboard() {
   }, [lightboxIndex, lightboxPhotos.length]);
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 space-y-8">
-      <h1 className="text-2xl font-bold">My Collections</h1>
+    <div className="w-full max-w-6xl mx-auto space-y-8">
+      {/* Toast */}
+      {toast && (
+        <div className="pointer-events-none fixed left-1/2 bottom-24 -translate-x-1/2 z-[9999] rounded-lg bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg">
+          {toast}
+        </div>
+      )}
+      <h1 className="text-xl font-bold">My Collections</h1>
 
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -385,7 +399,7 @@ export default function MyCollectionsDashboard() {
                     e.stopPropagation();
                     deleteAlbum(a.id, a.name);
                   }}
-                  className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="absolute top-2 right-2 w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                   aria-label="Delete collection"
                 >
                   {deletingId === a.id ? (
@@ -426,7 +440,7 @@ export default function MyCollectionsDashboard() {
         <h2 className="text-lg font-semibold mb-4">Collected Photos</h2>
 
         {loadingPhotos ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 lg:gap-4">
             {Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
@@ -439,7 +453,7 @@ export default function MyCollectionsDashboard() {
             No photos yet. Tap the heart on any image to save it.
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 lg:gap-4">
             {photos.map((it, idx) => (
               <div
                 key={it.id}

@@ -882,15 +882,16 @@ export function Lightbox({
 
         {/* ---------- CONTROLS */}
         <button
-          className={`absolute top-2 right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`absolute right-3 p-2.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
+          style={{ top: "max(env(safe-area-inset-top, 0px), 12px)" }}
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
         >
-          <Icon name="xmark" />
+          <Icon name="xmark" size={20} />
         </button>
         <button
           className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
