@@ -359,15 +359,12 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
             const display = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
             const canWalk = km <= 0.5;
             return (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--brand-blue)]/10 text-[var(--brand-blue)] text-xs font-bold">
-                  <Icon name="map-marker-alt" size={11} />
-                  {display} away from your location
+              <div className={`border-l-2 pl-3 shrink-0 flex flex-col gap-0.5 ${canWalk ? "border-[#00b78b]" : "border-[var(--brand-orange)]"}`}>
+                <span className="text-xs text-gray-600">
+                  <span className="font-bold text-gray-800">{display}</span> away from your location
                 </span>
                 {canWalk && (
-                  <span className="text-[#00b78b] text-xs font-semibold">
-                    🚶 You can easily walk
-                  </span>
+                  <span className="text-xs text-[#00b78b] font-medium">🚶 You can easily walk</span>
                 )}
               </div>
             );
