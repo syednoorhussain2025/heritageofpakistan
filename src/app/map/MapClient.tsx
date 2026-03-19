@@ -2915,13 +2915,13 @@ export default function MapClient() {
           className="lg:hidden fixed inset-x-0 z-[3050] pointer-events-none"
           style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
         >
-          <div className="flex items-end gap-3 px-3 pb-2.5 pointer-events-auto">
+          <div className="flex items-end gap-3 px-3 py-2 pointer-events-auto">
             {/* Search + result info pill — tapping opens search filters sheet */}
             <button
               type="button"
               aria-label="Search & Filters"
               onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-              className="flex-1 min-w-0 flex flex-col gap-0.5 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-lg ring-1 ring-black/8 active:bg-gray-50 transition-colors text-left"
+              className="flex-1 min-w-0 flex flex-col gap-0.5 bg-white/95 backdrop-blur-sm rounded-full px-4 py-3 shadow-lg ring-1 ring-black/8 active:bg-gray-50 transition-colors text-left"
             >
               <div className="flex items-center gap-2">
                 <Icon name="search" size={14} className="text-gray-400 shrink-0" />
@@ -2945,25 +2945,25 @@ export default function MapClient() {
             </button>
 
             {/* Near Me circular button */}
-            <button
-              type="button"
-              aria-label="Near me"
-              onClick={() => { void handleNearMe(); }}
-              className={`shrink-0 flex flex-col items-center justify-center gap-0.5 w-[62px] bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg ring-1 ring-black/8 py-2.5 active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
-            >
-              {gpsStatus === "loading" ? (
-                <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
-                </svg>
-              ) : (
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${gpsStatus === "granted" ? "bg-[var(--brand-blue)]" : "bg-gray-100"}`}>
-                  <svg className={`w-4 h-4 ${gpsStatus === "granted" ? "text-white" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
+            <div className="shrink-0 flex flex-col items-center gap-1">
+              <button
+                type="button"
+                aria-label="Near me"
+                onClick={() => { void handleNearMe(); }}
+                className={`w-12 h-12 rounded-full bg-white/95 backdrop-blur-sm shadow-lg ring-1 ring-black/8 flex items-center justify-center active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+              >
+                {gpsStatus === "loading" ? (
+                  <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg className={`w-5 h-5 ${gpsStatus === "granted" ? "text-[var(--brand-blue)]" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
-                </div>
-              )}
-              <span className="text-[10px] font-medium text-gray-600 leading-tight">Near me</span>
-            </button>
+                )}
+              </button>
+              <span className="text-[10px] font-medium text-gray-500 leading-tight">Near me</span>
+            </div>
           </div>
         </div>
       )}

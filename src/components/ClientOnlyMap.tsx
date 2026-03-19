@@ -1037,25 +1037,49 @@ const OSMLeafletView = memo(function OSMLeafletView({
         >
           {markerChildren}
         </MarkerClusterGroup>
-        {/* User location blue dot */}
+        {/* User location blue dot with pulse rings */}
         {userLat != null && userLng != null && Number.isFinite(userLat) && Number.isFinite(userLng) && (
-          <Marker
-            position={[userLat, userLng]}
-            zIndexOffset={2000}
-            icon={L.divIcon({
-              className: "",
-              html: `<div style="
-                width:18px;height:18px;border-radius:50%;
-                background:#2563eb;
-                border:3px solid #fff;
-                box-shadow:0 0 0 2px rgba(37,99,235,0.35),0 2px 6px rgba(0,0,0,0.25);
-              "></div>`,
-              iconSize: [18, 18],
-              iconAnchor: [9, 9],
-            })}
-          >
-            <Tooltip direction="top" offset={[0, -12]} permanent={false}>Your location</Tooltip>
-          </Marker>
+          <>
+            <style>{`
+              @keyframes hopUserPulse {
+                0%   { transform: translate(-50%,-50%) scale(1);   opacity: 0.55; }
+                100% { transform: translate(-50%,-50%) scale(3.8); opacity: 0; }
+              }
+              .hop-user-ring {
+                position: absolute; top: 50%; left: 50%;
+                width: 18px; height: 18px;
+                border-radius: 50%;
+                border: 1.5px solid #1d4ed8;
+                animation: hopUserPulse 2.4s ease-out infinite;
+                pointer-events: none;
+              }
+              .hop-user-ring:nth-child(2) { animation-delay: 0.4s; }
+              .hop-user-ring:nth-child(3) { animation-delay: 0.8s; }
+            `}</style>
+            <Marker
+              position={[userLat, userLng]}
+              zIndexOffset={2000}
+              icon={L.divIcon({
+                className: "",
+                html: `<div style="position:relative;width:18px;height:18px;">
+                  <div class="hop-user-ring"></div>
+                  <div class="hop-user-ring"></div>
+                  <div class="hop-user-ring"></div>
+                  <div style="
+                    position:absolute;top:0;left:0;
+                    width:18px;height:18px;border-radius:50%;
+                    background:#1d4ed8;
+                    border:2.5px solid #fff;
+                    box-shadow:0 1px 5px rgba(0,0,0,0.3);
+                  "></div>
+                </div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9],
+              })}
+            >
+              <Tooltip direction="top" offset={[0, -14]} permanent={false}>Your location</Tooltip>
+            </Marker>
+          </>
         )}
         <FlyToEffect trigger={flyToTrigger ?? null} />
       </MapContainer>
@@ -1434,7 +1458,7 @@ function GoogleMapView({
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 8,
-          fillColor: "#2563eb",
+          fillColor: "#1d4ed8",
           fillOpacity: 1,
           strokeColor: "#ffffff",
           strokeWeight: 3,

@@ -89,6 +89,8 @@ export default function NearbyMeSheet({
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  /** "peek" = ~30% height, "full" = full height */
+  const [expanded, setExpanded] = useState(false);
 
   const [sites, setSites] = useState<NearbyResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,9 +101,10 @@ export default function NearbyMeSheet({
   const dragDeltaRef = useRef(0);
   const isDragging = useRef(false);
 
-  /* ── mount / open ── */
+  /* ── mount / open — always start in peek mode ── */
   useEffect(() => {
     if (isOpen) {
+      setExpanded(false);
       setMounted(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setVisible(true));
@@ -116,6 +119,7 @@ export default function NearbyMeSheet({
     setTimeout(() => {
       setClosing(false);
       setMounted(false);
+      setExpanded(false);
       onClose();
     }, 320);
   }, [onClose]);
@@ -141,7 +145,6 @@ export default function NearbyMeSheet({
 
         if (rpcError) throw rpcError;
 
-        // RPC returns minimal data — enrich with full site fields
         const ids = ((data as { id: string }[]) || []).map((r) => r.id);
         const distMap = new Map<string, number>(
           ((data as { id: string; distance_km: number }[]) || []).map((r) => [
@@ -183,7 +186,7 @@ export default function NearbyMeSheet({
     })();
   }, [isOpen, lat, lng]);
 
-  /* ── swipe-to-close ── */
+  /* ── drag: swipe up → expand, swipe down → collapse/close ── */
   const onTouchStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
     dragDeltaRef.current = 0;
@@ -193,101 +196,156 @@ export default function NearbyMeSheet({
   const onTouchMove = (e: React.TouchEvent) => {
     if (dragStartY.current == null) return;
     const delta = e.touches[0].clientY - dragStartY.current;
-    if (delta < 0) return; // don't allow dragging upward past origin
-    dragDeltaRef.current = delta;
     isDragging.current = true;
+    dragDeltaRef.current = delta;
     if (sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${delta}px)`;
-      sheetRef.current.style.transition = "none";
+      // Only allow dragging in the natural direction
+      if (!expanded && delta < 0) return; // peek → don't drag up past origin
+      if (expanded && delta > 0) {
+        // expanded → dragging down is allowed
+        sheetRef.current.style.transform = `translateY(${delta}px)`;
+        sheetRef.current.style.transition = "none";
+      } else if (!expanded && delta > 0) {
+        sheetRef.current.style.transform = `translateY(${delta}px)`;
+        sheetRef.current.style.transition = "none";
+      }
     }
   };
 
   const onTouchEnd = () => {
     if (!isDragging.current) return;
-    if (dragDeltaRef.current > 100) {
-      void hapticLight();
-      handleClose();
+    const delta = dragDeltaRef.current;
+    isDragging.current = false;
+    dragStartY.current = null;
+
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = "";
+      sheetRef.current.style.transition = "";
+    }
+
+    if (!expanded) {
+      // In peek mode: swipe up to expand
+      if (delta < -60) {
+        void hapticLight();
+        setExpanded(true);
+      } else if (delta > 80) {
+        // swipe down in peek → close
+        void hapticLight();
+        handleClose();
+      }
     } else {
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = "";
-        sheetRef.current.style.transition = "";
+      // In full mode: swipe down enough → collapse to peek
+      if (delta > 100) {
+        void hapticLight();
+        setExpanded(false);
       }
     }
-    dragStartY.current = null;
-    isDragging.current = false;
+    dragDeltaRef.current = 0;
   };
 
   if (!mounted && !closing) return null;
+
+  const PEEK_HEIGHT = "32dvh";
+  const FULL_HEIGHT = "88dvh";
 
   const content = (
     <div
       className="fixed inset-0 z-[200]"
       style={{ pointerEvents: visible ? "auto" : "none" }}
     >
-      {/* Backdrop */}
+      {/* Backdrop — only visible when fully expanded */}
       <div
-        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
-        style={{ opacity: visible ? 1 : 0 }}
+        className="absolute inset-0 transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.35)",
+          opacity: visible && expanded ? 1 : 0,
+          pointerEvents: expanded ? "auto" : "none",
+        }}
         onClick={handleClose}
       />
 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] flex flex-col transition-transform duration-300 ease-out"
+        className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] flex flex-col"
         style={{
+          height: expanded ? FULL_HEIGHT : PEEK_HEIGHT,
           transform: visible ? "translateY(0)" : "translateY(100%)",
-          minHeight: "75dvh",
-          maxHeight: "90dvh",
-          paddingBottom: "env(safe-area-inset-bottom, 16px)",
+          transition: "transform 0.32s cubic-bezier(0.32,0.72,0,1), height 0.32s cubic-bezier(0.32,0.72,0,1)",
+          paddingBottom: "env(safe-area-inset-bottom, 12px)",
+          willChange: "transform, height",
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div
+          className="flex justify-center pt-3 pb-1 shrink-0 cursor-pointer"
+          onClick={() => { void hapticLight(); setExpanded((v) => !v); }}
+        >
           <div className="w-9 h-1 rounded-full bg-gray-300" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 shrink-0">
+        {/* Header row — always visible in peek */}
+        <div className="flex items-center justify-between px-5 pt-1.5 pb-3 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-[#1c1f4c]">Nearby Me</h2>
+            <h2 className="text-base font-bold text-[#1c1f4c]">Nearby Me</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {cityName ? `Within ${RADIUS_KM} km of ${cityName}` : `Heritage sites within ${RADIUS_KM} km`}
+              {loading
+                ? "Searching…"
+                : sites.length > 0
+                  ? `${sites.length} ${sites.length === 1 ? "site" : "sites"} within ${RADIUS_KM} km`
+                  : cityName
+                    ? `Within ${RADIUS_KM} km of ${cityName}`
+                    : `Heritage sites within ${RADIUS_KM} km`}
             </p>
           </div>
-          <button
-            onClick={() => { void hapticLight(); handleClose(); }}
-            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
-            aria-label="Close"
-          >
-            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Expand / collapse toggle */}
+            <button
+              onClick={() => { void hapticLight(); setExpanded((v) => !v); }}
+              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
+              aria-label={expanded ? "Collapse" : "Expand"}
+            >
+              <svg
+                className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => { void hapticLight(); handleClose(); }}
+              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Body — scrollable, only properly usable when expanded */}
+        <div className={`flex-1 min-h-0 overflow-y-auto px-4 pb-2 ${!expanded ? "overflow-hidden" : ""}`}>
           {loading && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <span className="w-8 h-8 border-[3px] border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <span className="w-7 h-7 border-[3px] border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-400">Searching within {RADIUS_KM} km…</p>
             </div>
           )}
 
           {!loading && error && (
-            <div className="py-16 text-center">
+            <div className="py-10 text-center">
               <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
           {!loading && !error && sites.length === 0 && (
-            <div className="py-16 text-center">
-              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="py-10 text-center">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 </svg>
               </div>
@@ -331,7 +389,6 @@ export default function NearbyMeSheet({
                     <p className="text-sm font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      {/* Distance chip */}
                       <span className="flex items-center gap-1 text-[10px] font-semibold text-[#00b78b] bg-[#00c9a7]/10 px-2 py-0.5 rounded-full">
                         <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
@@ -340,7 +397,6 @@ export default function NearbyMeSheet({
                           ? `${Math.round(site.distance_km * 1000)} m`
                           : `${site.distance_km.toFixed(1)} km`}
                       </span>
-                      {/* Rating */}
                       {site.avg_rating != null && (
                         <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
                           <span className="text-yellow-400">★</span>
