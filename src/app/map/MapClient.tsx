@@ -283,6 +283,7 @@ export default function MapClient() {
   const [sitesLoading, setSitesLoading] = useState(true);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [regionMap, setRegionMap] = useState<Record<string, string>>({});
+  const [categoryPills, setCategoryPills] = useState<string[]>([]);
 
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>(null);
   const [wishlistSiteIds, setWishlistSiteIds] = useState<string[]>([]);
@@ -638,26 +639,30 @@ export default function MapClient() {
       let iconsRes: any;
       let catsRes: any;
       let regsRes: any;
+      let homeCfgRes: any;
 
       const pub = getPublicClient();
       if (hasInitialData) {
-        const [s, i, c, r] = await Promise.all([
+        const [s, i, c, r, h] = await Promise.all([
           pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
           pub.from("icons").select("name, svg_content"),
           pub.from("categories").select("id,name").order("name"),
           pub.from("regions").select("id,name").order("name"),
+          pub.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
         ]);
         settingsRes = s;
         iconsRes = i;
         catsRes = c;
         regsRes = r;
+        homeCfgRes = h;
       } else {
         try {
-          [settingsRes, iconsRes, catsRes, regsRes] = await Promise.all([
+          [settingsRes, iconsRes, catsRes, regsRes, homeCfgRes] = await Promise.all([
             pub.from("global_settings").select("value").eq("key", "map_settings").maybeSingle(),
             pub.from("icons").select("name, svg_content"),
             pub.from("categories").select("id,name").order("name"),
             pub.from("regions").select("id,name").order("name"),
+            pub.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
           ]);
         } catch (err) {
           if (cancelled) return;
@@ -706,6 +711,9 @@ export default function MapClient() {
         const m: Record<string, string> = {};
         (regsRes.data as { id: string; name: string }[]).forEach((r) => { m[r.id] = r.name; });
         setRegionMap(m);
+      }
+      if (homeCfgRes?.data?.value?.category_pills) {
+        setCategoryPills(homeCfgRes.data.value.category_pills as string[]);
       }
       if (!cancelled) {
         setLoading(false);
@@ -2928,7 +2936,7 @@ export default function MapClient() {
               type="button"
               aria-label="Search & Filters"
               onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-              className="flex-1 min-w-0 flex items-center gap-2.5 bg-gray-100 rounded-full px-4 py-2.5 active:bg-gray-200 transition-colors text-left"
+              className="flex-1 min-w-0 flex items-center gap-2.5 bg-gray-100 border border-gray-300 rounded-full px-4 py-2.5 active:bg-gray-200 transition-colors text-left"
             >
               <Icon name="search" size={14} className="text-gray-400 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -2957,14 +2965,14 @@ export default function MapClient() {
                 type="button"
                 aria-label="Near me"
                 onClick={() => { void handleNearMe(); }}
-                className={`w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200 transition-colors ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+                className={`w-11 h-11 rounded-full bg-[var(--brand-blue)] flex items-center justify-center active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
               >
                 {gpsStatus === "loading" ? (
-                  <svg className="animate-spin w-5 h-5 text-[var(--brand-blue)]" viewBox="0 0 24 24" fill="none">
+                  <svg className="animate-spin w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
                   </svg>
                 ) : (
-                  <svg className={`w-5 h-5 ${gpsStatus === "granted" ? "text-[#00c9a7]" : "text-gray-500"}`} fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
                 )}
@@ -2973,13 +2981,18 @@ export default function MapClient() {
             </div>
           </div>
 
-          {/* Category pills */}
-          {Object.keys(categoryMap).length > 0 && (
+          {/* Category pills — only the ones selected in admin settings */}
+          {categoryPills.length > 0 && (
             <div
               className="flex gap-2 overflow-x-auto px-4 pb-3 scrollbar-none"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
-              {Object.entries(categoryMap).map(([id, name]) => {
+              {categoryPills.map((slug) => {
+                const entry = Object.entries(categoryMap).find(
+                  ([id, name]) => id === slug || name.toLowerCase() === slug.toLowerCase()
+                );
+                if (!entry) return null;
+                const [id, name] = entry;
                 const active = filters.categoryIds.includes(id);
                 return (
                   <button
