@@ -11,7 +11,9 @@ import {
 } from "react";
 import Image from "next/image";
 import dynamicImport from "next/dynamic";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
+import MobilePageHeader from "@/components/MobilePageHeader";
 import { decode } from "blurhash";
 
 // Collections
@@ -288,6 +290,7 @@ export default function GalleryClient({
   initialSite,
   initialPhotos,
 }: GalleryClientProps) {
+  const router = useRouter();
   const { toggleCollect } = useCollections();
   const { ensureSignedIn } = useSignedInActions();
 
@@ -420,8 +423,22 @@ export default function GalleryClient({
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Mobile: push content below status bar */}
-      <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 44px)" }} />
+      {/* Mobile teal header with back button */}
+      <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Back"
+          className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
+        >
+          <Icon name="arrow-left" size={20} className="text-white" />
+        </button>
+        <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+          {site?.title ? `${site.title} — Gallery` : "Gallery"}
+        </span>
+      </MobilePageHeader>
+      {/* Mobile: push content below teal header */}
+      <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 48px)" }} />
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}
