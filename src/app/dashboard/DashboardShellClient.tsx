@@ -3,11 +3,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
+import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
 
@@ -98,6 +99,28 @@ export default function DashboardShellClient({
     ? Math.min((visitedCount / (visitedCount + badgeInfo.remaining)) * 100, 100)
     : 100;
 
+  // Swipe left-to-right to go back
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    if (dx > 60 && dy < 80) {
+      void hapticLight();
+      if (isHome) {
+        router.back();
+      } else {
+        router.push("/dashboard");
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white lg:bg-gray-100 lg:flex lg:p-6 lg:gap-6 lg:items-start">
       {/* Fixed Sidebar — desktop only */}
@@ -140,7 +163,7 @@ export default function DashboardShellClient({
           <div className="flex items-center pt-1">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => { void hapticLight(); router.back(); }}
               aria-label="Back"
               className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
             >
@@ -203,7 +226,7 @@ export default function DashboardShellClient({
         <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
           <button
             type="button"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => { void hapticLight(); router.push("/dashboard"); }}
             aria-label="Back"
             className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
           >
@@ -216,7 +239,11 @@ export default function DashboardShellClient({
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
+      <main
+        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Mobile spacer — tall for home, compact for sub-pages */}
         {!fullBleed && (
           <div

@@ -5,6 +5,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { hapticLight, hapticMedium, hapticSuccess } from "@/lib/haptics";
 
 // Helper function to resolve avatar src
 function resolveAvatarSrc(avatar_url?: string | null) {
@@ -85,6 +86,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
 
     setSaving(false);
     setMsg("Profile saved successfully!");
+    void hapticSuccess();
   }
 
   async function handlePickAvatar(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -188,9 +190,10 @@ export default function ProfileForm({ account, categories, interests }: Props) {
           type="checkbox"
           className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
           checked={!!form.public_profile}
-          onChange={(e) =>
-            setForm({ ...form, public_profile: e.target.checked })
-          }
+          onChange={(e) => {
+            void hapticLight();
+            setForm({ ...form, public_profile: e.target.checked });
+          }}
         />
         <span className="text-sm font-medium text-gray-700">Make my profile public</span>
       </label>
@@ -205,6 +208,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
                 className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                 checked={selectedCats.includes(c.id)}
                 onChange={(e) => {
+                  void hapticLight();
                   setSelectedCats((s) =>
                     e.target.checked
                       ? [...s, c.id]
@@ -222,6 +226,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         <button
           className="w-full sm:w-auto rounded-2xl bg-[#f78300] text-white px-6 py-3.5 font-bold active:opacity-80 transition disabled:opacity-50"
           disabled={saving}
+          onClick={() => void hapticMedium()}
         >
           {saving ? "Saving..." : "Save changes"}
         </button>
