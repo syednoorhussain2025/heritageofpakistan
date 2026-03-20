@@ -18,27 +18,6 @@ const ICON_SIZE = 29;
 
 const PANEL_ANIM_MS = 320;
 
-const dashboardNav = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/dashboard/profile", label: "Profile", icon: "user" },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-  { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
-  { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-  { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-  { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
-  {
-    href: "/dashboard/placesvisited",
-    label: "Places Visited",
-    icon: "map-marker-alt",
-  },
-  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
-  {
-    href: "/dashboard/account-details",
-    label: "Account Details",
-    icon: "lightbulb",
-  },
-];
 
 function NavItem({
   label,
@@ -117,13 +96,60 @@ function ProfileTabIcon({
   );
 }
 
-/** The WhatsApp-style slide-up profile panel. */
+const mainNavItems = [
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/dashboard/profile", label: "Profile", icon: "user" },
+  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
+  { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
+  { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
+  { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
+  { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
+];
+
+const travelActivityItems = [
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
+  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
+];
+
+const helpItems = [
+  { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+];
+
+function NavListItem({
+  item,
+  isActive,
+  onPress,
+}: {
+  item: { href: string; label: string; icon: string };
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => { void hapticLight(); onPress(); }}
+      className="w-full flex items-center gap-3.5 px-4 py-[13px] transition-colors duration-100 active:bg-gray-50"
+    >
+      <div className="w-8 h-8 rounded-lg bg-[#e6f7f3] flex items-center justify-center flex-shrink-0">
+        <Icon name={item.icon} size={17} className={isActive ? "text-[#00b78b]" : "text-[#00b78b]"} />
+      </div>
+      <span className={`flex-1 text-left text-[15px] ${isActive ? "font-semibold text-[#00b78b]" : "font-normal text-gray-800"}`}>
+        {item.label}
+      </span>
+      <Icon name="chevron-right" size={13} className="text-gray-300" />
+    </button>
+  );
+}
+
+/** Booking.com-style profile panel. */
 function ProfilePanel({
   open,
   closing,
   onClose,
   avatarUrl,
   displayName,
+  isLoggedIn,
   onNavigate,
 }: {
   open: boolean;
@@ -131,12 +157,12 @@ function ProfilePanel({
   onClose: () => void;
   avatarUrl: string;
   displayName: string;
+  isLoggedIn: boolean;
   onNavigate: (href: string) => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useRef(createClient()).current;
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     onClose();
@@ -152,114 +178,135 @@ function ProfilePanel({
 
   return (
     <div
-      ref={panelRef}
-      className={`fixed inset-0 z-[3200] bg-[#f0f2f5] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+      className={`fixed inset-0 z-[3200] bg-[#f5f5f5] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
         closing ? "translate-y-full" : "translate-y-0"
       }`}
     >
-      {/* Top bar */}
+      {/* Teal header */}
       <div
-        className="flex items-center justify-between px-4 flex-shrink-0"
+        className="bg-[#00b78b] flex-shrink-0 flex flex-col px-4 pb-5"
         style={{ paddingTop: "calc(0.85rem + env(safe-area-inset-top, 0px))" }}
       >
-        <span className="text-[17px] font-semibold text-gray-800">Profile</span>
-        <button
-          type="button"
-          onClick={() => { void hapticLight(); onClose(); }}
-          aria-label="Close"
-          className="w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-gray-500 active:bg-white"
-        >
-          <Icon name="times" size={15} />
-        </button>
+        {/* Close button row */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-white text-[17px] font-semibold">Account</span>
+          <button
+            type="button"
+            onClick={() => { void hapticLight(); onClose(); }}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white active:bg-white/30"
+          >
+            <Icon name="times" size={15} />
+          </button>
+        </div>
+
+        {/* Avatar + info row */}
+        <div className="flex items-center gap-4">
+          {/* Avatar circle with gold border */}
+          <div className="w-16 h-16 rounded-full border-2 border-[#ffd700] overflow-hidden flex items-center justify-center bg-white/20 flex-shrink-0">
+            {avatarUrl && isLoggedIn ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Icon name="user" size={32} className="text-white" />
+              </div>
+            )}
+          </div>
+
+          {/* Name / sign-in prompt */}
+          <div className="flex-1 min-w-0">
+            {isLoggedIn ? (
+              <>
+                <p className="text-white text-[17px] font-semibold leading-tight truncate">{displayName}</p>
+                <p className="text-white/70 text-[13px] mt-0.5">Heritage of Pakistan</p>
+              </>
+            ) : (
+              <>
+                <p className="text-white text-[16px] font-semibold leading-tight">Sign in to manage</p>
+                <p className="text-white/80 text-[13px] mt-0.5">your trips and more</p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Sign in button (unauthenticated only) */}
+        {!isLoggedIn && (
+          <button
+            type="button"
+            onClick={() => { void hapticMedium(); onClose(); window.location.href = "/auth/sign-in?redirectTo=/"; }}
+            className="mt-4 w-full py-3 rounded-xl bg-white text-[#00b78b] text-[15px] font-bold text-center active:bg-gray-100 transition-colors"
+          >
+            Sign in or register
+          </button>
+        )}
       </div>
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto">
-        {/* Profile section */}
-        <div className="flex flex-col items-center px-6 pt-6 pb-8">
-          {/* Avatar */}
-          <div className="relative">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarUrl}
-                alt="Profile"
-                className="w-28 h-28 rounded-full object-cover shadow-md"
-              />
-            ) : (
-              <div className="w-28 h-28 rounded-full bg-[var(--brand-blue)] flex items-center justify-center text-white text-4xl font-bold shadow-md">
-                {initial}
-              </div>
-            )}
-            {/* Online dot */}
-            <div className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full bg-[#25d366] border-2 border-[#f0f2f5]" />
-          </div>
 
-          {/* Name */}
-          <h2 className="mt-4 text-[22px] font-bold text-gray-900 text-center leading-snug">
-            {displayName || "My Account"}
-          </h2>
-          <p className="mt-0.5 text-[13px] text-gray-500">Heritage of Pakistan</p>
-        </div>
-
-        {/* "My Dashboard" section */}
-        <div className="px-4 mb-1">
-          <p className="text-[13px] font-medium text-gray-500 px-1 mb-2 uppercase tracking-wide">
-            My Dashboard
-          </p>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-            {dashboardNav.map((item, i) => {
-              const isActive = pathname === item.href;
-              return (
-                <div key={item.href}>
-                  <button
-                    type="button"
-                    onClick={() => { void hapticLight(); onNavigate(item.href); }}
-                    className={`w-full flex items-center gap-3 px-4 py-[13px] transition-colors duration-100 active:bg-gray-50 ${
-                      isActive ? "bg-orange-50/60" : ""
-                    }`}
-                  >
-                    <Icon
-                      name={item.icon}
-                      size={20}
-                      className={isActive ? "text-[#ff752b]" : "text-gray-400"}
-                    />
-                    <span
-                      className={`flex-1 text-left text-[15.5px] ${
-                        isActive
-                          ? "font-semibold text-[#ff752b]"
-                          : "font-normal text-gray-800"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                    <Icon name="chevron-right" size={14} className="text-gray-300" />
-                  </button>
-                  {i < dashboardNav.length - 1 && (
-                    <div className="h-px bg-gray-100 ml-11" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sign out card */}
+        {/* Main nav group */}
         <div className="px-4 mt-4">
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => { void hapticMedium(); void handleLogout(); }}
-              className="w-full flex items-center gap-3 px-4 py-[13px] active:bg-red-50 transition-colors duration-100"
-            >
-              <Icon name="logout" size={20} className="text-red-500" />
-              <span className="flex-1 text-left text-[15.5px] text-red-500">
-                Sign Out
-              </span>
-              <Icon name="chevron-right" size={14} className="text-gray-300" />
-            </button>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
+            {mainNavItems.map((item) => (
+              <NavListItem
+                key={item.href}
+                item={item}
+                isActive={pathname === item.href}
+                onPress={() => onNavigate(item.href)}
+              />
+            ))}
           </div>
         </div>
+
+        {/* Help & Support group */}
+        <div className="px-4 mt-5">
+          <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">Help &amp; Support</p>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
+            {helpItems.map((item) => (
+              <NavListItem
+                key={item.href}
+                item={item}
+                isActive={pathname === item.href}
+                onPress={() => onNavigate(item.href)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Travel Activity group */}
+        <div className="px-4 mt-5">
+          <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">Travel Activity</p>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
+            {travelActivityItems.map((item) => (
+              <NavListItem
+                key={item.href}
+                item={item}
+                isActive={pathname === item.href}
+                onPress={() => onNavigate(item.href)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Sign out — only when logged in */}
+        {isLoggedIn && (
+          <div className="px-4 mt-5">
+            <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+              <button
+                type="button"
+                onClick={() => { void hapticMedium(); void handleLogout(); }}
+                className="w-full flex items-center gap-3.5 px-4 py-[13px] active:bg-red-50 transition-colors duration-100"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <Icon name="logout" size={17} className="text-red-500" />
+                </div>
+                <span className="flex-1 text-left text-[15px] text-red-500">Sign Out</span>
+                <Icon name="chevron-right" size={13} className="text-gray-300" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Safe-area bottom padding */}
         <div className="h-[calc(2rem+env(safe-area-inset-bottom,0px))]" />
@@ -309,10 +356,6 @@ export default function BottomNav() {
   }, [pathname]);
 
   const openPanel = () => {
-    if (!userId) {
-      if (typeof window !== "undefined") window.location.href = "/auth/sign-in?redirectTo=/";
-      return;
-    }
     setPanelOpen(true);
     setPanelClosing(false);
   };
@@ -390,13 +433,14 @@ export default function BottomNav() {
         </nav>
       </div>
 
-      {/* WhatsApp-style profile panel */}
+      {/* Booking.com-style profile panel */}
       <ProfilePanel
         open={panelOpen}
         closing={panelClosing}
         onClose={closePanel}
         avatarUrl={avatarUrl}
         displayName={displayName}
+        isLoggedIn={!!userId}
         onNavigate={handlePanelNavigate}
       />
     </>

@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "@/components/Icon";
+import MobilePageHeader from "@/components/MobilePageHeader";
 
 export default function DashboardShellClient({
   children,
@@ -36,6 +37,22 @@ export default function DashboardShellClient({
 
   const fullBleed =
     typeof pathname === "string" && pathname.startsWith("/dashboard/notebook");
+
+  const pageTitleMap: Record<string, string> = {
+    "/dashboard": "Dashboard",
+    "/dashboard/profile": "Profile",
+    "/dashboard/bookmarks": "Bookmarks",
+    "/dashboard/mywishlists": "Wishlists",
+    "/dashboard/mycollections": "Collections",
+    "/dashboard/mytrips": "My Trips",
+    "/dashboard/notebook": "Notebook",
+    "/dashboard/placesvisited": "Places Visited",
+    "/dashboard/myreviews": "My Reviews",
+    "/dashboard/portfolio": "My Portfolio",
+    "/dashboard/account-details": "Account Details",
+  };
+
+  const pageTitle = pageTitleMap[pathname ?? ""] ?? "Dashboard";
 
   return (
     <div className="min-h-screen bg-white lg:bg-gray-100 lg:flex lg:p-6 lg:gap-6 lg:items-start">
@@ -71,11 +88,16 @@ export default function DashboardShellClient({
       {/* Spacer — desktop only */}
       <div className="hidden lg:block w-64" />
 
+      {/* Teal mobile header — visible on mobile only */}
+      <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end justify-center pb-3">
+        <span className="text-white text-[17px] font-semibold tracking-wide">{pageTitle}</span>
+      </MobilePageHeader>
+
       {/* Main Content */}
       <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
-        {/* Mobile safe-area top spacer — only on mobile, only when not full-bleed */}
+        {/* Mobile safe-area top spacer — accounts for teal header height */}
         {!fullBleed && (
-          <div className="lg:hidden" style={{ height: "env(safe-area-inset-top, 44px)" }} />
+          <div className="lg:hidden" style={{ height: "calc(env(safe-area-inset-top, 44px) + 52px)" }} />
         )}
         {children}
         {/* Mobile bottom nav clearance */}
