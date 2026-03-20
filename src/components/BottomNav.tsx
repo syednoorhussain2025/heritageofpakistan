@@ -369,6 +369,13 @@ export default function BottomNav() {
   }, [pathname]);
 
   const openPanel = () => {
+    if (userId) {
+      // Logged in: go to dashboard hub directly — no panel
+      void hapticLight();
+      startNavigation("/dashboard");
+      return;
+    }
+    // Unauthenticated: show sign-in prompt panel
     setPanelOpen(true);
     setPanelClosing(false);
   };

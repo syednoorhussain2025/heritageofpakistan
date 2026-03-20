@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
@@ -234,6 +235,33 @@ export default function DashboardHome() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Mobile nav list — quick access to all sections ── */}
+      <div className="lg:hidden">
+        <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">All Sections</p>
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
+          {[
+            { href: "/dashboard/profile", label: "Profile", icon: "user" },
+            { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
+            { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
+            { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
+            { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
+            { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
+            { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
+            { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+            { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
+            { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="flex items-center gap-3.5 px-4 py-[13px] active:bg-gray-50 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-[#e6f7f3] flex items-center justify-center shrink-0">
+                <Icon name={item.icon} size={17} className="text-[#00b78b]" />
+              </div>
+              <span className="flex-1 text-[15px] text-gray-800">{item.label}</span>
+              <Icon name="chevron-right" size={13} className="text-gray-300" />
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

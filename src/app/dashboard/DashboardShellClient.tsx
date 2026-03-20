@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 
@@ -12,6 +12,7 @@ export default function DashboardShellClient({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -89,15 +90,26 @@ export default function DashboardShellClient({
       <div className="hidden lg:block w-64" />
 
       {/* Teal mobile header — visible on mobile only */}
-      <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end justify-center pb-3">
-        <span className="text-white text-[17px] font-semibold tracking-wide">{pageTitle}</span>
+      <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
+        {/* Back button: sub-pages → /dashboard hub; dashboard hub → previous page */}
+        <button
+          type="button"
+          onClick={() => pathname === "/dashboard" ? router.back() : router.push("/dashboard")}
+          aria-label="Back"
+          className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
+        >
+          <Icon name="arrow-left" size={20} className="text-white" />
+        </button>
+        <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+          {pageTitle}
+        </span>
       </MobilePageHeader>
 
       {/* Main Content */}
       <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
         {/* Mobile safe-area top spacer — accounts for teal header height */}
         {!fullBleed && (
-          <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 52px)" }} />
+          <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 48px)" }} />
         )}
         {children}
         {/* Mobile bottom nav clearance */}
