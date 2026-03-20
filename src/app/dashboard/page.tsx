@@ -138,14 +138,16 @@ export default function DashboardHome() {
 
       {/* ── MOBILE: nav list only (profile info is in the teal header) ── */}
       <div className="lg:hidden">
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
-          {mobileNavItems.map((item) => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3.5 px-4 py-[13px] active:bg-gray-50 transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-[#e6f7f3] flex items-center justify-center shrink-0">
-                <Icon name={item.icon} size={17} className="text-[#00b78b]" />
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+          {mobileNavItems.map((item, i) => (
+            <Link key={item.href} href={item.href} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative">
+              {/* Indented divider — skipped on first row */}
+              {i > 0 && <span className="absolute top-0 right-0 left-[60px] h-px bg-gray-100" />}
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#f2f2f2" }}>
+                <Icon name={item.icon} size={18} className="text-[#333333]" />
               </div>
-              <span className="flex-1 text-[15px] text-gray-800">{item.label}</span>
-              <Icon name="chevron-right" size={13} className="text-gray-300" />
+              <span className="flex-1 text-[15px] font-normal text-[#1a1a1a]">{item.label}</span>
+              <Icon name="chevron-right" size={13} className="text-[#c8c8c8]" />
             </Link>
           ))}
         </div>

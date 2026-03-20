@@ -223,7 +223,7 @@ export default function DashboardShellClient({
             className="lg:hidden"
             style={{
               height: isHome
-                ? "calc(var(--sat, 44px) + 148px)"
+                ? "calc(var(--sat, 44px) + 196px)"
                 : "calc(var(--sat, 44px) + 48px)",
             }}
           />
