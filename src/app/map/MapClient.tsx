@@ -24,7 +24,6 @@ import NearbyMeSheet from "@/components/NearbyMeSheet";
 import { getCachedBootstrap, setCachedBootstrap, getCachedSites, setCachedSites } from "@/lib/mapCache";
 import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imagevariants";
 import SiteCarousel from "@/components/SiteCarousel";
-import SiteBottomSheet from "@/components/SiteBottomSheet";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
 
@@ -299,23 +298,57 @@ export default function MapClient() {
   const [mounted, setMounted] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
-  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
-  const [searchPanelVisible, setSearchPanelVisible] = useState(false);
-  /** What the mobile panel shows: "search" = filters only, "lists" = Saved Lists/Trips, "site" = site detail */
-  const [mobilePanelMode, setMobilePanelMode] = useState<"search" | "lists" | "site">("search");
-  const [mobilePanelTab, setMobilePanelTab] = useState<"search" | "wishlist" | "trips" | "site">("search");
-  const [mobileEllipsisSheetOpen, setMobileEllipsisSheetOpen] = useState(false);
-  const [mobileEllipsisSheetVisible, setMobileEllipsisSheetVisible] = useState(false);
-  const [mobileTripSheetOpen, setMobileTripSheetOpen] = useState(false);
-  const [mobileTripSheetVisible, setMobileTripSheetVisible] = useState(false);
-  const [mobileTripSheetClosing, setMobileTripSheetClosing] = useState(false);
-  const mobileTripSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [mobileListSheetOpen, setMobileListSheetOpen] = useState(false);
-  const [mobileListSheetVisible, setMobileListSheetVisible] = useState(false);
-  const [mobileListSheetClosing, setMobileListSheetClosing] = useState(false);
-  const mobileListSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
   const [mobileMapTypeSheetVisible, setMobileMapTypeSheetVisible] = useState(false);
+
+  // ── Unified slideable bottom panel ──
+  // "peek" = collapsed bar at bottom, "expanded" = 70vh sheet open
+  // panelView drives what's shown inside when expanded:
+  //   "home"     = search bar + My Trips / My List buttons
+  //   "search"   = search & filters
+  //   "trips"    = list of user's trips
+  //   "lists"    = list of user's saved lists
+  //   "tripDetail" = trip timeline (after selecting a trip)
+  //   "listDetail" = sites in a saved list
+  type PanelView = "home" | "search" | "trips" | "lists" | "tripDetail" | "listDetail" | "siteDetail";
+  const [panelExpanded, setPanelExpanded] = useState(false);
+  const [panelView, setPanelView] = useState<PanelView>("home");
+  const [panelViewStack, setPanelViewStack] = useState<PanelView[]>([]);
+  const panelDragStartYRef = useRef<number | null>(null);
+  const panelDragCurrentYRef = useRef<number>(0);
+  const panelIsDraggingRef = useRef(false);
+  const [panelDragOffset, setPanelDragOffset] = useState(0);
+
+  const openPanel = useCallback((view: PanelView = "home") => {
+    setPanelView(view);
+    setPanelViewStack([]);
+    setPanelExpanded(true);
+  }, []);
+
+  const pushPanelView = useCallback((view: PanelView) => {
+    const current = panelViewRef.current;
+    setPanelViewStack((prev) => [...prev, current]);
+    setPanelView(view);
+  }, []);
+
+  const panelViewStackRef = useRef<PanelView[]>([]);
+  useEffect(() => { panelViewStackRef.current = panelViewStack; }, [panelViewStack]);
+
+  const popPanelView = useCallback(() => {
+    const stack = panelViewStackRef.current;
+    if (stack.length === 0) return;
+    const next = [...stack];
+    const back = next.pop()!;
+    setPanelViewStack(next);
+    setPanelView(back);
+  }, []);
+
+  const collapsePanel = useCallback(() => {
+    setPanelExpanded(false);
+    setPanelViewStack([]);
+    setPanelView("home");
+    setPanelDragOffset(0);
+  }, []);
   const [highlightSiteId, setHighlightSiteId] = useState<string | null>(null);
   /** When true, map will open preview without zooming (e.g. click from saved list panel). */
   const [highlightFromSavedList, setHighlightFromSavedList] = useState(false);
@@ -350,14 +383,7 @@ export default function MapClient() {
   const toastTimerRef = useRef<number | null>(null);
   const toastRaf1Ref = useRef<number | null>(null);
   const toastRaf2Ref = useRef<number | null>(null);
-  const searchPanelRaf2Ref = useRef<number | null>(null);
-  const [sheetDragY, setSheetDragY] = useState(0);
-  const sheetDragStartRef = useRef<number | null>(null);
-  const sheetIsDraggingRef = useRef(false);
-  const ellipsisSheetRaf2Ref = useRef<number | null>(null);
   const mapTypeSheetRaf2Ref = useRef<number | null>(null);
-  const tripSheetRaf2Ref = useRef<number | null>(null);
-  const listSheetRaf2Ref = useRef<number | null>(null);
   const filteredLocationsRef = useRef<MapSite[]>([]);
   const filterToastInitRef = useRef(false);
 
@@ -876,50 +902,7 @@ export default function MapClient() {
 
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!searchPanelOpen) {
-      setSearchPanelVisible(false);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      searchPanelRaf2Ref.current = requestAnimationFrame(() => {
-        searchPanelRaf2Ref.current = null;
-        setSearchPanelVisible(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id);
-      if (searchPanelRaf2Ref.current != null) {
-        cancelAnimationFrame(searchPanelRaf2Ref.current);
-        searchPanelRaf2Ref.current = null;
-      }
-    };
-  }, [searchPanelOpen]);
-  const closeSearchPanel = useCallback(() => {
-    setSearchPanelVisible(false);
-    setTimeout(() => setSearchPanelOpen(false), 320);
-  }, []);
 
-  /* Ellipsis bottom sheet visibility animation */
-  useEffect(() => {
-    if (!mobileEllipsisSheetOpen) {
-      setMobileEllipsisSheetVisible(false);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      ellipsisSheetRaf2Ref.current = requestAnimationFrame(() => {
-        ellipsisSheetRaf2Ref.current = null;
-        setMobileEllipsisSheetVisible(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id);
-      if (ellipsisSheetRaf2Ref.current != null) {
-        cancelAnimationFrame(ellipsisSheetRaf2Ref.current);
-        ellipsisSheetRaf2Ref.current = null;
-      }
-    };
-  }, [mobileEllipsisSheetOpen]);
 
   /* Map type bottom sheet visibility animation */
   useEffect(() => {
@@ -943,101 +926,33 @@ export default function MapClient() {
   }, [mobileMapTypeSheetOpen]);
 
 
-  /* Trip details bottom sheet visibility and close animation */
-  useEffect(() => {
-    if (!mobileTripSheetOpen) {
-      setMobileTripSheetVisible(false);
-      setMobileTripSheetClosing(false);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      tripSheetRaf2Ref.current = requestAnimationFrame(() => {
-        tripSheetRaf2Ref.current = null;
-        setMobileTripSheetVisible(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id);
-      if (tripSheetRaf2Ref.current != null) {
-        cancelAnimationFrame(tripSheetRaf2Ref.current);
-        tripSheetRaf2Ref.current = null;
-      }
-    };
-  }, [mobileTripSheetOpen]);
-
-  const closeTripSheetWithAnimation = useCallback(() => {
-    if (mobileTripSheetCloseTimerRef.current) return;
-    setMobileTripSheetClosing(true);
-    mobileTripSheetCloseTimerRef.current = setTimeout(() => {
-      mobileTripSheetCloseTimerRef.current = null;
-      setMobileTripSheetOpen(false);
-      setMobileTripSheetClosing(false);
-    }, 300);
-  }, []);
-
-  useEffect(() => () => {
-    if (mobileTripSheetCloseTimerRef.current) clearTimeout(mobileTripSheetCloseTimerRef.current);
-  }, []);
-
-  /* List (saved list) bottom sheet visibility and close animation */
-  useEffect(() => {
-    if (!mobileListSheetOpen) {
-      setMobileListSheetVisible(false);
-      setMobileListSheetClosing(false);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      listSheetRaf2Ref.current = requestAnimationFrame(() => {
-        listSheetRaf2Ref.current = null;
-        setMobileListSheetVisible(true);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id);
-      if (listSheetRaf2Ref.current != null) {
-        cancelAnimationFrame(listSheetRaf2Ref.current);
-        listSheetRaf2Ref.current = null;
-      }
-    };
-  }, [mobileListSheetOpen]);
-
-  const closeListSheetWithAnimation = useCallback(() => {
-    if (mobileListSheetCloseTimerRef.current) return;
-    setMobileListSheetClosing(true);
-    mobileListSheetCloseTimerRef.current = setTimeout(() => {
-      mobileListSheetCloseTimerRef.current = null;
-      setMobileListSheetOpen(false);
-      setMobileListSheetClosing(false);
-    }, 300);
-  }, []);
-
-  useEffect(() => () => {
-    if (mobileListSheetCloseTimerRef.current) clearTimeout(mobileListSheetCloseTimerRef.current);
-  }, []);
-
-  /* When a trip is applied on mobile, open the trip details bottom sheet automatically */
+  /* When a trip is applied on mobile, open the trip detail view in the panel automatically */
   useEffect(() => {
     if (!mounted) return;
     if (typeof sidebarFilter !== "object" || sidebarFilter === null || !("tripId" in sidebarFilter)) return;
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
-      setMobileTripSheetOpen(true);
+      setPanelView("tripDetail");
+      setPanelViewStack(["trips"]);
+      setPanelExpanded(true);
     }
   }, [mounted, sidebarFilter]);
 
-  /* When a saved list is applied on mobile, open the list bottom sheet automatically */
+  /* When a saved list is applied on mobile, open the list detail view in the panel automatically */
   useEffect(() => {
     if (!mounted) return;
     if (typeof sidebarFilter !== "object" || sidebarFilter === null || !("wishlistId" in sidebarFilter)) return;
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
       setExpandedWishlistId(sidebarFilter.wishlistId);
-      setMobileListSheetOpen(true);
+      setPanelView("listDetail");
+      setPanelViewStack(["lists"]);
+      setPanelExpanded(true);
     }
   }, [mounted, sidebarFilter]);
 
   useEffect(() => {
-    if (searchPanelOpen) document.body.style.overflow = "hidden";
+    if (panelExpanded) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
-  }, [searchPanelOpen]);
+  }, [panelExpanded]);
 
   const showMapToast = useCallback((message: string) => {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -1234,13 +1149,19 @@ export default function MapClient() {
     : mapHeadline;
 
   // Called when the user clicks a pin or the preview card on the map
+  // Ref to capture panelView without adding it as a dep (keeps handleSiteSelect stable)
+  const panelViewRef = useRef<PanelView>("home");
+  useEffect(() => { panelViewRef.current = panelView; }, [panelView]);
+
   const handleSiteSelect = useCallback((site: MapSite) => {
     void hapticMedium();
     setSelectedMapSite(site);
-    if (typeof window === "undefined" || !window.matchMedia("(max-width: 1023px)").matches) {
-      setMobilePanelMode("site");
-      setMobilePanelTab("site");
-      setSearchPanelOpen(true);
+    // On mobile, push site detail view onto the unified bottom panel
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      const currentView = panelViewRef.current;
+      setPanelViewStack((stack) => [...stack, currentView]);
+      setPanelView("siteDetail" as PanelView);
+      setPanelExpanded(true);
     }
   }, []);
 
@@ -1777,22 +1698,17 @@ export default function MapClient() {
 
   const tools: Tool[] = mapTools;
 
-  const mobilePanelContent = mobilePanelMode === "search" ? (
-    <SearchFilters
-      filters={filters}
-      onFilterChange={handleFilterChange}
-      onSearch={() => { closeSearchPanel(); triggerFitFiltered(); }}
-      onOpenNearbyModal={() => setShowNearbyModal(true)}
-      onClearNearby={() => showMapToast("Proximity filter cleared")}
-      onReset={() => showMapToast("Filters reset")}
-    />
-  ) : mobilePanelMode === "site" ? (
-    renderToolPanel("site", () => { setSelectedMapSite(null); closeSearchPanel(); })
-  ) : mobilePanelTab === "wishlist" ? (
-    renderToolPanel("wishlist", closeSearchPanel)
-  ) : (
-    renderToolPanel("trips", closeSearchPanel)
-  );
+  // Compute label + back availability for the unified panel header
+  const panelHasBack = panelViewStack.length > 0;
+  const panelTitle =
+    panelView === "home" ? "Explore"
+    : panelView === "search" ? "Search & Filters"
+    : panelView === "trips" ? "My Trips"
+    : panelView === "lists" ? "My List"
+    : panelView === "tripDetail" ? (activeTripName ?? "Trip Details")
+    : panelView === "listDetail" ? (activeWishlistName ?? "Saved List")
+    : panelView === "siteDetail" ? (selectedMapSite?.title ?? "Site Details")
+    : "Map";
 
   return (
     <>
@@ -1931,33 +1847,6 @@ export default function MapClient() {
         </div>
           );
         })()}
-        {/* Mobile: Trip Details button (above bottom nav) when a trip is applied */}
-        {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
-          <button
-            type="button"
-            onClick={() => setMobileTripSheetOpen(true)}
-            className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
-            style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
-            aria-label="Trip details"
-          >
-            <span>Trip Details</span>
-          </button>
-        )}
-        {/* Mobile: Show List button (same position as Trip Details) when a saved list is applied */}
-        {!loadError && typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && (
-          <button
-            type="button"
-            onClick={() => {
-              setExpandedWishlistId(sidebarFilter.wishlistId);
-              setMobileListSheetOpen(true);
-            }}
-            className="lg:hidden fixed right-4 z-[3100] flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--brand-blue)] text-white shadow-lg text-sm font-semibold hover:opacity-90 active:opacity-95 transition-opacity"
-            style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
-            aria-label="Show list"
-          >
-            <span>Show List</span>
-          </button>
-        )}
           </>
         )}
         {/* Single pill on the right: trip details (when trip loaded) or map context (otherwise) */}
@@ -2232,185 +2121,6 @@ export default function MapClient() {
           })()}
       </div>
 
-      {mounted &&
-        searchPanelOpen &&
-        createPortal(
-          <div
-            className="lg:hidden fixed inset-0 touch-none"
-            style={{ zIndex: 99999 }}
-            aria-modal="true"
-            role="dialog"
-            aria-label="Map menu"
-          >
-            {/* Backdrop */}
-            <div
-              className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
-              onClick={() => {
-                if (mobilePanelMode === "site") setSelectedMapSite(null);
-                closeSearchPanel();
-              }}
-            />
-
-            {/* Bottom sheet */}
-            <div
-              className="absolute inset-x-0 bottom-0 bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-2xl shadow-2xl"
-              style={{
-                maxHeight: "92dvh",
-                paddingBottom: "env(safe-area-inset-bottom, 0px)",
-                transform: searchPanelVisible
-                  ? `translateY(${sheetDragY}px)`
-                  : "translateY(100%)",
-                transition: sheetIsDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
-              }}
-            >
-              {/* Drag handle + header */}
-              <div
-                className="shrink-0 bg-white border-b border-gray-100 select-none cursor-grab active:cursor-grabbing"
-                onTouchStart={(e) => {
-                  sheetDragStartRef.current = e.touches[0].clientY;
-                  sheetIsDraggingRef.current = false;
-                }}
-                onTouchMove={(e) => {
-                  if (sheetDragStartRef.current === null) return;
-                  const dy = e.touches[0].clientY - sheetDragStartRef.current;
-                  if (dy > 0) { sheetIsDraggingRef.current = true; setSheetDragY(dy); }
-                }}
-                onTouchEnd={(e) => {
-                  if (sheetDragStartRef.current === null) return;
-                  const dy = e.changedTouches[0].clientY - sheetDragStartRef.current;
-                  sheetDragStartRef.current = null;
-                  sheetIsDraggingRef.current = false;
-                  setSheetDragY(0);
-                  if (dy > 80) {
-                    if (mobilePanelMode === "site") setSelectedMapSite(null);
-                    closeSearchPanel();
-                  }
-                }}
-              >
-                <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1" />
-                <div className="flex items-center gap-2 px-4 py-2.5">
-                  <div className="w-7 h-7 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
-                    <Icon
-                      name={mobilePanelMode === "site" ? "map-marker-alt" : mobilePanelMode === "lists" ? "list-ul" : "search"}
-                      size={13}
-                      className="text-[var(--brand-orange)]"
-                    />
-                  </div>
-                  <span className="flex-1 text-base font-bold text-gray-800 truncate min-w-0">
-                    {mobilePanelMode === "search"
-                      ? "Search & Filters"
-                      : mobilePanelMode === "lists"
-                          ? (mobilePanelTab === "wishlist" ? "Saved Lists" : "My Trips")
-                          : selectedMapSite?.title ?? "Site Details"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (mobilePanelMode === "site") setSelectedMapSite(null);
-                      closeSearchPanel();
-                    }}
-                    aria-label="Close"
-                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
-                  >
-                    <Icon name="times" size={13} />
-                  </button>
-                </div>
-                {/* Tab bar: only when mode is "lists" */}
-                {mobilePanelMode === "lists" && (
-                  <div className="flex border-t border-gray-100">
-                    {(["wishlist", "trips"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setMobilePanelTab(tab)}
-                        className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                          mobilePanelTab === tab
-                            ? "text-[var(--brand-orange)] border-b-2 border-[var(--brand-orange)]"
-                            : "text-[var(--brand-grey)]"
-                        }`}
-                      >
-                        {tab === "wishlist" ? "Saved Lists" : "My Trips"}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Scrollable content */}
-              <div className={`flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain ${mobilePanelMode === "search" ? "" : "p-4"} ${mobilePanelMode === "site" ? "scrollbar-hide p-0" : ""}`}>
-                <div className={`min-h-full overflow-hidden ${mobilePanelMode === "search" ? "" : "rounded-xl bg-white shadow-md border border-gray-200"} ${mobilePanelMode === "site" ? "p-0 border-0 shadow-none rounded-none" : ""}`}>
-                  {mobilePanelContent}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* Mobile: ellipsis bottom sheet — My Saved Lists & My Trips */}
-      {mounted && mobileEllipsisSheetOpen &&
-        createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="My lists and trips">
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${mobileEllipsisSheetVisible ? "opacity-100" : "opacity-0"}`}
-              onClick={() => setMobileEllipsisSheetOpen(false)}
-              aria-hidden="true"
-            />
-            <div
-              className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileEllipsisSheetVisible ? "translate-y-0" : "translate-y-full"}`}
-              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-            >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
-              <p className="text-center text-[13px] text-gray-500 font-medium pt-2 pb-3 px-6">Lists & Trips</p>
-              <div className="px-4 pb-6 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileEllipsisSheetOpen(false);
-                    setMobilePanelMode("lists");
-                    setMobilePanelTab("wishlist");
-                    setSearchPanelOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
-                    <Icon name="list-ul" size={20} className="text-[var(--brand-orange)]" />
-                  </div>
-                  <span className="text-[15px] font-semibold text-gray-900">My Saved Lists</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileEllipsisSheetOpen(false);
-                    setMobilePanelMode("lists");
-                    setMobilePanelTab("trips");
-                    setSearchPanelOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-[var(--brand-blue)]/10 flex items-center justify-center shrink-0">
-                    <Icon name="route" size={20} className="text-[var(--brand-blue)]" />
-                  </div>
-                  <span className="text-[15px] font-semibold text-gray-900">My Trips</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileEllipsisSheetOpen(false);
-                    setMobileMapTypeSheetOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-left"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-gray-200/80 flex items-center justify-center shrink-0">
-                    <Icon name="map" size={20} className="text-gray-600" />
-                  </div>
-                  <span className="text-[15px] font-semibold text-gray-900">Switch Map Type</span>
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
 
       {/* Mobile: map type selection bottom sheet */}
       {mounted && mobileMapTypeSheetOpen &&
@@ -2457,253 +2167,10 @@ export default function MapClient() {
           document.body
         )}
 
-      {/* Mobile: site info bottom sheet */}
-      <SiteBottomSheet
-        site={selectedMapSite}
-        isOpen={selectedMapSite !== null}
-        onClose={() => setSelectedMapSite(null)}
-      />
+      {/* ── Mobile: unified slideable bottom panel ── */}
+      {/* This panel has two states: peek (collapsed bar) and expanded (70vh sheet).
+          Inside it has a navigation stack: home → trips/lists/search → detail → siteDetail */}
 
-      {/* Mobile: trip details bottom sheet (same content as desktop floating panel) */}
-      {mounted && (mobileTripSheetOpen || mobileTripSheetClosing) && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter &&
-        createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="Trip details">
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileTripSheetVisible && !mobileTripSheetClosing ? "opacity-100" : "opacity-0"}`}
-              onClick={closeTripSheetWithAnimation}
-              aria-hidden="true"
-            />
-            <div
-              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileTripSheetVisible && !mobileTripSheetClosing ? "translate-y-0" : "translate-y-full"}`}
-              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-            >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
-              <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
-                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
-                  <Icon name="map-marker-alt" size={16} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
-                  <h3 className="text-sm font-semibold text-gray-800 leading-snug break-words">Trip: {activeTripName ?? "—"}</h3>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    {tripItemsLoading || tripTimelineLoading ? "Loading…" : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}
-                  </p>
-                </div>
-                <button type="button" onClick={closeTripSheetWithAnimation} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700" aria-label="Close trip panel">
-                  <Icon name="times" size={12} />
-                </button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
-                {tripItemsLoading && !tripTimeline.length ? (
-                  <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
-                    <Icon name="spinner" size={16} className="animate-spin" />
-                    <span className="text-sm">Loading sites…</span>
-                  </div>
-                ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-6 text-center">No sites in this trip.</p>
-                ) : tripTimeline.length > 0 ? (
-                  (() => {
-                    type DayEntry = TimelineItem & { kind: "day"; id: string; title?: string | null; the_date?: string | null; order_index?: number };
-                    const formatSmallDate = (dateStr: string | null | undefined) =>
-                      dateStr ? new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
-                    const daysInOrder = (tripTimeline.filter((e) => e.kind === "day") as DayEntry[]).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-                    const itemsByDayId = new Map<string | null, TripItemMap[]>();
-                    for (const item of tripItems) {
-                      const key = item.day_id ?? null;
-                      if (!itemsByDayId.has(key)) itemsByDayId.set(key, []);
-                      itemsByDayId.get(key)!.push(item);
-                    }
-                    for (const arr of itemsByDayId.values()) arr.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-                    return (
-                      <div className="relative">
-                        <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
-                        <ul className="space-y-0 pb-2">
-                          {daysInOrder.map((day, idx) => {
-                            const dayNumber = idx + 1;
-                            const title = day.title?.trim() || "Day";
-                            const itemsForDay = itemsByDayId.get(day.id) ?? [];
-                            return (
-                              <React.Fragment key={`day-${day.id}`}>
-                                <li className="pt-3 pb-1.5 first:pt-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-[11px] font-semibold">Day {dayNumber}: {title}</span>
-                                  </div>
-                                </li>
-                                {itemsForDay.map((item, itemIdx) => {
-                                  const siteTitle = item.site?.title ?? "Site";
-                                  const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
-                                  const smallDate = formatSmallDate(item.date_in ?? (day as DayEntry).the_date ?? null);
-                                  const site = allLocationsById.get(item.site_id);
-                                  return (
-                                    <li key={`site-${item.id ?? item.site_id}`}>
-                                      <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
-                                        <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
-                                        <span className="flex-1 min-w-0 text-left">
-                                          <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
-                                          {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
-                                        </span>
-                                        <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
-                                          {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
-                                        </span>
-                                      </button>
-                                      {itemIdx < itemsForDay.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
-                                    </li>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          })}
-                          {(itemsByDayId.get(null) ?? []).length > 0 && (
-                            <>
-                              <li className="pt-3 pb-1.5"><div className="flex items-center gap-2 mb-1.5"><span className="text-[10px] font-semibold text-gray-500">Other sites</span></div><div className="border-b border-gray-100 mb-1.5" /></li>
-                              {itemsByDayId.get(null)!.map((item, itemIdx) => {
-                                const siteTitle = item.site?.title ?? "Site";
-                                const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
-                                const smallDate = formatSmallDate(item.date_in ?? null);
-                                const site = allLocationsById.get(item.site_id);
-                                return (
-                                  <li key={`site-${item.id ?? item.site_id}`}>
-                                    <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
-                                      <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
-                                      <span className="flex-1 min-w-0 text-left">
-                                        <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
-                                        {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
-                                      </span>
-                                      <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
-                                        {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
-                                      </span>
-                                    </button>
-                                    {itemIdx < itemsByDayId.get(null)!.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
-                                  </li>
-                                );
-                              })}
-                            </>
-                          )}
-                        </ul>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div className="relative">
-                    <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
-                    <ul className="pb-2">
-                      {tripItems.map((item, itemIdx) => {
-                        const site = item.site;
-                        const title = site?.title ?? "Site";
-                        const thumbUrl = site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") || null;
-                        const siteObj = allLocationsById.get(item.site_id);
-                        return (
-                          <li key={item.site_id}>
-                            <button type="button" onClick={() => siteObj && handleSiteSelect(siteObj as MapSite)} onMouseEnter={() => setTripPanelHoveredSiteId(item.site_id)} onMouseLeave={() => setTripPanelHoveredSiteId(null)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-200 text-left transition-colors cursor-pointer">
-                              <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
-                              <span className="text-sm font-medium text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate flex-1 min-w-0 transition-colors">{title}</span>
-                              <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
-                                {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
-                              </span>
-                            </button>
-                            {itemIdx < tripItems.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* Mobile: saved list bottom sheet (same structure as trip sheet) */}
-      {mounted && (mobileListSheetOpen || mobileListSheetClosing) && typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter &&
-        createPortal(
-          <div className="lg:hidden fixed inset-0 z-[3500] touch-none" aria-modal="true" role="dialog" aria-label="List details">
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${mobileListSheetVisible && !mobileListSheetClosing ? "opacity-100" : "opacity-0"}`}
-              onClick={closeListSheetWithAnimation}
-              aria-hidden="true"
-            />
-            <div
-              className={`absolute left-0 right-0 bottom-0 top-[20%] bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${mobileListSheetVisible && !mobileListSheetClosing ? "translate-y-0" : "translate-y-full"}`}
-              style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
-            >
-              <div className="w-10 h-1 rounded-full bg-gray-300/80 mx-auto mt-3 shrink-0" aria-hidden="true" />
-              <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-gray-100">
-                <span className="shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-[var(--brand-orange)]/10 flex items-center justify-center text-[var(--brand-orange)]" aria-hidden>
-                  <Icon name="list-ul" size={16} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
-                  <h3 className="text-sm font-semibold text-gray-800 leading-snug break-words">{activeWishlistName ?? "Saved list"}</h3>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    {wishlistItemsLoading && expandedWishlistId === sidebarFilter.wishlistId ? "Loading…" : `${wishlistItems.length} ${wishlistItems.length === 1 ? "site" : "sites"}`}
-                  </p>
-                </div>
-                <div className="shrink-0 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { clearSidebarFilter(); closeListSheetWithAnimation(); }}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-orange)] border border-[var(--brand-orange)] rounded-lg px-3 py-2 hover:bg-orange-50 transition-colors"
-                  >
-                    <Icon name="times" size={10} />
-                    Clear from map
-                  </button>
-                  <button type="button" onClick={closeListSheetWithAnimation} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700" aria-label="Close list panel">
-                    <Icon name="times" size={12} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
-                {wishlistItemsLoading && expandedWishlistId === sidebarFilter.wishlistId ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
-                    <Icon name="spinner" size={20} className="animate-spin" />
-                    <span className="text-sm">Loading sites…</span>
-                  </div>
-                ) : wishlistItems.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-6 text-center">No sites in this list yet.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {wishlistItems.map((item) => {
-                      const site = item.sites;
-                      const title = site?.title ?? "Site";
-                      const thumbUrl = site?.cover_photo_thumb_url ?? getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") ?? null;
-                      return (
-                        <li key={item.site_id}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setHighlightFromSavedList(true);
-                              setHighlightSiteId(item.site_id);
-                            }}
-                            className="w-full cursor-pointer flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
-                          >
-                            <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                              {thumbUrl ? (
-                                <img src={thumbUrl} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-gray-300">
-                                  <Icon name="map-pin" size={20} />
-                                </span>
-                              )}
-                            </span>
-                            <span className="flex-1 min-w-0">
-                              <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate group-hover:text-[var(--brand-orange)] transition-colors">{title}</span>
-                              <span className="block text-xs text-gray-400 mt-0.5">Tap to locate on map</span>
-                            </span>
-                            <span className="shrink-0 p-2 -m-2 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors" aria-hidden>
-                              <Icon name="chevron-right" size={14} className="text-gray-300 group-hover:text-[var(--brand-orange)] transition-colors" />
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
     </div>
 
       {/* Desktop: sidebar overlays the map and header (fixed, outside z-0 stacking context) */}
@@ -2923,109 +2390,617 @@ export default function MapClient() {
         </div>
       )}
 
-      {/* ── Mobile: solid panel above bottom nav ── */}
-      {!loadError && (
+      {/* ── Mobile: unified slideable bottom panel ─────────────────────────────
+           Two snap points:
+             peek     = collapsed bar at the bottom (always visible)
+             expanded = 70vh sheet open with navigation stack inside
+      ──────────────────────────────────────────────────────────────────────── */}
+      {!loadError && mounted && createPortal(
         <div
           className="lg:hidden fixed inset-x-0 z-[2998]"
-          style={{ bottom: "calc(52px + var(--safe-bottom, 0px))" }}
+          style={{
+            bottom: "calc(52px + var(--safe-bottom, 0px))",
+            // When expanded, the sheet sits at top: 30vh from top (70vh height)
+            top: panelExpanded ? "30dvh" : "auto",
+            transition: panelIsDraggingRef.current ? "none" : "top 0.32s cubic-bezier(0.32,0.72,0,1), bottom 0.32s cubic-bezier(0.32,0.72,0,1)",
+            transform: panelExpanded && panelDragOffset > 0 ? `translateY(${panelDragOffset}px)` : undefined,
+          }}
         >
-          <div
-            className="flex flex-col bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.08)]"
-          >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-2.5 pb-1 shrink-0">
-              <div className="w-8 h-1 rounded-full bg-gray-300" />
-            </div>
-            <div className="flex items-center gap-3 px-4 py-4">
-            {/* Search + result info — tapping opens search filters sheet */}
-            <button
-              type="button"
-              aria-label="Search & Filters"
-              onClick={() => { setMobilePanelMode("search"); setSearchPanelOpen(true); }}
-              className="flex-1 min-w-0 flex items-center gap-2.5 bg-gray-100 border border-gray-300 rounded-full px-4 py-2.5 active:bg-gray-200 transition-colors text-left"
-            >
-              <Icon name="search" size={14} className="text-gray-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] text-gray-700 font-medium truncate leading-tight">
-                  {hasActiveFilter
-                    ? (mapTitleText.length > 32 ? mapTitleText.slice(0, 30) + "…" : mapTitleText)
-                    : "Search heritage sites…"}
-                </div>
-                <div className="text-[11px] text-gray-400 truncate leading-tight">{mapDisplayText}</div>
-              </div>
-              {hasActiveFilter && (
-                <button
-                  type="button"
-                  aria-label="Clear filters"
-                  onClick={(e) => { e.stopPropagation(); handleClearAllFilters(); }}
-                  className="shrink-0 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center active:bg-gray-300 transition-colors"
-                >
-                  <Icon name="times" size={9} className="text-gray-600" />
-                </button>
-              )}
-            </button>
-
-            {/* Near Me circular button */}
-            <div className="shrink-0 flex flex-col items-center gap-0.5">
-              <button
-                type="button"
-                aria-label="Near me"
-                onClick={() => { void handleNearMe(); }}
-                className={`w-11 h-11 rounded-full bg-[var(--brand-blue)] flex items-center justify-center active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
-              >
-                {gpsStatus === "loading" ? (
-                  <svg className="animate-spin w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </button>
-              <span className="text-[9px] font-medium text-gray-500 leading-tight">Near me</span>
-            </div>
-          </div>
-
-          {/* Category pills — only the ones selected in admin settings */}
-          {categoryPills.length > 0 && (
+          {/* Backdrop — only when expanded */}
+          {panelExpanded && (
             <div
-              className="flex gap-2 overflow-x-auto px-4 pt-1 pb-4 scrollbar-none"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              {categoryPills.map((slug) => {
-                const id = categorySlugToId[slug];
-                const name = id ? categoryMap[id] : undefined;
-                if (!id || !name) return null;
-                const active = filters.categoryIds.includes(id);
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      void hapticLight();
-                      setFilters((prev) => ({
-                        ...prev,
-                        categoryIds: active
-                          ? prev.categoryIds.filter((c) => c !== id)
-                          : [...prev.categoryIds, id],
-                      }));
-                    }}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      active
-                        ? "bg-[var(--brand-blue)] text-white"
-                        : "bg-gray-100 text-gray-600 active:bg-gray-200"
-                    }`}
-                  >
-                    {name}
-                  </button>
-                );
-              })}
-              <div className="shrink-0 w-2" />
-            </div>
+              className="fixed inset-0 bg-black/40 -z-10"
+              style={{ top: 0, bottom: 0 }}
+              onClick={collapsePanel}
+              aria-hidden="true"
+            />
           )}
+
+          <div
+            className="flex flex-col bg-white rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"
+            style={{ height: panelExpanded ? "100%" : "auto" }}
+          >
+            {/* ── Drag handle area — always draggable ── */}
+            <div
+              className="shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={(e) => {
+                panelDragStartYRef.current = e.touches[0].clientY;
+                panelIsDraggingRef.current = false;
+                panelDragCurrentYRef.current = 0;
+              }}
+              onTouchMove={(e) => {
+                if (panelDragStartYRef.current === null) return;
+                const dy = e.touches[0].clientY - panelDragStartYRef.current;
+                panelDragCurrentYRef.current = dy;
+                if (panelExpanded) {
+                  // Only allow dragging down when expanded
+                  if (dy > 0) { panelIsDraggingRef.current = true; setPanelDragOffset(dy); }
+                } else {
+                  // Swipe up to expand
+                  if (dy < -30) { panelIsDraggingRef.current = true; }
+                }
+              }}
+              onTouchEnd={() => {
+                const dy = panelDragCurrentYRef.current;
+                panelDragStartYRef.current = null;
+                panelIsDraggingRef.current = false;
+                setPanelDragOffset(0);
+                if (panelExpanded) {
+                  if (dy > 80) collapsePanel();
+                } else {
+                  if (dy < -30) openPanel("home");
+                }
+              }}
+            >
+              <div className="flex justify-center pt-2.5 pb-1">
+                <div className="w-8 h-1 rounded-full bg-gray-300" />
+              </div>
+
+              {/* ── Peek bar: search input + Near Me + Map Type ── */}
+              {!panelExpanded && (
+                <>
+                  <div className="flex items-center gap-3 px-4 pb-3 pt-1">
+                    {/* Search bar — tap to open expanded panel in search mode */}
+                    <button
+                      type="button"
+                      aria-label="Search & Filters"
+                      onClick={() => openPanel("search")}
+                      className="flex-1 min-w-0 flex items-center gap-2.5 bg-gray-100 border border-gray-200 rounded-full px-4 py-2.5 active:bg-gray-200 transition-colors text-left"
+                    >
+                      <Icon name="search" size={14} className="text-gray-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] text-gray-700 font-medium truncate leading-tight">
+                          {hasActiveFilter
+                            ? (mapTitleText.length > 32 ? mapTitleText.slice(0, 30) + "…" : mapTitleText)
+                            : "Search heritage sites…"}
+                        </div>
+                        <div className="text-[11px] text-gray-400 truncate leading-tight">{mapDisplayText}</div>
+                      </div>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          aria-label="Clear filters"
+                          onClick={(e) => { e.stopPropagation(); handleClearAllFilters(); }}
+                          className="shrink-0 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center active:bg-gray-300 transition-colors"
+                        >
+                          <Icon name="times" size={9} className="text-gray-600" />
+                        </button>
+                      )}
+                    </button>
+
+                    {/* Near Me button */}
+                    <div className="shrink-0 flex flex-col items-center gap-0.5">
+                      <button
+                        type="button"
+                        aria-label="Near me"
+                        onClick={() => { void handleNearMe(); }}
+                        className={`w-11 h-11 rounded-full bg-[var(--brand-blue)] flex items-center justify-center active:opacity-80 transition-opacity ${gpsStatus === "loading" ? "opacity-60" : ""}`}
+                      >
+                        {gpsStatus === "loading" ? (
+                          <svg className="animate-spin w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="16 48" strokeLinecap="round" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className="text-[9px] font-medium text-gray-500 leading-tight">Near me</span>
+                    </div>
+                  </div>
+
+                  {/* Category pills */}
+                  {categoryPills.length > 0 && (
+                    <div
+                      className="flex gap-2 overflow-x-auto px-4 pt-1 pb-4 scrollbar-none"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
+                      {categoryPills.map((slug) => {
+                        const id = categorySlugToId[slug];
+                        const name = id ? categoryMap[id] : undefined;
+                        if (!id || !name) return null;
+                        const active = filters.categoryIds.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => {
+                              void hapticLight();
+                              setFilters((prev) => ({
+                                ...prev,
+                                categoryIds: active
+                                  ? prev.categoryIds.filter((c) => c !== id)
+                                  : [...prev.categoryIds, id],
+                              }));
+                            }}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                              active
+                                ? "bg-[var(--brand-blue)] text-white"
+                                : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        );
+                      })}
+                      <div className="shrink-0 w-2" />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Expanded header: back / title / close ── */}
+              {panelExpanded && (
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+                  {panelHasBack ? (
+                    <button
+                      type="button"
+                      onClick={popPanelView}
+                      aria-label="Back"
+                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors shrink-0"
+                    >
+                      <Icon name="arrow-left" size={14} />
+                    </button>
+                  ) : (
+                    <div className="w-8 h-8 shrink-0" />
+                  )}
+                  <span className="flex-1 text-[15px] font-bold text-gray-900 truncate text-center">
+                    {panelTitle}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={collapsePanel}
+                    aria-label="Close"
+                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
+                  >
+                    <Icon name="times" size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Expanded body: routed panel content ── */}
+            {panelExpanded && (
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-auto scrollbar-hide">
+
+                {/* HOME view: My Trips + My List buttons + search shortcut */}
+                {panelView === "home" && (
+                  <div className="p-4 flex flex-col gap-3">
+                    {/* Active filter banner */}
+                    {hasActiveFilter && (
+                      <div className="flex items-center justify-between gap-2 rounded-xl bg-orange-50 border border-orange-100 px-3 py-2.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon name="map-pin" size={13} className="text-[var(--brand-orange)] shrink-0" />
+                          <span className="text-xs font-medium text-orange-800 truncate">{mapTitleText}</span>
+                        </div>
+                        <button type="button" onClick={handleClearAllFilters} className="shrink-0 text-xs font-semibold text-[var(--brand-orange)] hover:underline">Clear</button>
+                      </div>
+                    )}
+
+                    {/* Search shortcut bar */}
+                    <button
+                      type="button"
+                      onClick={() => pushPanelView("search")}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-100 border border-gray-200 text-left active:bg-gray-200 transition-colors"
+                    >
+                      <Icon name="search" size={16} className="text-gray-400 shrink-0" />
+                      <span className="text-[14px] text-gray-500">Search & filter heritage sites…</span>
+                    </button>
+
+                    {/* My Trips button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void hapticLight();
+                        pushPanelView("trips");
+                      }}
+                      className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-[var(--brand-blue)]/5 border border-[var(--brand-blue)]/15 text-left active:bg-[var(--brand-blue)]/10 transition-colors"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-[var(--brand-blue)] flex items-center justify-center shrink-0">
+                        <Icon name="route" size={22} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-bold text-[var(--brand-blue)]">My Trips</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Show your trip itinerary on the map</p>
+                      </div>
+                      <Icon name="chevron-right" size={16} className="text-[var(--brand-blue)]/40 shrink-0" />
+                    </button>
+
+                    {/* My List button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void hapticLight();
+                        pushPanelView("lists");
+                      }}
+                      className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-[var(--brand-orange)]/5 border border-[var(--brand-orange)]/15 text-left active:bg-[var(--brand-orange)]/10 transition-colors"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
+                        <Icon name="list-ul" size={22} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-bold text-[var(--brand-orange)]">My List</p>
+                        <p className="text-xs text-gray-500 mt-0.5">View your saved lists on the map</p>
+                      </div>
+                      <Icon name="chevron-right" size={16} className="text-[var(--brand-orange)]/40 shrink-0" />
+                    </button>
+
+                    {/* Map type shortcut */}
+                    <button
+                      type="button"
+                      onClick={() => { collapsePanel(); setMobileMapTypeSheetOpen(true); }}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-100 text-left active:bg-gray-100 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center shrink-0">
+                        <Icon name="map" size={18} className="text-gray-600" />
+                      </div>
+                      <span className="text-[14px] font-semibold text-gray-800">Switch Map Type</span>
+                      <Icon name="chevron-right" size={14} className="text-gray-300 ml-auto shrink-0" />
+                    </button>
+                  </div>
+                )}
+
+                {/* SEARCH view */}
+                {panelView === "search" && (
+                  <SearchFilters
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onSearch={() => { collapsePanel(); triggerFitFiltered(); }}
+                    onOpenNearbyModal={() => setShowNearbyModal(true)}
+                    onClearNearby={() => showMapToast("Proximity filter cleared")}
+                    onReset={() => showMapToast("Filters reset")}
+                  />
+                )}
+
+                {/* TRIPS view: list of user's trips */}
+                {panelView === "trips" && (
+                  <div className="flex flex-col min-h-0 h-full px-4 py-4">
+                    {isSignedIn === false ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <span className="w-14 h-14 rounded-full bg-[var(--brand-blue)]/10 flex items-center justify-center mb-4">
+                          <Icon name="route" size={28} className="text-[var(--brand-blue)]" />
+                        </span>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your trips</p>
+                        <p className="text-xs text-gray-500 mb-5 max-w-[200px]">Your saved trips will appear here so you can show them on the map.</p>
+                        <Link href={signInRedirectUrl} className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
+                          Sign in
+                        </Link>
+                      </div>
+                    ) : tripsLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+                        <Icon name="spinner" size={24} className="animate-spin text-[var(--brand-orange)]" />
+                        <span className="text-sm">Loading your trips…</span>
+                      </div>
+                    ) : trips.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center px-2">
+                        <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                          <Icon name="route" size={24} className="text-gray-400" />
+                        </span>
+                        <p className="text-sm font-medium text-gray-600">No trips yet</p>
+                        <p className="text-xs text-gray-400 mt-1.5">Create a trip in your dashboard to see it here.</p>
+                        <Link href="/dashboard/mytrips" className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-blue)] text-white text-sm font-medium hover:opacity-90 transition-opacity">
+                          <Icon name="route" size={14} />
+                          Go to My Trips
+                        </Link>
+                      </div>
+                    ) : (
+                      <ul className="space-y-2.5">
+                        {trips.map((t) => {
+                          const isActive = typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && sidebarFilter.tripId === t.id;
+                          return (
+                            <li key={t.id} className={`rounded-xl border bg-white shadow-sm transition-all duration-200 ${isActive ? "border-[var(--brand-orange)] ring-2 ring-[var(--brand-orange)]/20 bg-orange-50/50" : "border-gray-100 hover:border-gray-200 hover:shadow-md"}`}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  applyTripFilter(t.id, t.name);
+                                  pushPanelView("tripDetail");
+                                }}
+                                className="flex w-full cursor-pointer items-center gap-3 p-3.5 text-left"
+                              >
+                                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${isActive ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-[var(--brand-blue)]"}`}>
+                                  <Icon name="route" size={18} />
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-semibold truncate transition-colors ${isActive ? "text-[var(--brand-orange)]" : "text-[var(--brand-blue)]"}`}>{t.name}</p>
+                                  <p className="text-[11px] text-gray-500 mt-0.5">{isActive ? "Visible on map" : "Tap to show on map"}</p>
+                                </div>
+                                <Icon name="chevron-right" size={16} className={`shrink-0 transition-colors ${isActive ? "text-[var(--brand-orange)]" : "text-gray-400"}`} aria-hidden />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* LISTS view: list of user's saved lists */}
+                {panelView === "lists" && (
+                  <div className="flex flex-col min-h-0 h-full px-4 py-4">
+                    {isSignedIn === false ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <span className="w-14 h-14 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center mb-4">
+                          <Icon name="list-ul" size={28} className="text-[var(--brand-orange)]" />
+                        </span>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your lists</p>
+                        <Link href={signInRedirectUrl} className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
+                          Sign in
+                        </Link>
+                      </div>
+                    ) : wishlistsLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+                        <Icon name="spinner" size={20} className="animate-spin" />
+                        <span className="text-sm">Loading your lists…</span>
+                      </div>
+                    ) : wishlists.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                        <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                          <Icon name="list-ul" size={24} className="text-gray-400" />
+                        </span>
+                        <p className="text-sm font-medium text-gray-600">No saved lists yet</p>
+                        <p className="text-xs text-gray-400 mt-1.5">Save sites from their detail pages to create lists and plan your visits.</p>
+                      </div>
+                    ) : (
+                      <ul className="space-y-2.5">
+                        {wishlists.map((w) => {
+                          const count = (w.wishlist_items?.[0] as { count?: number })?.count ?? 0;
+                          const isActive = typeof sidebarFilter === "object" && sidebarFilter !== null && "wishlistId" in sidebarFilter && sidebarFilter.wishlistId === w.id;
+                          return (
+                            <li key={w.id} className={`rounded-xl border bg-white shadow-sm transition-all ${isActive ? "border-[var(--brand-orange)] ring-2 ring-[var(--brand-orange)]/15" : "border-gray-100 hover:border-gray-200 hover:shadow-md"}`}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  showLoadingSavedListToast(w.name);
+                                  setExpandedWishlistId(w.id);
+                                  applyWishlistFilter(w.id, w.name);
+                                  pushPanelView("listDetail");
+                                }}
+                                className="flex w-full min-w-0 items-center gap-3 p-3.5 text-left cursor-pointer"
+                              >
+                                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-[var(--brand-orange)]" : "bg-orange-50"}`}>
+                                  <Icon name="heart" size={18} className={isActive ? "text-white" : "text-[var(--brand-orange)]"} />
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate">{w.name}</span>
+                                  <span className="block text-xs text-gray-500 mt-0.5">{count} {count === 1 ? "site" : "sites"}</span>
+                                </span>
+                                <Icon name="chevron-right" size={14} className="text-gray-300 shrink-0" />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* TRIP DETAIL view: trip timeline / site list */}
+                {panelView === "tripDetail" && typeof sidebarFilter === "object" && sidebarFilter !== null && "tripId" in sidebarFilter && (
+                  <div className="flex flex-col min-h-0 h-full">
+                    {/* Trip info header */}
+                    <div className="px-4 py-3 border-b border-gray-100 bg-orange-50/40">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-800 truncate">Trip: {activeTripName ?? "—"}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{tripItemsLoading || tripTimelineLoading ? "Loading…" : `${tripItems.length} ${tripItems.length === 1 ? "site" : "sites"}`}</p>
+                        </div>
+                        <button type="button" onClick={() => { clearSidebarFilter(); collapsePanel(); }} className="shrink-0 text-xs font-semibold text-[var(--brand-orange)] border border-[var(--brand-orange)] rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors">
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-2">
+                      {tripItemsLoading && !tripTimeline.length ? (
+                        <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                          <Icon name="spinner" size={16} className="animate-spin" />
+                          <span className="text-sm">Loading sites…</span>
+                        </div>
+                      ) : tripItems.length === 0 && tripTimeline.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-6 text-center">No sites in this trip.</p>
+                      ) : tripTimeline.length > 0 ? (
+                        (() => {
+                          type DayEntry = TimelineItem & { kind: "day"; id: string; title?: string | null; the_date?: string | null; order_index?: number };
+                          const formatSmallDate = (dateStr: string | null | undefined) =>
+                            dateStr ? new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+                          const daysInOrder = (tripTimeline.filter((e) => e.kind === "day") as DayEntry[]).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                          const itemsByDayId = new Map<string | null, TripItemMap[]>();
+                          for (const item of tripItems) {
+                            const key = item.day_id ?? null;
+                            if (!itemsByDayId.has(key)) itemsByDayId.set(key, []);
+                            itemsByDayId.get(key)!.push(item);
+                          }
+                          for (const arr of itemsByDayId.values()) arr.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                          return (
+                            <div className="relative">
+                              <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
+                              <ul className="space-y-0 pb-2">
+                                {daysInOrder.map((day, idx) => {
+                                  const dayNumber = idx + 1;
+                                  const title = day.title?.trim() || "Day";
+                                  const itemsForDay = itemsByDayId.get(day.id) ?? [];
+                                  return (
+                                    <React.Fragment key={`day-${day.id}`}>
+                                      <li className="pt-3 pb-1.5 first:pt-0">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-[11px] font-semibold">Day {dayNumber}: {title}</span>
+                                      </li>
+                                      {itemsForDay.map((item, itemIdx) => {
+                                        const siteTitle = item.site?.title ?? "Site";
+                                        const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
+                                        const smallDate = formatSmallDate(item.date_in ?? (day as DayEntry).the_date ?? null);
+                                        const site = allLocationsById.get(item.site_id);
+                                        return (
+                                          <li key={`site-${item.id ?? item.site_id}`}>
+                                            <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-100 text-left transition-colors cursor-pointer rounded-lg">
+                                              <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                                              <span className="flex-1 min-w-0 text-left">
+                                                <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
+                                                {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
+                                              </span>
+                                              <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                                {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                                              </span>
+                                            </button>
+                                            {itemIdx < itemsForDay.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                                          </li>
+                                        );
+                                      })}
+                                    </React.Fragment>
+                                  );
+                                })}
+                                {(itemsByDayId.get(null) ?? []).length > 0 && (
+                                  <>
+                                    <li className="pt-3 pb-1.5"><span className="text-[10px] font-semibold text-gray-500">Other sites</span></li>
+                                    {itemsByDayId.get(null)!.map((item, itemIdx) => {
+                                      const siteTitle = item.site?.title ?? "Site";
+                                      const thumbUrl = item.site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(item.site?.cover_photo_url, "thumb") || null;
+                                      const smallDate = formatSmallDate(item.date_in ?? null);
+                                      const site = allLocationsById.get(item.site_id);
+                                      return (
+                                        <li key={`site-${item.id ?? item.site_id}`}>
+                                          <button type="button" onClick={() => site && handleSiteSelect(site as MapSite)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-100 text-left transition-colors cursor-pointer rounded-lg">
+                                            <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                                            <span className="flex-1 min-w-0 text-left">
+                                              <span className="block text-sm font-semibold text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate transition-colors">{siteTitle}</span>
+                                              {smallDate && <span className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5"><Icon name="calendar-alt" size={10} className="text-amber-600 shrink-0" />{smallDate}</span>}
+                                            </span>
+                                            <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                              {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                                            </span>
+                                          </button>
+                                          {itemIdx < itemsByDayId.get(null)!.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                                        </li>
+                                      );
+                                    })}
+                                  </>
+                                )}
+                              </ul>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div className="relative">
+                          <div className="absolute left-[5px] top-[10px] bottom-[18px] border-l-2 border-dashed border-[var(--brand-blue)]/40 pointer-events-none" aria-hidden="true" />
+                          <ul className="pb-2">
+                            {tripItems.map((item, itemIdx) => {
+                              const site = item.site;
+                              const title = site?.title ?? "Site";
+                              const thumbUrl = site?.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") || null;
+                              const siteObj = allLocationsById.get(item.site_id);
+                              return (
+                                <li key={item.site_id}>
+                                  <button type="button" onClick={() => siteObj && handleSiteSelect(siteObj as MapSite)} className="group w-full flex items-start gap-2.5 py-2 pr-1 hover:bg-gray-100 text-left transition-colors cursor-pointer rounded-lg">
+                                    <span className="relative z-10 w-3 h-3 rounded-full bg-[var(--brand-blue)] group-hover:bg-[var(--brand-orange)] shrink-0 ring-2 ring-white mt-[3px] transition-colors" />
+                                    <span className="text-sm font-medium text-[var(--brand-blue)] group-hover:text-[var(--brand-orange)] truncate flex-1 min-w-0 transition-colors">{title}</span>
+                                    <span className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                      {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[var(--brand-orange)]"><Icon name="map-pin" size={14} /></span>}
+                                    </span>
+                                  </button>
+                                  {itemIdx < tripItems.length - 1 && <div className="mx-12 h-px bg-gray-100" />}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* LIST DETAIL view: sites in a saved list */}
+                {panelView === "listDetail" && expandedWishlistId && (
+                  <div className="flex flex-col min-h-0 h-full">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-orange-50/40">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-orange)] mb-0.5">Showing on map</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-800 truncate">{activeWishlistName ?? "Saved list"}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{wishlistItemsLoading ? "Loading…" : `${wishlistItems.length} ${wishlistItems.length === 1 ? "site" : "sites"}`}</p>
+                        </div>
+                        <button type="button" onClick={() => { clearSidebarFilter(); collapsePanel(); }} className="shrink-0 text-xs font-semibold text-[var(--brand-orange)] border border-[var(--brand-orange)] rounded-lg px-3 py-1.5 hover:bg-orange-50 transition-colors">
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-3 py-3">
+                      {wishlistItemsLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+                          <Icon name="spinner" size={20} className="animate-spin" />
+                          <span className="text-sm">Loading sites…</span>
+                        </div>
+                      ) : wishlistItems.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-6 text-center">No sites in this list yet.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {wishlistItems.map((item) => {
+                            const site = item.sites;
+                            const title = site?.title ?? "Site";
+                            const thumbUrl = site?.cover_photo_thumb_url ?? getThumbOrVariantUrlNoTransform(site?.cover_photo_url, "thumb") ?? null;
+                            return (
+                              <li key={item.site_id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHighlightFromSavedList(true);
+                                    setHighlightSiteId(item.site_id);
+                                    collapsePanel();
+                                  }}
+                                  className="w-full cursor-pointer flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-[var(--brand-orange)]/40 hover:shadow-md hover:bg-gray-50/50 transition-all text-left group"
+                                >
+                                  <span className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                    {thumbUrl ? <img src={thumbUrl} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-gray-300"><Icon name="map-pin" size={20} /></span>}
+                                  </span>
+                                  <span className="flex-1 min-w-0">
+                                    <span className="block text-sm font-semibold text-[var(--brand-blue)] truncate group-hover:text-[var(--brand-orange)] transition-colors">{title}</span>
+                                    <span className="block text-xs text-gray-400 mt-0.5">Tap to locate on map</span>
+                                  </span>
+                                  <Icon name="chevron-right" size={14} className="text-gray-300 group-hover:text-[var(--brand-orange)] transition-colors shrink-0" />
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* SITE DETAIL view */}
+                {panelView === "siteDetail" && selectedMapSite && (
+                  <div className="flex flex-col min-h-0 h-full overflow-hidden">
+                    {renderToolPanel("site", () => {
+                      setSelectedMapSite(null);
+                      popPanelView();
+                    })}
+                  </div>
+                )}
+
+              </div>
+            )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* NearbyMeSheet — shows sites within 20 km of user */}
