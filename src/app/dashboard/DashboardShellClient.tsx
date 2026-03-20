@@ -97,7 +97,7 @@ export default function DashboardShellClient({
       <main className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}>
         {/* Mobile safe-area top spacer — accounts for teal header height */}
         {!fullBleed && (
-          <div className="lg:hidden" style={{ height: "calc(env(safe-area-inset-top, 44px) + 52px)" }} />
+          <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 52px)" }} />
         )}
         {children}
         {/* Mobile bottom nav clearance */}

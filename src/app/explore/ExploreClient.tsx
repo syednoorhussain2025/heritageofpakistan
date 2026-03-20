@@ -860,7 +860,7 @@ function ExplorePageContent() {
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [safeTop, setSafeTop] = useState("44px");
+  const safeTop = "var(--sat, 44px)";
 
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
@@ -1365,12 +1365,6 @@ function ExplorePageContent() {
   // Mount guard for portals
   useEffect(() => {
     setMounted(true);
-    const el = document.createElement("div");
-    el.style.cssText = "position:fixed;top:env(safe-area-inset-top,0px);left:0;width:1px;height:1px;pointer-events:none;";
-    document.body.appendChild(el);
-    const top = el.getBoundingClientRect().top;
-    document.body.removeChild(el);
-    setSafeTop(top > 0 ? `${top}px` : "44px");
   }, []);
 
 

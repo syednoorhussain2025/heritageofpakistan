@@ -1104,7 +1104,7 @@ function HomeSearchOverlay({
         style={{ top: 0, height: "100svh", overflow: "hidden" }}
       >
         {/* ── Search bar row — just below status bar ── */}
-        <div className="flex items-center gap-2 px-3 shrink-0" style={{ paddingTop: "calc(env(safe-area-inset-top, 44px) + 8px)", paddingBottom: 12 }}>
+        <div className="flex items-center gap-2 px-3 shrink-0" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: 12 }}>
           {/* Back button — large tap target */}
           <button
             onClick={() => { void hapticLight(); onClose(); }}
@@ -1443,7 +1443,7 @@ function MobileHomepage() {
     }
   }
 
-  const safeTop = "env(safe-area-inset-top, 44px)";
+  const safeTop = "var(--sat, 44px)";
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const titleRowRef = useRef<HTMLDivElement>(null);

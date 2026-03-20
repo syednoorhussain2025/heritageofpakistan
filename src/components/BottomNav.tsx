@@ -185,7 +185,7 @@ function ProfilePanel({
       {/* Teal header */}
       <div
         className="bg-[#00b78b] flex-shrink-0 flex flex-col px-4 pb-5"
-        style={{ paddingTop: "calc(0.85rem + env(safe-area-inset-top, 0px))" }}
+        style={{ paddingTop: "calc(0.85rem + var(--sat, 44px))" }}
       >
         {/* Close button row */}
         <div className="flex items-center justify-between mb-4">
@@ -326,21 +326,34 @@ export default function BottomNav() {
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
 
-  // Lock safe-area-inset-bottom once after first paint — prevents it from
-  // collapsing to 0 on pages where iOS dynamically adjusts the value.
+  // Lock safe-area insets once after first paint — prevents them from
+  // collapsing to 0 on pages where iOS dynamically adjusts the values.
   const [safeBottom, setSafeBottom] = useState<string>("env(safe-area-inset-bottom, 0px)");
   useEffect(() => {
     requestAnimationFrame(() => {
-      const el = document.createElement("div");
-      el.style.cssText = "position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;";
-      document.body.appendChild(el);
+      // Bottom inset
+      const elB = document.createElement("div");
+      elB.style.cssText = "position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;";
+      document.body.appendChild(elB);
+
+      // Top inset
+      const elT = document.createElement("div");
+      elT.style.cssText = "position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden;";
+      document.body.appendChild(elT);
+
       requestAnimationFrame(() => {
-        const h = el.offsetHeight;
-        document.body.removeChild(el);
-        if (h > 0) {
-          setSafeBottom(`${h}px`);
-          document.documentElement.style.setProperty("--safe-bottom", `${h}px`);
+        const hB = elB.offsetHeight;
+        document.body.removeChild(elB);
+        if (hB > 0) {
+          setSafeBottom(`${hB}px`);
+          document.documentElement.style.setProperty("--safe-bottom", `${hB}px`);
         }
+
+        const hT = elT.offsetHeight;
+        document.body.removeChild(elT);
+        // Always set --sat: use measured value if > 0, else 44px for iOS status bar
+        const satPx = hT > 0 ? hT : 44;
+        document.documentElement.style.setProperty("--sat", `${satPx}px`);
       });
     });
   }, []);
