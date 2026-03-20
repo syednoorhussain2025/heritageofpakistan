@@ -26,7 +26,6 @@ type SiteRef = {
   tagline?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  province_slug?: string | null;
 };
 type Item = { id: string; site_id: string; sites: SiteRef | null };
 type Wishlist = { id: string; name: string; is_public: boolean };
@@ -71,12 +70,7 @@ export default function WishlistDetailPage() {
 
         const { data: it } = await supabase
           .from("wishlist_items")
-          .select(`id, site_id, sites(
-            id, title, slug, cover_photo_url, cover_photo_thumb_url,
-            cover_blur_data_url, cover_slideshow_image_ids,
-            avg_rating, review_count, heritage_type, location_free,
-            tagline, latitude, longitude, province_slug
-          )`)
+          .select("id, site_id, sites(id, title, slug, cover_photo_url, cover_photo_thumb_url, cover_blur_data_url, cover_slideshow_image_ids, avg_rating, review_count, heritage_type, location_free, tagline, latitude, longitude)")
           .eq("wishlist_id", id)
           .order("created_at", { ascending: true });
         setItems((it as any[]) ?? []);
@@ -103,7 +97,7 @@ export default function WishlistDetailPage() {
     const bsSite: BottomSheetSite = {
       id: site.id,
       slug: site.slug ?? "",
-      province_slug: site.province_slug ?? null,
+      province_slug: null,
       title: site.title ?? "",
       cover_photo_url: site.cover_photo_url,
       cover_photo_thumb_url: site.cover_photo_thumb_url,
