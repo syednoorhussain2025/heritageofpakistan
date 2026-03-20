@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QueryProvider } from "@/components/QueryProvider";
 import Header from "@/components/Header";
@@ -17,15 +17,28 @@ import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import TabShell, { isTabRoute } from "@/components/TabShell";
 
-const pageVariants = {
+// Default fade for non-dashboard pages
+const fadeVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
   exit:    { opacity: 1 },
 };
 
-const pageTransition = {
+const fadeTransition = {
   duration: 0.12,
   ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+};
+
+// Slide variants for dashboard navigation — direction set per render via custom prop
+const slideVariants = {
+  initial: (dir: number) => ({ x: `${dir * 100}%`, opacity: 1 }),
+  animate: { x: "0%", opacity: 1 },
+  exit:    (dir: number) => ({ x: `${dir * -100}%`, opacity: 1 }),
+};
+
+const slideTransition = {
+  duration: 0.28,
+  ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
 };
 
 export default function AppChrome({
@@ -36,6 +49,19 @@ export default function AppChrome({
   initialHeaderItems?: HeaderMainItem[];
 }) {
   const pathname = usePathname() || "";
+  const prevPathnameRef = useRef(pathname);
+
+  // Determine slide direction for dashboard transitions (mobile only)
+  // +1 = slide in from right (going deeper), -1 = slide in from left (going back)
+  const isDashboard = pathname.startsWith("/dashboard");
+  const wasDashboard = prevPathnameRef.current.startsWith("/dashboard");
+  const goingBack = isDashboard && wasDashboard && pathname === "/dashboard" && prevPathnameRef.current !== "/dashboard";
+  const slideDir = goingBack ? -1 : 1;
+  const useSlideTrans = (isDashboard || wasDashboard) && prevPathnameRef.current !== pathname;
+
+  useEffect(() => {
+    prevPathnameRef.current = pathname;
+  }, [pathname]);
 
   // Lock screen to portrait on mobile — runs once on mount
   useEffect(() => {
@@ -104,15 +130,17 @@ export default function AppChrome({
 
                   {/* ── Mobile: non-tab pages + Map fade in normally ── */}
                   {/* ── Desktop: all pages render via children as before ── */}
-                  <AnimatePresence mode="sync" initial={false}>
+                  <AnimatePresence mode="sync" initial={false} custom={slideDir}>
                     <motion.div
                       key={pathname}
-                      variants={pageVariants}
+                      custom={slideDir}
+                      variants={useSlideTrans ? slideVariants : fadeVariants}
                       initial="initial"
                       animate="animate"
                       exit="exit"
-                      transition={pageTransition}
+                      transition={useSlideTrans ? slideTransition : fadeTransition}
                       className={onTabRoute ? "hidden lg:block" : "block"}
+                      style={useSlideTrans ? { overflowX: "hidden" } : undefined}
                     >
                       <main>{children}</main>
                     </motion.div>
