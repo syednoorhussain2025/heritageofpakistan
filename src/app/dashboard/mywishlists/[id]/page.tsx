@@ -17,7 +17,6 @@ type SiteRef = {
   slug: string | null;
   cover_photo_url: string | null;
   cover_photo_thumb_url?: string | null;
-  cover_blur_data_url?: string | null;
   cover_slideshow_image_ids?: string[] | null;
   avg_rating?: number | null;
   review_count?: number | null;
@@ -70,7 +69,7 @@ export default function WishlistDetailPage() {
 
         const { data: it } = await supabase
           .from("wishlist_items")
-          .select("id, site_id, sites(id, title, slug, cover_photo_url, cover_photo_thumb_url, cover_blur_data_url, cover_slideshow_image_ids, avg_rating, review_count, heritage_type, location_free, tagline, latitude, longitude)")
+          .select("id, site_id, sites(id, title, slug, cover_photo_url, cover_photo_thumb_url, cover_slideshow_image_ids, avg_rating, review_count, heritage_type, location_free, tagline, latitude, longitude)")
           .eq("wishlist_id", id)
           .order("created_at", { ascending: true });
         setItems((it as any[]) ?? []);
@@ -101,7 +100,6 @@ export default function WishlistDetailPage() {
       title: site.title ?? "",
       cover_photo_url: site.cover_photo_url,
       cover_photo_thumb_url: site.cover_photo_thumb_url,
-      cover_blur_data_url: site.cover_blur_data_url,
       cover_slideshow_image_ids: site.cover_slideshow_image_ids,
       avg_rating: site.avg_rating,
       review_count: site.review_count,
