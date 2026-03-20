@@ -425,8 +425,6 @@ export default function HeritageCover({
             {hasPhotoStory && (
               <a
                 href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-md"
                 style={{ background: "var(--brand-orange, #F78300)" }}
               >
@@ -658,8 +656,6 @@ export default function HeritageCover({
                 <div className="hero-bottom-quicklinks" aria-label="Quick links">
                   <a
                     href={galleryHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="hero-quick-circle"
                     title="Gallery"
                     data-tooltip="Gallery"
@@ -670,8 +666,6 @@ export default function HeritageCover({
                   {hasPhotoStory && (
                     <a
                       href={photoStoryHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="hero-quick-circle"
                       title="Photo Story"
                       data-tooltip="Photo Story"

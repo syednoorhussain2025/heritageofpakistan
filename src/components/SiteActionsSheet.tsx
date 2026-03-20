@@ -242,8 +242,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <a
               href={detailHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => { void hapticMedium(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform"
             >
@@ -291,8 +289,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
             <a
               href={galleryHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
@@ -304,8 +300,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="mx-6 h-[0.5px] bg-gray-300" />
             <a
               href={photoStoryHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >

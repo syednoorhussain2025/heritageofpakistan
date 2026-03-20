@@ -1,5 +1,6 @@
 {
   "background_color": "#00c9a7",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "../icons/icon-48.webp",

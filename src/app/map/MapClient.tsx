@@ -2276,7 +2276,7 @@ export default function MapClient() {
                 left: `${sitePanelMenuPosition.left}px`,
               }}
             >
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700">
                 <Icon name="external-link-alt" size={14} className="text-[var(--brand-orange)]" /> Open Site
               </a>
               <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelWishlistModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
@@ -2289,10 +2289,10 @@ export default function MapClient() {
                 <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" /> Places Nearby
               </button>
               <div className="border-t border-gray-100" />
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
                 <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" /> Gallery
               </a>
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
                 <Icon name="book" size={14} className="text-[var(--brand-orange)]" /> Photo Story
               </a>
               {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
@@ -2312,7 +2312,7 @@ export default function MapClient() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto py-4">
             <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}` : `/heritage/${selectedMapSite.slug}`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
                 <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="external-link-alt" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Open Site</span>
               </a>
@@ -2333,12 +2333,12 @@ export default function MapClient() {
               </button>
             </div>
             <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden shrink-0">
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/gallery` : `/heritage/${selectedMapSite.slug}/gallery`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
                 <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="gallery" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Gallery</span>
               </a>
               <div className="ml-14 h-px bg-gray-100" />
-              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+              <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
                 <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="book" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
               </a>

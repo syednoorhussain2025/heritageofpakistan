@@ -542,8 +542,6 @@ export default function SitePreviewCard({
           >
             <a
               href={detailHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700"
             >
@@ -577,8 +575,6 @@ export default function SitePreviewCard({
             <div className="border-t border-gray-100" />
             <a
               href={galleryHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
@@ -587,8 +583,6 @@ export default function SitePreviewCard({
             </a>
             <a
               href={photoStoryHref}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => setShowActionsMenu(false)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >

@@ -36,6 +36,21 @@ export default function AppChrome({
   initialHeaderItems?: HeaderMainItem[];
 }) {
   const pathname = usePathname() || "";
+
+  // Lock screen to portrait on mobile — runs once on mount
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const orientation = screen?.orientation as any;
+      if (typeof orientation?.lock === "function") {
+        orientation.lock("portrait").catch(() => {
+          // Browser may deny if not in fullscreen/standalone — safe to ignore
+        });
+      }
+    } catch {
+      // API not available
+    }
+  }, []);
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomePage = pathname.startsWith("/auth");
   const onTabRoute = isTabRoute(pathname);

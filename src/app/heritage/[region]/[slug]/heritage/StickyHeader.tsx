@@ -559,8 +559,6 @@ export default function StickyHeader({
               {/* Gallery (uses provinceSlug or falls back to current path) */}
               <ActionButton
                 href={galleryHref}
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 <IconBadge name="gallery" />
                 <span>Gallery</span>
@@ -569,8 +567,6 @@ export default function StickyHeader({
               {/* Photo Story */}
               <ActionButton
                 href={storyHref}
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 <IconBadge name="play" />
                 <span>Photo Story</span>

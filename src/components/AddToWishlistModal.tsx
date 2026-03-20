@@ -728,7 +728,6 @@ export default function AddToWishlistModal({
             </button>
             <Link
               href="/dashboard/mywishlists"
-              target="_blank"
               onClick={requestClose}
               className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium cursor-pointer hover:brightness-110 transition-all shadow-lg shadow-gray-200 text-sm"
             >
