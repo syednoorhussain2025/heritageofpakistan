@@ -112,6 +112,46 @@ window.addEventListener("tab-shown", resetScroll);
 
 ---
 
+## Mobile Header Sliding Behind Status Bar After Navigation
+**Date:** 2026-03-20
+**Files changed:** `src/components/MobilePageHeader.tsx`, `src/components/BottomNav.tsx`, `src/app/dashboard/DashboardShellClient.tsx`, `src/app/explore/ExploreClient.tsx`, `src/app/HomeClient.tsx`
+
+---
+
+### Issue: Teal mobile page headers pushed up behind the status bar after a few navigations
+
+**Symptom:** The teal `MobilePageHeader` (and the ProfilePanel teal header) started fine on first load, but after navigating between pages the header visually shifted upward and content disappeared behind the status bar.
+
+**Root cause:** `env(safe-area-inset-top)` is a **live CSS value** that iOS/Android mutates dynamically — it can collapse to `0` when the browser chrome shifts, the URL bar retracts, or after certain navigation events. Any `padding-top` set directly with `env()` would shrink to 0 at those moments, collapsing the header and pushing the title text behind the status bar.
+
+A secondary cause: multiple components (`ExploreClient`, the old `MobilePageHeader`) were measuring the value with a JS probe element using `getBoundingClientRect()` inside `useEffect`. This ran at unpredictable times, often reading `0`, and froze `safeTop` state at the wrong value for the rest of the session.
+
+**Fix:** Lock the inset as a CSS variable once on first paint, then use that variable everywhere.
+
+In `BottomNav.tsx` (always mounted), measure and lock `--sat` alongside the existing `--safe-bottom`:
+```js
+const elT = document.createElement("div");
+elT.style.cssText = "position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden;";
+document.body.appendChild(elT);
+requestAnimationFrame(() => {
+  const hT = elT.offsetHeight;
+  document.body.removeChild(elT);
+  const satPx = hT > 0 ? hT : 44;
+  document.documentElement.style.setProperty("--sat", `${satPx}px`);
+});
+```
+
+Then replace all `env(safe-area-inset-top, 44px)` references with `var(--sat, 44px)`:
+- `MobilePageHeader.tsx` — `paddingTop: "var(--sat, 44px)"`
+- `BottomNav.tsx` ProfilePanel header — `paddingTop: "calc(0.85rem + var(--sat, 44px))"`
+- `DashboardShellClient.tsx` — top spacer `height: "calc(var(--sat, 44px) + 52px)"`
+- `ExploreClient.tsx` — removed broken JS probe, use `const safeTop = "var(--sat, 44px)"`
+- `HomeClient.tsx` — replaced inline `env()` references
+
+**Key lesson:** `env(safe-area-inset-top)` must never be used directly in inline styles for elements that need to stay stable across navigations. Measure it once on app boot via a probe element, lock it as `--sat` on `documentElement`, and reference `var(--sat)` everywhere. The CSS globals.css `--sat` definition (`env(safe-area-inset-top, 44px)`) only serves as the initial fallback before JS runs — it will still fluctuate if used directly.
+
+---
+
 ### Key concepts for future reference
 
 - **`overlaysWebView: true` (Capacitor)** — status bar floats over webview. Every page must add `env(safe-area-inset-top, 44px)` padding/spacing to its first visible content. Always use `44px` as the fallback (not `0px`) so it works before CSS resolves.
