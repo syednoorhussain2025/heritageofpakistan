@@ -50,20 +50,24 @@ export default function AppChrome({
 }) {
   const pathname = usePathname() || "";
   const prevPathnameRef = useRef(pathname);
+  const slideDirRef = useRef(1);
 
-  // Determine slide direction for dashboard transitions (mobile only)
-  // +1 = slide in from right (going deeper), -1 = slide in from left (going back)
+  // Compute direction synchronously during render (before effects run)
+  // so both entering and exiting pages share the same direction.
   const isDashboard = pathname.startsWith("/dashboard");
   const wasDashboard = prevPathnameRef.current.startsWith("/dashboard");
-  const goingBack = isDashboard && wasDashboard && pathname === "/dashboard" && prevPathnameRef.current !== "/dashboard";
-  const slideDir = goingBack ? -1 : 1;
   const useSlideTrans = (isDashboard || wasDashboard) && prevPathnameRef.current !== pathname;
 
-  useEffect(() => {
+  if (prevPathnameRef.current !== pathname) {
+    // going back = arriving at /dashboard from a sub-page
+    const goingBack = isDashboard && wasDashboard && pathname === "/dashboard";
+    slideDirRef.current = goingBack ? -1 : 1;
     prevPathnameRef.current = pathname;
-  }, [pathname]);
+  }
 
-  // Lock screen to portrait on mobile — runs once on mount
+  const slideDir = slideDirRef.current;
+
+  // Lock orientation to portrait on mobile — runs once on mount
   useEffect(() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
