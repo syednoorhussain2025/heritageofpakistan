@@ -6,18 +6,20 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
 import { deleteWishlist } from "@/lib/wishlists";
+import { hapticLight, hapticHeavy } from "@/lib/haptics";
 
 type WishlistCard = {
   id: string;
   name: string;
   is_public: boolean;
-  cover_image_url?: string | null;
-  wishlist_items?: { count: number }[];
+  wishlist_items?: {
+    count: number;
+    sites?: { cover_photo_url: string | null } | null;
+  }[];
 };
 
 export default function MyWishlistsPage() {
   const supabase = createClient();
-
   const [lists, setLists] = useState<WishlistCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -25,10 +27,16 @@ export default function MyWishlistsPage() {
   async function load() {
     setLoading(true);
     try {
+      // Fetch lists + count + the first item's site cover photo in one query
       const { data, error } = await supabase
         .from("wishlists")
-        .select("id, name, is_public, cover_image_url, wishlist_items(count)")
-        .order("created_at", { ascending: true });
+        .select(`
+          id, name, is_public,
+          wishlist_items(count),
+          first_item:wishlist_items(sites(cover_photo_url))
+        `)
+        .order("created_at", { ascending: true })
+        .limit(1, { foreignTable: "first_item" });
       if (error) throw error;
       setLists((data as any[]) || []);
     } finally {
@@ -42,7 +50,7 @@ export default function MyWishlistsPage() {
   }, []);
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete list “${name}”? This cannot be undone.`)) return;
+    if (!confirm(`Delete list "${name}"? This cannot be undone.`)) return;
     setDeletingId(id);
     try {
       await deleteWishlist(id);
@@ -55,84 +63,91 @@ export default function MyWishlistsPage() {
     }
   }
 
-  return (
-    <div className="w-full max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold">My Wishlists</h1>
-      </div>
+  // Extract first-item cover photo from the aliased query result
+  function getCoverUrl(w: any): string | null {
+    const firstItem = w.first_item?.[0];
+    return firstItem?.sites?.cover_photo_url ?? null;
+  }
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm animate-pulse"
-            >
-              <div className="w-16 h-16 rounded-full bg-gray-200 mb-4" />
-              <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-gray-200 rounded w-1/3" />
+  if (loading) {
+    return (
+      <div className="divide-y divide-gray-100">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-4 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-gray-200 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-1/2" />
+              <div className="h-3 bg-gray-200 rounded w-1/4" />
             </div>
-          ))}
-        </div>
-      ) : lists.length === 0 ? (
-        <div className="text-gray-600">
-          You have no wishlists yet. Create one from a site using “Add to
-          Wishlist”.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {lists.map((w) => {
-            const count = w.wishlist_items?.[0]?.count ?? 0;
-            return (
-              <Link
-                key={w.id}
-                href={`/dashboard/mywishlists/${w.id}`}
-                className="group relative block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
-              >
-                {/* Delete X (stop click-through) */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDelete(w.id, w.name);
-                  }}
-                  className="absolute top-2 right-2 w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
-                  aria-label="Delete list"
-                  title="Delete list"
-                >
-                  {deletingId === w.id ? (
-                    <span className="inline-block rounded-full border-2 border-gray-300 border-t-transparent animate-spin w-4 h-4" />
-                  ) : (
-                    <Icon name="times" />
-                  )}
-                </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full ring-1 ring-black/5 flex items-center justify-center overflow-hidden bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]">
-                    {w.cover_image_url ? (
-                      <img
-                        src={w.cover_image_url}
-                        alt={w.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Icon name="list-ul" size={20} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold group-hover:text-[var(--brand-orange)] transition-colors">
-                      {w.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {w.is_public ? "public" : "private"} • {count} items
-                    </div>
-                  </div>
+  if (lists.length === 0) {
+    return (
+      <div className="px-4 py-8 text-center text-gray-500 text-sm">
+        No saved lists yet. Add a site to a list to get started.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+      {lists.map((w, i) => {
+        const count = (w as any).wishlist_items?.[0]?.count ?? 0;
+        const cover = getCoverUrl(w);
+        return (
+          <div key={w.id} className="relative">
+            {/* Indented divider */}
+            {i > 0 && <span className="absolute top-0 right-0 left-[68px] h-px bg-gray-100" />}
+            <Link
+              href={`/dashboard/mywishlists/${w.id}`}
+              onTouchStart={() => void hapticLight()}
+              className="flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-colors"
+            >
+              {/* Circular preview from first item's cover */}
+              <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center ring-1 ring-black/5">
+                {cover ? (
+                  <img src={cover} alt={w.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Icon name="list-ul" size={18} className="text-gray-400" />
+                )}
+              </div>
+
+              {/* Name + meta */}
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-semibold text-[#1a1a1a] truncate">{w.name}</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {w.is_public ? "public" : "private"} · {count} {count === 1 ? "site" : "sites"}
                 </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+              </div>
+
+              {/* Chevron */}
+              <Icon name="chevron-right" size={13} className="text-[#c8c8c8] shrink-0 mr-1" />
+
+              {/* Delete button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void hapticHeavy();
+                  void handleDelete(w.id, w.name);
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 active:bg-red-50 active:text-red-500 transition-colors shrink-0"
+                aria-label="Delete list"
+              >
+                {deletingId === w.id ? (
+                  <span className="inline-block rounded-full border-2 border-gray-300 border-t-transparent animate-spin w-4 h-4" />
+                ) : (
+                  <Icon name="times" size={14} />
+                )}
+              </button>
+            </Link>
+          </div>
+        );
+      })}
     </div>
   );
 }

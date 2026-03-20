@@ -1,105 +1,43 @@
 // src/app/dashboard/mywishlists/[id]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
-import { updateWishlistNotes, updateWishlistCoverURL } from "@/lib/wishlists";
+import { hapticLight, hapticHeavy } from "@/lib/haptics";
+import type { BottomSheetSite } from "@/components/SiteBottomSheet";
 
-/** Small spinner */
-function Spinner() {
-  return (
-    <span className="inline-block rounded-full border-2 border-gray-300 border-t-transparent animate-spin w-4 h-4" />
-  );
-}
+const SiteBottomSheet = dynamic(() => import("@/components/SiteBottomSheet"), { ssr: false });
 
 type SiteRef = {
+  id: string;
   title: string | null;
   slug: string | null;
-  cover_photo_url?: string | null;
+  cover_photo_url: string | null;
+  cover_photo_thumb_url?: string | null;
+  cover_blur_data_url?: string | null;
+  cover_slideshow_image_ids?: string[] | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+  heritage_type?: string | null;
+  location_free?: string | null;
+  tagline?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  province_slug?: string | null;
 };
 type Item = { id: string; site_id: string; sites: SiteRef | null };
-type Wishlist = {
-  id: string;
-  name: string;
-  is_public: boolean;
-  cover_image_url?: string | null;
-  notes?: string | null;
-};
+type Wishlist = { id: string; name: string; is_public: boolean };
 
-/** Modal for picking a cover from candidate images */
-function CoverPicker({
-  open,
-  onClose,
-  onSelect,
-  candidates,
-  loading,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (url: string) => void;
-  candidates: { url: string; alt?: string | null }[];
-  loading: boolean;
-}) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  if (!open) return null;
-
+function RowSkeleton() {
   return (
-    <div
-      ref={overlayRef}
-      onMouseDown={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-      className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-[1px] flex items-center justify-center"
-    >
-      <div
-        className="w-full max-w-3xl mx-3 bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 p-5"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Select a cover image</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center"
-            aria-label="Close"
-          >
-            <Icon name="times" />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square rounded-xl bg-gray-200 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : candidates.length === 0 ? (
-          <div className="text-gray-600">
-            No images found from the list items.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {candidates.map((c, idx) => (
-              <button
-                key={idx}
-                onClick={() => onSelect(c.url)}
-                className="aspect-square rounded-xl overflow-hidden ring-1 ring-black/5 hover:ring-[var(--brand-orange)] focus:outline-none"
-                title="Use this image"
-              >
-                <img
-                  src={c.url}
-                  alt={c.alt ?? ""}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="flex items-center gap-3 px-4 py-3 animate-pulse">
+      <div className="w-14 h-14 rounded-xl bg-gray-200 shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 bg-gray-200 rounded w-2/3" />
+        <div className="h-3 bg-gray-200 rounded w-1/3" />
       </div>
     </div>
   );
@@ -113,245 +51,186 @@ export default function WishlistDetailPage() {
   const [wl, setWl] = useState<Wishlist | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
-  // notes state
-  const [notes, setNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
-
-  // cover picker state
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [candidates, setCandidates] = useState<
-    { url: string; alt?: string | null }[]
-  >([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
-  const [settingCover, setSettingCover] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const { data: w } = await supabase
-        .from("wishlists")
-        .select("id, name, is_public, cover_image_url, notes")
-        .eq("id", id)
-        .maybeSingle();
-      const wlData = (w as any) || null;
-      setWl(wlData);
-      setNotes(wlData?.notes ?? "");
-
-      const { data: it } = await supabase
-        .from("wishlist_items")
-        .select("id, site_id, sites(title, slug, cover_photo_url)")
-        .eq("wishlist_id", id)
-        .order("created_at", { ascending: true });
-      setItems((it as any[]) || []);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Bottom sheet
+  const [sheetSite, setSheetSite] = useState<BottomSheetSite | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
-    if (id) load();
+    if (!id) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: w } = await supabase
+          .from("wishlists")
+          .select("id, name, is_public")
+          .eq("id", id)
+          .maybeSingle();
+        setWl((w as any) ?? null);
+
+        const { data: it } = await supabase
+          .from("wishlist_items")
+          .select(`id, site_id, sites(
+            id, title, slug, cover_photo_url, cover_photo_thumb_url,
+            cover_blur_data_url, cover_slideshow_image_ids,
+            avg_rating, review_count, heritage_type, location_free,
+            tagline, latitude, longitude, province_slug
+          )`)
+          .eq("wishlist_id", id)
+          .order("created_at", { ascending: true });
+        setItems((it as any[]) ?? []);
+      } finally {
+        setLoading(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const itemCount = useMemo(() => items.length, [items]);
-
-  // open picker and fetch up to 10 images from list item galleries
-  async function openPicker() {
-    setPickerOpen(true);
-    setLoadingCandidates(true);
-    try {
-      const siteIds = items.map((i) => i.site_id);
-      if (siteIds.length === 0) {
-        setCandidates([]);
-      } else {
-        const { data: imgs } = await supabase
-          .from("site_images")
-          .select("site_id, storage_path, alt_text, is_cover, sort_order")
-          .in("site_id", siteIds)
-          .limit(60); // fetch generously; we'll rank then slice
-
-        const rows = (imgs as any[]) || [];
-        // rank: cover first, then by sort_order, then by original order
-        rows.sort((a, b) => {
-          const ac = a.is_cover ? 0 : 1;
-          const bc = b.is_cover ? 0 : 1;
-          if (ac !== bc) return ac - bc;
-          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        });
-        const uniq: { [k: string]: boolean } = {};
-        const out: { url: string; alt?: string | null }[] = [];
-        for (const r of rows) {
-          if (!r.storage_path) continue;
-          if (uniq[r.storage_path]) continue;
-          uniq[r.storage_path] = true;
-          const { data } = supabase.storage
-            .from("site-images")
-            .getPublicUrl(r.storage_path);
-          if (data?.publicUrl)
-            out.push({ url: data.publicUrl, alt: r.alt_text });
-          if (out.length >= 10) break;
-        }
-        setCandidates(out);
-      }
-    } finally {
-      setLoadingCandidates(false);
-    }
-  }
-
-  async function selectCover(url: string) {
-    setSettingCover(true);
-    try {
-      await updateWishlistCoverURL(id as string, url);
-      setWl((prev) => (prev ? { ...prev, cover_image_url: url } : prev));
-      setPickerOpen(false);
-    } catch (e) {
-      alert("Could not set cover image.");
-      console.error(e);
-    } finally {
-      setSettingCover(false);
-    }
-  }
-
-  // Debounced notes save
-  useEffect(() => {
-    if (wl === null) return;
-    const t = setTimeout(async () => {
-      setSavingNotes(true);
-      try {
-        await updateWishlistNotes(id as string, notes);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setSavingNotes(false);
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [id, notes, wl]);
-
   async function removeItem(itemId: string) {
-    await supabase.from("wishlist_items").delete().eq("id", itemId);
-    setItems((prev) => prev.filter((x) => x.id !== itemId));
+    void hapticHeavy();
+    setRemovingId(itemId);
+    try {
+      await supabase.from("wishlist_items").delete().eq("id", itemId);
+      setItems((prev) => prev.filter((x) => x.id !== itemId));
+    } finally {
+      setRemovingId(null);
+    }
   }
 
-  if (loading) {
-    return <div className="p-6">Loading…</div>;
+  function openSheet(site: SiteRef) {
+    void hapticLight();
+    const bsSite: BottomSheetSite = {
+      id: site.id,
+      slug: site.slug ?? "",
+      province_slug: site.province_slug ?? null,
+      title: site.title ?? "",
+      cover_photo_url: site.cover_photo_url,
+      cover_photo_thumb_url: site.cover_photo_thumb_url,
+      cover_blur_data_url: site.cover_blur_data_url,
+      cover_slideshow_image_ids: site.cover_slideshow_image_ids,
+      avg_rating: site.avg_rating,
+      review_count: site.review_count,
+      heritage_type: site.heritage_type,
+      location_free: site.location_free,
+      tagline: site.tagline,
+      latitude: site.latitude,
+      longitude: site.longitude,
+    };
+    setSheetSite(bsSite);
+    setSheetOpen(true);
   }
-  if (!wl) {
+
+  if (!loading && !wl) {
     return (
-      <div className="p-6">
-        <Link href="/dashboard/mywishlists" className="text-orange-600">
-          ← Back
-        </Link>
-        <div className="mt-4">List not found or you don’t have access.</div>
+      <div className="px-4 py-8 text-center text-gray-500 text-sm">
+        List not found.{" "}
+        <button onClick={() => router.push("/dashboard/mywishlists")} className="text-[#00b78b] font-medium">
+          Go back
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-6">
-      {/* Header row (Back on right) */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{wl.name}</h1>
-          <span className="text-sm text-gray-500">
-            {itemCount} item{itemCount === 1 ? "" : "s"}
-          </span>
-        </div>
-        <button
-          onClick={() => router.back()}
-          className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-        >
-          ← Back
-        </button>
+    <>
+      {/* Title row (back button is in the teal shell header) */}
+      <div className="px-4 pb-1">
+        {wl ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 font-medium">
+              {wl.is_public ? "public" : "private"} · {items.length} {items.length === 1 ? "site" : "sites"}
+            </span>
+          </div>
+        ) : (
+          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-8">
-        {/* Left: Items list (no box borders, subtle separators, delete X at end) */}
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-          {items.length === 0 ? (
-            <div className="p-6 text-gray-600">No items yet.</div>
-          ) : (
-            <ul>
-              {items.map((it, idx) => (
-                <li
-                  key={it.id}
-                  className="flex items-center justify-between px-5 py-4 border-b last:border-b-0 border-gray-100"
+      {/* Items list */}
+      <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+        {loading ? (
+          <>
+            <RowSkeleton />
+            <RowSkeleton />
+            <RowSkeleton />
+          </>
+        ) : items.length === 0 ? (
+          <div className="px-4 py-10 text-center text-gray-400 text-sm">
+            No sites in this list yet.
+          </div>
+        ) : (
+          items.map((item, i) => {
+            const site = item.sites;
+            return (
+              <div key={item.id} className="relative">
+                {i > 0 && <span className="absolute top-0 right-0 left-[72px] h-px bg-gray-100" />}
+                <div
+                  className="flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition-colors"
+                  onTouchStart={() => {/* handled on tap */}}
+                  onClick={() => site && openSheet(site)}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold">
-                      {idx + 1}
-                    </div>
-                    <Link
-                      href={it.sites?.slug ? `/heritage/${it.sites.slug}` : "#"}
-                      className="hover:text-[var(--brand-orange)]"
-                    >
-                      {it.sites?.title ?? "Untitled site"}
-                    </Link>
+                  {/* Site thumbnail */}
+                  <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-gray-100">
+                    {site?.cover_photo_url ? (
+                      <img
+                        src={site.cover_photo_url}
+                        alt={site.title ?? ""}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <Icon name="image" size={20} />
+                      </div>
+                    )}
                   </div>
+
+                  {/* Title + location */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-semibold text-[#1a1a1a] leading-tight line-clamp-2">
+                      {site?.title ?? "Untitled site"}
+                    </div>
+                    {site?.location_free && (
+                      <div className="text-xs text-gray-400 mt-0.5 truncate">{site.location_free}</div>
+                    )}
+                    {site?.avg_rating != null && site.avg_rating > 0 && (
+                      <div className="flex items-center gap-0.5 mt-0.5">
+                        <span className="text-amber-400 text-xs">{"★".repeat(Math.round(site.avg_rating))}</span>
+                        <span className="text-[10px] text-gray-400 ml-0.5">{site.avg_rating.toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Red trash button */}
                   <button
-                    onClick={() => removeItem(it.id)}
-                    className="w-8 h-8 rounded-lg border hover:bg-gray-50 flex items-center justify-center"
-                    title="Remove"
-                    aria-label="Remove"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void removeItem(item.id);
+                    }}
+                    disabled={removingId === item.id}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-red-400 active:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
+                    aria-label="Remove from list"
                   >
-                    <Icon name="times" />
+                    {removingId === item.id ? (
+                      <span className="inline-block rounded-full border-2 border-red-300 border-t-transparent animate-spin w-4 h-4" />
+                    ) : (
+                      <Icon name="trash" size={15} />
+                    )}
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Right: cover + notes */}
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-5">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-36 h-36 rounded-full bg-gray-100 ring-1 ring-black/5 overflow-hidden flex items-center justify-center">
-                {wl.cover_image_url ? (
-                  <img
-                    src={wl.cover_image_url}
-                    alt={wl.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Icon name="image" className="text-gray-400" />
-                )}
+                </div>
               </div>
-              <button
-                onClick={openPicker}
-                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-                disabled={settingCover}
-              >
-                {settingCover ? <Spinner /> : <Icon name="image" />}
-                {settingCover ? "Saving…" : "Select image"}
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-5">
-            <div className="mb-2 font-medium">Notes</div>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-36 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40"
-              placeholder="Add personal notes…"
-            />
-            <div className="mt-2 text-xs text-gray-500 h-4">
-              {savingNotes ? "Saving…" : ""}
-            </div>
-          </div>
-        </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Cover picker modal */}
-      <CoverPicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onSelect={selectCover}
-        candidates={candidates}
-        loading={loadingCandidates}
+      {/* Site detail bottom sheet */}
+      <SiteBottomSheet
+        site={sheetSite}
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
       />
-    </div>
+    </>
   );
 }

@@ -63,8 +63,7 @@ export default function DashboardShellClient({
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/dashboard/profile", label: "Profile", icon: "user" },
-    { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-    { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
+    { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
     { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
     { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
     { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
@@ -80,8 +79,7 @@ export default function DashboardShellClient({
   const pageTitleMap: Record<string, string> = {
     "/dashboard": "Dashboard",
     "/dashboard/profile": "Profile",
-    "/dashboard/bookmarks": "Bookmarks",
-    "/dashboard/mywishlists": "Wishlists",
+    "/dashboard/mywishlists": "Saved Lists",
     "/dashboard/mycollections": "Collections",
     "/dashboard/mytrips": "My Trips",
     "/dashboard/notebook": "Notebook",
@@ -91,7 +89,10 @@ export default function DashboardShellClient({
     "/dashboard/account-details": "Account Details",
   };
 
-  const pageTitle = pageTitleMap[pathname ?? ""] ?? "Dashboard";
+  const pageTitle =
+    pageTitleMap[pathname ?? ""] ??
+    (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
+    pathname?.startsWith("/dashboard/mycollections/") ? "Collection" : "Dashboard");
 
   const thumb = avatarUrl(profile?.avatar_url);
   const initials = (profile?.full_name ?? "?").charAt(0).toUpperCase();

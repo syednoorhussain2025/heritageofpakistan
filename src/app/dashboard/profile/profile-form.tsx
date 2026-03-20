@@ -1,13 +1,13 @@
 // src/app/dashboard/profile/profile-form.tsx
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hapticLight, hapticMedium, hapticSuccess } from "@/lib/haptics";
+import Icon from "@/components/Icon";
 
-// Helper function to resolve avatar src
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
@@ -34,6 +34,8 @@ type Props = {
 export default function ProfileForm({ account, categories, interests }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState<Account>({
     full_name: account?.full_name || "",
     avatar_url: account?.avatar_url || "",
@@ -50,15 +52,10 @@ export default function ProfileForm({ account, categories, interests }: Props) {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Get the displayable avatar source
   const avatarSrc = resolveAvatarSrc(form.avatar_url);
 
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    if (!userId) {
-      setErr("Not signed in");
-      return;
-    }
+  async function saveProfile() {
+    if (!userId) { setErr("Not signed in"); return; }
     setSaving(true);
     setMsg(null);
     setErr(null);
@@ -67,22 +64,12 @@ export default function ProfileForm({ account, categories, interests }: Props) {
       .from("profiles")
       .update(form)
       .eq("id", userId);
-
-    if (profileError) {
-      setErr(profileError.message);
-      setSaving(false);
-      return;
-    }
+    if (profileError) { setErr(profileError.message); setSaving(false); return; }
 
     const { error: interestError } = await supabase.rpc("set_user_interests", {
       in_category_ids: selectedCats,
     });
-
-    if (interestError) {
-      setErr(interestError.message);
-      setSaving(false);
-      return;
-    }
+    if (interestError) { setErr(interestError.message); setSaving(false); return; }
 
     setSaving(false);
     setMsg("Profile saved successfully!");
@@ -93,147 +80,197 @@ export default function ProfileForm({ account, categories, interests }: Props) {
     if (!userId) return;
     const file = ev.target.files?.[0];
     if (!file) return;
-
     try {
       setSaving(true);
       setErr(null);
       setMsg(null);
-
-      // Simple compression logic (can be expanded later)
       const path = `${userId}/${Date.now()}.webp`;
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type, // Use original file type for simplicity here
-        });
+        .upload(path, file, { cacheControl: "3600", upsert: true, contentType: file.type });
       if (uploadError) throw uploadError;
-
-      // Update the avatar_url in the profiles table
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: path })
         .eq("id", userId);
       if (updateError) throw updateError;
-
-      // Update the form state to show the new avatar
       setForm((prev) => ({ ...prev, avatar_url: path }));
       setMsg("Profile photo updated.");
     } catch (e: any) {
       setErr(e?.message ?? "Failed to upload photo.");
     } finally {
       setSaving(false);
-      ev.target.value = ""; // Allow re-uploading the same file
+      ev.target.value = "";
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    if (!userId) return;
+    void hapticMedium();
+    setSaving(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("id", userId);
+      if (error) throw error;
+      setForm((prev) => ({ ...prev, avatar_url: "" }));
+      setMsg("Profile photo removed.");
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to remove photo.");
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <form onSubmit={saveProfile} className="space-y-5 max-w-2xl">
-      <h1 className="text-xl font-semibold">Edit Your Profile</h1>
+    <>
+      {/* Scrollable content area */}
+      <div className="space-y-5 px-4 pb-6">
 
-      {/* Avatar + Upload UI */}
-      <div className="flex items-center gap-5">
-        {avatarSrc ? (
-          <Image
-            src={avatarSrc}
-            alt="Profile photo"
-            width={96}
-            height={96}
-            className="rounded-full object-cover ring-2 ring-gray-100 shrink-0"
-            unoptimized
-          />
-        ) : (
-          <div className="w-24 h-24 rounded-full bg-gray-200 shrink-0" />
-        )}
-        <div>
-          <label
-            htmlFor="avatar-upload"
-            className="cursor-pointer inline-flex items-center rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium active:bg-gray-50 hover:bg-gray-50 transition"
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <div className="relative w-24 h-24 shrink-0">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100">
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt="Profile photo"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <Icon name="user" size={36} />
+                </div>
+              )}
+            </div>
+            {avatarSrc && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={saving}
+                aria-label="Remove photo"
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md active:bg-red-600 disabled:opacity-50"
+              >
+                <Icon name="times" size={11} />
+              </button>
+            )}
+          </div>
+
+          {/* Upload — accept="image/*" opens camera+gallery sheet on iOS/Android */}
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => { void hapticLight(); fileInputRef.current?.click(); }}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2 text-sm font-medium active:bg-gray-50 disabled:opacity-50 transition"
           >
-            {saving ? "Uploading..." : "Upload Photo"}
-          </label>
+            <Icon name="camera" size={14} />
+            {saving ? "Uploading…" : "Change Photo"}
+          </button>
           <input
-            id="avatar-upload"
+            ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/*"
             onChange={handlePickAvatar}
             className="sr-only"
           />
-          <p className="text-xs text-gray-500 mt-2">JPG, PNG, or WEBP. Max 5MB.</p>
         </div>
+
+        {/* Full name — font-size 16px prevents iOS zoom */}
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Full name</span>
+          <input
+            className="mt-1.5 block w-full rounded-full border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[#00b78b] outline-none"
+            style={{ fontSize: "16px" }}
+            placeholder="Your name"
+            value={form.full_name ?? ""}
+            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+          />
+        </label>
+
+        {/* Bio */}
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Bio</span>
+          <textarea
+            className="mt-1.5 block w-full rounded-2xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[#00b78b] outline-none"
+            style={{ fontSize: "16px" }}
+            rows={3}
+            placeholder="Tell us a bit about yourself"
+            value={form.bio ?? ""}
+            onChange={(e) => setForm({ ...form, bio: e.target.value })}
+          />
+        </label>
+
+        {/* Public profile */}
+        <label className="flex items-center gap-3 py-1">
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-[#00b78b] focus:ring-[#00b78b]"
+            checked={!!form.public_profile}
+            onChange={(e) => {
+              void hapticLight();
+              setForm({ ...form, public_profile: e.target.checked });
+            }}
+          />
+          <span className="text-sm font-medium text-gray-700">Make my profile public</span>
+        </label>
+
+        {/* Interests */}
+        <div>
+          <div className="text-sm font-medium text-gray-700 mb-2">Interests (categories)</div>
+          <div className="grid grid-cols-2 gap-2 max-h-52 overflow-auto border border-gray-200 p-3 rounded-2xl bg-gray-50">
+            {categories.map((c) => (
+              <label key={c.id} className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 rounded border-gray-300 text-[#00b78b] focus:ring-[#00b78b]"
+                  checked={selectedCats.includes(c.id)}
+                  onChange={(e) => {
+                    void hapticLight();
+                    setSelectedCats((s) =>
+                      e.target.checked ? [...s, c.id] : s.filter((id) => id !== c.id)
+                    );
+                  }}
+                />
+                <span className="text-sm">{c.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {msg && <p className="text-sm text-emerald-600 font-medium">{msg}</p>}
+        {err && <p className="text-sm text-red-600">{err}</p>}
       </div>
 
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700">Full name</span>
-        <input
-          className="mt-1.5 block w-full rounded-xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-orange-500 focus:ring-orange-500 outline-none"
-          placeholder="Your name"
-          value={form.full_name ?? ""}
-          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-        />
-      </label>
-
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700">Bio</span>
-        <textarea
-          className="mt-1.5 block w-full rounded-xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-orange-500 focus:ring-orange-500 outline-none"
-          rows={3}
-          placeholder="Tell us a bit about yourself"
-          value={form.bio ?? ""}
-          onChange={(e) => setForm({ ...form, bio: e.target.value })}
-        />
-      </label>
-
-      <label className="flex items-center gap-3 py-1">
-        <input
-          type="checkbox"
-          className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-          checked={!!form.public_profile}
-          onChange={(e) => {
-            void hapticLight();
-            setForm({ ...form, public_profile: e.target.checked });
-          }}
-        />
-        <span className="text-sm font-medium text-gray-700">Make my profile public</span>
-      </label>
-
-      <div>
-        <div className="text-sm font-medium text-gray-700 mb-2">Interests (categories)</div>
-        <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto border border-gray-200 p-3 rounded-xl bg-gray-50">
-          {categories.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 py-1">
-              <input
-                type="checkbox"
-                className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                checked={selectedCats.includes(c.id)}
-                onChange={(e) => {
-                  void hapticLight();
-                  setSelectedCats((s) =>
-                    e.target.checked
-                      ? [...s, c.id]
-                      : s.filter((id) => id !== c.id)
-                  );
-                }}
-              />
-              <span className="text-sm">{c.name}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="pt-1">
+      {/* Fixed save button — sticks to bottom of the dashboard shell's main area */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-[500] bg-white border-t border-gray-100 px-4 py-3"
+        style={{ paddingBottom: "calc(52px + var(--safe-bottom, 0px) + 12px)" }}>
         <button
-          className="w-full sm:w-auto rounded-2xl bg-[#f78300] text-white px-6 py-3.5 font-bold active:opacity-80 transition disabled:opacity-50"
+          type="button"
+          onClick={() => { void hapticMedium(); void saveProfile(); }}
           disabled={saving}
-          onClick={() => void hapticMedium()}
+          className="w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition disabled:opacity-50"
+          style={{ backgroundColor: "#00b78b" }}
         >
-          {saving ? "Saving..." : "Save changes"}
+          {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
-
-      {msg && <p className="text-sm text-emerald-600 font-medium">{msg}</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-    </form>
+      {/* Desktop save button */}
+      <div className="hidden lg:block px-4 pb-4">
+        <button
+          type="button"
+          onClick={() => { void hapticMedium(); void saveProfile(); }}
+          disabled={saving}
+          className="rounded-full px-8 py-3.5 font-bold text-white active:opacity-80 transition disabled:opacity-50"
+          style={{ backgroundColor: "#00b78b" }}
+        >
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+      </div>
+    </>
   );
 }

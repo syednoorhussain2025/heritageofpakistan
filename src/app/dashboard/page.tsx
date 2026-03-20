@@ -5,6 +5,7 @@ import NextImage from "next/image";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
+import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
@@ -33,8 +34,7 @@ type Profile = {
 
 const mobileNavItems = [
   { href: "/dashboard/profile", label: "Profile", icon: "user" },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-  { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
+  { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
   { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
   { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
   { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
@@ -140,7 +140,7 @@ export default function DashboardHome() {
       <div className="lg:hidden">
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
           {mobileNavItems.map((item, i) => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative">
+            <Link key={item.href} href={item.href} onTouchStart={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative">
               {/* Indented divider — skipped on first row */}
               {i > 0 && <span className="absolute top-0 right-0 left-[60px] h-px bg-gray-100" />}
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#f2f2f2" }}>
