@@ -11,14 +11,12 @@ import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { listPortfolio } from "@/lib/db/portfolio";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 
-/** Build a direct public URL for a storage object (no transforms) */
 function storagePublicUrl(bucket: string, path: string) {
   const supabase = createClient();
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 }
 
-/** Resolve avatar src: full URL stays; otherwise treat as path in "avatars" */
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
@@ -30,8 +28,21 @@ type Profile = {
   full_name: string | null;
   username: string | null;
   badge: string | null;
-  avatar_url: string | null; // ✅ your real column
+  avatar_url: string | null;
 };
+
+const mobileNavItems = [
+  { href: "/dashboard/profile", label: "Profile", icon: "user" },
+  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
+  { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
+  { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
+  { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
+  { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
+  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
+  { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+];
 
 export default function DashboardHome() {
   const supabase = createClient();
@@ -45,24 +56,18 @@ export default function DashboardHome() {
     remaining: 0,
   });
   const [recentReviews, setRecentReviews] = useState<ReviewRow[]>([]);
-  const [portfolioPhotos, setPortfolioPhotos] = useState<
-    { id: string; publicUrl: string }[]
-  >([]);
+  const [portfolioPhotos, setPortfolioPhotos] = useState<{ id: string; publicUrl: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (!userId) { setLoading(false); return; }
     (async () => {
       try {
         setLoading(true);
         setPageError(null);
 
-        // Profile (use avatar_url)
         const { data: prof, error: profErr } = await supabase
           .from("profiles")
           .select("id, full_name, username, badge, avatar_url")
@@ -78,24 +83,18 @@ export default function DashboardHome() {
         const reviews = await listUserReviews(userId);
         setRecentReviews(reviews.slice(0, 3));
 
-        // Portfolio thumbnails — only public items
         const portfolio = await listPortfolio(userId);
         const publicItems = portfolio.filter((p) => p.is_public).slice(0, 3);
         if (publicItems.length) {
-          // get photo storage paths
           const { data: photoRows, error: photoErr } = await supabase
             .from("review_photos")
             .select("id, storage_path")
-            .in(
-              "id",
-              publicItems.map((p) => p.photo_id)
-            );
+            .in("id", publicItems.map((p) => p.photo_id));
           if (photoErr) throw photoErr;
-
           setPortfolioPhotos(
             (photoRows ?? []).map((p) => ({
               id: p.id,
-              publicUrl: storagePublicUrl("user-photos", p.storage_path), // ✅ direct, reliable URL
+              publicUrl: storagePublicUrl("user-photos", p.storage_path),
             }))
           );
         } else {
@@ -103,7 +102,6 @@ export default function DashboardHome() {
         }
       } catch (e: any) {
         setPageError(e?.message ?? "Something went wrong");
-        console.error("Dashboard load error:", e);
       } finally {
         setLoading(false);
       }
@@ -112,14 +110,21 @@ export default function DashboardHome() {
 
   if (authLoading || loading) return (
     <div className="space-y-4 animate-pulse">
-      <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-gray-200 rounded w-1/2" />
-          <div className="h-3 bg-gray-200 rounded w-1/3" />
-        </div>
+      {/* Mobile: just nav skeleton */}
+      <div className="lg:hidden space-y-3">
+        {[1,2,3,4,5].map(i => <div key={i} className="h-14 bg-gray-100 rounded-2xl" />)}
       </div>
-      {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl" />)}
+      {/* Desktop: full skeleton */}
+      <div className="hidden lg:block space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-1/2" />
+            <div className="h-3 bg-gray-200 rounded w-1/3" />
+          </div>
+        </div>
+        {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl" />)}
+      </div>
     </div>
   );
   if (authError) return <p className="text-red-600">Auth error: {authError}</p>;
@@ -130,129 +135,11 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-5">
-      {/* ── Header ── */}
-      {profile && (
-        <div className="flex items-center gap-4">
-          {avatarSrc ? (
-            <NextImage
-              src={avatarSrc}
-              alt="avatar"
-              width={64}
-              height={64}
-              className="rounded-full shrink-0 ring-2 ring-gray-100"
-              unoptimized
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0" />
-          )}
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold text-gray-900 truncate">
-              {profile.full_name ?? "Traveler"}
-            </h2>
-            {profile.badge && (
-              <span className="inline-block mt-0.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                {profile.badge}
-              </span>
-            )}
-            {profile.username && (
-              <Link
-                href={`/profile/${profile.username}`}
-                className="block mt-1 text-xs text-[#F78300] font-medium active:opacity-70"
-              >
-                View Public Profile →
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* ── Places Visited card ── */}
-      <Link href="/dashboard/placesvisited" className="block active:opacity-80">
-        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="font-semibold text-gray-800">Places Visited</p>
-            <span className="text-xs text-[#F78300] font-medium">View all →</span>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{visitedCount}</p>
-          <p className="text-sm text-gray-500 mt-0.5">{badgeInfo.current} Badge</p>
-          {badgeInfo.next && (
-            <div className="mt-3">
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>Progress to {badgeInfo.next}</span>
-                <span>{badgeInfo.remaining} more</span>
-              </div>
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min((visitedCount / (visitedCount + badgeInfo.remaining)) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </Link>
-
-      {/* ── Recent Reviews card ── */}
-      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-        <Link href="/dashboard/myreviews" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 active:bg-gray-50">
-          <p className="font-semibold text-gray-800">My Recent Reviews</p>
-          <span className="text-xs text-[#F78300] font-medium">View all →</span>
-        </Link>
-        {recentReviews.length === 0 ? (
-          <p className="text-sm text-gray-400 px-4 py-5 text-center">No reviews yet.</p>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {recentReviews.map((r) => (
-              <div key={r.id} className="px-4 py-3">
-                <div className="flex items-center gap-1.5 mb-1">
-                  {[1,2,3,4,5].map(s => (
-                    <span key={s} className={`text-sm ${s <= r.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
-                  ))}
-                </div>
-                {r.review_text && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{r.review_text}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Portfolio thumbnails card ── */}
-      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-        <Link href="/dashboard/portfolio" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 active:bg-gray-50">
-          <p className="font-semibold text-gray-800">My Portfolio</p>
-          <span className="text-xs text-[#F78300] font-medium">View all →</span>
-        </Link>
-        {portfolioPhotos.length === 0 ? (
-          <p className="text-sm text-gray-400 px-4 py-5 text-center">No photos added yet.</p>
-        ) : (
-          <div className="flex gap-2 p-4">
-            {portfolioPhotos.map((p) => (
-              <div key={p.id} className="relative flex-1 aspect-square rounded-xl overflow-hidden bg-gray-100">
-                <img src={p.publicUrl} alt="portfolio" className="w-full h-full object-cover" loading="lazy" />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Mobile nav list — quick access to all sections ── */}
+      {/* ── MOBILE: nav list only (profile info is in the teal header) ── */}
       <div className="lg:hidden">
-        <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">All Sections</p>
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
-          {[
-            { href: "/dashboard/profile", label: "Profile", icon: "user" },
-            { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-            { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
-            { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-            { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-            { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
-            { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
-            { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-            { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
-            { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
-          ].map((item) => (
+          {mobileNavItems.map((item) => (
             <Link key={item.href} href={item.href} className="flex items-center gap-3.5 px-4 py-[13px] active:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-lg bg-[#e6f7f3] flex items-center justify-center shrink-0">
                 <Icon name={item.icon} size={17} className="text-[#00b78b]" />
@@ -261,6 +148,116 @@ export default function DashboardHome() {
               <Icon name="chevron-right" size={13} className="text-gray-300" />
             </Link>
           ))}
+        </div>
+      </div>
+
+      {/* ── DESKTOP: full dashboard with profile header + cards ── */}
+      <div className="hidden lg:block space-y-5">
+        {/* Profile header */}
+        {profile && (
+          <div className="flex items-center gap-4">
+            {avatarSrc ? (
+              <NextImage
+                src={avatarSrc}
+                alt="avatar"
+                width={64}
+                height={64}
+                className="rounded-full shrink-0 ring-2 ring-gray-100"
+                unoptimized
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0" />
+            )}
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-gray-900 truncate">
+                {profile.full_name ?? "Traveler"}
+              </h2>
+              {profile.badge && (
+                <span className="inline-block mt-0.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                  {profile.badge}
+                </span>
+              )}
+              {profile.username && (
+                <Link
+                  href={`/profile/${profile.username}`}
+                  className="block mt-1 text-xs text-[#F78300] font-medium hover:opacity-70"
+                >
+                  View Public Profile →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Places Visited card */}
+        <Link href="/dashboard/placesvisited" className="block hover:opacity-80">
+          <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-gray-800">Places Visited</p>
+              <span className="text-xs text-[#F78300] font-medium">View all →</span>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{visitedCount}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{badgeInfo.current} Badge</p>
+            {badgeInfo.next && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Progress to {badgeInfo.next}</span>
+                  <span>{badgeInfo.remaining} more</span>
+                </div>
+                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-green-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((visitedCount / (visitedCount + badgeInfo.remaining)) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </Link>
+
+        {/* Recent Reviews card */}
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <Link href="/dashboard/myreviews" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
+            <p className="font-semibold text-gray-800">My Recent Reviews</p>
+            <span className="text-xs text-[#F78300] font-medium">View all →</span>
+          </Link>
+          {recentReviews.length === 0 ? (
+            <p className="text-sm text-gray-400 px-4 py-5 text-center">No reviews yet.</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {recentReviews.map((r) => (
+                <div key={r.id} className="px-4 py-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {[1,2,3,4,5].map(s => (
+                      <span key={s} className={`text-sm ${s <= r.rating ? "text-yellow-400" : "text-gray-200"}`}>★</span>
+                    ))}
+                  </div>
+                  {r.review_text && (
+                    <p className="text-sm text-gray-600 line-clamp-2">{r.review_text}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Portfolio thumbnails card */}
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <Link href="/dashboard/portfolio" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
+            <p className="font-semibold text-gray-800">My Portfolio</p>
+            <span className="text-xs text-[#F78300] font-medium">View all →</span>
+          </Link>
+          {portfolioPhotos.length === 0 ? (
+            <p className="text-sm text-gray-400 px-4 py-5 text-center">No photos added yet.</p>
+          ) : (
+            <div className="flex gap-2 p-4">
+              {portfolioPhotos.map((p) => (
+                <div key={p.id} className="relative flex-1 aspect-square rounded-xl overflow-hidden bg-gray-100">
+                  <img src={p.publicUrl} alt="portfolio" className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
