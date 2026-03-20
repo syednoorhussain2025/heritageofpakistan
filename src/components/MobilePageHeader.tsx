@@ -10,7 +10,7 @@
  * - z-index above page content but below modals/bottom-nav
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 type Props = {
   children: ReactNode;
@@ -25,25 +25,12 @@ export default function MobilePageHeader({
   className = "",
   minHeight = "180px",
 }: Props) {
-  const [safeTop, setSafeTop] = useState("44px");
-
-  useEffect(() => {
-    // Read the actual safe-area-inset-top value from the browser
-    const el = document.createElement("div");
-    el.style.cssText = "position:fixed;top:env(safe-area-inset-top,0px);left:0;width:1px;height:1px;pointer-events:none;";
-    document.body.appendChild(el);
-    const top = el.getBoundingClientRect().top;
-    document.body.removeChild(el);
-    // If top > 0 the env() worked; otherwise use 44px fallback for iOS status bar
-    setSafeTop(top > 0 ? `${top}px` : "44px");
-  }, []);
-
   return (
     <div
       className={`lg:hidden fixed inset-x-0 top-0 z-[1100] w-full ${className}`}
       style={{
         backgroundColor,
-        paddingTop: safeTop,
+        paddingTop: "env(safe-area-inset-top, 44px)",
         minHeight,
       }}
     >
