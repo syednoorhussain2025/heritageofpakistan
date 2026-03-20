@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
+import MobilePageHeader from "@/components/MobilePageHeader";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
 import NearbySearchModal from "@/components/NearbySearchModal";
@@ -1712,6 +1713,15 @@ export default function MapClient() {
 
   return (
     <>
+      {/* ── Mobile: teal header with "Map" title — bleeds behind status bar ── */}
+      <MobilePageHeader
+        backgroundColor="#00b78b"
+        minHeight="0px"
+        className="flex items-end justify-center pb-2.5"
+      >
+        <span className="text-white text-[17px] font-semibold tracking-wide">Map</span>
+      </MobilePageHeader>
+
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
