@@ -33,7 +33,7 @@ export default function MyWishlistsPage() {
         .select(`
           id, name, is_public,
           wishlist_items(count),
-          first_item:wishlist_items(sites(cover_photo_url))
+          first_item:wishlist_items(sites(cover_photo_thumb_url, cover_photo_url))
         `)
         .order("created_at", { ascending: true })
         .limit(1, { foreignTable: "first_item" });
@@ -66,7 +66,8 @@ export default function MyWishlistsPage() {
   // Extract first-item cover photo from the aliased query result
   function getCoverUrl(w: any): string | null {
     const firstItem = w.first_item?.[0];
-    return firstItem?.sites?.cover_photo_url ?? null;
+    const site = firstItem?.sites;
+    return site?.cover_photo_thumb_url ?? site?.cover_photo_url ?? null;
   }
 
   if (loading) {

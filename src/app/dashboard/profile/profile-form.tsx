@@ -130,10 +130,11 @@ export default function ProfileForm({ account, categories, interests }: Props) {
       {/* Scrollable content area */}
       <div className="space-y-5 px-4 pb-6">
 
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-3 pt-2">
-          <div className="relative w-24 h-24 shrink-0">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100">
+        {/* Avatar row: photo left, controls right */}
+        <div className="flex items-center gap-4 pt-2">
+          {/* Circular avatar — larger */}
+          <div className="relative shrink-0">
+            <div className="w-28 h-28 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
@@ -144,10 +145,11 @@ export default function ProfileForm({ account, categories, interests }: Props) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <Icon name="user" size={36} />
+                  <Icon name="user" size={40} />
                 </div>
               )}
             </div>
+            {/* Remove button */}
             {avatarSrc && (
               <button
                 type="button"
@@ -161,16 +163,21 @@ export default function ProfileForm({ account, categories, interests }: Props) {
             )}
           </div>
 
-          {/* Upload — accept="image/*" opens camera+gallery sheet on iOS/Android */}
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => { void hapticLight(); fileInputRef.current?.click(); }}
-            className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2 text-sm font-medium active:bg-gray-50 disabled:opacity-50 transition"
-          >
-            <Icon name="camera" size={14} />
-            {saving ? "Uploading…" : "Change Photo"}
-          </button>
+          {/* Upload controls on the right */}
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => { void hapticLight(); fileInputRef.current?.click(); }}
+              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-medium active:bg-gray-50 disabled:opacity-50 transition"
+            >
+              <Icon name="camera" size={14} />
+              {saving ? "Uploading…" : "Change Photo"}
+            </button>
+            <p className="text-xs text-gray-400 pl-1">JPG, PNG, or WEBP</p>
+          </div>
+
+          {/* Hidden file input — accept="image/*" opens camera+gallery on iOS/Android */}
           <input
             ref={fileInputRef}
             type="file"

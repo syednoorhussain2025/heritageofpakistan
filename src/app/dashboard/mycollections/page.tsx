@@ -1,33 +1,14 @@
 // src/app/dashboard/mycollections/page.tsx
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import dynamicImport from "next/dynamic";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import CollectHeart from "@/components/CollectHeart";
-import { useCollections } from "@/components/CollectionsProvider";
-import {
-  listPhotoCollections,
-  deletePhotoCollection,
-} from "@/lib/photoCollections";
-import {
-  listCollections as listCollectedPhotos,
-  makeCollectKeyFromRow,
-} from "@/lib/collections";
-import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { listPhotoCollections, deletePhotoCollection } from "@/lib/photoCollections";
 import { createClient } from "@/lib/supabase/browser";
-import type { LightboxPhoto } from "@/types/lightbox";
-
-const Lightbox = dynamicImport(
-  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
-  { ssr: false }
-);
-
-const AddToCollectionModal = dynamicImport(
-  () => import("@/components/AddToCollectionModal"),
-  { ssr: false }
-);
+import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { hapticLight, hapticHeavy, hapticMedium } from "@/lib/haptics";
 
 type Album = {
   id: string;
@@ -35,486 +16,164 @@ type Album = {
   is_public: boolean;
   coverUrl?: string | null;
   itemCount?: number;
+  // first item thumb fetched separately
+  firstPhotoUrl?: string | null;
 };
 
-type CollectedPhotoRow = {
-  id: string;
-  site_image_id: string | null;
-  storage_path: string | null;
-  image_url: string | null;
-  site_id: string | null;
-  alt_text: string | null;
-  caption: string | null;
-  credit: string | null;
-  publicUrl: string | null;
-};
-
-type SiteLite = {
-  id: string;
-  title: string;
-  location_free: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  region?: string | null;
-  categories?: string[];
-};
-
-type DashboardLightboxPhoto = LightboxPhoto & {
-  siteImageId?: string | null;
-  width?: number | null;
-  height?: number | null;
-  blurHash?: string | null;
-};
-
-type SiteImageLite = {
-  id: string;
-  width: number | null;
-  height: number | null;
-  blur_hash: string | null;
-};
-
-export default function MyCollectionsDashboard() {
-  const supabase = useMemo(() => createClient(), []);
-  const { collected, isLoaded: collectedLoaded } = useCollections();
-
+export default function MyCollectionsPage() {
+  const supabase = createClient();
+  const router = useRouter();
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [photos, setPhotos] = useState<CollectedPhotoRow[]>([]);
-  const [siteById, setSiteById] = useState<Record<string, SiteLite>>({});
-  const [imageMetaById, setImageMetaById] = useState<Record<string, SiteImageLite>>(
-    {}
-  );
-  const [loadingAlbums, setLoadingAlbums] = useState(true);
-  const [loadingPhotos, setLoadingPhotos] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<number | null>(null);
-  const showToast = (msg: string) => {
-    if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    setToast(msg);
-    toastTimer.current = window.setTimeout(() => setToast(null), 2200);
-  };
-
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [selectedPhoto, setSelectedPhoto] =
-    useState<DashboardLightboxPhoto | null>(null);
-  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
-      setLoadingAlbums(true);
+      setLoading(true);
       try {
-        setAlbums(await listPhotoCollections());
+        const cols = await listPhotoCollections();
+        // For each album, fetch the first photo to use as preview
+        const withPreviews = await Promise.all(
+          cols.map(async (c) => {
+            // Try cover first
+            if (c.coverUrl) return { ...c, firstPhotoUrl: c.coverUrl };
+            // Otherwise fetch first item's storage_path
+            const { data } = await supabase
+              .from("photo_collection_items")
+              .select("collected_images(storage_path, image_url)")
+              .eq("collection_id", c.id)
+              .order("sort_order", { ascending: true, nullsFirst: false })
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const ci = (data as any)?.collected_images;
+            if (!ci) return { ...c, firstPhotoUrl: null };
+            const url = ci.storage_path
+              ? (() => { try { return getVariantPublicUrl(ci.storage_path, "thumb"); } catch { return supabase.storage.from("site-images").getPublicUrl(ci.storage_path).data.publicUrl; } })()
+              : ci.image_url ?? null;
+            return { ...c, firstPhotoUrl: url };
+          })
+        );
+        setAlbums(withPreviews);
       } finally {
-        setLoadingAlbums(false);
+        setLoading(false);
       }
     })();
-
-    (async () => {
-      setLoadingPhotos(true);
-      try {
-        setPhotos((await listCollectedPhotos(200)) as CollectedPhotoRow[]);
-      } finally {
-        setLoadingPhotos(false);
-      }
-    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const siteIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          photos
-            .map((p) => p.site_id)
-            .filter((id): id is string => typeof id === "string" && id.length > 0)
-        )
-      ),
-    [photos]
-  );
-
-  const siteIdsKey = siteIds.join("|");
-  const siteImageIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          photos
-            .map((p) => p.site_image_id)
-            .filter((id): id is string => typeof id === "string" && id.length > 0)
-        )
-      ),
-    [photos]
-  );
-  const siteImageIdsKey = siteImageIds.join("|");
-
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      if (!siteIds.length) {
-        setSiteById({});
-        return;
-      }
-
-      const [sitesRes, siteRegionsRes, siteCategoriesRes] = await Promise.all([
-        supabase
-          .from("sites")
-          .select("id, title, location_free, latitude, longitude")
-          .in("id", siteIds),
-        supabase
-          .from("site_regions")
-          .select("site_id, region:regions(name)")
-          .in("site_id", siteIds),
-        supabase
-          .from("site_categories")
-          .select("site_id, category:categories(name)")
-          .in("site_id", siteIds),
-      ]);
-
-      const { data, error } = sitesRes;
-
-      if (!active) return;
-      if (error) {
-        console.error("[mycollections] failed to load site metadata:", error);
-        setSiteById({});
-        return;
-      }
-
-      if (siteRegionsRes.error) {
-        console.error(
-          "[mycollections] failed to load site regions:",
-          siteRegionsRes.error
-        );
-      }
-
-      if (siteCategoriesRes.error) {
-        console.error(
-          "[mycollections] failed to load site categories:",
-          siteCategoriesRes.error
-        );
-      }
-
-      const regionBySiteId: Record<string, string> = {};
-      for (const row of (siteRegionsRes.data ?? []) as any[]) {
-        const siteId = row.site_id as string | undefined;
-        const regionName = row?.region?.name as string | undefined;
-        if (siteId && regionName && !regionBySiteId[siteId]) {
-          regionBySiteId[siteId] = regionName;
-        }
-      }
-
-      const categoriesBySiteId: Record<string, string[]> = {};
-      for (const row of (siteCategoriesRes.data ?? []) as any[]) {
-        const siteId = row.site_id as string | undefined;
-        const categoryName = row?.category?.name as string | undefined;
-        if (!siteId || !categoryName) continue;
-        if (!categoriesBySiteId[siteId]) categoriesBySiteId[siteId] = [];
-        categoriesBySiteId[siteId].push(categoryName);
-      }
-
-      const next: Record<string, SiteLite> = {};
-      for (const site of (data ?? []) as SiteLite[]) {
-        next[site.id] = {
-          ...site,
-          region: regionBySiteId[site.id] ?? null,
-          categories: categoriesBySiteId[site.id] ?? [],
-        };
-      }
-      setSiteById(next);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [siteIdsKey, siteIds, supabase]);
-
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      if (!siteImageIds.length) {
-        setImageMetaById({});
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("site_images")
-        .select("id, width, height, blur_hash")
-        .in("id", siteImageIds);
-
-      if (!active) return;
-      if (error) {
-        console.error("[mycollections] failed to load image metadata:", error);
-        setImageMetaById({});
-        return;
-      }
-
-      const next: Record<string, SiteImageLite> = {};
-      for (const img of (data ?? []) as SiteImageLite[]) {
-        next[img.id] = img;
-      }
-      setImageMetaById(next);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [siteImageIdsKey, siteImageIds, supabase]);
-
-  useEffect(() => {
-    if (!collectedLoaded) return;
-
-    setPhotos((prev) =>
-      prev.filter((p) => {
-        try {
-          const key = makeCollectKeyFromRow({
-            site_image_id: p.site_image_id,
-            storage_path: p.storage_path,
-            image_url: p.image_url,
-          });
-          return collected.has(key);
-        } catch {
-          return false;
-        }
-      })
-    );
-  }, [collected, collectedLoaded]);
-
-  async function deleteAlbum(id: string, name: string) {
-    if (!confirm(`Delete collection "${name}"? This will not affect your library.`))
-      return;
-
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete collection "${name}"? This will not affect your library.`)) return;
     setDeletingId(id);
     try {
       await deletePhotoCollection(id);
       setAlbums((prev) => prev.filter((a) => a.id !== id));
-      showToast(`"${name}" deleted`);
     } finally {
       setDeletingId(null);
     }
   }
 
-  const openLightbox = useCallback((idx: number) => {
-    setLightboxIndex(idx);
-  }, []);
-
-  const handleOpenCollectionModal = useCallback((photo: LightboxPhoto) => {
-    setSelectedPhoto(photo as DashboardLightboxPhoto);
-    setCollectionModalOpen(true);
-  }, []);
-
-  const tileUrl = useCallback((photo: CollectedPhotoRow) => {
-    if (photo.storage_path) {
-      try {
-        return getVariantPublicUrl(photo.storage_path, "thumb");
-      } catch {
-        return photo.publicUrl || photo.image_url || "";
-      }
-    }
-    return photo.publicUrl || photo.image_url || "";
-  }, []);
-
-  const lightboxPhotos = useMemo<DashboardLightboxPhoto[]>(
-    () =>
-      photos.map((p) => {
-        const site = p.site_id ? siteById[p.site_id] : undefined;
-        const imageMeta = p.site_image_id ? imageMetaById[p.site_image_id] : undefined;
-        const url = p.publicUrl || p.image_url || "";
-
-        return {
-          id: p.id,
-          siteImageId: p.site_image_id ?? null,
-          url,
-          caption: p.caption ?? p.alt_text ?? null,
-          author: {
-            name: p.credit || "Heritage of Pakistan",
-          },
-          site: {
-            id: p.site_id ?? "unknown-site",
-            name: site?.title ?? "Collected Photo",
-            location: site?.location_free ?? "",
-            latitude: site?.latitude ?? null,
-            longitude: site?.longitude ?? null,
-            region: site?.region ?? "Unknown Region",
-            categories: site?.categories ?? [],
-          },
-          isBookmarked: true,
-          storagePath: p.storage_path ?? "",
-          width: imageMeta?.width ?? null,
-          height: imageMeta?.height ?? null,
-          blurHash: imageMeta?.blur_hash ?? null,
-        };
-      }),
-    [photos, siteById, imageMetaById]
-  );
-
-  useEffect(() => {
-    if (lightboxIndex === null) return;
-    if (lightboxPhotos.length === 0) {
-      setLightboxIndex(null);
-      return;
-    }
-    if (lightboxIndex >= lightboxPhotos.length) {
-      setLightboxIndex(lightboxPhotos.length - 1);
-    }
-  }, [lightboxIndex, lightboxPhotos.length]);
-
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8">
-      {/* Toast */}
-      {toast && (
-        <div className="pointer-events-none fixed left-1/2 bottom-24 -translate-x-1/2 z-[9999] rounded-lg bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg">
-          {toast}
+    <>
+      {/* Album list */}
+      {loading ? (
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-4 animate-pulse">
+              <div className="w-14 h-14 rounded-xl bg-gray-200 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-gray-200 rounded w-1/4" />
+              </div>
+            </div>
+          ))}
         </div>
-      )}
-      <h1 className="text-xl font-bold">My Collections</h1>
-
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Collections</h2>
+      ) : albums.length === 0 ? (
+        <div className="px-4 py-8 text-center text-gray-500 text-sm">
+          No collections yet. Use "Add to Collection" from any photo.
         </div>
-
-        {loadingAlbums ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm animate-pulse h-28"
-              />
-            ))}
-          </div>
-        ) : albums.length === 0 ? (
-          <div className="text-gray-600">
-            You have no collections. Use Add to Collection from a photo.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {albums.map((a) => (
+      ) : (
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+          {albums.map((a, i) => (
+            <div key={a.id} className="relative">
+              {i > 0 && <span className="absolute top-0 right-0 left-[68px] h-px bg-gray-100" />}
               <Link
-                key={a.id}
                 href={`/dashboard/mycollections/${a.id}`}
-                className="group relative block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                onTouchStart={() => void hapticLight()}
+                className="flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-colors"
               >
+                {/* Square rounded preview with camera badge */}
+                <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-1 ring-black/5">
+                  {a.firstPhotoUrl ? (
+                    <img src={a.firstPhotoUrl} alt={a.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300">
+                      <Icon name="images" size={20} />
+                    </div>
+                  )}
+                  {/* Camera badge top-right */}
+                  <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
+                    <Icon name="camera" size={9} className="text-white" />
+                  </div>
+                </div>
+
+                {/* Name + meta */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-semibold text-[#1a1a1a] truncate">{a.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {a.is_public ? "public" : "private"} · {a.itemCount ?? 0} {(a.itemCount ?? 0) === 1 ? "photo" : "photos"}
+                  </div>
+                </div>
+
+                {/* Chevron */}
+                <Icon name="chevron-right" size={13} className="text-[#c8c8c8] shrink-0 mr-1" />
+
+                {/* Delete */}
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    deleteAlbum(a.id, a.name);
+                    void hapticHeavy();
+                    void handleDelete(a.id, a.name);
                   }}
-                  className="absolute top-2 right-2 w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 active:bg-red-50 active:text-red-500 transition-colors shrink-0"
                   aria-label="Delete collection"
                 >
                   {deletingId === a.id ? (
                     <span className="inline-block rounded-full border-2 border-gray-300 border-t-transparent animate-spin w-4 h-4" />
                   ) : (
-                    <Icon name="times" />
+                    <Icon name="times" size={14} />
                   )}
                 </button>
-
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full ring-1 ring-black/5 flex items-center justify-center overflow-hidden bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]">
-                    {a.coverUrl ? (
-                      <img
-                        src={a.coverUrl}
-                        alt={a.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Icon name="images" size={20} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold group-hover:text-[var(--brand-orange)] transition-colors">
-                      {a.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {a.is_public ? "public" : "private"} • {a.itemCount ?? 0} items
-                    </div>
-                  </div>
-                </div>
               </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold mb-4">Collected Photos</h2>
-
-        {loadingPhotos ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 lg:gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-xl bg-gray-200 h-40 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : photos.length === 0 ? (
-          <div className="text-gray-600">
-            No photos yet. Tap the heart on any image to save it.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 lg:gap-4">
-            {photos.map((it, idx) => (
-              <div
-                key={it.id}
-                className="relative group rounded-xl overflow-hidden bg-gray-100 ring-1 ring-black/5 cursor-zoom-in aspect-[4/3]"
-                onClick={() => openLightbox(idx)}
-                title="Open"
-              >
-                <img
-                  src={tileUrl(it)}
-                  alt={it.alt_text || ""}
-                  className="w-full h-full object-cover select-none transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
-                  draggable={false}
-                />
-
-                <div
-                  className="absolute top-2 right-2 z-20"
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDownCapture={(e) => e.stopPropagation()}
-                >
-                  <CollectHeart
-                    variant="overlay"
-                    siteImageId={it.site_image_id}
-                    storagePath={it.storage_path}
-                    imageUrl={it.image_url}
-                    siteId={it.site_id}
-                    altText={it.alt_text}
-                    caption={it.caption}
-                    credit={it.credit}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {lightboxIndex !== null && lightboxPhotos.length > 0 && (
-        <Lightbox
-          photos={lightboxPhotos}
-          startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          onAddToCollection={handleOpenCollectionModal}
-        />
+            </div>
+          ))}
+        </div>
       )}
 
-      {collectionModalOpen && selectedPhoto && (
-        <AddToCollectionModal
-          image={{
-            siteImageId: selectedPhoto.siteImageId ?? null,
-            storagePath: selectedPhoto.storagePath ?? null,
-            imageUrl: selectedPhoto.url ?? null,
-            siteId: selectedPhoto.site?.id ?? null,
-            altText: selectedPhoto.caption ?? null,
-            caption: selectedPhoto.caption ?? null,
-            credit: selectedPhoto.author?.name ?? null,
-            siteName: selectedPhoto.site?.name ?? null,
-            locationText: selectedPhoto.site?.location ?? null,
-          }}
-          onClose={() => setCollectionModalOpen(false)}
-        />
-      )}
-    </div>
+      {/* Fixed "See all Collected Photos" button */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-[500] bg-white border-t border-gray-100 px-4 py-3"
+        style={{ paddingBottom: "calc(52px + var(--safe-bottom, 0px) + 12px)" }}>
+        <button
+          type="button"
+          onClick={() => { void hapticMedium(); router.push("/dashboard/mycollections/photos"); }}
+          className="w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition"
+          style={{ backgroundColor: "#00b78b" }}
+        >
+          See all Collected Photos
+        </button>
+      </div>
+      {/* Desktop link */}
+      <div className="hidden lg:block pt-4">
+        <Link
+          href="/dashboard/mycollections/photos"
+          className="inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white active:opacity-80"
+          style={{ backgroundColor: "#00b78b" }}
+        >
+          <Icon name="images" size={16} />
+          See all Collected Photos
+        </Link>
+      </div>
+    </>
   );
 }

@@ -162,12 +162,12 @@ export default function WishlistDetailPage() {
                   onTouchStart={() => {/* handled on tap */}}
                   onClick={() => site && openSheet(site)}
                 >
-                  {/* Site thumbnail */}
+                  {/* Site thumbnail — prefer thumb variant */}
                   <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-gray-100">
-                    {site?.cover_photo_url ? (
+                    {(site?.cover_photo_thumb_url ?? site?.cover_photo_url) ? (
                       <img
-                        src={site.cover_photo_url}
-                        alt={site.title ?? ""}
+                        src={site!.cover_photo_thumb_url ?? site!.cover_photo_url!}
+                        alt={site?.title ?? ""}
                         className="w-full h-full object-cover"
                       />
                     ) : (

@@ -81,6 +81,7 @@ export default function DashboardShellClient({
     "/dashboard/profile": "Profile",
     "/dashboard/mywishlists": "Saved Lists",
     "/dashboard/mycollections": "Collections",
+    "/dashboard/mycollections/photos": "Collected Photos",
     "/dashboard/mytrips": "My Trips",
     "/dashboard/notebook": "Notebook",
     "/dashboard/placesvisited": "Places Visited",
@@ -93,6 +94,20 @@ export default function DashboardShellClient({
     pageTitleMap[pathname ?? ""] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
     pathname?.startsWith("/dashboard/mycollections/") ? "Collection" : "Dashboard");
+
+  // Smart back: nested routes go to their parent, not all the way to /dashboard
+  function handleBack() {
+    void hapticLight();
+    if (pathname?.startsWith("/dashboard/mywishlists/")) {
+      router.push("/dashboard/mywishlists");
+    } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
+      router.push("/dashboard/mycollections");
+    } else if (isHome) {
+      router.back();
+    } else {
+      router.push("/dashboard");
+    }
+  }
 
   const thumb = avatarUrl(profile?.avatar_url);
   const initials = (profile?.full_name ?? "?").charAt(0).toUpperCase();
@@ -113,12 +128,7 @@ export default function DashboardShellClient({
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
     if (dx > 60 && dy < 80) {
-      void hapticLight();
-      if (isHome) {
-        router.back();
-      } else {
-        router.push("/dashboard");
-      }
+      handleBack();
     }
   }
 
@@ -164,7 +174,7 @@ export default function DashboardShellClient({
           <div className="flex items-center pt-1">
             <button
               type="button"
-              onClick={() => { void hapticLight(); router.back(); }}
+              onClick={handleBack}
               aria-label="Back"
               className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
             >
@@ -227,7 +237,7 @@ export default function DashboardShellClient({
         <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
           <button
             type="button"
-            onClick={() => { void hapticLight(); router.push("/dashboard"); }}
+            onClick={handleBack}
             aria-label="Back"
             className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
           >
