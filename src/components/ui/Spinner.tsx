@@ -24,6 +24,7 @@ export function Spinner({ size = 64, overlay = false, fill = false }: SpinnerPro
   const animation = (
     <DotLottieReact
       src="/spinner.lottie"
+      animationId="Main Scene"
       loop
       autoplay
       style={{ width: size, height: size }}
