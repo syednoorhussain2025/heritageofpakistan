@@ -372,7 +372,7 @@ export default function BottomNav() {
     if (userId) {
       // Logged in: go to dashboard hub directly — no panel
       void hapticLight();
-      startNavigation("/dashboard");
+      startNavigation("/dashboard", { overlay: "white" });
       return;
     }
     // Unauthenticated: show sign-in prompt panel
@@ -390,7 +390,7 @@ export default function BottomNav() {
 
   const handlePanelNavigate = (href: string) => {
     closePanel();
-    setTimeout(() => startNavigation(href), PANEL_ANIM_MS);
+    setTimeout(() => startNavigation(href, { overlay: "transparent" }), PANEL_ANIM_MS);
   };
 
   const isHomeActive = optimisticHref === "/" || (!optimisticHref && pathname === "/");
