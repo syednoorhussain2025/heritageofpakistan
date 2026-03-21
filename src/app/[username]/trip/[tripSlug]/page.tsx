@@ -1184,6 +1184,43 @@ export default function TripBuilderPage() {
     <main
       className="min-h-screen py-6 bg-gray-100"
     >
+      {/* ── Mobile green header (fixed, matches dashboard shell) ── */}
+      <div
+        className="md:hidden fixed inset-x-0 top-0 z-[90] flex items-end px-2 pb-2.5 bg-[#00b78b]"
+        style={{ paddingTop: "calc(var(--sat, 44px) + 8px)" }}
+      >
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Back"
+          className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
+        >
+          <Icon name="arrow-left" size={20} className="text-white" />
+        </button>
+        <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide">
+          Trip Builder
+        </span>
+        <button
+          onClick={handleManualSave}
+          disabled={saving}
+          type="button"
+          className={
+            "rounded-full px-4 py-1.5 text-sm font-semibold shrink-0 " +
+            (saving
+              ? "bg-white/30 text-white/70"
+              : "bg-white text-[#00b78b] active:bg-white/80")
+          }
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+
+      {/* Mobile spacer so content clears the fixed header */}
+      <div
+        className="md:hidden"
+        style={{ height: "calc(var(--sat, 44px) + 48px)" }}
+      />
+
       {/* Global toast */}
       {toastMsg && (
         <div className="fixed left-1/2 z-[95] -translate-x-1/2 rounded-md bg-black/85 px-3 py-2 text-sm text-white shadow" style={{ top: "max(env(safe-area-inset-top, 0px), 16px)" }}>
@@ -1192,31 +1229,8 @@ export default function TripBuilderPage() {
       )}
 
       <div className="mx-auto max-w-6xl rounded-2xl bg-white shadow-sm px-4 md:px-8 lg:px-10 py-4 md:py-6">
-        {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-2 mb-4">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 active:bg-gray-200 shrink-0"
-            type="button"
-            aria-label="Back"
-          >
-            <Icon name="arrow-left" size={18} />
-          </button>
-          <h1 className="flex-1 text-[17px] font-bold text-[#0A1B4D] truncate">Trip Builder</h1>
-          <button
-            onClick={handleManualSave}
-            disabled={saving}
-            className={
-              "rounded-full px-4 py-2 text-sm font-semibold text-white shrink-0 " +
-              (saving ? "bg-blue-400/60" : "bg-blue-600 active:bg-blue-700")
-            }
-            type="button"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
 
-        {/* Desktop breadcrumb + header */}
+        {/* Desktop breadcrumb + header — md and up only */}
         <div className="hidden md:block">
           <div className="mb-3 text-xs text-gray-500">
             <Link href={`/${username}`} className="hover:underline">
