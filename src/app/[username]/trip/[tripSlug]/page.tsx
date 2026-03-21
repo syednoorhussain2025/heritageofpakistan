@@ -713,7 +713,101 @@ export default function TripBuilderPage() {
 
     return (
       <div className="px-4 py-3">
-        <div className={GRID}>
+        {/* ── Mobile card layout ── */}
+        <div className="md:hidden">
+          <div className="flex items-start gap-3">
+            {/* Thumbnail */}
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+              {it.site?.cover_photo_url ? (
+                <img src={it.site.cover_photo_url} alt="" className="h-full w-full object-cover" />
+              ) : null}
+            </div>
+            {/* Main info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00b78b] text-white text-[10px] font-semibold shrink-0">
+                      {siteNumber}
+                    </span>
+                    <div className="truncate font-semibold text-[15px] text-[#0A1B4D]">
+                      {it.site ? (
+                        <Link href={`/site/${it.site.slug}`} className="hover:underline" data-no-drag>
+                          {it.site.title}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500">Unknown site</span>
+                      )}
+                    </div>
+                  </div>
+                  {it.provinceName && (
+                    <div className="text-[12px] text-gray-500 flex items-center gap-1 ml-6">
+                      <KIcon name="map-marker-alt" size={11} className="text-gray-400" />
+                      {it.provinceName}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDelete(it)}
+                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 text-orange-400 active:bg-orange-100"
+                  title="Delete"
+                  data-no-drag
+                  type="button"
+                >
+                  ✖
+                </button>
+              </div>
+              {/* Row: date + note */}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={openNativePicker}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-700 whitespace-nowrap active:bg-gray-100"
+                  data-no-drag
+                  aria-label="Pick visit date"
+                >
+                  <KIcon name="calendar-check" size={11} className="text-orange-400" />
+                  <span>{formatVisitLabel(currentVisit)}</span>
+                </button>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={currentVisit}
+                  onChange={(e) => handleUpdateSiteVisitDate(it.id, e.target.value)}
+                  className="sr-only"
+                  data-no-drag
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+                <button
+                  type="button"
+                  onClick={() => openNotesEditor(it.id, (it as any).notes ?? "")}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-700 active:bg-gray-100"
+                  data-no-drag
+                  aria-label="Edit note"
+                >
+                  <KIcon name="edit" size={11} className="text-gray-400" />
+                  <span className={(it as any).notes?.trim() ? "text-gray-800" : "text-gray-400 italic"}>
+                    {(it as any).notes?.trim() || "Add note"}
+                  </span>
+                </button>
+              </div>
+              {/* Experience tags */}
+              {it.experience && it.experience.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5 ml-0">
+                  {it.experience.map((e, idx) => (
+                    <span key={idx} className="rounded-full bg-gray-100 px-2 py-[2px] text-[11px] text-gray-600">
+                      {e}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Desktop table layout ── */}
+        <div className={`hidden md:grid ${GRID.replace("grid ", "")}`}>
           <div className="flex items-center justify-center">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow-sm">
               {siteNumber}
@@ -723,21 +817,13 @@ export default function TripBuilderPage() {
           <div className="flex min-w-0 items-center gap-3">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200">
               {it.site?.cover_photo_url ? (
-                <img
-                  src={it.site.cover_photo_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
+                <img src={it.site.cover_photo_url} alt="" className="h-full w-full object-cover" />
               ) : null}
             </div>
             <div className="min-w-0">
               <div className="truncate font-semibold text-[17px] text-[#0A1B4D]">
                 {it.site ? (
-                  <Link
-                    href={`/site/${it.site.slug}`}
-                    className="hover:underline"
-                    data-no-drag
-                  >
+                  <Link href={`/site/${it.site.slug}`} className="hover:underline" data-no-drag>
                     {it.site.title}
                   </Link>
                 ) : (
@@ -751,7 +837,6 @@ export default function TripBuilderPage() {
             {it.provinceName || "—"}
           </div>
 
-          {/* FORMATTED label that opens native datepicker on click */}
           <div className="min-w-0">
             <button
               type="button"
@@ -761,15 +846,9 @@ export default function TripBuilderPage() {
               aria-label="Pick visit date"
               title="Pick visit date"
             >
-              <KIcon
-                name="calendar-check"
-                size={14}
-                className="text-[var(--brand-orange,#f59e0b)]"
-              />
+              <KIcon name="calendar-check" size={14} className="text-[var(--brand-orange,#f59e0b)]" />
               <span>{formatVisitLabel(currentVisit)}</span>
             </button>
-
-            {/* Visually hidden native input that actually drives the value */}
             <input
               ref={dateInputRef}
               type="date"
@@ -785,10 +864,7 @@ export default function TripBuilderPage() {
           <div className="min-w-0 flex flex-wrap gap-2">
             {it.experience && it.experience.length > 0 ? (
               it.experience.map((e, idx) => (
-                <span
-                  key={idx}
-                  className="rounded-full bg-gray-100 px-2 py-[3px] text-[12px] text-gray-700 whitespace-nowrap"
-                >
+                <span key={idx} className="rounded-full bg-gray-100 px-2 py-[3px] text-[12px] text-gray-700 whitespace-nowrap">
                   {e}
                 </span>
               ))
@@ -848,7 +924,52 @@ export default function TripBuilderPage() {
 
     return (
       <div className="px-4 py-3">
-        <div className={GRID}>
+        {/* ── Mobile travel card ── */}
+        <div className="md:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="flex-1 min-w-0"
+              onClick={() => startEditTravel(it)}
+              data-no-drag
+            >
+              <div className="flex items-center gap-2 text-[#0A1B4D]">
+                <div className="flex flex-col items-start min-w-0">
+                  <KIcon name="map-marker-alt" size={14} className="text-orange-400 shrink-0 mb-0.5" />
+                  <span className="text-[12px] font-medium truncate max-w-[90px]">{fromName}</span>
+                  {startShort && <span className="text-[10px] text-gray-400">{startShort}</span>}
+                </div>
+                <div className="flex-1 flex flex-col items-center gap-0.5">
+                  <div className="h-[1px] w-full bg-gray-300" />
+                  <div className="flex items-center gap-1">
+                    <KIcon name={modeMeta.icon} size={13} className="text-orange-400" />
+                    <span className="text-[11px] font-semibold text-gray-700">{modeMeta.label}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    {durationLabel(it.duration_minutes)} · {it.distance_km != null ? `${it.distance_km} km` : "—"}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end min-w-0">
+                  <KIcon name="map-marker-alt" size={14} className="text-orange-400 shrink-0 mb-0.5" />
+                  <span className="text-[12px] font-medium truncate max-w-[90px]">{toName}</span>
+                  {endShort && <span className="text-[10px] text-gray-400">{endShort}</span>}
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => handleDelete(it)}
+              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 text-orange-400 active:bg-orange-100"
+              title="Delete"
+              data-no-drag
+              type="button"
+            >
+              ✖
+            </button>
+          </div>
+        </div>
+
+        {/* ── Desktop table layout ── */}
+        <div className={`hidden md:grid ${GRID.replace("grid ", "")}`}>
           <div />
           <div className="col-span-5">
             <button
@@ -861,27 +982,17 @@ export default function TripBuilderPage() {
               <div className="flex items-center justify-center gap-3 w-full text-[#0A1B4D]">
                 <div className="flex flex-col items-start min-w-0">
                   <div className="flex items-center gap-2">
-                    <KIcon
-                      name="map-marker-alt"
-                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
-                    />
+                    <KIcon name="map-marker-alt" className="shrink-0 text-[var(--brand-orange,#f59e0b)]" />
                     <span className="truncate font-medium">{fromName}</span>
                   </div>
-                  {startShort && (
-                    <div className="ml-6 text-xs text-slate-600">
-                      {startShort}
-                    </div>
-                  )}
+                  {startShort && <div className="ml-6 text-xs text-slate-600">{startShort}</div>}
                 </div>
 
                 <div className="h-[2px] w-20 md:w-32 bg-gray-300 rounded" />
 
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <KIcon
-                      name={modeMeta.icon}
-                      className="text-[var(--brand-orange,#f59e0b)]"
-                    />
+                    <KIcon name={modeMeta.icon} className="text-[var(--brand-orange,#f59e0b)]" />
                     <span className="font-semibold">{modeMeta.label}</span>
                   </div>
                   <div className="mt-1 text-xs text-slate-600">
@@ -895,17 +1006,10 @@ export default function TripBuilderPage() {
 
                 <div className="flex flex-col items-start min-w-0">
                   <div className="flex items-center gap-2">
-                    <KIcon
-                      name="map-marker-alt"
-                      className="shrink-0 text-[var(--brand-orange,#f59e0b)]"
-                    />
+                    <KIcon name="map-marker-alt" className="shrink-0 text-[var(--brand-orange,#f59e0b)]" />
                     <span className="truncate font-medium">{toName}</span>
                   </div>
-                  {endShort && (
-                    <div className="ml-6 text-xs text-slate-600">
-                      {endShort}
-                    </div>
-                  )}
+                  {endShort && <div className="ml-6 text-xs text-slate-600">{endShort}</div>}
                 </div>
               </div>
             </button>
@@ -1087,60 +1191,81 @@ export default function TripBuilderPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-6xl rounded-2xl bg-white shadow-sm px-5 md:px-8 lg:px-10 py-6">
-        {/* Breadcrumb */}
-        <div className="mb-3 text-xs text-gray-500">
-          <Link href={`/${username}`} className="hover:underline">
-            @{username}
-          </Link>{" "}
-          / <span className="text-gray-700">{tripSlug}</span>
+      <div className="mx-auto max-w-6xl rounded-2xl bg-white shadow-sm px-4 md:px-8 lg:px-10 py-4 md:py-6">
+        {/* Mobile top bar */}
+        <div className="md:hidden flex items-center gap-2 mb-4">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 active:bg-gray-200 shrink-0"
+            type="button"
+            aria-label="Back"
+          >
+            <Icon name="arrow-left" size={18} />
+          </button>
+          <h1 className="flex-1 text-[17px] font-bold text-[#0A1B4D] truncate">Trip Builder</h1>
+          <button
+            onClick={handleManualSave}
+            disabled={saving}
+            className={
+              "rounded-full px-4 py-2 text-sm font-semibold text-white shrink-0 " +
+              (saving ? "bg-blue-400/60" : "bg-blue-600 active:bg-blue-700")
+            }
+            type="button"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
 
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight text-[#0A1B4D]">
-            Trip Builder
-          </h1>
+        {/* Desktop breadcrumb + header */}
+        <div className="hidden md:block">
+          <div className="mb-3 text-xs text-gray-500">
+            <Link href={`/${username}`} className="hover:underline">
+              @{username}
+            </Link>{" "}
+            / <span className="text-gray-700">{tripSlug}</span>
+          </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Finalize Trip */}
-            <Link
-              href={`/${username}/trip/${tripSlug}/finalize`}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-              title="Finalize Trip"
-            >
-              Finalize Trip
-            </Link>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight text-[#0A1B4D]">
+              Trip Builder
+            </h1>
 
-            {/* Save (manual) */}
-            <button
-              onClick={handleManualSave}
-              disabled={saving}
-              className={
-                "rounded-lg px-4 py-2 text-sm font-semibold text-white " +
-                (saving
-                  ? "bg-blue-400/60 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700")
-              }
-              type="button"
-              title="Save trip name, your name, and any pending ordering changes"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href={`/${username}/trip/${tripSlug}/finalize`}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                title="Finalize Trip"
+              >
+                Finalize Trip
+              </Link>
 
-            {justSaved === "ok" && (
-              <span className="text-xs text-green-700">All changes saved</span>
-            )}
-            {justSaved === "err" && (
-              <span className="text-xs text-red-600">Save failed</span>
-            )}
+              <button
+                onClick={handleManualSave}
+                disabled={saving}
+                className={
+                  "rounded-lg px-4 py-2 text-sm font-semibold text-white " +
+                  (saving ? "bg-blue-400/60 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700")
+                }
+                type="button"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
 
-            <button
-              onClick={() => router.back()}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-              type="button"
-            >
-              Back
-            </button>
+              {justSaved === "ok" && (
+                <span className="text-xs text-green-700">All changes saved</span>
+              )}
+              {justSaved === "err" && (
+                <span className="text-xs text-red-600">Save failed</span>
+              )}
+
+              <button
+                onClick={() => router.back()}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                type="button"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1186,8 +1311,8 @@ export default function TripBuilderPage() {
           <div className="text-sm text-gray-500">Loading itinerary…</div>
         ) : (
           <>
-            {/* Orange labels row ABOVE the days */}
-            <div className="rounded-[10px] bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-white shadow-sm mb-6">
+            {/* Orange labels row ABOVE the days — desktop only */}
+            <div className="hidden md:block rounded-[10px] bg-[var(--brand-orange,#f59e0b)] px-4 py-2.5 text-white shadow-sm mb-6">
               <div className={GRID}>
                 <div className="text-[15px] font-semibold whitespace-nowrap">
                   No
@@ -1239,13 +1364,13 @@ export default function TripBuilderPage() {
                       isActive={isActive}
                     >
                       {/* Day header */}
-                      <div className="mb-3 flex items-center gap-3">
-                        <span className="inline-flex items-center rounded-full bg-[#0b1a55] px-14 py-2 text-white text-sm font-bold">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-[#0b1a55] px-4 md:px-14 py-2 text-white text-sm font-bold shrink-0">
                           {`Day ${i + 1}`}
                         </span>
 
                         <input
-                          className="flex-1 rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
+                          className="flex-1 min-w-[100px] rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
                           placeholder="Add Title"
                           value={day.title ?? ""}
                           onChange={(e) =>
@@ -1255,7 +1380,7 @@ export default function TripBuilderPage() {
 
                         <input
                           type="date"
-                          className="rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border=[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30"
+                          className="rounded-lg px-2 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[var(--brand-orange,#f59e0b)] focus:ring-2 focus:ring-[var(--brand-orange,#f59e0b)]/30 w-[140px] md:w-auto"
                           value={(day as any).the_date ?? ""}
                           onChange={(e) =>
                             handleUpdateDayDate(day, e.target.value)
@@ -1264,7 +1389,7 @@ export default function TripBuilderPage() {
 
                         <button
                           type="button"
-                          className="p-2"
+                          className="p-2 shrink-0"
                           title="Delete day"
                           onClick={() => handleDeleteDay(day)}
                         >

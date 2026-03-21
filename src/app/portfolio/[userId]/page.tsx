@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/browser";
 import { storagePublicUrl } from "@/lib/image/storagePublicUrl";
@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 /* —— Universal Lightbox —— */
 import { Lightbox } from "@/components/ui/Lightbox";
 import type { LightboxPhoto } from "@/types/lightbox";
+import Icon from "@/components/Icon";
 
 type PortfolioLayout = "grid" | "masonry";
 
@@ -53,19 +54,41 @@ type SiteRow = {
   longitude?: number | null;
 };
 
-function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
+function PortfolioHeader({
+  profile,
+  onBack,
+}: {
+  profile: UserProfile | null;
+  onBack: () => void;
+}) {
   const isDark = profile?.portfolio_theme === "dark";
   const themeClasses = isDark
     ? "bg-black/80 text-white backdrop-blur-sm"
     : "bg-white/80 text-black backdrop-blur-sm";
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-20 h-16 flex items-center justify-between px-6 md:px-10 shadow-md ${themeClasses}`}
+      className={`fixed top-0 left-0 right-0 z-20 flex items-center gap-3 px-3 md:px-10 shadow-md ${themeClasses}`}
+      style={{ height: "56px", paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
-      <div className="font-bold text-lg">Heritage of Pakistan</div>
+      {/* Back button — mobile only */}
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back"
+        className="md:hidden w-9 h-9 flex items-center justify-center rounded-full active:bg-black/10 shrink-0"
+      >
+        <Icon name="arrow-left" size={20} className={isDark ? "text-white" : "text-gray-800"} />
+      </button>
+
+      {/* Brand name — hidden on mobile when we have a profile name */}
+      <div className={`font-bold text-base md:text-lg shrink-0 ${profile?.full_name ? "hidden md:block" : ""}`}>
+        Heritage of Pakistan
+      </div>
+
+      {/* Profile info */}
       {profile?.full_name && (
-        <div className="flex items-center gap-3">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden">
+        <div className="flex items-center gap-2 flex-1 min-w-0 md:justify-end">
+          <div className="relative w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden shrink-0">
             <Image
               src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
               alt="User avatar"
@@ -73,8 +96,9 @@ function PortfolioHeader({ profile }: { profile: UserProfile | null }) {
               className="object-cover"
             />
           </div>
-          <div className="text-sm md:text-base font-semibold">
-            {profile.full_name}&apos;s Photography Portfolio
+          <div className="text-sm md:text-base font-semibold truncate">
+            <span className="md:hidden">{profile.full_name}</span>
+            <span className="hidden md:inline">{profile.full_name}&apos;s Photography Portfolio</span>
           </div>
         </div>
       )}
@@ -182,6 +206,7 @@ export default function PublicPortfolioPage() {
   const params = useParams<{ userId: string }>();
   const userId = typeof params.userId === "string" ? params.userId : "";
   const supabase = createClient();
+  const router = useRouter();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
@@ -369,13 +394,13 @@ export default function PublicPortfolioPage() {
 
   return (
     <div className={`min-h-screen ${themeClasses}`}>
-      <PortfolioHeader profile={profile} />
+      <PortfolioHeader profile={profile} onBack={() => router.back()} />
 
-      <main className="pt-6 sm:pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+      <main className="pt-20 md:pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
         {/* Profile header */}
         {profile && (
-          <div className="max-w-4xl mx-auto mb-10 flex flex-col md:flex-row items-center gap-4 md:gap-6">
-            <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-4 border-orange-400 shadow-lg flex-shrink-0">
+          <div className="max-w-4xl mx-auto mb-6 md:mb-10 flex flex-row md:flex-col items-center gap-3 md:gap-6">
+            <div className="relative w-14 h-14 md:w-28 md:h-28 rounded-full overflow-hidden border-[3px] md:border-4 border-orange-400 shadow-lg flex-shrink-0">
               <Image
                 src={avatarSrc(profile.avatar_url) || "/default-avatar.png"}
                 alt="User avatar"
@@ -383,18 +408,18 @@ export default function PublicPortfolioPage() {
                 className="object-cover"
               />
             </div>
-            <div className="text-center md:text-left">
-              <h1 className="text-2xl md:text-3xl font-bold">
+            <div className="text-left md:text-left flex-1 min-w-0">
+              <h1 className="text-lg md:text-3xl font-bold truncate">
                 {profile.full_name}
               </h1>
               {profile.badge && (
-                <p className="mt-1 text-md font-semibold text-green-500">
+                <p className="mt-0.5 text-sm md:text-md font-semibold text-green-500">
                   {profile.badge}
                 </p>
               )}
               {profile.bio && (
                 <p
-                  className={`mt-2 max-w-xl text-sm ${
+                  className={`mt-1 md:mt-2 max-w-xl text-xs md:text-sm hidden md:block ${
                     isDarkTheme ? "text-gray-400" : "text-gray-600"
                   }`}
                 >

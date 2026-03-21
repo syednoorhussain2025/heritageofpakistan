@@ -67,8 +67,8 @@ export default function DashboardShellClient({
     { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
     { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
     { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
-    { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
     { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+    { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
     { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
     { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
   ];
