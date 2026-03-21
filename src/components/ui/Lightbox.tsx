@@ -500,7 +500,7 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[2147483647] bg-black/98 touch-none"
+        className="fixed inset-0 z-[2147483647] bg-white md:bg-black/98 touch-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -529,20 +529,20 @@ export function Lightbox({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-white flex justify-between items-end gap-4">
+              <div className="text-gray-900 md:text-white flex justify-between items-end gap-4">
                 <div>
                   <h3 className="font-bold text-xl leading-tight">
                     {photo?.site?.name}
                   </h3>
                   {(photo as any)?.site?.location && (
-                    <p className="text-sm text-gray-300 mt-1 flex items-center">
+                    <p className="text-sm text-gray-500 md:text-gray-300 mt-1 flex items-center">
                       {(photo as any).site.location}
                       {googleMapsUrl && (
                         <a
                           href={googleMapsUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ml-2 p-1 rounded-full bg-white/10 hover:bg-white/20 hover:text-white transition-colors flex items-center justify-center"
+                          className="ml-2 p-1 rounded-full bg-gray-200 md:bg-white/10 hover:bg-gray-300 md:hover:bg-white/20 hover:text-gray-900 md:hover:text-white transition-colors flex items-center justify-center"
                           title="View on Google Maps"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -553,7 +553,7 @@ export function Lightbox({
                   )}
                 </div>
                 <div className="text-right shrink-0 flex items-center justify-end">
-                  <p className="text-xs text-gray-400">{PHOTO_CREDIT}</p>
+                  <p className="text-xs text-gray-500 md:text-gray-400">{PHOTO_CREDIT}</p>
                 </div>
               </div>
             </div>
@@ -736,14 +736,14 @@ export function Lightbox({
             >
               <div className="flex-1">
                 {(photo as any)?.caption && (
-                  <p className="text-sm text-gray-200 italic leading-snug">
+                  <p className="text-sm text-gray-600 md:text-gray-200 italic leading-snug">
                     {(photo as any).caption}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-700 md:text-white bg-gray-200 md:bg-white/10 hover:bg-gray-300 md:hover:bg-white/20 transition-colors cursor-pointer"
                   onClick={handleDownload}
                   title="Download Image"
                 >
@@ -751,7 +751,7 @@ export function Lightbox({
                 </button>
                 {onAddToCollection && (
                   <button
-                    className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                    className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-gray-200 md:bg-white/10 hover:bg-gray-300 md:hover:bg-white/20 text-gray-800 md:text-white transition-colors cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddToCollection(photo);
@@ -881,37 +881,40 @@ export function Lightbox({
         </AnimatePresence>
 
         {/* ---------- CONTROLS */}
+        {/* Mobile: back arrow (top-left, safe-area aware) */}
         <button
-          className={`absolute right-3 p-2.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`md:hidden absolute left-3 p-2.5 rounded-full bg-gray-100 active:bg-gray-200 text-gray-800 z-30 cursor-pointer transition-opacity duration-300 ${
+            isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          aria-label="Back"
+        >
+          <Icon name="arrow-left" size={20} />
+        </button>
+        {/* Desktop: X close button (top-right) */}
+        <button
+          className={`hidden md:flex absolute right-3 p-2.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           style={{ top: "max(env(safe-area-inset-top, 0px), 12px)" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
         >
           <Icon name="xmark" size={20} />
         </button>
         <button
-          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full md:bg-white/10 md:hover:bg-white/20 bg-gray-100 active:bg-gray-200 text-gray-800 md:text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handlePrev();
-          }}
+          onClick={(e) => { e.stopPropagation(); handlePrev(); }}
         >
           <Icon name="chevron-left" />
         </button>
         <button
-          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full md:bg-white/10 md:hover:bg-white/20 bg-gray-100 active:bg-gray-200 text-gray-800 md:text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleNext();
-          }}
+          onClick={(e) => { e.stopPropagation(); handleNext(); }}
         >
           <Icon name="chevron-right" />
         </button>
