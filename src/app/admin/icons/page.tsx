@@ -51,22 +51,66 @@ function processSvg(svgString: string): string {
       "line",
       "polyline",
       "polygon",
+      "defs",
+      "clipPath",
+      "mask",
+      "use",
+      "symbol",
+      "linearGradient",
+      "radialGradient",
+      "stop",
     ],
     ALLOWED_ATTR: [
+      // Shape attributes
       "d",
-      "fill",
-      "stroke",
-      "stroke-width",
-      "transform",
-      "viewbox",
+      "points",
       "cx",
       "cy",
       "r",
+      "rx",
+      "ry",
       "x",
       "y",
+      "x1",
+      "y1",
+      "x2",
+      "y2",
       "width",
       "height",
-      "points",
+      // SVG root
+      "viewBox",
+      "xmlns",
+      // Fill
+      "fill",
+      "fill-rule",
+      "fill-opacity",
+      "clip-rule",
+      // Stroke — critical for Lucide, Heroicons, Tabler etc.
+      "stroke",
+      "stroke-width",
+      "stroke-linecap",
+      "stroke-linejoin",
+      "stroke-miterlimit",
+      "stroke-dasharray",
+      "stroke-dashoffset",
+      "stroke-opacity",
+      // Other
+      "opacity",
+      "transform",
+      "id",
+      "href",
+      "clip-path",
+      "mask",
+      // Gradient
+      "offset",
+      "stop-color",
+      "stop-opacity",
+      "gradientUnits",
+      "gradientTransform",
+      "x1",
+      "y1",
+      "x2",
+      "y2",
     ],
   });
 
@@ -75,25 +119,59 @@ function processSvg(svgString: string): string {
   const doc = parser.parseFromString(sanitized, "image/svg+xml");
   const svgElement = doc.querySelector("svg");
 
-  if (svgElement) {
-    // 3. Normalize attributes for consistent styling
-    svgElement.setAttribute("width", "1em");
-    svgElement.setAttribute("height", "1em");
-    svgElement.setAttribute("fill", "currentColor");
+  if (!svgElement) {
+    throw new Error("Invalid SVG file: could not find <svg> element.");
+  }
 
-    // Remove fixed color attributes from child elements to allow CSS control
-    svgElement.querySelectorAll("*").forEach((el) => {
-      el.removeAttribute("fill");
+  // Check for XML parse errors
+  const parseError = doc.querySelector("parsererror");
+  if (parseError) {
+    throw new Error("Invalid SVG file: could not be parsed.");
+  }
+
+  // 3. Normalize root SVG attributes for consistent styling
+  svgElement.setAttribute("width", "1em");
+  svgElement.setAttribute("height", "1em");
+  // Preserve viewBox from original — critical for correct rendering
+  // (already retained by DOMPurify above)
+
+  // 4. Detect if this is a stroke-based icon (e.g. Lucide, Heroicons outline)
+  //    by checking if any child uses stroke but not fill.
+  const children = Array.from(svgElement.querySelectorAll("*"));
+  const isStrokeBased = children.some(
+    (el) =>
+      el.getAttribute("stroke") &&
+      el.getAttribute("stroke") !== "none" &&
+      (!el.getAttribute("fill") || el.getAttribute("fill") === "none")
+  );
+
+  if (isStrokeBased) {
+    // Stroke-based icon: set fill="none" on root, use currentColor for strokes
+    svgElement.setAttribute("fill", "none");
+    svgElement.setAttribute("stroke", "currentColor");
+    children.forEach((el) => {
+      const stroke = el.getAttribute("stroke");
+      const fill = el.getAttribute("fill");
+      // Remove hardcoded colors, let parent currentColor flow through
+      if (stroke && stroke !== "none") el.setAttribute("stroke", "currentColor");
+      if (fill && fill !== "none") el.setAttribute("fill", "currentColor");
+      el.removeAttribute("style");
+    });
+  } else {
+    // Fill-based icon: set fill="currentColor" on root
+    svgElement.setAttribute("fill", "currentColor");
+    children.forEach((el) => {
+      const fill = el.getAttribute("fill");
+      // Only remove hardcoded colors; preserve "none" fills (used for cutouts)
+      if (fill && fill !== "none") el.removeAttribute("fill");
       el.removeAttribute("stroke");
       el.removeAttribute("style");
     });
-
-    // 4. Serialize the element back to a string
-    const serializer = new XMLSerializer();
-    return serializer.serializeToString(svgElement);
   }
 
-  throw new Error("Invalid SVG file: could not find <svg> element.");
+  // 5. Serialize the element back to a string
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(svgElement);
 }
 
 /**
@@ -167,7 +245,14 @@ export default function IconManagerPage() {
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreview(reader.result as string);
+        try {
+          const processed = processSvg(reader.result as string);
+          setPreview(processed);
+          setError(null);
+        } catch (err: any) {
+          setPreview(null);
+          setError(err.message || "Failed to process SVG.");
+        }
       };
       reader.readAsText(file);
       setIconName(slugify(file.name.replace(".svg", "")));
