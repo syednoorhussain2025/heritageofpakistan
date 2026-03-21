@@ -144,8 +144,11 @@ export default function DashboardHome() {
   return (
     <div className="space-y-5">
 
+      {/* ── MOBILE: grey full-screen backdrop ── */}
+      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "#efefef" }} />
+
       {/* ── MOBILE: nav list only (profile info is in the teal header) ── */}
-      <div className="lg:hidden -mx-4 -mt-4 -mb-4 px-4 pt-6 pb-24" style={{ backgroundColor: "#efefef", minHeight: "calc(100vh - 80px)" }}>
+      <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-5 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
         {/* Nav list card */}
         <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
           {mobileNavItems.map((item, i) => (
