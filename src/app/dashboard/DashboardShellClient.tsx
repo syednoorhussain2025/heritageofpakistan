@@ -100,6 +100,19 @@ export default function DashboardShellClient({
     "/dashboard/account-details": "Account Details",
   };
 
+  const pageIconMap: Record<string, string> = {
+    "/dashboard/profile": "user",
+    "/dashboard/mywishlists": "list-ul",
+    "/dashboard/mycollections": "retro",
+    "/dashboard/mycollections/photos": "images",
+    "/dashboard/mytrips": "route",
+    "/dashboard/notebook": "book",
+    "/dashboard/placesvisited": "map-marker-alt",
+    "/dashboard/myreviews": "star",
+    "/dashboard/portfolio": "image",
+    "/dashboard/account-details": "lightbulb",
+  };
+
   const pageTitle =
     pageTitleMap[pathname ?? ""] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
@@ -107,6 +120,14 @@ export default function DashboardShellClient({
     pathname?.startsWith("/dashboard/mytrips/") ? "Trip Details" :
     pathname?.startsWith("/dashboard/myreviews/") ? "Review" :
     pathname?.startsWith("/dashboard/notebook/") ? "Note" : "Dashboard");
+
+  const pageIcon =
+    pageIconMap[pathname ?? ""] ??
+    (pathname?.startsWith("/dashboard/mywishlists/") ? "list-ul" :
+    pathname?.startsWith("/dashboard/mycollections/") ? "retro" :
+    pathname?.startsWith("/dashboard/mytrips/") ? "route" :
+    pathname?.startsWith("/dashboard/myreviews/") ? "star" :
+    pathname?.startsWith("/dashboard/notebook/") ? "book" : undefined);
 
   // Smart back: nested routes go to their parent, not all the way to /dashboard
   function handleBack() {
@@ -278,7 +299,8 @@ export default function DashboardShellClient({
             >
               <Icon name="arrow-left" size={20} className="text-white" />
             </button>
-            <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+            <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
+              {pageIcon && <Icon name={pageIcon} size={17} className="text-white/90 shrink-0" />}
               {pageTitle}
             </span>
           </div>
@@ -304,7 +326,8 @@ export default function DashboardShellClient({
           >
             <Icon name="arrow-left" size={20} className="text-white" />
           </button>
-          <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+          <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
+            {pageIcon && <Icon name={pageIcon} size={17} className="text-white/90 shrink-0" />}
             {pageTitle}
           </span>
         </MobilePageHeader>
