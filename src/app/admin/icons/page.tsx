@@ -14,6 +14,8 @@ import {
   FaPaintBrush,
   FaClipboard,
   FaUndo,
+  FaLayerGroup,
+  FaTimes,
 } from "react-icons/fa";
 import DOMPurify from "isomorphic-dompurify";
 
@@ -220,6 +222,21 @@ export default function IconManagerPage() {
   const [styles, setStyles] = useState(initialStyles);
   const [activeTab, setActiveTab] = useState("upload");
 
+  // Bulk upload state
+  type BulkItem = {
+    file: File;
+    name: string;
+    preview: string | null;
+    error: string | null;
+    status: "pending" | "uploading" | "done" | "skipped" | "error";
+  };
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkSkipDuplicates, setBulkSkipDuplicates] = useState(true);
+  const [bulkTags, setBulkTags] = useState("");
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
+
   const loadIcons = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -341,6 +358,115 @@ export default function IconManagerPage() {
     }
   };
 
+  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(
+      (f) => f.type === "image/svg+xml" || f.name.endsWith(".svg")
+    );
+    const items: BulkItem[] = files.map((file) => ({
+      file,
+      name: slugify(file.name.replace(/\.svg$/i, "")),
+      preview: null,
+      error: null,
+      status: "pending",
+    }));
+    setBulkItems(items);
+    setBulkProgress(0);
+    // Process previews asynchronously
+    items.forEach((item, idx) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        try {
+          const processed = processSvg(reader.result as string);
+          setBulkItems((prev) =>
+            prev.map((it, i) => (i === idx ? { ...it, preview: processed, error: null } : it))
+          );
+        } catch (err: any) {
+          setBulkItems((prev) =>
+            prev.map((it, i) => (i === idx ? { ...it, error: err.message, status: "error" } : it))
+          );
+        }
+      };
+      reader.readAsText(item.file);
+    });
+  };
+
+  const handleBulkNameChange = (idx: number, value: string) => {
+    setBulkItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, name: slugify(value) } : it))
+    );
+  };
+
+  const handleBulkRemove = (idx: number) => {
+    setBulkItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleBulkUpload = async () => {
+    const pending = bulkItems.filter((it) => it.status === "pending" && it.preview && !it.error);
+    if (pending.length === 0) return;
+    setBulkUploading(true);
+    setBulkProgress(0);
+    const tags = bulkTags.split(",").map((t) => t.trim()).filter(Boolean);
+    const existingNames = new Set(icons.map((i) => i.name));
+    let done = 0;
+
+    for (const item of bulkItems) {
+      if (item.status !== "pending" || !item.preview || item.error) continue;
+      const name = slugify(item.name);
+
+      if (bulkSkipDuplicates && existingNames.has(name)) {
+        setBulkItems((prev) =>
+          prev.map((it) => (it === item ? { ...it, status: "skipped" } : it))
+        );
+        done++;
+        setBulkProgress(done);
+        continue;
+      }
+
+      setBulkItems((prev) =>
+        prev.map((it) => (it === item ? { ...it, status: "uploading" } : it))
+      );
+
+      try {
+        const rawSvg = await item.file.text();
+        const processedSvg = processSvg(rawSvg);
+        const path = `${name}-${Date.now()}.svg`;
+
+        const { error: storageErr } = await supabase.storage
+          .from("icons")
+          .upload(path, item.file);
+        if (storageErr) throw storageErr;
+
+        const { error: dbErr } = await supabase.from("icons").insert({
+          name,
+          tags,
+          svg_content: processedSvg,
+          storage_path: path,
+        });
+        if (dbErr) {
+          await supabase.storage.from("icons").remove([path]);
+          throw dbErr;
+        }
+
+        existingNames.add(name);
+        setBulkItems((prev) =>
+          prev.map((it) => (it === item ? { ...it, status: "done" } : it))
+        );
+      } catch (err: any) {
+        setBulkItems((prev) =>
+          prev.map((it) =>
+            it === item ? { ...it, status: "error", error: err.message } : it
+          )
+        );
+      }
+
+      done++;
+      setBulkProgress(done);
+    }
+
+    setBulkUploading(false);
+    await loadIcons();
+  };
+
   const handleIconClick = (name: string) => {
     navigator.clipboard.writeText(name);
     setCopySuccess(`Copied "${name}"!`);
@@ -439,7 +565,17 @@ export default function IconManagerPage() {
                         : "text-slate-500 hover:bg-slate-50"
                     }`}
                   >
-                    Upload Icon
+                    Upload
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("bulk")}
+                    className={`flex-1 p-3 font-semibold text-sm transition-colors ${
+                      activeTab === "bulk"
+                        ? "bg-slate-100 text-slate-900"
+                        : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    Bulk
                   </button>
                   <button
                     onClick={() => setActiveTab("styler")}
@@ -449,7 +585,7 @@ export default function IconManagerPage() {
                         : "text-slate-500 hover:bg-slate-50"
                     }`}
                   >
-                    Icon Styler
+                    Styler
                   </button>
                 </div>
 
@@ -519,6 +655,132 @@ export default function IconManagerPage() {
                         )}
                         {busy ? "Uploading..." : "Upload Icon"}
                       </button>
+                    </div>
+                  )}
+
+                  {activeTab === "bulk" && (
+                    <div className="space-y-4">
+                      <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                        <FaLayerGroup /> Bulk Upload
+                      </h2>
+
+                      <div>
+                        <label className="text-sm font-semibold text-slate-700">
+                          Tags for all (comma-separated)
+                        </label>
+                        <input
+                          value={bulkTags}
+                          onChange={(e) => setBulkTags(e.target.value)}
+                          placeholder="e.g., landmark, outline"
+                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={bulkSkipDuplicates}
+                          onChange={(e) => setBulkSkipDuplicates(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm font-medium text-slate-700">
+                          Skip duplicates
+                        </span>
+                      </label>
+
+                      <div>
+                        <label className="text-sm font-semibold text-slate-700">
+                          SVG Files
+                        </label>
+                        <input
+                          ref={bulkFileInputRef}
+                          type="file"
+                          accept=".svg,image/svg+xml"
+                          multiple
+                          onChange={handleBulkFileChange}
+                          className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                        />
+                      </div>
+
+                      {bulkItems.length > 0 && (
+                        <>
+                          <div className="text-xs text-slate-500">
+                            {bulkItems.length} file{bulkItems.length !== 1 ? "s" : ""} selected
+                            {bulkUploading && ` — ${bulkProgress}/${bulkItems.filter(it => it.status !== "error" || it.preview).length} processed`}
+                          </div>
+
+                          {/* Per-icon list */}
+                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {bulkItems.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${
+                                  item.status === "done"
+                                    ? "bg-emerald-50 border-emerald-200"
+                                    : item.status === "error"
+                                    ? "bg-red-50 border-red-200"
+                                    : item.status === "skipped"
+                                    ? "bg-amber-50 border-amber-200"
+                                    : item.status === "uploading"
+                                    ? "bg-blue-50 border-blue-200"
+                                    : "bg-white border-slate-200"
+                                }`}
+                              >
+                                {/* Preview */}
+                                <div
+                                  className="w-8 h-8 shrink-0 text-slate-700"
+                                  style={{ fontSize: "32px" }}
+                                  dangerouslySetInnerHTML={{ __html: item.preview || "" }}
+                                />
+                                {/* Name input */}
+                                <input
+                                  value={item.name}
+                                  onChange={(e) => handleBulkNameChange(idx, e.target.value)}
+                                  disabled={bulkUploading || item.status === "done"}
+                                  className="flex-1 min-w-0 rounded px-2 py-1 bg-slate-100 font-mono text-slate-800 border border-transparent focus:outline-none focus:ring-1 focus:ring-[#F78300]/40 disabled:opacity-60"
+                                />
+                                {/* Status badge */}
+                                <span className="shrink-0">
+                                  {item.status === "done" && <FaCheckCircle className="text-emerald-500" />}
+                                  {item.status === "error" && <FaExclamationCircle className="text-red-500" title={item.error || ""} />}
+                                  {item.status === "skipped" && <span className="text-amber-600 font-semibold">skip</span>}
+                                  {item.status === "uploading" && <FaSpinner className="animate-spin text-blue-500" />}
+                                </span>
+                                {/* Remove */}
+                                {!bulkUploading && item.status !== "done" && (
+                                  <button
+                                    onClick={() => handleBulkRemove(idx)}
+                                    className="shrink-0 text-slate-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <FaTimes />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={handleBulkUpload}
+                            disabled={
+                              bulkUploading ||
+                              bulkItems.every((it) => it.status !== "pending" || it.error)
+                            }
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                          >
+                            {bulkUploading ? (
+                              <>
+                                <FaSpinner className="animate-spin" />
+                                Uploading {bulkProgress}/{bulkItems.filter(it => !it.error || it.status !== "pending").length}…
+                              </>
+                            ) : (
+                              <>
+                                <FaCloudUploadAlt />
+                                Upload {bulkItems.filter((it) => it.status === "pending" && it.preview && !it.error).length} Icons
+                              </>
+                            )}
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
 
