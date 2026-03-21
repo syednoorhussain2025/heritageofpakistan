@@ -137,26 +137,32 @@ function processSvg(svgString: string): string {
   // Preserve viewBox from original — critical for correct rendering
   // (already retained by DOMPurify above)
 
-  // 4. Detect if this is a stroke-based icon (e.g. Lucide, Heroicons outline)
-  //    by checking if any child uses stroke but not fill.
+  // 4. Detect if this is a stroke-based icon (e.g. Lucide, Heroicons outline, Tabler)
   const children = Array.from(svgElement.querySelectorAll("*"));
-  const isStrokeBased = children.some(
-    (el) =>
-      el.getAttribute("stroke") &&
-      el.getAttribute("stroke") !== "none" &&
-      (!el.getAttribute("fill") || el.getAttribute("fill") === "none")
+
+  // Strong signal: root SVG has fill="none" (Lucide, Tabler, Heroicons outline all do this)
+  const rootFillNone = svgElement.getAttribute("fill") === "none";
+
+  // Secondary signal: any child has an explicit stroke that isn't "none"
+  const anyChildHasStroke = children.some(
+    (el) => el.getAttribute("stroke") && el.getAttribute("stroke") !== "none"
   );
 
+  // Only treat as fill-based if root has fill AND no children use stroke
+  const isStrokeBased = rootFillNone || anyChildHasStroke;
+
   if (isStrokeBased) {
-    // Stroke-based icon: set fill="none" on root, use currentColor for strokes
+    // Stroke-based: root fill="none", stroke="currentColor"
     svgElement.setAttribute("fill", "none");
     svgElement.setAttribute("stroke", "currentColor");
     children.forEach((el) => {
       const stroke = el.getAttribute("stroke");
       const fill = el.getAttribute("fill");
-      // Remove hardcoded colors, let parent currentColor flow through
+      // Normalize explicit stroke colors to currentColor
       if (stroke && stroke !== "none") el.setAttribute("stroke", "currentColor");
-      if (fill && fill !== "none") el.setAttribute("fill", "currentColor");
+      // Only remove hardcoded fill if it was explicitly set to a non-none color
+      if (fill && fill !== "none") el.removeAttribute("fill");
+      // Explicit fill="none" is intentional (e.g. open shapes) — leave it
       el.removeAttribute("style");
     });
   } else {
@@ -164,7 +170,7 @@ function processSvg(svgString: string): string {
     svgElement.setAttribute("fill", "currentColor");
     children.forEach((el) => {
       const fill = el.getAttribute("fill");
-      // Only remove hardcoded colors; preserve "none" fills (used for cutouts)
+      // Preserve "none" fills (cutouts/holes), remove hardcoded colors
       if (fill && fill !== "none") el.removeAttribute("fill");
       el.removeAttribute("stroke");
       el.removeAttribute("style");
