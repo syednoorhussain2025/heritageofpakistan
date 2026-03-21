@@ -1,6 +1,7 @@
 // src/app/dashboard/account-details/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import DeleteAccountButton from "./DeleteAccountButton";
 
 // Helper function to format the date
 const formatDate = (dateString: string) => {
@@ -51,6 +52,7 @@ export default async function AccountDetailsPage() {
           </span>
         </div>
       </div>
+      <DeleteAccountButton />
     </div>
   );
 }
