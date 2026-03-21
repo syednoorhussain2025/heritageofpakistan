@@ -242,41 +242,56 @@ export default function DashboardShellClient({
           </div>
 
           {/* Profile row */}
-          <div className="flex items-center gap-4 mt-4">
-            {/* Avatar */}
-            <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
-              {thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumb} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white text-2xl font-bold">{initials}</span>
-              )}
+          {profile === null ? (
+            /* Skeleton — same dimensions as real content, no layout shift */
+            <div className="flex items-center gap-4 mt-4 animate-pulse">
+              <div className="w-16 h-16 rounded-full bg-white/25 shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-5 bg-white/25 rounded-full w-36" />
+                <div className="h-4 bg-white/20 rounded-full w-20" />
+              </div>
+              <div className="shrink-0 text-right space-y-1">
+                <div className="h-7 bg-white/25 rounded w-10 ml-auto" />
+                <div className="h-3 bg-white/20 rounded w-16 ml-auto" />
+              </div>
             </div>
+          ) : (
+            <div className="flex items-center gap-4 mt-4">
+              {/* Avatar */}
+              <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-2xl font-bold">{initials}</span>
+                )}
+              </div>
 
-            {/* Name + badge */}
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-[18px] font-bold leading-tight truncate">
-                {profile?.full_name ?? "Traveler"}
-              </p>
-              {profile?.badge && (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
-                  <span className="text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
-                    {profile.badge}
-                  </span>
-                </div>
-              )}
+              {/* Name + badge */}
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-[18px] font-bold leading-tight truncate">
+                  {profile.full_name ?? "Traveler"}
+                </p>
+                {profile.badge && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
+                    <span className="text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
+                      {profile.badge}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Places visited count */}
+              <div className="shrink-0 text-right">
+                <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
+                <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
+              </div>
             </div>
+          )}
 
-            {/* Places visited count */}
-            <div className="shrink-0 text-right">
-              <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
-              <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          {badgeInfo.next && (
+          {/* Progress bar — only when data loaded */}
+          {profile !== null && badgeInfo.next && (
             <div className="mt-4">
               <div className="flex justify-between text-[11px] text-white/70 mb-1.5">
                 <span>{badgeInfo.current} Badge</span>
@@ -290,6 +305,8 @@ export default function DashboardShellClient({
               </div>
             </div>
           )}
+          {/* Progress bar placeholder — keeps height stable when no badge progress */}
+          {profile !== null && !badgeInfo.next && <div className="mt-4 h-1.5" />}
         </MobilePageHeader>
       ) : showSearch ? (
         /* Compact header with search bar for wishlists / collections / trips */
