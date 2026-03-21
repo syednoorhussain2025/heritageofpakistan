@@ -12,6 +12,7 @@ import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { listPortfolio } from "@/lib/db/portfolio";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 function storagePublicUrl(bucket: string, path: string) {
   const supabase = createClient();
@@ -49,6 +50,7 @@ export default function DashboardHome() {
   const supabase = createClient();
   const router = useRouter();
   const { userId, authLoading, authError } = useAuthUserId();
+  const { startNavigation } = useLoaderEngine();
 
   async function handleSignOut() {
     void hapticHeavy();
@@ -152,13 +154,18 @@ export default function DashboardHome() {
         {/* Nav list card */}
         <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
           {mobileNavItems.map((item, i) => (
-            <Link key={item.href} href={item.href} onClick={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
-              {/* Indented divider — skipped on first row */}
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => { void hapticLight(); startNavigation(item.href, { overlay: "transparent" }); }}
+              className="w-full flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none text-left"
+              style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
+            >
               {i > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
               <Icon name={item.icon} size={30} className="text-black shrink-0" />
               <span className="flex-1 text-[15px] font-normal text-[#2d2d2d]">{item.label}</span>
               <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
-            </Link>
+            </button>
           ))}
         </div>
 
