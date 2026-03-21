@@ -209,7 +209,7 @@ export default function TripDetailPage() {
                     {idx > 0 && <span className="absolute top-0 right-0 left-[72px] h-px bg-gray-100" />}
                     <Link
                       href={it.site?.slug ? `/site/${it.site.slug}` : "#"}
-                      onTouchStart={() => void hapticLight()}
+                      onClick={() => void hapticLight()}
                       className="flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition-colors"
                     >
                       {/* Site thumbnail */}
@@ -265,7 +265,7 @@ export default function TripDetailPage() {
         {editUrl ? (
           <Link
             href={editUrl}
-            onTouchStart={() => void hapticMedium()}
+            onClick={() => void hapticMedium()}
             className="flex items-center justify-center gap-2 w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition"
             style={{ backgroundColor: "#00b78b" }}
           >

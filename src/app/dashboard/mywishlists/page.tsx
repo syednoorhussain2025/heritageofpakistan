@@ -105,7 +105,7 @@ export default function MyWishlistsPage() {
             {i > 0 && <span className="absolute top-0 right-0 left-[68px] h-px bg-gray-100" />}
             <Link
               href={`/dashboard/mywishlists/${w.id}`}
-              onTouchStart={() => void hapticLight()}
+              onClick={() => void hapticLight()}
               className="flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-colors"
             >
               {/* Circular preview from first item's cover */}

@@ -149,9 +149,8 @@ export default function NoteDetailPage() {
       >
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => { void hapticHeavy(); void handleDelete(); }}
           disabled={deleting}
-          onTouchStart={() => void hapticHeavy()}
           className="w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition disabled:opacity-50 bg-red-500"
         >
           {deleting ? "Deleting…" : "Delete Note"}

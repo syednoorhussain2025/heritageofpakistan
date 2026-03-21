@@ -145,32 +145,28 @@ export default function DashboardHome() {
     <div className="space-y-5">
 
       {/* ── MOBILE: nav list only (profile info is in the teal header) ── */}
-      <div className="lg:hidden">
-        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+      <div className="lg:hidden -mx-4 -mt-5 px-3 pt-3 pb-3" style={{ backgroundColor: "#efefef" }}>
+        {/* Nav list card */}
+        <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
           {mobileNavItems.map((item, i) => (
-            <Link key={item.href} href={item.href} onTouchStart={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
+            <Link key={item.href} href={item.href} onClick={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
               {/* Indented divider — skipped on first row */}
-              {i > 0 && <span className="absolute top-0 right-0 left-[60px] h-px bg-gray-100" />}
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#f2f2f2" }}>
-                <Icon name={item.icon} size={18} className="text-[#333333]" />
-              </div>
-              <span className="flex-1 text-[15px] font-normal text-[#1a1a1a]">{item.label}</span>
-              <Icon name="chevron-right" size={13} className="text-[#c8c8c8]" />
+              {i > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
+              <Icon name={item.icon} size={19} className="text-[#444444] shrink-0" />
+              <span className="flex-1 text-[15px] font-normal text-[#2d2d2d]">{item.label}</span>
+              <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
             </Link>
           ))}
         </div>
 
         {/* Sign out */}
         <button
-          onTouchStart={() => void hapticHeavy()}
-          onClick={handleSignOut}
-          className="mt-3 w-full flex items-center gap-3.5 px-4 py-[15px] rounded-2xl bg-white active:bg-red-50 transition-colors select-none"
-          style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+          onClick={() => { void hapticHeavy(); void handleSignOut(); }}
+          className="mt-2.5 w-full flex items-center gap-3.5 px-4 py-[15px] rounded-2xl bg-white border border-gray-200 active:bg-red-50 transition-colors select-none"
+          style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
         >
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
-            <Icon name="sign-out" size={18} className="text-red-500" />
-          </div>
-          <span className="flex-1 text-[15px] font-normal text-red-500">Sign Out</span>
+          <Icon name="sign-out" size={19} className="text-red-500 shrink-0" />
+          <span className="flex-1 text-[15px] font-normal text-red-500 text-left">Sign Out</span>
         </button>
       </div>
 

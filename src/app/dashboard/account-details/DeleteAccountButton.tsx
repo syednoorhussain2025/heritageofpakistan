@@ -72,8 +72,7 @@ export default function DeleteAccountButton() {
     <div className="mt-6">
       <button
         type="button"
-        onTouchStart={() => void hapticHeavy()}
-        onClick={() => setConfirming(true)}
+        onClick={() => { void hapticHeavy(); setConfirming(true); }}
         className="w-full flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-white active:bg-red-50 transition-colors"
         style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
       >
