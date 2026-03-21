@@ -3,6 +3,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { Spinner } from "@/components/ui/Spinner";
 
 type Direction = "prev" | "next" | "forward" | "back" | null;
 type LoaderVariant = "listing" | "simple";
@@ -27,15 +28,15 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
   const prevPathRef = useRef(pathname);
 
   const [overlayMode, setOverlayMode] = useState<NavOverlayMode>(null);
+  // slideIn only used for white mode
   const [slideIn, setSlideIn] = useState(false);
 
   // Clear overlay when route actually changes
   useEffect(() => {
     if (pathname !== prevPathRef.current) {
       prevPathRef.current = pathname;
-      // Fade out — let CSS transition handle it then hide
       setSlideIn(false);
-      const t = setTimeout(() => setOverlayMode(null), 250);
+      const t = setTimeout(() => setOverlayMode(null), 200);
       return () => clearTimeout(t);
     }
   }, [pathname]);
@@ -45,12 +46,16 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
       if (!href) return;
 
       const mode = options?.overlay ?? null;
-      if (mode) {
-        setOverlayMode(mode);
-        // Trigger slide-in on next frame so CSS transition fires
+      if (mode === "white") {
+        setOverlayMode("white");
+        // Trigger slide-in on next frame
         requestAnimationFrame(() => setSlideIn(true));
+      } else if (mode === "transparent") {
+        // Pop instantly — no animation needed
+        setOverlayMode("transparent");
       }
 
+      // Navigate immediately — no delay
       try {
         router.push(href);
       } catch {
@@ -82,29 +87,29 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
 }
 
 function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean }) {
-  // Lazy-import Spinner only on client to avoid SSR issues
-  const [SpinnerComp, setSpinnerComp] = useState<React.ComponentType<{ size?: number }> | null>(null);
-  useEffect(() => {
-    import("@/components/ui/Spinner").then((m) => setSpinnerComp(() => m.Spinner));
-  }, []);
-
   if (!mode) return null;
 
-  const isWhite = mode === "white";
+  if (mode === "transparent") {
+    return (
+      <div className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none">
+        <Spinner size={72} />
+      </div>
+    );
+  }
 
+  // White mode: slides in from right, fades out
   return (
     <div
-      className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none"
+      className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none bg-white"
       style={{
-        backgroundColor: isWhite ? "white" : "transparent",
         transform: slideIn ? "translateX(0)" : "translateX(100%)",
+        opacity: slideIn ? 1 : 0,
         transition: slideIn
           ? "transform 0.28s cubic-bezier(0.4,0,0.2,1)"
           : "opacity 0.18s ease",
-        opacity: slideIn ? 1 : 0,
       }}
     >
-      {SpinnerComp && <SpinnerComp size={72} />}
+      <Spinner size={72} />
     </div>
   );
 }
