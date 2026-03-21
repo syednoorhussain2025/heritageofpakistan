@@ -84,11 +84,8 @@ export default function MyCollectionsPage() {
 
   return (
     <>
-      {/* Search bar — fixed below green header, mobile only */}
-      <div
-        className="lg:hidden fixed inset-x-0 z-[80] px-3 pb-3 bg-[#00b78b]"
-        style={{ top: "calc(var(--sat, 44px) + 48px)" }}
-      >
+      {/* Search bar — bleeds into header visually, mobile only */}
+      <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
         <input
           type="search"
           value={q}
@@ -98,8 +95,6 @@ export default function MyCollectionsPage() {
           style={{ fontSize: "16px" }}
         />
       </div>
-      {/* Extra spacer */}
-      <div className="lg:hidden" style={{ height: "52px" }} />
 
       {/* Toast */}
       {toast && (

@@ -102,11 +102,8 @@ export default function MyWishlistsPage() {
 
   return (
     <>
-      {/* Search bar — fixed, flush below the green shell header, mobile only */}
-      <div
-        className="lg:hidden fixed inset-x-0 z-[80] px-3 pb-3 bg-[#00b78b]"
-        style={{ top: "calc(var(--sat, 44px) + 48px)" }}
-      >
+      {/* Search bar — bleeds into header visually, mobile only */}
+      <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
         <input
           type="search"
           value={q}
@@ -116,8 +113,6 @@ export default function MyWishlistsPage() {
           style={{ fontSize: "16px" }}
         />
       </div>
-      {/* Extra spacer to push content below the search bar on mobile */}
-      <div className="lg:hidden" style={{ height: "52px" }} />
 
     <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
       {filtered.map((w, i) => {

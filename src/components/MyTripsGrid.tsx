@@ -179,25 +179,18 @@ export default function MyTripsGrid({
 
   return (
     <section className="w-full">
-      {/* Mobile: fixed search bar in teal header area — dashboard context only */}
+      {/* Mobile: search bar bleeds into header area — dashboard context only */}
       {context === "dashboard" && (
-        <>
-          <div
-            className="lg:hidden fixed inset-x-0 z-[80] px-3 pb-3 bg-[#00b78b]"
-            style={{ top: "calc(var(--sat, 44px) + 48px)" }}
-          >
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search trips…"
-              className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
-              style={{ fontSize: "16px" }}
-            />
-          </div>
-          {/* Spacer to push content below the search bar */}
-          <div className="lg:hidden" style={{ height: "52px" }} />
-        </>
+        <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search trips…"
+            className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
+            style={{ fontSize: "16px" }}
+          />
+        </div>
       )}
 
       <div className={`${wrapperClasses} min-h-[360px]`}>
