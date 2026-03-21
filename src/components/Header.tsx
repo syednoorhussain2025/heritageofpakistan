@@ -1232,7 +1232,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   }}
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
                 >
-                  <Icon name="route" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <Icon name="line-segments-light" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
                   <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
                     Trip Builder
                   </span>
@@ -1253,7 +1253,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
               >
                 <div className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white/80">
                   <Icon
-                    name="user"
+                    name="user-round"
                     size={16}
                     className={textLight ? "text-gray-700" : "text-white"}
                   />
@@ -1389,7 +1389,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     onClick={closeMobileMenu}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="user" size={20} className="text-[#474747]" />
+                    <Icon name="user-round" size={20} className="text-[#474747]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign In
                     </span>

@@ -547,12 +547,12 @@ export default function StickyHeader({
               </ActionButton>
 
               <ActionButton onClick={() => setShowTripModal(true)}>
-                <IconBadge name="route" />
+                <IconBadge name="line-segments-light" />
                 <span>{inTrip ? "Added to Trip" : "Add to Trip"}</span>
               </ActionButton>
 
               <ActionButton onClick={() => setShowWishlistModal(true)}>
-                <IconBadge name="list-ul" />
+                <IconBadge name="layout-list" />
                 <span>{wishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
               </ActionButton>
 

@@ -293,7 +293,7 @@ export default function AdminHome() {
               {/* Users Box */}
               <div className="rounded-lg bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center gap-2 text-slate-800">
-                  <Icon name="user" size={22} style={{ color: "#F78300" }} />
+                  <Icon name="user-round" size={22} style={{ color: "#F78300" }} />
                   <h2 className="text-lg font-semibold">Users</h2>
                 </div>
                 <div className="space-y-2 text-sm text-slate-700">

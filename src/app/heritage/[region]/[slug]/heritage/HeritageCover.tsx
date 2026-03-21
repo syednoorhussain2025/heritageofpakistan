@@ -729,7 +729,7 @@ export default function HeritageCover({
                   className="hero-action-btn hero-action-btn--primary"
                 >
                   <span className="hero-action-icon" aria-hidden="true">
-                    <Icon name="route" size={18} />
+                    <Icon name="line-segments-light" size={18} />
                   </span>
                   <span className="hero-action-label">Add to Trip</span>
                 </button>

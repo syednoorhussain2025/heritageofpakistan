@@ -1202,7 +1202,7 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         active={editor.isActive("bulletList")}
       >
-        <Icon name="list-ul" size={14} />
+        <Icon name="layout-list" size={14} />
       </ToolbarButton>
       <ToolbarButton
         title="Numbered List"

@@ -778,7 +778,7 @@ export default function AddToCollectionModal({
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
-                <Icon name="retro" className="text-[var(--brand-orange)]" />
+                <Icon name="cards" className="text-[var(--brand-orange)]" />
               </div>
               <div className="flex flex-col">
                 <h2 className="text-xl font-bold text-gray-900">

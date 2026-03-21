@@ -279,7 +279,7 @@ export default function MyTripsGrid({
                   <div className="relative h-28 sm:h-36 w-full bg-gray-100 overflow-hidden">
                     <div className="absolute top-2 left-2 z-10">
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#00b78b] px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
-                        <Icon name="route" size={12} />
+                        <Icon name="line-segments-light" size={12} />
                         Trip
                       </span>
                     </div>
@@ -319,7 +319,7 @@ export default function MyTripsGrid({
                         {counts.sites} sites
                       </span>
                       <span className="inline-flex items-center gap-1">
-                        <Icon name="route" size={14} />
+                        <Icon name="line-segments-light" size={14} />
                         {counts.travels} travels
                       </span>
                     </div>

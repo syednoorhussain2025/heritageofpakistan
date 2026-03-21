@@ -112,7 +112,7 @@ export default function Builderaddbutton({
                 onClick={doAction("travel")}
               >
                 <Icon
-                  name="route"
+                  name="line-segments-light"
                   size={22}
                   className="text-[var(--brand-orange,#f59e0b)]"
                 />

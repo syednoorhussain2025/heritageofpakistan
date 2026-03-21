@@ -268,7 +268,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="route" size={18} className="text-gray-800" />
+                <Icon name="line-segments-light" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
@@ -304,7 +304,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="book" size={18} className="text-gray-800" />
+                <Icon name="book-open-text-light" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
             </a>

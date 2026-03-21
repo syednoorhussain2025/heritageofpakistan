@@ -275,7 +275,7 @@ export default function AddToTripModal({
           <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center">
-                <Icon name="route" className="text-[var(--brand-orange)]" />
+                <Icon name="line-segments-light" className="text-[var(--brand-orange)]" />
               </div>
               <h2 className="text-lg font-semibold">Add to Trip</h2>
             </div>
@@ -385,7 +385,7 @@ export default function AddToTripModal({
                           {toggling === t.id ? (
                             <Spinner size={14} className="border-white/70" />
                           ) : (
-                            <Icon name="route" size={16} />
+                            <Icon name="line-segments-light" size={16} />
                           )}
                         </button>
 

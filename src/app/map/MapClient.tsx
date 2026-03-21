@@ -1387,7 +1387,7 @@ export default function MapClient() {
                   ) : wishlistItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                       <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                        <Icon name="list-ul" size={24} className="text-gray-400" />
+                        <Icon name="layout-list" size={24} className="text-gray-400" />
                       </span>
                       <p className="text-sm font-medium text-gray-600">No sites in this list yet</p>
                       <p className="text-xs text-gray-400 mt-1.5">Save heritage sites from their detail pages to build your list.</p>
@@ -1462,7 +1462,7 @@ export default function MapClient() {
                   ) : wishlists.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                       <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                        <Icon name="list-ul" size={24} className="text-gray-400" />
+                        <Icon name="layout-list" size={24} className="text-gray-400" />
                       </span>
                       <p className="text-sm font-medium text-gray-600">No saved lists yet</p>
                       <p className="text-xs text-gray-400 mt-1.5">Save sites from their detail pages to create lists and plan your visits.</p>
@@ -1515,7 +1515,7 @@ export default function MapClient() {
           return (
             <div className="p-6 flex flex-col items-center justify-center min-h-[220px] text-center">
               <span className="w-14 h-14 rounded-full bg-[var(--brand-blue)]/10 flex items-center justify-center mb-4">
-                <Icon name="route" size={28} className="text-[var(--brand-blue)]" />
+                <Icon name="line-segments-light" size={28} className="text-[var(--brand-blue)]" />
               </span>
               <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your trips</p>
               <p className="text-xs text-gray-500 mb-5 max-w-[200px]">Your saved trips will appear here so you can show them on the map.</p>
@@ -1554,7 +1554,7 @@ export default function MapClient() {
               ) : trips.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center px-2">
                   <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                    <Icon name="route" size={24} className="text-gray-400" />
+                    <Icon name="line-segments-light" size={24} className="text-gray-400" />
                   </span>
                   <p className="text-sm font-medium text-gray-600">No trips yet</p>
                   <p className="text-xs text-gray-400 mt-1.5">Create a trip in your dashboard to see it here.</p>
@@ -1562,7 +1562,7 @@ export default function MapClient() {
                     href="/dashboard/mytrips"
                     className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-blue)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                   >
-                    <Icon name="route" size={14} />
+                    <Icon name="line-segments-light" size={14} />
                     Go to My Trips
                   </Link>
                 </div>
@@ -1587,7 +1587,7 @@ export default function MapClient() {
                           <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
                             isActive ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-[var(--brand-blue)]"
                           }`}>
-                            <Icon name="route" size={18} />
+                            <Icon name="line-segments-light" size={18} />
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-semibold truncate transition-colors ${
@@ -2283,7 +2283,7 @@ export default function MapClient() {
                 <Icon name="heart" size={14} className="text-[var(--brand-orange)]" /> Save
               </button>
               <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
-                <Icon name="route" size={14} className="text-[var(--brand-orange)]" /> Add to Trip
+                <Icon name="line-segments-light" size={14} className="text-[var(--brand-orange)]" /> Add to Trip
               </button>
               <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); handleFilterChange({ centerSiteId: selectedMapSite.id, centerLat: Number(selectedMapSite.latitude), centerLng: Number(selectedMapSite.longitude), radiusKm: 5, centerSiteTitle: selectedMapSite.title }); setSelectedMapSite(null); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
                 <Icon name="nearby" size={14} className="text-[var(--brand-orange)]" /> Places Nearby
@@ -2293,7 +2293,7 @@ export default function MapClient() {
                 <Icon name="gallery" size={14} className="text-[var(--brand-orange)]" /> Gallery
               </a>
               <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
-                <Icon name="book" size={14} className="text-[var(--brand-orange)]" /> Photo Story
+                <Icon name="book-open-text-light" size={14} className="text-[var(--brand-orange)]" /> Photo Story
               </a>
               {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
                 <a href={`https://www.google.com/maps/search/?api=1&query=${selectedMapSite.latitude},${selectedMapSite.longitude}`} target="_blank" rel="noopener noreferrer" onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100">
@@ -2323,7 +2323,7 @@ export default function MapClient() {
               </button>
               <div className="ml-14 h-px bg-gray-100" />
               <button type="button" onClick={() => { setShowSitePanelActionsMenu(false); setShowSitePanelTripModal(true); }} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
-                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="route" size={16} className="text-gray-700" /></div>
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="line-segments-light" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
               </button>
               <div className="ml-14 h-px bg-gray-100" />
@@ -2339,7 +2339,7 @@ export default function MapClient() {
               </a>
               <div className="ml-14 h-px bg-gray-100" />
               <a href={selectedMapSite.province_slug ? `/heritage/${selectedMapSite.province_slug}/${selectedMapSite.slug}/photo-story` : `/heritage/${selectedMapSite.slug}/photo-story`} onClick={() => setShowSitePanelActionsMenu(false)} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
-                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="book" size={16} className="text-gray-700" /></div>
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0"><Icon name="book-open-text-light" size={16} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
               </a>
               {selectedMapSite.latitude != null && selectedMapSite.longitude != null && !Number.isNaN(Number(selectedMapSite.latitude)) && !Number.isNaN(Number(selectedMapSite.longitude)) && (
@@ -2628,7 +2628,7 @@ export default function MapClient() {
                       className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-[var(--brand-blue)]/5 border border-[var(--brand-blue)]/15 text-left active:bg-[var(--brand-blue)]/10 transition-colors"
                     >
                       <div className="w-12 h-12 rounded-2xl bg-[var(--brand-blue)] flex items-center justify-center shrink-0">
-                        <Icon name="route" size={22} className="text-white" />
+                        <Icon name="line-segments-light" size={22} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] font-bold text-[var(--brand-blue)]">My Trips</p>
@@ -2647,7 +2647,7 @@ export default function MapClient() {
                       className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-[var(--brand-orange)]/5 border border-[var(--brand-orange)]/15 text-left active:bg-[var(--brand-orange)]/10 transition-colors"
                     >
                       <div className="w-12 h-12 rounded-2xl bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
-                        <Icon name="list-ul" size={22} className="text-white" />
+                        <Icon name="layout-list" size={22} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] font-bold text-[var(--brand-orange)]">My List</p>
@@ -2689,7 +2689,7 @@ export default function MapClient() {
                     {isSignedIn === false ? (
                       <div className="flex flex-col items-center justify-center py-16 text-center">
                         <span className="w-14 h-14 rounded-full bg-[var(--brand-blue)]/10 flex items-center justify-center mb-4">
-                          <Icon name="route" size={28} className="text-[var(--brand-blue)]" />
+                          <Icon name="line-segments-light" size={28} className="text-[var(--brand-blue)]" />
                         </span>
                         <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your trips</p>
                         <p className="text-xs text-gray-500 mb-5 max-w-[200px]">Your saved trips will appear here so you can show them on the map.</p>
@@ -2705,12 +2705,12 @@ export default function MapClient() {
                     ) : trips.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center px-2">
                         <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                          <Icon name="route" size={24} className="text-gray-400" />
+                          <Icon name="line-segments-light" size={24} className="text-gray-400" />
                         </span>
                         <p className="text-sm font-medium text-gray-600">No trips yet</p>
                         <p className="text-xs text-gray-400 mt-1.5">Create a trip in your dashboard to see it here.</p>
                         <Link href="/dashboard/mytrips" className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-blue)] text-white text-sm font-medium hover:opacity-90 transition-opacity">
-                          <Icon name="route" size={14} />
+                          <Icon name="line-segments-light" size={14} />
                           Go to My Trips
                         </Link>
                       </div>
@@ -2729,7 +2729,7 @@ export default function MapClient() {
                                 className="flex w-full cursor-pointer items-center gap-3 p-3.5 text-left"
                               >
                                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${isActive ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-[var(--brand-blue)]"}`}>
-                                  <Icon name="route" size={18} />
+                                  <Icon name="line-segments-light" size={18} />
                                 </span>
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-semibold truncate transition-colors ${isActive ? "text-[var(--brand-orange)]" : "text-[var(--brand-blue)]"}`}>{t.name}</p>
@@ -2751,7 +2751,7 @@ export default function MapClient() {
                     {isSignedIn === false ? (
                       <div className="flex flex-col items-center justify-center py-16 text-center">
                         <span className="w-14 h-14 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center mb-4">
-                          <Icon name="list-ul" size={28} className="text-[var(--brand-orange)]" />
+                          <Icon name="layout-list" size={28} className="text-[var(--brand-orange)]" />
                         </span>
                         <p className="text-sm font-medium text-gray-700 mb-1">Sign in to view your lists</p>
                         <Link href={signInRedirectUrl} className="mt-4 inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--brand-orange)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
@@ -2766,7 +2766,7 @@ export default function MapClient() {
                     ) : wishlists.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                         <span className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                          <Icon name="list-ul" size={24} className="text-gray-400" />
+                          <Icon name="layout-list" size={24} className="text-gray-400" />
                         </span>
                         <p className="text-sm font-medium text-gray-600">No saved lists yet</p>
                         <p className="text-xs text-gray-400 mt-1.5">Save sites from their detail pages to create lists and plan your visits.</p>

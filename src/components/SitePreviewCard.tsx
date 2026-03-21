@@ -561,7 +561,7 @@ export default function SitePreviewCard({
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(false); setShowTripModal(true); }}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
-              <Icon name="route" size={14} className="text-[var(--brand-orange)]" />
+              <Icon name="line-segments-light" size={14} className="text-[var(--brand-orange)]" />
               Add to Trip
             </button>
             <button
@@ -586,7 +586,7 @@ export default function SitePreviewCard({
               onClick={() => setShowActionsMenu(false)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 text-sm font-medium text-gray-700 border-t border-gray-100"
             >
-              <Icon name="book" size={14} className="text-[var(--brand-orange)]" />
+              <Icon name="book-open-text-light" size={14} className="text-[var(--brand-orange)]" />
               Photo Story
             </a>
             {googleMapsHref && (

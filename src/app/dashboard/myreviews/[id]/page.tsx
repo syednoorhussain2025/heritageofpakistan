@@ -168,7 +168,7 @@ export default function ReviewDetailPage() {
             </div>
           ) : (
             <div className="w-12 h-12 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
-              <Icon name="user" size={20} />
+              <Icon name="user-round" size={20} />
             </div>
           )}
           <div className="flex-1 min-w-0">

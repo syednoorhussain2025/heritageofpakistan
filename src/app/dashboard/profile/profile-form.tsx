@@ -145,7 +145,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <Icon name="user" size={40} />
+                  <Icon name="user-round" size={40} />
                 </div>
               )}
             </div>

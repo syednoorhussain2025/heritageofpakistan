@@ -209,7 +209,7 @@ function ProfilePanel({
               <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Icon name="user" size={32} className="text-white" />
+                <Icon name="user-round" size={32} className="text-white" />
               </div>
             )}
           </div>
@@ -443,7 +443,7 @@ export default function BottomNav() {
                 />
               ) : (
                 <Icon
-                  name="user"
+                  name="user-round"
                   size={ICON_SIZE}
                   className={isDashboardActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
                 />
