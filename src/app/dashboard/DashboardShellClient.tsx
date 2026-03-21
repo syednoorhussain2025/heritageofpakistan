@@ -282,7 +282,7 @@ export default function DashboardShellClient({
               {pageTitle}
             </span>
           </div>
-          <div className="px-1 pt-2">
+          <div className="px-5 pt-2">
             <input
               type="search"
               value={headerSearchQ}
