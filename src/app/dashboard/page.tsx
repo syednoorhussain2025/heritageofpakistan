@@ -155,7 +155,7 @@ export default function DashboardHome() {
             <Link key={item.href} href={item.href} onClick={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
               {/* Indented divider — skipped on first row */}
               {i > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
-              <Icon name={item.icon} size={23} className="text-[#444444] shrink-0" />
+              <Icon name={item.icon} size={30} className="text-black shrink-0" />
               <span className="flex-1 text-[15px] font-normal text-[#2d2d2d]">{item.label}</span>
               <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
             </Link>

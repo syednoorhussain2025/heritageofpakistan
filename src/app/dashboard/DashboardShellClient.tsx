@@ -101,7 +101,7 @@ export default function DashboardShellClient({
   };
 
   const pageIconMap: Record<string, string> = {
-    "/dashboard/profile": "user",
+    "/dashboard/profile": "user-round",
     "/dashboard/mywishlists": "layout-list",
     "/dashboard/mycollections": "cards",
     "/dashboard/mycollections/photos": "cards",
@@ -236,7 +236,7 @@ export default function DashboardShellClient({
               <Icon name="arrow-left" size={20} className="text-white" />
             </button>
             <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
-              <Icon name="layout-board-split" size={17} className="text-white/90 shrink-0" />
+              <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
               My Dashboard
             </span>
           </div>
@@ -302,7 +302,7 @@ export default function DashboardShellClient({
               <Icon name="arrow-left" size={20} className="text-white" />
             </button>
             <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-              {pageIcon && <Icon name={pageIcon} size={17} className="text-white/90 shrink-0" />}
+              {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
               {pageTitle}
             </span>
           </div>
@@ -329,7 +329,7 @@ export default function DashboardShellClient({
             <Icon name="arrow-left" size={20} className="text-white" />
           </button>
           <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-            {pageIcon && <Icon name={pageIcon} size={17} className="text-white/90 shrink-0" />}
+            {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
             {pageTitle}
           </span>
         </MobilePageHeader>
