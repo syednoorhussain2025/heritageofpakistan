@@ -1,7 +1,7 @@
 // src/app/dashboard/mycollections/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
@@ -27,6 +27,12 @@ export default function MyCollectionsPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() =>
+    q.trim() ? albums.filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase())) : albums,
+    [albums, q]
+  );
 
   useEffect(() => {
     (async () => {
@@ -78,6 +84,23 @@ export default function MyCollectionsPage() {
 
   return (
     <>
+      {/* Search bar — fixed below green header, mobile only */}
+      <div
+        className="lg:hidden fixed inset-x-0 z-[80] px-3 pb-3 bg-[#00b78b]"
+        style={{ top: "calc(var(--sat, 44px) + 48px)" }}
+      >
+        <input
+          type="search"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search collections…"
+          className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
+          style={{ fontSize: "16px" }}
+        />
+      </div>
+      {/* Extra spacer */}
+      <div className="lg:hidden" style={{ height: "52px" }} />
+
       {/* Toast */}
       {toast && (
         <div className="pointer-events-none fixed left-1/2 bottom-28 -translate-x-1/2 z-[9999] rounded-xl bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg whitespace-nowrap">
@@ -102,9 +125,11 @@ export default function MyCollectionsPage() {
         <div className="px-4 py-8 text-center text-gray-500 text-sm">
           No collections yet. Use "Add to Collection" from any photo.
         </div>
+      ) : filtered.length === 0 && q.trim() ? (
+        <p className="text-center text-sm text-gray-400 py-6">No collections match "{q}"</p>
       ) : (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-          {albums.map((a, i) => (
+          {filtered.map((a, i) => (
             <div key={a.id} className="relative">
               {i > 0 && <span className="absolute top-0 right-0 left-[68px] h-px bg-gray-100" />}
               <Link

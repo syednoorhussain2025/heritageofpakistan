@@ -1,7 +1,7 @@
 // src/app/dashboard/mywishlists/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
@@ -23,6 +23,7 @@ export default function MyWishlistsPage() {
   const [lists, setLists] = useState<WishlistCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
   async function load() {
     setLoading(true);
@@ -63,6 +64,11 @@ export default function MyWishlistsPage() {
     }
   }
 
+  const filtered = useMemo(() =>
+    q.trim() ? lists.filter(w => w.name.toLowerCase().includes(q.trim().toLowerCase())) : lists,
+    [lists, q]
+  );
+
   // Extract first-item cover photo from the aliased query result
   function getCoverUrl(w: any): string | null {
     const firstItem = w.first_item?.[0];
@@ -95,8 +101,26 @@ export default function MyWishlistsPage() {
   }
 
   return (
+    <>
+      {/* Search bar — fixed, flush below the green shell header, mobile only */}
+      <div
+        className="lg:hidden fixed inset-x-0 z-[80] px-3 pb-3 bg-[#00b78b]"
+        style={{ top: "calc(var(--sat, 44px) + 48px)" }}
+      >
+        <input
+          type="search"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search lists…"
+          className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
+          style={{ fontSize: "16px" }}
+        />
+      </div>
+      {/* Extra spacer to push content below the search bar on mobile */}
+      <div className="lg:hidden" style={{ height: "52px" }} />
+
     <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-      {lists.map((w, i) => {
+      {filtered.map((w, i) => {
         const count = (w as any).wishlist_items?.[0]?.count ?? 0;
         const cover = getCoverUrl(w);
         return (
@@ -150,5 +174,10 @@ export default function MyWishlistsPage() {
         );
       })}
     </div>
+
+    {filtered.length === 0 && !loading && q.trim() && (
+      <p className="text-center text-sm text-gray-400 py-6">No lists match "{q}"</p>
+    )}
+    </>
   );
 }
