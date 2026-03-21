@@ -77,7 +77,7 @@ function PortfolioHeader({
         aria-label="Back"
         className="md:hidden w-9 h-9 flex items-center justify-center rounded-full active:bg-black/10 shrink-0"
       >
-        <Icon name="arrow-left" size={20} className={isDark ? "text-white" : "text-gray-800"} />
+        <Icon name="circle-arrow-left" size={26} className={isDark ? "text-white" : "text-gray-800"} />
       </button>
 
       {/* Brand name — hidden on mobile when we have a profile name */}
