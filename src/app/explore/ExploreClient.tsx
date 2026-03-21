@@ -25,6 +25,7 @@ import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
+import { Spinner as LottieSpinner } from "@/components/ui/Spinner";
 
 const PAGE_SIZE = 12;
 const QUERY_TIMEOUT_MS = 12000;
@@ -51,31 +52,6 @@ function withTimeout<T = any>(
         reject(error);
       });
   });
-}
-
-/* ───────────────────────────── Spinner ───────────────────────────── */
-function Spinner({
-  size = 40,
-  className = "",
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-block rounded-full animate-spin ${className}`}
-      style={{
-        width: size,
-        height: size,
-        borderWidth: "3px",
-        borderStyle: "solid",
-        borderColor: "grey",
-        borderTopColor: "transparent",
-      }}
-      role="status"
-      aria-label="Loading"
-    />
-  );
 }
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -1476,15 +1452,15 @@ function ExplorePageContent() {
               className="lg:hidden fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10 px-4 pt-4 pb-8"
               style={{ top: `calc(${safeTop} + 108px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
             >
-              <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
-                {loading && results.sites.length === 0 && (
+              <div className="relative">
+                {loading && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                    <Spinner size={40} />
+                    <LottieSpinner size={72} />
                   </div>
                 )}
                 <div
                   className="grid grid-cols-2 gap-4"
-                  style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
+                  style={{ opacity: loading ? 0.3 : 1, transition: "opacity 0.2s ease" }}
                 >
                   {error && results.sites.length === 0 && !loading ? (
                     <div className="p-6 col-span-2">{error}</div>
