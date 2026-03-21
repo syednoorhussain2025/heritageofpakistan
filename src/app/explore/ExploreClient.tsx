@@ -1476,7 +1476,7 @@ function ExplorePageContent() {
                 </div>
                 {results.sites.length > 0 && (
                   <div ref={mobileLoadMoreRef} className="flex items-center justify-center py-6">
-                    {hasMore && isLoadingMore && <Spinner size={32} />}
+                    {hasMore && isLoadingMore && <LottieSpinner size={32} />}
                   </div>
                 )}
               </div>
@@ -1509,7 +1509,7 @@ function ExplorePageContent() {
               <div className={`relative${loading && results.sites.length === 0 ? " min-h-[320px]" : ""}`}>
                 {loading && results.sites.length === 0 && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                    <Spinner size={40} />
+                    <LottieSpinner size={40} />
                   </div>
                 )}
                 <div
@@ -1531,7 +1531,7 @@ function ExplorePageContent() {
                 </div>
                 {results.sites.length > 0 && (
                   <div ref={loadMoreRef} className="flex items-center justify-center py-6">
-                    {hasMore && isLoadingMore && <Spinner size={32} />}
+                    {hasMore && isLoadingMore && <LottieSpinner size={32} />}
                   </div>
                 )}
               </div>
@@ -1651,7 +1651,7 @@ export default function ExploreClient() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[var(--ivory-cream)] flex items-center justify-center">
-          <Spinner size={40} />
+          <LottieSpinner size={40} />
         </div>
       }
     >
