@@ -844,6 +844,7 @@ function ExplorePageContent() {
     total: 0,
   });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /* When tab becomes visible, unstick load-more if it was in progress (browser may throttle/cancel in background) */
@@ -888,16 +889,19 @@ function ExplorePageContent() {
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   });
-  const loading = query.isLoading || query.isFetching;
+  const loading = query.isLoading || query.isFetching || isFiltering;
   useEffect(() => {
-    if (query.error) setError((query.error as Error)?.message ?? "Failed to load results");
-    else if (query.data) {
+    if (query.error) {
+      setError((query.error as Error)?.message ?? "Failed to load results");
+      setIsFiltering(false);
+    } else if (query.data) {
       setError(null);
       setResults({ sites: query.data.sites, total: query.data.total });
       setCenterSiteTitle(query.data.centerSiteTitle);
       setCenterSitePreview(query.data.centerSitePreview);
       setRadiusAllRows(query.data.radiusAllRows);
       isHydratingRef.current = false;
+      setIsFiltering(false);
     }
   }, [query.data, query.error]);
 
@@ -1354,6 +1358,7 @@ function ExplorePageContent() {
 
   const closeSearchPanel = useCallback(() => {
     setSearchPanelVisible(false);
+    setIsFiltering(true);
     setTimeout(() => setSearchPanelOpen(false), 320);
   }, []);
 
