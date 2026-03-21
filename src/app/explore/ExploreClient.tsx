@@ -888,7 +888,7 @@ function ExplorePageContent() {
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   });
-  const loading = query.isLoading;
+  const loading = query.isLoading || query.isFetching;
   useEffect(() => {
     if (query.error) setError((query.error as Error)?.message ?? "Failed to load results");
     else if (query.data) {
