@@ -1358,7 +1358,6 @@ function ExplorePageContent() {
 
   const closeSearchPanel = useCallback(() => {
     setSearchPanelVisible(false);
-    setIsFiltering(true);
     setTimeout(() => setSearchPanelOpen(false), 320);
   }, []);
 
@@ -1458,9 +1457,9 @@ function ExplorePageContent() {
               style={{ top: `calc(${safeTop} + 108px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
             >
               <div className="relative">
-                {loading && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                    <LottieSpinner size={72} />
+                {isFiltering && (
+                  <div className="pointer-events-none fixed inset-0 flex items-center justify-center z-[4000]">
+                    <LottieSpinner size={80} />
                   </div>
                 )}
                 <div
@@ -1627,7 +1626,7 @@ function ExplorePageContent() {
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
-                onSearch={() => { executeSearch(); closeSearchPanel(); }}
+                onSearch={() => { setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
                 onOpenNearbyModal={() => { closeSearchPanel(); setShowNearbyModal(true); }}
               />
               {hasRadius(filters) && centerSitePreview?.subtitle ? (
