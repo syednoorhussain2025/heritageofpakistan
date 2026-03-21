@@ -9,6 +9,7 @@ import { listPhotoCollections, deletePhotoCollection } from "@/lib/photoCollecti
 import { createClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticHeavy, hapticMedium } from "@/lib/haptics";
+import { useSearchQ } from "../SearchContext";
 
 type Album = {
   id: string;
@@ -27,7 +28,7 @@ export default function MyCollectionsPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const q = useSearchQ();
 
   const filtered = useMemo(() =>
     q.trim() ? albums.filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase())) : albums,
@@ -84,18 +85,6 @@ export default function MyCollectionsPage() {
 
   return (
     <>
-      {/* Search bar — bleeds into header visually, mobile only */}
-      <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
-        <input
-          type="search"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Search collections…"
-          className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
-          style={{ fontSize: "16px" }}
-        />
-      </div>
-
       {/* Toast */}
       {toast && (
         <div className="pointer-events-none fixed left-1/2 bottom-28 -translate-x-1/2 z-[9999] rounded-xl bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg whitespace-nowrap">

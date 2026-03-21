@@ -7,6 +7,7 @@ import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
 import { deleteWishlist } from "@/lib/wishlists";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
+import { useSearchQ } from "../SearchContext";
 
 type WishlistCard = {
   id: string;
@@ -23,7 +24,7 @@ export default function MyWishlistsPage() {
   const [lists, setLists] = useState<WishlistCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const q = useSearchQ();
 
   async function load() {
     setLoading(true);
@@ -102,18 +103,6 @@ export default function MyWishlistsPage() {
 
   return (
     <>
-      {/* Search bar — bleeds into header visually, mobile only */}
-      <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
-        <input
-          type="search"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Search lists…"
-          className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
-          style={{ fontSize: "16px" }}
-        />
-      </div>
-
     <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
       {filtered.map((w, i) => {
         const count = (w as any).wishlist_items?.[0]?.count ?? 0;

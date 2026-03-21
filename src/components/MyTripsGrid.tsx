@@ -13,6 +13,7 @@ import {
 } from "@/lib/trips";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
+import { useSearchQ } from "@/app/dashboard/SearchContext";
 
 type TripRow = {
   id: string;
@@ -104,7 +105,9 @@ export default function MyTripsGrid({
     };
   }, [username]);
 
-  const [q, setQ] = useState("");
+  const contextQ = useSearchQ();
+  const [localQ, setLocalQ] = useState("");
+  const q = context === "dashboard" ? contextQ : localQ;
   const [order, setOrder] = useState<"recent" | "az">("recent");
 
   const filtered = useMemo(() => {
@@ -179,20 +182,6 @@ export default function MyTripsGrid({
 
   return (
     <section className="w-full">
-      {/* Mobile: search bar bleeds into header area — dashboard context only */}
-      {context === "dashboard" && (
-        <div className="lg:hidden -mx-4 -mt-4 px-3 pt-3 pb-3 mb-4 bg-[#00b78b]">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search trips…"
-            className="w-full rounded-full bg-white/20 text-white placeholder-white/70 px-4 py-2 text-[15px] outline-none focus:bg-white/30"
-            style={{ fontSize: "16px" }}
-          />
-        </div>
-      )}
-
       <div className={`${wrapperClasses} min-h-[360px]`}>
         {context !== "dashboard" && (
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -204,8 +193,8 @@ export default function MyTripsGrid({
         {/* Desktop search bar (always shown) + mobile only when NOT dashboard context */}
         <div className={`${context === "dashboard" ? "hidden lg:flex" : "flex"} items-center gap-2 mb-5`}>
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            value={context === "dashboard" ? contextQ : localQ}
+            onChange={(e) => context !== "dashboard" && setLocalQ(e.target.value)}
             placeholder="Search trips..."
             className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 min-w-0 focus:outline-none focus:border-[#00b78b]"
             style={{ fontSize: "16px" }}

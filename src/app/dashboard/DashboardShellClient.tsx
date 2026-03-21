@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
+import { SearchContext } from "./SearchContext";
 
 type ProfileSnap = {
   full_name: string | null;
@@ -37,6 +38,15 @@ export default function DashboardShellClient({
   const { userId } = useAuthUserId();
 
   const isHome = pathname === "/dashboard";
+
+  const searchRoutes = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
+  const showSearch = typeof pathname === "string" && searchRoutes.includes(pathname);
+  const [headerSearchQ, setHeaderSearchQ] = useState("");
+
+  // Reset search when navigating away from a search route
+  useEffect(() => {
+    if (!showSearch) setHeaderSearchQ("");
+  }, [pathname, showSearch]);
 
   // Profile data for the tall home header — only fetched on /dashboard
   const [profile, setProfile] = useState<ProfileSnap | null>(null);
@@ -256,6 +266,33 @@ export default function DashboardShellClient({
             </div>
           )}
         </MobilePageHeader>
+      ) : showSearch ? (
+        /* Compact header with search bar for wishlists / collections / trips */
+        <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex flex-col px-2 pb-3">
+          <div className="flex items-end pb-0.5">
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Back"
+              className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
+            >
+              <Icon name="arrow-left" size={20} className="text-white" />
+            </button>
+            <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+              {pageTitle}
+            </span>
+          </div>
+          <div className="px-1 pt-2">
+            <input
+              type="search"
+              value={headerSearchQ}
+              onChange={(e) => setHeaderSearchQ(e.target.value)}
+              placeholder={`Search ${pageTitle.toLowerCase()}…`}
+              className="w-full rounded-full bg-white px-4 py-2 text-[15px] text-gray-800 placeholder-gray-400 outline-none"
+              style={{ fontSize: "16px" }}
+            />
+          </div>
+        </MobilePageHeader>
       ) : (
         /* Compact header for sub-pages */
         <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
@@ -279,18 +316,22 @@ export default function DashboardShellClient({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Mobile spacer — tall for home, compact for sub-pages */}
+        {/* Mobile spacer — tall for home, taller for search routes, compact for sub-pages */}
         {!fullBleed && (
           <div
             className="lg:hidden"
             style={{
               height: isHome
                 ? "calc(var(--sat, 44px) + 196px)"
+                : showSearch
+                ? "calc(var(--sat, 44px) + 100px)"
                 : "calc(var(--sat, 44px) + 48px)",
             }}
           />
         )}
-        {children}
+        <SearchContext.Provider value={{ q: headerSearchQ }}>
+          {children}
+        </SearchContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />
       </main>
