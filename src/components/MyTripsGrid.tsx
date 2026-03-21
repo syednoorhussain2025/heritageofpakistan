@@ -161,10 +161,15 @@ export default function MyTripsGrid({
     }
   };
 
-  const toTrip = (slug?: string | null) => {
-    if (!slug) return;
-    const href = `/${username}/trip/${slug}`;
-    try { router.push(href); } catch { window.location.href = href; }
+  const toTrip = (trip: TripRow) => {
+    if (context === "dashboard") {
+      // Open trip detail within dashboard
+      try { router.push(`/dashboard/mytrips/${trip.id}`); } catch { window.location.href = `/dashboard/mytrips/${trip.id}`; }
+    } else {
+      if (!trip.slug) return;
+      const href = `/${username}/trip/${trip.slug}`;
+      try { router.push(href); } catch { window.location.href = href; }
+    }
   };
 
   const wrapperClasses =
@@ -175,27 +180,32 @@ export default function MyTripsGrid({
   return (
     <section className="w-full">
       <div className={`${wrapperClasses} min-h-[360px]`}>
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
-            {title}
-          </h2>
-          <div className="flex items-center gap-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search trips..."
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm bg-gray-50 min-w-0"
-            />
+        {context !== "dashboard" && (
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
+              {title}
+            </h2>
+          </div>
+        )}
+        <div className={`flex items-center gap-2 ${context === "dashboard" ? "mb-5" : "mb-5"}`}>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search trips..."
+            className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 min-w-0 focus:outline-none focus:border-[#00b78b]"
+            style={{ fontSize: "16px" }}
+          />
+          {context !== "dashboard" && (
             <select
               value={order}
               onChange={(e) => setOrder(e.target.value as any)}
-              className="rounded-xl border border-gray-300 px-3 py-3 text-sm bg-gray-50 shrink-0"
+              className="rounded-full border border-gray-300 px-3 py-3 text-sm bg-gray-50 shrink-0"
               title="Sort"
             >
               <option value="recent">Recent</option>
               <option value="az">A → Z</option>
             </select>
-          </div>
+          )}
         </div>
 
         {/* Keep generic errors only (no auth banner) */}
@@ -256,9 +266,9 @@ export default function MyTripsGrid({
                   key={t.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => toTrip(t.slug)}
+                  onClick={() => toTrip(t)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") toTrip(t.slug);
+                    if (e.key === "Enter" || e.key === " ") toTrip(t);
                   }}
                   className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-lg cursor-pointer"
                 >

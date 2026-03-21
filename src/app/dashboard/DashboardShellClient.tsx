@@ -66,7 +66,7 @@ export default function DashboardShellClient({
     { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
     { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
     { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-    { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
+    { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
     { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
     { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
     { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
@@ -83,7 +83,7 @@ export default function DashboardShellClient({
     "/dashboard/mycollections": "Collections",
     "/dashboard/mycollections/photos": "Collected Photos",
     "/dashboard/mytrips": "My Trips",
-    "/dashboard/notebook": "Notebook",
+    "/dashboard/notebook": "My Notes",
     "/dashboard/placesvisited": "Places Visited",
     "/dashboard/myreviews": "My Reviews",
     "/dashboard/portfolio": "My Portfolio",
@@ -93,7 +93,9 @@ export default function DashboardShellClient({
   const pageTitle =
     pageTitleMap[pathname ?? ""] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
-    pathname?.startsWith("/dashboard/mycollections/") ? "Collection" : "Dashboard");
+    pathname?.startsWith("/dashboard/mycollections/") ? "Collection" :
+    pathname?.startsWith("/dashboard/mytrips/") ? "Trip Details" :
+    pathname?.startsWith("/dashboard/myreviews/") ? "Review" : "Dashboard");
 
   // Smart back: nested routes go to their parent, not all the way to /dashboard
   function handleBack() {
@@ -102,6 +104,10 @@ export default function DashboardShellClient({
       router.push("/dashboard/mywishlists");
     } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
       router.push("/dashboard/mycollections");
+    } else if (pathname?.startsWith("/dashboard/mytrips/")) {
+      router.push("/dashboard/mytrips");
+    } else if (pathname?.startsWith("/dashboard/myreviews/")) {
+      router.push("/dashboard/myreviews");
     } else if (isHome) {
       router.back();
     } else {
@@ -251,7 +257,7 @@ export default function DashboardShellClient({
 
       {/* Main Content */}
       <main
-        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm ${fullBleed ? "" : "p-4 lg:p-8"}`}
+        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress ${fullBleed ? "" : "p-4 lg:p-8"}`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
@@ -437,6 +438,7 @@ function ReviewRowCard({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const router = useRouter();
   const [photos, setPhotos] = useState<LightboxPhoto[]>([]);
   const [helpful, setHelpful] = useState<number>(0);
   const [detailsLoading, setDetailsLoading] = useState<boolean>(true);
@@ -500,7 +502,10 @@ function ReviewRowCard({
     : null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow p-4">
+    <div
+      className="rounded-xl border border-gray-200 bg-white shadow p-4 active:bg-gray-50 cursor-pointer transition-colors"
+      onClick={() => { void hapticLight(); router.push(`/dashboard/myreviews/${review.id}`); }}
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -523,24 +528,23 @@ function ReviewRowCard({
               <div className="mt-0.5 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs">
                 {review.badge}
               </div>
-            ) : (
-              <div className="mt-0.5">
-                <Skeleton className="h-4 w-20" />
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
-        <button
-          onClick={() => { void hapticHeavy(); onDelete(); }}
-          disabled={deleting}
-          className={`text-sm px-3 py-1.5 rounded border ${
-            deleting
-              ? "opacity-60 cursor-not-allowed"
-              : "text-red-600 border-red-200 hover:bg-red-50"
-          }`}
-        >
-          {deleting ? "Deleting…" : "Delete"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); void hapticHeavy(); onDelete(); }}
+            disabled={deleting}
+            className={`text-sm px-3 py-1.5 rounded border ${
+              deleting
+                ? "opacity-60 cursor-not-allowed"
+                : "text-red-600 border-red-200 hover:bg-red-50"
+            }`}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+          <span className="text-gray-300"><svg viewBox="0 0 6 10" className="w-2 h-3 fill-current text-gray-400"><path d="M0 0l5 5-5 5V0z"/></svg></span>
+        </div>
       </div>
 
       {/* Site + rating */}
@@ -590,7 +594,8 @@ function ReviewRowCard({
             <button
               key={p.id}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 void hapticLight();
                 setLbIndex(idx);
                 setLbOpen(true);
