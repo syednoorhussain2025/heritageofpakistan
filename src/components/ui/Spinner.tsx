@@ -1,6 +1,7 @@
 "use client";
 
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import Lottie from "lottie-react";
+import spinnerData from "../../../public/spinner.json";
 
 interface SpinnerProps {
   /** Size of the spinner in px. Default: 64 */
@@ -22,9 +23,8 @@ interface SpinnerProps {
  */
 export function Spinner({ size = 64, overlay = false, fill = false }: SpinnerProps) {
   const animation = (
-    <DotLottieReact
-      src="/spinner.lottie"
-      animationId="Main Scene"
+    <Lottie
+      animationData={spinnerData}
       loop
       autoplay
       style={{ width: size, height: size }}
