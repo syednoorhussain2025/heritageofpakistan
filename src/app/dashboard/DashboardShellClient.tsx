@@ -233,7 +233,7 @@ export default function DashboardShellClient({
               aria-label="Back"
               className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
             >
-              <Icon name="circle-arrow-left" size={26} className="text-white" />
+              <Icon name="circle-arrow-left" size={30} className="text-white" />
             </button>
             <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
               <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
@@ -299,7 +299,7 @@ export default function DashboardShellClient({
               aria-label="Back"
               className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
             >
-              <Icon name="circle-arrow-left" size={26} className="text-white" />
+              <Icon name="circle-arrow-left" size={30} className="text-white" />
             </button>
             <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
               {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
@@ -326,7 +326,7 @@ export default function DashboardShellClient({
             aria-label="Back"
             className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
           >
-            <Icon name="circle-arrow-left" size={26} className="text-white" />
+            <Icon name="circle-arrow-left" size={30} className="text-white" />
           </button>
           <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
             {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}

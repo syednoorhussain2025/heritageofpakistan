@@ -1195,7 +1195,7 @@ export default function TripBuilderPage() {
           aria-label="Back"
           className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
         >
-          <Icon name="circle-arrow-left" size={26} className="text-white" />
+          <Icon name="circle-arrow-left" size={30} className="text-white" />
         </button>
         <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide">
           Trip Builder

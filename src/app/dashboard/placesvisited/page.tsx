@@ -234,7 +234,7 @@ export default function PlacesVisitedPage() {
             className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20"
             aria-label="Back"
           >
-            <Icon name="circle-arrow-left" size={26} />
+            <Icon name="circle-arrow-left" size={30} />
           </button>
           <span className="flex-1 text-base font-bold">Places Visited Map</span>
           <span className="text-sm opacity-80">{sitesForMap.length} sites</span>
