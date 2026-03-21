@@ -48,8 +48,8 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
       const mode = options?.overlay ?? null;
       if (mode === "white") {
         setOverlayMode("white");
-        // Trigger slide-in on next frame
-        requestAnimationFrame(() => setSlideIn(true));
+        // Two rAFs: first paints the element, second triggers the transition
+        requestAnimationFrame(() => requestAnimationFrame(() => setSlideIn(true)));
       } else if (mode === "transparent") {
         // Pop instantly — no animation needed
         setOverlayMode("transparent");
@@ -97,7 +97,7 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
     );
   }
 
-  // White mode: slides in from right, fades out
+  // White mode: slides in from right, fades out on exit
   return (
     <div
       className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none bg-white"
@@ -105,8 +105,8 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
         transform: slideIn ? "translateX(0)" : "translateX(100%)",
         opacity: slideIn ? 1 : 0,
         transition: slideIn
-          ? "transform 0.28s cubic-bezier(0.4,0,0.2,1)"
-          : "opacity 0.18s ease",
+          ? "transform 0.26s cubic-bezier(0.4,0,0.2,1), opacity 0s"
+          : "opacity 0.18s ease, transform 0s 0.18s",
       }}
     >
       <Spinner size={72} />

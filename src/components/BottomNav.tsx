@@ -347,8 +347,8 @@ export default function BottomNav() {
   };
 
   const handlePanelNavigate = (href: string) => {
+    startNavigation(href, { overlay: "transparent" });
     closePanel();
-    setTimeout(() => startNavigation(href, { overlay: "transparent" }), PANEL_ANIM_MS);
   };
 
   const isHomeActive = optimisticHref === "/" || (!optimisticHref && pathname === "/");
