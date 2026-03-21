@@ -252,23 +252,23 @@ export default function DashboardShellClient({
               )}
             </div>
 
-            {/* Name + badge */}
+            {/* Name */}
             <div className="flex-1 min-w-0">
               <p className="text-white text-[18px] font-bold leading-tight truncate">
                 {profile?.full_name ?? "Traveler"}
               </p>
+            </div>
+
+            {/* Places visited count + badge */}
+            <div className="shrink-0 text-right">
+              <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
+              <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
               {profile?.badge && (
                 <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
                   <Icon name="plus-solid-full" size={10} />
                   {profile.badge}
                 </span>
               )}
-            </div>
-
-            {/* Places visited count */}
-            <div className="shrink-0 text-right">
-              <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
-              <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
             </div>
           </div>
 

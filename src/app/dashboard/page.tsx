@@ -194,12 +194,6 @@ export default function DashboardHome() {
               <h2 className="text-xl font-bold text-gray-900 truncate">
                 {profile.full_name ?? "Traveler"}
               </h2>
-              {profile.badge && (
-                <span className="inline-flex items-center gap-1 mt-0.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                  <Icon name="plus-solid-full" size={10} />
-                  {profile.badge}
-                </span>
-              )}
               {profile.username && (
                 <Link
                   href={`/profile/${profile.username}`}
@@ -220,7 +214,13 @@ export default function DashboardHome() {
               <span className="text-xs text-[#F78300] font-medium">View all →</span>
             </div>
             <p className="text-3xl font-bold text-gray-900">{visitedCount}</p>
-            <p className="text-sm text-gray-500 mt-0.5">{badgeInfo.current} Badge</p>
+            <p className="text-sm text-gray-500 mt-0.5">places visited</p>
+            {profile?.badge && (
+              <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                <Icon name="plus-solid-full" size={10} />
+                {profile.badge}
+              </span>
+            )}
             {badgeInfo.next && (
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-400 mb-1">
