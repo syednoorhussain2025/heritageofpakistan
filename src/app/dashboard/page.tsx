@@ -35,14 +35,14 @@ type Profile = {
 
 const mobileNavItems = [
   { href: "/dashboard/profile", label: "Profile", icon: "user" },
-  { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
-  { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-  { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
-  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
-  { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
-  { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+  { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "layout-list" },
+  { href: "/dashboard/mycollections", label: "Collections", icon: "cards" },
+  { href: "/dashboard/mytrips", label: "My Trips", icon: "line-segments-light" },
+  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star-light" },
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "person-simple-hike-light" },
+  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "layout-grid" },
+  { href: "/dashboard/notebook", label: "My Notes", icon: "book-open-text-light" },
+  { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
 ];
 
 export default function DashboardHome() {
@@ -195,7 +195,8 @@ export default function DashboardHome() {
                 {profile.full_name ?? "Traveler"}
               </h2>
               {profile.badge && (
-                <span className="inline-block mt-0.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 mt-0.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                  <Icon name="plus-solid-full" size={10} />
                   {profile.badge}
                 </span>
               )}
