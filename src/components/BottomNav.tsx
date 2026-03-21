@@ -96,48 +96,42 @@ function ProfileTabIcon({
   );
 }
 
-const mainNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/dashboard/profile", label: "Profile", icon: "user" },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: "heart" },
-  { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
-  { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-  { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-  { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
-];
-
-const travelActivityItems = [
-  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
-  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
-];
-
-const helpItems = [
-  { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+const panelNavItems = [
+  { href: "/dashboard/profile", label: "Profile", icon: "user-round" },
+  { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "layout-list" },
+  { href: "/dashboard/mycollections", label: "Collections", icon: "cards" },
+  { href: "/dashboard/mytrips", label: "My Trips", icon: "line-segments-light" },
+  { href: "/dashboard/myreviews", label: "My Reviews", icon: "star-light" },
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "person-simple-hike-light" },
+  { href: "/dashboard/portfolio", label: "My Portfolio", icon: "layout-grid" },
+  { href: "/dashboard/notebook", label: "My Notes", icon: "book-open-text-light" },
+  { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
 ];
 
 function NavListItem({
   item,
   isActive,
   onPress,
+  index,
 }: {
   item: { href: string; label: string; icon: string };
   isActive: boolean;
   onPress: () => void;
+  index: number;
 }) {
   return (
     <button
       type="button"
       onClick={() => { void hapticLight(); onPress(); }}
-      className="w-full flex items-center gap-3.5 px-4 py-[13px] transition-colors duration-100 active:bg-gray-50"
+      className="w-full flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none"
+      style={{ WebkitUserSelect: "none" } as React.CSSProperties}
     >
-      <div className="w-8 h-8 rounded-lg bg-[#e6f7f3] flex items-center justify-center flex-shrink-0">
-        <Icon name={item.icon} size={17} className={isActive ? "text-[#00b78b]" : "text-[#00b78b]"} />
-      </div>
-      <span className={`flex-1 text-left text-[15px] ${isActive ? "font-semibold text-[#00b78b]" : "font-normal text-gray-800"}`}>
+      {index > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
+      <Icon name={item.icon} size={30} className="text-black shrink-0" />
+      <span className={`flex-1 text-left text-[15px] ${isActive ? "font-semibold text-[#2d2d2d]" : "font-normal text-[#2d2d2d]"}`}>
         {item.label}
       </span>
-      <Icon name="chevron-right" size={13} className="text-gray-300" />
+      <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
     </button>
   );
 }
@@ -178,7 +172,7 @@ function ProfilePanel({
 
   return (
     <div
-      className={`fixed inset-0 z-[3200] bg-[#f5f5f5] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+      className={`fixed inset-0 z-[3200] bg-[#efefef] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
         closing ? "translate-y-full" : "translate-y-0"
       }`}
     >
@@ -243,70 +237,34 @@ function ProfilePanel({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto">
-
-        {/* Main nav group */}
-        <div className="px-4 mt-4">
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
-            {mainNavItems.map((item) => (
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#efefef" }}>
+        <div className="px-5 pt-5 pb-6">
+          {/* Nav list card */}
+          <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
+            {panelNavItems.map((item, i) => (
               <NavListItem
                 key={item.href}
                 item={item}
+                index={i}
                 isActive={pathname === item.href}
                 onPress={() => onNavigate(item.href)}
               />
             ))}
           </div>
-        </div>
 
-        {/* Help & Support group */}
-        <div className="px-4 mt-5">
-          <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">Help &amp; Support</p>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
-            {helpItems.map((item) => (
-              <NavListItem
-                key={item.href}
-                item={item}
-                isActive={pathname === item.href}
-                onPress={() => onNavigate(item.href)}
-              />
-            ))}
-          </div>
+          {/* Sign out — only when logged in */}
+          {isLoggedIn && (
+            <button
+              type="button"
+              onClick={() => { void hapticMedium(); void handleLogout(); }}
+              className="mt-2.5 w-full flex items-center gap-3.5 px-4 py-[15px] rounded-2xl bg-white border border-gray-200 active:bg-red-50 transition-colors select-none"
+              style={{ WebkitUserSelect: "none" } as React.CSSProperties}
+            >
+              <Icon name="sign-out" size={19} className="text-red-500 shrink-0" />
+              <span className="flex-1 text-[15px] font-normal text-red-500 text-left">Sign Out</span>
+            </button>
+          )}
         </div>
-
-        {/* Travel Activity group */}
-        <div className="px-4 mt-5">
-          <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">Travel Activity</p>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
-            {travelActivityItems.map((item) => (
-              <NavListItem
-                key={item.href}
-                item={item}
-                isActive={pathname === item.href}
-                onPress={() => onNavigate(item.href)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Sign out — only when logged in */}
-        {isLoggedIn && (
-          <div className="px-4 mt-5">
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-              <button
-                type="button"
-                onClick={() => { void hapticMedium(); void handleLogout(); }}
-                className="w-full flex items-center gap-3.5 px-4 py-[13px] active:bg-red-50 transition-colors duration-100"
-              >
-                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                  <Icon name="logout" size={17} className="text-red-500" />
-                </div>
-                <span className="flex-1 text-left text-[15px] text-red-500">Sign Out</span>
-                <Icon name="chevron-right" size={13} className="text-gray-300" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Safe-area bottom padding */}
         <div className="h-[calc(2rem+env(safe-area-inset-bottom,0px))]" />
