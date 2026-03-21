@@ -100,7 +100,7 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
         transform: slideIn ? "translateX(0)" : "translateX(100%)",
         transition: slideIn
           ? "transform 0.28s cubic-bezier(0.4,0,0.2,1)"
-          : "transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease",
+          : "opacity 0.18s ease",
         opacity: slideIn ? 1 : 0,
       }}
     >
