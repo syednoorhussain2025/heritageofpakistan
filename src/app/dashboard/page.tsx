@@ -34,7 +34,7 @@ type Profile = {
 };
 
 const mobileNavItems = [
-  { href: "/dashboard/profile", label: "Profile", icon: "user" },
+  { href: "/dashboard/profile", label: "Profile", icon: "user-round" },
   { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "layout-list" },
   { href: "/dashboard/mycollections", label: "Collections", icon: "cards" },
   { href: "/dashboard/mytrips", label: "My Trips", icon: "line-segments-light" },

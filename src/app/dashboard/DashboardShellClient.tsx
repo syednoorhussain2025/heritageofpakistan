@@ -71,8 +71,8 @@ export default function DashboardShellClient({
   }, [userId]);
 
   const nav = [
-    { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-    { href: "/dashboard/profile", label: "Profile", icon: "user" },
+    { href: "/dashboard", label: "Dashboard", icon: "layout-board-split" },
+    { href: "/dashboard/profile", label: "Profile", icon: "user-round" },
     { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "layout-list" },
     { href: "/dashboard/mycollections", label: "Collections", icon: "cards" },
     { href: "/dashboard/mytrips", label: "My Trips", icon: "line-segments-light" },
@@ -235,7 +235,8 @@ export default function DashboardShellClient({
             >
               <Icon name="arrow-left" size={20} className="text-white" />
             </button>
-            <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+            <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+              <Icon name="layout-board-split" size={17} className="text-white/90 shrink-0" />
               My Dashboard
             </span>
           </div>
