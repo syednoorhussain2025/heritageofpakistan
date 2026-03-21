@@ -119,10 +119,21 @@ export default function DashboardHome() {
   }, [authLoading, userId]);
 
   if (authLoading || loading) return (
-    <div className="space-y-4 animate-pulse">
-      {/* Mobile: just nav skeleton */}
-      <div className="lg:hidden space-y-3">
-        {[1,2,3,4,5].map(i => <div key={i} className="h-14 bg-gray-100 rounded-2xl" />)}
+    <div className="animate-pulse">
+      {/* Mobile: exact match of nav card */}
+      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "#efefef" }} />
+      <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-5 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
+        <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
+          {mobileNavItems.map((item, i) => (
+            <div key={item.href} className="flex items-center gap-3.5 px-4 py-[15px] relative">
+              {i > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
+              <div className="w-[30px] h-[30px] rounded-md bg-gray-200 shrink-0" />
+              <div className="flex-1 h-4 bg-gray-100 rounded w-2/5" />
+              <div className="w-3 h-3 bg-gray-100 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-2.5 h-[54px] rounded-2xl bg-white border border-gray-200" />
       </div>
       {/* Desktop: full skeleton */}
       <div className="hidden lg:block space-y-4">

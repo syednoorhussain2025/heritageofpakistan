@@ -34,9 +34,39 @@ function CardSkeleton() {
 }
 function PageSkeleton() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-10 w-full rounded-full" />
-      <Skeleton className="h-24 w-full rounded-2xl" />
+    <div className="pb-4 space-y-4">
+      {/* Header row: avatar + name + buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-12 h-12 rounded-full border-2 border-gray-100" />
+          <div className="space-y-1">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="w-9 h-9 rounded-full" />
+          <Skeleton className="w-20 h-9 rounded-full" />
+        </div>
+      </div>
+      {/* Stats card */}
+      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton className="w-14 h-14 rounded-full" />
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+          <div className="space-y-1 text-right">
+            <Skeleton className="h-4 w-20 ml-auto" />
+            <Skeleton className="h-3 w-28 ml-auto" />
+          </div>
+        </div>
+        <Skeleton className="mt-3 h-2 w-full rounded-full" />
+      </div>
+      {/* Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((k) => <CardSkeleton key={k} />)}
       </div>
