@@ -103,12 +103,12 @@ const mainNavItems = [
   { href: "/dashboard/mywishlists", label: "Wishlists", icon: "list-ul" },
   { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
   { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-  { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
+  { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
 ];
 
 const travelActivityItems = [
-  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
   { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
   { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
 ];
 

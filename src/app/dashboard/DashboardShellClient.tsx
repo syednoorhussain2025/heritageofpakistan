@@ -170,6 +170,21 @@ export default function DashboardShellClient({
             );
           })}
         </nav>
+        {/* Sign out — bottom of sidebar */}
+        <div className="px-4 py-4 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              router.push("/");
+            }}
+            className="flex w-full items-center px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors duration-200"
+          >
+            <Icon name="sign-out-alt" className="w-5 h-5 mr-3" />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Spacer — desktop only */}
