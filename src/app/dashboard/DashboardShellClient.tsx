@@ -73,14 +73,14 @@ export default function DashboardShellClient({
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/dashboard/profile", label: "Profile", icon: "user" },
-    { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
-    { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
-    { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-    { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
-    { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
-    { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
-    { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
-    { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
+    { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "layout-list" },
+    { href: "/dashboard/mycollections", label: "Collections", icon: "cards" },
+    { href: "/dashboard/mytrips", label: "My Trips", icon: "line-segments-light" },
+    { href: "/dashboard/notebook", label: "My Notes", icon: "book-open-text-light" },
+    { href: "/dashboard/myreviews", label: "My Reviews", icon: "star-light" },
+    { href: "/dashboard/placesvisited", label: "Places Visited", icon: "person-simple-hike-light" },
+    { href: "/dashboard/portfolio", label: "My Portfolio", icon: "layout-grid" },
+    { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
   ];
 
   const fullBleed =
@@ -102,15 +102,15 @@ export default function DashboardShellClient({
 
   const pageIconMap: Record<string, string> = {
     "/dashboard/profile": "user",
-    "/dashboard/mywishlists": "list-ul",
-    "/dashboard/mycollections": "retro",
-    "/dashboard/mycollections/photos": "images",
-    "/dashboard/mytrips": "route",
-    "/dashboard/notebook": "book",
-    "/dashboard/placesvisited": "map-marker-alt",
-    "/dashboard/myreviews": "star",
-    "/dashboard/portfolio": "image",
-    "/dashboard/account-details": "lightbulb",
+    "/dashboard/mywishlists": "layout-list",
+    "/dashboard/mycollections": "cards",
+    "/dashboard/mycollections/photos": "cards",
+    "/dashboard/mytrips": "line-segments-light",
+    "/dashboard/notebook": "book-open-text-light",
+    "/dashboard/placesvisited": "person-simple-hike-light",
+    "/dashboard/myreviews": "star-light",
+    "/dashboard/portfolio": "layout-grid",
+    "/dashboard/account-details": "square-user-round",
   };
 
   const pageTitle =
@@ -123,11 +123,11 @@ export default function DashboardShellClient({
 
   const pageIcon =
     pageIconMap[pathname ?? ""] ??
-    (pathname?.startsWith("/dashboard/mywishlists/") ? "list-ul" :
-    pathname?.startsWith("/dashboard/mycollections/") ? "retro" :
-    pathname?.startsWith("/dashboard/mytrips/") ? "route" :
-    pathname?.startsWith("/dashboard/myreviews/") ? "star" :
-    pathname?.startsWith("/dashboard/notebook/") ? "book" : undefined);
+    (pathname?.startsWith("/dashboard/mywishlists/") ? "layout-list" :
+    pathname?.startsWith("/dashboard/mycollections/") ? "cards" :
+    pathname?.startsWith("/dashboard/mytrips/") ? "line-segments-light" :
+    pathname?.startsWith("/dashboard/myreviews/") ? "star-light" :
+    pathname?.startsWith("/dashboard/notebook/") ? "book-open-text-light" : undefined);
 
   // Smart back: nested routes go to their parent, not all the way to /dashboard
   function handleBack() {
@@ -258,7 +258,8 @@ export default function DashboardShellClient({
                 {profile?.full_name ?? "Traveler"}
               </p>
               {profile?.badge && (
-                <span className="inline-block mt-1 text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
+                  <Icon name="plus-solid-full" size={10} />
                   {profile.badge}
                 </span>
               )}

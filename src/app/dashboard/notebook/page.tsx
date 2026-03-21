@@ -598,7 +598,7 @@ export default function TravelNotebookPage() {
         <main className="hidden lg:flex flex-1 flex-col bg-white min-h-0">
           {!active ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500 p-6">
-              <Icon name="book" size={48} className="text-gray-300 mb-4" />
+              <Icon name="book-open-text-light" size={48} className="text-gray-300 mb-4" />
               <h3 className="text-2xl font-bold text-gray-800 mb-2">
                 Welcome to your Travel Notebook!
               </h3>

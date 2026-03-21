@@ -121,7 +121,7 @@ export default function MyWishlistsPage() {
                 {cover ? (
                   <img src={cover} alt={w.name} className="w-full h-full object-cover" />
                 ) : (
-                  <Icon name="list-ul" size={18} className="text-gray-400" />
+                  <Icon name="layout-list" size={18} className="text-gray-400" />
                 )}
               </div>
 
