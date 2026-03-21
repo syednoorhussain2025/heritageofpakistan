@@ -5,6 +5,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
+import { hapticLight, hapticHeavy } from "@/lib/haptics";
 import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox
 import type { LightboxPhoto } from "@/types/lightbox";
 
@@ -209,9 +210,8 @@ function ReviewCardSkeleton() {
 function PageSkeleton() {
   return (
     <div className="max-w-5xl mx-auto">
-      <Skeleton className="h-7 w-44 mb-4" />
       <div className="flex flex-col gap-2 mb-5">
-        <Skeleton className="h-12 w-full rounded-xl" />
+        <Skeleton className="h-12 w-full rounded-full" />
         <div className="grid grid-cols-2 gap-2">
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-12 w-full rounded-xl" />
@@ -349,15 +349,14 @@ export default function MyReviewsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold mb-4">My Reviews</h1>
-
       {/* Filters */}
       <div className="flex flex-col gap-2 mb-5">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search reviews or site name…"
-          className="border border-gray-200 rounded-xl px-4 py-3 w-full text-sm bg-gray-50 focus:outline-none focus:border-[#F78300] focus:ring-1 focus:ring-[#F78300]"
+          className="border border-gray-200 rounded-full px-4 py-3 w-full text-sm bg-gray-50 focus:outline-none focus:border-[#00b78b] focus:ring-1 focus:ring-[#00b78b]"
+          style={{ fontSize: "16px" }}
         />
         <div className="grid grid-cols-2 gap-2">
           <select
@@ -444,6 +443,7 @@ function ReviewRowCard({
 
   const [lbOpen, setLbOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -531,7 +531,7 @@ function ReviewRowCard({
           </div>
         </div>
         <button
-          onClick={onDelete}
+          onClick={() => { void hapticHeavy(); onDelete(); }}
           disabled={deleting}
           className={`text-sm px-3 py-1.5 rounded border ${
             deleting
@@ -556,9 +556,20 @@ function ReviewRowCard({
 
       {/* Review text */}
       {review.review_text ? (
-        <p className="mt-2 whitespace-pre-wrap text-gray-800">
-          {review.review_text}
-        </p>
+        <div className="mt-2">
+          <p className={`whitespace-pre-wrap text-gray-800 text-sm leading-relaxed ${expanded ? "" : "line-clamp-4"}`}>
+            {review.review_text}
+          </p>
+          {review.review_text.length > 200 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 text-xs text-[#00b78b] font-medium"
+            >
+              {expanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="mt-2 space-y-2">
           <Skeleton className="h-3 w-full" />
@@ -580,6 +591,7 @@ function ReviewRowCard({
               key={p.id}
               type="button"
               onClick={() => {
+                void hapticLight();
                 setLbIndex(idx);
                 setLbOpen(true);
               }}
