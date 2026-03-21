@@ -4,9 +4,5 @@
 import PortfolioManager from "@/components/portfolio/PortfolioManager";
 
 export default function PortfolioPage() {
-  return (
-    <div className="p-6">
-      <PortfolioManager />
-    </div>
-  );
+  return <PortfolioManager />;
 }

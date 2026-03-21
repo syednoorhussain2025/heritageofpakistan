@@ -126,16 +126,20 @@ export default function WishlistDetailPage() {
 
   return (
     <>
-      {/* Title row (back button is in the teal shell header) */}
-      <div className="px-4 pb-1">
+      {/* List name + count header */}
+      <div className="pb-3">
         {wl ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-medium">
-              {wl.is_public ? "public" : "private"} · {items.length} {items.length === 1 ? "site" : "sites"}
-            </span>
-          </div>
+          <>
+            <h2 className="text-xl font-bold text-gray-900 leading-tight">{wl.name}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {items.length} {items.length === 1 ? "site" : "sites"} · {wl.is_public ? "public" : "private"}
+            </p>
+          </>
         ) : (
-          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+            <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
+          </div>
         )}
       </div>
 

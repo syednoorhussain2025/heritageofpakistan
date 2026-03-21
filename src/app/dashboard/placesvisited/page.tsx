@@ -10,113 +10,56 @@ import { createClient } from "@/lib/supabase/browser";
 import Image from "next/image";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import Icon from "@/components/Icon";
-import { useProfile } from "@/components/ProfileProvider"; // ✅ Global profile
+import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { useProfile } from "@/components/ProfileProvider";
 import type { UserSite } from "@/components/UserVisitedMap";
 
-/* --------------------------- Skeleton utilities --------------------------- */
-
+/* ---------- Skeleton utilities ---------- */
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
 }
-
 function AvatarSkeleton() {
-  return <Skeleton className="relative w-20 h-20 rounded-full" />;
+  return <Skeleton className="relative w-14 h-14 rounded-full" />;
 }
-
-function StatSkeleton() {
-  return (
-    <div className="flex items-center gap-4">
-      <Skeleton className="w-16 h-16 rounded-full" />
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-3 w-24" />
-      </div>
-    </div>
-  );
-}
-
-function ProgressSkeleton() {
-  return (
-    <div className="space-y-2">
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-3 w-64" />
-      <Skeleton className="h-3 w-full rounded-full" />
-    </div>
-  );
-}
-
 function CardSkeleton() {
   return (
     <div className="text-center">
-      <Skeleton className="relative w-40 h-40 mx-auto rounded-full" />
-      <div className="p-3 space-y-2">
-        <Skeleton className="h-4 w-32 mx-auto" />
-        <div className="flex items-center justify-center gap-1">
-          <Skeleton className="h-3 w-20" />
-        </div>
-        <Skeleton className="h-3 w-28 mx-auto" />
+      <Skeleton className="relative w-28 h-28 mx-auto rounded-full" />
+      <div className="p-2 space-y-1">
+        <Skeleton className="h-3 w-24 mx-auto" />
+        <Skeleton className="h-3 w-16 mx-auto" />
       </div>
     </div>
   );
 }
-
 function PageSkeleton() {
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <Skeleton className="h-8 w-56 mb-4" />
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <AvatarSkeleton />
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-44" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-        </div>
-        <Skeleton className="h-10 w-36" />
-      </div>
-      <div className="flex items-center justify-between mb-6">
-        <StatSkeleton />
-        <div className="text-right space-y-2">
-          <Skeleton className="h-4 w-28 ml-auto" />
-          <Skeleton className="h-3 w-40 ml-auto" />
-          <Skeleton className="h-4 w-28 ml-auto" />
-        </div>
-      </div>
-      <Skeleton className="h-3 w-full rounded-full mb-8" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-        <CardSkeleton />
-        <CardSkeleton />
-        <CardSkeleton />
-        <CardSkeleton />
+    <div className="space-y-4">
+      <Skeleton className="h-10 w-full rounded-full" />
+      <Skeleton className="h-24 w-full rounded-2xl" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((k) => <CardSkeleton key={k} />)}
       </div>
     </div>
   );
 }
 
-/* ------------------ Fast spinner (for map loading only) ------------------ */
-function Spinner() {
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="h-12 w-12 border-4 border-[#F78300] border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-}
-
-/* --------------------------- Dynamic map import --------------------------- */
-/* Replaces the map skeleton with a tiny spinner while the chunk loads */
+/* ---------- Dynamic OSM map ---------- */
 const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
-  loading: () => <Spinner />,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+      <div className="h-10 w-10 border-4 border-[#00b78b] border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
 });
 
-/* --------------------------------- Utils --------------------------------- */
-
-function avatarSrc(avatar_url?: string | null) {
+/* ---------- Utils ---------- */
+function avatarSrcFn(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
   const supabase = createClient();
-  const { data } = supabase.storage.from("avatars").getPublicUrl(avatar_url);
-  return data.publicUrl;
+  return supabase.storage.from("avatars").getPublicUrl(avatar_url).data.publicUrl;
 }
 
 type SiteRow = {
@@ -130,106 +73,132 @@ type SiteRow = {
   heritage_type?: string | null;
   site_categories: { categories: { icon_key: string | null }[] }[];
 };
-
 type ReviewWithSite = ReviewRow & { site?: SiteRow };
+const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const monthNames = [
-  "",
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+/* ---------- Info bottom sheet ---------- */
+function InfoBottomSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[3600] bg-black/40" onClick={() => { void hapticLight(); onClose(); }} />
+      <div className="fixed inset-x-0 bottom-0 z-[3700] bg-white rounded-t-3xl shadow-2xl" style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}>
+        <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
+        <div className="px-5 pb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">How it works</h2>
+            <button onClick={() => { void hapticLight(); onClose(); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200">
+              <Icon name="times" size={16} />
+            </button>
+          </div>
 
-/* --------------------------------- Page ---------------------------------- */
+          {/* Animated stars illustration */}
+          <div className="flex items-center justify-center gap-1 mb-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <svg
+                key={i}
+                viewBox="0 0 24 24"
+                className="h-8 w-8 text-amber-400 animate-bounce"
+                style={{ animationDelay: `${i * 0.1}s`, animationDuration: "1.2s" }}
+                fill="currentColor"
+              >
+                <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+              </svg>
+            ))}
+          </div>
 
+          <p className="text-sm text-gray-600 text-center leading-relaxed mb-4">
+            <span className="font-semibold text-gray-900">Review a heritage site</span> to mark it as visited and earn badges. The more places you review, the higher your badge tier!
+          </p>
+
+          <div className="space-y-2 bg-gray-50 rounded-2xl p-3 mb-5">
+            {BADGE_TIERS.map((tier) => (
+              <div key={tier.name} className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 text-sm">★</span>
+                  <span className="font-semibold text-sm text-gray-800">{tier.name}</span>
+                </div>
+                <span className="text-xs text-gray-500 font-medium">{tier.min}{tier.max ? `–${tier.max}` : "+"} reviews</span>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={() => { void hapticMedium(); onClose(); }} className="w-full bg-[#00b78b] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
+            Got it!
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ---------- Page ---------- */
 export default function PlacesVisitedPage() {
   const supabase = createClient();
   const { userId, authLoading } = useAuthUserId();
-  const { profile, loading: profileLoading } = useProfile(); // ✅ from context
+  const { profile, loading: profileLoading } = useProfile();
 
   const [visitedCount, setVisitedCount] = useState(0);
-  const [progress, setProgress] = useState({
-    current: "Beginner",
-    next: null as string | null,
-    remaining: 0,
-  });
+  const [progress, setProgress] = useState({ current: "Beginner", next: null as string | null, remaining: 0 });
   const [reviews, setReviews] = useState<ReviewWithSite[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showInfoSheet, setShowInfoSheet] = useState(false);
+  const [infoShownOnce, setInfoShownOnce] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (!userId) { setLoading(false); return; }
     (async () => {
       try {
         setLoading(true);
         setPageError(null);
 
-        // ✅ Fetch count and reviews (profile via context)
         const [count, userReviews] = await Promise.all([
           countUserVisits(userId),
           listUserReviews(userId),
         ]);
-
         setVisitedCount(count);
         setProgress(progressToNextBadge(count));
 
         const siteIds = Array.from(new Set(userReviews.map((r) => r.site_id)));
-
         let sites: SiteRow[] = [];
         if (siteIds.length) {
           const { data, error } = await supabase
             .from("sites")
-            .select(
-              "id, title, slug, cover_photo_url, latitude, longitude, location_free, heritage_type, site_categories!inner(categories(icon_key))"
-            )
+            .select("id, title, slug, cover_photo_url, latitude, longitude, location_free, heritage_type, site_categories!inner(categories(icon_key))")
             .in("id", siteIds as string[]);
           if (error) throw error;
           sites = data ?? [];
         }
-
-        setReviews(
-          userReviews.map((r) => ({
-            ...r,
-            site: sites.find((s) => s.id === r.site_id),
-          }))
-        );
+        setReviews(userReviews.map((r) => ({ ...r, site: sites.find((s) => s.id === r.site_id) })));
       } catch (e: any) {
         setPageError(e?.message ?? "Error loading visited places");
       } finally {
         setLoading(false);
       }
     })();
-  }, [authLoading, userId, supabase]);
+  }, [authLoading, userId]);
+
+  // Show info sheet once on first load (only on mobile, once per session)
+  useEffect(() => {
+    if (!loading && !authLoading && !infoShownOnce && typeof window !== "undefined") {
+      setInfoShownOnce(true);
+      // Small delay so the page renders first
+      const t = setTimeout(() => setShowInfoSheet(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [loading, authLoading]);
 
   const sitesForMap: UserSite[] = reviews
     .map((r) => {
       const s = r.site;
       if (!s || !s.latitude || !s.longitude) return null;
-
-      const normalizedCategories =
-        s.site_categories?.map((sc) => ({
-          categories:
-            Array.isArray(sc.categories) && sc.categories.length > 0
-              ? sc.categories[0]
-              : null,
-        })) ?? [];
-
-      const normalized: UserSite = {
+      const normalizedCategories = s.site_categories?.map((sc) => ({
+        categories: Array.isArray(sc.categories) && sc.categories.length > 0 ? sc.categories[0] : null,
+      })) ?? [];
+      return {
         id: s.id,
         title: s.title,
         slug: s.slug,
@@ -242,62 +211,116 @@ export default function PlacesVisitedPage() {
         visited_year: r.visited_year,
         visited_month: r.visited_month,
         rating: r.rating ?? 0,
-      };
-
-      return normalized;
+      } as UserSite;
     })
     .filter((x): x is UserSite => x !== null);
 
-  // ✅ Full page skeleton during auth/profile/data load
   if (authLoading || loading || profileLoading) return <PageSkeleton />;
   if (!userId) return <p className="p-6">Please sign in to view this page.</p>;
   if (pageError) return <p className="p-6 text-red-600">Error: {pageError}</p>;
 
+  /* ── Map full-screen view ── */
   if (showMap) {
     return (
-      <UserVisitedMap
-        locations={sitesForMap}
-        onClose={() => setShowMap(false)}
-        profile={profile}
-        visitedCount={visitedCount}
-      />
+      <div className="fixed inset-0 z-[400] flex flex-col bg-white">
+        {/* Map header */}
+        <div
+          className="flex items-center gap-3 px-4 bg-[#00b78b] text-white shrink-0"
+          style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "12px" }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowMap(false)}
+            className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20"
+            aria-label="Back"
+          >
+            <Icon name="arrow-left" size={20} />
+          </button>
+          <span className="flex-1 text-base font-bold">Places Visited Map</span>
+          <span className="text-sm opacity-80">{sitesForMap.length} sites</span>
+        </div>
+
+        {/* Map fills remaining space — no padding, no white border */}
+        <div className="flex-1 relative">
+          <UserVisitedMap
+            locations={sitesForMap}
+            onClose={() => setShowMap(false)}
+            profile={profile}
+            visitedCount={visitedCount}
+          />
+        </div>
+
+        {/* Stats bottom sheet overlay */}
+        <div className="absolute bottom-0 left-0 right-0 z-[10] pointer-events-none" style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)" }}>
+          <div className="mx-3 mb-2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-4 py-3 pointer-events-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {profile?.avatar_url && (
+                <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-[#00b78b] shrink-0">
+                  <Image src={avatarSrcFn(profile.avatar_url) || "/default-avatar.png"} alt="avatar" fill className="object-cover" />
+                </div>
+              )}
+              <div>
+                <div className="font-semibold text-sm text-gray-900">{profile?.full_name ?? "You"}</div>
+                <div className="text-xs text-[#00b78b] font-medium">{profile?.badge ?? progress.current}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-black text-[#00b78b]">{visitedCount}</div>
+              <div className="text-[10px] text-gray-500">Heritage Sites<br />Reviewed</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
+  /* ── Main list view ── */
   return (
-    <div className="max-w-7xl mx-auto">
-      <h1 className="text-xl font-bold mb-4">My Visited Places</h1>
-
-      {/* Header: avatar + map button */}
-      <div className="flex items-center justify-between mb-5">
+    <div className="pb-4">
+      {/* Header row: avatar + map button (no heading — it's in shell header) */}
+      <div className="flex items-center justify-between mb-4">
         {profile ? (
           <div className="flex items-center gap-3">
-            <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-orange-400 shrink-0">
-              <Image src={avatarSrc(profile.avatar_url) || "/default-avatar.png"} alt="User avatar" fill className="object-cover" />
+            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#00b78b] shrink-0">
+              <Image src={avatarSrcFn(profile.avatar_url) || "/default-avatar.png"} alt="avatar" fill className="object-cover" />
             </div>
             <div>
-              <div className="font-semibold text-base">{profile.full_name}</div>
-              <div className="text-sm text-green-600 font-medium">{profile.badge}</div>
+              <div className="font-semibold text-sm text-gray-900">{profile.full_name}</div>
+              <div className="text-xs text-[#00b78b] font-medium">{profile.badge}</div>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <AvatarSkeleton />
-            <div className="space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div>
+            <div className="space-y-1"><Skeleton className="h-4 w-28" /><Skeleton className="h-3 w-16" /></div>
           </div>
         )}
-        {sitesForMap.length > 0 && (
-          <button onClick={() => setShowMap(true)} className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium active:opacity-80 transition">
-            <Icon name="map-marker-alt" size={14} /> Map
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { void hapticLight(); setShowInfoSheet(true); }}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200 transition"
+            aria-label="Info"
+          >
+            <Icon name="info" size={16} />
           </button>
-        )}
+          {sitesForMap.length > 0 && (
+            <button
+              onClick={() => { void hapticMedium(); setShowMap(true); }}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-white text-sm font-semibold active:opacity-80 transition"
+              style={{ backgroundColor: "#00b78b" }}
+            >
+              <Icon name="map-marker-alt" size={14} />
+              Map
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats card */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 mb-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow border-4 border-white shrink-0">
+            <div className="w-14 h-14 bg-[#00b78b] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow border-4 border-white shrink-0">
               {visitedCount}
             </div>
             <div>
@@ -306,75 +329,88 @@ export default function PlacesVisitedPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-green-600">{progress.current}</p>
+            <p className="text-sm font-semibold text-[#00b78b]">{progress.current}</p>
             {progress.next && <p className="text-xs text-gray-400">{progress.remaining} more → {progress.next}</p>}
-            <button onClick={() => setShowBadgeModal(true)} className="mt-1 text-xs text-[#F78300] font-medium active:opacity-70">
+            <button
+              onClick={() => { void hapticLight(); setShowBadgeModal(true); }}
+              className="mt-1 text-xs text-[#00b78b] font-medium active:opacity-70"
+            >
               About Badges →
             </button>
           </div>
         </div>
         {progress.next && visitedCount > 0 && (
           <div className="mt-3 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min((visitedCount / (visitedCount + progress.remaining)) * 100, 100)}%` }} />
+            <div
+              className="bg-[#00b78b] h-2 rounded-full transition-all"
+              style={{ width: `${Math.min((visitedCount / (visitedCount + progress.remaining)) * 100, 100)}%` }}
+            />
           </div>
         )}
       </div>
 
       {/* Grid of visited sites */}
-      {reviews.length === 0 && <p className="text-gray-400 text-center py-8">You haven’t reviewed any places yet.</p>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-start">
-        {reviews.length > 0
-          ? reviews.map((r) => (
-              <div key={r.id} className="text-center">
-                <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden shadow border-4 border-white">
-                  {r.site?.cover_photo_url ? (
-                    <Image src={r.site.cover_photo_url} alt={r.site.title} fill className="object-cover" />
-                  ) : (
-                    <div className="bg-gray-200 w-full h-full" />
-                  )}
-                </div>
-                <div className="pt-2 pb-1">
-                  <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{r.site?.title ?? "Unknown Site"}</h3>
-                  {r.rating && (
-                    <div className="mt-1 flex items-center justify-center gap-0.5">
-                      <span className="text-amber-400 text-xs">{"★".repeat(Math.round(r.rating))}</span>
-                      <span className="text-gray-200 text-xs">{"★".repeat(5 - Math.round(r.rating))}</span>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    {r.visited_month && r.visited_year ? `${monthNames[r.visited_month]} ${r.visited_year}` : new Date(r.created_at).toLocaleDateString()}
-                  </p>
-                </div>
+      {reviews.length === 0 ? (
+        <div className="py-10 text-center text-gray-400 text-sm">
+          <div className="text-4xl mb-2">🗺️</div>
+          <p>You haven't reviewed any places yet.</p>
+          <p className="text-xs mt-1">Review a heritage site to mark it as visited!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-start">
+          {reviews.map((r) => (
+            <div key={r.id} className="text-center">
+              <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden shadow border-4 border-white ring-2 ring-gray-100">
+                {r.site?.cover_photo_url ? (
+                  <Image src={r.site.cover_photo_url} alt={r.site.title} fill className="object-cover" />
+                ) : (
+                  <div className="bg-gray-200 w-full h-full flex items-center justify-center text-gray-300">
+                    <Icon name="image" size={24} />
+                  </div>
+                )}
               </div>
-            ))
-          : [1, 2, 3, 4].map((k) => <CardSkeleton key={k} />)}
-      </div>
+              <div className="pt-2 pb-1">
+                <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{r.site?.title ?? "Unknown Site"}</h3>
+                {r.rating ? (
+                  <div className="mt-1 flex items-center justify-center gap-0.5">
+                    <span className="text-amber-400 text-xs">{"★".repeat(Math.round(r.rating))}</span>
+                    <span className="text-gray-200 text-xs">{"★".repeat(5 - Math.round(r.rating))}</span>
+                  </div>
+                ) : null}
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {r.visited_month && r.visited_year ? `${monthNames[r.visited_month]} ${r.visited_year}` : new Date(r.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Badge bottom sheet (mobile) / modal (desktop) */}
+      {/* Info bottom sheet (shown on first load + info button) */}
+      {showInfoSheet && <InfoBottomSheet onClose={() => setShowInfoSheet(false)} />}
+
+      {/* Badge tiers bottom sheet */}
       {showBadgeModal && (
         <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-[3600] bg-black/40 backdrop-blur-sm" onClick={() => setShowBadgeModal(false)} />
-          {/* Sheet */}
+          <div className="fixed inset-0 z-[3600] bg-black/40" onClick={() => { void hapticLight(); setShowBadgeModal(false); }} />
           <div className="fixed inset-x-0 bottom-0 z-[3700] bg-white rounded-t-3xl shadow-2xl" style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}>
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-2">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Badge Tiers</h2>
-                <button onClick={() => setShowBadgeModal(false)} className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200">
-                  <Icon name="times" size={18} />
+                <button onClick={() => { void hapticLight(); setShowBadgeModal(false); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:bg-gray-200">
+                  <Icon name="times" size={16} />
                 </button>
               </div>
-              <div className="space-y-3 mb-5">
+              <div className="space-y-2 mb-5">
                 {BADGE_TIERS.map((tier) => (
                   <div key={tier.name} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-semibold text-[#f78300]">{tier.name}</span>
+                    <span className="font-semibold text-[#00b78b]">{tier.name}</span>
                     <span className="text-sm text-gray-500 font-medium">{tier.min}{tier.max ? `–${tier.max}` : "+"} reviews</span>
                   </div>
                 ))}
               </div>
-              <button onClick={() => setShowBadgeModal(false)} className="w-full bg-[#f78300] text-white font-bold py-3.5 rounded-2xl active:opacity-80 transition">
+              <button onClick={() => { void hapticMedium(); setShowBadgeModal(false); }} className="w-full bg-[#00b78b] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
                 Got it
               </button>
             </div>

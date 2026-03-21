@@ -133,14 +133,14 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         {/* Avatar row: photo left, controls right */}
         <div className="flex items-center gap-4 pt-2">
           {/* Circular avatar — larger */}
-          <div className="relative shrink-0">
-            <div className="w-28 h-28 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100">
+          <div className="relative w-28 h-28 shrink-0">
+            <div className="w-28 h-28 rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100 relative">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
                   alt="Profile photo"
                   fill
-                  className="object-cover"
+                  className="object-cover rounded-full"
                   unoptimized
                 />
               ) : (

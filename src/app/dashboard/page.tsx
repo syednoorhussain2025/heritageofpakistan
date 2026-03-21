@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import NextImage from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { createClient } from "@/lib/supabase/browser";
-import { hapticLight } from "@/lib/haptics";
+import { hapticLight, hapticHeavy } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
@@ -37,16 +38,23 @@ const mobileNavItems = [
   { href: "/dashboard/mywishlists", label: "Saved Lists", icon: "list-ul" },
   { href: "/dashboard/mycollections", label: "Collections", icon: "retro" },
   { href: "/dashboard/mytrips", label: "My Trips", icon: "route" },
-  { href: "/dashboard/notebook", label: "Notebook", icon: "book" },
-  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
   { href: "/dashboard/myreviews", label: "My Reviews", icon: "star" },
+  { href: "/dashboard/placesvisited", label: "Places Visited", icon: "map-marker-alt" },
   { href: "/dashboard/portfolio", label: "My Portfolio", icon: "image" },
+  { href: "/dashboard/notebook", label: "My Notes", icon: "book" },
   { href: "/dashboard/account-details", label: "Account Details", icon: "lightbulb" },
 ];
 
 export default function DashboardHome() {
   const supabase = createClient();
+  const router = useRouter();
   const { userId, authLoading, authError } = useAuthUserId();
+
+  async function handleSignOut() {
+    void hapticHeavy();
+    await supabase.auth.signOut();
+    router.push("/");
+  }
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [visitedCount, setVisitedCount] = useState(0);
@@ -140,7 +148,7 @@ export default function DashboardHome() {
       <div className="lg:hidden">
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
           {mobileNavItems.map((item, i) => (
-            <Link key={item.href} href={item.href} onTouchStart={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative">
+            <Link key={item.href} href={item.href} onTouchStart={() => void hapticLight()} className="flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
               {/* Indented divider — skipped on first row */}
               {i > 0 && <span className="absolute top-0 right-0 left-[60px] h-px bg-gray-100" />}
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#f2f2f2" }}>
@@ -151,6 +159,19 @@ export default function DashboardHome() {
             </Link>
           ))}
         </div>
+
+        {/* Sign out */}
+        <button
+          onTouchStart={() => void hapticHeavy()}
+          onClick={handleSignOut}
+          className="mt-3 w-full flex items-center gap-3.5 px-4 py-[15px] rounded-2xl bg-white active:bg-red-50 transition-colors select-none"
+          style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
+            <Icon name="sign-out" size={18} className="text-red-500" />
+          </div>
+          <span className="flex-1 text-[15px] font-normal text-red-500">Sign Out</span>
+        </button>
       </div>
 
       {/* ── DESKTOP: full dashboard with profile header + cards ── */}

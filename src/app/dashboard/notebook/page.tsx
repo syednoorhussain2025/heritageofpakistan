@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import NotebookEditor from "@/components/NotebookEditor";
 import {
@@ -254,6 +255,7 @@ type Active =
   | null;
 
 export default function TravelNotebookPage() {
+  const router = useRouter();
   const [list, setList] = useState<UnifiedNoteListItem[]>([]);
   const [active, setActive] = useState<Active>(null);
 
@@ -428,6 +430,12 @@ export default function TravelNotebookPage() {
   };
 
   const openListItem = async (item: UnifiedNoteListItem) => {
+    // On mobile: navigate to note detail page
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      router.push(`/dashboard/notebook/${item.id}`);
+      return;
+    }
+    // Desktop: open in editor pane
     setContentLoading(true);
     if (item.kind === "travel") {
       const full = await getNote(item.id);
@@ -542,37 +550,43 @@ export default function TravelNotebookPage() {
                   <li
                     key={n.id}
                     onClick={() => openListItem(n)}
-                    className={`p-3 lg:p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors hover:bg-gray-200/50 active:bg-gray-200`}
+                    className="lg:p-2.5 rounded-lg cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors hover:bg-gray-200/50 active:bg-gray-200"
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide ${
-                          n.kind === "travel"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        {n.kind}
-                      </span>
-                      <div className="flex items-center gap-2 font-semibold text-sm text-gray-800 truncate">
-                        <Icon
-                          name={n.kind === "travel" ? "file-alt" : "bookmark"}
-                          size={12}
-                          className={`flex-shrink-0 ${
-                            n.kind === "travel"
-                              ? "text-blue-500"
-                              : "text-emerald-600"
-                          }`}
-                        />
-                        <span className="truncate">{n.title}</span>
+                    {/* Mobile card style */}
+                    <div className="lg:hidden bg-white rounded-xl px-4 py-3 mb-2 shadow-sm active:bg-gray-50">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full uppercase tracking-wide font-semibold ${n.kind === "travel" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                            {n.kind === "travel" ? "note" : "research"}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(n.updated_at ?? n.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <Icon name="chevron-right" size={12} className="text-gray-300" />
                       </div>
+                      <div className="font-semibold text-sm text-gray-900 truncate">{n.title}</div>
+                      {n.kind === "research" && n.site_title && (
+                        <div className="text-xs text-[#00b78b] truncate mt-0.5">{n.site_title}{n.section_title ? ` · ${n.section_title}` : ""}</div>
+                      )}
+                      {n.summary && (
+                        <div className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">{n.summary}</div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500 truncate mt-1 pl-6">
-                      {n.kind === "research" && n.site_title
-                        ? `${n.site_title}${
-                            n.section_title ? " · " + n.section_title : ""
-                          }`
-                        : new Date(n.created_at).toLocaleDateString()}
+                    {/* Desktop compact style (unchanged) */}
+                    <div className="hidden lg:block p-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide ${n.kind === "travel" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                          {n.kind}
+                        </span>
+                        <div className="flex items-center gap-2 font-semibold text-sm text-gray-800 truncate">
+                          <Icon name={n.kind === "travel" ? "file-alt" : "bookmark"} size={12} className={`flex-shrink-0 ${n.kind === "travel" ? "text-blue-500" : "text-emerald-600"}`} />
+                          <span className="truncate">{n.title}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 truncate mt-1 pl-6">
+                        {n.kind === "research" && n.site_title ? `${n.site_title}${n.section_title ? " · " + n.section_title : ""}` : new Date(n.created_at).toLocaleDateString()}
+                      </div>
                     </div>
                   </li>
                 ))}

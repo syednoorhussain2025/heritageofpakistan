@@ -95,7 +95,8 @@ export default function DashboardShellClient({
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
     pathname?.startsWith("/dashboard/mycollections/") ? "Collection" :
     pathname?.startsWith("/dashboard/mytrips/") ? "Trip Details" :
-    pathname?.startsWith("/dashboard/myreviews/") ? "Review" : "Dashboard");
+    pathname?.startsWith("/dashboard/myreviews/") ? "Review" :
+    pathname?.startsWith("/dashboard/notebook/") ? "Note" : "Dashboard");
 
   // Smart back: nested routes go to their parent, not all the way to /dashboard
   function handleBack() {
@@ -108,6 +109,8 @@ export default function DashboardShellClient({
       router.push("/dashboard/mytrips");
     } else if (pathname?.startsWith("/dashboard/myreviews/")) {
       router.push("/dashboard/myreviews");
+    } else if (pathname?.startsWith("/dashboard/notebook/")) {
+      router.push("/dashboard/notebook");
     } else if (isHome) {
       router.back();
     } else {

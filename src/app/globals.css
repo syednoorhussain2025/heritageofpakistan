@@ -457,3 +457,11 @@ code {
     height: calc(52px + env(safe-area-inset-bottom, 0px) + 12px) !important;
   }
 }
+
+/* ── Disable long-press callout / context menu on mobile ── */
+.dashboard-no-longpress,
+.dashboard-no-longpress * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

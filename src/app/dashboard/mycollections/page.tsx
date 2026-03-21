@@ -26,6 +26,7 @@ export default function MyCollectionsPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,6 +69,8 @@ export default function MyCollectionsPage() {
     try {
       await deletePhotoCollection(id);
       setAlbums((prev) => prev.filter((a) => a.id !== id));
+      setToast(`"${name}" deleted`);
+      setTimeout(() => setToast(null), 2500);
     } finally {
       setDeletingId(null);
     }
@@ -75,6 +78,13 @@ export default function MyCollectionsPage() {
 
   return (
     <>
+      {/* Toast */}
+      {toast && (
+        <div className="pointer-events-none fixed left-1/2 bottom-28 -translate-x-1/2 z-[9999] rounded-xl bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg whitespace-nowrap">
+          {toast}
+        </div>
+      )}
+
       {/* Album list */}
       {loading ? (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>

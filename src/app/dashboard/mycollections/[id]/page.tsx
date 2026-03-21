@@ -98,15 +98,24 @@ export default function CollectionDetailPage() {
     storagePath: "",
   }));
 
-  if (loading) return <GridSkeleton />;
+  if (loading) return (
+    <>
+      <div className="pb-3 space-y-2">
+        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+        <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
+      </div>
+      <GridSkeleton />
+    </>
+  );
 
   return (
     <>
-      {/* Item count */}
-      <div className="px-1 pb-2">
-        <span className="text-xs text-gray-400 font-medium">
+      {/* Collection name + count header */}
+      <div className="pb-3">
+        <h2 className="text-xl font-bold text-gray-900 leading-tight">{name}</h2>
+        <p className="text-xs text-gray-400 mt-0.5">
           {items.length} {items.length === 1 ? "photo" : "photos"}
-        </span>
+        </p>
       </div>
 
       {items.length === 0 ? (

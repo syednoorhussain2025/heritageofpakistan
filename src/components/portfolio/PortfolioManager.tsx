@@ -141,9 +141,8 @@ function PageSkeletonGrid() {
 
 function PageSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-3">Portfolio</h1>
+    <div className="bg-gray-50">
+      <div className="max-w-7xl mx-auto">
         <HeaderSkeleton />
         <PageSkeletonGrid />
       </div>
@@ -378,13 +377,10 @@ export default function PortfolioManager() {
   /* ------------------------------ UI ---------------------------------- */
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-3">Portfolio</h1>
-
+    <div className="bg-gray-50">
+      <div className="max-w-7xl mx-auto">
         {/* Top Manager Section: white background, NO border */}
-        <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">My Portfolio Manager</h2>
+        <div className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
 
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             {/* LEFT: Profile card */}
