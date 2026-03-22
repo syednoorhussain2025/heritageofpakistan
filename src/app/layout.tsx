@@ -8,6 +8,7 @@ import AppChrome from "@/components/AppChrome";
 import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { getBrandColors, brandColorsCss } from "@/lib/brand-colors";
 
 /* ---------------- Fonts ---------------- */
 const lato = Lato({
@@ -61,7 +62,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const initialHeaderItems = await fetchHeaderItems();
+  const [initialHeaderItems, brandColors] = await Promise.all([
+    fetchHeaderItems(),
+    getBrandColors(),
+  ]);
 
   return (
     <html lang="en">
@@ -79,8 +83,10 @@ export default async function RootLayout({
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        {/* PWA theme color — colors the Android Chrome status bar / browser chrome */}
-        <meta name="theme-color" content="#00c9a7" />
+        {/* PWA theme color — driven by brand-green */}
+        <meta name="theme-color" content={brandColors.brand_green} />
+        {/* Brand color CSS variables — server-rendered, zero flash */}
+        <style dangerouslySetInnerHTML={{ __html: brandColorsCss(brandColors) }} />
       </head>
 
       <body

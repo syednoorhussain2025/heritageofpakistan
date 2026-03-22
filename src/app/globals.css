@@ -14,7 +14,7 @@ html {
   height: 100%;
   margin: 0;
   padding: 0;
-  background: #fafafa;
+  background: var(--brand-very-light-grey);
   overflow-y: auto;
 }
 
@@ -55,7 +55,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background: #fafafa;
+  background: var(--brand-very-light-grey);
 
   /* Capacitor: left/right safe areas only — top is handled per-component */
   padding-left: env(safe-area-inset-left);
@@ -69,24 +69,31 @@ body {
   --background: #ffffff;
   --foreground: #171717;
 
-  /* --- BRAND COLORS --- */
-  --brand-orange: #f78300;
-  --brand-blue: #040951;
-  --brand-green: #00b78b;
-  --brand-grey: #444444;
-  --brand-lightgrey: #d4d4d4;
-  --brand-matteblack: #111111;
+  /* ── CANONICAL BRAND COLORS ── (overridden at runtime by BrandColorInjector) */
+  --brand-green:            #00b78b;
+  --brand-orange:           #F78300;
+  --brand-blue:             #1c1f4c;
+  --brand-black:            #111111;
+  --brand-dark-grey:        #2d2d2d;
+  --brand-light-grey:       #efefef;
+  --brand-very-light-grey:  #f5f5f5;
+  --brand-illustration:     #00b78b;
 
-  /* --- HOMEPAGE PALETTE (used by search selectors) --- */
-  --navy-deep: #040951;
-  --sand-gold: #f78300;
+  /* Aliases kept for backwards compat */
+  --brand-grey:        var(--brand-dark-grey);
+  --brand-lightgrey:   var(--brand-light-grey);
+  --brand-matteblack:  var(--brand-black);
+
+  /* --- HOMEPAGE PALETTE (all aliased to canonical vars) --- */
+  --navy-deep:         var(--brand-blue);
+  --sand-gold:         var(--brand-orange);
   --espresso-brown: #4b2e05;
   --ivory-cream: #ffffff;
-  --taupe-grey: #d4d4d4;
-  --terracotta-red: #f78300;
-  --mustard-accent: #f78300;
+  --taupe-grey:        var(--brand-light-grey);
+  --terracotta-red:    var(--brand-orange);
+  --mustard-accent:    var(--brand-orange);
   --olive-green: #7b6e3f;
-  --dark-grey: #2b2b2b;
+  --dark-grey:         var(--brand-dark-grey);
 
   /* --- HEADER FONTS --- */
   /* ---Header Menu Links --- */
@@ -95,7 +102,7 @@ body {
   --font-headermenu-font-color: #8f8f8f;
   /* ---Header Logo --- */
   --font-headerlogo-shorthand: 700 24px "FuturaCyrillicMedium", sans-serif;
-  --font-headerlogo-font-color: #00b78b;
+  --font-headerlogo-font-color: var(--brand-green);
 
   /* --- General Font Definitions --- */
   --font-body: "Lato-regular", sans-serif;
