@@ -17,7 +17,6 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-jakarta",
   display: "swap",
-  axes: ["opsz"], // include optical-size axis for full variable font support
 });
 
 const futura = localFont({
