@@ -69,7 +69,15 @@ body {
   --background: #ffffff;
   --foreground: #171717;
 
-  /* ── CANONICAL BRAND COLORS ── defined by server-injected <style> in layout.tsx */
+  /* ── CANONICAL BRAND COLORS ── fallback defaults, overridden by BrandColorApplier on mount */
+  --brand-green:            #00b78b;
+  --brand-orange:           #F78300;
+  --brand-blue:             #1c1f4c;
+  --brand-black:            #111111;
+  --brand-dark-grey:        #2d2d2d;
+  --brand-light-grey:       #efefef;
+  --brand-very-light-grey:  #f5f5f5;
+  --brand-illustration:     #00b78b;
 
   /* Aliases kept for backwards compat */
   --brand-grey:        var(--brand-dark-grey);

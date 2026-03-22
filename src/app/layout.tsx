@@ -8,7 +8,8 @@ import AppChrome from "@/components/AppChrome";
 import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { getBrandColors, brandColorsCss } from "@/lib/brand-colors";
+import { getBrandColors } from "@/lib/brand-colors";
+import BrandColorApplier from "@/components/BrandColorApplier";
 
 /* ---------------- Fonts ---------------- */
 const lato = Lato({
@@ -85,14 +86,13 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {/* PWA theme color — driven by brand-green */}
         <meta name="theme-color" content={brandColors.brand_green} />
-        {/* Brand color CSS variables — server-rendered, zero flash */}
-        <style dangerouslySetInnerHTML={{ __html: brandColorsCss(brandColors) }} />
       </head>
 
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
+          <BrandColorApplier colors={brandColors} />
           <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
           <SpeedInsights />
         </IconProvider>
