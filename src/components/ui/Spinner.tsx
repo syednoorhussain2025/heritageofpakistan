@@ -56,8 +56,7 @@ export function Spinner({ size = 64, overlay = false, fill = false }: SpinnerPro
       animationData={animData}
       loop
       autoplay
-      initialSegment={[40, 79]}
-      style={{ width: size, height: size }}
+style={{ width: size, height: size }}
     />
   );
 
