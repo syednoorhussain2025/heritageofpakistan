@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
+import ReviewModal from "@/components/reviews/ReviewModal";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
@@ -50,6 +51,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -282,6 +284,17 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 310); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="star" size={18} className="text-gray-700" />
+              </div>
+              <span className="text-[15px] font-medium text-gray-900">Add Review</span>
+            </button>
+            <div className="mx-4 h-[0.5px] bg-gray-100" />
+            <button
+              type="button"
               onClick={() => { void hapticMedium(); void handlePlacesNearby(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
@@ -379,6 +392,14 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           onClose={() => setShowTripModal(false)}
         />,
         document.body
+      )}
+
+      {showReviewModal && (
+        <ReviewModal
+          open={showReviewModal}
+          siteId={site.id}
+          onClose={() => setShowReviewModal(false)}
+        />
       )}
     </>,
     document.body
