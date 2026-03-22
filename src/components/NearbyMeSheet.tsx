@@ -298,46 +298,63 @@ export default function NearbyMeSheet({
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-1.5 pb-3 shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-[#1c1f4c]">Nearby Me</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {loading
-                ? "Searching…"
-                : sites.length > 0
-                  ? `${sites.length} ${sites.length === 1 ? "site" : "sites"} within ${RADIUS_KM} km`
-                  : cityName
-                    ? `Within ${RADIUS_KM} km of ${cityName}`
-                    : `Heritage sites within ${RADIUS_KM} km`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <div
+          className="shrink-0 mx-4 mb-3 rounded-2xl overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #00b78b 0%, #007a5e 100%)" }}
+        >
+          <div className="flex items-center gap-1 px-4 py-3">
+            {/* Illustration */}
+            <img
+              src="/illustrations/nearby-search.svg"
+              alt=""
+              aria-hidden="true"
+              className="w-24 h-24 shrink-0 object-contain drop-shadow-sm"
+            />
+            {/* Text */}
+            <div className="flex-1 min-w-0">
+              <p className="text-white/70 text-[11px] font-semibold uppercase tracking-wider mb-0.5">
+                Nearby You
+              </p>
+              <h2 className="text-white text-[20px] font-bold leading-tight">
+                {loading
+                  ? "Searching…"
+                  : sites.length > 0
+                    ? `${sites.length} site${sites.length !== 1 ? "s" : ""} found`
+                    : "No sites found"}
+              </h2>
+              <p className="text-white/70 text-xs mt-0.5 leading-snug">
+                {cityName
+                  ? `Within ${RADIUS_KM} km of ${cityName}`
+                  : `Within ${RADIUS_KM} km of your location`}
+              </p>
+            </div>
+            {/* Close */}
             <button
-              onClick={() => { void hapticLight(); setExpanded((v) => !v); }}
-              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
-              aria-label={expanded ? "Collapse" : "Expand"}
+              onClick={() => { void hapticLight(); handleClose(); }}
+              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center active:bg-white/30 shrink-0 self-start mt-0.5"
+              aria-label="Close"
             >
-              <svg
-                className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
+              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* Tap to expand hint */}
+          {!expanded && sites.length > 0 && (
+            <button
+              onClick={() => { void hapticLight(); setExpanded(true); }}
+              className="w-full flex items-center justify-center gap-1 pb-2.5 active:opacity-70"
+            >
+              <span className="text-white/60 text-[11px]">Swipe up to see all</span>
+              <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
               </svg>
             </button>
-            <button
-              onClick={() => { void hapticLight(); handleClose(); }}
-              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200"
-              aria-label="Close"
-            >
-              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          )}
         </div>
 
         {/* Body */}
-        <div className={`flex-1 min-h-0 overflow-y-auto px-4 pb-2 ${!expanded ? "overflow-hidden" : ""}`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto px-4 pb-4 ${!expanded ? "overflow-hidden" : ""}`}>
           {loading && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <span className="w-7 h-7 border-[3px] border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
@@ -352,20 +369,16 @@ export default function NearbyMeSheet({
           )}
 
           {!loading && !error && sites.length === 0 && (
-            <div className="py-10 text-center">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                </svg>
-              </div>
+            <div className="py-10 text-center px-6">
+              <img src="/illustrations/nearby-search.svg" alt="" className="w-40 mx-auto mb-4 opacity-60" />
               <p className="text-sm font-semibold text-gray-500">No sites found nearby</p>
               <p className="text-xs text-gray-400 mt-1">No heritage sites within {RADIUS_KM} km of your location.</p>
             </div>
           )}
 
           {!loading && !error && sites.length > 0 && (
-            <div className="flex flex-col gap-3">
-              {sites.map((site) => (
+            <div className="flex flex-col divide-y divide-gray-100">
+              {sites.map((site, i) => (
                 <button
                   key={site.id}
                   onClick={() => {
@@ -373,9 +386,13 @@ export default function NearbyMeSheet({
                     handleClose();
                     onSiteSelect(site);
                   }}
-                  className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-left active:bg-gray-50"
+                  className="flex items-center gap-3 py-3 text-left active:bg-gray-50 transition-colors"
                 >
-                  <div className="shrink-0 w-20 h-20 relative">
+                  {/* Rank */}
+                  <span className="text-[11px] font-bold text-gray-300 w-4 text-center shrink-0">{i + 1}</span>
+
+                  {/* Thumbnail */}
+                  <div className="shrink-0 w-[68px] h-[68px] rounded-xl overflow-hidden relative">
                     <img
                       src={site.cover_photo_thumb_url || site.cover_photo_url || FALLBACK_GRADIENT}
                       alt={site.title}
@@ -390,20 +407,18 @@ export default function NearbyMeSheet({
                     )}
                   </div>
 
-                  <div className="flex-1 min-w-0 py-3 pr-3">
-                    <p className="text-sm font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-[#00b78b] bg-[#00c9a7]/10 px-2 py-0.5 rounded-full">
-                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
+                    <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[11px] font-semibold text-[#00b78b]">
                         {site.distance_km < 1
-                          ? `${Math.round(site.distance_km * 1000)} m`
-                          : `${site.distance_km.toFixed(1)} km`}
+                          ? `${Math.round(site.distance_km * 1000)} m away`
+                          : `${site.distance_km.toFixed(1)} km away`}
                       </span>
                       {site.avg_rating != null && (
-                        <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                        <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
                           <span className="text-yellow-400">★</span>
                           {site.avg_rating.toFixed(1)}
                         </span>
@@ -411,11 +426,9 @@ export default function NearbyMeSheet({
                     </div>
                   </div>
 
-                  <div className="pr-3 shrink-0">
-                    <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+                  <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               ))}
             </div>
