@@ -298,59 +298,35 @@ export default function NearbyMeSheet({
         </div>
 
         {/* Header */}
-        <div
-          className="shrink-0 mx-4 mb-3 rounded-2xl overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #00b78b 0%, #007a5e 100%)" }}
-        >
-          <div className="flex items-center gap-1 px-4 py-3">
-            {/* Illustration */}
-            <img
-              src="/illustrations/nearby-search.svg"
-              alt=""
-              aria-hidden="true"
-              className="w-24 h-24 shrink-0 object-contain drop-shadow-sm"
-            />
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <p className="text-white/70 text-[11px] font-semibold uppercase tracking-wider mb-0.5">
-                Nearby You
-              </p>
-              <h2 className="text-white text-[20px] font-bold leading-tight">
-                {loading
-                  ? "Searching…"
-                  : sites.length > 0
-                    ? `${sites.length} site${sites.length !== 1 ? "s" : ""} found`
-                    : "No sites found"}
-              </h2>
-              <p className="text-white/70 text-xs mt-0.5 leading-snug">
-                {cityName
-                  ? `Within ${RADIUS_KM} km of ${cityName}`
-                  : `Within ${RADIUS_KM} km of your location`}
-              </p>
-            </div>
-            {/* Close */}
-            <button
-              onClick={() => { void hapticLight(); handleClose(); }}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center active:bg-white/30 shrink-0 self-start mt-0.5"
-              aria-label="Close"
-            >
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <div className="shrink-0 flex items-center gap-3 px-4 pb-3 border-b border-gray-100">
+          <img
+            src="/illustrations/nearby-search.svg"
+            alt=""
+            aria-hidden="true"
+            className="w-16 h-16 shrink-0 object-contain"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[#00b78b] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
+            <h2 className="text-[#1c1f4c] text-[18px] font-bold leading-tight">
+              {loading
+                ? "Searching…"
+                : sites.length > 0
+                  ? `${sites.length} site${sites.length !== 1 ? "s" : ""} found`
+                  : "No sites found"}
+            </h2>
+            <p className="text-gray-400 text-xs mt-0.5">
+              {cityName ? `Within ${RADIUS_KM} km of ${cityName}` : `Within ${RADIUS_KM} km of your location`}
+            </p>
           </div>
-          {/* Tap to expand hint */}
-          {!expanded && sites.length > 0 && (
-            <button
-              onClick={() => { void hapticLight(); setExpanded(true); }}
-              className="w-full flex items-center justify-center gap-1 pb-2.5 active:opacity-70"
-            >
-              <span className="text-white/60 text-[11px]">Swipe up to see all</span>
-              <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-          )}
+          <button
+            onClick={() => { void hapticLight(); handleClose(); }}
+            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:bg-gray-200 shrink-0 self-start mt-0.5"
+            aria-label="Close"
+          >
+            <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Body */}
