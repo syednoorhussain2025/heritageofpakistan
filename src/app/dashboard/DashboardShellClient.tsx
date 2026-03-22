@@ -4,7 +4,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -43,20 +42,6 @@ export default function DashboardShellClient({
   const searchRoutes = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
   const showSearch = typeof pathname === "string" && searchRoutes.includes(pathname);
   const [headerSearchQ, setHeaderSearchQ] = useState("");
-
-  // Slide direction: +1 = forward (slide in from right), -1 = back (slide in from left)
-  const prevPathnameRef = useRef(pathname);
-  const slideDirRef = useRef(1);
-  if (prevPathnameRef.current !== pathname) {
-    const goingBack =
-      // navigating to /dashboard from a sub-page
-      (pathname === "/dashboard" && prevPathnameRef.current !== "/dashboard") ||
-      // navigating to a parent route (e.g. /dashboard/mywishlists from /dashboard/mywishlists/abc)
-      (prevPathnameRef.current ?? "").startsWith((pathname ?? "") + "/");
-    slideDirRef.current = goingBack ? -1 : 1;
-    prevPathnameRef.current = pathname;
-  }
-  const slideDir = slideDirRef.current;
 
   // Reset search when navigating away from a search route
   useEffect(() => {
@@ -389,28 +374,7 @@ export default function DashboardShellClient({
           />
         )}
         <SearchContext.Provider value={{ q: headerSearchQ }}>
-          {/* Mobile: slide page content on navigation; desktop: no animation */}
-          <div className="hidden lg:block">{children}</div>
-          <div className="lg:hidden">
-            <AnimatePresence mode="sync" initial={false} custom={slideDir}>
-              <motion.div
-                key={pathname}
-                custom={slideDir}
-                variants={{
-                  initial: (dir: number) => ({ x: `${dir * 100}%` }),
-                  animate: { x: "0%" },
-                  exit: (dir: number) => ({ x: `${dir * -100}%` }),
-                }}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                style={{ position: "relative", overflowX: "hidden" }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+          {children}
         </SearchContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />

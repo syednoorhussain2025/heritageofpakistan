@@ -168,7 +168,7 @@ export default function DashboardHome() {
             <button
               key={item.href}
               type="button"
-              onClick={() => { void hapticLight(); startNavigation(item.href, { overlay: "transparent" }); }}
+              onClick={() => { void hapticLight(); startNavigation(item.href, { overlay: "white" }); }}
               className="w-full flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none text-left"
               style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
             >
