@@ -106,8 +106,16 @@ export default function MyCollectionsPage() {
           ))}
         </div>
       ) : albums.length === 0 ? (
-        <div className="px-4 py-8 text-center text-gray-500 text-sm">
-          No collections yet. Use "Add to Collection" from any photo.
+        <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
+          <p className="text-[17px] font-semibold text-gray-800 mb-6">No Collections Created Yet</p>
+          <img
+            src="/illustrations/no-collections.svg"
+            alt="No collections"
+            className="w-full max-w-[280px] mb-8"
+            loading="lazy"
+            decoding="async"
+          />
+          <p className="text-sm text-gray-400">Use "Add to Collection" from any photo to get started.</p>
         </div>
       ) : filtered.length === 0 && q.trim() ? (
         <p className="text-center text-sm text-gray-400 py-6">No collections match "{q}"</p>
