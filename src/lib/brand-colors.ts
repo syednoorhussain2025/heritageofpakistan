@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 const BRAND_ROW_ID = "00000000-0000-0000-0000-000000000001";
@@ -24,20 +25,24 @@ export const BRAND_DEFAULTS: BrandColors = {
   brand_illustration:    "#00b78b",
 };
 
-export async function getBrandColors(): Promise<BrandColors> {
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("brand_colors")
-      .select("brand_green,brand_orange,brand_blue,brand_black,brand_dark_grey,brand_light_grey,brand_very_light_grey,brand_illustration")
-      .eq("id", BRAND_ROW_ID)
-      .single();
-    if (error || !data) return BRAND_DEFAULTS;
-    return { ...BRAND_DEFAULTS, ...data } as BrandColors;
-  } catch {
-    return BRAND_DEFAULTS;
-  }
-}
+export const getBrandColors = unstable_cache(
+  async (): Promise<BrandColors> => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("brand_colors")
+        .select("brand_green,brand_orange,brand_blue,brand_black,brand_dark_grey,brand_light_grey,brand_very_light_grey,brand_illustration")
+        .eq("id", BRAND_ROW_ID)
+        .single();
+      if (error || !data) return BRAND_DEFAULTS;
+      return { ...BRAND_DEFAULTS, ...data } as BrandColors;
+    } catch {
+      return BRAND_DEFAULTS;
+    }
+  },
+  ["brand-colors"],
+  { tags: ["brand-colors"], revalidate: false }
+);
 
 /** Converts BrandColors to a CSS <style> block injected into <head> */
 export function brandColorsCss(c: BrandColors): string {
