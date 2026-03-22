@@ -381,10 +381,16 @@ export default function PlacesVisitedPage() {
 
       {/* Grid of visited sites */}
       {reviews.length === 0 ? (
-        <div className="py-10 text-center text-gray-400 text-sm">
-          <div className="text-4xl mb-2">🗺️</div>
-          <p>You haven't reviewed any places yet.</p>
-          <p className="text-xs mt-1">Review a heritage site to mark it as visited!</p>
+        <div className="flex flex-col items-center justify-center min-h-[380px] px-6 pt-10 text-center">
+          <p className="text-[17px] font-semibold text-gray-800 mb-6">No Places Visited Yet</p>
+          <img
+            src="/illustrations/no-visited.svg"
+            alt="No places visited"
+            className="w-full max-w-[280px] mb-8"
+            loading="lazy"
+            decoding="async"
+          />
+          <p className="text-sm text-gray-400">Review a heritage site to mark it as visited.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-start">
