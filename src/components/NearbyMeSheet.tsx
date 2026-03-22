@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase/browser";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { NearbySearch } from "@/components/illustrations/NearbySearch";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -299,12 +300,7 @@ export default function NearbyMeSheet({
 
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-4 pb-3 border-b border-gray-100">
-          <img
-            src="/illustrations/nearby-search.svg"
-            alt=""
-            aria-hidden="true"
-            className="w-24 h-24 shrink-0 object-contain"
-          />
+          <NearbySearch className="w-24 h-24 shrink-0 object-contain" />
           <div className="flex-1 min-w-0">
             <p className="text-[var(--brand-green)] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
             <h2 className="text-[var(--brand-blue)] text-[18px] font-bold leading-tight">
@@ -346,7 +342,7 @@ export default function NearbyMeSheet({
 
           {!loading && !error && sites.length === 0 && (
             <div className="py-10 text-center px-6">
-              <img src="/illustrations/nearby-search.svg" alt="" className="w-40 mx-auto mb-4 opacity-60" />
+              <NearbySearch className="w-40 mx-auto mb-4 opacity-60" />
               <p className="text-sm font-semibold text-gray-500">No sites found nearby</p>
               <p className="text-xs text-gray-400 mt-1">No heritage sites within {RADIUS_KM} km of your location.</p>
             </div>
