@@ -51,5 +51,7 @@
 	<string>Heritage of Pakistan uses your location to show heritage sites near you.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Heritage of Pakistan uses your location to show heritage sites near you.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Heritage of Pakistan needs access to your photo library.</string>
 </dict>
 </plist>
