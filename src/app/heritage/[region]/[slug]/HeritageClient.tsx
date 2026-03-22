@@ -285,37 +285,241 @@ export default function HeritageClient({
       />
 
       {/* Content layout */}
-      <div className="max-w-screen-2xl mx-auto my-6 px-0 lg:px-[109px] flex flex-col gap-5 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
-        {/* LEFT SIDEBAR (MOBILE TOP GROUP) */}
-        <aside className="space-y-5 w-full lg:hidden">
+      <div className="max-w-screen-2xl mx-auto my-2 lg:my-6 px-0 lg:px-[109px] flex flex-col gap-2 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+
+        {/* ============================================================ */}
+        {/* MOBILE LAYOUT — linear single-column, ordered for UX         */}
+        {/* ============================================================ */}
+        <div className="lg:hidden space-y-2 w-full">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
               <SidebarCardSkeleton lines={5} />
               <SidebarCardSkeleton lines={9} />
+              <SidebarCardSkeleton lines={6} />
+              <SidebarCardSkeleton lines={6} />
             </>
           ) : (
-            <LazySection
-              skeleton={
-                <>
-                  <SidebarCardSkeleton lines={7} />
-                  <SidebarCardSkeleton lines={5} />
-                  <SidebarCardSkeleton lines={9} />
-                </>
-              }
-            >
-              <HeritageSidebar
-                site={site as any}
-                provinceName={provinceName}
-                regions={regions}
-                maps={maps}
-                travelGuideSummary={travelGuideSummary}
-                sectionGroup="top"
-                regionsPlacement="bottom"
-              />
-            </LazySection>
+            <>
+              {/* 1. Where is it? (map + location) */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-location"
+                />
+              </LazySection>
+
+              {/* 2. General Information */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={9} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-general"
+                />
+              </LazySection>
+
+              {/* 3. History and Background */}
+              {site.history_layout_html && (
+                <HeritageSection
+                  id="history"
+                  title="History and Background"
+                  iconName="history-background"
+                >
+                  <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                    <CollectionsProvider>
+                      <HeritageArticle
+                        key={`history-${site.history_layout_html.length}`}
+                        html={site.history_layout_html}
+                        site={{ id: site.id, slug: site.slug, title: site.title }}
+                        section={{ id: "history", title: "History and Background" }}
+                        highlightQuote={highlight.section_id === "history" ? highlight.quote : null}
+                      />
+                    </CollectionsProvider>
+                  </LazySection>
+                </HeritageSection>
+              )}
+
+              {/* 4. Architecture and Design */}
+              {site.architecture_layout_html && (
+                <HeritageSection
+                  id="architecture"
+                  title="Architecture and Design"
+                  iconName="architecture-design"
+                >
+                  <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                    <CollectionsProvider>
+                      <HeritageArticle
+                        key={`architecture-${site.architecture_layout_html.length}`}
+                        html={site.architecture_layout_html}
+                        site={{ id: site.id, slug: site.slug, title: site.title }}
+                        section={{ id: "architecture", title: "Architecture and Design" }}
+                        highlightQuote={highlight.section_id === "architecture" ? highlight.quote : null}
+                      />
+                    </CollectionsProvider>
+                  </LazySection>
+                </HeritageSection>
+              )}
+
+              {/* 5. Climate & Environment */}
+              {site.climate_layout_html && (
+                <HeritageSection
+                  id="climate"
+                  title="Climate & Environment"
+                  iconName="climate-topography"
+                >
+                  <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                    <CollectionsProvider>
+                      <HeritageArticle
+                        key={`climate-${site.climate_layout_html.length}`}
+                        html={site.climate_layout_html}
+                        site={{ id: site.id, slug: site.slug, title: site.title }}
+                        section={{ id: "climate", title: "Climate & Environment" }}
+                        highlightQuote={highlight.section_id === "climate" ? highlight.quote : null}
+                      />
+                    </CollectionsProvider>
+                  </LazySection>
+                </HeritageSection>
+              )}
+
+              {/* 6. Custom sections */}
+              {Array.isArray(site.custom_sections_json) &&
+                site.custom_sections_json
+                  .filter((cs: any) => !!cs.layout_html?.trim())
+                  .map((cs: any) => (
+                    <HeritageSection key={cs.id} id={cs.id} title={cs.title} iconName="history-background">
+                      <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                        <CollectionsProvider>
+                          <HeritageArticle
+                            key={`custom-${cs.id}-${(cs.layout_html || "").length}`}
+                            html={cs.layout_html}
+                            site={{ id: site.id, slug: site.slug, title: site.title }}
+                            section={{ id: cs.id, title: cs.title }}
+                            highlightQuote={highlight.section_id === cs.id ? highlight.quote : null}
+                          />
+                        </CollectionsProvider>
+                      </LazySection>
+                    </HeritageSection>
+                  ))}
+
+              {/* 7. Travel Guide */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={8} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-travel"
+                />
+              </LazySection>
+
+              {/* 8. Best Time to Visit + Climate & Topography */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={6} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-climate"
+                />
+              </LazySection>
+
+              {/* 9. Places to Stay */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={4} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-stay"
+                />
+              </LazySection>
+
+              {/* 10. Gallery & Photo Story */}
+              <LazySection skeleton={<GallerySkeleton count={6} />}>
+                <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
+              </LazySection>
+
+              {/* 11. Places Nearby */}
+              <LazySection
+                skeleton={
+                  <HeritageSection id="nearby" title="Places Nearby" iconName="regiontax">
+                    <div className="space-y-2">
+                      <div className="h-4 w-2/3 rounded bg-gray-200 animate-pulse" />
+                      <div className="h-4 w-5/6 rounded bg-gray-200 animate-pulse" />
+                      <div className="h-4 w-3/4 rounded bg-gray-200 animate-pulse" />
+                    </div>
+                  </HeritageSection>
+                }
+              >
+                <HeritageNearby
+                  siteId={site.id}
+                  siteTitle={site.title}
+                  lat={site.latitude ? Number(site.latitude) : null}
+                  lng={site.longitude ? Number(site.longitude) : null}
+                />
+              </LazySection>
+
+              {/* 12. Traveler Reviews */}
+              <HeritageSection id="reviews" title="Traveler Reviews" iconName="star">
+                <LazySection
+                  skeleton={
+                    <div className="space-y-4">
+                      <div className="border rounded-lg p-3">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse" />
+                          <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                        </div>
+                        <div className="h-4 w-full rounded bg-gray-200 animate-pulse mb-2" />
+                        <div className="h-4 w-5/6 rounded bg-gray-200 animate-pulse mb-2" />
+                        <div className="h-4 w-2/3 rounded bg-gray-200 animate-pulse" />
+                      </div>
+                    </div>
+                  }
+                >
+                  <ReviewsTab siteId={site.id} />
+                </LazySection>
+              </HeritageSection>
+
+              {/* 13. Did you Know + Regions + Protected under */}
+              <LazySection skeleton={<SidebarCardSkeleton lines={5} />}>
+                <HeritageSidebar
+                  site={site as any}
+                  provinceName={provinceName}
+                  regions={regions}
+                  maps={maps}
+                  travelGuideSummary={travelGuideSummary}
+                  sectionGroup="mobile-bottom"
+                />
+              </LazySection>
+
+              {/* 14. Bibliography */}
+              <LazySection skeleton={<BibliographySkeleton rows={4} />}>
+                <HeritageBibliography
+                  items={bibliography}
+                  styleId={styleId}
+                  entries={bibliographyEntries}
+                />
+              </LazySection>
+
+              {/* 15. Photo Rights */}
+              <HeritagePhotoRights />
+            </>
           )}
-        </aside>
+        </div>
+
+        {/* ============================================================ */}
+        {/* DESKTOP LAYOUT — two-column sidebar + main                   */}
+        {/* ============================================================ */}
 
         {/* LEFT SIDEBAR (DESKTOP FULL STACK) */}
         <aside className="hidden lg:block lg:space-y-5 lg:w-auto lg:flex-shrink-0">
@@ -355,8 +559,8 @@ export default function HeritageClient({
           )}
         </aside>
 
-        {/* RIGHT MAIN CONTENT */}
-        <main className="space-y-5 w-full lg:flex-1">
+        {/* RIGHT MAIN CONTENT (DESKTOP) */}
+        <main className="hidden lg:block space-y-2 w-full lg:flex-1">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={6} />
@@ -369,10 +573,8 @@ export default function HeritageClient({
             </>
           ) : (
             <>
-              {/* Top categories / overview stays eager */}
-              <div className="hidden md:block">
-                <HeritageUpperArticle categories={categories} />
-              </div>
+              {/* Top categories / overview */}
+              <HeritageUpperArticle categories={categories} />
 
               {/* History */}
               {site.history_layout_html && (
@@ -505,11 +707,6 @@ export default function HeritageClient({
                     </HeritageSection>
                   ))}
 
-              {/* Mobile-only categories, moved after article sections */}
-              <div className="md:hidden">
-                <HeritageUpperArticle categories={categories} />
-              </div>
-
               {/* Gallery */}
               <LazySection skeleton={<GallerySkeleton count={6} />}>
                 <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
@@ -578,43 +775,6 @@ export default function HeritageClient({
             </>
           )}
         </main>
-
-        {/* LEFT SIDEBAR (MOBILE BOTTOM GROUP) */}
-        <aside className="space-y-5 w-full lg:hidden">
-          {!site ? (
-            <>
-              <SidebarCardSkeleton lines={3} />
-              <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={4} />
-              <SidebarCardSkeleton lines={5} />
-              <SidebarCardSkeleton lines={4} />
-              <SidebarCardSkeleton lines={4} />
-            </>
-          ) : (
-            <LazySection
-              skeleton={
-                <>
-                  <SidebarCardSkeleton lines={3} />
-                  <SidebarCardSkeleton lines={5} />
-                  <SidebarCardSkeleton lines={4} />
-                  <SidebarCardSkeleton lines={5} />
-                  <SidebarCardSkeleton lines={4} />
-                  <SidebarCardSkeleton lines={4} />
-                </>
-              }
-            >
-              <HeritageSidebar
-                site={site as any}
-                provinceName={provinceName}
-                regions={regions}
-                maps={maps}
-                travelGuideSummary={travelGuideSummary}
-                sectionGroup="bottom"
-                regionsPlacement="bottom"
-              />
-            </LazySection>
-          )}
-        </aside>
       </div>
 
       <style jsx global>{`

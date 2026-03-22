@@ -182,7 +182,7 @@ function SidebarAccordionSection({
   const [openMobile, setOpenMobile] = useState(mobileDefaultOpen);
 
   return (
-    <section className="bg-white rounded-xl shadow-sm p-5">
+    <section className="bg-white p-4">
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
 
       <button
@@ -192,7 +192,7 @@ function SidebarAccordionSection({
         aria-expanded={openMobile}
       >
         <h2
-          className="flex items-center gap-2 text-[17px] font-semibold"
+          className="flex items-center gap-2 text-[22px] font-extrabold"
           style={{
             color: "var(--brand-blue, #1f6be0)",
             fontFamily: "var(--font-article-heading, inherit)",
@@ -280,7 +280,7 @@ export default function HeritageSidebar({
   regions: Taxonomy[];
   maps: { embed: string | null; link: string | null };
   travelGuideSummary?: TravelGuideSummary | null;
-  sectionGroup?: "all" | "top" | "bottom";
+  sectionGroup?: "all" | "top" | "bottom" | "mobile-location" | "mobile-general" | "mobile-travel" | "mobile-climate" | "mobile-stay" | "mobile-bottom";
   regionsPlacement?: "top" | "bottom";
 }) {
   // use server-provided summary directly, no client Supabase calls
@@ -464,8 +464,9 @@ export default function HeritageSidebar({
     : "";
   const showUNESCO =
     unescoStatus.length > 0 && unescoStatus.toLowerCase() !== "none";
-  const showTop = sectionGroup !== "bottom";
-  const showBottom = sectionGroup !== "top";
+  const isMobileGroup = sectionGroup.startsWith("mobile-");
+  const showTop = !isMobileGroup && sectionGroup !== "bottom";
+  const showBottom = !isMobileGroup && sectionGroup !== "top";
   const showRegionsInTop = showTop && regionsPlacement !== "bottom";
   const showRegionsInBottom = showBottom && regionsPlacement === "bottom";
   const lat = site.latitude != null ? Number(site.latitude) : null;
@@ -479,7 +480,7 @@ export default function HeritageSidebar({
       : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2">
       {showTop && (
         <>
           <SidebarAccordionSection
@@ -567,7 +568,7 @@ export default function HeritageSidebar({
             <SidebarAccordionSection
               title="Regions"
               iconName="regions"
-              mobileDefaultOpen={false}
+              mobileDefaultOpen={true}
             >
               {regions.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
@@ -644,9 +645,9 @@ export default function HeritageSidebar({
           </SidebarAccordionSection>
 
           {showUNESCO ? (
-            <section className="bg-white rounded-xl shadow-sm p-5">
+            <section className="bg-white p-4">
               <h2
-                className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+                className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[22px] md:text-[18px] font-extrabold md:font-semibold"
                 style={{
                   color: "var(--brand-blue, #1f6be0)",
                   fontFamily: "var(--font-article-heading, inherit)",
@@ -680,13 +681,290 @@ export default function HeritageSidebar({
         </>
       )}
 
+      {/* ---- Mobile-specific single-section groups ---- */}
+      {sectionGroup === "mobile-location" && (
+        <SidebarAccordionSection
+          id="location"
+          title="Where is it?"
+          iconName="where-is-it"
+          mobileDefaultOpen
+        >
+          {staticMapUrl ? (
+            <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={staticMapUrl}
+                alt={`Map for ${site.title}`}
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              {maps.link ? (
+                <a
+                  href={maps.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Pin in Google Maps"
+                  className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10 cursor-pointer"
+                >
+                  <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    {site.title}
+                  </span>
+                  <Icon
+                    name="map-marker-alt"
+                    size={34}
+                    className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] transition-colors duration-200 group-hover:text-neutral-700"
+                  />
+                </a>
+              ) : (
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
+                  <Icon
+                    name="map-marker-alt"
+                    size={34}
+                    className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
+                  />
+                </div>
+              )}
+            </div>
+          ) : maps.embed ? (
+            <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              <iframe
+                title={`Map for ${site.title}`}
+                src={maps.embed}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
+          ) : (
+            <div
+              className="mb-3 text-[15px]"
+              style={{ color: "var(--muted-foreground, #5b6b84)" }}
+            >
+              Location coordinates not available.
+            </div>
+          )}
+          <KeyVal k="Town/City/Village" v={site.town_city_village} />
+          <KeyVal k="Tehsil" v={site.tehsil} />
+          <KeyVal k="District" v={site.district} />
+          <KeyVal k="Region/Province" v={provinceName} />
+          <KeyVal k="Latitude" v={site.latitude} />
+          <KeyVal k="Longitude" v={site.longitude} />
+          {maps.link ? (
+            <div className="mt-4 flex justify-center">
+              <a
+                href={maps.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[var(--brand-blue)] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[var(--brand-blue)]"
+              >
+                Open in Maps
+              </a>
+            </div>
+          ) : null}
+        </SidebarAccordionSection>
+      )}
+
+      {sectionGroup === "mobile-general" && (
+        <>
+          <SidebarAccordionSection
+            id="general"
+            title="General Information"
+            iconName="general-info"
+            mobileDefaultOpen
+          >
+            <div className="md:hidden">
+              {visibleGeneralInfoRows.map((row, idx) => (
+                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              ))}
+              {remainingGeneralInfoCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllGeneralInfo((prev) => !prev)}
+                  aria-expanded={showAllGeneralInfo}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-50"
+                >
+                  <span>
+                    {showAllGeneralInfo
+                      ? "See Less"
+                      : `See More (${remainingGeneralInfoCount} more)`}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex transition-transform duration-200"
+                    style={{
+                      transform: showAllGeneralInfo
+                        ? "rotate(180deg)"
+                        : "rotate(0deg)",
+                    }}
+                  >
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+                    </svg>
+                  </span>
+                </button>
+              )}
+            </div>
+          </SidebarAccordionSection>
+          {showUNESCO ? (
+            <section className="bg-white p-4">
+              <h2
+                className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[22px] md:text-[18px] font-extrabold md:font-semibold"
+                style={{
+                  color: "var(--brand-blue, #1f6be0)",
+                  fontFamily: "var(--font-article-heading, inherit)",
+                }}
+              >
+                <Icon name="unesco" size={18} className="text-[var(--brand-orange)]" />
+                <span>UNESCO</span>
+              </h2>
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🏛️</div>
+                <div>
+                  <div className="font-medium text-[15px] text-slate-900">{site.unesco_status}</div>
+                  {site.unesco_line && (
+                    <div className="mt-1 text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                      {site.unesco_line}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </>
+      )}
+
+      {sectionGroup === "mobile-travel" && (
+        <SidebarAccordionSection
+          id="travel"
+          title="Travel Guide"
+          iconName="travel-guide"
+          mobileDefaultOpen
+        >
+          <KeyVal k="Heritage Site" v={site.title} />
+          <KeyVal k="Location" v={mergedTravelLocation} />
+          <KeyVal k="How to Reach" v={mergedHowToReach} />
+          <KeyVal k="Nearest Major City" v={mergedNearestCity} />
+          <KeyVal k="Airport Access" v={mergedAirportAccess} />
+          <KeyVal k="International Flight" v={site.travel_international_flight} />
+          <KeyVal k="Access Options" v={mergedAccessOptions} />
+          <KeyVal k="Road Type & Condition" v={mergedRoadType} />
+          <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} />
+          {site.travel_full_guide_url && (
+            <a
+              href={site.travel_full_guide_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block px-3 py-2 rounded-lg bg-black text-white text-[15px]"
+            >
+              Open Full Travel Guide
+            </a>
+          )}
+        </SidebarAccordionSection>
+      )}
+
+      {sectionGroup === "mobile-climate" && (
+        <>
+          <SidebarAccordionSection
+            title="Best Time to Visit"
+            iconName="best-time-to-visit"
+            mobileDefaultOpen
+          >
+            {mergedBestTimeLong ? (
+              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                {mergedBestTimeLong}
+              </div>
+            ) : site.best_time_option_key ? (
+              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                {site.best_time_option_key}
+              </div>
+            ) : (
+              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
+            )}
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            id="climate-topography"
+            title="Climate & Topography"
+            iconName="climate-topography"
+            mobileDefaultOpen
+          >
+            <KeyVal k="Landform" v={mergedLandform} />
+            <KeyVal k="Altitude" v={mergedAltitude} />
+            <KeyVal k="Mountain Range" v={mergedMountainRange} />
+            <KeyVal k="Weather Type" v={mergedWeatherType} />
+            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} />
+            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} />
+          </SidebarAccordionSection>
+        </>
+      )}
+
+      {sectionGroup === "mobile-stay" && (
+        <SidebarAccordionSection
+          title="Places to Stay"
+          iconName="places-to-stay"
+          mobileDefaultOpen
+        >
+          <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
+          <KeyVal k="Spending Night Recommended" v={mergedSpendingNight} />
+          <KeyVal k="Camping Possible" v={mergedCamping} />
+          <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
+        </SidebarAccordionSection>
+      )}
+
+      {sectionGroup === "mobile-bottom" && (
+        <>
+          <SidebarAccordionSection
+            title="Did you Know"
+            iconName="did-you-know"
+            mobileDefaultOpen
+          >
+            {site.did_you_know ? (
+              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                {site.did_you_know}
+              </div>
+            ) : (
+              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
+            )}
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            title="Regions"
+            iconName="regions"
+            mobileDefaultOpen
+          >
+            {regions.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {regions.map((r) => (
+                  <IconChip key={r.id} iconName={r.icon_key} label={r.name} href={`/explore?regs=${r.id}`} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                No regions specified.
+              </div>
+            )}
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            title="Protected under"
+            iconName="protected-under"
+            mobileDefaultOpen
+          >
+            {site.protected_under ? (
+              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                {site.protected_under}
+              </div>
+            ) : (
+              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>Not specified.</div>
+            )}
+          </SidebarAccordionSection>
+        </>
+      )}
+
       {showBottom && (
         <>
           {showRegionsInBottom && (
             <SidebarAccordionSection
               title="Regions"
               iconName="regions"
-              mobileDefaultOpen={false}
+              mobileDefaultOpen={true}
             >
               {regions.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
@@ -713,7 +991,7 @@ export default function HeritageSidebar({
           <SidebarAccordionSection
             title="Protected under"
             iconName="protected-under"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             {site.protected_under ? (
               <div
@@ -736,7 +1014,7 @@ export default function HeritageSidebar({
             id="climate-topography"
             title="Climate & Topography"
             iconName="climate-topography"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             <KeyVal k="Landform" v={mergedLandform} />
             <KeyVal k="Altitude" v={mergedAltitude} />
@@ -749,7 +1027,7 @@ export default function HeritageSidebar({
           <SidebarAccordionSection
             title="Did you Know"
             iconName="did-you-know"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             {site.did_you_know ? (
               <div
@@ -772,7 +1050,7 @@ export default function HeritageSidebar({
             id="travel"
             title="Travel Guide"
             iconName="travel-guide"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             <KeyVal k="Heritage Site" v={site.title} />
             <KeyVal k="Location" v={mergedTravelLocation} />
@@ -801,7 +1079,7 @@ export default function HeritageSidebar({
           <SidebarAccordionSection
             title="Best Time to Visit"
             iconName="best-time-to-visit"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             {mergedBestTimeLong ? (
               <div
@@ -830,7 +1108,7 @@ export default function HeritageSidebar({
           <SidebarAccordionSection
             title="Places to Stay"
             iconName="places-to-stay"
-            mobileDefaultOpen={false}
+            mobileDefaultOpen={true}
           >
             <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
             <KeyVal
