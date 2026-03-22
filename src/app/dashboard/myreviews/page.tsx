@@ -385,7 +385,7 @@ export default function MyReviewsPage() {
       </div>
 
         {filtered.length === 0 && reviews.length === 0 && (
-          <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
+          <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
             <p className="text-[17px] font-semibold text-gray-800 mb-6">No Reviews Yet</p>
             <NoReviews className="w-full max-w-[280px] mb-8" />
             <p className="text-sm text-gray-400">Visit a heritage site and leave your first review.</p>

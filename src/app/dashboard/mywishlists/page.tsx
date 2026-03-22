@@ -96,7 +96,7 @@ export default function MyWishlistsPage() {
 
   if (lists.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
+      <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
         <p className="text-[17px] font-semibold text-gray-800 mb-6">No Saved Lists Yet</p>
         <NoWishlists className="w-full max-w-[280px] mb-8" />
         <p className="text-sm text-gray-400">Add a site to a list to get started.</p>

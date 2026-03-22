@@ -2,7 +2,7 @@ import React from "react";
 
 export function NoWishlists({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="923" height="659.247" viewBox="0 0 923 659.247" xmlnsXlink="http://www.w3.org/1999/xlink" role="img" aria-hidden="true" className={className} style={style}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 923 659.247" xmlnsXlink="http://www.w3.org/1999/xlink" role="img" aria-hidden="true" className={className} style={style}>
       <g id="Group_239" data-name="Group 239" transform="translate(-498.5 -220.096)">
         <path id="Path_3921-260" data-name="Path 3921" d="M213.491,787.3l17.2,18.569s15.913.181,12.8-8.6a32.093,32.093,0,0,1-1.323-5.845,143.611,143.611,0,0,1-1.12-18.793c0-4.117.064-7.007.064-7.007s-25.054-10.975-22.494.459a21.49,21.49,0,0,1,.512,4.352,27.241,27.241,0,0,1-2.858,12.212A27.632,27.632,0,0,1,213.491,787.3Z" transform="translate(923.559 35.167)" fill="#ffb9b9"/>
         <path id="Path_3922-261" data-name="Path 3922" d="M215.01,813.922a31.293,31.293,0,0,0,20.948,7.466c14.186-.2,40.69-.619,46.844-.875,8.234-.363,5.5-7.391,5.237-12.234v-.48c-.1-4.853-1.067-15.369-2.709-17.012s-7.263,7.317-7.263,7.317-10.975,3.2-13.994-6.4-9.151-10.527-9.151-10.527c-2.784-1.205-2.922,6.037-2.922,6.037l-23.23,11.978-13.631,2.133c-.437.2-.832.405-1.205.608C207.768,805.39,210.5,810.019,215.01,813.922Z" transform="translate(882.13 36.509)" fill="#090814"/>

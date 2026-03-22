@@ -382,7 +382,7 @@ export default function PlacesVisitedPage() {
 
       {/* Grid of visited sites */}
       {reviews.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[380px] px-6 pt-10 text-center">
+        <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
           <p className="text-[17px] font-semibold text-gray-800 mb-6">No Places Visited Yet</p>
           <NoVisited className="w-full max-w-[260px] mb-8" />
           <p className="text-sm text-gray-400">Review a heritage site to mark it as visited.</p>

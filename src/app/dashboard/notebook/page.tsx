@@ -542,7 +542,7 @@ export default function TravelNotebookPage() {
                 ))}
               </ul>
             ) : filtered.length === 0 && list.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-6 pt-10 pb-6 text-center bg-white rounded-xl">
+              <div className="flex flex-col items-center justify-center px-6 py-8 text-center bg-white rounded-xl">
                 <p className="text-[16px] font-semibold text-gray-800 mb-5">No Notes Yet</p>
                 <NoNotes className="w-full max-w-[180px] mb-6" />
                 <p className="text-sm text-gray-400">Create your first note to get started.</p>
