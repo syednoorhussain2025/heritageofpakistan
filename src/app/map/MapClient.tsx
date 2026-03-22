@@ -1240,7 +1240,7 @@ export default function MapClient() {
                   </span>
                 )}
                 {selectedMapSite.heritage_type && (
-                  <span className="px-2 py-0.5 rounded-full bg-[#F78300]/10 text-[#F78300] font-medium text-xs">
+                  <span className="px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-xs">
                     {selectedMapSite.heritage_type}
                   </span>
                 )}

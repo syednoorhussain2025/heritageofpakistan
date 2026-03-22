@@ -555,7 +555,7 @@ export default function HeritageSidebar({
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[#040951] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[#0b1170]"
+                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[var(--brand-blue)] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[var(--brand-blue)]"
                 >
                   Open in Maps
                 </a>

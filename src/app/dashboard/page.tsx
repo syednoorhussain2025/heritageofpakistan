@@ -121,7 +121,7 @@ export default function DashboardHome() {
   if (authLoading || loading) return (
     <div className="animate-pulse">
       {/* Mobile: exact match of nav card */}
-      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "#efefef" }} />
+      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "var(--brand-light-grey)" }} />
       <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-5 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
         <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
           {mobileNavItems.map((item, i) => (
@@ -158,7 +158,7 @@ export default function DashboardHome() {
     <div className="space-y-5">
 
       {/* ── MOBILE: grey full-screen backdrop ── */}
-      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "#efefef" }} />
+      <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "var(--brand-light-grey)" }} />
 
       {/* ── MOBILE: nav list only (profile info is in the teal header) ── */}
       <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-5 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
@@ -174,8 +174,8 @@ export default function DashboardHome() {
             >
               {i > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
               <Icon name={item.icon} size={30} className="text-black shrink-0" />
-              <span className="flex-1 text-[15px] font-normal text-[#2d2d2d]">{item.label}</span>
-              <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
+              <span className="flex-1 text-[15px] font-normal text-[var(--brand-dark-grey)]">{item.label}</span>
+              <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)]" />
             </button>
           ))}
         </div>
@@ -215,7 +215,7 @@ export default function DashboardHome() {
               {profile.username && (
                 <Link
                   href={`/profile/${profile.username}`}
-                  className="block mt-1 text-xs text-[#F78300] font-medium hover:opacity-70"
+                  className="block mt-1 text-xs text-[var(--brand-orange)] font-medium hover:opacity-70"
                 >
                   View Public Profile →
                 </Link>
@@ -229,7 +229,7 @@ export default function DashboardHome() {
           <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold text-gray-800">Places Visited</p>
-              <span className="text-xs text-[#F78300] font-medium">View all →</span>
+              <span className="text-xs text-[var(--brand-orange)] font-medium">View all →</span>
             </div>
             <p className="text-3xl font-bold text-gray-900">{visitedCount}</p>
             <p className="text-sm text-gray-500 mt-0.5">places visited</p>
@@ -260,7 +260,7 @@ export default function DashboardHome() {
         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
           <Link href="/dashboard/myreviews" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
             <p className="font-semibold text-gray-800">My Recent Reviews</p>
-            <span className="text-xs text-[#F78300] font-medium">View all →</span>
+            <span className="text-xs text-[var(--brand-orange)] font-medium">View all →</span>
           </Link>
           {recentReviews.length === 0 ? (
             <p className="text-sm text-gray-400 px-4 py-5 text-center">No reviews yet.</p>
@@ -286,7 +286,7 @@ export default function DashboardHome() {
         <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
           <Link href="/dashboard/portfolio" className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50">
             <p className="font-semibold text-gray-800">My Portfolio</p>
-            <span className="text-xs text-[#F78300] font-medium">View all →</span>
+            <span className="text-xs text-[var(--brand-orange)] font-medium">View all →</span>
           </Link>
           {portfolioPhotos.length === 0 ? (
             <p className="text-sm text-gray-400 px-4 py-5 text-center">No photos added yet.</p>

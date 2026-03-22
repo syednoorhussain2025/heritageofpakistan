@@ -56,7 +56,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           }}
         >
           <div style={{ fontSize: 40 }}>⚠️</div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--brand-blue)", margin: 0 }}>
             Something went wrong
           </h1>
           <p style={{ color: "#555", maxWidth: 400, margin: 0, fontSize: 14 }}>
@@ -66,7 +66,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <button
               onClick={() => window.location.reload()}
               style={{
-                background: "#1a1a2e",
+                background: "var(--brand-blue)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 10,
@@ -82,8 +82,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
               onClick={this.handleReset}
               style={{
                 background: "transparent",
-                color: "#1a1a2e",
-                border: "1.5px solid #1a1a2e",
+                color: "var(--brand-blue)",
+                border: "1.5px solid var(--brand-blue)",
                 borderRadius: 10,
                 padding: "10px 22px",
                 cursor: "pointer",

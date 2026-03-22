@@ -610,7 +610,7 @@ export default function IconManagerPage() {
                           value={iconName}
                           onChange={(e) => setIconName(e.target.value)}
                           placeholder="e.g., fort-outline"
-                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
                       <div>
@@ -621,7 +621,7 @@ export default function IconManagerPage() {
                           value={iconTags}
                           onChange={(e) => setIconTags(e.target.value)}
                           placeholder="e.g., landmark, punjab"
-                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
                       <div>
@@ -678,7 +678,7 @@ export default function IconManagerPage() {
                           value={bulkTags}
                           onChange={(e) => setBulkTags(e.target.value)}
                           placeholder="e.g., landmark, outline"
-                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -743,7 +743,7 @@ export default function IconManagerPage() {
                                   value={item.name}
                                   onChange={(e) => handleBulkNameChange(idx, e.target.value)}
                                   disabled={bulkUploading || item.status === "done"}
-                                  className="flex-1 min-w-0 rounded px-2 py-1 bg-slate-100 font-mono text-slate-800 border border-transparent focus:outline-none focus:ring-1 focus:ring-[#F78300]/40 disabled:opacity-60"
+                                  className="flex-1 min-w-0 rounded px-2 py-1 bg-slate-100 font-mono text-slate-800 border border-transparent focus:outline-none focus:ring-1 focus:ring-[var(--brand-orange)]/40 disabled:opacity-60"
                                 />
                                 {/* Status badge */}
                                 <span className="shrink-0">
@@ -946,7 +946,7 @@ export default function IconManagerPage() {
                 placeholder="Search by name or tag..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full mb-4 rounded-md px-4 py-2 text-slate-900 placeholder-slate-400 bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                className="w-full mb-4 rounded-md px-4 py-2 text-slate-900 placeholder-slate-400 bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
               />
               {loading ? (
                 <div className="text-center text-slate-500">

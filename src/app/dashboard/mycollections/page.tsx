@@ -146,14 +146,14 @@ export default function MyCollectionsPage() {
 
                 {/* Name + meta */}
                 <div className="flex-1 min-w-0">
-                  <div className="text-[15px] font-semibold text-[#1a1a1a] truncate">{a.name}</div>
+                  <div className="text-[15px] font-semibold text-[var(--brand-black)] truncate">{a.name}</div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {a.is_public ? "public" : "private"} · {a.itemCount ?? 0} {(a.itemCount ?? 0) === 1 ? "photo" : "photos"}
                   </div>
                 </div>
 
                 {/* Chevron */}
-                <Icon name="chevron-right" size={13} className="text-[#c8c8c8] shrink-0 mr-1" />
+                <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)] shrink-0 mr-1" />
 
                 {/* Delete */}
                 <button

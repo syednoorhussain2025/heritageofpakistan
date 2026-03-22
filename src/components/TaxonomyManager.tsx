@@ -351,7 +351,7 @@ function ParentSearchSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="w-full mt-1 flex items-center justify-between px-3 py-2 text-slate-900 bg-slate-100 rounded-md shadow-sm border border-transparent hover:shadow focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300] disabled:opacity-50"
+        className="w-full mt-1 flex items-center justify-between px-3 py-2 text-slate-900 bg-slate-100 rounded-md shadow-sm border border-transparent hover:shadow focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)] disabled:opacity-50"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -378,7 +378,7 @@ function ParentSearchSelect({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search parent…"
-              className="w-full px-3 py-2 text-sm bg-slate-50 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+              className="w-full px-3 py-2 text-sm bg-slate-50 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
             />
           </div>
           <ul
@@ -613,7 +613,7 @@ function EditPane({
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-3 py-2 mt-1 text-slate-900 placeholder-slate-400 bg-slate-100 rounded-md shadow-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300]"
+                    className="w-full px-3 py-2 mt-1 text-slate-900 placeholder-slate-400 bg-slate-100 rounded-md shadow-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)]"
                     value={local.name}
                     onChange={(e) => {
                       const newName = e.target.value;
@@ -632,7 +632,7 @@ function EditPane({
                     </label>
                     <button
                       type="button"
-                      className="text-xs font-semibold text-[#F78300] hover:underline"
+                      className="text-xs font-semibold text-[var(--brand-orange)] hover:underline"
                       onClick={() => {
                         setSlugLocked(true);
                         setLocal((prev) => ({
@@ -650,7 +650,7 @@ function EditPane({
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-3 py-2 mt-1 text-slate-900 placeholder-slate-400 bg-slate-100 rounded-md shadow-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300]"
+                    className="w-full px-3 py-2 mt-1 text-slate-900 placeholder-slate-400 bg-slate-100 rounded-md shadow-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)]"
                     value={local.slug ?? ""}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -685,13 +685,13 @@ function EditPane({
                   <button
                     type="button"
                     onClick={() => setIsIconPickerOpen(true)}
-                    className="w-full mt-1 flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 rounded-md shadow-sm border border-transparent hover:shadow focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300]"
+                    className="w-full mt-1 flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 rounded-md shadow-sm border border-transparent hover:shadow focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)]"
                   >
                     {local.icon_key ? (
                       <Icon
                         name={local.icon_key}
                         size={20}
-                        className="text-[#F78300]"
+                        className="text-[var(--brand-orange)]"
                       />
                     ) : (
                       <div className="w-5 h-5 bg-slate-200 rounded" />
@@ -718,7 +718,7 @@ function EditPane({
                         type="number"
                         step="any"
                         autoComplete="off"
-                        className="w-full px-3 py-2 mt-1 text-slate-900 bg-slate-100 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300]"
+                        className="w-full px-3 py-2 mt-1 text-slate-900 bg-slate-100 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)]"
                         value={
                           typeof local.latitude === "number"
                             ? local.latitude
@@ -741,7 +741,7 @@ function EditPane({
                         type="number"
                         step="any"
                         autoComplete="off"
-                        className="w-full px-3 py-2 mt-1 text-slate-900 bg-slate-100 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/50 focus:border-[#F78300]"
+                        className="w-full px-3 py-2 mt-1 text-slate-900 bg-slate-100 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/50 focus:border-[var(--brand-orange)]"
                         value={
                           typeof local.longitude === "number"
                             ? local.longitude
@@ -1008,7 +1008,7 @@ export default function TaxonomyManager({ title, table }: Props) {
         >
           <div className="flex items-center gap-2">
             {r.icon_key ? (
-              <Icon name={r.icon_key} size={16} className="text-[#F78300]" />
+              <Icon name={r.icon_key} size={16} className="text-[var(--brand-orange)]" />
             ) : (
               <div className="w-4 h-4 rounded bg-slate-200" />
             )}
@@ -1069,7 +1069,7 @@ export default function TaxonomyManager({ title, table }: Props) {
                   placeholder="Search..."
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  className="w-full px-3 py-2 text-sm text-slate-900 placeholder-slate-400 bg-white rounded-md shadow-sm border border transparent focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                  className="w-full px-3 py-2 text-sm text-slate-900 placeholder-slate-400 bg-white rounded-md shadow-sm border border transparent focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                 />
                 <button
                   className="px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md whitespace-nowrap hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-2"

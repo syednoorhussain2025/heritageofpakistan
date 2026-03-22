@@ -1430,7 +1430,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                 <Icon
                   name="chevron-left"
                   size={26}
-                  style={{ color: "#111111" }}
+                  style={{ color: "var(--brand-black)" }}
                 />
               </button>
 

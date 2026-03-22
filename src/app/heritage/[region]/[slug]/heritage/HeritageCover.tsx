@@ -426,7 +426,7 @@ export default function HeritageCover({
               <a
                 href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
                 className="inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-md"
-                style={{ background: "var(--brand-orange, #F78300)" }}
+                style={{ background: "var(--brand-orange)" }}
               >
                 <Icon name="play" className="text-white text-lg" />
                 <span>Photo Story</span>
@@ -834,13 +834,13 @@ export default function HeritageCover({
           }
 
           .hero-action-btn--primary {
-            background: #f78300;
+            background: var(--brand-orange);
             color: #ffffff;
-            border-color: #f78300;
+            border-color: var(--brand-orange);
           }
 
           .hero-action-btn--primary:hover {
-            background: #f78300;
+            background: var(--brand-orange);
             border-color: rgba(255, 231, 183, 0.72);
           }
 
@@ -915,13 +915,13 @@ export default function HeritageCover({
             min-width: 176px;
             padding: 8px 14px;
             font-size: 13px;
-            background: var(--brand-blue, #040951);
-            border-color: var(--brand-blue, #040951);
+            background: var(--brand-blue);
+            border-color: var(--brand-blue);
           }
 
           .hero-left-maps-btn:hover {
-            background: #0b1170;
-            border-color: #0b1170;
+            background: var(--brand-blue);
+            border-color: var(--brand-blue);
           }
 
           .hero-left-maps-btn .hero-action-icon {

@@ -325,7 +325,7 @@ export default function SitePreviewCard({
 
 
   return (
-    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[#efefef]">
+    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[var(--brand-light-grey)]">
       {onClose && (
         <button
           onClick={onClose}
@@ -424,7 +424,7 @@ export default function SitePreviewCard({
 
           {/* Heritage type chip (slightly smaller) */}
           {site.heritage_type && (
-            <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[#F78300]/90 text-white text-[10px] sm:text-xs font-semibold shadow">
+            <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[var(--brand-orange)]/90 text-white text-[10px] sm:text-xs font-semibold shadow">
               {site.heritage_type}
             </div>
           )}
@@ -478,7 +478,7 @@ export default function SitePreviewCard({
           {/* Mobile title + location + ellipsis inside white card */}
           <div className="md:hidden flex items-center gap-2 pt-0 pb-2">
             <div className="flex-1 min-w-0">
-              <h3 className="text-[16px] font-extrabold leading-tight truncate text-[#040951]">
+              <h3 className="text-[16px] font-extrabold leading-tight truncate text-[var(--brand-blue)]">
                 {site.title}
               </h3>
               {site.location_free && (

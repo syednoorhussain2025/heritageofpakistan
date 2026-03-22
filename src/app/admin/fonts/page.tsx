@@ -387,7 +387,7 @@ export default function FontManagerPage() {
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="e.g. Inter (or leave blank for ZIP)"
-                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                     />
                   </div>
                   <div>
@@ -398,7 +398,7 @@ export default function FontManagerPage() {
                       value={family}
                       onChange={(e) => setFamily(e.target.value)}
                       placeholder="Defaults to Display Name or filename"
-                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -410,7 +410,7 @@ export default function FontManagerPage() {
                         type="number"
                         value={weight}
                         onChange={(e) => setWeight(e.target.value)}
-                        className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -422,7 +422,7 @@ export default function FontManagerPage() {
                         onChange={(e) =>
                           setStyle(e.target.value as "normal" | "italic")
                         }
-                        className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       >
                         <option value="normal">normal</option>
                         <option value="italic">italic</option>
@@ -525,7 +525,7 @@ export default function FontManagerPage() {
                       value={gDisplayName}
                       onChange={(e) => setGDisplayName(e.target.value)}
                       placeholder="e.g. Main Body Font"
-                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                     />
                   </div>
                   <div>
@@ -536,7 +536,7 @@ export default function FontManagerPage() {
                       value={gFamily}
                       onChange={(e) => setGFamily(e.target.value)}
                       placeholder="e.g. Roboto"
-                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                     />
                     <p className="text-xs text-slate-500 mt-1">
                       Case-sensitive name from fonts.google.com.
@@ -550,7 +550,7 @@ export default function FontManagerPage() {
                       value={gWeights}
                       onChange={(e) => setGWeights(e.target.value)}
                       placeholder="e.g. 400;700;900"
-                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                      className="mt-1 w-full rounded-md px-3 py-2 text-slate-900 placeholder-slate-400 bg-slate-100 border border-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                     />
                     <p className="text-xs text-slate-500 mt-1">
                       Separate weights with a semicolon.

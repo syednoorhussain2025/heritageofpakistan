@@ -543,7 +543,7 @@ function CardHeader({
     <div className="flex items-center gap-3 mb-3">
       <span
         className="grid place-items-center w-9 h-9 rounded-full"
-        style={{ backgroundColor: "#F78300" }}
+        style={{ backgroundColor: "var(--brand-orange)" }}
       >
         <Icon name={resolvedIcon} className="w-4 h-4 text-white" />
       </span>

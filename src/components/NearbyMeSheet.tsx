@@ -307,7 +307,7 @@ export default function NearbyMeSheet({
           />
           <div className="flex-1 min-w-0">
             <p className="text-[var(--brand-green)] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
-            <h2 className="text-[#1c1f4c] text-[18px] font-bold leading-tight">
+            <h2 className="text-[var(--brand-blue)] text-[18px] font-bold leading-tight">
               {loading
                 ? "Searching…"
                 : sites.length > 0
@@ -377,7 +377,7 @@ export default function NearbyMeSheet({
                       onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_GRADIENT; }}
                     />
                     {site.heritage_type && (
-                      <span className="absolute bottom-1 left-1 bg-[#F78300] text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-tight">
+                      <span className="absolute bottom-1 left-1 bg-[var(--brand-orange)] text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-tight">
                         {site.heritage_type}
                       </span>
                     )}
@@ -385,7 +385,7 @@ export default function NearbyMeSheet({
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
+                    <p className="text-[14px] font-bold text-[var(--brand-blue)] line-clamp-1">{site.title}</p>
                     <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[11px] font-semibold text-[var(--brand-green)]">

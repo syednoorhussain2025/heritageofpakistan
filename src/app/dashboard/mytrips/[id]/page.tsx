@@ -229,7 +229,7 @@ export default function TripDetailPage() {
 
                       {/* Site info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-[14px] font-semibold text-[#1a1a1a] truncate">
+                        <div className="text-[14px] font-semibold text-[var(--brand-black)] truncate">
                           {it.site?.title ?? "Unknown site"}
                         </div>
                         {it.provinceName && (
@@ -247,7 +247,7 @@ export default function TripDetailPage() {
                         )}
                       </div>
 
-                      <Icon name="chevron-right" size={13} className="text-[#c8c8c8] shrink-0" />
+                      <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)] shrink-0" />
                     </Link>
                   </div>
                 ))}

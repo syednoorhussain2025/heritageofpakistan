@@ -118,15 +118,15 @@ export default function AdminMapSettingsPage() {
     pin_style: "icon_only",
     pin_icon_name: "map-pin",
     pin_icon_size: 32,
-    pin_color: "#f78300",
+    pin_color: "var(--brand-orange)",
     pin_circle_size: 40,
-    pin_circle_color: "#f78300",
+    pin_circle_color: "var(--brand-orange)",
     pin_icon_color_in_circle: "#ffffff",
     pin_border_thickness: 2,
     pin_border_color: "#ffffff",
 
-    cluster_color: "#f78300",
-    cluster_color_google: "#f78300",
+    cluster_color: "var(--brand-orange)",
+    cluster_color_google: "var(--brand-orange)",
     cluster_max_radius: 80,
     disable_clustering_at_zoom: 10,
 
@@ -345,7 +345,7 @@ export default function AdminMapSettingsPage() {
                             e.target.value as AdminMapProvider
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       >
                         <option value="osm">
                           OpenStreetMap (Leaflet tiles)
@@ -367,7 +367,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("google_maps_api_key", e.target.value)
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                       <p className="text-xs text-slate-500 mt-1">
                         Required only when provider is Google.
@@ -387,7 +387,7 @@ export default function AdminMapSettingsPage() {
                           onChange("tile_layer_url", e.target.value)
                         }
                         disabled={isGoogle}
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -401,7 +401,7 @@ export default function AdminMapSettingsPage() {
                           onChange("tile_layer_attribution", e.target.value)
                         }
                         disabled={isGoogle}
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                   </div>
@@ -431,7 +431,7 @@ export default function AdminMapSettingsPage() {
                       <select
                         value={settings.pin_style}
                         onChange={(e) => onChange("pin_style", e.target.value)}
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       >
                         <option value="icon_only">Only Icon</option>
                         <option value="icon_in_circle">
@@ -449,7 +449,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("icon_source", e.target.value)
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       >
                         <option value="global">
                           Global Icon (for all sites)
@@ -470,7 +470,7 @@ export default function AdminMapSettingsPage() {
                         <button
                           type="button"
                           onClick={() => setIsIconPickerOpen(true)}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 border border-transparent rounded-md hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300] text-left"
+                          className="w-full flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 border border-transparent rounded-md hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)] text-left"
                         >
                           <Icon name={settings.pin_icon_name} size={20} />
                           <span className="flex-1">
@@ -489,7 +489,7 @@ export default function AdminMapSettingsPage() {
                           onChange={(e) =>
                             onChange("pin_color", e.target.value)
                           }
-                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
                     </div>
@@ -504,7 +504,7 @@ export default function AdminMapSettingsPage() {
                         <button
                           type="button"
                           onClick={() => setIsIconPickerOpen(true)}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 border border-transparent rounded-md hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300] text-left"
+                          className="w-full flex items-center gap-3 px-3 py-2 text-slate-900 bg-slate-100 border border-transparent rounded-md hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)] text-left"
                         >
                           <Icon name={settings.pin_icon_name} size={20} />
                           <span className="flex-1">
@@ -527,7 +527,7 @@ export default function AdminMapSettingsPage() {
                               parseInt(e.target.value, 10)
                             )
                           }
-                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -541,7 +541,7 @@ export default function AdminMapSettingsPage() {
                           onChange={(e) =>
                             onChange("pin_icon_color_in_circle", e.target.value)
                           }
-                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -555,7 +555,7 @@ export default function AdminMapSettingsPage() {
                           onChange={(e) =>
                             onChange("pin_circle_color", e.target.value)
                           }
-                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -572,7 +572,7 @@ export default function AdminMapSettingsPage() {
                               parseInt(e.target.value, 10)
                             )
                           }
-                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -586,7 +586,7 @@ export default function AdminMapSettingsPage() {
                           onChange={(e) =>
                             onChange("pin_border_color", e.target.value)
                           }
-                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
 
@@ -604,7 +604,7 @@ export default function AdminMapSettingsPage() {
                               parseInt(e.target.value, 10)
                             )
                           }
-                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                          className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                         />
                       </div>
                     </div>
@@ -638,7 +638,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("tooltip_background_color", e.target.value)
                         }
-                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -651,7 +651,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("tooltip_text_color", e.target.value)
                         }
-                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -664,7 +664,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("tooltip_border_color", e.target.value)
                         }
-                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -678,7 +678,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("tooltip_font_family", e.target.value)
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -694,7 +694,7 @@ export default function AdminMapSettingsPage() {
                             parseInt(e.target.value, 10)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -706,7 +706,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("tooltip_font_weight", e.target.value)
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       >
                         <option value="300">Light</option>
                         <option value="400">Normal</option>
@@ -727,7 +727,7 @@ export default function AdminMapSettingsPage() {
                             parseInt(e.target.value, 10)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -743,7 +743,7 @@ export default function AdminMapSettingsPage() {
                             parseInt(e.target.value, 10)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                   </div>
@@ -767,7 +767,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("cluster_color", e.target.value)
                         }
-                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -780,7 +780,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("cluster_color_google", e.target.value)
                         }
-                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full h-10 bg-slate-100 border border-transparent rounded-md p-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -796,7 +796,7 @@ export default function AdminMapSettingsPage() {
                             parseInt(e.target.value, 10)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -812,7 +812,7 @@ export default function AdminMapSettingsPage() {
                             parseInt(e.target.value, 10)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                   </div>
@@ -832,7 +832,7 @@ export default function AdminMapSettingsPage() {
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -849,7 +849,7 @@ export default function AdminMapSettingsPage() {
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                     <div>
@@ -862,7 +862,7 @@ export default function AdminMapSettingsPage() {
                         onChange={(e) =>
                           onChange("default_zoom", parseInt(e.target.value, 10))
                         }
-                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300]"
+                        className="w-full bg-slate-100 border border-transparent text-slate-900 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)]"
                       />
                     </div>
                   </div>

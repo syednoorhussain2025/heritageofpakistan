@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 
 const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
-const INACTIVE_COLOR_CLASS = "text-[#111111]";
+const INACTIVE_COLOR_CLASS = "text-[var(--brand-black)]";
 const ICON_SIZE = 29;
 
 const PANEL_ANIM_MS = 320;
@@ -128,10 +128,10 @@ function NavListItem({
     >
       {index > 0 && <span className="absolute top-0 right-0 left-[20px] h-px bg-gray-100" />}
       <Icon name={item.icon} size={30} className="text-black shrink-0" />
-      <span className={`flex-1 text-left text-[15px] ${isActive ? "font-semibold text-[#2d2d2d]" : "font-normal text-[#2d2d2d]"}`}>
+      <span className={`flex-1 text-left text-[15px] ${isActive ? "font-semibold text-[var(--brand-dark-grey)]" : "font-normal text-[var(--brand-dark-grey)]"}`}>
         {item.label}
       </span>
-      <Icon name="chevron-right" size={13} className="text-[#c0c0c0]" />
+      <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)]" />
     </button>
   );
 }
@@ -172,7 +172,7 @@ function ProfilePanel({
 
   return (
     <div
-      className={`fixed inset-0 z-[3200] bg-[#efefef] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+      className={`fixed inset-0 z-[3200] bg-[var(--brand-light-grey)] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
         closing ? "translate-y-full" : "translate-y-0"
       }`}
     >
@@ -237,7 +237,7 @@ function ProfilePanel({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "#efefef" }}>
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: "var(--brand-light-grey)" }}>
         <div className="px-5 pt-5 pb-6">
           {/* Nav list card */}
           <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">

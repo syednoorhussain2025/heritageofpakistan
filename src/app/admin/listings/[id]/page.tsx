@@ -156,7 +156,7 @@ function Section({
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-2xl font-semibold mb-4 text-gray-900 flex items-center gap-3">
           {iconKey && (
-            <span className="grid place-items-center w-8 h-8 rounded-full bg-[#F78300]">
+            <span className="grid place-items-center w-8 h-8 rounded-full bg-[var(--brand-orange)]">
               <Icon name={iconKey} className="w-4 h-4 text-white" />
             </span>
           )}
@@ -2495,7 +2495,7 @@ function SidebarImporter({
         >
           Download CSV template
         </a>
-        <label className="inline-flex cursor-pointer items-center rounded-md bg-[var(--brand-orange,#F78300)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-95">
+        <label className="inline-flex cursor-pointer items-center rounded-md bg-[var(--brand-orange)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-95">
           Upload CSV
           <input
             type="file"

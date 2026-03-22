@@ -459,7 +459,7 @@ function HomeCardCarousel({
             />
             {/* Heritage type badge */}
             {site.heritage_type && (
-              <span className="absolute top-2 left-2 bg-[#F78300] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">
+              <span className="absolute top-2 left-2 bg-[var(--brand-orange)] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">
                 {site.heritage_type}
               </span>
             )}
@@ -472,7 +472,7 @@ function HomeCardCarousel({
           </div>
           {/* Footer */}
           <div className="px-2.5 py-2 text-left">
-            <div className="text-xs font-bold text-[#1c1f4c] leading-tight line-clamp-1">{site.title}</div>
+            <div className="text-xs font-bold text-[var(--brand-blue)] leading-tight line-clamp-1">{site.title}</div>
             <div className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</div>
           </div>
         </button>
@@ -641,7 +641,7 @@ function StoryCarousel({
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
                 {site.heritage_type && (
-                  <span className="bg-[#F78300] text-white text-[10px] font-bold px-2.5 py-1 rounded-full leading-tight">
+                  <span className="bg-[var(--brand-orange)] text-white text-[10px] font-bold px-2.5 py-1 rounded-full leading-tight">
                     {site.heritage_type}
                   </span>
                 )}
@@ -814,7 +814,7 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
         onClick={onTap}
       >
         {sites[index]?.heritage_type && (
-          <span className="mb-1.5 inline-flex self-start bg-[#F78300] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+          <span className="mb-1.5 inline-flex self-start bg-[var(--brand-orange)] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
             {sites[index].heritage_type}
           </span>
         )}
@@ -846,9 +846,9 @@ function FeaturedHeroCarousel({ sites, onCardClick }: { sites: SiteCard[]; onCar
 function SectionHeader({ label, onSeeAll }: { label: string; onSeeAll?: () => void }) {
   return (
     <div className="flex items-center justify-between px-4 mb-3">
-      <h2 className="text-xl font-extrabold text-[#1c1f4c]" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>{label}</h2>
+      <h2 className="text-xl font-extrabold text-[var(--brand-blue)]" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>{label}</h2>
       {onSeeAll && (
-        <button onClick={onSeeAll} className="text-sm font-semibold text-[#F78300]">
+        <button onClick={onSeeAll} className="text-sm font-semibold text-[var(--brand-orange)]">
           See All →
         </button>
       )}
@@ -1109,7 +1109,7 @@ function HomeSearchOverlay({
           {/* Back button — large tap target */}
           <button
             onClick={() => { void hapticLight(); onClose(); }}
-            className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 text-[#1c1f4c]"
+            className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 text-[var(--brand-blue)]"
             aria-label="Back"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1219,7 +1219,7 @@ function HomeSearchOverlay({
                               />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-[#1c1f4c] leading-tight truncate">{site.title}</div>
+                              <div className="text-sm font-semibold text-[var(--brand-blue)] leading-tight truncate">{site.title}</div>
                               {site.location_free && (
                                 <div className="text-[11px] text-gray-400 truncate">{site.location_free}</div>
                               )}
@@ -1246,7 +1246,7 @@ function HomeSearchOverlay({
                         <svg className="w-3 h-3 text-[var(--brand-green)] shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                         </svg>
-                        <span className="text-sm font-semibold text-[#1c1f4c] whitespace-nowrap">{region.name}</span>
+                        <span className="text-sm font-semibold text-[var(--brand-blue)] whitespace-nowrap">{region.name}</span>
                       </button>
                     ))}
                   </div>
@@ -1596,7 +1596,7 @@ function MobileHomepage() {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#1c1f4c]">
+                  <p className="text-sm font-semibold text-[var(--brand-blue)]">
                     {gpsStatus === "denied" ? "Location access denied" : "See heritage sites near you"}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -1633,7 +1633,7 @@ function MobileHomepage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-bold text-[#1c1f4c]">See Nearby Sites</p>
+                    <p className="text-sm font-bold text-[var(--brand-blue)]">See Nearby Sites</p>
                     <span className="text-[10px] font-semibold text-white bg-[var(--brand-green)] px-1.5 py-0.5 rounded-full leading-none">20 km</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
@@ -1728,7 +1728,7 @@ function MobileHomepage() {
                 setNearbyToast(null);
                 setNearbySheetOpen(true);
               }}
-              className="w-full flex items-center gap-3 pl-2 pr-5 py-3 rounded-2xl bg-[#1a1a2e] shadow-xl text-left"
+              className="w-full flex items-center gap-3 pl-2 pr-5 py-3 rounded-2xl bg-[var(--brand-blue)] shadow-xl text-left"
             >
               {/* Illustration */}
               <img

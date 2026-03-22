@@ -349,7 +349,7 @@ function CategoryDrilldownSelect({
                 {/* spacer to align with checkbox column of deeper levels */}
                 <span className="w-4 h-4" />
                 {it.icon_key ? (
-                  <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+                  <Icon name={it.icon_key} className="w-4 h-4 text-[var(--brand-orange)]" />
                 ) : (
                   <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
                 )}
@@ -380,7 +380,7 @@ function CategoryDrilldownSelect({
                 onClick={(e) => e.stopPropagation()}
               />
               {it.icon_key ? (
-                <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+                <Icon name={it.icon_key} className="w-4 h-4 text-[var(--brand-orange)]" />
               ) : (
                 <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
               )}
@@ -618,7 +618,7 @@ function MultiSelect({
                 onClick={(e) => e.stopPropagation()}
               />
               {it.icon_key ? (
-                <Icon name={it.icon_key} className="w-4 h-4 text-[#F78300]" />
+                <Icon name={it.icon_key} className="w-4 h-4 text-[var(--brand-orange)]" />
               ) : (
                 <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
               )}
@@ -895,7 +895,7 @@ function TaxonomyManagerModal({
                 title="Choose icon"
               >
                 {iconKey ? (
-                  <Icon name={iconKey} className="w-4 h-4 text-[#F78300]" />
+                  <Icon name={iconKey} className="w-4 h-4 text-[var(--brand-orange)]" />
                 ) : (
                   <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
                 )}
@@ -1026,7 +1026,7 @@ function RowEditable({
         ) : (
           <span className="inline-flex items-center gap-2 text-gray-900">
             {row.icon_key ? (
-              <Icon name={row.icon_key} className="w-4 h-4 text-[#F78300]" />
+              <Icon name={row.icon_key} className="w-4 h-4 text-[var(--brand-orange)]" />
             ) : (
               <span className="w-4 h-4 rounded bg-gray-200 inline-block" />
             )}

@@ -135,14 +135,14 @@ export default function MyWishlistsPage() {
 
               {/* Name + meta */}
               <div className="flex-1 min-w-0">
-                <div className="text-[15px] font-semibold text-[#1a1a1a] truncate">{w.name}</div>
+                <div className="text-[15px] font-semibold text-[var(--brand-black)] truncate">{w.name}</div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   {w.is_public ? "public" : "private"} · {count} {count === 1 ? "site" : "sites"}
                 </div>
               </div>
 
               {/* Chevron */}
-              <Icon name="chevron-right" size={13} className="text-[#c8c8c8] shrink-0 mr-1" />
+              <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)] shrink-0 mr-1" />
 
               {/* Delete button */}
               <button

@@ -60,7 +60,7 @@ export default function UserMapPreviewCard({ site }: { site: UserSite }) {
   }, [site.slug, site.cover_photo_url]);
 
   return (
-    <div className="w-64 rounded-xl overflow-hidden bg-white shadow-lg relative border-2 border-transparent hover:border-[#f78300] transition-all duration-300">
+    <div className="w-64 rounded-xl overflow-hidden bg-white shadow-lg relative border-2 border-transparent hover:border-[var(--brand-orange)] transition-all duration-300">
       <Link href={detailHref} className="group block" prefetch={false}>
         {/* Image Section */}
         <div className="relative">
@@ -80,7 +80,7 @@ export default function UserMapPreviewCard({ site }: { site: UserSite }) {
 
           {/* Heritage Type Badge */}
           {site.heritage_type && (
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#f78300]/90 text-white text-xs font-semibold shadow">
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/90 text-white text-xs font-semibold shadow">
               {site.heritage_type}
             </div>
           )}
@@ -93,7 +93,7 @@ export default function UserMapPreviewCard({ site }: { site: UserSite }) {
 
         {/* Content Section */}
         <div className="p-3">
-          <h3 className="text-gray-800 text-lg font-bold truncate group-hover:text-[#f78300]">
+          <h3 className="text-gray-800 text-lg font-bold truncate group-hover:text-[var(--brand-orange)]">
             {site.title}
           </h3>
 

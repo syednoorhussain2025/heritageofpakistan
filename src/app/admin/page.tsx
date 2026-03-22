@@ -232,7 +232,7 @@ export default function AdminHome() {
                   <Icon
                     name="listings"
                     size={22}
-                    style={{ color: "#F78300" }}
+                    style={{ color: "var(--brand-orange)" }}
                   />
                   <h2 className="text-lg font-semibold">Total Sites</h2>
                 </div>
@@ -247,7 +247,7 @@ export default function AdminHome() {
                   <Icon
                     name="adminmap"
                     size={22}
-                    style={{ color: "#F78300" }}
+                    style={{ color: "var(--brand-orange)" }}
                   />
                   <h2 className="text-lg font-semibold">Sites by Province</h2>
                 </div>
@@ -267,7 +267,7 @@ export default function AdminHome() {
               {/* Reviews Box */}
               <div className="rounded-lg bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center gap-2 text-slate-800">
-                  <Icon name="review" size={22} style={{ color: "#F78300" }} />
+                  <Icon name="review" size={22} style={{ color: "var(--brand-orange)" }} />
                   <h2 className="text-lg font-semibold">Reviews</h2>
                 </div>
                 <div className="space-y-2 text-sm text-slate-700">
@@ -293,7 +293,7 @@ export default function AdminHome() {
               {/* Users Box */}
               <div className="rounded-lg bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center gap-2 text-slate-800">
-                  <Icon name="user-round" size={22} style={{ color: "#F78300" }} />
+                  <Icon name="user-round" size={22} style={{ color: "var(--brand-orange)" }} />
                   <h2 className="text-lg font-semibold">Users</h2>
                 </div>
                 <div className="space-y-2 text-sm text-slate-700">

@@ -407,14 +407,14 @@ function TripViewHoverStyles({ hoveredSiteId }: { hoveredSiteId: string | null }
   return (
     <style>{`
       .hop-pin-marker[data-site-id="${escaped}"] .hop-pin-inner {
-        background-color: #f78300 !important;
-        color: #f78300 !important;
+        background-color: var(--brand-orange) !important;
+        color: var(--brand-orange) !important;
       }
       .hop-tooltip[data-site-id="${escaped}"] .hop-tooltip-inner {
-        background: #f78300 !important;
+        background: var(--brand-orange) !important;
       }
       .hop-tooltip[data-site-id="${escaped}"] .hop-tooltip-arrow {
-        border-top-color: #f78300 !important;
+        border-top-color: var(--brand-orange) !important;
       }
     `}</style>
   );
@@ -751,9 +751,9 @@ const OSMLeafletView = memo(function OSMLeafletView({
       const {
         pin_style = "icon_only",
         pin_icon_size = 38,
-        pin_color = "#f78300",
+        pin_color = "var(--brand-orange)",
         pin_circle_size = 48,
-        pin_circle_color = "#f78300",
+        pin_circle_color = "var(--brand-orange)",
         pin_icon_color_in_circle = "#ffffff",
         pin_border_thickness = 0,
         pin_border_color = "transparent",
@@ -1266,7 +1266,7 @@ function GoogleMapView({
           rawSvg,
           iconSize,
           circleSize + borderThickness * 2,
-          settings.pin_circle_color ?? "#f78300",
+          settings.pin_circle_color ?? "var(--brand-orange)",
           settings.pin_border_color ?? "transparent",
           borderThickness,
           settings.pin_icon_color_in_circle ?? "#ffffff"
@@ -1283,7 +1283,7 @@ function GoogleMapView({
       const normalized = normalizeSvg(
         rawSvg,
         iconSize,
-        settings.pin_color ?? "#f78300"
+        settings.pin_color ?? "var(--brand-orange)"
       );
       return {
         url: encodeSvg(normalized),
@@ -1643,7 +1643,7 @@ function GoogleMapView({
     private color: string;
     constructor(color: string) {
       super();
-      this.color = color || "#f78300";
+      this.color = color || "var(--brand-orange)";
     }
     render({ count, position }: any) {
       const clusterColor = this.color;
@@ -1785,7 +1785,7 @@ function GoogleMapView({
         const clusterer = new MarkerClusterer({
           markers,
           map,
-          renderer: new ThemedRenderer(settings.cluster_color_google || settings.cluster_color || "#f78300"),
+          renderer: new ThemedRenderer(settings.cluster_color_google || settings.cluster_color || "var(--brand-orange)"),
         });
         clustererRef.current = clusterer;
         markersRef.current = markers;

@@ -65,7 +65,7 @@ export default function HeritageGalleryLink({
         <div className="flex items-center gap-2">
           <Icon
             name={icon}
-            className="text-[var(--brand-orange,#F78300)] text-lg"
+            className="text-[var(--brand-orange)] text-lg"
           />
           <h3
             className="text-base sm:text-lg font-semibold"
@@ -219,7 +219,7 @@ export default function HeritageGalleryLink({
                     ? "text-white"
                     : "pointer-events-none text-white/60",
                 ].join(" ")}
-                style={{ background: "var(--brand-orange, #F78300)" }}
+                style={{ background: "var(--brand-orange)" }}
               >
                 <Icon name="play" className="text-current" />
                 Open Photo Story

@@ -1394,7 +1394,7 @@ export default function AdminListingsPage() {
                     type="password"
                     value={pwd}
                     onChange={(e) => setPwd(e.target.value)}
-                    className={`mt-1 w-full rounded-md px-3 text-slate-900 placeholder-slate-400 bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F78300]/40 focus:border-[#F78300] ${CONTROL_H}`}
+                    className={`mt-1 w-full rounded-md px-3 text-slate-900 placeholder-slate-400 bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/40 focus:border-[var(--brand-orange)] ${CONTROL_H}`}
                     placeholder="••••••••"
                     disabled={pwdSubmitting}
                   />
