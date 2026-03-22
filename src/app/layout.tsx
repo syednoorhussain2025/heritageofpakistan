@@ -68,7 +68,7 @@ export default async function RootLayout({
   ]);
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link
           rel="preconnect"
@@ -84,22 +84,12 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="theme-color" content={brandColors.brand_green} />
-        {/* Blocking inline script — sets CSS vars before any stylesheet paints, zero flash */}
-        <script dangerouslySetInnerHTML={{ __html: `
-(function(){var r=document.documentElement.style;
-r.setProperty('--brand-green','${brandColors.brand_green}');
-r.setProperty('--brand-orange','${brandColors.brand_orange}');
-r.setProperty('--brand-blue','${brandColors.brand_blue}');
-r.setProperty('--brand-black','${brandColors.brand_black}');
-r.setProperty('--brand-dark-grey','${brandColors.brand_dark_grey}');
-r.setProperty('--brand-light-grey','${brandColors.brand_light_grey}');
-r.setProperty('--brand-very-light-grey','${brandColors.brand_very_light_grey}');
-r.setProperty('--brand-illustration','${brandColors.brand_illustration}');
-})();` }} />
+        <style id="brand-colors" dangerouslySetInnerHTML={{ __html: `:root{--brand-green:${brandColors.brand_green};--brand-orange:${brandColors.brand_orange};--brand-blue:${brandColors.brand_blue};--brand-black:${brandColors.brand_black};--brand-dark-grey:${brandColors.brand_dark_grey};--brand-light-grey:${brandColors.brand_light_grey};--brand-very-light-grey:${brandColors.brand_very_light_grey};--brand-illustration:${brandColors.brand_illustration}}` }} />
       </head>
 
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
+        suppressHydrationWarning
       >
         <IconProvider>
           <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
