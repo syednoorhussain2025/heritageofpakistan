@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import { getPublicClient } from "@/lib/supabase/browser";
 import Link from "next/link";
@@ -1291,6 +1291,7 @@ function SearchBarWithAnimation({ onOpen }: { onOpen: () => void }) {
 
 function MobileHomepage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Config from admin
   const [configLoading, setConfigLoading] = useState(true);
@@ -1307,6 +1308,17 @@ function MobileHomepage() {
   // GPS — native-aware location hook
   const { status: gpsStatus, coords: gpsCoords, cityName: gpsCityName, requestLocation } = useNativeLocation();
   const [nearbySheetOpen, setNearbySheetOpen] = useState(false);
+
+  // Open nearby sheet automatically when app is launched from a nearby notification
+  useEffect(() => {
+    if (searchParams?.get("nearby") === "1") {
+      setNearbySheetOpen(true);
+      // Clean the URL without triggering navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete("nearby");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   // Nearby toast
   const [nearbyToast, setNearbyToast] = useState<{ count: number } | null>(null);

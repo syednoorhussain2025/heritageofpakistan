@@ -108,6 +108,18 @@ export default function AppChrome({
           if (isActive) void checkAndNotifyNearbySites();
         });
         removers.push(() => resumeHandle.remove());
+
+        // Notification tap — deep link to nearby sheet
+        const { LocalNotifications } = await import("@capacitor/local-notifications");
+        const notifHandle = await LocalNotifications.addListener(
+          "localNotificationActionPerformed",
+          (action) => {
+            if (action.notification?.extra?.type === "nearby") {
+              window.location.href = "/?nearby=1";
+            }
+          }
+        );
+        removers.push(() => notifHandle.remove());
       } catch {
         // Not in Capacitor
       }

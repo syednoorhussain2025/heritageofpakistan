@@ -69,12 +69,15 @@ async function scheduleReEngagementNotifications(sites: CachedSite[]): Promise<v
   // Pick two distinct sites to name individually (closest first)
   const [first, second] = sites;
 
+  const nearbyExtra = { type: "nearby" };
+
   // 30 min — summary
   await scheduleLocalNotification({
     id: NOTIF_IDS.summary30min,
     title: "Heritage Sites Near You",
     body: `${count} heritage site${count > 1 ? "s are" : " is"} within 20km of you. Tap to explore.`,
     scheduleAt: new Date(now + 30 * 60 * 1000),
+    extra: nearbyExtra,
   });
 
   // 1 hr — name the closest site
@@ -87,6 +90,7 @@ async function scheduleReEngagementNotifications(sites: CachedSite[]): Promise<v
       title: first.title,
       body: `Only ${dist}. Discover its history on Heritage of Pakistan.`,
       scheduleAt: new Date(now + 60 * 60 * 1000),
+      extra: nearbyExtra,
     });
   }
 
@@ -98,6 +102,7 @@ async function scheduleReEngagementNotifications(sites: CachedSite[]): Promise<v
       title: siteFor3hr.title,
       body: `Still nearby — explore ${siteFor3hr.title} and ${count - 1} more heritage sites around you.`,
       scheduleAt: new Date(now + 3 * 60 * 60 * 1000),
+      extra: nearbyExtra,
     });
   }
 
@@ -107,6 +112,7 @@ async function scheduleReEngagementNotifications(sites: CachedSite[]): Promise<v
     title: "Explore Pakistan's Heritage",
     body: `You have ${count} heritage site${count > 1 ? "s" : ""} within reach. Don't miss them.`,
     scheduleAt: new Date(now + 6 * 60 * 60 * 1000),
+    extra: nearbyExtra,
   });
 }
 

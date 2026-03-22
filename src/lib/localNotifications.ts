@@ -16,11 +16,13 @@ export async function scheduleLocalNotification({
   title,
   body,
   scheduleAt,
+  extra,
 }: {
   id: number;
   title: string;
   body: string;
   scheduleAt: Date;
+  extra?: Record<string, unknown>;
 }): Promise<void> {
   try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
@@ -33,7 +35,7 @@ export async function scheduleLocalNotification({
           schedule: { at: scheduleAt },
           sound: undefined,
           actionTypeId: "",
-          extra: null,
+          extra: extra ?? null,
         },
       ],
     });
