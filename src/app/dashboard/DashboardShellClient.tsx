@@ -177,8 +177,7 @@ export default function DashboardShellClient({
   function handleTouchEnd(e: React.TouchEvent) {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    // Require horizontal swipe > 60px, vertical drift < 50px, and must start from left 40px edge
-    if (dx > 60 && dy < 50 && touchStartX.current < 40) {
+    if (dx > 60 && dy < 80) {
       handleBack();
     }
   }
