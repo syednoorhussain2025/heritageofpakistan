@@ -303,7 +303,7 @@ export default function NearbyMeSheet({
             src="/illustrations/nearby-search.svg"
             alt=""
             aria-hidden="true"
-            className="w-16 h-16 shrink-0 object-contain"
+            className="w-24 h-24 shrink-0 object-contain"
           />
           <div className="flex-1 min-w-0">
             <p className="text-[#00b78b] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
