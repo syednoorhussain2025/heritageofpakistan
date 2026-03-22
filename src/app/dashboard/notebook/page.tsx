@@ -541,7 +541,7 @@ export default function TravelNotebookPage() {
                 ))}
               </ul>
             ) : filtered.length === 0 && list.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-6 pt-10 pb-6 text-center">
+              <div className="flex flex-col items-center justify-center px-6 pt-10 pb-6 text-center bg-white rounded-xl">
                 <p className="text-[16px] font-semibold text-gray-800 mb-5">No Notes Yet</p>
                 <img
                   src="/illustrations/no-notes.svg"

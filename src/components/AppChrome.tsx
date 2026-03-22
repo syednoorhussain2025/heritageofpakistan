@@ -56,7 +56,8 @@ export default function AppChrome({
   // so both entering and exiting pages share the same direction.
   const isDashboard = pathname.startsWith("/dashboard");
   const wasDashboard = prevPathnameRef.current.startsWith("/dashboard");
-  const useSlideTrans = (isDashboard || wasDashboard) && prevPathnameRef.current !== pathname;
+  // Only slide when crossing the dashboard boundary (entering/leaving), not within it
+  const useSlideTrans = (isDashboard !== wasDashboard) && prevPathnameRef.current !== pathname;
 
   if (prevPathnameRef.current !== pathname) {
     // going back = arriving at /dashboard from a sub-page
