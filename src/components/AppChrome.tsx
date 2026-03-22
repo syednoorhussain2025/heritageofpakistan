@@ -84,25 +84,35 @@ export default function AppChrome({
     }
   }, []);
 
-  // Android hardware back button via @capacitor/app
+  // Android hardware back button + nearby notifications via @capacitor/app
   useEffect(() => {
-    let removeListener: (() => void) | null = null;
+    const removers: (() => void)[] = [];
     (async () => {
       try {
         const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", ({ canGoBack }) => {
+        const { checkAndNotifyNearbySites } = await import("@/lib/nearbyNotifications");
+
+        // Back button
+        const backHandle = await App.addListener("backButton", ({ canGoBack }) => {
           if (canGoBack) {
             window.history.back();
           } else {
             App.exitApp();
           }
         });
-        removeListener = () => handle.remove();
+        removers.push(() => backHandle.remove());
+
+        // Nearby notifications — on launch and every foreground resume
+        void checkAndNotifyNearbySites();
+        const resumeHandle = await App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) void checkAndNotifyNearbySites();
+        });
+        removers.push(() => resumeHandle.remove());
       } catch {
         // Not in Capacitor
       }
     })();
-    return () => { removeListener?.(); };
+    return () => { removers.forEach((r) => r()); };
   }, []);
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomePage = pathname.startsWith("/auth");
