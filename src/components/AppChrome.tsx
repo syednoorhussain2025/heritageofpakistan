@@ -15,6 +15,7 @@ import { ProfileProvider } from "@/components/ProfileProvider";
 import { LoaderEngineProvider } from "@/components/loader-engine/LoaderEngineProvider";
 import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import ConnectivityBanner from "@/components/ConnectivityBanner";
 import TabShell, { isTabRoute } from "@/components/TabShell";
 
 // Default fade for non-dashboard pages
@@ -105,6 +106,7 @@ export default function AppChrome({
     return (
       <ErrorBoundary>
         <LoaderEngineProvider>
+          <ConnectivityBanner />
           <Header initialItems={initialHeaderItems} />
           <main>{children}</main>
         </LoaderEngineProvider>
@@ -120,6 +122,7 @@ export default function AppChrome({
             <WishlistProvider>
               <CollectionsProvider>
                 <LoaderEngineProvider>
+                  <ConnectivityBanner />
                   <AuthPendingToast />
 
                   <div className={isHomePage ? "md:block hidden" : ""}>
