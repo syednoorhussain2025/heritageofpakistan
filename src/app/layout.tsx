@@ -8,7 +8,7 @@ import AppChrome from "@/components/AppChrome";
 import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import BrandColorApplier from "@/components/BrandColorApplier";
+import { getBrandColors } from "@/lib/brand-colors";
 
 /* ---------------- Fonts ---------------- */
 const lato = Lato({
@@ -62,7 +62,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const initialHeaderItems = await fetchHeaderItems();
+  const [initialHeaderItems, brandColors] = await Promise.all([
+    fetchHeaderItems(),
+    getBrandColors(),
+  ]);
 
   return (
     <html lang="en">
@@ -80,14 +83,25 @@ export default async function RootLayout({
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#00b78b" />
+        <meta name="theme-color" content={brandColors.brand_green} />
+        {/* Blocking inline script — sets CSS vars before any stylesheet paints, zero flash */}
+        <script dangerouslySetInnerHTML={{ __html: `
+(function(){var r=document.documentElement.style;
+r.setProperty('--brand-green','${brandColors.brand_green}');
+r.setProperty('--brand-orange','${brandColors.brand_orange}');
+r.setProperty('--brand-blue','${brandColors.brand_blue}');
+r.setProperty('--brand-black','${brandColors.brand_black}');
+r.setProperty('--brand-dark-grey','${brandColors.brand_dark_grey}');
+r.setProperty('--brand-light-grey','${brandColors.brand_light_grey}');
+r.setProperty('--brand-very-light-grey','${brandColors.brand_very_light_grey}');
+r.setProperty('--brand-illustration','${brandColors.brand_illustration}');
+})();` }} />
       </head>
 
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
-          <BrandColorApplier />
           <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
           <SpeedInsights />
         </IconProvider>

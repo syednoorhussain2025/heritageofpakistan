@@ -41,7 +41,7 @@ export const getBrandColors = unstable_cache(
     }
   },
   ["brand-colors"],
-  { tags: ["brand-colors"], revalidate: 3600 }
+  { tags: ["brand-colors"], revalidate: false }
 );
 
 /** Converts BrandColors to a CSS <style> block injected into <head> */
