@@ -138,10 +138,11 @@ export default function HeritageInteractions({
             <button
               type="button"
               onClick={() => setActionsSheetOpen(true)}
-              className={btnClass}
+              className="w-11 h-11 flex items-center justify-center rounded-full active:scale-95 transition-all"
+              style={{ background: "var(--brand-green, #16a34a)" }}
               aria-label="More actions"
             >
-              <Icon name="plus" size={26} style={{ color: iconColor, width: 26, height: 26, minWidth: 26, minHeight: 26 }} />
+              <Icon name="plus" size={22} style={{ color: "#ffffff", width: 22, height: 22, minWidth: 22, minHeight: 22 }} />
             </button>
           </div>
         </div>

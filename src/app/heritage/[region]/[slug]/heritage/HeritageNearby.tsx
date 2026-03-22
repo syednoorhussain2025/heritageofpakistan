@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import HeritageSection from "./HeritageSection";
 import SitePreviewCard from "@/components/SitePreviewCard";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
+
+const SiteBottomSheet = dynamic(
+  () => import("@/components/SiteBottomSheet"),
+  { ssr: false }
+);
 
 type NearbySite = {
   id: string;
@@ -151,6 +157,8 @@ export default function HeritageNearby({
 }) {
   const [rows, setRows] = useState<NearbySite[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [selectedSite, setSelectedSite] = useState<NearbySite | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
 
@@ -291,7 +299,14 @@ export default function HeritageNearby({
                   <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none">
                     {rows.map((r, index) => (
                       <div key={r.id} className="min-w-[85%] snap-start">
-                        <SitePreviewCard site={r} index={index} />
+                        <SitePreviewCard
+                          site={r}
+                          index={index}
+                          onCardClick={() => {
+                            setSelectedSite(r);
+                            setSheetOpen(true);
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -321,6 +336,28 @@ export default function HeritageNearby({
           </>
         )}
       </HeritageSection>
+
+      {/* SiteBottomSheet for nearby card taps on mobile */}
+      <SiteBottomSheet
+        site={selectedSite
+          ? {
+              id: selectedSite.id,
+              slug: selectedSite.slug,
+              province_slug: selectedSite.province_slug,
+              title: selectedSite.title,
+              cover_photo_url: selectedSite.cover_photo_url,
+              cover_blur_data_url: selectedSite.cover_blur_data_url,
+              avg_rating: selectedSite.avg_rating,
+              review_count: selectedSite.review_count,
+              heritage_type: selectedSite.heritage_type,
+              location_free: selectedSite.location_free,
+              latitude: selectedSite.latitude,
+              longitude: selectedSite.longitude,
+            }
+          : null}
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+      />
 
       <style jsx global>{`
         .scrollbar-none {

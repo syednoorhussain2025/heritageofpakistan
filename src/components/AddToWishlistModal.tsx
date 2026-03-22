@@ -420,14 +420,18 @@ export default function AddToWishlistModal({
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[9999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[9999999999] flex flex-col justify-end sm:items-center sm:justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
       >
+        {/* Drag handle for mobile */}
+        <div className="sm:hidden flex justify-center pb-2 shrink-0">
+          <div className="w-10 h-1 bg-white/40 rounded-full" />
+        </div>
         <div
-          className={`relative w-full h-[100dvh] sm:h-[590px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
+          className={`relative w-full max-h-[82dvh] sm:h-[590px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4"

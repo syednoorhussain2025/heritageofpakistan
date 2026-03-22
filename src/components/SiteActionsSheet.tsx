@@ -256,90 +256,79 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             </div>
           </div>
 
-          {/* Primary actions group */}
-          <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
-            <a
-              href={detailHref}
-              onClick={() => { void hapticMedium(); closeSheet(); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 active:scale-[0.98] transition-transform"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="external-link-alt" size={18} className="text-gray-800" />
-              </div>
-              <span className="text-[15px] font-medium text-gray-900">Open Site</span>
-            </a>
-            <div className="mx-6 h-[0.5px] bg-gray-300" />
+          {/* Primary actions group — white background, light grey border, dividers */}
+          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden border border-gray-100">
             <button
               type="button"
               onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="heart" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="heart" size={18} className="text-gray-700" />
               </div>
-              <span className="text-[15px] font-medium text-gray-900">Save</span>
+              <span className="text-[15px] font-medium text-gray-900">Save to List</span>
             </button>
-            <div className="mx-6 h-[0.5px] bg-gray-300" />
+            <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
               onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="line-segments-light" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="line-segments-light" size={18} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
-            <div className="mx-6 h-[0.5px] bg-gray-300" />
+            <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
               onClick={() => { void hapticMedium(); void handlePlacesNearby(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="nearby" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="nearby" size={18} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
             </button>
-            <div className="mx-6 h-[0.5px] bg-gray-300" />
+            <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
               onClick={() => { void handleShare(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="share-alt" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="share-alt" size={18} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Share</span>
             </button>
           </div>
 
           {/* Secondary actions group */}
-          <div className="mx-4 mb-3 bg-[#f5f5f8] rounded-2xl overflow-hidden">
+          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden border border-gray-100">
             <a
               href={galleryHref}
               onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="gallery" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="gallery" size={18} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Gallery</span>
             </a>
-            <div className="mx-6 h-[0.5px] bg-gray-300" />
+            <div className="mx-4 h-[0.5px] bg-gray-100" />
             <a
               href={photoStoryHref}
               onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <Icon name="book-open-text-light" size={18} className="text-gray-800" />
+              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Icon name="book-open-text-light" size={18} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
             </a>
             {googleMapsHref && (
               <>
-                <div className="mx-6 h-[0.5px] bg-gray-300" />
+                <div className="mx-4 h-[0.5px] bg-gray-100" />
                 <a
                   href={googleMapsHref}
                   target="_blank"
@@ -347,8 +336,8 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   onClick={() => { void hapticLight(); closeSheet(); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                    <Icon name="map-marker-alt" size={18} className="text-gray-800" />
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                    <Icon name="map-marker-alt" size={18} className="text-gray-700" />
                   </div>
                   <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
                 </a>
@@ -357,7 +346,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           </div>
 
           {/* Cancel */}
-          <div className="mx-4 mb-4 bg-[#f5f5f8] rounded-2xl overflow-hidden">
+          <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100">
             <button
               type="button"
               onClick={() => { void hapticLight(); closeSheet(); }}

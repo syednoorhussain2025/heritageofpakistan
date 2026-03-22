@@ -170,7 +170,7 @@ function SidebarAccordionSection({
   title,
   iconName,
   id,
-  mobileDefaultOpen = false,
+  mobileDefaultOpen = true,
   children,
 }: {
   title: string;

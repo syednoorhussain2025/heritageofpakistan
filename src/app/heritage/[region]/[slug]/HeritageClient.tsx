@@ -259,7 +259,7 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8]" style={{ willChange: "transform" }}>
+    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8] overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />

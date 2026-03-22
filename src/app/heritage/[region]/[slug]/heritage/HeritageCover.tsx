@@ -257,6 +257,21 @@ export default function HeritageCover({
               const t = e.touches[0];
               (e.currentTarget as any)._swipeStartX = t.clientX;
               (e.currentTarget as any)._swipeStartY = t.clientY;
+              (e.currentTarget as any)._swipeLocked = false;
+            }}
+            onTouchMove={(e) => {
+              const startX = (e.currentTarget as any)._swipeStartX;
+              const startY = (e.currentTarget as any)._swipeStartY;
+              if (startX == null) return;
+              const dx = e.touches[0].clientX - startX;
+              const dy = e.touches[0].clientY - startY;
+              // Lock axis on first meaningful movement
+              if (!(e.currentTarget as any)._swipeLocked && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+                (e.currentTarget as any)._swipeLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+              }
+              if ((e.currentTarget as any)._swipeLocked === "x") {
+                e.preventDefault();
+              }
             }}
             onTouchEnd={(e) => {
               const startX = (e.currentTarget as any)._swipeStartX;
@@ -264,7 +279,6 @@ export default function HeritageCover({
               if (startX == null || !hasSlideshow) return;
               const dx = e.changedTouches[0].clientX - startX;
               const dy = e.changedTouches[0].clientY - startY;
-              // Only register horizontal swipes (dx dominant, min 40px)
               if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
               setSlideIndex((prev) =>
                 dx < 0
@@ -355,69 +369,58 @@ export default function HeritageCover({
         )}
 
         {/* Info block below image */}
-        <div className="px-4 pt-4 pb-5 space-y-3">
+        <div className="px-4 pt-4 pb-5 space-y-2">
           <h1 className="font-hero-title text-3xl leading-tight text-black">
             {site.title}
           </h1>
 
+          {/* Location sits directly under title — no heading label */}
+          {site.location_free && (
+            <div className="flex items-center gap-1.5 text-[14px] text-slate-500">
+              <Icon name="map-marker-alt" className="text-slate-400 shrink-0" size={14} />
+              <span>{site.location_free}</span>
+            </div>
+          )}
+
+          {/* Rating — yellow stars + green pill */}
           {hasRatingInfo && (
-            <div className="flex items-center gap-2 text-[15px] text-slate-800">
+            <div className="flex items-center gap-2 pt-1">
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span
                     key={i}
-                    className={
-                      i < filled
-                        ? "rating-star--filled text-[18px]"
-                        : "text-slate-300 text-[18px]"
-                    }
+                    className="text-[18px]"
+                    style={{ color: i < filled ? "#f59e0b" : "#cbd5e1" }}
                   >
                     ★
                   </span>
                 ))}
               </div>
-              <span className="font-medium">
-                {site.avg_rating?.toFixed(1)} • {site.review_count} reviews
+              <span
+                className="inline-flex items-center gap-1 text-white text-[12px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: "var(--brand-green, #16a34a)" }}
+              >
+                {site.avg_rating?.toFixed(1)}
+              </span>
+              <span className="text-[13px] text-slate-500">{site.review_count} reviews</span>
+            </div>
+          )}
+
+          {/* Heritage Type — orange pill */}
+          {site.heritage_type && (
+            <div className="pt-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold text-white"
+                style={{ background: "var(--brand-orange, #f97316)" }}>
+                <Icon name={getHeritageIcon(site.heritage_type)} size={12} className="text-white" />
+                {site.heritage_type}
               </span>
             </div>
           )}
 
           {site.tagline && (
-            <p className="text-[15px] leading-relaxed text-slate-700">
+            <p className="text-[15px] leading-relaxed text-slate-700 pt-1">
               {site.tagline}
             </p>
-          )}
-
-          {site.heritage_type && (
-            <div className="pt-1">
-              <div className="uppercase text-slate-500 text-[11px]">
-                Heritage Type
-              </div>
-              <div className="flex items-center gap-1.5 font-semibold text-[15px] text-slate-900">
-                <Icon
-                  name={getHeritageIcon(site.heritage_type)}
-                  className="text-slate-500"
-                  size={16}
-                />
-                <span>{site.heritage_type}</span>
-              </div>
-            </div>
-          )}
-
-          {site.location_free && (
-            <div className="pt-1">
-              <div className="uppercase text-slate-500 text-[11px]">
-                Location
-              </div>
-              <div className="flex items-center gap-1.5 font-semibold text-[15px] text-slate-900">
-                <Icon
-                  name="map-marker-alt"
-                  className="text-slate-500"
-                  size={16}
-                />
-                <span>{site.location_free}</span>
-              </div>
-            </div>
           )}
 
           {/* Reserved space for Photo Story button to avoid layout shift */}

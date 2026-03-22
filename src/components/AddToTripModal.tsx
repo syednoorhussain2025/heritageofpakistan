@@ -251,26 +251,30 @@ export default function AddToTripModal({
 
   return (
     <>
-      {/* Overlay — full screen on mobile, centered modal on desktop */}
+      {/* Overlay — bottom sheet on mobile, centered modal on desktop */}
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[1000] flex flex-col sm:items-center sm:justify-center sm:bg-black/30 sm:backdrop-blur-[1px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[5000] flex flex-col justify-end sm:items-center sm:justify-center bg-black/40 sm:bg-black/30 sm:backdrop-blur-[1px] transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
       >
-        {/* Card — full screen on mobile, centered on desktop */}
+        {/* Card — bottom sheet on mobile (80%), centered on desktop */}
         <div
-          className={`w-full h-full sm:h-auto sm:max-w-xl sm:mx-3 sm:rounded-2xl sm:max-h-[90vh] bg-white sm:shadow-2xl sm:ring-1 sm:ring-black/5 transition-all duration-300 transform flex flex-col ${
+          className={`w-full max-h-[82vh] sm:h-auto sm:max-w-xl sm:mx-3 sm:rounded-2xl sm:max-h-[90vh] bg-white rounded-t-3xl shadow-2xl sm:shadow-2xl sm:ring-1 sm:ring-black/5 transition-all duration-300 transform flex flex-col ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-95 translate-y-4 sm:translate-y-2"
+              : "opacity-0 scale-95 translate-y-4"
           }`}
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* Drag handle */}
+          <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
             <div className="flex items-center gap-2">
