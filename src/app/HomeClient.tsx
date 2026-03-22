@@ -1,7 +1,7 @@
 // src/app/HomeClient.tsx
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
@@ -1837,7 +1837,7 @@ export default function HomeClient() {
     <main className="w-full">
       {/* ── MOBILE ── */}
       <div className="md:hidden h-[100dvh] overflow-y-auto">
-        <MobileHomepage />
+        <Suspense fallback={null}><MobileHomepage /></Suspense>
       </div>
 
       {/* ── DESKTOP ── */}
