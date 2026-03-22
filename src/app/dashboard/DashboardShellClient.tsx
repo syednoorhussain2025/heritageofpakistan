@@ -12,6 +12,7 @@ import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
 import { SearchContext } from "./SearchContext";
+import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 
 type ProfileSnap = {
   full_name: string | null;
@@ -36,6 +37,7 @@ export default function DashboardShellClient({
   const pathname = usePathname();
   const router = useRouter();
   const { userId } = useAuthUserId();
+  const { startNavigation } = useLoaderEngine();
 
   const isHome = pathname === "/dashboard";
 
@@ -133,19 +135,19 @@ export default function DashboardShellClient({
   function handleBack() {
     void hapticLight();
     if (pathname?.startsWith("/dashboard/mywishlists/")) {
-      router.push("/dashboard/mywishlists");
+      startNavigation("/dashboard/mywishlists", { overlay: "white-silent" });
     } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
-      router.push("/dashboard/mycollections");
+      startNavigation("/dashboard/mycollections", { overlay: "white-silent" });
     } else if (pathname?.startsWith("/dashboard/mytrips/")) {
-      router.push("/dashboard/mytrips");
+      startNavigation("/dashboard/mytrips", { overlay: "white-silent" });
     } else if (pathname?.startsWith("/dashboard/myreviews/")) {
-      router.push("/dashboard/myreviews");
+      startNavigation("/dashboard/myreviews", { overlay: "white-silent" });
     } else if (pathname?.startsWith("/dashboard/notebook/")) {
-      router.push("/dashboard/notebook");
+      startNavigation("/dashboard/notebook", { overlay: "white-silent" });
     } else if (isHome) {
       router.back();
     } else {
-      router.push("/dashboard");
+      startNavigation("/dashboard", { overlay: "white-silent" });
     }
   }
 

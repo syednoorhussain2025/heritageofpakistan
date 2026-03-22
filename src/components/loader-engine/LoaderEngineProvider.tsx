@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/Spinner";
 type Direction = "prev" | "next" | "forward" | "back" | null;
 type LoaderVariant = "listing" | "simple";
 
-export type NavOverlayMode = "white" | "transparent" | null;
+export type NavOverlayMode = "white" | "white-silent" | "transparent" | null;
 
 type LoaderEngineContextValue = {
   startNavigation: (href: string, options?: { direction?: Direction; variantOverride?: LoaderVariant; overlay?: NavOverlayMode }) => void;
@@ -46,8 +46,8 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
       if (!href) return;
 
       const mode = options?.overlay ?? null;
-      if (mode === "white") {
-        setOverlayMode("white");
+      if (mode === "white" || mode === "white-silent") {
+        setOverlayMode(mode);
         // Two rAFs: first paints the element, second triggers the transition
         requestAnimationFrame(() => requestAnimationFrame(() => setSlideIn(true)));
       } else if (mode === "transparent") {
@@ -97,19 +97,28 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
     );
   }
 
+  const silent = mode === "white-silent";
+
   // White mode: slides in from right, fades out on exit
+  // white-silent: same slide, no spinner, longer softer fade-out to blend into new page
   return (
     <div
-      className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none bg-white"
+      className="fixed inset-0 z-[5000] pointer-events-none bg-white"
       style={{
         transform: slideIn ? "translateX(0)" : "translateX(100%)",
         opacity: slideIn ? 1 : 0,
         transition: slideIn
-          ? "transform 0.26s cubic-bezier(0.4,0,0.2,1), opacity 0s"
+          ? `transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0s`
+          : silent
+          ? "opacity 0.36s cubic-bezier(0.4,0,0.2,1), transform 0s 0.36s"
           : "opacity 0.18s ease, transform 0s 0.18s",
       }}
     >
-      <Spinner size={72} />
+      {!silent && (
+        <div className="w-full h-full flex items-center justify-center">
+          <Spinner size={72} />
+        </div>
+      )}
     </div>
   );
 }
