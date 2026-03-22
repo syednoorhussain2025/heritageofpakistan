@@ -186,7 +186,7 @@ export default function MyTripsGrid({
       <div className={`${wrapperClasses} min-h-[360px]`}>
         {context !== "dashboard" && (
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-tight text-[#0A1B4D]">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-tight text-[var(--brand-blue)]">
               {title}
             </h2>
           </div>
@@ -294,7 +294,7 @@ export default function MyTripsGrid({
                   </div>
 
                   <div className="p-4">
-                    <h3 className="truncate font-semibold text-[17px] text-[#0A1B4D]">
+                    <h3 className="truncate font-semibold text-[17px] text-[var(--brand-blue)]">
                       {t.name}
                     </h3>
                     <div className="mt-1 text-xs text-gray-500 truncate">

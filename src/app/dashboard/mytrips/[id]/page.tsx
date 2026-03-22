@@ -186,7 +186,7 @@ export default function TripDetailPage() {
               {/* Day header */}
               {group.day && (
                 <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="inline-flex items-center rounded-full bg-[#0b1a55] px-4 py-1 text-white text-xs font-bold">
+                  <span className="inline-flex items-center rounded-full bg-[var(--brand-blue)] px-4 py-1 text-white text-xs font-bold">
                     Day {gi + 1}{group.day.title ? ` — ${group.day.title}` : ""}
                   </span>
                   {group.day.the_date && (

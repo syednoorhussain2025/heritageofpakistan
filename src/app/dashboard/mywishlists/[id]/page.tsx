@@ -183,7 +183,7 @@ export default function WishlistDetailPage() {
 
                   {/* Title + location */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-semibold text-[#1a1a1a] leading-tight line-clamp-2">
+                    <div className="text-[14px] font-semibold text-[var(--brand-dark-grey)] leading-tight line-clamp-2">
                       {site?.title ?? "Untitled site"}
                     </div>
                     {site?.location_free && (

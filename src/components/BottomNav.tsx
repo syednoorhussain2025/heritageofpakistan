@@ -12,7 +12,7 @@ import { useProfile } from "@/components/ProfileProvider";
 import { createClient } from "@/lib/supabase/browser";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 
-const ACTIVE_COLOR_CLASS = "text-[#ff752bff]";
+const ACTIVE_COLOR_CLASS = "text-[var(--brand-orange)]";
 const INACTIVE_COLOR_CLASS = "text-[var(--brand-black)]";
 const ICON_SIZE = 29;
 
@@ -73,7 +73,7 @@ function ProfileTabIcon({
   isActive: boolean;
 }) {
   const [errored, setErrored] = useState(false);
-  const ring = isActive ? "ring-2 ring-[#ff752bff]" : "ring-2 ring-gray-300";
+  const ring = isActive ? "ring-2 ring-[var(--brand-orange)]" : "ring-2 ring-gray-300";
 
   if (avatarUrl && !errored) {
     return (

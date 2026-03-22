@@ -22,8 +22,8 @@ const AUTH_SESSION_TIMEOUT_MS = 5000;
 const HEADER_BG = "#f5f7f7";
 const SEARCH_BG = "#f5f5f5";
 const SEARCH_BORDER = "#e0e0e0";
-const BRAND_GREEN = "#004f32"; // deep green for icons / search text
-const BRAND_LOGO_GREEN = "#00c9a7"; // bright logo/text green
+const BRAND_GREEN = "var(--brand-green)";
+const BRAND_LOGO_GREEN = "var(--brand-green)";
 
 /* ---------- Types ---------- */
 type SiteSearchRow = {
@@ -836,7 +836,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   const searchInputTextClasses =
     isTransparentHeader && !isSearchActive
       ? "text-white placeholder-white/70"
-      : "text-[#004f32] placeholder-gray-500";
+      : "text-[var(--brand-green)] placeholder-gray-500";
 
   return (
     <>
@@ -1327,7 +1327,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                               <Icon
                                 name={m.icon_name}
                                 size={20}
-                                className="text-[#474747]"
+                                className="text-[var(--brand-dark-grey)]"
                               />
                             )}
                             <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
@@ -1349,7 +1349,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                               <Icon
                                 name={m.icon_name}
                                 size={20}
-                                className="text-[#474747] shrink-0"
+                                className="text-[var(--brand-dark-grey)] shrink-0"
                               />
                             )}
                             <span className="text-[12px] font-medium text-gray-700 leading-tight">
@@ -1378,7 +1378,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     }}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="logout" size={20} className="text-[#474747]" />
+                    <Icon name="logout" size={20} className="text-[var(--brand-dark-grey)]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign Out
                     </span>
@@ -1389,7 +1389,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     onClick={closeMobileMenu}
                     className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   >
-                    <Icon name="user-round" size={20} className="text-[#474747]" />
+                    <Icon name="user-round" size={20} className="text-[var(--brand-dark-grey)]" />
                     <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                       Sign In
                     </span>
@@ -1400,7 +1400,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   onClick={closeMobileMenu}
                   className="flex flex-col items-center justify-center gap-1 bg-gray-100 rounded-xl py-3 px-2 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                 >
-                  <Icon name="dashboard" size={20} className="text-[#474747]" />
+                  <Icon name="dashboard" size={20} className="text-[var(--brand-dark-grey)]" />
                   <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
                     My Dashboard
                   </span>
@@ -1478,7 +1478,7 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                     }}
                     onKeyDown={(e) => e.key === "Enter" && submitQuickSearch()}
                     placeholder="Search heritage sites"
-                    className="w-full bg-transparent outline-none text-sm text-[#004f32] placeholder-gray-500"
+                    className="w-full bg-transparent outline-none text-sm text-[var(--brand-green)] placeholder-gray-500"
                     style={{ caretColor: BRAND_GREEN }}
                   />
                   {searchLoading && (

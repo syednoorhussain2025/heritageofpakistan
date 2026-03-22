@@ -965,7 +965,7 @@ function CategoryPills({ pills, categories }: { pills: string[]; categories: Opt
               <button
                 key={cat.id}
                 onClick={() => { void hapticLight(); router.push(`/explore?cats=${cat.id}`); }}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[#3d4d7a] bg-white/90 border border-white/30 active:bg-white transition-colors"
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-[var(--brand-blue)] bg-white/90 border border-white/30 active:bg-white transition-colors"
                 style={{ scrollSnapAlign: "start" }}
               >
                 {cat.name}

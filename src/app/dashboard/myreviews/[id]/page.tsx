@@ -182,7 +182,7 @@ export default function ReviewDetailPage() {
         </div>
 
         <div className="mt-3 border-t border-gray-100 pt-3">
-          <div className="text-base font-bold text-[#0A1B4D]">{site?.title ?? "Unknown site"}</div>
+          <div className="text-base font-bold text-[var(--brand-blue)]">{site?.title ?? "Unknown site"}</div>
           {site?.location_free && <div className="text-xs text-gray-400 mt-0.5">{site.location_free}</div>}
           <div className="mt-2 flex items-center justify-between">
             <Stars value={review.rating} />

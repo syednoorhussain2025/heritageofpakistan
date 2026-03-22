@@ -730,7 +730,7 @@ export default function TripBuilderPage() {
                     <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-green)] text-white text-[10px] font-semibold shrink-0">
                       {siteNumber}
                     </span>
-                    <div className="truncate font-semibold text-[15px] text-[#0A1B4D]">
+                    <div className="truncate font-semibold text-[15px] text-[var(--brand-blue)]">
                       {it.site ? (
                         <Link href={`/site/${it.site.slug}`} className="hover:underline" data-no-drag>
                           {it.site.title}
@@ -821,7 +821,7 @@ export default function TripBuilderPage() {
               ) : null}
             </div>
             <div className="min-w-0">
-              <div className="truncate font-semibold text-[17px] text-[#0A1B4D]">
+              <div className="truncate font-semibold text-[17px] text-[var(--brand-blue)]">
                 {it.site ? (
                   <Link href={`/site/${it.site.slug}`} className="hover:underline" data-no-drag>
                     {it.site.title}
@@ -933,7 +933,7 @@ export default function TripBuilderPage() {
               onClick={() => startEditTravel(it)}
               data-no-drag
             >
-              <div className="flex items-center gap-2 text-[#0A1B4D]">
+              <div className="flex items-center gap-2 text-[var(--brand-blue)]">
                 <div className="flex flex-col items-start min-w-0">
                   <KIcon name="map-marker-alt" size={14} className="text-orange-400 shrink-0 mb-0.5" />
                   <span className="text-[12px] font-medium truncate max-w-[90px]">{fromName}</span>
@@ -979,7 +979,7 @@ export default function TripBuilderPage() {
               data-no-drag
               title="Edit travel"
             >
-              <div className="flex items-center justify-center gap-3 w-full text-[#0A1B4D]">
+              <div className="flex items-center justify-center gap-3 w-full text-[var(--brand-blue)]">
                 <div className="flex flex-col items-start min-w-0">
                   <div className="flex items-center gap-2">
                     <KIcon name="map-marker-alt" className="shrink-0 text-[var(--brand-orange,#f59e0b)]" />
@@ -1240,7 +1240,7 @@ export default function TripBuilderPage() {
           </div>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight text-[#0A1B4D]">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight text-[var(--brand-blue)]">
               Trip Builder
             </h1>
 
@@ -1379,12 +1379,12 @@ export default function TripBuilderPage() {
                     >
                       {/* Day header */}
                       <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center rounded-full bg-[#0b1a55] px-4 md:px-14 py-2 text-white text-sm font-bold shrink-0">
+                        <span className="inline-flex items-center rounded-full bg-[var(--brand-blue)] px-4 md:px-14 py-2 text-white text-sm font-bold shrink-0">
                           {`Day ${i + 1}`}
                         </span>
 
                         <input
-                          className="flex-1 min-w-[100px] rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[#0b1a55] focus:ring-2 focus:ring-[#0b1a55]/30"
+                          className="flex-1 min-w-[100px] rounded-lg px-3 py-2 text-sm bg-white border border-gray-200 focus:outline-none focus:border-[var(--brand-blue)] focus:ring-2 focus:ring-[var(--brand-blue)]/30"
                           placeholder="Add Title"
                           value={day.title ?? ""}
                           onChange={(e) =>
