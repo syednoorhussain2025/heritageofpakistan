@@ -386,7 +386,7 @@ export default function PlacesVisitedPage() {
           <img
             src="/illustrations/no-visited.svg"
             alt="No places visited"
-            className="w-full max-w-[180px] mb-8"
+            className="w-full max-w-[260px] mb-8"
             loading="lazy"
             decoding="async"
           />

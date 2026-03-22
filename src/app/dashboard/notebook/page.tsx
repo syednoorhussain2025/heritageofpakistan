@@ -540,9 +540,21 @@ export default function TravelNotebookPage() {
                   <SidebarItemSkeleton key={i} />
                 ))}
               </ul>
+            ) : filtered.length === 0 && list.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 pt-10 pb-6 text-center">
+                <p className="text-[16px] font-semibold text-gray-800 mb-5">No Notes Yet</p>
+                <img
+                  src="/illustrations/no-notes.svg"
+                  alt="No notes"
+                  className="w-full max-w-[180px] mb-6"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <p className="text-sm text-gray-400">Create your first note to get started.</p>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="text-center p-4 text-sm text-gray-500">
-                No notes found.
+                No notes match your search.
               </div>
             ) : (
               <ul>
