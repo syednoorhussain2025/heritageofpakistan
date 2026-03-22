@@ -54,7 +54,7 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
 
   const startNavigation = useCallback(
     (href: string, options?: { direction?: Direction; variantOverride?: LoaderVariant; overlay?: NavOverlayMode }) => {
-      if (!href) return;
+      if (!href || href === pathname) return;
 
       const mode = options?.overlay ?? null;
       if (mode === "white" || mode === "white-silent" || mode === "white-silent-back") {
@@ -73,7 +73,7 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
         if (typeof window !== "undefined") window.location.href = href;
       }
     },
-    [router, scheduleDismiss]
+    [router, pathname, scheduleDismiss]
   );
 
   useEffect(() => () => {
