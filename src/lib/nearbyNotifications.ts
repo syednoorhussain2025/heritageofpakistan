@@ -1,111 +1,165 @@
 /**
  * Nearby heritage site notifications.
  *
- * Called on app open and every time the app comes to foreground.
- * Checks location → queries nearby sites → fires a local notification
- * for any site not already notified in the last 24 hours.
+ * On app open:
+ *   1. Get location → query sites within 20km → store results offline
+ *   2. Cancel any previously scheduled notifications (stale data)
+ *   3. Schedule a series of re-engagement notifications using the stored sites:
+ *      - 30 min after closing: "X heritage sites near you"
+ *      - 1 hr:  name a specific site
+ *      - 3 hrs: name another specific site
+ *      - 6 hrs: summary nudge
+ *
+ * On app foreground resume:
+ *   - Cancel pending scheduled notifications (user is back, no need to nudge)
+ *   - Re-run the full check with fresh location + fresh schedule
  */
 
 import { fetchSitesWithinRadius } from "@/lib/searchRadius";
 import {
   requestNotificationPermission,
   scheduleLocalNotification,
+  cancelAllPendingNotifications,
 } from "@/lib/localNotifications";
 
-const RADIUS_KM = 10;
-const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours per site
-const STORAGE_KEY = "nearby_notified"; // stored in @capacitor/preferences
+const RADIUS_KM = 20;
+const SITES_CACHE_KEY = "nearby_sites_cache";
+const LAST_CHECK_KEY = "nearby_last_check";
+const RECHECK_COOLDOWN_MS = 30 * 60 * 1000; // don't re-fetch location more than once per 30min
 
-// ── Preferences helpers (Capacitor on native, localStorage on web) ──────────
+// Notification IDs — fixed so we can reliably cancel/replace them
+const NOTIF_IDS = {
+  summary30min: 9001,
+  site1hr: 9002,
+  site3hr: 9003,
+  summary6hr: 9004,
+};
 
-async function getNotified(): Promise<Record<string, number>> {
+// ── Preferences helpers ──────────────────────────────────────────────────────
+
+type CachedSite = { id: string; title: string; distance_km: number };
+
+async function prefsGet(key: string): Promise<string | null> {
   try {
     const { Preferences } = await import("@capacitor/preferences");
-    const { value } = await Preferences.get({ key: STORAGE_KEY });
-    return value ? JSON.parse(value) : {};
+    const { value } = await Preferences.get({ key });
+    return value;
   } catch {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
+    try { return localStorage.getItem(key); } catch { return null; }
   }
 }
 
-async function saveNotified(map: Record<string, number>): Promise<void> {
-  // Prune entries older than cooldown to prevent unbounded growth
-  const now = Date.now();
-  const pruned = Object.fromEntries(
-    Object.entries(map).filter(([, ts]) => now - ts < COOLDOWN_MS)
-  );
-  const json = JSON.stringify(pruned);
+async function prefsSet(key: string, value: string): Promise<void> {
   try {
     const { Preferences } = await import("@capacitor/preferences");
-    await Preferences.set({ key: STORAGE_KEY, value: json });
+    await Preferences.set({ key, value });
   } catch {
-    try { localStorage.setItem(STORAGE_KEY, json); } catch { /* ignore */ }
+    try { localStorage.setItem(key, value); } catch { /* ignore */ }
   }
+}
+
+// ── Schedule notifications using cached site data ────────────────────────────
+
+async function scheduleReEngagementNotifications(sites: CachedSite[]): Promise<void> {
+  if (!sites.length) return;
+
+  const now = Date.now();
+  const count = sites.length;
+
+  // Pick two distinct sites to name individually (closest first)
+  const [first, second] = sites;
+
+  // 30 min — summary
+  await scheduleLocalNotification({
+    id: NOTIF_IDS.summary30min,
+    title: "Heritage Sites Near You",
+    body: `${count} heritage site${count > 1 ? "s are" : " is"} within 20km of you. Tap to explore.`,
+    scheduleAt: new Date(now + 30 * 60 * 1000),
+  });
+
+  // 1 hr — name the closest site
+  if (first) {
+    const dist = first.distance_km < 1
+      ? `${Math.round(first.distance_km * 1000)}m away`
+      : `${first.distance_km.toFixed(1)}km away`;
+    await scheduleLocalNotification({
+      id: NOTIF_IDS.site1hr,
+      title: first.title,
+      body: `Only ${dist}. Discover its history on Heritage of Pakistan.`,
+      scheduleAt: new Date(now + 60 * 60 * 1000),
+    });
+  }
+
+  // 3 hrs — name the second site (or repeat first if only one)
+  const siteFor3hr = second ?? first;
+  if (siteFor3hr) {
+    await scheduleLocalNotification({
+      id: NOTIF_IDS.site3hr,
+      title: siteFor3hr.title,
+      body: `Still nearby — explore ${siteFor3hr.title} and ${count - 1} more heritage sites around you.`,
+      scheduleAt: new Date(now + 3 * 60 * 60 * 1000),
+    });
+  }
+
+  // 6 hrs — general nudge
+  await scheduleLocalNotification({
+    id: NOTIF_IDS.summary6hr,
+    title: "Explore Pakistan's Heritage",
+    body: `You have ${count} heritage site${count > 1 ? "s" : ""} within reach. Don't miss them.`,
+    scheduleAt: new Date(now + 6 * 60 * 60 * 1000),
+  });
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
 
 export async function checkAndNotifyNearbySites(): Promise<void> {
-  // Only run inside Capacitor native
   const isNative =
     typeof window !== "undefined" &&
     !!(window as any).Capacitor?.isNativePlatform?.();
   if (!isNative) return;
 
   try {
-    // 1. Check/request notification permission
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) return;
+    // 1. Check permissions — never prompt, just check
+    const hasNotifPermission = await requestNotificationPermission();
+    if (!hasNotifPermission) return;
 
-    // 2. Get current location (requires permission already granted — no prompt)
     const { Geolocation } = await import("@capacitor/geolocation");
-    const perm = await Geolocation.checkPermissions();
-    if (perm.location !== "granted" && perm.coarseLocation !== "granted") return;
+    const locPerm = await Geolocation.checkPermissions();
+    if (locPerm.location !== "granted" && locPerm.coarseLocation !== "granted") return;
 
-    const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: false, // battery-friendly for background check
-      timeout: 8000,
-    });
-    const { latitude: lat, longitude: lng } = pos.coords;
+    // 2. Cancel any previously scheduled re-engagement notifications
+    //    (user opened the app — they're active, no need to nudge them)
+    await cancelAllPendingNotifications();
 
-    // 3. Query nearby sites
-    const sites = await fetchSitesWithinRadius(lat, lng, RADIUS_KM);
-    if (!sites.length) return;
-
-    // 4. Filter out recently notified
-    const notified = await getNotified();
+    // 3. Throttle location fetch — reuse cached sites if checked recently
+    const lastCheck = Number(await prefsGet(LAST_CHECK_KEY) ?? "0");
     const now = Date.now();
-    const fresh = sites.filter(
-      (s) => !notified[s.id] || now - notified[s.id] > COOLDOWN_MS
-    );
-    if (!fresh.length) return;
+    let sites: CachedSite[];
 
-    // 5. Fire one notification per fresh site (max 3 at a time to avoid spam)
-    const toNotify = fresh.slice(0, 3);
-    for (const site of toNotify) {
-      const distText =
-        site.distance_km < 1
-          ? `${Math.round(site.distance_km * 1000)}m away`
-          : `${site.distance_km.toFixed(1)}km away`;
-
-      await scheduleLocalNotification({
-        // Use a numeric hash of the site id as notification id
-        id: Math.abs(site.id.split("").reduce((a, c) => (a << 5) - a + c.charCodeAt(0), 0)) % 100000,
-        title: site.title,
-        body: `Heritage site nearby — ${distText}. Tap to explore.`,
-        scheduleAt: new Date(Date.now() + 1000), // 1 second from now
+    if (now - lastCheck < RECHECK_COOLDOWN_MS) {
+      // Use cached sites from last check
+      const cached = await prefsGet(SITES_CACHE_KEY);
+      sites = cached ? JSON.parse(cached) : [];
+    } else {
+      // Fresh location + fresh query
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: false,
+        timeout: 8000,
       });
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const raw = await fetchSitesWithinRadius(lat, lng, RADIUS_KM);
+      sites = raw.map((s) => ({ id: s.id, title: s.title, distance_km: s.distance_km }));
 
-      notified[site.id] = now;
+      // Store for later use when app is backgrounded
+      await prefsSet(SITES_CACHE_KEY, JSON.stringify(sites));
+      await prefsSet(LAST_CHECK_KEY, String(now));
     }
 
-    await saveNotified(notified);
+    if (!sites.length) return;
+
+    // 4. Schedule re-engagement notifications to fire after user closes app
+    await scheduleReEngagementNotifications(sites);
   } catch {
-    // Silently ignore — notifications are best-effort
+    // Best-effort — silent failure
   }
 }

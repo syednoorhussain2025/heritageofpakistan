@@ -50,3 +50,15 @@ export async function cancelLocalNotification(id: number): Promise<void> {
     // ignore
   }
 }
+
+export async function cancelAllPendingNotifications(): Promise<void> {
+  try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length) {
+      await LocalNotifications.cancel({ notifications: pending.notifications });
+    }
+  } catch {
+    // ignore
+  }
+}
