@@ -17,6 +17,11 @@ const config: Config = {
       "2xl": "1536px",
     },
     extend: {
+      fontFamily: {
+        jakarta: ["var(--font-jakarta)", "sans-serif"],
+        futura: ["FuturaCyrillicMedium", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "monospace"],
+      },
       keyframes: {
         fadeIn: {
           "0%": { opacity: "0" },

@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Lato } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import "@/modules/flow-layout/flow-layout.css";
@@ -11,11 +11,13 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { getBrandColors } from "@/lib/brand-colors";
 
 /* ---------------- Fonts ---------------- */
-const lato = Lato({
-  weight: ["100", "300", "400", "700", "900"],
+
+// Variable font — covers weights 200–800 in a single file
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-lato",
+  variable: "--font-jakarta",
   display: "swap",
+  axes: ["opsz"], // include optical-size axis for full variable font support
 });
 
 const futura = localFont({
@@ -23,11 +25,6 @@ const futura = localFont({
   variable: "--font-futura",
   display: "swap",
   weight: "500",
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
@@ -88,7 +85,7 @@ export default async function RootLayout({
       </head>
 
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
+        className={`${plusJakartaSans.variable} ${geistMono.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-jakarta`}
         suppressHydrationWarning
       >
         <IconProvider>
