@@ -114,8 +114,8 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
           : "opacity 0.18s ease, transform 0s 0.18s",
       }}
     >
-      <div className={`w-full h-full flex items-center justify-center ${silent ? "opacity-40" : ""}`}>
-        <Spinner size={silent ? 48 : 72} />
+      <div className="w-full h-full flex items-center justify-center">
+        <Spinner size={72} />
       </div>
     </div>
   );
