@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -322,9 +323,20 @@ export default function DashboardShellClient({
             >
               <Icon name="circle-arrow-left" size={30} className="text-white" />
             </button>
-            <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-              {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
-              {pageTitle}
+            <span className="flex-1 relative flex items-center justify-center pr-9" style={{ minHeight: "28px" }}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={pathname}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex items-center gap-1.5 text-white text-[17px] font-semibold tracking-wide"
+                >
+                  {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
+                  {pageTitle}
+                </motion.span>
+              </AnimatePresence>
             </span>
           </div>
           <div className="px-5 pt-2">
@@ -349,9 +361,20 @@ export default function DashboardShellClient({
           >
             <Icon name="circle-arrow-left" size={30} className="text-white" />
           </button>
-          <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-            {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
-            {pageTitle}
+          <span className="flex-1 relative flex items-center justify-center pr-9" style={{ minHeight: "28px" }}>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={pathname}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="flex items-center gap-1.5 text-white text-[17px] font-semibold tracking-wide"
+              >
+                {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
+                {pageTitle}
+              </motion.span>
+            </AnimatePresence>
           </span>
         </MobilePageHeader>
       )}
