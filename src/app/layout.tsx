@@ -8,7 +8,6 @@ import AppChrome from "@/components/AppChrome";
 import { fetchHeaderItems } from "@/lib/fetchHeaderItems";
 import { IconProvider } from "@/components/Icon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { getBrandColors } from "@/lib/brand-colors";
 import BrandColorApplier from "@/components/BrandColorApplier";
 
 /* ---------------- Fonts ---------------- */
@@ -63,10 +62,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [initialHeaderItems, brandColors] = await Promise.all([
-    fetchHeaderItems(),
-    getBrandColors(),
-  ]);
+  const initialHeaderItems = await fetchHeaderItems();
 
   return (
     <html lang="en">
@@ -84,15 +80,14 @@ export default async function RootLayout({
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        {/* PWA theme color — driven by brand-green */}
-        <meta name="theme-color" content={brandColors.brand_green} />
+        <meta name="theme-color" content="#00b78b" />
       </head>
 
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${lato.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-sans`}
       >
         <IconProvider>
-          <BrandColorApplier colors={brandColors} />
+          <BrandColorApplier />
           <AppChrome initialHeaderItems={initialHeaderItems}>{children}</AppChrome>
           <SpeedInsights />
         </IconProvider>
