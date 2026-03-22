@@ -4,6 +4,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
+import { NoWishlists } from "@/components/illustrations/NoWishlists";
 import { createClient } from "@/lib/supabase/browser";
 import { deleteWishlist } from "@/lib/wishlists";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
@@ -97,13 +98,7 @@ export default function MyWishlistsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
         <p className="text-[17px] font-semibold text-gray-800 mb-6">No Saved Lists Yet</p>
-        <img
-          src="/illustrations/no-wishlists.svg"
-          alt="No saved lists"
-          className="w-full max-w-[280px] mb-8"
-          loading="lazy"
-          decoding="async"
-        />
+        <NoWishlists className="w-full max-w-[280px] mb-8" />
         <p className="text-sm text-gray-400">Add a site to a list to get started.</p>
       </div>
     );

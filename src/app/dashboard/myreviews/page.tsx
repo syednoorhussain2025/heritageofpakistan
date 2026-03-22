@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
+import { NoReviews } from "@/components/illustrations/NoReviews";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
 import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox
 import type { LightboxPhoto } from "@/types/lightbox";
@@ -386,13 +387,7 @@ export default function MyReviewsPage() {
         {filtered.length === 0 && reviews.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
             <p className="text-[17px] font-semibold text-gray-800 mb-6">No Reviews Yet</p>
-            <img
-              src="/illustrations/no-reviews.svg"
-              alt="No reviews"
-              className="w-full max-w-[280px] mb-8"
-              loading="lazy"
-              decoding="async"
-            />
+            <NoReviews className="w-full max-w-[280px] mb-8" />
             <p className="text-sm text-gray-400">Visit a heritage site and leave your first review.</p>
           </div>
         )}

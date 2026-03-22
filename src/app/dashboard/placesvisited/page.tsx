@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { countUserVisits } from "@/lib/db/visited";
+import { NoVisited } from "@/components/illustrations/NoVisited";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { progressToNextBadge, BADGE_TIERS } from "@/lib/db/badges";
 import { createClient } from "@/lib/supabase/browser";
@@ -383,13 +384,7 @@ export default function PlacesVisitedPage() {
       {reviews.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[380px] px-6 pt-10 text-center">
           <p className="text-[17px] font-semibold text-gray-800 mb-6">No Places Visited Yet</p>
-          <img
-            src="/illustrations/no-visited.svg"
-            alt="No places visited"
-            className="w-full max-w-[260px] mb-8"
-            loading="lazy"
-            decoding="async"
-          />
+          <NoVisited className="w-full max-w-[260px] mb-8" />
           <p className="text-sm text-gray-400">Review a heritage site to mark it as visited.</p>
         </div>
       ) : (

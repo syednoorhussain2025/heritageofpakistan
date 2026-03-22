@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
+import { NoTrips } from "@/components/illustrations/NoTrips";
 import {
   listTripsByUsername,
   deleteTrip,
@@ -238,13 +239,7 @@ export default function MyTripsGrid({
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
             <p className="text-[17px] font-semibold text-gray-800 mb-6">No Trips Created Yet</p>
-            <img
-              src="/illustrations/no-trips.svg"
-              alt="No trips"
-              className="w-full max-w-[280px] mb-8"
-              loading="lazy"
-              decoding="async"
-            />
+            <NoTrips className="w-full max-w-[280px] mb-8" />
             <button
               onClick={handleCreateDefaultTrip}
               disabled={creating}
