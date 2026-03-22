@@ -28,19 +28,29 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
   const prevPathRef = useRef(pathname);
 
   const [overlayMode, setOverlayMode] = useState<NavOverlayMode>(null);
-  // slideIn only used for white mode
   const [slideIn, setSlideIn] = useState(false);
+  // Earliest time (ms) the overlay is allowed to start fading out
+  const dismissAfterRef = useRef<number>(0);
+  const dismissTimersRef = useRef<{ t1: number; t2: number } | null>(null);
 
-  // Clear overlay when route actually changes — hold briefly so new page can paint
+  const scheduleDismiss = useCallback(() => {
+    if (dismissTimersRef.current) {
+      clearTimeout(dismissTimersRef.current.t1);
+      clearTimeout(dismissTimersRef.current.t2);
+    }
+    const delay = Math.max(0, dismissAfterRef.current - Date.now());
+    const t1 = window.setTimeout(() => setSlideIn(false), delay);
+    const t2 = window.setTimeout(() => setOverlayMode(null), delay + 300);
+    dismissTimersRef.current = { t1, t2 };
+  }, []);
+
+  // Clear overlay when route actually changes
   useEffect(() => {
     if (pathname !== prevPathRef.current) {
       prevPathRef.current = pathname;
-      // Hold 150ms for new page to paint, then fade out over 300ms
-      const t1 = setTimeout(() => setSlideIn(false), 150);
-      const t2 = setTimeout(() => setOverlayMode(null), 450);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      scheduleDismiss();
     }
-  }, [pathname]);
+  }, [pathname, scheduleDismiss]);
 
   const startNavigation = useCallback(
     (href: string, options?: { direction?: Direction; variantOverride?: LoaderVariant; overlay?: NavOverlayMode }) => {
@@ -49,22 +59,29 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
       const mode = options?.overlay ?? null;
       if (mode === "white" || mode === "white-silent" || mode === "white-silent-back") {
         setOverlayMode(mode);
-        // Two rAFs: first paints the element, second triggers the transition
+        // Slide takes 220ms — don't allow dismiss until slide is done + 150ms buffer
+        dismissAfterRef.current = Date.now() + 220 + 150;
         requestAnimationFrame(() => requestAnimationFrame(() => setSlideIn(true)));
       } else if (mode === "transparent") {
-        // Pop instantly — no animation needed
         setOverlayMode("transparent");
+        dismissAfterRef.current = 0;
       }
 
-      // Navigate immediately — no delay
       try {
         router.push(href);
       } catch {
         if (typeof window !== "undefined") window.location.href = href;
       }
     },
-    [router]
+    [router, scheduleDismiss]
   );
+
+  useEffect(() => () => {
+    if (dismissTimersRef.current) {
+      clearTimeout(dismissTimersRef.current.t1);
+      clearTimeout(dismissTimersRef.current.t2);
+    }
+  }, []);
 
   const showLoader = useCallback((_variant: LoaderVariant, _direction: Direction = "forward") => {}, []);
   const hideLoader = useCallback(() => {}, []);
