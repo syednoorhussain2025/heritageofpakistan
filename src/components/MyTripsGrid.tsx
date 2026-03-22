@@ -236,21 +236,19 @@ export default function MyTripsGrid({
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center text-gray-600 py-6 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+            <p className="text-[17px] font-semibold text-gray-800 mb-6">No Trips Created Yet</p>
             <img
-              src="https://opkndnjdeartooxhmfsr.supabase.co/storage/v1/object/public/graphics/tripbuilder.png"
-              alt="Trip Builder illustration"
-              className="w-full max-w-lg -mt-10 mb-1"
+              src="/illustrations/no-trips.svg"
+              alt="No trips"
+              className="w-full max-w-[280px] mb-8"
               loading="lazy"
               decoding="async"
             />
-            <p className="text-base mb-3">
-              No trips yet. Create your first trip from the Trip Builder.
-            </p>
             <button
               onClick={handleCreateDefaultTrip}
               disabled={creating}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-[#00b78b] text-white px-6 py-3 text-[15px] font-semibold active:opacity-80 transition disabled:opacity-60"
             >
               <Icon name="plus" size={16} />
               {creating ? "Creating..." : "Create Trip"}
