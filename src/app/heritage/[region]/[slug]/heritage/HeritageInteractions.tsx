@@ -9,6 +9,7 @@ import StickyHeader from "./StickyHeader";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
 import { saveResearchNote } from "@/lib/notebook";
+import { nativeShare } from "@/lib/nativeShare";
 import { createPortal } from "react-dom";
 import MobilePageHeader from "@/components/MobilePageHeader";
 
@@ -96,17 +97,10 @@ export default function HeritageInteractions({
   const isBookmarked =
     isLoaded && site ? bookmarkedIds.has(site.id) : false;
 
-  function doShare() {
-    const url =
-      typeof window !== "undefined" ? window.location.href : "";
-    if ((navigator as any).share) {
-      (navigator as any).share({
-        title: site?.title || "Heritage",
-        url,
-      });
-    } else {
-      navigator.clipboard.writeText(url).then(() => showToast("Link copied"));
-    }
+  async function doShare() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const result = await nativeShare(site?.title || "Heritage", url);
+    if (result === "copied") showToast("Link copied");
   }
 
   const iconColor = scrolled ? "#555555" : "#ffffff";

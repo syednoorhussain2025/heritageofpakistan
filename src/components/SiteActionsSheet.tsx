@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { nativeShare } from "@/lib/nativeShare";
 
 export type SiteActionsSheetSite = {
   id: string;
@@ -49,6 +50,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
 
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -176,6 +178,17 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
     }
   }, [site, closeSheet, onPlacesNearby, router]);
 
+  async function handleShare() {
+    void hapticMedium();
+    const url = `${typeof window !== "undefined" ? window.location.origin : ""}${detailHref}`;
+    const result = await nativeShare(site.title, url);
+    if (result === "copied") {
+      setShareToast("Link copied");
+      setTimeout(() => setShareToast(null), 2200);
+    }
+    closeSheet();
+  }
+
   if (!mounted || (!isOpen && !closing)) return null;
 
   const provinceSlug = site.province_slug;
@@ -198,6 +211,11 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
 
   return createPortal(
     <>
+      {shareToast && (
+        <div className="pointer-events-none fixed left-1/2 top-5 -translate-x-1/2 z-[9999] rounded-lg bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg">
+          {shareToast}
+        </div>
+      )}
       <div className="fixed inset-0 z-[4000] touch-none">
         {/* Backdrop */}
         <div
@@ -282,6 +300,17 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                 <Icon name="nearby" size={18} className="text-gray-800" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
+            </button>
+            <div className="mx-6 h-[0.5px] bg-gray-300" />
+            <button
+              type="button"
+              onClick={() => { void handleShare(); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <Icon name="share-alt" size={18} className="text-gray-800" />
+              </div>
+              <span className="text-[15px] font-medium text-gray-900">Share</span>
             </button>
           </div>
 

@@ -83,6 +83,27 @@ export default function AppChrome({
       // API not available
     }
   }, []);
+
+  // Android hardware back button via @capacitor/app
+  useEffect(() => {
+    let removeListener: (() => void) | null = null;
+    (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const handle = await App.addListener("backButton", ({ canGoBack }) => {
+          if (canGoBack) {
+            window.history.back();
+          } else {
+            App.exitApp();
+          }
+        });
+        removeListener = () => handle.remove();
+      } catch {
+        // Not in Capacitor
+      }
+    })();
+    return () => { removeListener?.(); };
+  }, []);
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomePage = pathname.startsWith("/auth");
   const onTabRoute = isTabRoute(pathname);

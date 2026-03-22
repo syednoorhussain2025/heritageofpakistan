@@ -194,6 +194,12 @@ export default function AdminHome() {
       desc: "Section & template builders.",
       icon: "admin",
     },
+    {
+      href: "/admin/brand-colors",
+      title: "Brand Colors",
+      desc: "Change brand colors live across the entire webapp.",
+      icon: "admin",
+    },
   ];
 
   const filtered = useMemo(() => {

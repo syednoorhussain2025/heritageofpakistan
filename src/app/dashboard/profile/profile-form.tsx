@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { hapticLight, hapticMedium, hapticSuccess } from "@/lib/haptics";
 import Icon from "@/components/Icon";
+import { pickPhotoFromGallery, dataUrlToFile, isCapacitorNative } from "@/lib/nativeCamera";
 
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
@@ -76,10 +77,8 @@ export default function ProfileForm({ account, categories, interests }: Props) {
     void hapticSuccess();
   }
 
-  async function handlePickAvatar(ev: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadFile(file: File) {
     if (!userId) return;
-    const file = ev.target.files?.[0];
-    if (!file) return;
     try {
       setSaving(true);
       setErr(null);
@@ -100,8 +99,22 @@ export default function ProfileForm({ account, categories, interests }: Props) {
       setErr(e?.message ?? "Failed to upload photo.");
     } finally {
       setSaving(false);
-      ev.target.value = "";
     }
+  }
+
+  async function handlePickAvatar(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    ev.target.value = "";
+    await uploadFile(file);
+  }
+
+  async function handleNativePick() {
+    void hapticLight();
+    const photo = await pickPhotoFromGallery();
+    if (!photo) return;
+    const file = dataUrlToFile(photo.dataUrl, `avatar.${photo.format}`);
+    await uploadFile(file);
   }
 
   async function handleRemoveAvatar() {
@@ -168,7 +181,14 @@ export default function ProfileForm({ account, categories, interests }: Props) {
             <button
               type="button"
               disabled={saving}
-              onClick={() => { void hapticLight(); fileInputRef.current?.click(); }}
+              onClick={() => {
+                if (isCapacitorNative()) {
+                  void handleNativePick();
+                } else {
+                  void hapticLight();
+                  fileInputRef.current?.click();
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-medium active:bg-gray-50 disabled:opacity-50 transition"
             >
               <Icon name="camera" size={14} />
