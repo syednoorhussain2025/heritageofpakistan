@@ -13,6 +13,7 @@ import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbyMeSheet from "@/components/NearbyMeSheet";
 import { useNativeLocation } from "@/hooks/useNativeLocation";
 import { hapticLight, hapticMedium, hapticSelection } from "@/lib/haptics";
+import Icon from "@/components/Icon";
 
 /* ─── Search bar typewriter animation ────────────────────────────────────── */
 
