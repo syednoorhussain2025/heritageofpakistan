@@ -178,7 +178,7 @@ function ProfilePanel({
     >
       {/* Teal header */}
       <div
-        className="bg-[#00b78b] flex-shrink-0 flex flex-col px-4 pb-5"
+        className="bg-[var(--brand-green)] flex-shrink-0 flex flex-col px-4 pb-5"
         style={{ paddingTop: "calc(0.85rem + var(--sat, 44px))" }}
       >
         {/* Close button row */}
@@ -229,7 +229,7 @@ function ProfilePanel({
           <button
             type="button"
             onClick={() => { void hapticMedium(); onClose(); window.location.href = "/auth/sign-in?redirectTo=/"; }}
-            className="mt-4 w-full py-3 rounded-xl bg-white text-[#00b78b] text-[15px] font-bold text-center active:bg-gray-100 transition-colors"
+            className="mt-4 w-full py-3 rounded-xl bg-white text-[var(--brand-green)] text-[15px] font-bold text-center active:bg-gray-100 transition-colors"
           >
             Sign in or register
           </button>

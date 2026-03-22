@@ -424,7 +424,7 @@ export default function GalleryClient({
   return (
     <div className="min-h-screen bg-white">
       {/* Mobile teal header with back button */}
-      <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
+      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
         <button
           type="button"
           onClick={() => router.back()}

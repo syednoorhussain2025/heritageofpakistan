@@ -1389,7 +1389,7 @@ function ExplorePageContent() {
     <div className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
       {/* ── Mobile: fixed teal header (matches Home) ── */}
       <div
-        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[#00c9a7]"
+        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)]"
         style={{ paddingTop: safeTop }}
       >
         <div className="px-4 pb-2 pt-2">

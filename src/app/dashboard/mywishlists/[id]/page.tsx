@@ -117,7 +117,7 @@ export default function WishlistDetailPage() {
     return (
       <div className="px-4 py-8 text-center text-gray-500 text-sm">
         List not found.{" "}
-        <button onClick={() => router.push("/dashboard/mywishlists")} className="text-[#00b78b] font-medium">
+        <button onClick={() => router.push("/dashboard/mywishlists")} className="text-[var(--brand-green)] font-medium">
           Go back
         </button>
       </div>

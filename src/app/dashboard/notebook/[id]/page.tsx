@@ -92,7 +92,7 @@ export default function NoteDetailPage() {
     return (
       <div className="py-8 text-center text-gray-500 text-sm">
         Note not found.{" "}
-        <button onClick={() => router.push("/dashboard/notebook")} className="text-[#00b78b] font-medium">Go back</button>
+        <button onClick={() => router.push("/dashboard/notebook")} className="text-[var(--brand-green)] font-medium">Go back</button>
       </div>
     );
   }

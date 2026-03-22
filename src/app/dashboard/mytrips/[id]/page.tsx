@@ -147,7 +147,7 @@ export default function TripDetailPage() {
     return (
       <div className="py-8 text-center text-gray-500 text-sm">
         {error}{" "}
-        <button onClick={() => router.push("/dashboard/mytrips")} className="text-[#00b78b] font-medium">Go back</button>
+        <button onClick={() => router.push("/dashboard/mytrips")} className="text-[var(--brand-green)] font-medium">Go back</button>
       </div>
     );
   }
@@ -267,7 +267,7 @@ export default function TripDetailPage() {
             href={editUrl}
             onClick={() => void hapticMedium()}
             className="flex items-center justify-center gap-2 w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition"
-            style={{ backgroundColor: "#00b78b" }}
+            style={{ backgroundColor: "var(--brand-green)" }}
           >
             <Icon name="edit" size={16} />
             Edit Trip
@@ -276,7 +276,7 @@ export default function TripDetailPage() {
           <button
             disabled
             className="w-full rounded-full py-3.5 font-bold text-white opacity-40"
-            style={{ backgroundColor: "#00b78b" }}
+            style={{ backgroundColor: "var(--brand-green)" }}
           >
             Edit Trip
           </button>
@@ -289,7 +289,7 @@ export default function TripDetailPage() {
           <Link
             href={editUrl}
             className="inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white"
-            style={{ backgroundColor: "#00b78b" }}
+            style={{ backgroundColor: "var(--brand-green)" }}
           >
             <Icon name="edit" size={16} />
             Edit Trip

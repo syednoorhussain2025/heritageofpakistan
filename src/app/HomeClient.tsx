@@ -158,7 +158,7 @@ async function ensureProvinceSlugOnSites(sites: SiteCard[]) {
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 const FALLBACK_GRADIENT = "data:image/svg+xml;utf8," + encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="#00b78b"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="var(--brand-green)"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
 );
 
 /* ─── Skeleton components ─────────────────────────────────────────────────── */
@@ -465,7 +465,7 @@ function HomeCardCarousel({
             )}
             {/* Rating badge */}
             {site.avg_rating != null && (
-              <span className="absolute top-2 right-2 bg-[#00b78b] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight flex items-center gap-0.5">
+              <span className="absolute top-2 right-2 bg-[var(--brand-green)] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight flex items-center gap-0.5">
                 ★ {site.avg_rating.toFixed(1)}
               </span>
             )}
@@ -1151,7 +1151,7 @@ function HomeSearchOverlay({
           {/* Loading */}
           {loading && (
             <div className="flex justify-center py-10">
-              <span className="w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+              <span className="w-5 h-5 border-2 border-[var(--brand-green)] border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
@@ -1162,7 +1162,7 @@ function HomeSearchOverlay({
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Recent</p>
                 <button
                   onClick={() => { void hapticLight(); clearRecent(); setRecents([]); }}
-                  className="text-xs text-[#00c9a7] font-semibold"
+                  className="text-xs text-[var(--brand-green)] font-semibold"
                 >
                   Clear
                 </button>
@@ -1243,7 +1243,7 @@ function HomeSearchOverlay({
                         onClick={() => { void hapticLight(); handleRegionSelect(region); }}
                         className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 border border-gray-200 active:bg-gray-200"
                       >
-                        <svg className="w-3 h-3 text-[#00c9a7] shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3 text-[var(--brand-green)] shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                         </svg>
                         <span className="text-sm font-semibold text-[#1c1f4c] whitespace-nowrap">{region.name}</span>
@@ -1491,12 +1491,12 @@ function MobileHomepage() {
   return (
     <>
     {/* Teal status bar cover — always visible behind the notch/status area */}
-    <div className="fixed inset-x-0 top-0 z-[101] bg-[#00c9a7]" style={{ height: safeTop }} />
+    <div className="fixed inset-x-0 top-0 z-[101] bg-[var(--brand-green)]" style={{ height: safeTop }} />
 
     {/* Single scroll container — teal background, the whole page scrolls inside this */}
     <div
       ref={scrollContainerRef}
-      className="fixed inset-x-0 overflow-y-auto bg-[#00c9a7]"
+      className="fixed inset-x-0 overflow-y-auto bg-[var(--brand-green)]"
       style={{ top: 0, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
     >
       {/* DEFAULT: Title row — scrolls away naturally */}
@@ -1546,7 +1546,7 @@ function MobileHomepage() {
       </div>
 
       {/* COLLAPSED: Sticky bar — search + pills */}
-      <div className="sticky bg-[#00c9a7] pb-5" style={{ top: safeTop, zIndex: 100 }}>
+      <div className="sticky bg-[var(--brand-green)] pb-5" style={{ top: safeTop, zIndex: 100 }}>
         {/* Search bar */}
         <div className="px-4 pt-1 pb-3">
           <SearchBarWithAnimation onOpen={() => setSearchOpen(true)} />
@@ -1589,8 +1589,8 @@ function MobileHomepage() {
             />
             {(gpsStatus === "idle" || gpsStatus === "denied") && (
               <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#00c9a7]/15 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[#00c9a7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-10 h-10 rounded-full bg-[var(--brand-green)]/15 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-[var(--brand-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -1608,7 +1608,7 @@ function MobileHomepage() {
                 {gpsStatus === "idle" && (
                   <button
                     onClick={() => { void hapticMedium(); void requestNearby(); }}
-                    className="shrink-0 px-3 py-1.5 rounded-full bg-[#00c9a7] text-white text-xs font-bold"
+                    className="shrink-0 px-3 py-1.5 rounded-full bg-[var(--brand-green)] text-white text-xs font-bold"
                   >
                     Enable
                   </button>
@@ -1617,7 +1617,7 @@ function MobileHomepage() {
             )}
             {gpsStatus === "loading" && (
               <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-3">
-                <span className="inline-block w-5 h-5 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+                <span className="inline-block w-5 h-5 border-2 border-[var(--brand-green)] border-t-transparent rounded-full animate-spin" />
                 <p className="text-sm text-gray-500">Getting your location…</p>
               </div>
             )}
@@ -1626,7 +1626,7 @@ function MobileHomepage() {
                 onClick={() => { void hapticMedium(); setNearbySheetOpen(true); }}
                 className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50"
               >
-                <div className="w-10 h-10 rounded-full bg-[#00c9a7] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[var(--brand-green)] flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
@@ -1634,7 +1634,7 @@ function MobileHomepage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-bold text-[#1c1f4c]">See Nearby Sites</p>
-                    <span className="text-[10px] font-semibold text-white bg-[#00c9a7] px-1.5 py-0.5 rounded-full leading-none">20 km</span>
+                    <span className="text-[10px] font-semibold text-white bg-[var(--brand-green)] px-1.5 py-0.5 rounded-full leading-none">20 km</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
                     {gpsCityName ? `Near ${gpsCityName}` : "Heritage sites around you"}
@@ -1739,7 +1739,7 @@ function MobileHomepage() {
               />
               {/* Text */}
               <div className="flex-1 min-w-0">
-                <p className="text-[#00b78b] text-[11px] font-semibold uppercase tracking-wider mb-0.5">
+                <p className="text-[var(--brand-green)] text-[11px] font-semibold uppercase tracking-wider mb-0.5">
                   Nearby Found
                 </p>
                 <p className="text-white text-[17px] font-bold leading-tight">

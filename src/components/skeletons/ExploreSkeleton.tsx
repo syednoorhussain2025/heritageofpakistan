@@ -21,8 +21,8 @@ function Card() {
 export default function ExploreSkeleton() {
   return (
     <div className="lg:hidden min-h-screen bg-[#f4f4f4]">
-      {/* Teal header — matches MobilePageHeader backgroundColor="#00c9a7" minHeight="180px" */}
-      <div className="bg-[#00c9a7]" style={{ minHeight: "180px", paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
+      {/* Teal header — matches MobilePageHeader backgroundColor="var(--brand-green)" minHeight="180px" */}
+      <div className="bg-[var(--brand-green)]" style={{ minHeight: "180px", paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
         <div className="px-4 pt-3 pb-5 space-y-3">
           <Bar className="h-6 w-40" />
           {/* Search bar */}

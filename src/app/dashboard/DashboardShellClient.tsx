@@ -234,7 +234,7 @@ export default function DashboardShellClient({
       {/* ── Mobile header ── */}
       {isHome ? (
         /* Tall profile header for /dashboard home */
-        <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex flex-col px-5 pb-5">
+        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5">
           {/* Top row: back + title */}
           <div className="flex items-center pt-1">
             <button
@@ -290,7 +290,7 @@ export default function DashboardShellClient({
                 {profile?.badge ? (
                   <div className="flex items-center gap-1.5 mt-1">
                     <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
-                    <span className="text-[11px] font-semibold text-[#00b78b] bg-white px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-semibold text-[var(--brand-green)] bg-white px-2 py-0.5 rounded-full">
                       {profile.badge}
                     </span>
                   </div>
@@ -343,7 +343,7 @@ export default function DashboardShellClient({
         </MobilePageHeader>
       ) : showSearch ? (
         /* Compact header with search bar for wishlists / collections / trips */
-        <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex flex-col px-2 pb-3">
+        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-2 pb-3">
           <div className="flex items-end pb-0.5">
             <button
               type="button"
@@ -382,7 +382,7 @@ export default function DashboardShellClient({
         </MobilePageHeader>
       ) : (
         /* Compact header for sub-pages */
-        <MobilePageHeader backgroundColor="#00b78b" minHeight="0px" className="flex items-end px-2 pb-2.5">
+        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
           <button
             type="button"
             onClick={handleBack}

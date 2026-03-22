@@ -9,8 +9,8 @@ function Bar({ className = "" }: { className?: string }) {
 export default function MapSkeleton() {
   return (
     <div className="lg:hidden fixed inset-0 bg-[#e8e0d8]">
-      {/* Teal header — matches MobilePageHeader backgroundColor="#00c9a7" minHeight="100px" */}
-      <div className="bg-[#00c9a7]" style={{ minHeight: "100px", paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
+      {/* Teal header — matches MobilePageHeader backgroundColor="var(--brand-green)" minHeight="100px" */}
+      <div className="bg-[var(--brand-green)]" style={{ minHeight: "100px", paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
         <div className="px-4 pt-3 pb-4 space-y-2">
           <Bar className="h-5 w-28" />
           <div className="bg-white/20 rounded-full h-10 w-full animate-pulse" />
@@ -39,7 +39,7 @@ export default function MapSkeleton() {
         ].map((pos, i) => (
           <div
             key={i}
-            className="absolute w-4 h-4 rounded-full bg-[#00c9a7] border-2 border-white shadow animate-pulse"
+            className="absolute w-4 h-4 rounded-full bg-[var(--brand-green)] border-2 border-white shadow animate-pulse"
             style={{ top: pos.top, left: pos.left }}
           />
         ))}

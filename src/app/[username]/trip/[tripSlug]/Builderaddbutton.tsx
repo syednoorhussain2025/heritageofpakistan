@@ -58,7 +58,7 @@ export default function Builderaddbutton({
       <button
         type="button"
         aria-label="Add"
-        className={`fixed bottom-6 right-6 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#00b78b] text-white shadow-xl transition-transform duration-150 hover:scale-105 active:scale-95 ${
+        className={`fixed bottom-6 right-6 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-green)] text-white shadow-xl transition-transform duration-150 hover:scale-105 active:scale-95 ${
           disabled ? "opacity-60 pointer-events-none" : ""
         }`}
         style={{ zIndex: zFab }}

@@ -147,7 +147,7 @@ export default function ReviewDetailPage() {
     return (
       <div className="py-8 text-center text-gray-500 text-sm">
         Review not found.{" "}
-        <button onClick={() => router.push("/dashboard/myreviews")} className="text-[#00b78b] font-medium">Go back</button>
+        <button onClick={() => router.push("/dashboard/myreviews")} className="text-[var(--brand-green)] font-medium">Go back</button>
       </div>
     );
   }

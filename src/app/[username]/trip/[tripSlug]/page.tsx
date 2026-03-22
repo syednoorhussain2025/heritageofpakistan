@@ -192,7 +192,7 @@ function DroppableContainer({
       className={
         "rounded-[14px] p-3 md:p-4 border-dashed transition-colors " +
         (isActive
-          ? "border-[3px] border-[#00b78b] bg-[#00b78b]/5"
+          ? "border-[3px] border-[var(--brand-green)] bg-[var(--brand-green)]/5"
           : "border-[3px] border-gray-300 bg-gray-50")
       }
     >
@@ -232,7 +232,7 @@ function SortableItem({
       className={
         "group rounded-[14px] border overflow-visible select-none " +
         (isDragging
-          ? "border-dashed border-2 border-[#00b78b] bg-[#00b78b]/5"
+          ? "border-dashed border-2 border-[var(--brand-green)] bg-[var(--brand-green)]/5"
           : "border-gray-300 bg-white hover:bg-gray-100 cursor-grab active:cursor-grabbing shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)]")
       }
       title="Drag to move"
@@ -727,7 +727,7 @@ export default function TripBuilderPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00b78b] text-white text-[10px] font-semibold shrink-0">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-green)] text-white text-[10px] font-semibold shrink-0">
                       {siteNumber}
                     </span>
                     <div className="truncate font-semibold text-[15px] text-[#0A1B4D]">
@@ -809,7 +809,7 @@ export default function TripBuilderPage() {
         {/* ── Desktop table layout ── */}
         <div className={`hidden md:grid ${GRID.replace("grid ", "")}`}>
           <div className="flex items-center justify-center">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow-sm">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand-green)] text-white text-[11px] font-semibold shadow-sm">
               {siteNumber}
             </span>
           </div>
@@ -1186,7 +1186,7 @@ export default function TripBuilderPage() {
     >
       {/* ── Mobile green header (fixed, matches dashboard shell) ── */}
       <div
-        className="md:hidden fixed inset-x-0 top-0 z-[90] flex items-end px-2 pb-2.5 bg-[#00b78b]"
+        className="md:hidden fixed inset-x-0 top-0 z-[90] flex items-end px-2 pb-2.5 bg-[var(--brand-green)]"
         style={{ paddingTop: "calc(var(--sat, 44px) + 8px)" }}
       >
         <button
@@ -1208,7 +1208,7 @@ export default function TripBuilderPage() {
             "rounded-full px-4 py-1.5 text-sm font-semibold shrink-0 " +
             (saving
               ? "bg-white/30 text-white/70"
-              : "bg-white text-[#00b78b] active:bg-white/80")
+              : "bg-white text-[var(--brand-green)] active:bg-white/80")
           }
         >
           {saving ? "Saving…" : "Save"}

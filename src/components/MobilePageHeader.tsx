@@ -21,7 +21,7 @@ type Props = {
 
 export default function MobilePageHeader({
   children,
-  backgroundColor = "#00c9a7",
+  backgroundColor = "var(--brand-green)",
   className = "",
   minHeight = "180px",
 }: Props) {

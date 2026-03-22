@@ -356,7 +356,7 @@ export default function MyReviewsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search reviews or site name…"
-          className="border border-gray-200 rounded-full px-4 py-3 w-full text-sm bg-gray-50 focus:outline-none focus:border-[#00b78b] focus:ring-1 focus:ring-[#00b78b]"
+          className="border border-gray-200 rounded-full px-4 py-3 w-full text-sm bg-gray-50 focus:outline-none focus:border-[var(--brand-green)] focus:ring-1 focus:ring-[var(--brand-green)]"
           style={{ fontSize: "16px" }}
         />
         <div className="grid grid-cols-2 gap-2">
@@ -582,7 +582,7 @@ function ReviewRowCard({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-1 text-xs text-[#00b78b] font-medium"
+              className="mt-1 text-xs text-[var(--brand-green)] font-medium"
             >
               {expanded ? "Show less" : "Read more"}
             </button>

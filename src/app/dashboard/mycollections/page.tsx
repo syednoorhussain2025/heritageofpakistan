@@ -185,7 +185,7 @@ export default function MyCollectionsPage() {
           type="button"
           onClick={() => { void hapticMedium(); router.push("/dashboard/mycollections/photos"); }}
           className="w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition"
-          style={{ backgroundColor: "#00b78b" }}
+          style={{ backgroundColor: "var(--brand-green)" }}
         >
           See all Collected Photos
         </button>
@@ -195,7 +195,7 @@ export default function MyCollectionsPage() {
         <Link
           href="/dashboard/mycollections/photos"
           className="inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white active:opacity-80"
-          style={{ backgroundColor: "#00b78b" }}
+          style={{ backgroundColor: "var(--brand-green)" }}
         >
           <Icon name="images" size={16} />
           See all Collected Photos

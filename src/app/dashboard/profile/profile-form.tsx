@@ -191,7 +191,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         <label className="block">
           <span className="text-sm font-medium text-gray-700">Full name</span>
           <input
-            className="mt-1.5 block w-full rounded-full border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[#00b78b] outline-none"
+            className="mt-1.5 block w-full rounded-full border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[var(--brand-green)] outline-none"
             style={{ fontSize: "16px" }}
             placeholder="Your name"
             value={form.full_name ?? ""}
@@ -203,7 +203,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         <label className="block">
           <span className="text-sm font-medium text-gray-700">Bio</span>
           <textarea
-            className="mt-1.5 block w-full rounded-2xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[#00b78b] outline-none"
+            className="mt-1.5 block w-full rounded-2xl border border-gray-300 px-4 py-3 bg-gray-50 text-sm focus:border-[var(--brand-green)] outline-none"
             style={{ fontSize: "16px" }}
             rows={3}
             placeholder="Tell us a bit about yourself"
@@ -216,7 +216,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
         <label className="flex items-center gap-3 py-1">
           <input
             type="checkbox"
-            className="h-5 w-5 rounded border-gray-300 text-[#00b78b] focus:ring-[#00b78b]"
+            className="h-5 w-5 rounded border-gray-300 text-[var(--brand-green)] focus:ring-[var(--brand-green)]"
             checked={!!form.public_profile}
             onChange={(e) => {
               void hapticLight();
@@ -234,7 +234,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
               <label key={c.id} className="flex items-center gap-2 py-1">
                 <input
                   type="checkbox"
-                  className="h-5 w-5 rounded border-gray-300 text-[#00b78b] focus:ring-[#00b78b]"
+                  className="h-5 w-5 rounded border-gray-300 text-[var(--brand-green)] focus:ring-[var(--brand-green)]"
                   checked={selectedCats.includes(c.id)}
                   onChange={(e) => {
                     void hapticLight();
@@ -261,7 +261,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
           onClick={() => { void hapticMedium(); void saveProfile(); }}
           disabled={saving}
           className="w-full rounded-full py-3.5 font-bold text-white active:opacity-80 transition disabled:opacity-50"
-          style={{ backgroundColor: "#00b78b" }}
+          style={{ backgroundColor: "var(--brand-green)" }}
         >
           {saving ? "Saving…" : "Save Changes"}
         </button>
@@ -273,7 +273,7 @@ export default function ProfileForm({ account, categories, interests }: Props) {
           onClick={() => { void hapticMedium(); void saveProfile(); }}
           disabled={saving}
           className="rounded-full px-8 py-3.5 font-bold text-white active:opacity-80 transition disabled:opacity-50"
-          style={{ backgroundColor: "#00b78b" }}
+          style={{ backgroundColor: "var(--brand-green)" }}
         >
           {saving ? "Saving…" : "Save Changes"}
         </button>

@@ -30,7 +30,7 @@ const RADIUS_KM = 20;
 const FALLBACK_GRADIENT =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="#00b78b"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="var(--brand-green)"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
   );
 
 /* ─── Province cache ─────────────────────────────────────────────────────── */
@@ -306,7 +306,7 @@ export default function NearbyMeSheet({
             className="w-24 h-24 shrink-0 object-contain"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-[#00b78b] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
+            <p className="text-[var(--brand-green)] text-[11px] font-semibold uppercase tracking-wider mb-0.5">Nearby You</p>
             <h2 className="text-[#1c1f4c] text-[18px] font-bold leading-tight">
               {loading
                 ? "Searching…"
@@ -333,7 +333,7 @@ export default function NearbyMeSheet({
         <div className={`flex-1 min-h-0 overflow-y-auto px-4 pb-4 ${!expanded ? "overflow-hidden" : ""}`}>
           {loading && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
-              <span className="w-7 h-7 border-[3px] border-[#00c9a7] border-t-transparent rounded-full animate-spin" />
+              <span className="w-7 h-7 border-[3px] border-[var(--brand-green)] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-400">Searching within {RADIUS_KM} km…</p>
             </div>
           )}
@@ -388,7 +388,7 @@ export default function NearbyMeSheet({
                     <p className="text-[14px] font-bold text-[#1c1f4c] line-clamp-1">{site.title}</p>
                     <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">{site.location_free || "—"}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] font-semibold text-[#00b78b]">
+                      <span className="text-[11px] font-semibold text-[var(--brand-green)]">
                         {site.distance_km < 1
                           ? `${Math.round(site.distance_km * 1000)} m away`
                           : `${site.distance_km.toFixed(1)} km away`}

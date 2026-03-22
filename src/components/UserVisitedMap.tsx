@@ -44,7 +44,7 @@ const tealIcon = L.divIcon({
   className: "",
   html: `<div style="
     width:28px;height:28px;border-radius:50% 50% 50% 0;
-    background:#00b78b;border:2px solid #fff;
+    background:var(--brand-green);border:2px solid #fff;
     transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.28)
   "></div>`,
   iconSize: [28, 28],

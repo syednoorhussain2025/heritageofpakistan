@@ -579,7 +579,7 @@ export default function TravelNotebookPage() {
                       </div>
                       <div className="font-semibold text-sm text-gray-900 truncate">{n.title}</div>
                       {n.kind === "research" && n.site_title && (
-                        <div className="text-xs text-[#00b78b] truncate mt-0.5">{n.site_title}{n.section_title ? ` · ${n.section_title}` : ""}</div>
+                        <div className="text-xs text-[var(--brand-green)] truncate mt-0.5">{n.site_title}{n.section_title ? ` · ${n.section_title}` : ""}</div>
                       )}
                       {n.summary && (
                         <div className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">{n.summary}</div>

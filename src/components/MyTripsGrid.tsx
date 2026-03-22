@@ -196,7 +196,7 @@ export default function MyTripsGrid({
             value={context === "dashboard" ? contextQ : localQ}
             onChange={(e) => context !== "dashboard" && setLocalQ(e.target.value)}
             placeholder="Search trips..."
-            className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 min-w-0 focus:outline-none focus:border-[#00b78b]"
+            className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 min-w-0 focus:outline-none focus:border-[var(--brand-green)]"
             style={{ fontSize: "16px" }}
           />
           {context !== "dashboard" && (
@@ -248,7 +248,7 @@ export default function MyTripsGrid({
             <button
               onClick={handleCreateDefaultTrip}
               disabled={creating}
-              className="inline-flex items-center gap-2 rounded-full bg-[#00b78b] text-white px-6 py-3 text-[15px] font-semibold active:opacity-80 transition disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-green)] text-white px-6 py-3 text-[15px] font-semibold active:opacity-80 transition disabled:opacity-60"
             >
               <Icon name="plus" size={16} />
               {creating ? "Creating..." : "Create Trip"}
@@ -276,7 +276,7 @@ export default function MyTripsGrid({
                 >
                   <div className="relative h-28 sm:h-36 w-full bg-gray-100 overflow-hidden">
                     <div className="absolute top-2 left-2 z-10">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#00b78b] px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-green)] px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
                         <Icon name="line-segments-light" size={12} />
                         Trip
                       </span>

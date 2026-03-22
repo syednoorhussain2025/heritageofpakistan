@@ -1234,7 +1234,7 @@ export default function MapClient() {
               {/* Rating + type badge + location */}
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {selectedMapSite.avg_rating != null && (
-                  <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-xs font-semibold inline-flex items-center gap-1">
+                  <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-xs font-semibold inline-flex items-center gap-1">
                     <Icon name="star" size={11} />
                     {selectedMapSite.avg_rating.toFixed(1)}
                   </span>
@@ -1715,7 +1715,7 @@ export default function MapClient() {
     <>
       {/* ── Mobile: teal header with "Map" title — bleeds behind status bar ── */}
       <MobilePageHeader
-        backgroundColor="#00b78b"
+        backgroundColor="var(--brand-green)"
         minHeight="0px"
         className="flex items-end justify-center pb-2.5"
       >

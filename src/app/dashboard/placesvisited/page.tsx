@@ -79,7 +79,7 @@ const UserVisitedMap = dynamic(() => import("@/components/UserVisitedMap"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-gray-100">
-      <div className="h-10 w-10 border-4 border-[#00b78b] border-t-transparent rounded-full animate-spin" />
+      <div className="h-10 w-10 border-4 border-[var(--brand-green)] border-t-transparent rounded-full animate-spin" />
     </div>
   ),
 });
@@ -152,7 +152,7 @@ function InfoBottomSheet({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          <button onClick={() => { void hapticMedium(); onClose(); }} className="w-full bg-[#00b78b] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
+          <button onClick={() => { void hapticMedium(); onClose(); }} className="w-full bg-[var(--brand-green)] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
             Got it!
           </button>
         </div>
@@ -255,7 +255,7 @@ export default function PlacesVisitedPage() {
       <div className="fixed inset-0 z-[400] flex flex-col bg-white">
         {/* Map header */}
         <div
-          className="flex items-center gap-3 px-4 bg-[#00b78b] text-white shrink-0"
+          className="flex items-center gap-3 px-4 bg-[var(--brand-green)] text-white shrink-0"
           style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "12px" }}
         >
           <button
@@ -285,17 +285,17 @@ export default function PlacesVisitedPage() {
           <div className="mx-3 mb-2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-4 py-3 pointer-events-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               {profile?.avatar_url && (
-                <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-[#00b78b] shrink-0">
+                <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-[var(--brand-green)] shrink-0">
                   <Image src={avatarSrcFn(profile.avatar_url) || "/default-avatar.png"} alt="avatar" fill className="object-cover" />
                 </div>
               )}
               <div>
                 <div className="font-semibold text-sm text-gray-900">{profile?.full_name ?? "You"}</div>
-                <div className="text-xs text-[#00b78b] font-medium">{profile?.badge ?? progress.current}</div>
+                <div className="text-xs text-[var(--brand-green)] font-medium">{profile?.badge ?? progress.current}</div>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-black text-[#00b78b]">{visitedCount}</div>
+              <div className="text-2xl font-black text-[var(--brand-green)]">{visitedCount}</div>
               <div className="text-[10px] text-gray-500">Heritage Sites<br />Reviewed</div>
             </div>
           </div>
@@ -311,12 +311,12 @@ export default function PlacesVisitedPage() {
       <div className="flex items-center justify-between mb-4">
         {profile ? (
           <div className="flex items-center gap-3">
-            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#00b78b] shrink-0">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[var(--brand-green)] shrink-0">
               <Image src={avatarSrcFn(profile.avatar_url) || "/default-avatar.png"} alt="avatar" fill className="object-cover" />
             </div>
             <div>
               <div className="font-semibold text-sm text-gray-900">{profile.full_name}</div>
-              <div className="text-xs text-[#00b78b] font-medium">{profile.badge}</div>
+              <div className="text-xs text-[var(--brand-green)] font-medium">{profile.badge}</div>
             </div>
           </div>
         ) : (
@@ -337,7 +337,7 @@ export default function PlacesVisitedPage() {
             <button
               onClick={() => { void hapticMedium(); setShowMap(true); }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-white text-sm font-semibold active:opacity-80 transition"
-              style={{ backgroundColor: "#00b78b" }}
+              style={{ backgroundColor: "var(--brand-green)" }}
             >
               <Icon name="map-marker-alt" size={14} />
               Map
@@ -350,7 +350,7 @@ export default function PlacesVisitedPage() {
       <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 mb-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-[#00b78b] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow border-4 border-white shrink-0">
+            <div className="w-14 h-14 bg-[var(--brand-green)] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow border-4 border-white shrink-0">
               {visitedCount}
             </div>
             <div>
@@ -359,11 +359,11 @@ export default function PlacesVisitedPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-[#00b78b]">{progress.current}</p>
+            <p className="text-sm font-semibold text-[var(--brand-green)]">{progress.current}</p>
             {progress.next && <p className="text-xs text-gray-400">{progress.remaining} more → {progress.next}</p>}
             <button
               onClick={() => { void hapticLight(); setShowBadgeModal(true); }}
-              className="mt-1 text-xs text-[#00b78b] font-medium active:opacity-70"
+              className="mt-1 text-xs text-[var(--brand-green)] font-medium active:opacity-70"
             >
               About Badges →
             </button>
@@ -372,7 +372,7 @@ export default function PlacesVisitedPage() {
         {progress.next && visitedCount > 0 && (
           <div className="mt-3 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
             <div
-              className="bg-[#00b78b] h-2 rounded-full transition-all"
+              className="bg-[var(--brand-green)] h-2 rounded-full transition-all"
               style={{ width: `${Math.min((visitedCount / (visitedCount + progress.remaining)) * 100, 100)}%` }}
             />
           </div>
@@ -441,12 +441,12 @@ export default function PlacesVisitedPage() {
               <div className="space-y-2 mb-5">
                 {BADGE_TIERS.map((tier) => (
                   <div key={tier.name} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-semibold text-[#00b78b]">{tier.name}</span>
+                    <span className="font-semibold text-[var(--brand-green)]">{tier.name}</span>
                     <span className="text-sm text-gray-500 font-medium">{tier.min}{tier.max ? `–${tier.max}` : "+"} reviews</span>
                   </div>
                 ))}
               </div>
-              <button onClick={() => { void hapticMedium(); setShowBadgeModal(false); }} className="w-full bg-[#00b78b] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
+              <button onClick={() => { void hapticMedium(); setShowBadgeModal(false); }} className="w-full bg-[var(--brand-green)] text-white font-bold py-3.5 rounded-full active:opacity-80 transition">
                 Got it
               </button>
             </div>

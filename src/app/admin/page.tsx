@@ -334,7 +334,7 @@ export default function AdminHome() {
                     <div className="flex items-center gap-3">
                       <span
                         className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full"
-                        style={{ backgroundColor: "#00b78b" }}
+                        style={{ backgroundColor: "var(--brand-green)" }}
                       >
                         <Icon
                           name={c.icon}

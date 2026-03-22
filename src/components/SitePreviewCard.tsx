@@ -49,7 +49,7 @@ const FALLBACK_SVG =
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="#F78300"/>
-          <stop offset="100%" stop-color="#00b78b"/>
+          <stop offset="100%" stop-color="var(--brand-green)"/>
         </linearGradient>
       </defs>
       <rect width="800" height="533" fill="url(#g)"/>
@@ -432,7 +432,7 @@ export default function SitePreviewCard({
           {/* Rating and reviews pills rating on top, reviews below */}
           <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5">
             {site.avg_rating != null && (
-              <span className="px-2 py-0.5 rounded-full bg-[#00b78b] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
                 <Icon name="star" size={11} /> {site.avg_rating.toFixed(1)}
               </span>
             )}
