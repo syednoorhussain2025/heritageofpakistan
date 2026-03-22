@@ -153,7 +153,7 @@ export default function DashboardShellClient({
     } else if (pathname?.startsWith("/dashboard/notebook/")) {
       startNavigation("/dashboard/notebook", { overlay: "white-silent-back" });
     } else if (isHome) {
-      router.back();
+      startNavigation("/", { overlay: "white-silent-back" });
     } else {
       startNavigation("/dashboard", { overlay: "white-silent-back" });
     }
@@ -177,7 +177,8 @@ export default function DashboardShellClient({
   function handleTouchEnd(e: React.TouchEvent) {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    if (dx > 60 && dy < 80) {
+    // Require horizontal swipe > 60px, vertical drift < 50px, and must start from left 40px edge
+    if (dx > 60 && dy < 50 && touchStartX.current < 40) {
       handleBack();
     }
   }
