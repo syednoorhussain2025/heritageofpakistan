@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/Spinner";
 type Direction = "prev" | "next" | "forward" | "back" | null;
 type LoaderVariant = "listing" | "simple";
 
-export type NavOverlayMode = "white" | "white-silent" | "transparent" | null;
+export type NavOverlayMode = "white" | "white-silent" | "white-silent-back" | "transparent" | null;
 
 type LoaderEngineContextValue = {
   startNavigation: (href: string, options?: { direction?: Direction; variantOverride?: LoaderVariant; overlay?: NavOverlayMode }) => void;
@@ -46,7 +46,7 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
       if (!href) return;
 
       const mode = options?.overlay ?? null;
-      if (mode === "white" || mode === "white-silent") {
+      if (mode === "white" || mode === "white-silent" || mode === "white-silent-back") {
         setOverlayMode(mode);
         // Two rAFs: first paints the element, second triggers the transition
         requestAnimationFrame(() => requestAnimationFrame(() => setSlideIn(true)));
@@ -97,18 +97,18 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
     );
   }
 
-  const silent = mode === "white-silent";
+  const silent = mode === "white-silent" || mode === "white-silent-back";
+  const fromLeft = mode === "white-silent-back";
 
-  // White mode: slides in from right, fades out on exit
-  // white-silent: same slide, no spinner, longer softer fade-out to blend into new page
+  // White mode: slides in from right (forward) or left (back), fades out softly
   return (
     <div
       className="fixed inset-0 z-[5000] pointer-events-none bg-white"
       style={{
-        transform: slideIn ? "translateX(0)" : "translateX(100%)",
+        transform: slideIn ? "translateX(0)" : `translateX(${fromLeft ? "-100%" : "100%"})`,
         opacity: slideIn ? 1 : 0,
         transition: slideIn
-          ? `transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0s`
+          ? "transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0s"
           : silent
           ? "opacity 0.36s cubic-bezier(0.4,0,0.2,1), transform 0s 0.36s"
           : "opacity 0.18s ease, transform 0s 0.18s",

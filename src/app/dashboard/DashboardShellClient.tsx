@@ -135,19 +135,19 @@ export default function DashboardShellClient({
   function handleBack() {
     void hapticLight();
     if (pathname?.startsWith("/dashboard/mywishlists/")) {
-      startNavigation("/dashboard/mywishlists", { overlay: "white-silent" });
+      startNavigation("/dashboard/mywishlists", { overlay: "white-silent-back" });
     } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
-      startNavigation("/dashboard/mycollections", { overlay: "white-silent" });
+      startNavigation("/dashboard/mycollections", { overlay: "white-silent-back" });
     } else if (pathname?.startsWith("/dashboard/mytrips/")) {
-      startNavigation("/dashboard/mytrips", { overlay: "white-silent" });
+      startNavigation("/dashboard/mytrips", { overlay: "white-silent-back" });
     } else if (pathname?.startsWith("/dashboard/myreviews/")) {
-      startNavigation("/dashboard/myreviews", { overlay: "white-silent" });
+      startNavigation("/dashboard/myreviews", { overlay: "white-silent-back" });
     } else if (pathname?.startsWith("/dashboard/notebook/")) {
-      startNavigation("/dashboard/notebook", { overlay: "white-silent" });
+      startNavigation("/dashboard/notebook", { overlay: "white-silent-back" });
     } else if (isHome) {
       router.back();
     } else {
-      startNavigation("/dashboard", { overlay: "white-silent" });
+      startNavigation("/dashboard", { overlay: "white-silent-back" });
     }
   }
 
