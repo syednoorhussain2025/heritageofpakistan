@@ -31,13 +31,14 @@ export function LoaderEngineProvider({ children }: { children: React.ReactNode }
   // slideIn only used for white mode
   const [slideIn, setSlideIn] = useState(false);
 
-  // Clear overlay when route actually changes
+  // Clear overlay when route actually changes — hold briefly so new page can paint
   useEffect(() => {
     if (pathname !== prevPathRef.current) {
       prevPathRef.current = pathname;
-      setSlideIn(false);
-      const t = setTimeout(() => setOverlayMode(null), 200);
-      return () => clearTimeout(t);
+      // Hold 150ms for new page to paint, then fade out over 300ms
+      const t1 = setTimeout(() => setSlideIn(false), 150);
+      const t2 = setTimeout(() => setOverlayMode(null), 450);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [pathname]);
 
@@ -110,7 +111,7 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
         transition: slideIn
           ? "transform 0.22s cubic-bezier(0.4,0,0.2,1), opacity 0s"
           : silent
-          ? "opacity 0.36s cubic-bezier(0.4,0,0.2,1), transform 0s 0.36s"
+          ? "opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0s 0.3s"
           : "opacity 0.18s ease, transform 0s 0.18s",
       }}
     >
