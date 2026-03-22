@@ -95,8 +95,16 @@ export default function MyWishlistsPage() {
 
   if (lists.length === 0) {
     return (
-      <div className="px-4 py-8 text-center text-gray-500 text-sm">
-        No saved lists yet. Add a site to a list to get started.
+      <div className="flex flex-col items-center justify-center min-h-[420px] px-6 pt-16 text-center">
+        <p className="text-[17px] font-semibold text-gray-800 mb-6">No Saved Lists Yet</p>
+        <img
+          src="/illustrations/no-wishlists.svg"
+          alt="No saved lists"
+          className="w-full max-w-[280px] mb-8"
+          loading="lazy"
+          decoding="async"
+        />
+        <p className="text-sm text-gray-400">Add a site to a list to get started.</p>
       </div>
     );
   }
