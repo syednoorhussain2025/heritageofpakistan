@@ -12,6 +12,7 @@ import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { nativeShare } from "@/lib/nativeShare";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export type SiteActionsSheetSite = {
   id: string;
@@ -52,6 +53,8 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+
+  useBodyScrollLock(isOpen || showWishlistModal || showTripModal || showReviewModal);
   const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -240,22 +243,30 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             <div className="w-10 h-1 bg-gray-400/40 rounded-full" />
           </div>
 
-          {/* Site preview header — fixed, does not scroll */}
-          <div className="flex items-center gap-3 px-4 pt-3 pb-3 mx-0 border-b border-gray-200/60 shrink-0">
-            {(site.cover_photo_thumb_url || site.cover_photo_url) && (
-              <img
-                src={getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") || site.cover_photo_thumb_url || ""}
-                alt={site.title}
-                className="w-12 h-12 rounded-xl object-cover shrink-0 bg-gray-200"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-semibold text-gray-900 leading-snug truncate">
-                {site.title}
-              </p>
-              {site.location_free && (
-                <p className="text-[12px] text-gray-500 truncate mt-0.5">{site.location_free}</p>
+          {/* Header — fixed, does not scroll */}
+          <div className="px-4 pt-3 pb-3 border-b border-gray-200/60 shrink-0">
+            {/* Title centered */}
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center">
+                <Icon name="plus" size={15} className="text-[var(--brand-orange)]" />
+              </div>
+              <span className="text-[17px] font-bold text-gray-900">Actions</span>
+            </div>
+            {/* Site preview row */}
+            <div className="flex items-center gap-3 mt-3">
+              {(site.cover_photo_thumb_url || site.cover_photo_url) && (
+                <img
+                  src={getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") || site.cover_photo_thumb_url || ""}
+                  alt={site.title}
+                  className="w-12 h-12 rounded-xl object-cover shrink-0 bg-gray-200"
+                />
               )}
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold text-gray-900 leading-snug truncate">{site.title}</p>
+                {site.location_free && (
+                  <p className="text-[12px] text-gray-500 truncate mt-0.5">{site.location_free}</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -314,11 +325,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                  <path d="M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4" />
-                  <path d="M14 3h7v7" />
-                  <path d="M21 3L11 13" />
-                </svg>
+                <Icon name="share-arrow" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Share</span>
             </button>
@@ -332,12 +339,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                  <rect x="2" y="6" width="16" height="13" rx="2" />
-                  <path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-2" />
-                  <circle cx="8.5" cy="11.5" r="1.5" />
-                  <polyline points="5 19 9 14 11.5 16.5 14 14 18 19" />
-                </svg>
+                <Icon name="images" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Gallery</span>
             </a>
@@ -348,10 +350,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                  <circle cx="12" cy="12" r="10" />
-                  <polygon points="10 8 16 12 10 16 10 8" />
-                </svg>
+                <Icon name="play-circle-light" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
             </a>
@@ -366,10 +365,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                      <circle cx="12" cy="9" r="2.5" />
-                    </svg>
+                    <Icon name="map-pin-light" size={22} className="text-gray-700" />
                   </div>
                   <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
                 </a>
@@ -416,6 +412,11 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         <AddToTripModal
           siteId={site.id}
           onClose={() => setShowTripModal(false)}
+          site={{
+            name: site.title,
+            imageUrl: site.cover_photo_url,
+            location: site.location_free,
+          }}
         />,
         document.body
       )}

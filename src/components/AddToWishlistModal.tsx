@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import NextImage from "next/image";
 import Icon from "@/components/Icon";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useWishlists } from "@/components/WishlistProvider";
 import {
   addItemToWishlist,
@@ -75,6 +77,7 @@ export default function AddToWishlistModal({
   site?: WishlistSitePreview;
 }) {
   const { wishlists, refresh, loading } = useWishlists();
+  useBodyScrollLock();
 
   const [isOpen, setIsOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -175,19 +178,21 @@ export default function AddToWishlistModal({
   }, [previewUrl]);
 
   const requestClose = useCallback(() => {
+    void hapticLight();
     setIsOpen(false);
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
     closeTimerRef.current = window.setTimeout(() => onClose(), 250);
   }, [onClose]);
 
   const requestCreateClose = useCallback(() => {
+    void hapticLight();
     setIsCreateAnimatingOpen(false);
     if (createCloseTimerRef.current)
       window.clearTimeout(createCloseTimerRef.current);
     createCloseTimerRef.current = window.setTimeout(() => {
       setIsCreateVisible(false);
       setIsCreateOpen(false);
-    }, 250);
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -198,7 +203,7 @@ export default function AddToWishlistModal({
     } else {
       setIsCreateAnimatingOpen(false);
       if (isCreateVisible) {
-        const t = window.setTimeout(() => setIsCreateVisible(false), 250);
+        const t = window.setTimeout(() => setIsCreateVisible(false), 500);
         return () => window.clearTimeout(t);
       }
     }
@@ -274,6 +279,7 @@ export default function AddToWishlistModal({
     if (busyCreate) return;
     const name = newName.trim();
     if (!name) return;
+    void hapticMedium();
     setBusyCreate(true);
     try {
       const list = await createWishlist(name, privacy === "public");
@@ -315,6 +321,7 @@ export default function AddToWishlistModal({
 
   async function toggleMembership(listId: string, listName: string) {
     if (toggling) return;
+    void hapticMedium();
     const wasOn = selected.has(listId);
     setToggling(listId);
     const nextSelected = new Set(selected);
@@ -351,6 +358,7 @@ export default function AddToWishlistModal({
   }
 
   function requestDelete(id: string, name: string) {
+    void hapticMedium();
     setListToDelete({ id, name });
   }
 
@@ -419,22 +427,16 @@ export default function AddToWishlistModal({
     <>
       <div
         ref={overlayRef}
-        onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[9999999999] flex flex-col justify-end sm:items-center sm:justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`fixed inset-0 z-[9999999999] transition-all duration-500 ease-in-out ${
+          isOpen ? "opacity-100 backdrop-blur-sm bg-black/40" : "opacity-0 backdrop-blur-none bg-black/0"
         }`}
         aria-modal="true"
         role="dialog"
+        onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
       >
-        {/* Drag handle for mobile */}
-        <div className="sm:hidden flex justify-center pb-2 shrink-0">
-          <div className="w-10 h-1 bg-white/40 rounded-full" />
-        </div>
         <div
-          className={`relative w-full max-h-[82dvh] sm:h-[590px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden ${
-            isOpen
-              ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-95 translate-y-4"
+          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl h-[82vh] max-h-[82vh] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            isOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -442,6 +444,10 @@ export default function AddToWishlistModal({
           onTouchMove={onCardTouchMove}
           onTouchEnd={onCardTouchEnd}
         >
+          {/* Drag handle */}
+          <div className="w-full flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
           {listToDelete && (
             <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
               <div className="bg-white border border-gray-100 shadow-2xl ring-1 ring-black/5 rounded-3xl p-6 w-full max-w-xs text-center transform scale-100 animate-in zoom-in-95 duration-200">
@@ -482,112 +488,52 @@ export default function AddToWishlistModal({
             </div>
           )}
 
-          <div
-            className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0"
-            data-noswipe="true"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
-                <Icon name="layout-list" className="text-[var(--brand-orange)]" />
+          {/* Header */}
+          <div className="px-4 pt-3 pb-3 border-b border-gray-200/60 shrink-0" data-noswipe="true">
+            {/* Row 1: icon + title centered as a group */}
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                <Icon name="layout-list" size={16} className="text-[var(--brand-orange)]" />
               </div>
-              <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Add to Wishlist
-                </h2>
-              </div>
+              <span className="text-[17px] font-bold text-gray-900 text-center">Save to List</span>
             </div>
-            <button
-              onClick={requestClose}
-              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              aria-label="Close modal"
-            >
-              <Icon name="times" size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 min-h-0 bg-white overflow-hidden flex flex-col sm:flex-row sm:gap-3">
+            {/* Row 2: site thumbnail + name + location — matches action sheet header */}
             {hasPreview && (
-              <div className="hidden sm:flex sm:flex-col sm:w-[300px] sm:border-r sm:border-gray-100 sm:bg-gray-50/30 sm:px-5 sm:py-5 sm:min-h-0">
+              <div className="flex items-center gap-3 mt-3">
                 {previewUrl && (
-                  <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-                    <div className="relative w-full aspect-square">
-                      {!previewLoaded && (
-                        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
-                          <Spinner size={18} className="border-gray-300" />
-                        </div>
-                      )}
-                      <NextImage
-                        src={previewUrl}
-                        alt={previewTitle || "Site preview"}
-                        fill
-                        unoptimized
-                        className={`object-cover transition-opacity duration-300 ${
-                          previewLoaded ? "opacity-100" : "opacity-0"
-                        }`}
-                        sizes="300px"
-                      />
-                    </div>
-                  </div>
-                )}
-                {(previewTitle || previewLocation) && (
-                  <div className={`${previewUrl ? "mt-3" : ""} space-y-1`}>
-                    {previewTitle && (
-                      <div className="font-semibold text-sm text-gray-900 line-clamp-2">
-                        {previewTitle}
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-200 shrink-0">
+                    {!previewLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                        <Spinner size={14} className="border-gray-300" />
                       </div>
                     )}
-                    {previewLocation && (
-                      <div className="text-xs text-gray-500 line-clamp-2">
-                        {previewLocation}
-                      </div>
-                    )}
+                    <NextImage
+                      src={previewUrl}
+                      alt={previewTitle || "Site preview"}
+                      fill
+                      unoptimized
+                      className={`object-cover transition-opacity duration-300 ${previewLoaded ? "opacity-100" : "opacity-0"}`}
+                      sizes="48px"
+                    />
                   </div>
                 )}
+                <div className="flex-1 min-w-0">
+                  {previewTitle && (
+                    <p className="text-[15px] font-semibold text-gray-900 leading-snug truncate">{previewTitle}</p>
+                  )}
+                  {previewLocation && (
+                    <p className="text-[12px] text-gray-500 truncate mt-0.5">{previewLocation}</p>
+                  )}
+                </div>
               </div>
             )}
+          </div>
 
-            <div className="flex-1 flex flex-col min-h-0 px-6 py-5 overflow-hidden">
-              {hasPreview && (
-                <div className="sm:hidden shrink-0 mb-4" data-noswipe="true">
-                  <div className="flex items-start gap-4">
-                    {previewUrl && (
-                      <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm flex-shrink-0">
-                        {!previewLoaded && (
-                          <div className="absolute inset-0 z-[1] flex items-center justify-center bg-white/80">
-                            <Spinner size={18} className="border-gray-300" />
-                          </div>
-                        )}
-                        <NextImage
-                          src={previewUrl}
-                          alt={previewTitle || "Site preview"}
-                          fill
-                          unoptimized
-                          className={`object-cover transition-opacity duration-300 ${
-                            previewLoaded ? "opacity-100" : "opacity-0"
-                          }`}
-                          sizes="112px"
-                        />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 pt-1">
-                      {previewTitle && (
-                        <div className="font-semibold text-sm text-gray-900 line-clamp-2">
-                          {previewTitle}
-                        </div>
-                      )}
-                      {previewLocation && (
-                        <div className="text-xs text-gray-500 line-clamp-2 mt-1">
-                          {previewLocation}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
+          <div className="flex-1 min-h-0 bg-white overflow-hidden flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0 px-4 py-3 overflow-hidden">
               <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Your Wishlists
+                  Your Saved Lists
                 </label>
                 <div className="flex-1 flex flex-col min-h-0 border border-gray-200 rounded-2xl bg-gray-100 overflow-hidden">
                   <div className="shrink-0 p-3 pb-0" data-noswipe="true">
@@ -632,12 +578,9 @@ export default function AddToWishlistModal({
                       </div>
                     ) : filtered.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                        <Icon
-                          name="folder-open"
-                          size={32}
-                          className="mb-2 opacity-50"
-                        />
-                        <span className="text-sm">No wishlists found.</span>
+                        <Icon name="folder-open" size={32} className="mb-2 opacity-50" />
+                        <span className="text-sm">No lists yet</span>
+                        <span className="text-xs mt-0.5">Tap below to create one</span>
                       </div>
                     ) : (
                       <ul className="space-y-2">
@@ -721,27 +664,14 @@ export default function AddToWishlistModal({
           </div>
 
           <div
-            className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md"
+            className="px-4 pt-3 pb-8 border-t border-gray-100 shrink-0 bg-white"
             data-noswipe="true"
           >
             <button
-              onClick={() => setIsCreateOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium cursor-pointer hover:brightness-105 transition-all shadow-sm active:scale-95 text-sm"
+              onClick={() => { void hapticLight(); setIsCreateOpen(true); }}
+              className="w-full py-3 rounded-full bg-[var(--brand-orange)] text-white font-semibold text-[14px] active:scale-95 transition-all shadow-sm"
             >
-              Create New List
-            </button>
-            <Link
-              href="/dashboard/mywishlists"
-              onClick={requestClose}
-              className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium cursor-pointer hover:brightness-110 transition-all shadow-lg shadow-gray-200 text-sm"
-            >
-              My Wishlists
-            </Link>
-            <button
-              onClick={requestClose}
-              className="hidden sm:inline-flex px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
-            >
-              Close
+              + Create New List
             </button>
           </div>
         </div>
@@ -749,81 +679,93 @@ export default function AddToWishlistModal({
 
       {isCreateVisible && (
         <div
-          className={`fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 transition-opacity duration-300 ${
-            isCreateAnimatingOpen ? "opacity-100" : "opacity-0"
+          className={`fixed inset-0 z-[99999999999] transition-all duration-500 ease-in-out ${
+            isCreateAnimatingOpen ? "opacity-100 backdrop-blur-sm bg-black/40" : "opacity-0 backdrop-blur-none bg-black/0"
           }`}
           role="dialog"
           aria-modal="true"
-          onMouseDown={(e) => {
+          onClick={(e) => {
             if (e.target === e.currentTarget) requestCreateClose();
           }}
         >
           <div
-            className={`w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform ${
+            className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl h-[82vh] max-h-[82vh] flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
               isCreateAnimatingOpen
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 translate-y-4"
+                ? "translate-y-0 opacity-100"
+                : "translate-y-full opacity-0"
             }`}
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             onMouseDown={(e) => e.stopPropagation()}
             data-noswipe="true"
           >
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">
-                Create New List
-              </h3>
-              <button
-                onClick={requestCreateClose}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <Icon name="times" size={20} />
-              </button>
+            {/* Drag handle */}
+            <div className="w-full flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
-            <div className="p-6 space-y-4 flex-1 overflow-y-auto bg-gray-50/30">
+            {/* Header — centered title */}
+            <div className="px-4 pt-3 pb-4 border-b border-gray-100 shrink-0 flex items-center justify-center">
+              <h3 className="text-[17px] font-bold text-gray-900">New List</h3>
+            </div>
+            <div className="p-5 space-y-5 flex-1 overflow-y-auto">
+              {/* Name input */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">
                   List Name
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Must see, Family trip..."
+                  placeholder="e.g. Must see, Family trip…"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={handleCreateKeyDown}
                   autoFocus
-                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-full px-5 py-3.5 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/20 focus:border-[var(--brand-orange)]/40 transition-all placeholder:text-gray-400 text-[15px]"
                 />
               </div>
+              {/* Privacy pill toggle */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider ml-1">
                   Privacy
                 </label>
-                <div className="relative">
-                  <select
-                    value={privacy}
-                    onChange={(e) =>
-                      setPrivacy(e.target.value as "private" | "public")
-                    }
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
+                <div className="flex bg-gray-100 rounded-full p-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { void hapticLight(); setPrivacy("private"); }}
+                    className={`flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all ${
+                      privacy === "private"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500"
+                    }`}
                   >
-                    <option value="private">Private (Only you)</option>
-                    <option value="public">Public (Visible to everyone)</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                    <Icon name="chevron-down" size={16} />
-                  </div>
+                    Private
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void hapticLight(); setPrivacy("public"); }}
+                    className={`flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all ${
+                      privacy === "public"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    Public
+                  </button>
                 </div>
+                <p className="text-[12px] text-gray-400 ml-1">
+                  {privacy === "private" ? "Only visible to you" : "Visible to everyone"}
+                </p>
               </div>
             </div>
-            <div className="p-6 pt-0 sm:pt-4 sm:border-t sm:border-gray-100 bg-white shrink-0">
+            <div className="px-4 pt-3 pb-8 border-t border-gray-100 bg-white shrink-0">
               <button
                 onClick={handleCreate}
                 disabled={busyCreate || !newName.trim()}
-                className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-105 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                className="w-full py-3 rounded-full bg-[var(--brand-orange)] text-white font-semibold text-[15px] disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
               >
                 {busyCreate && (
                   <Spinner size={16} className="border-white/80" />
                 )}
-                {busyCreate ? "Creating..." : "Create List"}
+                {busyCreate ? "Creating…" : "Create List"}
               </button>
             </div>
           </div>

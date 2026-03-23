@@ -509,13 +509,7 @@ export default function HeritageCover({
                 className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 active:bg-black/70 active:scale-95 transition-transform duration-100"
                 onClick={() => { void hapticLight(); router.push(galleryHref); }}
               >
-                {/* images icon — two stacked photo frames */}
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-white/90 shrink-0">
-                  <rect x="2" y="6" width="16" height="13" rx="2" />
-                  <path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-2" />
-                  <circle cx="8.5" cy="11.5" r="1.5" />
-                  <polyline points="5 19 9 14 11.5 16.5 14 14 18 19" />
-                </svg>
+                <Icon name="images" size={17} className="text-white/90 shrink-0" />
                 <span className="text-white text-[14px] font-medium leading-none">
                   {galleryCount}
                 </span>
@@ -568,10 +562,7 @@ export default function HeritageCover({
               onClick={() => scrollToSection(["location"])}
               className="flex items-center gap-1.5 text-[14px] text-slate-500 active:text-[var(--brand-blue)] text-left"
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 shrink-0 self-center" style={{ marginTop: "-1px" }}>
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                <circle cx="12" cy="9" r="2.5" />
-              </svg>
+              <Icon name="map-pin-light" size={21} className="text-slate-400 shrink-0 self-center" />
               <span>{site.location_free}</span>
             </button>
           )}
@@ -609,9 +600,12 @@ export default function HeritageCover({
           )}
 
           {site.tagline && (
-            <p className="text-[14px] leading-relaxed text-slate-500 italic pt-1">
-              {site.tagline}
-            </p>
+            <div className="flex items-start gap-2 pt-1">
+              <Icon name="book-open-text-light" size={21} className="text-slate-400 shrink-0 mt-[2px]" />
+              <p className="text-[14px] leading-relaxed text-slate-500 italic">
+                {site.tagline}
+              </p>
+            </div>
           )}
         </div>
 

@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
@@ -110,6 +112,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+  useBodyScrollLock(open);
 
   // Sheet visibility for animation
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -146,12 +149,13 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
 
   const closeSheet = useCallback(() => {
     if (closeTimerRef.current != null) return;
+    void hapticLight();
     setClosing(true);
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
       setClosing(false);
       onClose();
-    }, 300);
+    }, 500);
   }, [onClose]);
 
   // Drag-to-close
@@ -219,6 +223,9 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
 
   // Data fetching
   const [siteTitle, setSiteTitle] = useState<string>("");
+  const [siteCoverUrl, setSiteCoverUrl] = useState<string | null>(null);
+  const [siteLocation, setSiteLocation] = useState<string | null>(null);
+  const [siteLoaded, setSiteLoaded] = useState(false);
   const [userReviewTotal, setUserReviewTotal] = useState<number>(0);
   const [successToast, setSuccessToast] = useState(false);
 
@@ -226,10 +233,13 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     (async () => {
       const { data } = await supabase
         .from("sites")
-        .select("title")
+        .select("title, cover_photo_url, location_free")
         .eq("id", siteId)
         .maybeSingle();
       setSiteTitle(data?.title ?? "");
+      setSiteCoverUrl(data?.cover_photo_url ?? null);
+      setSiteLocation(data?.location_free ?? null);
+      setSiteLoaded(true);
     })();
   }, [siteId, supabase]);
 
@@ -366,204 +376,206 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
           Review submitted!
         </div>
       )}
-      <div className="fixed inset-0 z-[5500] touch-none">
-        {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-[5500] transition-all duration-500 ease-in-out ${visible ? "backdrop-blur-sm bg-black/40" : "backdrop-blur-none bg-black/0"}`}
+        onClick={closeSheet}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-0 z-[5501] pointer-events-none flex items-end justify-center">
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${visible ? "opacity-100" : "opacity-0"}`}
-          onClick={closeSheet}
-          aria-hidden="true"
-        />
-
-        {/* Bottom sheet (mobile) / centered modal (sm+) */}
-        <div className="absolute inset-0 flex items-end sm:items-center justify-center sm:px-4 sm:py-8 pointer-events-none">
+          ref={sheetElRef}
+          className={`pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col h-[92vh] max-h-[92vh] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+          }`}
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Drag handle — only this triggers swipe-to-close */}
           <div
-            ref={sheetElRef}
+            className="w-full flex justify-center pt-3 pb-1 shrink-0 touch-none"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className={[
-              "pointer-events-auto w-full sm:max-w-2xl",
-              "bg-white sm:rounded-2xl rounded-t-3xl",
-              "flex flex-col",
-              "max-h-[92dvh] sm:max-h-[88dvh]",
-              "transition-transform duration-300 ease-out",
-              visible ? "translate-y-0" : "translate-y-full sm:translate-y-4",
-            ].join(" ")}
-            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+            aria-hidden="true"
           >
-            {/* Drag handle — mobile only */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0" aria-hidden="true">
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
+          </div>
+
+          {/* Header — centered title, user preview left */}
+          <div className="px-4 pt-3 pb-3 border-b border-gray-200/60 shrink-0">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center">
+                <Icon name="star" size={15} className="text-amber-500" />
+              </div>
+              <span className="text-[17px] font-bold text-gray-900">Write a Review</span>
             </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-2">
-                <Icon name="star" className="text-amber-500" />
-                <h3 className="text-[17px] font-semibold text-gray-900 leading-snug">
-                  {siteTitle ? `Rate ${siteTitle}` : "Write a Review"}
-                </h3>
+            {/* Site preview row — always rendered to avoid layout shift */}
+            <div className="flex items-center gap-3 mt-3">
+              <div className="w-12 h-12 rounded-xl shrink-0 bg-gray-100 overflow-hidden">
+                {siteLoaded && siteCoverUrl && (
+                  <img src={siteCoverUrl} alt={siteTitle} className="w-full h-full object-cover" />
+                )}
               </div>
-              <button
-                onClick={closeSheet}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 shrink-0"
-                aria-label="Close"
-              >
-                <Icon name="times" />
-              </button>
+              <div className="flex-1 min-w-0">
+                {siteLoaded ? (
+                  <>
+                    <p className="text-[15px] font-semibold text-gray-900 leading-snug truncate">{siteTitle}</p>
+                    {siteLocation && <p className="text-[12px] text-gray-500 truncate mt-0.5">{siteLocation}</p>}
+                  </>
+                ) : (
+                  <>
+                    <div className="h-3.5 bg-gray-100 rounded-full w-2/3 animate-pulse" />
+                    <div className="h-2.5 bg-gray-100 rounded-full w-1/3 mt-1.5 animate-pulse" />
+                  </>
+                )}
+              </div>
             </div>
+          </div>
 
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
 
-              {/* User info + rating row */}
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-amber-400/60 bg-gray-100 shrink-0">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-gray-200" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[15px] text-gray-900 truncate">{displayName}</div>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {badge && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[12px]">
-                        {badge}
-                      </span>
-                    )}
-                    <span className="text-[12px] text-gray-400">{userReviewTotal} reviews</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Star rating */}
-              <div>
-                <label className="block text-[13px] font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                  Your Rating
-                </label>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      onMouseEnter={() => setHoverRating(n)}
-                      onMouseLeave={() => setHoverRating(0)}
-                      onClick={() => setRating(n)}
-                      className="p-1 transition-transform active:scale-90"
-                      aria-label={`Rate ${n}`}
-                    >
-                      <Icon
-                        name="star"
-                        className={`text-[28px] ${(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}`}
-                      />
-                    </button>
-                  ))}
-                  {rating > 0 && (
-                    <span className="ml-2 text-[14px] font-medium text-gray-600">{rating}/5</span>
-                  )}
-                </div>
-              </div>
-
-              {/* When did you visit */}
-              <div>
-                <label className="block text-[13px] font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                  When did you visit?
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={visitedYear}
-                    onChange={(e) => setVisitedYear(e.target.value ? Number(e.target.value) : "")}
-                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+            {/* Star rating */}
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
+                Your Rating
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => { void hapticLight(); setRating(n); }}
+                    className="p-1 transition-transform active:scale-90"
+                    aria-label={`Rate ${n}`}
                   >
-                    <option value="">Year</option>
-                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                  <select
-                    value={visitedMonth}
-                    onChange={(e) => setVisitedMonth(e.target.value ? Number(e.target.value) : "")}
-                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                  >
-                    <option value="">Month</option>
-                    {months.map((m) => <option key={m.v} value={m.v}>{m.n}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Review text */}
-              <div>
-                <label className="block text-[13px] font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                  Your Experience
-                </label>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  rows={5}
-                  placeholder="Share road conditions, travel tips, what you loved…"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
-                />
-                <div className="mt-1 text-[12px] text-gray-400 text-right">{text.length} chars (min 20)</div>
-              </div>
-
-              {/* Photo upload */}
-              <div>
-                <label className="block text-[13px] font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                  Add Photos (max 3)
-                </label>
-                {photos.length < 3 && (
-                  <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-[14px] font-medium cursor-pointer active:opacity-80">
-                    <Icon name="camera" className="text-white" />
-                    Choose Photos
-                    <input
-                      type="file"
-                      accept={ALLOWED_TYPES.join(",")}
-                      multiple
-                      hidden
-                      onChange={onPickFiles}
+                    <Icon
+                      name="star"
+                      className={`text-[52px] ${(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}`}
                     />
+                  </button>
+                ))}
+                {rating > 0 && (
+                  <span className="ml-2 text-[14px] font-semibold text-gray-600">{rating}/5</span>
+                )}
+              </div>
+            </div>
+
+            {/* When did you visit */}
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
+                When did you visit?
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={visitedYear}
+                  onChange={(e) => setVisitedYear(e.target.value ? Number(e.target.value) : "")}
+                  className="flex-1 border border-gray-200 rounded-full px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-200 appearance-none"
+                >
+                  <option value="">Year</option>
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select
+                  value={visitedMonth}
+                  onChange={(e) => setVisitedMonth(e.target.value ? Number(e.target.value) : "")}
+                  className="flex-1 border border-gray-200 rounded-full px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-200 appearance-none"
+                >
+                  <option value="">Month</option>
+                  {months.map((m) => <option key={m.v} value={m.v}>{m.n}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Review text */}
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
+                Your Experience
+              </label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+                placeholder="Share road conditions, travel tips, what you loved…"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none"
+              />
+              <div className="mt-1 text-[12px] text-gray-400 text-right">{text.length} chars (min 20)</div>
+            </div>
+
+            {/* Photo upload */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                {photos.length < 3 && (
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 text-white text-[13px] font-medium cursor-pointer active:opacity-80 shrink-0">
+                    <Icon name="camera" size={13} className="text-white" />
+                    Choose Photos
+                    <input type="file" accept={ALLOWED_TYPES.join(",")} multiple hidden onChange={onPickFiles} />
                   </label>
                 )}
-                {photos.length > 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative aspect-[4/3] rounded-xl overflow-hidden bg-gray-100">
-                        <img src={p.preview} alt="preview" className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => removePhoto(i)}
-                          className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 active:opacity-80"
-                          aria-label="Remove"
-                        >
-                          <Icon name="times" className="text-[12px]" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {photos.length > 0 && (
-                  <p className="mt-2 text-[12px] text-gray-400">Photos will be added to your photography portfolio.</p>
-                )}
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Add photos ({photos.length}/3)
+                </span>
               </div>
-
-              {error && <p className="text-[14px] text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>}
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 3 }).map((_, i) => {
+                  const photo = photos[i];
+                  return photo ? (
+                    <div key={i} className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100">
+                      <img src={photo.preview} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => { void hapticLight(); removePhoto(i); }}
+                        className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 active:opacity-80"
+                        aria-label="Remove"
+                      >
+                        <Icon name="times" size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div key={i} className="aspect-[4/3] rounded-2xl bg-gray-100 flex items-center justify-center">
+                      <Icon name="images" size={22} className="text-gray-300" />
+                    </div>
+                  );
+                })}
+              </div>
+              {photos.length > 0 && (
+                <p className="mt-2 text-[12px] text-gray-400">Photos will be added to your photography portfolio.</p>
+              )}
             </div>
 
-            {/* Footer actions */}
-            <div className="shrink-0 px-4 pt-3 pb-3 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={closeSheet}
-                disabled={busy}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-700 active:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onSubmit}
-                disabled={busy}
-                className="flex-1 py-3 rounded-xl bg-amber-500 text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 active:opacity-80 disabled:opacity-60"
-              >
-                {busy && (
-                  <span className="inline-block h-4 w-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+            {error && <p className="text-[14px] text-red-600 bg-red-50 rounded-2xl px-4 py-3">{error}</p>}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-gray-100 bg-white">
+            {/* User band */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gray-200" />
                 )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-gray-900 truncate">{displayName}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {badge && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-medium">
+                      {badge}
+                    </span>
+                  )}
+                  <span className="text-[12px] text-gray-400">{userReviewTotal} reviews</span>
+                </div>
+              </div>
+            </div>
+            {/* Submit button */}
+            <div className="px-4 pt-3 pb-8">
+              <button
+                onClick={() => { void hapticMedium(); void onSubmit(); }}
+                disabled={busy}
+                className="w-full py-3 rounded-full bg-amber-500 text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-60 shadow-sm"
+              >
+                {busy && <span className="inline-block h-4 w-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />}
                 Submit Review
               </button>
             </div>
