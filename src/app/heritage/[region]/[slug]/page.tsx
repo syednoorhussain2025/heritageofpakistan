@@ -602,13 +602,7 @@ export default async function Page({ params }: HeritagePageProps) {
         .filter(Boolean)
         .map((r: any) => {
           const storagePath = (r.storage_path ?? "").trim();
-          let url: string | null = null;
-          if (/^https?:\/\//i.test(storagePath)) {
-            url = storagePath || null;
-          } else {
-            try { url = getVariantPublicUrl(storagePath, "lg"); } catch { /* noop */ }
-            if (!url) url = getCoverVariantUrl(r.storage_path);
-          }
+          const url = getCoverVariantUrl(storagePath);
           if (!url) return null;
           let thumbUrl: string | null = null;
           if (!/^https?:\/\//i.test(storagePath)) {
