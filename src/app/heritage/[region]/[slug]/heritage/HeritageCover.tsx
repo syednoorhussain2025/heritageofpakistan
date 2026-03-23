@@ -285,30 +285,24 @@ export default function HeritageCover({
   // Mobile: fade slideshow to white as content scrolls over it
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
-    let cleanup: (() => void) | undefined;
 
-    const raf = requestAnimationFrame(() => {
+    const onScroll = () => {
       const slide = mobileSlideRef.current;
       const fade = mobileFadeRef.current;
       if (!slide || !fade) return;
 
-      // Cache absolute top at mount (scroll is 0 at this point on page load)
+      // Recalculate every scroll so late-loading images/fonts don't break the cached offset
       const slideTopAbs = slide.getBoundingClientRect().top + window.scrollY;
       const slideH = slide.offsetHeight;
       const fadeStart = slideH * 0.2;
       const fadeEnd = slideH * 0.85;
+      const scrolledPast = window.scrollY - slideTopAbs;
+      const opacity = Math.min(1, Math.max(0, (scrolledPast - fadeStart) / (fadeEnd - fadeStart)));
+      fade.style.opacity = String(opacity);
+    };
 
-      const onScroll = () => {
-        const scrolledPast = window.scrollY - slideTopAbs;
-        const opacity = Math.min(1, Math.max(0, (scrolledPast - fadeStart) / (fadeEnd - fadeStart)));
-        fade.style.opacity = String(opacity);
-      };
-
-      window.addEventListener("scroll", onScroll, { passive: true });
-      cleanup = () => window.removeEventListener("scroll", onScroll);
-    });
-
-    return () => { cancelAnimationFrame(raf); cleanup?.(); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const [mounted, setMounted] = useState(false);
