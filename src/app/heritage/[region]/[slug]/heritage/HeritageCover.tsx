@@ -378,9 +378,9 @@ export default function HeritageCover({
       <section aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
         {slides.length > 0 ? (
           <div
-            className="relative w-full bg-black overflow-hidden" style={{ minHeight: 400, height: "68vw", maxHeight: 520 }}
+            className="relative w-full bg-black overflow-hidden"
+            style={{ minHeight: 400, height: "68vw", maxHeight: 520, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
             onClick={isSingleSlide ? () => { if (typeof window !== "undefined") window.location.assign(galleryHref); } : undefined}
-            style={isSingleSlide ? { cursor: "pointer" } : undefined}
           >
             {/* Spinner while first image loads */}
             {showSpinner && (
