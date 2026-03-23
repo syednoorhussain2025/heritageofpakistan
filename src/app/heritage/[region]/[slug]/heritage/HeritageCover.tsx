@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 import AddToTripModal from "@/components/AddToTripModal";
+import { hapticLight } from "@/lib/haptics";
 
 const AddToWishlistModal = dynamic(
   () => import("@/components/AddToWishlistModal"),
@@ -469,6 +470,7 @@ export default function HeritageCover({
                 href={galleryHref}
                 aria-label={`View all ${galleryCount} photos`}
                 className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 active:bg-black/70 active:scale-95 transition-transform duration-100"
+                onClick={() => void hapticLight()}
               >
                 {/* images icon — two stacked photo frames */}
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-white/90 shrink-0">

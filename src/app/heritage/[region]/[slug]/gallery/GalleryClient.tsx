@@ -27,6 +27,7 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 // Wishlist
 import { getListsContainingSite } from "@/lib/wishlists";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { hapticLight } from "@/lib/haptics";
 
 // Universal Lightbox
 const Lightbox = dynamicImport(
@@ -194,8 +195,8 @@ const MasonryTile = memo(function MasonryTile({
     <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
       <div
         ref={tileRef}
-        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3] cursor-pointer"
-        onClick={onOpen}
+        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3] cursor-pointer active:scale-95 transition-transform duration-100"
+        onClick={() => { void hapticLight(); onOpen(); }}
         title="Open"
       >
         <div
