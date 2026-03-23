@@ -379,7 +379,7 @@ export default function HeritageCover({
         {slides.length > 0 ? (
           <div
             className="relative w-full bg-black overflow-hidden"
-            style={{ minHeight: 400, height: "68vw", maxHeight: 520, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
+            style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
             onClick={isSingleSlide ? () => { if (typeof window !== "undefined") window.location.assign(galleryHref); } : undefined}
           >
             {/* Spinner while first image loads */}
@@ -486,7 +486,7 @@ export default function HeritageCover({
             )}
           </div>
         ) : (
-          <div className="w-full bg-gray-200" style={{ minHeight: 400, height: "68vw", maxHeight: 520 }} />
+          <div className="w-full bg-gray-200" style={{ minHeight: 440, height: "120vw", maxHeight: 580 }} />
         )}
 
         {/* Info block — overlaps hero with rounded top corners */}
