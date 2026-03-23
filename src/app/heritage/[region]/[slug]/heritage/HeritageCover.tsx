@@ -239,7 +239,9 @@ export default function HeritageCover({
       if (g.locked === "none" && Math.abs(g.dx) < 10) {
         g = null;
         startAutoAdvance();
-        if (typeof window !== "undefined") window.location.assign(galleryHref);
+        void hapticLight();
+        setSlidePressed(true);
+        setTimeout(() => { setSlidePressed(false); if (typeof window !== "undefined") window.location.assign(galleryHref); }, 120);
         return;
       }
       if (g.locked !== "horizontal") { g = null; startAutoAdvance(); return; }
@@ -267,6 +269,7 @@ export default function HeritageCover({
   // For single-photo mode keep old loaded state; for slideshow track per slide
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [showSpinner, setShowSpinner] = useState(true);
+  const [slidePressed, setSlidePressed] = useState(false);
 
   const heroRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -374,8 +377,11 @@ export default function HeritageCover({
           <div
             className="relative w-full bg-black overflow-hidden"
             style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
-            onClick={isSingleSlide ? () => { if (typeof window !== "undefined") window.location.assign(galleryHref); } : undefined}
+            onClick={isSingleSlide ? () => { void hapticLight(); setSlidePressed(true); setTimeout(() => { setSlidePressed(false); if (typeof window !== "undefined") window.location.assign(galleryHref); }, 120); } : undefined}
           >
+            {/* Press feedback overlay */}
+            <div className={`absolute inset-0 z-30 pointer-events-none bg-black transition-opacity duration-100 ${slidePressed ? "opacity-20" : "opacity-0"}`} />
+
             {/* Spinner while first image loads */}
             {showSpinner && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
@@ -441,7 +447,7 @@ export default function HeritageCover({
 
             {/* Pill dot indicators */}
             {hasSlideshow && (
-              <div className="absolute bottom-8 right-3 z-10 flex gap-1.5 pointer-events-none">
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
                 {slides.map((_, i) => (
                   <div
                     key={i}
