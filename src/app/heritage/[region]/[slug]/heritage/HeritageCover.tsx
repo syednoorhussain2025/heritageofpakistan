@@ -426,13 +426,14 @@ export default function HeritageCover({
                       </div>
                     )}
                     <Image
-                      src={slide.thumbUrl ?? slide.url}
+                      src={slide.url}
                       alt={site.title}
                       width={slideW ?? 1600}
                       height={slideH ?? 900}
                       sizes="100vw"
                       priority={i === 0}
-                      placeholder="empty"
+                      placeholder={slide.blurDataURL ? "blur" : "empty"}
+                      blurDataURL={slide.blurDataURL ?? undefined}
                       unoptimized
                       className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ${heroLoaded ? "opacity-100" : "opacity-0"}`}
                       style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
@@ -491,7 +492,7 @@ export default function HeritageCover({
 
         {/* Info block — overlaps hero with rounded top corners */}
         <div
-          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2"
+          className="relative bg-white -mt-7 px-4 pt-6 pb-5 space-y-2" style={{ borderRadius: "28px 28px 0 0" }}
           style={{ boxShadow: "0 -2px 12px rgba(0,0,0,0.06)" }}
         >
           {/* Heritage Type pill — above title */}
