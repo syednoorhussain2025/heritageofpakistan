@@ -10,6 +10,7 @@ import AddToTripModal from "@/components/AddToTripModal";
 import { hapticLight } from "@/lib/haptics";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { getListsContainingSite } from "@/lib/wishlists";
+import { Spinner } from "@/components/ui/Spinner";
 
 const AddToWishlistModal = dynamic(
   () => import("@/components/AddToWishlistModal"),
@@ -244,6 +245,7 @@ export default function HeritageCover({
         g = null;
         startAutoAdvance();
         void hapticLight();
+        setShowGalleryLoader(true);
         router.push(galleryHref);
         return;
       }
@@ -272,6 +274,7 @@ export default function HeritageCover({
   // For single-photo mode keep old loaded state; for slideshow track per slide
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [showSpinner, setShowSpinner] = useState(true);
+  const [showGalleryLoader, setShowGalleryLoader] = useState(false);
   const [slidePressed, setSlidePressed] = useState(false);
 
   const heroRef = useRef<HTMLElement | null>(null);
@@ -421,15 +424,24 @@ export default function HeritageCover({
             ref={mobileSlideRef}
             className="sticky top-0 z-0 relative w-full bg-black overflow-hidden"
             style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
-            onClick={isSingleSlide ? () => { void hapticLight(); router.push(galleryHref); } : undefined}
+            onClick={isSingleSlide ? () => { void hapticLight(); setShowGalleryLoader(true); router.push(galleryHref); } : undefined}
           >
             {/* White fade overlay — animates on scroll */}
             <div ref={mobileFadeRef} className="absolute inset-0 z-20 pointer-events-none bg-[#f8f8f8]" style={{ opacity: 0 }} />
 
-            {/* Spinner while first image loads */}
+            {/* Dots loader while first image loads */}
             {showSpinner && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                <div className="h-10 w-10 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                <Spinner variant="dots" size={120} />
+              </div>
+            )}
+
+            {/* Dots loader on tap → gallery transition */}
+            {showGalleryLoader && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+                <div style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}>
+                  <Spinner variant="dots" size={220} color="white" />
+                </div>
               </div>
             )}
 
@@ -507,7 +519,7 @@ export default function HeritageCover({
                 type="button"
                 aria-label={`View all ${galleryCount} photos`}
                 className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 active:bg-black/70 active:scale-95 transition-transform duration-100"
-                onClick={() => { void hapticLight(); router.push(galleryHref); }}
+                onClick={() => { void hapticLight(); setShowGalleryLoader(true); router.push(galleryHref); }}
               >
                 <Icon name="images" size={17} className="text-white/90 shrink-0" />
                 <span className="text-white text-[14px] font-medium leading-none">
@@ -627,7 +639,7 @@ export default function HeritageCover({
             <>
               {showSpinner && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                  <div className="h-11 w-11 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                  <Spinner variant="dots" size={120} />
                 </div>
               )}
 

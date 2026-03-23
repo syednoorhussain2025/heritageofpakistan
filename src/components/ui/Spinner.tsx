@@ -14,6 +14,8 @@ interface SpinnerProps {
   fill?: boolean;
   /** Animation variant. Default: "spinner" */
   variant?: "spinner" | "dots";
+  /** Recolor dots to "white". Only applies to variant="dots". */
+  color?: "white";
 }
 
 function hexToLottieRgb(hex: string): [number, number, number] {
@@ -44,8 +46,21 @@ function tintSpinner(brandGreen: string) {
   return data;
 }
 
-export function Spinner({ size = 64, overlay = false, fill = false, variant = "spinner" }: SpinnerProps) {
+function recolorDots(color: "white") {
+  const rgb: [number, number, number] = color === "white" ? [1, 1, 1] : [1, 1, 1];
+  const data = JSON.parse(JSON.stringify(dotsData));
+  JSON.stringify(data, function(key, val) {
+    if (key === "c" && val && val.k && Array.isArray(val.k) && typeof val.k[0] === "number") {
+      val.k[0] = rgb[0]; val.k[1] = rgb[1]; val.k[2] = rgb[2];
+    }
+    return val;
+  });
+  return data;
+}
+
+export function Spinner({ size = 64, overlay = false, fill = false, variant = "spinner", color }: SpinnerProps) {
   const [animData, setAnimData] = useState(spinnerData);
+  const [dotsAnimData, setDotsAnimData] = useState(dotsData);
 
   useEffect(() => {
     if (variant !== "spinner") return;
@@ -55,9 +70,14 @@ export function Spinner({ size = 64, overlay = false, fill = false, variant = "s
     }
   }, [variant]);
 
+  useEffect(() => {
+    if (variant !== "dots" || !color) return;
+    setDotsAnimData(recolorDots(color) as typeof dotsData);
+  }, [variant, color]);
+
   const animation = (
     <Lottie
-      animationData={variant === "dots" ? dotsData : animData}
+      animationData={variant === "dots" ? dotsAnimData : animData}
       loop
       autoplay
       style={{ width: size, height: size }}
