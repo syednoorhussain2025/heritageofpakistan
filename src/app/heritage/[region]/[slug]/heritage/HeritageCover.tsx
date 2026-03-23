@@ -291,9 +291,13 @@ export default function HeritageCover({
       const fade = mobileFadeRef.current;
       if (!slide || !fade) return;
 
-      // Recalculate every scroll so late-loading images/fonts don't break the cached offset
-      const slideTopAbs = slide.getBoundingClientRect().top + window.scrollY;
+      // The slide is `sticky top-0`, so getBoundingClientRect().top is always 0 once stuck.
+      // Use offsetTop from the document root to get its original resting position.
       const slideH = slide.offsetHeight;
+      let slideTopAbs = 0;
+      let el: HTMLElement | null = slide;
+      while (el) { slideTopAbs += el.offsetTop; el = el.offsetParent as HTMLElement | null; }
+
       const fadeStart = slideH * 0.2;
       const fadeEnd = slideH * 0.85;
       const scrolledPast = window.scrollY - slideTopAbs;
