@@ -601,11 +601,18 @@ export default async function Page({ params }: HeritagePageProps) {
         .map((id) => byId.get(id))
         .filter(Boolean)
         .map((r: any) => {
-          const url = getCoverVariantUrl(r.storage_path);
+          const storagePath = (r.storage_path ?? "").trim();
+          let url: string | null = null;
+          if (/^https?:\/\//i.test(storagePath)) {
+            url = storagePath || null;
+          } else {
+            try { url = getVariantPublicUrl(storagePath, "lg"); } catch { /* noop */ }
+            if (!url) url = getCoverVariantUrl(r.storage_path);
+          }
           if (!url) return null;
           let thumbUrl: string | null = null;
-          if (!/^https?:\/\//i.test((r.storage_path ?? "").trim())) {
-            try { thumbUrl = getVariantPublicUrl(r.storage_path.trim(), "md"); } catch { /* noop */ }
+          if (!/^https?:\/\//i.test(storagePath)) {
+            try { thumbUrl = getVariantPublicUrl(storagePath, "md"); } catch { /* noop */ }
           }
           return {
             url,
