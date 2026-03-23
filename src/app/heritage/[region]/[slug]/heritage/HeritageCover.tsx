@@ -378,7 +378,7 @@ export default function HeritageCover({
       <section aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
         {slides.length > 0 ? (
           <div
-            className="relative w-full bg-black aspect-[5/4] overflow-hidden"
+            className="relative w-full bg-black overflow-hidden" style={{ minHeight: 400, height: "68vw", maxHeight: 520 }}
             onClick={isSingleSlide ? () => { if (typeof window !== "undefined") window.location.assign(galleryHref); } : undefined}
             style={isSingleSlide ? { cursor: "pointer" } : undefined}
           >
@@ -486,7 +486,7 @@ export default function HeritageCover({
             )}
           </div>
         ) : (
-          <div className="w-full aspect-[5/4] bg-gray-200" />
+          <div className="w-full bg-gray-200" style={{ minHeight: 400, height: "68vw", maxHeight: 520 }} />
         )}
 
         {/* Info block — overlaps hero with rounded top corners */}
