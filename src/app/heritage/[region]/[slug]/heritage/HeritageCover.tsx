@@ -128,17 +128,144 @@ export default function HeritageCover({
       : [];
 
   const hasSlideshow = slides.length > 1;
+  const isSingleSlide = slides.length <= 1;
+
+  // Derived hrefs (needed by touch effect closures — must be before effects)
+  const baseHeritagePath = site.province_slug
+    ? `/heritage/${site.province_slug}/${site.slug}`
+    : `/heritage/${site.slug}`;
+  const galleryHref = `${baseHeritagePath}/gallery`;
 
   const [slideIndex, setSlideIndex] = useState(0);
+  const slideIndexRef = useRef(0);
 
-  // Auto-advance slideshow every 5 seconds
+  // Mobile sliding track ref + transform helper
+  const mobileTrackRef = useRef<HTMLDivElement>(null);
+
+  const applyMobileTrackTransform = useRef((dx: number, atIdx: number, animated: boolean) => {
+    const el = mobileTrackRef.current;
+    if (!el) return;
+    const pct = slides.length > 1 ? -atIdx * (100 / slides.length) : 0;
+    el.style.transition = animated ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none";
+    el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
+  }).current;
+
+  // Auto-advance in a ref so touch handlers can pause/resume it
+  const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startAutoAdvance = useRef(() => {
+    if (!hasSlideshow) return;
+    if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+    autoTimerRef.current = setInterval(() => {
+      setSlideIndex((prev) => {
+        const next = (prev + 1) % slides.length;
+        slideIndexRef.current = next;
+        applyMobileTrackTransform(0, next, true);
+        return next;
+      });
+    }, 5000);
+  }).current;
+
+  const stopAutoAdvance = useRef(() => {
+    if (autoTimerRef.current) {
+      clearInterval(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+  }).current;
+
   useEffect(() => {
     if (!hasSlideshow) return;
-    const t = setInterval(() => {
-      setSlideIndex((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(t);
-  }, [hasSlideshow, slides.length]);
+    startAutoAdvance();
+    return () => stopAutoAdvance();
+  }, [hasSlideshow, slides.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pause auto-advance when tab/page is hidden
+  useEffect(() => {
+    if (!hasSlideshow) return;
+    const onVisChange = () => {
+      if (document.hidden) stopAutoAdvance();
+      else startAutoAdvance();
+    };
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
+  }, [hasSlideshow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Progress bar animation: resets each time slideIndex changes
+  const [progressKey, setProgressKey] = useState(0);
+  useEffect(() => {
+    if (hasSlideshow) setProgressKey((k) => k + 1);
+  }, [slideIndex, hasSlideshow]);
+
+  // Sync track position when slideIndex changes from dot clicks
+  useEffect(() => {
+    slideIndexRef.current = slideIndex;
+    applyMobileTrackTransform(0, slideIndex, true);
+  }, [slideIndex, applyMobileTrackTransform]);
+
+  // Native touch listeners for mobile sliding track (disabled for single image)
+  useEffect(() => {
+    const container = mobileTrackRef.current?.parentElement;
+    if (!container || !hasSlideshow || isSingleSlide) return;
+
+    type GestureState = {
+      startX: number; startY: number; dx: number;
+      locked: "none" | "horizontal" | "vertical";
+      currentIdx: number;
+    };
+    let g: GestureState | null = null;
+
+    const onStart = (e: TouchEvent) => {
+      stopAutoAdvance();
+      const t = e.touches[0];
+      g = { startX: t.clientX, startY: t.clientY, dx: 0, locked: "none", currentIdx: slideIndexRef.current };
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!g) return;
+      const dx = e.touches[0].clientX - g.startX;
+      const dy = e.touches[0].clientY - g.startY;
+      if (g.locked === "none") {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+        g.locked = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+      }
+      if (g.locked === "vertical") return;
+      e.preventDefault();
+      g.dx = dx;
+      const atStart = g.currentIdx === 0 && dx > 0;
+      const atEnd = g.currentIdx === slides.length - 1 && dx < 0;
+      applyMobileTrackTransform((atStart || atEnd) ? dx * 0.25 : dx, g.currentIdx, false);
+    };
+
+    const onEnd = () => {
+      if (!g) { startAutoAdvance(); return; }
+      // Genuine tap (no significant movement) → open gallery
+      if (g.locked === "none" && Math.abs(g.dx) < 10) {
+        g = null;
+        startAutoAdvance();
+        if (typeof window !== "undefined") window.location.assign(galleryHref);
+        return;
+      }
+      if (g.locked !== "horizontal") { g = null; startAutoAdvance(); return; }
+      const dx = g.dx;
+      let next = g.currentIdx;
+      if (dx < -50 && g.currentIdx < slides.length - 1) next = g.currentIdx + 1;
+      else if (dx > 50 && g.currentIdx > 0) next = g.currentIdx - 1;
+      g = null;
+      applyMobileTrackTransform(0, next, true);
+      slideIndexRef.current = next;
+      setSlideIndex(next);
+      startAutoAdvance();
+    };
+
+    container.addEventListener("touchstart", onStart, { passive: true });
+    container.addEventListener("touchmove", onMove, { passive: false });
+    container.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", onStart);
+      container.removeEventListener("touchmove", onMove);
+      container.removeEventListener("touchend", onEnd);
+    };
+  }, [hasSlideshow, isSingleSlide, slides.length, applyMobileTrackTransform, galleryHref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // For single-photo mode keep old loaded state; for slideshow track per slide
   const [heroLoaded, setHeroLoaded] = useState(false);
@@ -209,10 +336,6 @@ export default function HeritageCover({
       ? `https://www.google.com/maps?q=${lat},${lng}`
       : null;
 
-  const baseHeritagePath = site.province_slug
-    ? `/heritage/${site.province_slug}/${site.slug}`
-    : `/heritage/${site.slug}`;
-  const galleryHref = `${baseHeritagePath}/gallery`;
   const photoStoryHref = `${baseHeritagePath}/photo-story`;
 
   const scrollToSection = (ids: string[]) => {
@@ -249,118 +372,112 @@ export default function HeritageCover({
   return (
     <>
       {/* ---------- MOBILE HERO (phones) ---------- */}
-      <section aria-label="Hero" className="block md:hidden bg-white">
+      <section aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
         {slides.length > 0 ? (
           <div
             className="relative w-full bg-black aspect-[5/4] overflow-hidden"
-            onTouchStart={(e) => {
-              const t = e.touches[0];
-              (e.currentTarget as any)._swipeStartX = t.clientX;
-              (e.currentTarget as any)._swipeStartY = t.clientY;
-              (e.currentTarget as any)._swipeLocked = false;
-            }}
-            onTouchMove={(e) => {
-              const startX = (e.currentTarget as any)._swipeStartX;
-              const startY = (e.currentTarget as any)._swipeStartY;
-              if (startX == null) return;
-              const dx = e.touches[0].clientX - startX;
-              const dy = e.touches[0].clientY - startY;
-              // Lock axis on first meaningful movement
-              if (!(e.currentTarget as any)._swipeLocked && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
-                (e.currentTarget as any)._swipeLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-              }
-              if ((e.currentTarget as any)._swipeLocked === "x") {
-                e.preventDefault();
-              }
-            }}
-            onTouchEnd={(e) => {
-              const startX = (e.currentTarget as any)._swipeStartX;
-              const startY = (e.currentTarget as any)._swipeStartY;
-              if (startX == null || !hasSlideshow) return;
-              const dx = e.changedTouches[0].clientX - startX;
-              const dy = e.changedTouches[0].clientY - startY;
-              if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-              setSlideIndex((prev) =>
-                dx < 0
-                  ? (prev + 1) % slides.length
-                  : (prev - 1 + slides.length) % slides.length
-              );
-            }}
+            onClick={isSingleSlide ? () => { if (typeof window !== "undefined") window.location.assign(galleryHref); } : undefined}
+            style={isSingleSlide ? { cursor: "pointer" } : undefined}
           >
+            {/* Spinner while first image loads */}
             {showSpinner && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center">
+              <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                 <div className="h-10 w-10 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
               </div>
             )}
 
-            {/* Crossfade layers — one per slide */}
-            {slides.map((slide, i) => {
-              const isActive = i === slideIndex;
-              const slideBlurDataURL = slide.blurDataURL ?? undefined;
-              const slideBlurhash = slide.blurhash ?? null;
-              const slideW = slide.width ?? null;
-              const slideH = slide.height ?? null;
-              return (
-                <div
-                  key={slide.url + i}
-                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? "opacity-100 z-[2]" : "opacity-0 z-[1]"}`}
-                >
-                  {slideBlurDataURL && (
-                    <img
-                      src={slideBlurDataURL}
-                      alt=""
-                      className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${
-                        heroLoaded ? "opacity-0" : "opacity-100"
-                      }`}
-                      draggable={false}
-                    />
-                  )}
-                  {!slideBlurDataURL && slideBlurhash && slideW && slideH && (
-                    <div
-                      className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${
-                        heroLoaded ? "opacity-0" : "opacity-100"
-                      }`}
-                    >
-                      <BlurhashImage hash={slideBlurhash} width={slideW} height={slideH} />
-                    </div>
-                  )}
-                  <Image
-                    src={slide.thumbUrl ?? slide.url}
-                    alt={site.title}
-                    width={slideW ?? 1600}
-                    height={slideH ?? 900}
-                    sizes="100vw"
-                    priority={i === 0}
-                    placeholder="empty"
-                    unoptimized
-                    className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ${
-                      heroLoaded ? "opacity-100" : "opacity-0"
-                    }`}
-                    style={{ transform: "scale(1.07)", transformOrigin: "top center" }}
-                    draggable={false}
-                    onLoadingComplete={i === 0 ? handleHeroLoadComplete : undefined}
-                  />
-                </div>
-              );
-            })}
+            {/* Tap-to-open-gallery: handled via onClick on the container div below
+                (we track swipe distance and only navigate on genuine taps) */}
 
-            {/* Dot indicators — only when slideshow */}
+            {/* Sliding track */}
+            <div
+              ref={mobileTrackRef}
+              className="flex h-full"
+              style={{
+                width: slides.length > 1 ? `${slides.length * 100}%` : "100%",
+                willChange: "transform",
+              }}
+            >
+              {slides.map((slide, i) => {
+                const slideBlurDataURL = slide.blurDataURL ?? undefined;
+                const slideBlurhash = slide.blurhash ?? null;
+                const slideW = slide.width ?? null;
+                const slideH = slide.height ?? null;
+                return (
+                  <div
+                    key={slide.url + i}
+                    className="relative h-full flex-shrink-0 overflow-hidden"
+                    style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
+                  >
+                    {slideBlurDataURL && (
+                      <img
+                        src={slideBlurDataURL}
+                        alt=""
+                        className={`absolute inset-0 w-full h-full object-cover blur-lg scale-105 transition-opacity duration-700 ${heroLoaded ? "opacity-0" : "opacity-100"}`}
+                        draggable={false}
+                      />
+                    )}
+                    {!slideBlurDataURL && slideBlurhash && slideW && slideH && (
+                      <div className={`absolute inset-0 blur-lg scale-105 transition-opacity duration-700 ${heroLoaded ? "opacity-0" : "opacity-100"}`}>
+                        <BlurhashImage hash={slideBlurhash} width={slideW} height={slideH} />
+                      </div>
+                    )}
+                    <Image
+                      src={slide.thumbUrl ?? slide.url}
+                      alt={site.title}
+                      width={slideW ?? 1600}
+                      height={slideH ?? 900}
+                      sizes="100vw"
+                      priority={i === 0}
+                      placeholder="empty"
+                      unoptimized
+                      className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ${heroLoaded ? "opacity-100" : "opacity-0"}`}
+                      style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
+                      draggable={false}
+                      onLoadingComplete={i === 0 ? handleHeroLoadComplete : undefined}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Photo count badge — top right */}
+            {slides.length > 1 && (
+              <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
+                <Icon name="gallery" size={12} className="text-white/90" />
+                <span className="text-white text-[12px] font-medium leading-none">
+                  {slideIndex + 1} / {slides.length}
+                </span>
+              </div>
+            )}
+
+            {/* Progress bar strip (replaces dots) */}
             {hasSlideshow && (
-              <div className="absolute bottom-3 left-0 right-0 z-10 flex justify-center gap-2">
+              <div className="absolute bottom-0 left-0 right-0 z-10 flex gap-[3px] px-2 pb-2 pointer-events-none">
                 {slides.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setSlideIndex(i)}
-                    aria-label={`Go to slide ${i + 1}`}
-                    aria-current={i === slideIndex ? "true" : undefined}
-                    className={`rounded-full transition-all duration-300 ${
-                      i === slideIndex
-                        ? "h-2.5 w-2.5 bg-white shadow-md"
-                        : "h-2 w-2 bg-white/50 hover:bg-white/75"
-                    }`}
-                  />
+                  <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden bg-white/30">
+                    {i === slideIndex && (
+                      <div
+                        key={progressKey}
+                        className="h-full bg-white rounded-full"
+                        style={{
+                          animation: `progress-advance 5s linear forwards`,
+                        }}
+                      />
+                    )}
+                    {i < slideIndex && (
+                      <div className="h-full w-full bg-white rounded-full" />
+                    )}
+                  </div>
                 ))}
+              </div>
+            )}
+
+            {/* Single-photo gallery icon hint */}
+            {isSingleSlide && slides.length === 1 && (
+              <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
+                <Icon name="gallery" size={12} className="text-white/80" />
+                <span className="text-white text-[11px] font-medium">View Gallery</span>
               </div>
             )}
           </div>
@@ -368,23 +485,44 @@ export default function HeritageCover({
           <div className="w-full aspect-[5/4] bg-gray-200" />
         )}
 
-        {/* Info block below image */}
-        <div className="px-4 pt-4 pb-5 space-y-2">
-          <h1 className="font-hero-title text-3xl leading-tight text-black">
-            {site.title}
-          </h1>
-
-          {/* Location sits directly under title — no heading label */}
-          {site.location_free && (
-            <div className="flex items-center gap-1.5 text-[14px] text-slate-500">
-              <Icon name="map-marker-alt" className="text-slate-400 shrink-0" size={14} />
-              <span>{site.location_free}</span>
+        {/* Info block — overlaps hero with rounded top corners */}
+        <div
+          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2"
+          style={{ boxShadow: "0 -2px 12px rgba(0,0,0,0.06)" }}
+        >
+          {/* Heritage Type pill — above title */}
+          {site.heritage_type && (
+            <div className="pb-0.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold text-[var(--brand-orange)] bg-[var(--brand-orange)]/10">
+                <Icon name={getHeritageIcon(site.heritage_type)} size={11} className="text-[var(--brand-orange)]" />
+                {site.heritage_type}
+              </span>
             </div>
           )}
 
-          {/* Rating — yellow stars + green pill */}
+          <h1 className="font-hero-title text-3xl leading-tight text-black font-black">
+            {site.title}
+          </h1>
+
+          {/* Location — tappable, scrolls to map */}
+          {site.location_free && (
+            <button
+              type="button"
+              onClick={() => scrollToSection(["location"])}
+              className="flex items-center gap-1.5 text-[14px] text-slate-500 active:text-[var(--brand-blue)] text-left"
+            >
+              <Icon name="map-marker-alt" className="text-slate-400 shrink-0" size={14} />
+              <span>{site.location_free}</span>
+            </button>
+          )}
+
+          {/* Rating — amber pill + tappable row scrolls to reviews */}
           {hasRatingInfo && (
-            <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => scrollToSection(["reviews"])}
+              className="flex items-center gap-2 pt-0.5 active:opacity-70"
+            >
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span
@@ -397,46 +535,33 @@ export default function HeritageCover({
                 ))}
               </div>
               <span
-                className="inline-flex items-center gap-1 text-white text-[12px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ background: "var(--brand-green, #16a34a)" }}
+                className="inline-flex items-center text-white text-[12px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: "#f59e0b" }}
               >
                 {site.avg_rating?.toFixed(1)}
               </span>
-              <span className="text-[13px] text-slate-500">{site.review_count} reviews</span>
-            </div>
-          )}
-
-          {/* Heritage Type — orange pill */}
-          {site.heritage_type && (
-            <div className="pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold text-white"
-                style={{ background: "var(--brand-orange, #f97316)" }}>
-                <Icon name={getHeritageIcon(site.heritage_type)} size={12} className="text-white" />
-                {site.heritage_type}
+              <span className="text-[13px] text-slate-500">
+                {site.review_count
+                  ? `${site.review_count} review${site.review_count !== 1 ? "s" : ""}`
+                  : "No reviews yet"}
               </span>
-            </div>
+            </button>
           )}
 
           {site.tagline && (
-            <p className="text-[15px] leading-relaxed text-slate-700 pt-1">
+            <p className="text-[14px] leading-relaxed text-slate-500 italic pt-1">
               {site.tagline}
             </p>
           )}
-
-          {/* Reserved space for Photo Story button to avoid layout shift */}
-          <div className="pt-3 min-h-[52px]">
-            {hasPhotoStory && (
-              <a
-                href={`/heritage/${site.province_slug}/${site.slug}/photo-story`}
-                className="inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-medium shadow-md"
-                style={{ background: "var(--brand-orange)" }}
-              >
-                <Icon name="play" className="text-white text-lg" />
-                <span>Photo Story</span>
-              </a>
-            )}
-          </div>
         </div>
+
+        {/* Progress bar keyframe */}
+        <style jsx global>{`
+          @keyframes progress-advance {
+            from { width: 0%; }
+            to   { width: 100%; }
+          }
+        `}</style>
       </section>
 
       {/* ---------- DESKTOP/TABLET HERO ---------- */}
