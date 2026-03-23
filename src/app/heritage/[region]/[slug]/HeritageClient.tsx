@@ -327,7 +327,10 @@ export default function HeritageClient({
                 />
               </LazySection>
 
-              {/* 3. History and Background */}
+              {/* 3. Heritage Categories */}
+              <HeritageUpperArticle categories={categories} />
+
+              {/* 4. History and Background */}
               {site.history_layout_html && (
                 <HeritageSection
                   id="history"
