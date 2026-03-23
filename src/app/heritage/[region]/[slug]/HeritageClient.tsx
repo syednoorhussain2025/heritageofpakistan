@@ -264,7 +264,7 @@ export default function HeritageClient({
       {!site ? (
         <HeroSkeleton />
       ) : (
-        <HeritageCover site={site} hasPhotoStory={hasPhotoStory} />
+        <HeritageCover site={site} hasPhotoStory={hasPhotoStory} galleryCount={gallery.length} />
       )}
 
       {/* Sticky header, bookmarks, modals, research bubble (client island) */}

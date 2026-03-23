@@ -76,6 +76,7 @@ type SlideshowPhoto = {
 export default function HeritageCover({
   site,
   hasPhotoStory,
+  galleryCount,
 }: {
   site: {
     id: string;
@@ -107,6 +108,7 @@ export default function HeritageCover({
     slideshowPhotos?: SlideshowPhoto[] | null;
   };
   hasPhotoStory: boolean;
+  galleryCount?: number | null;
 }) {
   const cover = site.cover ?? null;
 
@@ -441,17 +443,7 @@ export default function HeritageCover({
               })}
             </div>
 
-            {/* Photo count badge — top right */}
-            {slides.length > 1 && (
-              <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
-                <Icon name="gallery" size={12} className="text-white/90" />
-                <span className="text-white text-[12px] font-medium leading-none">
-                  {slideIndex + 1} / {slides.length}
-                </span>
-              </div>
-            )}
-
-            {/* Progress bar strip (replaces dots) */}
+            {/* Progress bar strip */}
             {hasSlideshow && (
               <div className="absolute bottom-0 left-0 right-0 z-10 flex gap-[3px] px-2 pb-2 pointer-events-none">
                 {slides.map((_, i) => (
@@ -460,9 +452,7 @@ export default function HeritageCover({
                       <div
                         key={progressKey}
                         className="h-full bg-white rounded-full"
-                        style={{
-                          animation: `progress-advance 5s linear forwards`,
-                        }}
+                        style={{ animation: `progress-advance 5s linear forwards` }}
                       />
                     )}
                     {i < slideIndex && (
@@ -473,11 +463,13 @@ export default function HeritageCover({
               </div>
             )}
 
-            {/* Single-photo gallery icon hint */}
-            {isSingleSlide && slides.length === 1 && (
-              <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
-                <Icon name="gallery" size={12} className="text-white/80" />
-                <span className="text-white text-[11px] font-medium">View Gallery</span>
+            {/* Photo count badge — bottom right, total gallery count */}
+            {(galleryCount != null && galleryCount > 0) && (
+              <div className="absolute bottom-7 right-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
+                <Icon name="gallery" size={12} className="text-white/90" />
+                <span className="text-white text-[12px] font-medium leading-none">
+                  {galleryCount}
+                </span>
               </div>
             )}
           </div>
