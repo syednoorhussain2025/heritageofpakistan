@@ -465,9 +465,9 @@ export default function HeritageCover({
 
             {/* Photo count badge — bottom right, total gallery count */}
             {(galleryCount != null && galleryCount > 0) && (
-              <div className="absolute bottom-7 right-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 pointer-events-none">
-                <Icon name="gallery" size={12} className="text-white/90" />
-                <span className="text-white text-[12px] font-medium leading-none">
+              <div className="absolute bottom-7 right-3 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 pointer-events-none">
+                <Icon name="gallery" size={13} className="text-white/90" />
+                <span className="text-white text-[13px] font-medium leading-none">
                   {galleryCount}
                 </span>
               </div>
