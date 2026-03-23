@@ -193,13 +193,7 @@ export default function HeritageCover({
     return () => document.removeEventListener("visibilitychange", onVisChange);
   }, [hasSlideshow]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Progress bar animation: resets each time slideIndex changes
-  const [progressKey, setProgressKey] = useState(0);
-  useEffect(() => {
-    if (hasSlideshow) setProgressKey((k) => k + 1);
-  }, [slideIndex, hasSlideshow]);
-
-  // Sync track position when slideIndex changes from dot clicks
+// Sync track position when slideIndex changes from dot clicks
   useEffect(() => {
     slideIndexRef.current = slideIndex;
     applyMobileTrackTransform(0, slideIndex, true);
@@ -445,22 +439,14 @@ export default function HeritageCover({
               })}
             </div>
 
-            {/* Progress bar strip */}
+            {/* Pill dot indicators */}
             {hasSlideshow && (
-              <div className="absolute bottom-0 left-0 right-0 z-10 flex gap-[3px] px-2 pb-2 pointer-events-none">
+              <div className="absolute bottom-8 right-3 z-10 flex gap-1.5 pointer-events-none">
                 {slides.map((_, i) => (
-                  <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden bg-white/30">
-                    {i === slideIndex && (
-                      <div
-                        key={progressKey}
-                        className="h-full bg-white rounded-full"
-                        style={{ animation: `progress-advance 5s linear forwards` }}
-                      />
-                    )}
-                    {i < slideIndex && (
-                      <div className="h-full w-full bg-white rounded-full" />
-                    )}
-                  </div>
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-300 ${i === slideIndex ? "w-4 h-2 bg-white" : "w-2 h-2 bg-white/40"}`}
+                  />
                 ))}
               </div>
             )}
@@ -492,7 +478,7 @@ export default function HeritageCover({
 
         {/* Info block — overlaps hero with rounded top corners */}
         <div
-          className="relative bg-white -mt-7 px-4 pt-6 pb-5 space-y-2" style={{ borderRadius: "28px 28px 0 0" }}
+          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2"
           style={{ boxShadow: "0 -2px 12px rgba(0,0,0,0.06)" }}
         >
           {/* Heritage Type pill — above title */}
@@ -563,13 +549,6 @@ export default function HeritageCover({
           )}
         </div>
 
-        {/* Progress bar keyframe */}
-        <style jsx global>{`
-          @keyframes progress-advance {
-            from { width: 0%; }
-            to   { width: 100%; }
-          }
-        `}</style>
       </section>
 
       {/* ---------- DESKTOP/TABLET HERO ---------- */}
