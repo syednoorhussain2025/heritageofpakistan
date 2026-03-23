@@ -95,7 +95,7 @@ export default function HeritageUpperArticle({
             <span>Heritage Categories</span>
           </h2>
           {hasMore && (
-            <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-400 shrink-0">
+            <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
               <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
                 <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
               </svg>
