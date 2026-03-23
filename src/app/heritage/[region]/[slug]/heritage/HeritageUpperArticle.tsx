@@ -11,7 +11,7 @@ export default function HeritageUpperArticle({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [openMobile, setOpenMobile] = useState(false);
+  const [openMobile, setOpenMobile] = useState(true);
 
   const updateScrollState = () => {
     const el = scrollRef.current;
@@ -68,7 +68,7 @@ export default function HeritageUpperArticle({
         >
           <div className="flex items-center justify-between gap-3">
             <h2
-              className="flex items-center gap-2 text-[17px] font-semibold"
+              className="flex items-center gap-2 text-[22px] font-extrabold"
               style={{
                 color: "var(--brand-blue, #1f6be0)",
                 fontFamily: "var(--font-article-heading, inherit)",

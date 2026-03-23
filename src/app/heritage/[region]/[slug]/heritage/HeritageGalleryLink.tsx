@@ -68,7 +68,7 @@ export default function HeritageGalleryLink({
             className="text-[var(--brand-orange)] text-lg"
           />
           <h3
-            className="text-base sm:text-lg font-semibold"
+            className="text-[22px] sm:text-lg font-extrabold sm:font-semibold"
             style={{
               color: "var(--brand-blue, #1f6be0)",
               fontFamily: "var(--font-article-heading, inherit)",
@@ -98,11 +98,11 @@ export default function HeritageGalleryLink({
       noFrame
       hideHeader
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-6">
         {/* --------- Card: Photo Gallery (1st, earlier delay) --------- */}
         <div
           className={[
-            "rounded-2xl border border-black/5 bg-white shadow-sm overflow-hidden",
+            "bg-white border-b border-gray-100 overflow-hidden",
             "card-enter",
             mounted ? "card-enter--in" : "",
           ].join(" ")}
@@ -166,7 +166,7 @@ export default function HeritageGalleryLink({
         {/* --------- Card: Photo Story (2nd, later delay) --------- */}
         <div
           className={[
-            "rounded-2xl border border-black/5 bg-white shadow-sm overflow-hidden",
+            "bg-white border-b border-gray-100 overflow-hidden",
             "card-enter",
             mounted ? "card-enter--in" : "",
           ].join(" ")}
