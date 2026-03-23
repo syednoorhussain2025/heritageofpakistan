@@ -292,7 +292,7 @@ export default function HeritageCover({
       // Cache absolute top at mount (scroll is 0 at this point on page load)
       const slideTopAbs = slide.getBoundingClientRect().top + window.scrollY;
       const slideH = slide.offsetHeight;
-      const fadeStart = slideH * 0.4;
+      const fadeStart = slideH * 0.2;
       const fadeEnd = slideH * 0.85;
 
       const onScroll = () => {

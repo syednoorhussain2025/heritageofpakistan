@@ -129,10 +129,10 @@ export default function HeritageInteractions({
                 window.location.href = "/explore";
               }
             }}
-            className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
+            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
             aria-label="Go back"
           >
-            <Icon name="circle-arrow-left" size={30} className="text-white" />
+            <Icon name="circle-arrow-left" size={38} className="text-white" />
           </button>
           <div className="flex items-center gap-1">
             <button

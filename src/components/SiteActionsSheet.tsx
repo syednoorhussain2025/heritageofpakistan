@@ -89,7 +89,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
       closeTimerRef.current = null;
       setClosing(false);
       onClose();
-    }, 300);
+    }, 500);
   }, [onClose]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -136,7 +136,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         setClosing(false);
         onClose();
         if (el) el.style.transform = "";
-      }, 300);
+      }, 500);
     } else {
       if (el) el.style.transform = "translateY(0)";
     }
@@ -191,8 +191,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
     closeSheet();
   }
 
-  if (!mounted || (!isOpen && !closing)) return null;
-
   const provinceSlug = site.province_slug;
   const detailHref = provinceSlug
     ? `/heritage/${provinceSlug}/${site.slug}`
@@ -211,7 +209,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
 
   const visible = sheetVisible && !closing;
 
-  return createPortal(
+  const sheet = (!mounted || (!isOpen && !closing)) ? null : createPortal(
     <>
       {shareToast && (
         <div className="pointer-events-none fixed left-1/2 top-5 -translate-x-1/2 z-[9999] rounded-lg bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg">
@@ -219,28 +217,31 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         </div>
       )}
       <div className="fixed inset-0 z-[4000] touch-none">
-        {/* Backdrop */}
+        {/* Backdrop — blur + dark fade */}
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 touch-none ${visible ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 transition-all duration-500 ease-in-out touch-none ${visible ? "opacity-100 backdrop-blur-sm bg-black/40" : "opacity-0 backdrop-blur-none bg-black/0"}`}
           onClick={closeSheet}
           aria-hidden="true"
         />
 
-        {/* Sheet */}
+        {/* Sheet — slide up + fade in */}
         <div
           ref={sheetElRef}
-          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl transition-transform duration-300 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[82vh] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"}`}
         >
-          {/* Drag handle (visual only) */}
-          <div className="w-full flex justify-center pt-3 pb-2 shrink-0" aria-hidden="true">
+          {/* Drag handle — only this area triggers swipe-to-close */}
+          <div
+            className="w-full flex justify-center pt-3 pb-2 shrink-0 touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            aria-hidden="true"
+          >
             <div className="w-10 h-1 bg-gray-400/40 rounded-full" />
           </div>
 
-          {/* Site preview header */}
-          <div className="flex items-center gap-3 px-4 pt-3 pb-3 mx-0 border-b border-gray-200/60">
+          {/* Site preview header — fixed, does not scroll */}
+          <div className="flex items-center gap-3 px-4 pt-3 pb-3 mx-0 border-b border-gray-200/60 shrink-0">
             {(site.cover_photo_thumb_url || site.cover_photo_url) && (
               <img
                 src={getThumbOrVariantUrlNoTransform(site.cover_photo_url, "thumb") || site.cover_photo_thumb_url || ""}
@@ -258,37 +259,40 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             </div>
           </div>
 
-          {/* Primary actions group — white background, light grey border, dividers */}
-          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden border border-gray-100">
+          {/* Scrollable content */}
+          <div className="overflow-y-auto">
+
+          {/* Primary actions group */}
+          <div className="mx-4 mt-3 mb-3 bg-white rounded-2xl overflow-hidden">
             <button
               type="button"
-              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowWishlistModal(true), 310); }}
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowWishlistModal(true), 520); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="heart" size={18} className="text-gray-700" />
+                <Icon name="layout-list" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Save to List</span>
             </button>
             <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
-              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowTripModal(true), 310); }}
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowTripModal(true), 520); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="line-segments-light" size={18} className="text-gray-700" />
+                <Icon name="line-segments-light" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
             <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
-              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 310); }}
+              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 520); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="star" size={18} className="text-gray-700" />
+                <Icon name="star-light" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add Review</span>
             </button>
@@ -299,7 +303,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="nearby" size={18} className="text-gray-700" />
+                <Icon name="map-pin-area-light" size={22} className="text-gray-700" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">Places Nearby</span>
             </button>
@@ -310,21 +314,30 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="share-alt" size={18} className="text-gray-700" />
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                  <path d="M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4" />
+                  <path d="M14 3h7v7" />
+                  <path d="M21 3L11 13" />
+                </svg>
               </div>
               <span className="text-[15px] font-medium text-gray-900">Share</span>
             </button>
           </div>
 
           {/* Secondary actions group */}
-          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden border border-gray-100">
+          <div className="mx-4 mb-3 bg-white rounded-2xl overflow-hidden">
             <a
               href={galleryHref}
               onClick={() => { void hapticLight(); closeSheet(); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="gallery" size={18} className="text-gray-700" />
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                  <rect x="2" y="6" width="16" height="13" rx="2" />
+                  <path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-2" />
+                  <circle cx="8.5" cy="11.5" r="1.5" />
+                  <polyline points="5 19 9 14 11.5 16.5 14 14 18 19" />
+                </svg>
               </div>
               <span className="text-[15px] font-medium text-gray-900">Gallery</span>
             </a>
@@ -335,7 +348,10 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="book-open-text-light" size={18} className="text-gray-700" />
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                  <circle cx="12" cy="12" r="10" />
+                  <polygon points="10 8 16 12 10 16 10 8" />
+                </svg>
               </div>
               <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
             </a>
@@ -350,7 +366,10 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                    <Icon name="map-marker-alt" size={18} className="text-gray-700" />
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                      <circle cx="12" cy="9" r="2.5" />
+                    </svg>
                   </div>
                   <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
                 </a>
@@ -359,7 +378,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           </div>
 
           {/* Cancel */}
-          <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100">
+          <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden">
             <button
               type="button"
               onClick={() => { void hapticLight(); closeSheet(); }}
@@ -370,10 +389,18 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           </div>
 
           <div className="pb-[env(safe-area-inset-bottom,0.5rem)]" />
+          </div>{/* end scrollable content */}
         </div>
       </div>
 
-      {showWishlistModal && createPortal(
+    </>,
+    document.body
+  );
+
+  return (
+    <>
+      {sheet}
+      {mounted && showWishlistModal && createPortal(
         <AddToWishlistModal
           siteId={site.id}
           onClose={() => setShowWishlistModal(false)}
@@ -385,23 +412,20 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         />,
         document.body
       )}
-
-      {showTripModal && createPortal(
+      {mounted && showTripModal && createPortal(
         <AddToTripModal
           siteId={site.id}
           onClose={() => setShowTripModal(false)}
         />,
         document.body
       )}
-
-      {showReviewModal && (
+      {mounted && showReviewModal && (
         <ReviewModal
           open={showReviewModal}
           siteId={site.id}
           onClose={() => setShowReviewModal(false)}
         />
       )}
-    </>,
-    document.body
+    </>
   );
 }
