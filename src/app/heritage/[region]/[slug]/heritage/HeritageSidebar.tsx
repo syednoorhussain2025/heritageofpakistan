@@ -15,12 +15,21 @@ function GeneralInfoSlidePanel({
   rows: Array<{ k: string; v?: string | number | null }>;
   onClose: () => void;
 }) {
+  const [closing, setClosing] = useState(false);
+
+  function handleClose() {
+    setClosing(true);
+  }
+
   return createPortal(
-    <div className="fixed inset-0 z-[5000] bg-white flex flex-col animate-slide-in-right">
+    <div
+      className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
+      onAnimationEnd={() => { if (closing) onClose(); }}
+    >
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
           aria-label="Back"
         >
@@ -218,6 +227,62 @@ function SidebarAccordionSection({
 }) {
   const [openMobile, setOpenMobile] = useState(mobileDefaultOpen);
 
+  const titleEl = (
+    <h2
+      className="flex items-center gap-2 text-[22px] font-extrabold"
+      style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+    >
+      {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
+      <span>{title}</span>
+    </h2>
+  );
+
+  const chevronRight = (
+    <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
+      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+        <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+      </svg>
+    </span>
+  );
+
+  const chevronDown = (
+    <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
+      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}>
+        <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+      </svg>
+    </span>
+  );
+
+  /* When onHeaderTap is set: whole card is one tappable button on mobile */
+  if (onHeaderTap) {
+    return (
+      <section id={id} className="scroll-mt-[var(--sticky-offset)] bg-white">
+        <button
+          type="button"
+          onClick={onHeaderTap}
+          className="md:hidden w-full flex items-center justify-between gap-3 px-4 py-4 text-left cursor-pointer active:bg-slate-50"
+        >
+          {titleEl}
+          {chevronRight}
+        </button>
+        <div className="md:hidden px-4 pb-4">
+          {children}
+        </div>
+        {/* Desktop: static heading + content */}
+        <div className="hidden md:block p-4">
+          <h2
+            className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+            style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+          >
+            {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
+            <span>{title}</span>
+          </h2>
+          {children}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-white p-4">
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
@@ -225,52 +290,18 @@ function SidebarAccordionSection({
       <button
         type="button"
         className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
-        onClick={onHeaderTap ? onHeaderTap : () => setOpenMobile((prev) => !prev)}
-        aria-expanded={onHeaderTap ? undefined : openMobile}
+        onClick={() => setOpenMobile((prev) => !prev)}
+        aria-expanded={openMobile}
       >
-        <h2
-          className="flex items-center gap-2 text-[22px] font-extrabold"
-          style={{
-            color: "var(--brand-blue, #1f6be0)",
-            fontFamily: "var(--font-article-heading, inherit)",
-          }}
-        >
-          {iconName ? (
-            <Icon
-              name={iconName}
-              size={18}
-              className="text-[var(--brand-orange)]"
-            />
-          ) : null}
-          <span>{title}</span>
-        </h2>
-        <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
-          {onHeaderTap ? (
-            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-              <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}>
-              <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-            </svg>
-          )}
-        </span>
+        {titleEl}
+        {chevronDown}
       </button>
 
       <h2
         className="mb-3 hidden md:flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
-        style={{
-          color: "var(--brand-blue, #1f6be0)",
-          fontFamily: "var(--font-article-heading, inherit)",
-        }}
+        style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
       >
-        {iconName ? (
-          <Icon
-            name={iconName}
-            size={18}
-            className="text-[var(--brand-orange)]"
-          />
-        ) : null}
+        {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
         <span>{title}</span>
       </h2>
 

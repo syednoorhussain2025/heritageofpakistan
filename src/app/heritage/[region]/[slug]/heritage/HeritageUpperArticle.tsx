@@ -40,12 +40,21 @@ function CategoriesSlidePanel({
   categories: Taxonomy[];
   onClose: () => void;
 }) {
+  const [closing, setClosing] = useState(false);
+
+  function handleClose() {
+    setClosing(true);
+  }
+
   return createPortal(
-    <div className="fixed inset-0 z-[5000] bg-white flex flex-col animate-slide-in-right">
+    <div
+      className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
+      onAnimationEnd={() => { if (closing) onClose(); }}
+    >
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
           aria-label="Back"
         >
@@ -77,19 +86,16 @@ export default function HeritageUpperArticle({
 
   return (
     <>
-      <HeritageSection id="categories" title="" hideHeader>
-        {/* Mobile heading — tappable if there are more categories */}
+      {/* Mobile: whole card is one tap target */}
+      <section className="md:hidden bg-white">
         <button
           type="button"
-          className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
           onClick={hasMore ? () => setShowPanel(true) : undefined}
+          className="w-full flex items-center justify-between gap-3 px-4 py-4 text-left cursor-pointer active:bg-slate-50"
         >
           <h2
             className="flex items-center gap-2 text-[22px] font-extrabold"
-            style={{
-              color: "var(--brand-blue, #1f6be0)",
-              fontFamily: "var(--font-article-heading, inherit)",
-            }}
+            style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
           >
             <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
             <span>Heritage Categories</span>
@@ -102,43 +108,36 @@ export default function HeritageUpperArticle({
             </span>
           )}
         </button>
-
-        {/* Desktop heading */}
-        <h2
-          className="mb-3 hidden md:flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
-          style={{
-            color: "var(--brand-blue, #1f6be0)",
-            fontFamily: "var(--font-article-heading, inherit)",
-          }}
-        >
-          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
-          <span>Heritage Categories</span>
-        </h2>
-
-        {/* Mobile: preview 3 + see all row */}
-        <div className="md:hidden">
+        <div className="px-4 pb-4">
           {categories.length > 0 ? (
-            <>
-              <div className="space-y-4">
-                {previewCats.map((c) => (
-                  <CategoryItem key={c.id} c={c} />
-                ))}
-              </div>
-              {showPanel && (
-                <CategoriesSlidePanel
-                  categories={categories}
-                  onClose={() => setShowPanel(false)}
-                />
-              )}
-            </>
+            <div className="space-y-4">
+              {previewCats.map((c) => (
+                <CategoryItem key={c.id} c={c} />
+              ))}
+            </div>
           ) : (
             <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
               No categories assigned.
             </div>
           )}
         </div>
+        {showPanel && (
+          <CategoriesSlidePanel
+            categories={categories}
+            onClose={() => setShowPanel(false)}
+          />
+        )}
+      </section>
 
-        {/* Desktop: full scrollable grid (unchanged) */}
+      {/* Desktop: full scrollable grid (unchanged) */}
+      <HeritageSection id="categories" title="" hideHeader>
+        <h2
+          className="mb-3 hidden md:flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
+          style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+        >
+          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
+          <span>Heritage Categories</span>
+        </h2>
         <div className="hidden md:block">
           {categories.length > 0 ? (
             <div className="relative">
