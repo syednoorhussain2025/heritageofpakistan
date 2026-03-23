@@ -1,7 +1,7 @@
 // src/app/heritage/[slug]/story/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
@@ -122,6 +122,24 @@ export default function PhotoStoryClient() {
   const [items, setItems] = useState<PhotoStoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Slide-in from right on mobile
+  const pageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el || window.innerWidth >= 768) return;
+    el.style.transform = "translateX(100%)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)";
+      el.style.transform = "translateX(0)";
+      el.addEventListener("transitionend", () => {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.style.willChange = "";
+      }, { once: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Shared ref to prevent scroll/keyboard handlers from firing simultaneously
   const autoScrolling = useRef(false);
@@ -358,7 +376,7 @@ export default function PhotoStoryClient() {
     );
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div ref={pageRef} className="min-h-screen bg-black text-white overflow-x-hidden" style={{ willChange: "transform" }}>
       <style jsx global>{`
         body > header,
         header.site-header,

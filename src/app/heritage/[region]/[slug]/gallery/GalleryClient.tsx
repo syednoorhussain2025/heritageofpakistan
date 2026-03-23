@@ -3,6 +3,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useCallback,
@@ -294,6 +295,24 @@ export default function GalleryClient({
   const { toggleCollect } = useCollections();
   const { ensureSignedIn } = useSignedInActions();
 
+  // Slide-in from right on mobile (same pattern as HeritageClient)
+  const pageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el || window.innerWidth >= 768) return;
+    el.style.transform = "translateX(100%)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)";
+      el.style.transform = "translateX(0)";
+      el.addEventListener("transitionend", () => {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.style.willChange = "";
+      }, { once: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const [site] = useState<SiteHeaderInfo | null>(initialSite);
   const [photos, setPhotos] = useState<LightboxPhoto[]>(initialPhotos);
   const [loading] = useState(false);
@@ -422,7 +441,7 @@ export default function GalleryClient({
   }, [photos, site?.cover_photo_url]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile teal header with back button */}
       <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
         <button
