@@ -466,7 +466,13 @@ export default function HeritageCover({
             {/* Photo count badge — bottom right, total gallery count */}
             {(galleryCount != null && galleryCount > 0) && (
               <div className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 pointer-events-none">
-                <Icon name="gallery" size={14} className="text-white/90" />
+                {/* images icon — two stacked photo frames */}
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-white/90 shrink-0">
+                  <rect x="2" y="6" width="16" height="13" rx="2" />
+                  <path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-2" />
+                  <circle cx="8.5" cy="11.5" r="1.5" />
+                  <polyline points="5 19 9 14 11.5 16.5 14 14 18 19" />
+                </svg>
                 <span className="text-white text-[14px] font-medium leading-none">
                   {galleryCount}
                 </span>
