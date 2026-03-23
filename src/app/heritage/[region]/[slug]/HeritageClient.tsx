@@ -189,6 +189,7 @@ export default function HeritageClient({
   useLayoutEffect(() => {
     const el = pageRef.current;
     if (!el || window.innerWidth >= 768) return;
+    el.style.overflowX = "hidden";
     el.style.transform = "translateX(100%)";
     const raf = requestAnimationFrame(() => {
       el.style.transition = "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)";
@@ -197,6 +198,7 @@ export default function HeritageClient({
         el.style.transition = "";
         el.style.transform = "";
         el.style.willChange = "";
+        el.style.overflowX = "";
       }, { once: true });
     });
     return () => cancelAnimationFrame(raf);
@@ -259,7 +261,7 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8] overflow-x-hidden" style={{ willChange: "transform" }}>
+    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8]" style={{ willChange: "transform" }}>
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />

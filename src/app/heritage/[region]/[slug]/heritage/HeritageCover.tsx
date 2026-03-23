@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 import AddToTripModal from "@/components/AddToTripModal";
@@ -111,6 +112,7 @@ export default function HeritageCover({
   hasPhotoStory: boolean;
   galleryCount?: number | null;
 }) {
+  const router = useRouter();
   const cover = site.cover ?? null;
 
   // Priority:
@@ -240,8 +242,7 @@ export default function HeritageCover({
         g = null;
         startAutoAdvance();
         void hapticLight();
-        setSlidePressed(true);
-        setTimeout(() => { setSlidePressed(false); if (typeof window !== "undefined") window.location.assign(galleryHref); }, 120);
+        router.push(galleryHref);
         return;
       }
       if (g.locked !== "horizontal") { g = null; startAutoAdvance(); return; }
@@ -273,6 +274,37 @@ export default function HeritageCover({
 
   const heroRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const mobileSlideRef = useRef<HTMLDivElement | null>(null);
+  const mobileFadeRef = useRef<HTMLDivElement | null>(null);
+
+  // Mobile: fade slideshow to white as content scrolls over it
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    let cleanup: (() => void) | undefined;
+
+    const raf = requestAnimationFrame(() => {
+      const slide = mobileSlideRef.current;
+      const fade = mobileFadeRef.current;
+      if (!slide || !fade) return;
+
+      // Cache absolute top at mount (scroll is 0 at this point on page load)
+      const slideTopAbs = slide.getBoundingClientRect().top + window.scrollY;
+      const slideH = slide.offsetHeight;
+      const fadeStart = slideH * 0.4;
+      const fadeEnd = slideH * 0.85;
+
+      const onScroll = () => {
+        const scrolledPast = window.scrollY - slideTopAbs;
+        const opacity = Math.min(1, Math.max(0, (scrolledPast - fadeStart) / (fadeEnd - fadeStart)));
+        fade.style.opacity = String(opacity);
+      };
+
+      window.addEventListener("scroll", onScroll, { passive: true });
+      cleanup = () => window.removeEventListener("scroll", onScroll);
+    });
+
+    return () => { cancelAnimationFrame(raf); cleanup?.(); };
+  }, []);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -375,12 +407,13 @@ export default function HeritageCover({
       <section aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
         {slides.length > 0 ? (
           <div
-            className="relative w-full bg-black overflow-hidden"
+            ref={mobileSlideRef}
+            className="sticky top-0 z-0 relative w-full bg-black overflow-hidden"
             style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
-            onClick={isSingleSlide ? () => { void hapticLight(); setSlidePressed(true); setTimeout(() => { setSlidePressed(false); if (typeof window !== "undefined") window.location.assign(galleryHref); }, 120); } : undefined}
+            onClick={isSingleSlide ? () => { void hapticLight(); router.push(galleryHref); } : undefined}
           >
-            {/* Press feedback overlay */}
-            <div className={`absolute inset-0 z-30 pointer-events-none bg-black transition-opacity duration-100 ${slidePressed ? "opacity-20" : "opacity-0"}`} />
+            {/* White fade overlay — animates on scroll */}
+            <div ref={mobileFadeRef} className="absolute inset-0 z-20 pointer-events-none bg-[#f8f8f8]" style={{ opacity: 0 }} />
 
             {/* Spinner while first image loads */}
             {showSpinner && (
@@ -459,11 +492,11 @@ export default function HeritageCover({
 
             {/* Photo count badge — bottom right, total gallery count */}
             {(galleryCount != null && galleryCount > 0) && (
-              <a
-                href={galleryHref}
+              <button
+                type="button"
                 aria-label={`View all ${galleryCount} photos`}
                 className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 active:bg-black/70 active:scale-95 transition-transform duration-100"
-                onClick={() => void hapticLight()}
+                onClick={() => { void hapticLight(); router.push(galleryHref); }}
               >
                 {/* images icon — two stacked photo frames */}
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-white/90 shrink-0">
@@ -475,16 +508,16 @@ export default function HeritageCover({
                 <span className="text-white text-[14px] font-medium leading-none">
                   {galleryCount}
                 </span>
-              </a>
+              </button>
             )}
           </div>
         ) : (
           <div className="w-full bg-gray-200" style={{ minHeight: 440, height: "120vw", maxHeight: 580 }} />
         )}
 
-        {/* Info block — overlaps hero with rounded top corners */}
+        {/* Info block — overlaps hero with rounded top corners, slides over sticky hero */}
         <div
-          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2"
+          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2 z-10"
           style={{ boxShadow: "0 -2px 12px rgba(0,0,0,0.06)" }}
         >
           {/* Heritage Type pill — above title */}
