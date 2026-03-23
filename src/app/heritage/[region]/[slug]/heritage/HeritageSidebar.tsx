@@ -2,8 +2,43 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+
+const MOBILE_PREVIEW_ROWS = 4;
+
+function GeneralInfoSlidePanel({
+  rows,
+  onClose,
+}: {
+  rows: Array<{ k: string; v?: string | number | null }>;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div className="fixed inset-0 z-[5000] bg-white flex flex-col animate-slide-in-right">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+          </svg>
+        </button>
+        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">General Information</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {rows.map((row, idx) => (
+          <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+        ))}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 /** Minimal shape for the guide summary we may receive from server */
 type TravelGuideSummary = {
@@ -127,7 +162,7 @@ const LANDFORM_MAP: Record<
   lake_basin: "Lake Basin",
   steppe: "Steppe",
 };
-const MOBILE_GENERAL_INFO_PREVIEW_ROWS = 8;
+// MOBILE_GENERAL_INFO_PREVIEW_ROWS replaced by MOBILE_PREVIEW_ROWS above
 
 /* ---- Key/value row ---- */
 function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
@@ -422,7 +457,7 @@ export default function HeritageSidebar({
     site.stay_places_to_eat_available,
     ov
   );
-  const [showAllGeneralInfo, setShowAllGeneralInfo] = useState(false);
+  const [showGeneralInfoPanel, setShowGeneralInfoPanel] = useState(false);
 
   const generalInfoRows: Array<{ k: string; v?: string | number | null }> = [
     { k: "Heritage Type", v: site.heritage_type },
@@ -450,13 +485,8 @@ export default function HeritageSidebar({
   const availableGeneralInfoRows = generalInfoRows.filter((row) =>
     hasDisplayValue(row.v)
   );
-  const visibleGeneralInfoRows = showAllGeneralInfo
-    ? availableGeneralInfoRows
-    : availableGeneralInfoRows.slice(0, MOBILE_GENERAL_INFO_PREVIEW_ROWS);
-  const remainingGeneralInfoCount = Math.max(
-    0,
-    availableGeneralInfoRows.length - MOBILE_GENERAL_INFO_PREVIEW_ROWS
-  );
+  const previewGeneralInfoRows = availableGeneralInfoRows.slice(0, MOBILE_PREVIEW_ROWS);
+  const hasMoreGeneralInfo = availableGeneralInfoRows.length > MOBILE_PREVIEW_ROWS;
 
   /* ---------------------------- UI ---------------------------- */
   const unescoStatus = site.unesco_status
@@ -599,41 +629,26 @@ export default function HeritageSidebar({
             mobileDefaultOpen
           >
             <div className="md:hidden">
-              {visibleGeneralInfoRows.map((row, idx) => (
+              {previewGeneralInfoRows.map((row, idx) => (
                 <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
               ))}
-
-              {remainingGeneralInfoCount > 0 && (
+              {hasMoreGeneralInfo && (
                 <button
                   type="button"
-                  onClick={() => setShowAllGeneralInfo((prev) => !prev)}
-                  aria-expanded={showAllGeneralInfo}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-50"
+                  onClick={() => setShowGeneralInfoPanel(true)}
+                  className="mt-3 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
                 >
-                  <span>
-                    {showAllGeneralInfo
-                      ? "See Less"
-                      : `See More (${remainingGeneralInfoCount} more)`}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex transition-transform duration-200"
-                    style={{
-                      transform: showAllGeneralInfo
-                        ? "rotate(180deg)"
-                        : "rotate(0deg)",
-                    }}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      width="14"
-                      height="14"
-                      fill="currentColor"
-                    >
-                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-                    </svg>
-                  </span>
+                  <span>See all details</span>
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
+                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                  </svg>
                 </button>
+              )}
+              {showGeneralInfoPanel && (
+                <GeneralInfoSlidePanel
+                  rows={availableGeneralInfoRows}
+                  onClose={() => setShowGeneralInfoPanel(false)}
+                />
               )}
             </div>
 
@@ -773,35 +788,26 @@ export default function HeritageSidebar({
             mobileDefaultOpen
           >
             <div className="md:hidden">
-              {visibleGeneralInfoRows.map((row, idx) => (
+              {previewGeneralInfoRows.map((row, idx) => (
                 <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
               ))}
-              {remainingGeneralInfoCount > 0 && (
+              {hasMoreGeneralInfo && (
                 <button
                   type="button"
-                  onClick={() => setShowAllGeneralInfo((prev) => !prev)}
-                  aria-expanded={showAllGeneralInfo}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-50"
+                  onClick={() => setShowGeneralInfoPanel(true)}
+                  className="mt-3 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
                 >
-                  <span>
-                    {showAllGeneralInfo
-                      ? "See Less"
-                      : `See More (${remainingGeneralInfoCount} more)`}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex transition-transform duration-200"
-                    style={{
-                      transform: showAllGeneralInfo
-                        ? "rotate(180deg)"
-                        : "rotate(0deg)",
-                    }}
-                  >
-                    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-                      <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-                    </svg>
-                  </span>
+                  <span>See all details</span>
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
+                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                  </svg>
                 </button>
+              )}
+              {showGeneralInfoPanel && (
+                <GeneralInfoSlidePanel
+                  rows={availableGeneralInfoRows}
+                  onClose={() => setShowGeneralInfoPanel(false)}
+                />
               )}
             </div>
           </SidebarAccordionSection>

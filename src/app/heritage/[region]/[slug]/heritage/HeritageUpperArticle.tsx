@@ -1,98 +1,96 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import HeritageSection from "./HeritageSection";
 import { Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+
+const MOBILE_CAT_PREVIEW = 3;
+
+function CategoryItem({ c }: { c: Taxonomy }) {
+  const iconKey = (c.icon_key || "").trim();
+  return (
+    <a
+      href={`/explore?cats=${c.id}`}
+      className="group inline-flex items-center gap-2 transition-transform duration-200 hover:-translate-y-0.5"
+    >
+      <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)] flex items-center justify-center flex-shrink-0">
+        {c.icon_svg ? (
+          <span
+            className="inline-block hop-category-svg text-white leading-none"
+            style={{ fontSize: 16 }}
+            // Icon SVG content is sanitized before persistence in admin.
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: c.icon_svg }}
+          />
+        ) : iconKey ? (
+          <Icon name={iconKey} size={16} className="text-white" />
+        ) : null}
+      </div>
+      <span className="font-category-chip transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
+        {c.name}
+      </span>
+    </a>
+  );
+}
+
+function CategoriesSlidePanel({
+  categories,
+  onClose,
+}: {
+  categories: Taxonomy[];
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div className="fixed inset-0 z-[5000] bg-white flex flex-col animate-slide-in-right">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+          </svg>
+        </button>
+        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">Heritage Categories</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {categories.map((c) => (
+          <CategoryItem key={c.id} c={c} />
+        ))}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export default function HeritageUpperArticle({
   categories,
 }: {
   categories: Taxonomy[];
 }) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [openMobile, setOpenMobile] = useState(true);
+  const [showPanel, setShowPanel] = useState(false);
 
-  const updateScrollState = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const left = el.scrollLeft > 2;
-    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
-    setCanScrollLeft(left);
-    setCanScrollRight(right);
-  };
-
-  useEffect(() => {
-    updateScrollState();
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const onScroll = () => updateScrollState();
-    const onResize = () => updateScrollState();
-
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [categories.length]);
-
-  const scrollRight = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: 280, behavior: "smooth" });
-  };
-
-  const scrollLeft = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: -280, behavior: "smooth" });
-  };
+  const previewCats = categories.slice(0, MOBILE_CAT_PREVIEW);
+  const hasMore = categories.length > MOBILE_CAT_PREVIEW;
 
   return (
     <>
-      {/* Removed the Photo Story section */}
-
       <HeritageSection id="categories" title="" hideHeader>
-        <button
-          type="button"
-          className="md:hidden mb-3 w-full text-left cursor-pointer"
-          onClick={() => setOpenMobile((prev) => !prev)}
-          aria-expanded={openMobile}
+        {/* Mobile heading — no toggle, just a static label */}
+        <h2
+          className="md:hidden mb-3 flex items-center gap-2 text-[22px] font-extrabold"
+          style={{
+            color: "var(--brand-blue, #1f6be0)",
+            fontFamily: "var(--font-article-heading, inherit)",
+          }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              className="flex items-center gap-2 text-[22px] font-extrabold"
-              style={{
-                color: "var(--brand-blue, #1f6be0)",
-                fontFamily: "var(--font-article-heading, inherit)",
-              }}
-            >
-              <Icon
-                name="heritage-categories"
-                size={18}
-                className="text-[var(--brand-orange)]"
-              />
-              <span>Heritage Categories</span>
-            </h2>
-            <span
-              aria-hidden="true"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-transform duration-200"
-              style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}
-            >
-              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-                <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-              </svg>
-            </span>
-          </div>
-        </button>
+          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
+          <span>Heritage Categories</span>
+        </h2>
 
+        {/* Desktop heading */}
         <h2
           className="mb-3 hidden md:flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
           style={{
@@ -100,104 +98,59 @@ export default function HeritageUpperArticle({
             fontFamily: "var(--font-article-heading, inherit)",
           }}
         >
-          <Icon
-            name="heritage-categories"
-            size={18}
-            className="text-[var(--brand-orange)]"
-          />
+          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
           <span>Heritage Categories</span>
         </h2>
 
-        <div className={`${openMobile ? "block" : "hidden"} md:block`}>
+        {/* Mobile: preview 3 + see all row */}
+        <div className="md:hidden">
+          {categories.length > 0 ? (
+            <>
+              <div className="space-y-4">
+                {previewCats.map((c) => (
+                  <CategoryItem key={c.id} c={c} />
+                ))}
+              </div>
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={() => setShowPanel(true)}
+                  className="mt-4 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
+                >
+                  <span>See all categories</span>
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
+                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                  </svg>
+                </button>
+              )}
+              {showPanel && (
+                <CategoriesSlidePanel
+                  categories={categories}
+                  onClose={() => setShowPanel(false)}
+                />
+              )}
+            </>
+          ) : (
+            <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+              No categories assigned.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: full scrollable grid (unchanged) */}
+        <div className="hidden md:block">
           {categories.length > 0 ? (
             <div className="relative">
-              <div
-                ref={scrollRef}
-                className="hop-cats-scroll overflow-x-auto overflow-y-hidden pr-14"
-              >
+              <div className="hop-cats-scroll overflow-x-auto overflow-y-hidden pr-14">
                 <div className="grid grid-rows-3 grid-flow-col auto-cols-max gap-x-5 gap-y-4 min-w-max">
-                  {categories.map((c) => {
-                    const iconKey = (c.icon_key || "").trim();
-
-                    return (
-                      <a
-                        key={c.id}
-                        href={`/explore?cats=${c.id}`}
-                        className="group inline-flex items-center gap-2 transition-transform duration-200 hover:-translate-y-0.5"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)] flex items-center justify-center flex-shrink-0">
-                          {c.icon_svg ? (
-                            <span
-                              className="inline-block hop-category-svg text-white leading-none"
-                              style={{ fontSize: 16 }}
-                              // Icon SVG content is sanitized before persistence in admin.
-                              // eslint-disable-next-line react/no-danger
-                              dangerouslySetInnerHTML={{ __html: c.icon_svg }}
-                            />
-                          ) : iconKey ? (
-                            <Icon
-                              name={iconKey}
-                              size={16}
-                              className="text-white"
-                            />
-                          ) : null}
-                        </div>
-                        <span className="font-category-chip transition-colors duration-200 group-hover:text-[var(--brand-orange)]">
-                          {c.name}
-                        </span>
-                      </a>
-                    );
-                  })}
+                  {categories.map((c) => (
+                    <CategoryItem key={c.id} c={c} />
+                  ))}
                 </div>
               </div>
-
-              {categories.length > 3 && canScrollLeft && (
-                <div className="absolute inset-y-0 left-0 flex items-center pl-1 z-10 pointer-events-none">
-                  <button
-                    type="button"
-                    aria-label="Scroll categories left"
-                    className="relative z-[1] pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 border border-slate-200 text-slate-500 shadow-sm cursor-pointer transition-colors duration-200 hover:bg-[var(--brand-orange)] hover:border-[var(--brand-orange)] hover:text-white"
-                    onClick={scrollLeft}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {categories.length > 3 && canScrollRight && (
-                <div className="absolute inset-y-0 right-0 flex items-center pr-1 z-10 pointer-events-none">
-                  <button
-                    type="button"
-                    aria-label="Scroll categories right"
-                    className="relative z-[1] pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 border border-slate-200 text-slate-500 shadow-sm cursor-pointer transition-colors duration-200 hover:bg-[var(--brand-orange)] hover:border-[var(--brand-orange)] hover:text-white"
-                    onClick={scrollRight}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-                    </svg>
-                  </button>
-                </div>
-              )}
             </div>
           ) : (
-            <div
-              className="text-[13px]"
-              style={{ color: "var(--muted-foreground, #5b6b84)" }}
-            >
+            <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
               No categories assigned.
             </div>
           )}
