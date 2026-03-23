@@ -3,6 +3,7 @@
 import Lottie from "lottie-react";
 import { useEffect, useState } from "react";
 import spinnerData from "../../../public/spinner.json";
+import dotsData from "../../../public/dots-loader.json";
 
 interface SpinnerProps {
   /** Size of the spinner in px. Default: 64 */
@@ -11,6 +12,8 @@ interface SpinnerProps {
   overlay?: boolean;
   /** Show as a centered block filling its parent container. Default: false */
   fill?: boolean;
+  /** Animation variant. Default: "spinner" */
+  variant?: "spinner" | "dots";
 }
 
 function hexToLottieRgb(hex: string): [number, number, number] {
@@ -41,22 +44,23 @@ function tintSpinner(brandGreen: string) {
   return data;
 }
 
-export function Spinner({ size = 64, overlay = false, fill = false }: SpinnerProps) {
+export function Spinner({ size = 64, overlay = false, fill = false, variant = "spinner" }: SpinnerProps) {
   const [animData, setAnimData] = useState(spinnerData);
 
   useEffect(() => {
+    if (variant !== "spinner") return;
     const green = getComputedStyle(document.documentElement).getPropertyValue("--brand-green").trim();
     if (green && green.startsWith("#")) {
       setAnimData(tintSpinner(green) as typeof spinnerData);
     }
-  }, []);
+  }, [variant]);
 
   const animation = (
     <Lottie
-      animationData={animData}
+      animationData={variant === "dots" ? dotsData : animData}
       loop
       autoplay
-style={{ width: size, height: size }}
+      style={{ width: size, height: size }}
     />
   );
 
