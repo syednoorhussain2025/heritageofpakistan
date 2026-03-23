@@ -465,7 +465,11 @@ export default function HeritageCover({
 
             {/* Photo count badge — bottom right, total gallery count */}
             {(galleryCount != null && galleryCount > 0) && (
-              <div className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 pointer-events-none">
+              <a
+                href={galleryHref}
+                aria-label={`View all ${galleryCount} photos`}
+                className="absolute bottom-7 right-3 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2.5 active:bg-black/70 active:scale-95 transition-transform duration-100"
+              >
                 {/* images icon — two stacked photo frames */}
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-white/90 shrink-0">
                   <rect x="2" y="6" width="16" height="13" rx="2" />
@@ -476,7 +480,7 @@ export default function HeritageCover({
                 <span className="text-white text-[14px] font-medium leading-none">
                   {galleryCount}
                 </span>
-              </div>
+              </a>
             )}
           </div>
         ) : (
