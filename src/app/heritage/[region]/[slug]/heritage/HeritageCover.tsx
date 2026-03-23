@@ -8,6 +8,8 @@ import Icon from "@/components/Icon";
 import { decode } from "blurhash";
 import AddToTripModal from "@/components/AddToTripModal";
 import { hapticLight } from "@/lib/haptics";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { getListsContainingSite } from "@/lib/wishlists";
 
 const AddToWishlistModal = dynamic(
   () => import("@/components/AddToWishlistModal"),
@@ -360,6 +362,15 @@ export default function HeritageCover({
     site.avg_rating != null || site.review_count != null;
   const [showTripModal, setShowTripModal] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const { userId } = useAuthUserId();
+
+  useEffect(() => {
+    if (!userId || !site.id) return;
+    getListsContainingSite(site.id).then((lists) => {
+      setIsSaved(Array.isArray(lists) && lists.length > 0);
+    }).catch(() => {});
+  }, [userId, site.id]);
 
   const lat = site.latitude != null ? Number(site.latitude) : null;
   const lng = site.longitude != null ? Number(site.longitude) : null;
@@ -530,9 +541,25 @@ export default function HeritageCover({
             </div>
           )}
 
-          <h1 className="font-hero-title text-3xl leading-tight text-black font-black">
-            {site.title}
-          </h1>
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="font-hero-title text-3xl leading-tight text-black font-black flex-1">
+              {site.title}
+            </h1>
+            <button
+              type="button"
+              onClick={() => { void hapticLight(); setShowWishlistModal(true); }}
+              className={[
+                "shrink-0 mt-1 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors",
+                isSaved
+                  ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] border border-[var(--brand-orange)]/30"
+                  : "bg-gray-100 text-gray-600 border border-transparent",
+              ].join(" ")}
+              aria-label={isSaved ? "Saved to list" : "Save to list"}
+            >
+              <Icon name="heart" size={13} className={isSaved ? "text-[var(--brand-orange)]" : "text-gray-400"} />
+              {isSaved ? "Saved" : "Save"}
+            </button>
+          </div>
 
           {/* Location — tappable, scrolls to map */}
           {site.location_free && (
@@ -1272,7 +1299,14 @@ export default function HeritageCover({
       {showWishlistModal && (
         <AddToWishlistModal
           siteId={site.id}
-          onClose={() => setShowWishlistModal(false)}
+          onClose={() => {
+            setShowWishlistModal(false);
+            if (userId && site.id) {
+              getListsContainingSite(site.id).then((lists) => {
+                setIsSaved(Array.isArray(lists) && lists.length > 0);
+              }).catch(() => {});
+            }
+          }}
           site={{
             name: site.title,
             imageUrl: heroUrl ?? undefined,
