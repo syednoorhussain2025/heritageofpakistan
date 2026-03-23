@@ -78,17 +78,30 @@ export default function HeritageUpperArticle({
   return (
     <>
       <HeritageSection id="categories" title="" hideHeader>
-        {/* Mobile heading — no toggle, just a static label */}
-        <h2
-          className="md:hidden mb-3 flex items-center gap-2 text-[22px] font-extrabold"
-          style={{
-            color: "var(--brand-blue, #1f6be0)",
-            fontFamily: "var(--font-article-heading, inherit)",
-          }}
+        {/* Mobile heading — tappable if there are more categories */}
+        <button
+          type="button"
+          className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+          onClick={hasMore ? () => setShowPanel(true) : undefined}
         >
-          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
-          <span>Heritage Categories</span>
-        </h2>
+          <h2
+            className="flex items-center gap-2 text-[22px] font-extrabold"
+            style={{
+              color: "var(--brand-blue, #1f6be0)",
+              fontFamily: "var(--font-article-heading, inherit)",
+            }}
+          >
+            <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
+            <span>Heritage Categories</span>
+          </h2>
+          {hasMore && (
+            <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-400 shrink-0">
+              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+              </svg>
+            </span>
+          )}
+        </button>
 
         {/* Desktop heading */}
         <h2
@@ -111,18 +124,6 @@ export default function HeritageUpperArticle({
                   <CategoryItem key={c.id} c={c} />
                 ))}
               </div>
-              {hasMore && (
-                <button
-                  type="button"
-                  onClick={() => setShowPanel(true)}
-                  className="mt-4 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
-                >
-                  <span>See all categories</span>
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
-                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-                  </svg>
-                </button>
-              )}
               {showPanel && (
                 <CategoriesSlidePanel
                   categories={categories}

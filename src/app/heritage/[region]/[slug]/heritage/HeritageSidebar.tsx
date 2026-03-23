@@ -206,12 +206,14 @@ function SidebarAccordionSection({
   iconName,
   id,
   mobileDefaultOpen = true,
+  onHeaderTap,
   children,
 }: {
   title: string;
   iconName?: string;
   id?: string;
   mobileDefaultOpen?: boolean;
+  onHeaderTap?: () => void;
   children: React.ReactNode;
 }) {
   const [openMobile, setOpenMobile] = useState(mobileDefaultOpen);
@@ -223,8 +225,8 @@ function SidebarAccordionSection({
       <button
         type="button"
         className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
-        onClick={() => setOpenMobile((prev) => !prev)}
-        aria-expanded={openMobile}
+        onClick={onHeaderTap ? onHeaderTap : () => setOpenMobile((prev) => !prev)}
+        aria-expanded={onHeaderTap ? undefined : openMobile}
       >
         <h2
           className="flex items-center gap-2 text-[22px] font-extrabold"
@@ -242,14 +244,16 @@ function SidebarAccordionSection({
           ) : null}
           <span>{title}</span>
         </h2>
-        <span
-          aria-hidden="true"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-transform duration-200"
-          style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}
-        >
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-            <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-          </svg>
+        <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-400">
+          {onHeaderTap ? (
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+              <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+            </svg>
+          )}
         </span>
       </button>
 
@@ -627,23 +631,12 @@ export default function HeritageSidebar({
             title="General Information"
             iconName="general-info"
             mobileDefaultOpen
+            onHeaderTap={hasMoreGeneralInfo ? () => setShowGeneralInfoPanel(true) : undefined}
           >
             <div className="md:hidden">
               {previewGeneralInfoRows.map((row, idx) => (
                 <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
               ))}
-              {hasMoreGeneralInfo && (
-                <button
-                  type="button"
-                  onClick={() => setShowGeneralInfoPanel(true)}
-                  className="mt-3 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
-                >
-                  <span>See all details</span>
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
-                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-                  </svg>
-                </button>
-              )}
               {showGeneralInfoPanel && (
                 <GeneralInfoSlidePanel
                   rows={availableGeneralInfoRows}
@@ -786,23 +779,12 @@ export default function HeritageSidebar({
             title="General Information"
             iconName="general-info"
             mobileDefaultOpen
+            onHeaderTap={hasMoreGeneralInfo ? () => setShowGeneralInfoPanel(true) : undefined}
           >
             <div className="md:hidden">
               {previewGeneralInfoRows.map((row, idx) => (
                 <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
               ))}
-              {hasMoreGeneralInfo && (
-                <button
-                  type="button"
-                  onClick={() => setShowGeneralInfoPanel(true)}
-                  className="mt-3 w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[14px] font-semibold text-slate-700"
-                >
-                  <span>See all details</span>
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
-                    <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-                  </svg>
-                </button>
-              )}
               {showGeneralInfoPanel && (
                 <GeneralInfoSlidePanel
                   rows={availableGeneralInfoRows}
