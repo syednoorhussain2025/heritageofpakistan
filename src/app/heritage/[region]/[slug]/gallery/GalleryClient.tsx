@@ -24,6 +24,10 @@ import CollectHeart from "@/components/CollectHeart";
 // Variants helper
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
+// Wishlist
+import { getListsContainingSite } from "@/lib/wishlists";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
+
 // Universal Lightbox
 const Lightbox = dynamicImport(
   () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
@@ -32,6 +36,11 @@ const Lightbox = dynamicImport(
 
 const AddToCollectionModal = dynamicImport(
   () => import("@/components/AddToCollectionModal"),
+  { ssr: false }
+);
+
+const AddToWishlistModal = dynamicImport(
+  () => import("@/components/AddToWishlistModal"),
   { ssr: false }
 );
 
@@ -236,18 +245,20 @@ const MasonryTile = memo(function MasonryTile({
         />
 
         <div
-          className="absolute top-2 right-2 z-20"
+          className="absolute bottom-0 right-0 z-20 p-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <CollectHeart
-            variant="overlay"
-            siteImageId={photo.id}
-            storagePath={photo.storagePath}
-            siteId={siteId}
-            caption={photo.caption}
-            credit={photo.author?.name}
-            requireSignedIn={ensureSignedIn}
-          />
+          <div className="bg-black/25 backdrop-blur-sm rounded-xl p-1">
+            <CollectHeart
+              variant="overlay"
+              siteImageId={photo.id}
+              storagePath={photo.storagePath}
+              siteId={siteId}
+              caption={photo.caption}
+              credit={photo.author?.name}
+              requireSignedIn={ensureSignedIn}
+            />
+          </div>
         </div>
       </div>
     </figure>
@@ -294,6 +305,19 @@ export default function GalleryClient({
   const router = useRouter();
   const { toggleCollect } = useCollections();
   const { ensureSignedIn } = useSignedInActions();
+  const { userId } = useAuthUserId();
+
+  // Save-to-list state
+  const [isSaved, setIsSaved] = useState(false);
+  const [showWishlistModal, setShowWishlistModal] = useState(false);
+
+  // Check if this site is already in any wishlist
+  useEffect(() => {
+    if (!userId || !initialSite?.id) return;
+    getListsContainingSite(initialSite.id).then((lists) => {
+      setIsSaved(Array.isArray(lists) && lists.length > 0);
+    }).catch(() => {});
+  }, [userId, initialSite?.id]);
 
   // Slide-in from right on mobile (same pattern as HeritageClient)
   const pageRef = useRef<HTMLDivElement>(null);
@@ -528,6 +552,26 @@ export default function GalleryClient({
                     </a>
                   </h1>
 
+                  {/* Save to List button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowWishlistModal(true)}
+                    className={[
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                      isSaved
+                        ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] border border-[var(--brand-orange)]/30"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent",
+                    ].join(" ")}
+                    aria-label={isSaved ? "Saved to list" : "Save to list"}
+                  >
+                    <Icon
+                      name={isSaved ? "heart" : "heart"}
+                      size={14}
+                      className={isSaved ? "text-[var(--brand-orange)]" : "text-gray-500"}
+                    />
+                    <span>{isSaved ? "Saved" : "Save"}</span>
+                  </button>
+
                   {googleMapsUrl && (
                     <a
                       href={googleMapsUrl}
@@ -645,6 +689,27 @@ export default function GalleryClient({
           onClose={() => setLightboxIndex(null)}
           onBookmarkToggle={handleBookmarkToggle}
           onAddToCollection={handleOpenCollectionModal}
+        />
+      )}
+
+      {/* Save to Wishlist Modal */}
+      {showWishlistModal && site && (
+        <AddToWishlistModal
+          siteId={site.id}
+          onClose={() => {
+            setShowWishlistModal(false);
+            // Re-check saved state after modal closes
+            if (userId && site.id) {
+              getListsContainingSite(site.id).then((lists) => {
+                setIsSaved(Array.isArray(lists) && lists.length > 0);
+              }).catch(() => {});
+            }
+          }}
+          site={{
+            name: site.title,
+            imageUrl: circlePreview !== "/placeholder.png" ? circlePreview : undefined,
+            location: site.location_free ?? undefined,
+          }}
         />
       )}
 
