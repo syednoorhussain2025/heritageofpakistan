@@ -466,7 +466,7 @@ export default function GalleryClient({
   }, [photos, site?.cover_photo_url]);
 
   return (
-    <div ref={pageRef} className="md:fixed md:inset-0 fixed inset-0 z-[1000] bg-white overflow-y-auto overflow-x-hidden translate-x-full" style={{ willChange: "transform" }}>
+    <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden translate-x-full" style={{ willChange: "transform" }}>
       {/* Mobile teal header with back button */}
       <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
         <button
