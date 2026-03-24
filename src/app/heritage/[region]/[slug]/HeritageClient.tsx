@@ -28,6 +28,7 @@ import HeritageInteractions from "./heritage/HeritageInteractions";
 import HeritageArticle from "./heritage/HeritageArticle";
 import HeritageNearby from "./heritage/HeritageNearby";
 import ReviewsTab from "@/components/reviews/ReviewsTab";
+import AllReviewsPanel from "@/components/reviews/AllReviewsPanel";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 
 /* ---------------- Types for site + props from server ---------------- */
@@ -211,6 +212,8 @@ export default function HeritageClient({
     quote: null,
     section_id: null,
   });
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [reviewsPinnedUserId, setReviewsPinnedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const noteId = searchParams.get("note");
@@ -275,6 +278,10 @@ export default function HeritageClient({
           site={{ id: site.id, slug: site.slug, title: site.title, province_slug: site.province_slug, cover_photo_url: site.cover && typeof site.cover === "object" && "url" in site.cover ? site.cover.url : null, location_free: site.location_free ?? null, latitude: site.latitude ? Number(site.latitude) : null, longitude: site.longitude ? Number(site.longitude) : null }}
           hasPhotoStory={hasPhotoStory}
           mapsLink={maps.link}
+          onReviewSuccess={(uid) => {
+            setReviewsPinnedUserId(uid);
+            setShowAllReviews(true);
+          }}
         />
       )}
 
@@ -491,9 +498,20 @@ export default function HeritageClient({
                     </div>
                   }
                 >
-                  <ReviewsTab siteId={site.id} />
+                  <ReviewsTab
+                    siteId={site.id}
+                    previewCount={3}
+                    onShowAll={() => { setReviewsPinnedUserId(null); setShowAllReviews(true); }}
+                  />
                 </LazySection>
               </HeritageSection>
+              {showAllReviews && (
+                <AllReviewsPanel
+                  siteId={site.id}
+                  currentUserId={reviewsPinnedUserId}
+                  onClose={() => { setShowAllReviews(false); setReviewsPinnedUserId(null); }}
+                />
+              )}
 
               {/* 13. Did you Know + Regions + Protected under */}
               <LazySection skeleton={<SidebarCardSkeleton lines={5} />}>

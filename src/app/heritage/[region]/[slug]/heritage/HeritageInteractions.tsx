@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import StickyHeader from "./StickyHeader";
 import Icon from "@/components/Icon";
 import { useBookmarks } from "@/components/BookmarkProvider";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { saveResearchNote } from "@/lib/notebook";
 import { nativeShare } from "@/lib/nativeShare";
 import { createPortal } from "react-dom";
@@ -46,15 +47,18 @@ type HeritageInteractionsProps = {
   };
   hasPhotoStory: boolean;
   mapsLink: string | null;
+  onReviewSuccess?: (userId: string) => void;
 };
 
 export default function HeritageInteractions({
   site,
   hasPhotoStory,
   mapsLink,
+  onReviewSuccess,
 }: HeritageInteractionsProps) {
   const pathname = usePathname();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
+  const { userId } = useAuthUserId();
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -206,7 +210,9 @@ export default function HeritageInteractions({
         <ReviewModal
           open={showReviewModal}
           onClose={() => setShowReviewModal(false)}
-          onSuccess={() => setShowReviewSuccess(true)}
+          onSuccess={() => {
+            setShowReviewSuccess(true);
+          }}
           siteId={site.id}
         />
       )}
@@ -214,8 +220,7 @@ export default function HeritageInteractions({
         <ReviewSuccessPopup
           onDone={() => {
             setShowReviewSuccess(false);
-            const el = document.getElementById("reviews");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (userId) onReviewSuccess?.(userId);
           }}
         />
       )}
