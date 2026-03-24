@@ -378,12 +378,15 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         ]);
         newReviewCount = count ?? 0;
         const newBadge = badgeForCount(newReviewCount);
-        const prevBadge = profileData?.badge ?? "Beginner";
+        const storedBadge = profileData?.badge ?? null;
+        const prevBadge = storedBadge ?? "Beginner";
         if (newBadge !== prevBadge) {
           const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
           if (badgeErr) console.error("[badge update]", badgeErr.message);
           updateBadge(newBadge);
-          earnedBadge = newBadge;
+          // Only show popup if badge was already set in DB — prevents
+          // false positives for users whose badge was never initialized
+          if (storedBadge !== null) earnedBadge = newBadge;
         }
       } catch (e) { console.error("[badge check]", e); }
 
