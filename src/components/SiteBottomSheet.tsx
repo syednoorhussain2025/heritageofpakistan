@@ -398,6 +398,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
           isOpen={actionsSheetOpen}
           onClose={() => setActionsSheetOpen(false)}
           onPlacesNearby={onPlacesNearby}
+          hideReview
         />
       )}
     </>

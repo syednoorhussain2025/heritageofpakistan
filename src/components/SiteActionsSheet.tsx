@@ -8,6 +8,7 @@ import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import ReviewSuccessPopup from "@/components/reviews/ReviewSuccessPopup";
+import BadgeEarnedPopup from "@/components/reviews/BadgeEarnedPopup";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
@@ -36,9 +37,11 @@ interface Props {
   onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
   /** Called after review success popup finishes — opens AllReviewsPanel with pinned user */
   onReviewSuccess?: (userId: string) => void;
+  /** Hide the Add Review button (e.g. when opened from SiteBottomSheet) */
+  hideReview?: boolean;
 }
 
-export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby, onReviewSuccess }: Props) {
+export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby, onReviewSuccess, hideReview }: Props) {
   const router = useRouter();
   const { userId } = useAuthUserId();
   const [mounted, setMounted] = useState(false);
@@ -59,6 +62,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   const [showTripModal, setShowTripModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showReviewSuccess, setShowReviewSuccess] = useState(false);
+  const [badgeEarned, setBadgeEarned] = useState<{ badge: string; count: number } | null>(null);
 
   useBodyScrollLock(isOpen || showWishlistModal || showTripModal || showReviewModal);
   const [shareToast, setShareToast] = useState<string | null>(null);
@@ -302,17 +306,21 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
               <span className="text-[15px] font-medium text-gray-900">Add to Trip</span>
             </button>
-            <div className="mx-4 h-[0.5px] bg-gray-100" />
-            <button
-              type="button"
-              onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 520); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
-            >
-              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Icon name="star-light" size={22} className="text-gray-700" />
-              </div>
-              <span className="text-[15px] font-medium text-gray-900">Add Review</span>
-            </button>
+            {!hideReview && (
+              <>
+                <div className="mx-4 h-[0.5px] bg-gray-100" />
+                <button
+                  type="button"
+                  onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 520); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                    <Icon name="star-light" size={22} className="text-gray-700" />
+                  </div>
+                  <span className="text-[15px] font-medium text-gray-900">Add Review</span>
+                </button>
+              </>
+            )}
             <div className="mx-4 h-[0.5px] bg-gray-100" />
             <button
               type="button"
@@ -432,6 +440,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           siteId={site.id}
           onClose={() => setShowReviewModal(false)}
           onSuccess={() => setShowReviewSuccess(true)}
+          onBadgeEarned={(badge, count) => setBadgeEarned({ badge, count })}
         />
       )}
       {showReviewSuccess && (
@@ -440,6 +449,13 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
             setShowReviewSuccess(false);
             onReviewSuccess?.(userId ?? "");
           }}
+        />
+      )}
+      {badgeEarned && (
+        <BadgeEarnedPopup
+          badge={badgeEarned.badge}
+          reviewCount={badgeEarned.count}
+          onDone={() => setBadgeEarned(null)}
         />
       )}
     </>

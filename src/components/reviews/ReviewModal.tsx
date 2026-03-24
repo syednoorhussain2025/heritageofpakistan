@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { badgeForCount } from "@/lib/db/badges";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -91,6 +92,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onBadgeEarned?: (badge: string, reviewCount: number) => void;
   siteId: string;
 };
 
@@ -105,7 +107,7 @@ type LocalPhoto = {
 
 /* ---------- component ---------- */
 
-export default function ReviewModal({ open, onClose, onSuccess, siteId }: Props) {
+export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, siteId }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
   const { profile } = useProfile();
@@ -121,21 +123,27 @@ export default function ReviewModal({ open, onClose, onSuccess, siteId }: Props)
   const closeTimerRef = useRef<number | null>(null);
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
+  // Track previous open value so form resets only on false→true transition
+  const prevOpenRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!open) {
+      prevOpenRef.current = false;
       setSheetVisible(false);
       setClosing(false);
       return;
     }
-    // Reset form state each time the sheet opens fresh
-    setRating(0);
-    setHoverRating(0);
-    setVisitedYear("");
-    setVisitedMonth("");
-    setText("");
-    setPhotos([]);
-    setError(null);
+    // Only reset form state when transitioning from closed → open
+    if (!prevOpenRef.current) {
+      prevOpenRef.current = true;
+      setRating(0);
+      setHoverRating(0);
+      setVisitedYear("");
+      setVisitedMonth("");
+      setText("");
+      setPhotos([]);
+      setError(null);
+    }
     if (closeTimerRef.current != null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -363,9 +371,31 @@ export default function ReviewModal({ open, onClose, onSuccess, siteId }: Props)
         });
       }
 
-      // Close sheet immediately, then fire onSuccess to show popup
+      // Check for badge upgrade
+      let earnedBadge: string | null = null;
+      let newReviewCount = 0;
+      try {
+        const { count } = await supabase
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .neq("status", "deleted");
+        newReviewCount = count ?? 0;
+        const newBadge = badgeForCount(newReviewCount);
+        const prevBadge = profile?.badge || null;
+        if (newBadge !== prevBadge) {
+          // Update badge in profiles table
+          await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
+          earnedBadge = newBadge;
+        }
+      } catch {}
+
+      // Close sheet immediately, then fire onSuccess / onBadgeEarned
       closeSheet();
-      setTimeout(() => { onSuccess?.(); }, 400);
+      setTimeout(() => {
+        onSuccess?.();
+        if (earnedBadge) onBadgeEarned?.(earnedBadge, newReviewCount);
+      }, 400);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to submit review.");
@@ -451,12 +481,13 @@ export default function ReviewModal({ open, onClose, onSuccess, siteId }: Props)
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => { void hapticLight(); setRating(n); }}
-                    className="p-2 transition-transform active:scale-90"
+                    className="p-1.5 transition-transform active:scale-90"
                     aria-label={`Rate ${n}`}
                   >
                     <Icon
                       name="star"
-                      className={`text-[64px] ${(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}`}
+                      size={52}
+                      className={(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}
                     />
                   </button>
                 ))}

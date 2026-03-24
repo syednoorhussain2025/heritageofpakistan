@@ -253,6 +253,12 @@ export default function MyReviewsPage() {
 
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Bulk delete state
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkPassword, setBulkPassword] = useState("");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     if (authLoading) return;
     if (!userId) {
@@ -340,6 +346,31 @@ export default function MyReviewsPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (!userId || !bulkPassword.trim()) return;
+    setBulkDeleting(true);
+    setBulkDeleteError(null);
+    try {
+      // Verify password via Supabase signInWithPassword
+      const supabase = createClient();
+      const { data: { user }, error: signInErr } = await supabase.auth.getUser();
+      if (signInErr || !user?.email) throw new Error("Could not verify identity.");
+      const { error: pwErr } = await supabase.auth.signInWithPassword({ email: user.email, password: bulkPassword });
+      if (pwErr) throw new Error("Incorrect password. Please try again.");
+      // All good — call bulk delete API
+      const res = await fetch("/api/reviews/bulk-delete", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Failed to delete reviews.");
+      setReviews([]);
+      setShowBulkDeleteModal(false);
+      setBulkPassword("");
+    } catch (e: any) {
+      setBulkDeleteError(e?.message ?? "Error deleting reviews.");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   // ✅ Page-level skeletons while auth or page data loads
   if (authLoading || loading) return <PageSkeleton />;
 
@@ -351,6 +382,60 @@ export default function MyReviewsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {/* Header row with bulk delete */}
+      {reviews.length > 0 && (
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[13px] text-gray-500">{reviews.length} review{reviews.length !== 1 ? "s" : ""}</p>
+          <button
+            type="button"
+            onClick={() => { setBulkDeleteError(null); setBulkPassword(""); setShowBulkDeleteModal(true); }}
+            className="text-[13px] font-semibold text-red-500 active:opacity-70"
+          >
+            Delete All
+          </button>
+        </div>
+      )}
+
+      {/* Bulk delete password modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-black/50 px-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-[17px] font-bold text-gray-900 mb-1">Delete All Reviews</h2>
+            <p className="text-[13px] text-gray-500 mb-4">This will permanently delete all {reviews.length} reviews and their photos. Enter your password to confirm.</p>
+            <input
+              type="password"
+              value={bulkPassword}
+              onChange={(e) => setBulkPassword(e.target.value)}
+              placeholder="Your password"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-200 mb-3"
+              style={{ fontSize: "16px" }}
+              autoComplete="current-password"
+            />
+            {bulkDeleteError && (
+              <p className="text-[13px] text-red-600 mb-3">{bulkDeleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowBulkDeleteModal(false); setBulkPassword(""); setBulkDeleteError(null); }}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-[14px] font-semibold text-gray-700"
+                disabled={bulkDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting || !bulkPassword.trim()}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-[14px] font-semibold disabled:opacity-50"
+              >
+                {bulkDeleting ? "Deleting…" : "Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col gap-2 mb-5">
         <input

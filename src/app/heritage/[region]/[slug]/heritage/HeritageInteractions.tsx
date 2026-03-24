@@ -34,6 +34,11 @@ const AddToWishlistModal = dynamic(
   { ssr: false }
 );
 
+const BadgeEarnedPopup = dynamic(
+  () => import("@/components/reviews/BadgeEarnedPopup"),
+  { ssr: false }
+);
+
 type HeritageInteractionsProps = {
   site: {
     id: string;
@@ -94,6 +99,7 @@ export default function HeritageInteractions({
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showReviewSuccess, setShowReviewSuccess] = useState(false);
+  const [badgeEarned, setBadgeEarned] = useState<{ badge: string; count: number } | null>(null);
 
   const [researchEnabled, setResearchEnabled] = useState<boolean>(() => {
     try {
@@ -214,6 +220,7 @@ export default function HeritageInteractions({
           onSuccess={() => {
             setShowReviewSuccess(true);
           }}
+          onBadgeEarned={(badge, count) => setBadgeEarned({ badge, count })}
           siteId={site.id}
         />
       )}
@@ -223,6 +230,13 @@ export default function HeritageInteractions({
             setShowReviewSuccess(false);
             onReviewSuccess?.(userId ?? "");
           }}
+        />
+      )}
+      {badgeEarned && (
+        <BadgeEarnedPopup
+          badge={badgeEarned.badge}
+          reviewCount={badgeEarned.count}
+          onDone={() => setBadgeEarned(null)}
         />
       )}
 
