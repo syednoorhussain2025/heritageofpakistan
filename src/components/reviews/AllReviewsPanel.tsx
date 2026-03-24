@@ -40,7 +40,7 @@ export default function AllReviewsPanel({
       onAnimationEnd={() => { if (closing) onClose(); }}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
         <button
           type="button"
           onClick={handleClose}
