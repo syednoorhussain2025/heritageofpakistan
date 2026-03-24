@@ -23,6 +23,11 @@ const ReviewModal = dynamic(
   { ssr: false }
 );
 
+const ReviewSuccessPopup = dynamic(
+  () => import("@/components/reviews/ReviewSuccessPopup"),
+  { ssr: false }
+);
+
 const AddToWishlistModal = dynamic(
   () => import("@/components/AddToWishlistModal"),
   { ssr: false }
@@ -84,6 +89,7 @@ export default function HeritageInteractions({
   const [inTrip, setInTrip] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showReviewSuccess, setShowReviewSuccess] = useState(false);
 
   const [researchEnabled, setResearchEnabled] = useState<boolean>(() => {
     try {
@@ -200,7 +206,17 @@ export default function HeritageInteractions({
         <ReviewModal
           open={showReviewModal}
           onClose={() => setShowReviewModal(false)}
+          onSuccess={() => setShowReviewSuccess(true)}
           siteId={site.id}
+        />
+      )}
+      {showReviewSuccess && (
+        <ReviewSuccessPopup
+          onDone={() => {
+            setShowReviewSuccess(false);
+            const el = document.getElementById("reviews");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
         />
       )}
 

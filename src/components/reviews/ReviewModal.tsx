@@ -3,15 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Lottie from "lottie-react";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
-import confettiData from "../../../public/review-confetti.json";
-import fiveStarData from "../../../public/review-5star.json";
 
 /* ---------- constants ---------- */
 
@@ -93,6 +90,7 @@ async function compressToWebpWithDims(
 type Props = {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   siteId: string;
 };
 
@@ -107,7 +105,7 @@ type LocalPhoto = {
 
 /* ---------- component ---------- */
 
-export default function ReviewModal({ open, onClose, siteId }: Props) {
+export default function ReviewModal({ open, onClose, onSuccess, siteId }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
   const { profile } = useProfile();
@@ -238,8 +236,6 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
   const [siteLocation, setSiteLocation] = useState<string | null>(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
   const [userReviewTotal, setUserReviewTotal] = useState<number>(0);
-  const [successVisible, setSuccessVisible] = useState(false);
-  const [successFading, setSuccessFading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -367,20 +363,9 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         });
       }
 
-      // Close sheet immediately, then show success popup
+      // Close sheet immediately, then fire onSuccess to show popup
       closeSheet();
-      setTimeout(() => {
-        setSuccessVisible(true);
-        setTimeout(() => {
-          setSuccessFading(true);
-          setTimeout(() => {
-            setSuccessVisible(false);
-            setSuccessFading(false);
-            const el = document.getElementById("reviews");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 600);
-        }, 5000);
-      }, 400);
+      setTimeout(() => { onSuccess?.(); }, 400);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to submit review.");
@@ -389,32 +374,12 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     }
   }
 
-  if (!mounted || (!open && !closing && !successVisible)) return null;
+  if (!mounted || (!open && !closing)) return null;
 
   const visible = sheetVisible && !closing;
 
   const sheet = (
     <>
-      {successVisible && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          style={{ transition: "opacity 0.6s ease", opacity: successFading ? 0 : 1 }}
-        >
-          {/* Confetti full screen behind popup */}
-          <div className="absolute inset-0 pointer-events-none">
-            <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
-          </div>
-
-          {/* White popup card */}
-          <div className="relative z-10 bg-white rounded-3xl px-8 py-7 mx-6 flex flex-col items-center shadow-2xl"
-            style={{ transform: successFading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease, opacity 0.6s ease" }}
-          >
-            <p className="text-[20px] font-extrabold text-gray-900 mb-1">Review Submitted!</p>
-            <p className="text-[13px] text-gray-400 mb-3 text-center">Submit more reviews to earn badges</p>
-            <Lottie animationData={fiveStarData} loop={false} autoplay style={{ width: 180, height: 180 }} />
-          </div>
-        </div>
-      )}
       <div
         className={`fixed inset-0 z-[5500] transition-all duration-500 ease-in-out ${visible ? "backdrop-blur-sm bg-black/40" : "backdrop-blur-none bg-black/0"}`}
         onClick={closeSheet}

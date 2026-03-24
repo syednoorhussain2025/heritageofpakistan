@@ -7,6 +7,7 @@ import Icon from "@/components/Icon";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
 import ReviewModal from "@/components/reviews/ReviewModal";
+import ReviewSuccessPopup from "@/components/reviews/ReviewSuccessPopup";
 import { supabase } from "@/lib/supabase/browser";
 import { buildPlacesNearbyURL } from "@/lib/placesNearby";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
@@ -53,6 +54,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showReviewSuccess, setShowReviewSuccess] = useState(false);
 
   useBodyScrollLock(isOpen || showWishlistModal || showTripModal || showReviewModal);
   const [shareToast, setShareToast] = useState<string | null>(null);
@@ -425,7 +427,11 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           open={showReviewModal}
           siteId={site.id}
           onClose={() => setShowReviewModal(false)}
+          onSuccess={() => setShowReviewSuccess(true)}
         />
+      )}
+      {showReviewSuccess && (
+        <ReviewSuccessPopup onDone={() => setShowReviewSuccess(false)} />
       )}
     </>
   );
