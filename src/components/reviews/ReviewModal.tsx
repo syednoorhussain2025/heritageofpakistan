@@ -271,6 +271,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [visitedMonth, setVisitedMonth] = useState<number | "">("");
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -294,10 +295,17 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     const next: LocalPhoto[] = [...photos];
+    setPhotoError(null);
     for (const f of files) {
       if (next.length >= 3) break;
-      if (!ALLOWED_TYPES.includes(f.type)) { alert("Please choose JPG, PNG, WEBP, or HEIC/HEIF."); continue; }
-      if (f.size > MAX_FILE_MB * 1024 * 1024) { alert("Each file must be 3MB or smaller."); continue; }
+      if (!ALLOWED_TYPES.includes(f.type)) {
+        setPhotoError("Only JPG, PNG, WEBP, or HEIC/HEIF photos are allowed.");
+        continue;
+      }
+      if (f.size > MAX_FILE_MB * 1024 * 1024) {
+        setPhotoError(`"${f.name}" is too large. Max size per photo is ${MAX_FILE_MB}MB.`);
+        continue;
+      }
       next.push({ file: f, preview: URL.createObjectURL(f), caption: "" });
     }
     setPhotos(next.slice(0, 3));
@@ -528,7 +536,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
 
             {/* Photo upload */}
             <div>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-1">
                 {photos.length < 3 && (
                   <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 text-white text-[13px] font-medium cursor-pointer active:opacity-80 shrink-0">
                     <Icon name="camera" size={13} className="text-white" />
@@ -540,6 +548,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
                   Add photos ({photos.length}/3)
                 </span>
               </div>
+              <p className="text-[11px] text-gray-400 mb-2">JPG, PNG, WEBP or HEIC · Max {MAX_FILE_MB}MB each</p>
               <div className="grid grid-cols-3 gap-2">
                 {Array.from({ length: 3 }).map((_, i) => {
                   const photo = photos[i];
@@ -563,6 +572,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
               </div>
               {photos.length > 0 && (
                 <p className="mt-2 text-[12px] text-gray-400">Photos will be added to your photography portfolio.</p>
+              )}
+              {photoError && (
+                <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-100 rounded-2xl px-3 py-2.5">
+                  <Icon name="triangle-exclamation" size={14} className="text-red-500 mt-0.5 shrink-0" />
+                  <p className="text-[12px] text-red-600 leading-snug">{photoError}</p>
+                </div>
               )}
             </div>
 
