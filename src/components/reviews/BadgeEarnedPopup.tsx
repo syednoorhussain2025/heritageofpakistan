@@ -61,10 +61,10 @@ export default function BadgeEarnedPopup({
         <p className="text-[12px] text-gray-400 text-center mt-0.5 mb-3">You earned a new Badge</p>
 
         {/* Body: lottie left, text right — same height as review popup lottie block */}
-        <div className="flex items-center gap-4" style={{ minHeight: 170 }}>
+        <div className="flex items-center gap-4" style={{ minHeight: 200 }}>
           {/* Winner lottie — large to fill the height */}
-          <div style={{ width: 160, height: 160, flexShrink: 0 }}>
-            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 160, height: 160 }} />
+          <div style={{ width: 200, height: 200, flexShrink: 0 }}>
+            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 200, height: 200 }} />
           </div>
 
           {/* Text */}
