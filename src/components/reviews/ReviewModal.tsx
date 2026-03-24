@@ -3,12 +3,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Lottie from "lottie-react";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
+import confettiData from "../../../public/review-confetti.json";
+import fiveStarData from "../../../public/review-5star.json";
 
 /* ---------- constants ---------- */
 
@@ -227,7 +230,8 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
   const [siteLocation, setSiteLocation] = useState<string | null>(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
   const [userReviewTotal, setUserReviewTotal] = useState<number>(0);
-  const [successToast, setSuccessToast] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [successFading, setSuccessFading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -355,8 +359,21 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         });
       }
 
-      setSuccessToast(true);
-      setTimeout(() => { setSuccessToast(false); closeSheet(); }, 1800);
+      // Show success popup, then fade out and scroll to reviews
+      setSuccessVisible(true);
+      setTimeout(() => {
+        setSuccessFading(true);
+        setTimeout(() => {
+          setSuccessVisible(false);
+          setSuccessFading(false);
+          closeSheet();
+          // Scroll to reviews section after sheet closes
+          setTimeout(() => {
+            const el = document.getElementById("reviews");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 400);
+        }, 600);
+      }, 3000);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to submit review.");
@@ -371,9 +388,24 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
 
   const sheet = (
     <>
-      {successToast && (
-        <div className="pointer-events-none fixed left-1/2 top-5 -translate-x-1/2 z-[9999] rounded-lg bg-green-700/90 text-white text-sm px-4 py-2.5 shadow-lg">
-          Review submitted!
+      {successVisible && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ transition: "opacity 0.6s ease", opacity: successFading ? 0 : 1 }}
+        >
+          {/* Confetti full screen behind popup */}
+          <div className="absolute inset-0 pointer-events-none">
+            <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
+          </div>
+
+          {/* White popup card */}
+          <div className="relative z-10 bg-white rounded-3xl px-8 py-7 mx-6 flex flex-col items-center shadow-2xl"
+            style={{ transform: successFading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease, opacity 0.6s ease" }}
+          >
+            <p className="text-[20px] font-extrabold text-gray-900 mb-1">Review Submitted!</p>
+            <p className="text-[13px] text-gray-400 mb-3 text-center">Submit more reviews to earn badges</p>
+            <Lottie animationData={fiveStarData} loop={false} autoplay style={{ width: 180, height: 180 }} />
+          </div>
         </div>
       )}
       <div
