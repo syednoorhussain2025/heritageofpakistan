@@ -196,7 +196,7 @@ export default function HeritageInteractions({
         onClose={() => setActionsSheetOpen(false)}
       />
 
-      {showReviewModal && site && (
+      {site && (
         <ReviewModal
           open={showReviewModal}
           onClose={() => setShowReviewModal(false)}

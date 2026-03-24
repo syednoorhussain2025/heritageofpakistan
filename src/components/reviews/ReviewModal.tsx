@@ -130,6 +130,14 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
       setClosing(false);
       return;
     }
+    // Reset form state each time the sheet opens fresh
+    setRating(0);
+    setHoverRating(0);
+    setVisitedYear("");
+    setVisitedMonth("");
+    setText("");
+    setPhotos([]);
+    setError(null);
     if (closeTimerRef.current != null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -478,12 +486,12 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => { void hapticLight(); setRating(n); }}
-                    className="p-1 transition-transform active:scale-90"
+                    className="p-2 transition-transform active:scale-90"
                     aria-label={`Rate ${n}`}
                   >
                     <Icon
                       name="star"
-                      className={`text-[52px] ${(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}`}
+                      className={`text-[64px] ${(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}`}
                     />
                   </button>
                 ))}
