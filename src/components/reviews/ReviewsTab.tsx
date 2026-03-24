@@ -54,9 +54,16 @@ type SiteInfo = {
   location_free: string | null;
 };
 
-type Props = { siteId: string };
+type Props = {
+  siteId: string;
+  /** If set, pin this user's review to the top */
+  pinnedUserId?: string | null;
+  /** If set, show only top N helpful reviews + a "Show All" button */
+  previewCount?: number;
+  onShowAll?: () => void;
+};
 
-export default function ReviewsTab({ siteId }: Props) {
+export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowAll }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
 
@@ -221,7 +228,22 @@ export default function ReviewsTab({ siteId }: Props) {
     }
   }
 
-  const rows = useMemo(() => reviews, [reviews]);
+  // Sort: pinned user first, then by helpful count desc
+  const rows = useMemo(() => {
+    const sorted = [...reviews].sort((a, b) => {
+      const aVotes = helpfulCount[a.id] || 0;
+      const bVotes = helpfulCount[b.id] || 0;
+      return bVotes - aVotes;
+    });
+    if (pinnedUserId) {
+      const idx = sorted.findIndex((r) => r.user_id === pinnedUserId);
+      if (idx > 0) {
+        const [pinned] = sorted.splice(idx, 1);
+        sorted.unshift(pinned);
+      }
+    }
+    return sorted;
+  }, [reviews, helpfulCount, pinnedUserId]);
 
   // Build Lightbox photos for a given review and open at a specific index
   const openLightboxForReview = useCallback(
@@ -305,128 +327,152 @@ export default function ReviewsTab({ siteId }: Props) {
     return <div className="p-4 text-gray-600">No reviews yet.</div>;
   }
 
+  const visibleRows = previewCount ? rows.slice(0, previewCount) : rows;
+
+  /* Shared review card renderer */
+  function ReviewCard({ r, carousel }: { r: ReviewWithProfile; carousel?: boolean }) {
+    const avatar = resolveAvatarSrc(r.avatar_url);
+    const voteCount = helpfulCount[r.id] || 0;
+    const voted = userVoted.has(r.id);
+    const album = photosByReview[r.id] || [];
+
+    return (
+      <article
+        className={`rounded-xl border border-gray-200 bg-white shadow-sm p-4 ${carousel ? "flex-shrink-0 w-[82vw] max-w-[320px]" : ""}`}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-200 shrink-0">
+              {avatar ? (
+                <NextImage
+                  src={avatar}
+                  alt="profile"
+                  fill
+                  className="object-cover"
+                  sizes="48px"
+                  unoptimized
+                />
+              ) : null}
+            </div>
+            <div>
+              <div className="font-semibold text-[14px] text-gray-900 leading-tight">
+                {r.full_name || r.username || "Traveler"}
+              </div>
+              {r.badge && (
+                <div className="text-[12px] text-green-700">{r.badge}</div>
+              )}
+            </div>
+          </div>
+          <time className="text-[12px] text-gray-400 shrink-0 mt-0.5">
+            {new Date(r.created_at).toLocaleDateString()}
+          </time>
+        </div>
+
+        {/* Stars + rating */}
+        <div className="mt-2 flex items-center gap-1.5">
+          <div className="text-amber-500 text-base leading-none">
+            {"★".repeat(Math.round(r.rating))}
+            <span className="text-gray-300">
+              {"★".repeat(5 - Math.round(r.rating))}
+            </span>
+          </div>
+          <div className="text-[12px] text-gray-500">{r.rating}/5</div>
+        </div>
+
+        {/* Review text — clamp to 3 lines in carousel preview */}
+        {r.review_text && (
+          <p className={`mt-1.5 text-[13px] text-gray-700 whitespace-pre-wrap ${carousel ? "line-clamp-3" : ""}`}>
+            {r.review_text}
+          </p>
+        )}
+
+        {/* Photos */}
+        {album.length ? (
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {album.slice(0, 3).map((p, idx) => {
+              const url = storagePublicUrl("user-photos", p.storage_path);
+              return (
+                <button
+                  type="button"
+                  key={p.id}
+                  className="group relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 cursor-zoom-in active:opacity-90 focus:outline-none"
+                  onClick={() => openLightboxForReview(r, idx)}
+                  title="Open photo"
+                >
+                  {url ? (
+                    <img
+                      src={url}
+                      alt={p.caption ?? "review photo"}
+                      className="w-full h-full object-cover transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* Helpful */}
+        <div className="mt-2.5 flex items-center gap-3">
+          <button
+            onClick={() => toggleHelpful(r.id)}
+            disabled={pendingVote.has(r.id)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[13px] transition
+              ${voted ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}
+              ${pendingVote.has(r.id) ? "opacity-60 cursor-not-allowed" : ""}`}
+            aria-pressed={voted}
+          >
+            <span>👍</span>
+            <span>{voted ? "Helpful" : "Mark Helpful"}</span>
+          </button>
+          <span className="text-[13px] text-gray-500">{voteCount}</span>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <>
-      <div className="space-y-4">
-        {rows.map((r) => {
-          const avatar = resolveAvatarSrc(r.avatar_url);
-          const voteCount = helpfulCount[r.id] || 0;
-          const voted = userVoted.has(r.id);
+      {/* CAROUSEL — only in preview mode */}
+      {previewCount ? (
+        <div
+          className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {visibleRows.map((r) => (
+            <div key={r.id} className="snap-start">
+              <ReviewCard r={r} carousel />
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* FULL LIST — in AllReviewsPanel */
+        <div className="space-y-4">
+          {visibleRows.map((r) => (
+            <ReviewCard key={r.id} r={r} />
+          ))}
+        </div>
+      )}
 
-          const album = photosByReview[r.id] || [];
+      {/* Show All button — only in preview mode when there are more reviews */}
+      {previewCount && onShowAll && rows.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onShowAll()}
+          className="mt-3 w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-slate-200 text-[14px] font-semibold text-[var(--brand-blue)]"
+        >
+          <span>Show All Reviews ({rows.length})</span>
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="text-slate-400">
+            <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+          </svg>
+        </button>
+      )}
 
-          return (
-            <article
-              key={r.id}
-              className="rounded-xl border border-gray-200 shadow-sm p-4"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-14 h-14 rounded-full overflow-hidden bg-gray-200">
-                    {avatar ? (
-                      <NextImage
-                        src={avatar}
-                        alt="profile"
-                        fill
-                        className="object-cover"
-                        sizes="56px"
-                        unoptimized
-                      />
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {r.full_name || r.username || "Traveler"}
-                    </div>
-                    {r.badge && (
-                      <div className="text-sm text-green-700">{r.badge}</div>
-                    )}
-                  </div>
-                </div>
-                <time className="text-sm text-gray-500">
-                  {new Date(r.created_at).toLocaleDateString()}
-                </time>
-              </div>
-
-              {/* Rating and text */}
-              <div className="mt-3">
-                <div className="flex items-center gap-2">
-                  <div className="text-amber-500 text-lg leading-none">
-                    {"★".repeat(Math.round(r.rating))}
-                    <span className="text-gray-300">
-                      {"★".repeat(5 - Math.round(r.rating))}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">{r.rating}/5</div>
-                </div>
-
-                {r.review_text && (
-                  <p className="mt-2 text-gray-800 whitespace-pre-wrap">
-                    {r.review_text}
-                  </p>
-                )}
-              </div>
-
-              {/* Photos with Lightbox */}
-              {album.length ? (
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  {album.slice(0, 3).map((p, idx) => {
-                    const url = storagePublicUrl("user-photos", p.storage_path);
-                    return (
-                      <button
-                        type="button"
-                        key={p.id}
-                        className="group relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 cursor-zoom-in active:opacity-90 focus:outline-none"
-                        onClick={() => openLightboxForReview(r, idx)}
-                        title="Open photo"
-                      >
-                        {url ? (
-                          <img
-                            src={url}
-                            alt={p.caption ?? "review photo"}
-                            className="w-full h-full object-cover transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {/* Helpful */}
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  onClick={() => toggleHelpful(r.id)}
-                  disabled={pendingVote.has(r.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm transition
-                   ${
-                     voted
-                       ? "bg-amber-50 border-amber-300 text-amber-700"
-                       : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                   } 
-                   ${
-                     pendingVote.has(r.id)
-                       ? "opacity-60 cursor-not-allowed"
-                       : ""
-                   }`}
-                  aria-pressed={voted}
-                >
-                  <span>👍</span>
-                  <span>{voted ? "Helpful" : "Mark Helpful"}</span>
-                </button>
-                <span className="text-sm text-gray-600">{voteCount}</span>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      {/* Universal Lightbox (per review albums) */}
+      {/* Universal Lightbox */}
       {lightboxPhotos && lightboxIndex !== null && (
         <Lightbox
           photos={lightboxPhotos}
