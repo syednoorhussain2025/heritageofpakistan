@@ -3,6 +3,7 @@
 // The definitive list of all possible badge names in your system.
 export type Badge =
   | "Beginner"
+  | "Scout"
   | "Explorer"
   | "Adventurer"
   | "Voyager"
@@ -22,15 +23,16 @@ type Tier = {
 // The official list of badge tiers, updated with your new structure.
 // This is the single source of truth for badge progression.
 export const BADGE_TIERS: Tier[] = [
-  { name: "Beginner", min: 1, max: 5 },
-  { name: "Explorer", min: 6, max: 30 },
-  { name: "Adventurer", min: 31, max: 80 },
-  { name: "Voyager", min: 81, max: 120 },
-  { name: "Wanderer", min: 121, max: 200 },
-  { name: "Globetrotter", min: 201, max: 300 },
-  { name: "Heritage Guardian", min: 301, max: 500 },
-  { name: "Master Traveler", min: 501, max: 800 },
-  { name: "Legendary Nomad", min: 801 },
+  { name: "Beginner", min: 0, max: 0 },
+  { name: "Scout", min: 1, max: 4 },
+  { name: "Explorer", min: 5, max: 29 },
+  { name: "Adventurer", min: 30, max: 79 },
+  { name: "Voyager", min: 80, max: 119 },
+  { name: "Wanderer", min: 120, max: 199 },
+  { name: "Globetrotter", min: 200, max: 299 },
+  { name: "Heritage Guardian", min: 300, max: 499 },
+  { name: "Master Traveler", min: 500, max: 799 },
+  { name: "Legendary Nomad", min: 800 },
 ];
 
 /**
@@ -39,13 +41,11 @@ export const BADGE_TIERS: Tier[] = [
  * @returns The corresponding Badge name.
  */
 export function badgeForCount(visitedCount: number): Badge {
-  // Iterate through the tiers to find the one that matches the user's count.
   for (const tier of BADGE_TIERS) {
-    if (visitedCount >= tier.min && (!tier.max || visitedCount <= tier.max)) {
+    if (visitedCount >= tier.min && (tier.max === undefined || visitedCount <= tier.max)) {
       return tier.name;
     }
   }
-  // Default to "Beginner" if no other tier matches.
   return "Beginner";
 }
 

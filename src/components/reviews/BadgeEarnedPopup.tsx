@@ -8,6 +8,7 @@ import winnerData from "../../../public/badge-winner.json";
 
 const BADGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Beginner:          { bg: "bg-gray-100",   text: "text-gray-700",   border: "border-gray-300" },
+  Scout:             { bg: "bg-sky-50",     text: "text-sky-700",    border: "border-sky-200" },
   Explorer:          { bg: "bg-blue-50",    text: "text-blue-700",   border: "border-blue-200" },
   Adventurer:        { bg: "bg-green-50",   text: "text-green-700",  border: "border-green-200" },
   Voyager:           { bg: "bg-teal-50",    text: "text-teal-700",   border: "border-teal-200" },
