@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { badgeForCount } from "@/lib/db/badges";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
@@ -119,7 +118,8 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  useBodyScrollLock(open);
+  // NOTE: scroll lock intentionally omitted — SiteActionsSheet parent already
+  // locks scroll. A second competing lock on iOS causes viewport jump on keyboard open.
 
   // Sheet visibility for animation
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -469,6 +469,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => { void hapticLight(); onRatingChange(n); }}
+                    onTouchEnd={(e) => { e.preventDefault(); void hapticLight(); onRatingChange(n); }}
                     className="p-1.5 transition-transform active:scale-90"
                     aria-label={`Rate ${n}`}
                   >
