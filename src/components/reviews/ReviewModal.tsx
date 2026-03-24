@@ -359,21 +359,20 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
         });
       }
 
-      // Show success popup, then fade out and scroll to reviews
-      setSuccessVisible(true);
+      // Close sheet immediately, then show success popup
+      closeSheet();
       setTimeout(() => {
-        setSuccessFading(true);
+        setSuccessVisible(true);
         setTimeout(() => {
-          setSuccessVisible(false);
-          setSuccessFading(false);
-          closeSheet();
-          // Scroll to reviews section after sheet closes
+          setSuccessFading(true);
           setTimeout(() => {
+            setSuccessVisible(false);
+            setSuccessFading(false);
             const el = document.getElementById("reviews");
             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 400);
-        }, 600);
-      }, 3000);
+          }, 600);
+        }, 5000);
+      }, 400);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to submit review.");
@@ -382,7 +381,7 @@ export default function ReviewModal({ open, onClose, siteId }: Props) {
     }
   }
 
-  if (!mounted || (!open && !closing)) return null;
+  if (!mounted || (!open && !closing && !successVisible)) return null;
 
   const visible = sheetVisible && !closing;
 
