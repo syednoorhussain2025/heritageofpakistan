@@ -64,8 +64,8 @@ export default function BadgeEarnedPopup({
         {/* Body row: lottie left, badge info right */}
         <div className="flex items-center gap-4 mt-3 w-full">
           {/* Winner lottie */}
-          <div style={{ width: 90, height: 90, flexShrink: 0, overflow: "hidden" }}>
-            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 90, height: 90 }} />
+          <div style={{ width: 120, height: 120, flexShrink: 0, overflow: "hidden" }}>
+            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 120, height: 120 }} />
           </div>
 
           {/* Badge info */}

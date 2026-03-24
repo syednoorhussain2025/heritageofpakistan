@@ -367,16 +367,14 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       let earnedBadge: string | null = null;
       let newReviewCount = 0;
       try {
-        const { count } = await supabase
-          .from("reviews")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .neq("status", "deleted");
+        const [{ count }, { data: profileData }] = await Promise.all([
+          supabase.from("reviews").select("id", { count: "exact", head: true }).eq("user_id", userId).neq("status", "deleted"),
+          supabase.from("profiles").select("badge").eq("id", userId).single(),
+        ]);
         newReviewCount = count ?? 0;
         const newBadge = badgeForCount(newReviewCount);
-        const prevBadge = profileRef.current?.badge || null;
+        const prevBadge = profileData?.badge ?? null;
         if (newBadge !== prevBadge) {
-          // Update badge in profiles table + local state
           await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
           updateBadge(newBadge);
           earnedBadge = newBadge;
