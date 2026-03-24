@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
-import { badgeForCount } from "@/lib/db/badges";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
@@ -369,35 +368,35 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       }
 
       // Check for badge upgrade
+      // The DB trigger (tg_profile_counters_after_change → refresh_profile_counters)
+      // already updates profiles.badge via compute_badge() after every review insert.
+      // We just need to read the badge BEFORE and AFTER the insert to detect a tier change.
       let earnedBadge: string | null = null;
       let newReviewCount = 0;
       try {
         const { data: { user: freshUser } } = await supabase.auth.getUser();
         const freshUserId = freshUser?.id ?? userId;
-        const [{ count }, { data: profileData, error: profileErr }] = await Promise.all([
+
+        // Read badge BEFORE insert (already done above — captured from profileRef)
+        const badgeBefore = profileRef.current?.badge ?? null;
+
+        // Wait briefly for the DB trigger to finish updating the badge
+        await new Promise(res => setTimeout(res, 600));
+
+        // Read badge AFTER trigger has run
+        const [{ count }, { data: profileAfter }] = await Promise.all([
           supabase.from("reviews").select("id", { count: "exact", head: true }).eq("user_id", freshUserId).neq("status", "deleted"),
           supabase.from("profiles").select("badge").eq("id", freshUserId).single(),
         ]);
-        if (profileErr) console.error("[badge profile fetch]", profileErr.message);
         newReviewCount = count ?? 0;
-        const newBadge = badgeForCount(newReviewCount);
-        const storedBadge = profileData?.badge ?? null;
-        console.log("[badge check] freshUserId:", freshUserId, "hookUserId:", userId, "storedBadge:", storedBadge, "newBadge:", newBadge, "count:", newReviewCount);
-        if (newBadge !== storedBadge) {
-          const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", freshUserId);
-          if (badgeErr) {
-            console.error("[badge update error]", JSON.stringify(badgeErr));
-            // DB write failed — DO NOT show popup or update local state
-          } else {
-            console.log("[badge update ok] new badge stored:", newBadge, "prev stored:", storedBadge);
-            updateBadge(newBadge);
-            // Show popup ONLY if:
-            // 1. storedBadge was already set (not null / first-time init)
-            // 2. The badge actually changed to a higher tier
-            if (storedBadge !== null) earnedBadge = newBadge;
-          }
-        } else {
-          console.log("[badge check] no change, badge stays:", storedBadge);
+        const badgeAfter = profileAfter?.badge ?? null;
+
+        console.log("[badge check] before:", badgeBefore, "after:", badgeAfter, "count:", newReviewCount);
+
+        if (badgeAfter && badgeAfter !== badgeBefore) {
+          updateBadge(badgeAfter);
+          // Only show popup if there was a previous badge (not first-time init)
+          if (badgeBefore !== null) earnedBadge = badgeAfter;
         }
       } catch (e) { console.error("[badge check]", e); }
 

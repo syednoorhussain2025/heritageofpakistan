@@ -26,10 +26,12 @@ const ProfileContext = createContext<{
   profile: Profile | null;
   loading: boolean;
   updateBadge: (badge: string) => void;
+  refreshProfile: () => void;
 }>({
   profile: null,
   loading: true,
   updateBadge: () => {},
+  refreshProfile: () => {},
 });
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
@@ -91,7 +93,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     setProfile((prev) => prev ? { ...prev, badge } : prev);
   }, []);
 
-  const value = useMemo(() => ({ profile, loading, updateBadge }), [profile, loading, updateBadge]);
+  /** Re-fetch profile from DB (call after review delete to sync badge) */
+  const refreshProfile = useCallback(() => {
+    if (!userId) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url, badge")
+        .eq("id", userId)
+        .maybeSingle();
+      if (data) setProfile(data as Profile);
+    })();
+  }, [userId, supabase]);
+
+  const value = useMemo(() => ({ profile, loading, updateBadge, refreshProfile }), [profile, loading, updateBadge, refreshProfile]);
 
   return (
     <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

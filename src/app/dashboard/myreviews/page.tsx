@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useProfile } from "@/components/ProfileProvider";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
 import { NoReviews } from "@/components/illustrations/NoReviews";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
@@ -232,6 +233,7 @@ function PageSkeleton() {
 
 export default function MyReviewsPage() {
   const { userId, authLoading, authError } = useAuthUserId();
+  const { refreshProfile } = useProfile();
 
   const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,6 +343,8 @@ export default function MyReviewsPage() {
       setDeleting(id);
       await hardDeleteReview(id);
       setReviews((prev) => prev.filter((r) => r.id !== id));
+      // Re-fetch profile so badge reflects new review count
+      setTimeout(() => refreshProfile(), 500);
     } finally {
       setDeleting(null);
     }
