@@ -51,33 +51,34 @@ export default function BadgeEarnedPopup({
         <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* Card — same padding + mx-8 as ReviewSuccessPopup */}
+      {/* Card */}
       <div
-        className="relative z-10 bg-white rounded-[32px] px-6 pt-4 pb-4 mx-8 shadow-2xl pointer-events-none"
+        className="relative z-10 bg-white rounded-[32px] px-6 pt-4 pb-5 mx-8 shadow-2xl pointer-events-none flex flex-col items-center"
         style={{ transform: fading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease" }}
       >
         {/* Title */}
-        <p className="text-[17px] font-extrabold text-gray-900 text-center mb-0">Congratulations!</p>
-        <p className="text-[12px] text-gray-400 text-center mt-0.5 mb-3">You earned a new Badge</p>
+        <p className="text-[17px] font-extrabold text-gray-900">Congratulations!</p>
+        <p className="text-[12px] text-gray-400 text-center mt-0.5">You earned a new Badge</p>
 
-        {/* Body: lottie left, text right — same height as review popup lottie block */}
-        <div className="flex items-center gap-4" style={{ minHeight: 200 }}>
-          {/* Winner lottie — large to fill the height */}
-          <div style={{ width: 200, height: 200, flexShrink: 0 }}>
-            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 200, height: 200 }} />
-          </div>
-
-          {/* Text */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-500 mb-1.5">Badge Earned</p>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[14px] font-bold ${colors.bg} ${colors.text} ${colors.border}`}>
-              {badge}
-            </span>
-            <p className="text-[12px] text-gray-400 mt-2">
-              {reviewCount} review{reviewCount !== 1 ? "s" : ""} submitted
-            </p>
-          </div>
+        {/* Winner lottie — cropped to remove internal whitespace */}
+        <div style={{ width: 260, height: 220, overflow: "hidden", marginTop: 2 }}>
+          <Lottie
+            animationData={winnerData}
+            loop={false}
+            autoplay
+            style={{ width: 320, height: 320, marginTop: -30, marginLeft: -30, marginRight: -30, marginBottom: -70 }}
+          />
         </div>
+
+        {/* Badge name — big and prominent */}
+        <span className={`inline-flex items-center px-5 py-2 rounded-full border-2 text-[17px] font-extrabold mt-1 ${colors.bg} ${colors.text} ${colors.border}`}>
+          {badge}
+        </span>
+
+        {/* Review count */}
+        <p className="text-[12px] text-gray-400 mt-2">
+          {reviewCount} review{reviewCount !== 1 ? "s" : ""} submitted
+        </p>
       </div>
     </div>,
     document.body

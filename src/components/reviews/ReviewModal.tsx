@@ -94,6 +94,8 @@ type Props = {
   onSuccess?: () => void;
   onBadgeEarned?: (badge: string, reviewCount: number) => void;
   siteId: string;
+  rating: number;
+  onRatingChange: (n: number) => void;
 };
 
 type LocalPhoto = {
@@ -107,7 +109,7 @@ type LocalPhoto = {
 
 /* ---------- component ---------- */
 
-export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, siteId }: Props) {
+export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, siteId, rating, onRatingChange }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
   const { profile, updateBadge } = useProfile();
@@ -263,11 +265,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const avatarUrl = resolveAvatarSrc(profile?.avatar_url);
   const badge = profile?.badge || "Beginner";
 
-  // Form state — ratingRef mirrors rating so submit always reads latest value
-  // even if a re-render somehow resets state (iOS keyboard viewport bug)
-  const ratingRef = useRef<number>(0);
-  const [rating, setRatingState] = useState<number>(0);
-  const setRating = useCallback((n: number) => { ratingRef.current = n; setRatingState(n); }, []);
+  // Form state — rating is lifted to parent so it survives re-renders/remounts
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [visitedYear, setVisitedYear] = useState<number | "">("");
   const [visitedMonth, setVisitedMonth] = useState<number | "">("");
@@ -320,9 +318,8 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   }
 
   async function onSubmit() {
-    const currentRating = ratingRef.current;
     if (!userId) { alert("Please sign in to write a review."); return; }
-    if (!currentRating) { alert("Please select a rating."); return; }
+    if (!rating) { alert("Please select a rating."); return; }
     if (text.trim().length < 20) { alert("Please write at least 20 characters about your experience."); return; }
     try {
       setBusy(true);
@@ -339,7 +336,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       const { data: review, error: rErr } = await supabase
         .from("reviews")
         .insert({
-          site_id: siteId, user_id: userId, rating: currentRating,
+          site_id: siteId, user_id: userId, rating,
           review_text: text.trim(),
           visited_year: visitedYear || null,
           visited_month: visitedMonth || null,
@@ -471,7 +468,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
                     key={n}
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => { void hapticLight(); setRating(n); }}
+                    onClick={() => { void hapticLight(); onRatingChange(n); }}
                     className="p-1.5 transition-transform active:scale-90"
                     aria-label={`Rate ${n}`}
                   >

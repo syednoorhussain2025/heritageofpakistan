@@ -61,6 +61,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showTripModal, setShowTripModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
   const [showReviewSuccess, setShowReviewSuccess] = useState(false);
   const [badgeEarned, setBadgeEarned] = useState<{ badge: string; count: number } | null>(null);
 
@@ -311,7 +312,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                 <div className="mx-4 h-[0.5px] bg-gray-100" />
                 <button
                   type="button"
-                  onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => setShowReviewModal(true), 520); }}
+                  onClick={() => { void hapticMedium(); closeSheet(); setTimeout(() => { setReviewRating(0); setShowReviewModal(true); }, 520); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50"
                 >
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
@@ -438,7 +439,9 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         <ReviewModal
           open={showReviewModal}
           siteId={site.id}
-          onClose={() => setShowReviewModal(false)}
+          rating={reviewRating}
+          onRatingChange={setReviewRating}
+          onClose={() => { setShowReviewModal(false); }}
           onSuccess={() => {
             setShowReviewModal(false);
             closeSheet();

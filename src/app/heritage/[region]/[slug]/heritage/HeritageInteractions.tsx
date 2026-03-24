@@ -98,6 +98,7 @@ export default function HeritageInteractions({
   const [inTrip, setInTrip] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
   const [showReviewSuccess, setShowReviewSuccess] = useState(false);
   const [badgeEarned, setBadgeEarned] = useState<{ badge: string; count: number } | null>(null);
 
@@ -175,7 +176,7 @@ export default function HeritageInteractions({
           setShowWishlistModal={setShowWishlistModal}
           setInTrip={setInTrip}
           doShare={doShare}
-          setShowReviewModal={setShowReviewModal}
+          setShowReviewModal={(v) => { if (v) setReviewRating(0); setShowReviewModal(v); }}
           researchMode={researchEnabled}
           onChangeResearchMode={v => {
             setResearchEnabled(v);
@@ -216,12 +217,12 @@ export default function HeritageInteractions({
       {site && (
         <ReviewModal
           open={showReviewModal}
-          onClose={() => setShowReviewModal(false)}
-          onSuccess={() => {
-            setShowReviewSuccess(true);
-          }}
-          onBadgeEarned={(badge, count) => setBadgeEarned({ badge, count })}
           siteId={site.id}
+          rating={reviewRating}
+          onRatingChange={setReviewRating}
+          onClose={() => { setShowReviewModal(false); }}
+          onSuccess={() => { setShowReviewSuccess(true); }}
+          onBadgeEarned={(badge, count) => setBadgeEarned({ badge, count })}
         />
       )}
       {showReviewSuccess && (
