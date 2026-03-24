@@ -381,7 +381,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         const prevBadge = profileData?.badge ?? "Beginner";
         if (newBadge !== prevBadge) {
           const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
-          if (badgeErr) console.error("[badge update]", badgeErr);
+          if (badgeErr) console.error("[badge update]", badgeErr.message);
           updateBadge(newBadge);
           earnedBadge = newBadge;
         }
