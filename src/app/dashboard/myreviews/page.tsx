@@ -8,6 +8,7 @@ import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
 import { hardDeleteReview } from "@/lib/db/hardDelete";
 import { NoReviews } from "@/components/illustrations/NoReviews";
+import DeleteSuccessPopup from "@/components/reviews/DeleteSuccessPopup";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
 import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox
 import type { LightboxPhoto } from "@/types/lightbox";
@@ -254,6 +255,7 @@ export default function MyReviewsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
 
   // Bulk delete state
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -333,16 +335,11 @@ export default function MyReviewsPage() {
 
   async function handleDeletePermanently(id: string) {
     if (!userId) return;
-    if (
-      !confirm(
-        "This will permanently delete your review AND its photos from storage. Continue?"
-      )
-    )
-      return;
     try {
       setDeleting(id);
       await hardDeleteReview(id);
       setReviews((prev) => prev.filter((r) => r.id !== id));
+      setShowDeletePopup(true);
       // Re-fetch profile so badge reflects new review count
       setTimeout(() => refreshProfile(), 500);
     } finally {
@@ -496,6 +493,10 @@ export default function MyReviewsPage() {
           />
         ))}
       </div>
+
+      {showDeletePopup && (
+        <DeleteSuccessPopup onDone={() => setShowDeletePopup(false)} />
+      )}
     </div>
   );
 }
