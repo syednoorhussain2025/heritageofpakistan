@@ -372,21 +372,25 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       let earnedBadge: string | null = null;
       let newReviewCount = 0;
       try {
-        const [{ count }, { data: profileData }] = await Promise.all([
+        const [{ count }, { data: profileData, error: profileErr }] = await Promise.all([
           supabase.from("reviews").select("id", { count: "exact", head: true }).eq("user_id", userId).neq("status", "deleted"),
           supabase.from("profiles").select("badge").eq("id", userId).single(),
         ]);
+        if (profileErr) console.error("[badge profile fetch]", profileErr.message);
         newReviewCount = count ?? 0;
         const newBadge = badgeForCount(newReviewCount);
         const storedBadge = profileData?.badge ?? null;
-        const prevBadge = storedBadge ?? "Beginner";
-        if (newBadge !== prevBadge) {
+        console.log("[badge check] storedBadge:", storedBadge, "newBadge:", newBadge, "count:", newReviewCount);
+        if (newBadge !== storedBadge) {
           const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
-          if (badgeErr) console.error("[badge update]", badgeErr.message);
-          updateBadge(newBadge);
-          // Only show popup if badge was already set in DB — prevents
-          // false positives for users whose badge was never initialized
-          if (storedBadge !== null) earnedBadge = newBadge;
+          if (badgeErr) {
+            console.error("[badge update error]", JSON.stringify(badgeErr));
+          } else {
+            updateBadge(newBadge);
+            // Only show popup if a previous badge was set — not on first-time initialization
+            // Also only show if the badge actually leveled UP (not just initialized from null)
+            if (storedBadge !== null && storedBadge !== newBadge) earnedBadge = newBadge;
+          }
         }
       } catch (e) { console.error("[badge check]", e); }
 
