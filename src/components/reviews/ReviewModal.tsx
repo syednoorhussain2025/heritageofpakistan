@@ -385,12 +385,17 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
           const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
           if (badgeErr) {
             console.error("[badge update error]", JSON.stringify(badgeErr));
+            // DB write failed — DO NOT show popup or update local state
           } else {
+            console.log("[badge update ok] new badge stored:", newBadge, "prev stored:", storedBadge);
             updateBadge(newBadge);
-            // Only show popup if a previous badge was set — not on first-time initialization
-            // Also only show if the badge actually leveled UP (not just initialized from null)
-            if (storedBadge !== null && storedBadge !== newBadge) earnedBadge = newBadge;
+            // Show popup ONLY if:
+            // 1. storedBadge was already set (not null / first-time init)
+            // 2. The badge actually changed to a higher tier
+            if (storedBadge !== null) earnedBadge = newBadge;
           }
+        } else {
+          console.log("[badge check] no change, badge stays:", storedBadge);
         }
       } catch (e) { console.error("[badge check]", e); }
 
