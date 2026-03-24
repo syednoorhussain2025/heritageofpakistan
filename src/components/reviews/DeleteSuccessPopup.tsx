@@ -21,8 +21,11 @@ export default function DeleteSuccessPopup({ onDone }: { onDone: () => void }) {
       className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
       style={{ opacity: fading ? 0 : visible ? 1 : 0, transition: "opacity 0.5s ease" }}
     >
-      <div style={{ width: 160, height: 160 }}>
-        <Lottie animationData={deleteData} loop={false} autoplay style={{ width: 160, height: 160 }} />
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-[15px] font-bold text-red-500 tracking-wide">Deleted</p>
+        <div style={{ width: 120, height: 120 }}>
+          <Lottie animationData={deleteData} loop={false} autoplay style={{ width: 120, height: 120 }} />
+        </div>
       </div>
     </div>,
     document.body
