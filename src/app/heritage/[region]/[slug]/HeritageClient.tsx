@@ -279,7 +279,7 @@ export default function HeritageClient({
           hasPhotoStory={hasPhotoStory}
           mapsLink={maps.link}
           onReviewSuccess={(uid) => {
-            setReviewsPinnedUserId(uid);
+            setReviewsPinnedUserId(uid || null);
             setShowAllReviews(true);
           }}
         />

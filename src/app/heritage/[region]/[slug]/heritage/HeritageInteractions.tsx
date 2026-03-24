@@ -220,7 +220,7 @@ export default function HeritageInteractions({
         <ReviewSuccessPopup
           onDone={() => {
             setShowReviewSuccess(false);
-            if (userId) onReviewSuccess?.(userId);
+            onReviewSuccess?.(userId ?? "");
           }}
         />
       )}
