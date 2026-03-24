@@ -4,7 +4,19 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Lottie from "lottie-react";
 import confettiData from "../../../public/review-confetti.json";
-import badgeData from "../../../public/badge-winner.json";
+import winnerData from "../../../public/badge-winner.json";
+
+const BADGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  Beginner:          { bg: "bg-gray-100",   text: "text-gray-700",   border: "border-gray-300" },
+  Explorer:          { bg: "bg-blue-50",    text: "text-blue-700",   border: "border-blue-200" },
+  Adventurer:        { bg: "bg-green-50",   text: "text-green-700",  border: "border-green-200" },
+  Voyager:           { bg: "bg-teal-50",    text: "text-teal-700",   border: "border-teal-200" },
+  Wanderer:          { bg: "bg-purple-50",  text: "text-purple-700", border: "border-purple-200" },
+  Globetrotter:      { bg: "bg-amber-50",   text: "text-amber-700",  border: "border-amber-200" },
+  "Heritage Guardian": { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+  "Master Traveler": { bg: "bg-red-50",     text: "text-red-700",    border: "border-red-200" },
+  "Legendary Nomad": { bg: "bg-yellow-50",  text: "text-yellow-700", border: "border-yellow-300" },
+};
 
 export default function BadgeEarnedPopup({
   badge,
@@ -23,6 +35,8 @@ export default function BadgeEarnedPopup({
     return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
   }, [onDone]);
 
+  const colors = BADGE_COLORS[badge] ?? BADGE_COLORS["Globetrotter"];
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9998] flex items-center justify-center pointer-events-none"
@@ -33,21 +47,31 @@ export default function BadgeEarnedPopup({
         <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* Card */}
+      {/* Card — same width as ReviewSuccessPopup (mx-8) */}
       <div
-        className="relative z-10 bg-white rounded-2xl px-5 py-4 mx-8 shadow-2xl pointer-events-none"
+        className="relative z-10 bg-white rounded-2xl px-5 pt-4 pb-4 mx-8 shadow-2xl pointer-events-none flex flex-col items-center"
         style={{ transform: fading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease" }}
       >
-        <div className="flex items-center gap-4">
-          {/* Badge lottie */}
-          <div style={{ width: 80, height: 80, overflow: "hidden", shrink: 0 } as React.CSSProperties}>
-            <Lottie animationData={badgeData} loop={false} autoplay style={{ width: 80, height: 80 }} />
+        {/* Title */}
+        <p className="text-[17px] font-extrabold text-gray-900 mb-0.5 text-center">Congratulations!</p>
+        <p className="text-[12px] text-gray-400 text-center">You earned a new Badge</p>
+
+        {/* Body row: lottie left, badge info right */}
+        <div className="flex items-center gap-4 mt-3 w-full">
+          {/* Winner lottie */}
+          <div style={{ width: 90, height: 90, flexShrink: 0, overflow: "hidden" }}>
+            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 90, height: 90 }} />
           </div>
-          {/* Text */}
+
+          {/* Badge info */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-500 mb-0.5">New Badge Earned!</p>
-            <p className="text-[19px] font-extrabold text-gray-900 leading-tight">{badge}</p>
-            <p className="text-[12px] text-gray-400 mt-1">{reviewCount} review{reviewCount !== 1 ? "s" : ""} submitted</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-500 mb-1">Badge Earned</p>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[15px] font-bold ${colors.bg} ${colors.text} ${colors.border}`}>
+              {badge}
+            </span>
+            <p className="text-[12px] text-gray-400 mt-2">
+              {reviewCount} review{reviewCount !== 1 ? "s" : ""} submitted
+            </p>
           </div>
         </div>
       </div>

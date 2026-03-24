@@ -110,7 +110,7 @@ type LocalPhoto = {
 export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, siteId }: Props) {
   const supabase = createClient();
   const { userId } = useAuthUserId();
-  const { profile } = useProfile();
+  const { profile, updateBadge } = useProfile();
 
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
@@ -123,26 +123,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const closeTimerRef = useRef<number | null>(null);
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
-  // Track previous open value so form resets only on false→true transition
-  const prevOpenRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!open) {
-      prevOpenRef.current = false;
       setSheetVisible(false);
       setClosing(false);
       return;
-    }
-    // Only reset form state when transitioning from closed → open
-    if (!prevOpenRef.current) {
-      prevOpenRef.current = true;
-      setRating(0);
-      setHoverRating(0);
-      setVisitedYear("");
-      setVisitedMonth("");
-      setText("");
-      setPhotos([]);
-      setError(null);
     }
     if (closeTimerRef.current != null) {
       window.clearTimeout(closeTimerRef.current);
@@ -384,8 +370,9 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         const newBadge = badgeForCount(newReviewCount);
         const prevBadge = profile?.badge || null;
         if (newBadge !== prevBadge) {
-          // Update badge in profiles table
+          // Update badge in profiles table + local state
           await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
+          updateBadge(newBadge);
           earnedBadge = newBadge;
         }
       } catch {}
@@ -486,7 +473,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
                   >
                     <Icon
                       name="star"
-                      size={52}
+                      size={36}
                       className={(hoverRating || rating) >= n ? "text-amber-400" : "text-gray-200"}
                     />
                   </button>

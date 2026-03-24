@@ -3,6 +3,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -24,9 +25,11 @@ const QUERY_TIMEOUT_MS = 12000;
 const ProfileContext = createContext<{
   profile: Profile | null;
   loading: boolean;
+  updateBadge: (badge: string) => void;
 }>({
   profile: null,
   loading: true,
+  updateBadge: () => {},
 });
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
@@ -83,7 +86,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     };
   }, [userId, supabase]);
 
-  const value = useMemo(() => ({ profile, loading }), [profile, loading]);
+  /** Optimistically update the badge in local state after a badge upgrade */
+  const updateBadge = useCallback((badge: string) => {
+    setProfile((prev) => prev ? { ...prev, badge } : prev);
+  }, []);
+
+  const value = useMemo(() => ({ profile, loading, updateBadge }), [profile, loading, updateBadge]);
 
   return (
     <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

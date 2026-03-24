@@ -37,12 +37,12 @@ export default function ReviewSuccessPopup({
         <p className="text-[17px] font-extrabold text-gray-900 mb-0">Review Submitted!</p>
         <p className="text-[12px] text-gray-400 text-center mt-0.5">Submit more reviews to earn badges</p>
         {/* Fixed-height clip to cut the lottie's internal whitespace */}
-        <div style={{ width: 260, height: 140, overflow: "hidden", marginTop: 4 }}>
+        <div style={{ width: 300, height: 170, overflow: "hidden", marginTop: 4 }}>
           <Lottie
             animationData={fiveStarData}
             loop={false}
             autoplay
-            style={{ width: 260, height: 260, marginTop: -56 }}
+            style={{ width: 300, height: 300, marginTop: -64 }}
           />
         </div>
       </div>

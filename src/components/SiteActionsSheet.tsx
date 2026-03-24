@@ -439,7 +439,11 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           open={showReviewModal}
           siteId={site.id}
           onClose={() => setShowReviewModal(false)}
-          onSuccess={() => setShowReviewSuccess(true)}
+          onSuccess={() => {
+            setShowReviewModal(false);
+            closeSheet();
+            setShowReviewSuccess(true);
+          }}
           onBadgeEarned={(badge, count) => setBadgeEarned({ badge, count })}
         />
       )}
