@@ -57,6 +57,19 @@ export async function hapticWarning(): Promise<void> {
   } catch { /* no-op */ }
 }
 
+/** Celebration burst — review submitted, badge earned */
+export async function hapticCelebration(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { Haptics, ImpactStyle, NotificationType } = await import("@capacitor/haptics");
+    await Haptics.notification({ type: NotificationType.Success });
+    await new Promise((r) => setTimeout(r, 120));
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    await new Promise((r) => setTimeout(r, 80));
+    await Haptics.impact({ style: ImpactStyle.Light });
+  } catch { /* no-op */ }
+}
+
 /** Selection changed — carousel snapped to new slide */
 export async function hapticSelection(): Promise<void> {
   if (!isNative()) return;

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Lottie from "lottie-react";
 import confettiData from "../../../public/review-confetti.json";
 import fiveStarData from "../../../public/review-5star.json";
+import { hapticCelebration } from "@/lib/haptics";
 
 export default function ReviewSuccessPopup({
   onDone,
@@ -14,6 +15,7 @@ export default function ReviewSuccessPopup({
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    void hapticCelebration();
     const fadeTimer = setTimeout(() => setFading(true), 5000);
     const doneTimer = setTimeout(() => onDone(), 5600);
     return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };

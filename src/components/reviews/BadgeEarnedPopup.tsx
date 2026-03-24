@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Lottie from "lottie-react";
+import { hapticCelebration } from "@/lib/haptics";
 import confettiData from "../../../public/review-confetti.json";
 import winnerData from "../../../public/badge-winner.json";
 
@@ -31,9 +32,12 @@ export default function BadgeEarnedPopup({
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    void hapticCelebration();
+    // Second burst after a beat for extra emphasis on badge upgrade
+    const secondBurst = setTimeout(() => void hapticCelebration(), 600);
     const fadeTimer = setTimeout(() => setFading(true), 5000);
     const doneTimer = setTimeout(() => onDone(), 5600);
-    return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
+    return () => { clearTimeout(secondBurst); clearTimeout(fadeTimer); clearTimeout(doneTimer); };
   }, [onDone]);
 
   const colors = BADGE_COLORS[badge] ?? BADGE_COLORS["Globetrotter"];
