@@ -51,20 +51,20 @@ export default function BadgeEarnedPopup({
         <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* Card — same mx-8 width as ReviewSuccessPopup, large rounded corners */}
+      {/* Card — same padding + mx-8 as ReviewSuccessPopup */}
       <div
-        className="relative z-10 bg-white rounded-[32px] px-5 pt-5 pb-5 mx-8 shadow-2xl pointer-events-none"
+        className="relative z-10 bg-white rounded-[32px] px-6 pt-4 pb-4 mx-8 shadow-2xl pointer-events-none"
         style={{ transform: fading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease" }}
       >
-        {/* Title row */}
-        <p className="text-[17px] font-extrabold text-gray-900 text-center mb-0.5">Congratulations!</p>
-        <p className="text-[12px] text-gray-400 text-center mb-3">You earned a new Badge</p>
+        {/* Title */}
+        <p className="text-[17px] font-extrabold text-gray-900 text-center mb-0">Congratulations!</p>
+        <p className="text-[12px] text-gray-400 text-center mt-0.5 mb-3">You earned a new Badge</p>
 
-        {/* Body: lottie left, text right */}
-        <div className="flex items-center gap-3">
-          {/* Winner lottie */}
-          <div style={{ width: 110, height: 110, flexShrink: 0 }}>
-            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 110, height: 110 }} />
+        {/* Body: lottie left, text right — same height as review popup lottie block */}
+        <div className="flex items-center gap-4" style={{ minHeight: 170 }}>
+          {/* Winner lottie — large to fill the height */}
+          <div style={{ width: 160, height: 160, flexShrink: 0 }}>
+            <Lottie animationData={winnerData} loop={false} autoplay style={{ width: 160, height: 160 }} />
           </div>
 
           {/* Text */}
