@@ -13,7 +13,11 @@
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
     "cap:run:ios": "npx cap run ios",
-    "cap:run:android": "npx cap run android"
+    "cap:run:android": "npx cap run android",
+    "test": "playwright test",
+    "test:mobile": "playwright test --project='Mobile Chrome (Pixel 5)'",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
@@ -37,6 +41,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@formkit/auto-animate": "^0.9.0",
     "@googlemaps/markerclusterer": "^2.6.2",
+    "@lottiefiles/dotlottie-react": "^0.18.7",
     "@react-google-maps/api": "^2.20.7",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",
@@ -100,6 +105,7 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.25",
     "@types/react": "^19",
