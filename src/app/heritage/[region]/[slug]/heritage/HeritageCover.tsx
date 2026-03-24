@@ -282,7 +282,9 @@ export default function HeritageCover({
   const mobileSlideRef = useRef<HTMLDivElement | null>(null);
   const mobileFadeRef = useRef<HTMLDivElement | null>(null);
 
-  // Mobile: fade slideshow to white as content scrolls over it
+  // Mobile: fade slideshow to white as content scrolls over it.
+  // The slide is `sticky top-0` so it stays pinned — we just use window.scrollY
+  // directly as the "scrolled past" value (hero starts at top of page).
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
@@ -291,17 +293,10 @@ export default function HeritageCover({
       const fade = mobileFadeRef.current;
       if (!slide || !fade) return;
 
-      // The slide is `sticky top-0`, so getBoundingClientRect().top is always 0 once stuck.
-      // Use offsetTop from the document root to get its original resting position.
       const slideH = slide.offsetHeight;
-      let slideTopAbs = 0;
-      let el: HTMLElement | null = slide;
-      while (el) { slideTopAbs += el.offsetTop; el = el.offsetParent as HTMLElement | null; }
-
-      const fadeStart = slideH * 0.2;
-      const fadeEnd = slideH * 0.85;
-      const scrolledPast = window.scrollY - slideTopAbs;
-      const opacity = Math.min(1, Math.max(0, (scrolledPast - fadeStart) / (fadeEnd - fadeStart)));
+      const fadeStart = slideH * 0.15;
+      const fadeEnd = slideH * 0.7;
+      const opacity = Math.min(1, Math.max(0, (window.scrollY - fadeStart) / (fadeEnd - fadeStart)));
       fade.style.opacity = String(opacity);
     };
 
