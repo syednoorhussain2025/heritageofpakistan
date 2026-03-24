@@ -380,11 +380,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         const newBadge = badgeForCount(newReviewCount);
         const prevBadge = profileData?.badge ?? "Beginner";
         if (newBadge !== prevBadge) {
-          await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId).throwOnError();
+          const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
+          if (badgeErr) console.error("[badge update]", badgeErr);
           updateBadge(newBadge);
           earnedBadge = newBadge;
         }
-      } catch {}
+      } catch (e) { console.error("[badge check]", e); }
 
       // Close sheet immediately, then fire onSuccess / onBadgeEarned
       closeSheet();
