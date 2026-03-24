@@ -111,6 +111,8 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const supabase = createClient();
   const { userId } = useAuthUserId();
   const { profile, updateBadge } = useProfile();
+  const profileRef = useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
 
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
@@ -261,8 +263,11 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const avatarUrl = resolveAvatarSrc(profile?.avatar_url);
   const badge = profile?.badge || "Beginner";
 
-  // Form state
-  const [rating, setRating] = useState<number>(0);
+  // Form state — ratingRef mirrors rating so submit always reads latest value
+  // even if a re-render somehow resets state (iOS keyboard viewport bug)
+  const ratingRef = useRef<number>(0);
+  const [rating, setRatingState] = useState<number>(0);
+  const setRating = useCallback((n: number) => { ratingRef.current = n; setRatingState(n); }, []);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [visitedYear, setVisitedYear] = useState<number | "">("");
   const [visitedMonth, setVisitedMonth] = useState<number | "">("");
@@ -315,8 +320,9 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   }
 
   async function onSubmit() {
+    const currentRating = ratingRef.current;
     if (!userId) { alert("Please sign in to write a review."); return; }
-    if (!rating) { alert("Please select a rating."); return; }
+    if (!currentRating) { alert("Please select a rating."); return; }
     if (text.trim().length < 20) { alert("Please write at least 20 characters about your experience."); return; }
     try {
       setBusy(true);
@@ -333,7 +339,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       const { data: review, error: rErr } = await supabase
         .from("reviews")
         .insert({
-          site_id: siteId, user_id: userId, rating,
+          site_id: siteId, user_id: userId, rating: currentRating,
           review_text: text.trim(),
           visited_year: visitedYear || null,
           visited_month: visitedMonth || null,
@@ -368,7 +374,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
           .neq("status", "deleted");
         newReviewCount = count ?? 0;
         const newBadge = badgeForCount(newReviewCount);
-        const prevBadge = profile?.badge || null;
+        const prevBadge = profileRef.current?.badge || null;
         if (newBadge !== prevBadge) {
           // Update badge in profiles table + local state
           await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);

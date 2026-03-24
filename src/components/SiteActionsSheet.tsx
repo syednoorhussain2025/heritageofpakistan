@@ -451,15 +451,22 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         <ReviewSuccessPopup
           onDone={() => {
             setShowReviewSuccess(false);
-            onReviewSuccess?.(userId ?? "");
+            if (badgeEarned) {
+              // Badge popup plays first, then AllReviewsPanel opens after it
+            } else {
+              onReviewSuccess?.(userId ?? "");
+            }
           }}
         />
       )}
-      {badgeEarned && (
+      {badgeEarned && !showReviewSuccess && (
         <BadgeEarnedPopup
           badge={badgeEarned.badge}
           reviewCount={badgeEarned.count}
-          onDone={() => setBadgeEarned(null)}
+          onDone={() => {
+            setBadgeEarned(null);
+            onReviewSuccess?.(userId ?? "");
+          }}
         />
       )}
     </>
