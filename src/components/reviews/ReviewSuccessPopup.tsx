@@ -29,20 +29,20 @@ export default function ReviewSuccessPopup({
         <Lottie animationData={confettiData} loop={false} autoplay style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* White popup card */}
+      {/* White popup card — pointer-events-none so it never blocks taps */}
       <div
-        className="relative z-10 bg-white rounded-3xl px-8 pt-5 mx-6 flex flex-col items-center shadow-2xl"
+        className="relative z-10 bg-white rounded-2xl px-6 pt-4 pb-1 mx-8 flex flex-col items-center shadow-2xl pointer-events-none"
         style={{ transform: fading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease" }}
       >
-        <p className="text-[20px] font-extrabold text-gray-900 mb-0.5">Review Submitted!</p>
-        <p className="text-[13px] text-gray-400 text-center">Submit more reviews to earn badges</p>
+        <p className="text-[17px] font-extrabold text-gray-900 mb-0">Review Submitted!</p>
+        <p className="text-[12px] text-gray-400 text-center mt-0.5">Submit more reviews to earn badges</p>
         {/* Fixed-height clip to cut the lottie's internal whitespace */}
-        <div style={{ width: 280, height: 160, overflow: "hidden", marginTop: 4, marginBottom: 4 }}>
+        <div style={{ width: 200, height: 110, overflow: "hidden", marginTop: 2 }}>
           <Lottie
             animationData={fiveStarData}
             loop={false}
             autoplay
-            style={{ width: 280, height: 280, marginTop: -60 }}
+            style={{ width: 200, height: 200, marginTop: -44 }}
           />
         </div>
       </div>

@@ -204,6 +204,7 @@ export default function HeritageInteractions({
         }}
         isOpen={actionsSheetOpen}
         onClose={() => setActionsSheetOpen(false)}
+        onReviewSuccess={(uid) => onReviewSuccess?.(uid)}
       />
 
       {site && (

@@ -14,6 +14,7 @@ import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { nativeShare } from "@/lib/nativeShare";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useAuthUserId } from "@/hooks/useAuthUserId";
 
 export type SiteActionsSheetSite = {
   id: string;
@@ -33,10 +34,13 @@ interface Props {
   onClose: () => void;
   /** When provided, "Places Nearby" calls this instead of navigating to /explore */
   onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
+  /** Called after review success popup finishes — opens AllReviewsPanel with pinned user */
+  onReviewSuccess?: (userId: string) => void;
 }
 
-export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby }: Props) {
+export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby, onReviewSuccess }: Props) {
   const router = useRouter();
+  const { userId } = useAuthUserId();
   const [mounted, setMounted] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -431,7 +435,12 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         />
       )}
       {showReviewSuccess && (
-        <ReviewSuccessPopup onDone={() => setShowReviewSuccess(false)} />
+        <ReviewSuccessPopup
+          onDone={() => {
+            setShowReviewSuccess(false);
+            onReviewSuccess?.(userId ?? "");
+          }}
+        />
       )}
     </>
   );
