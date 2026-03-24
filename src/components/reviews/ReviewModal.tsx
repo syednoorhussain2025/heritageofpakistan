@@ -372,17 +372,19 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       let earnedBadge: string | null = null;
       let newReviewCount = 0;
       try {
+        const { data: { user: freshUser } } = await supabase.auth.getUser();
+        const freshUserId = freshUser?.id ?? userId;
         const [{ count }, { data: profileData, error: profileErr }] = await Promise.all([
-          supabase.from("reviews").select("id", { count: "exact", head: true }).eq("user_id", userId).neq("status", "deleted"),
-          supabase.from("profiles").select("badge").eq("id", userId).single(),
+          supabase.from("reviews").select("id", { count: "exact", head: true }).eq("user_id", freshUserId).neq("status", "deleted"),
+          supabase.from("profiles").select("badge").eq("id", freshUserId).single(),
         ]);
         if (profileErr) console.error("[badge profile fetch]", profileErr.message);
         newReviewCount = count ?? 0;
         const newBadge = badgeForCount(newReviewCount);
         const storedBadge = profileData?.badge ?? null;
-        console.log("[badge check] userId:", userId, "storedBadge:", storedBadge, "newBadge:", newBadge, "count:", newReviewCount);
+        console.log("[badge check] freshUserId:", freshUserId, "hookUserId:", userId, "storedBadge:", storedBadge, "newBadge:", newBadge, "count:", newReviewCount);
         if (newBadge !== storedBadge) {
-          const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", userId);
+          const { error: badgeErr } = await supabase.from("profiles").update({ badge: newBadge }).eq("id", freshUserId);
           if (badgeErr) {
             console.error("[badge update error]", JSON.stringify(badgeErr));
             // DB write failed — DO NOT show popup or update local state
