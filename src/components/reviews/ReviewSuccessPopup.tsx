@@ -33,7 +33,7 @@ export default function ReviewSuccessPopup({
 
       {/* White popup card — pointer-events-none so it never blocks taps */}
       <div
-        className="relative z-10 bg-white rounded-2xl px-6 pt-4 pb-1 mx-8 flex flex-col items-center shadow-2xl pointer-events-none"
+        className="relative z-10 bg-white rounded-[32px] px-6 pt-4 pb-1 mx-8 flex flex-col items-center shadow-2xl pointer-events-none"
         style={{ transform: fading ? "scale(0.95)" : "scale(1)", transition: "transform 0.6s ease" }}
       >
         <p className="text-[17px] font-extrabold text-gray-900 mb-0">Review Submitted!</p>
