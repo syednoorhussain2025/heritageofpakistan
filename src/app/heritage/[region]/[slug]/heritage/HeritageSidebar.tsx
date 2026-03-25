@@ -567,7 +567,7 @@ export default function HeritageSidebar({
                 type="button"
                 onClick={() => setMapSheetOpen(true)}
                 aria-label={`Open map for ${site.title}`}
-                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-2xl border border-slate-200 mb-3 block cursor-pointer"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -605,7 +605,7 @@ export default function HeritageSidebar({
                 type="button"
                 onClick={() => setMapSheetOpen(true)}
                 aria-label={`Open map for ${site.title}`}
-                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-2xl border border-slate-200 mb-3 block cursor-pointer"
               >
                 <iframe
                   title={`Map for ${site.title}`}
@@ -748,7 +748,7 @@ export default function HeritageSidebar({
               type="button"
               onClick={() => setMapSheetOpen(true)}
               aria-label={`Open map for ${site.title}`}
-              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-2xl border border-slate-200 mb-3 block cursor-pointer"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -770,7 +770,7 @@ export default function HeritageSidebar({
               type="button"
               onClick={() => setMapSheetOpen(true)}
               aria-label={`Open map for ${site.title}`}
-              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-2xl border border-slate-200 mb-3 block cursor-pointer"
             >
               <iframe
                 title={`Map for ${site.title}`}

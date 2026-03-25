@@ -300,9 +300,15 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           {bootstrapReady && sitesReady && (
             <ClientOnlyMap
               locations={nearbySites}
-              settings={mapSettings}
+              settings={{
+                ...mapSettings,
+                default_center_lat: site.latitude,
+                default_center_lng: site.longitude,
+                default_zoom: 14,
+              }}
               icons={mapIcons}
               highlightSiteId={site.id}
+              openPreviewWithoutZoom
               mapType="osm"
             />
           )}
