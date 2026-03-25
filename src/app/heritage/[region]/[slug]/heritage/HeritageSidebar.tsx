@@ -12,10 +12,8 @@ const LocationMapSheet = dynamic(
   { ssr: false }
 );
 
-const DotLottieReact = dynamic(
-  () => import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact })),
-  { ssr: false }
-);
+import Lottie from "lottie-react";
+import mapPinData from "@/assets/map-pin.json";
 
 const MOBILE_PREVIEW_ROWS = 4;
 
@@ -583,12 +581,7 @@ export default function HeritageSidebar({
                 />
                 {/* Lottie pin animation */}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
-                  <DotLottieReact
-                    src="/map-pin.lottie"
-                    loop
-                    autoplay
-                    style={{ width: "100%", height: "100%" }}
-                  />
+                  <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
               </button>
             ) : maps.embed ? (
@@ -606,7 +599,7 @@ export default function HeritageSidebar({
                   className="absolute inset-0 h-full w-full border-0 pointer-events-none"
                 />
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
-                  <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+                  <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
               </button>
             ) : (
@@ -752,7 +745,7 @@ export default function HeritageSidebar({
                 className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
-                <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+                <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
             </button>
           ) : maps.embed ? (
@@ -770,7 +763,7 @@ export default function HeritageSidebar({
                 className="absolute inset-0 h-full w-full border-0 pointer-events-none"
               />
               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
-                <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+                <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
             </button>
           ) : (
