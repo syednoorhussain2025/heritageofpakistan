@@ -274,7 +274,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           #location-map-sheet .leaflet-container { background: #f0ebe3 !important; }
           #location-map-sheet .leaflet-fade-anim .leaflet-popup { transition: opacity 220ms ease !important; }
           #location-map-sheet .leaflet-zoom-anim .leaflet-zoom-hide { visibility: visible !important; }
-          #location-map-sheet .leaflet-tooltip { opacity: 1 !important; visibility: visible !important; transition: opacity 200ms ease !important; }
+          #location-map-sheet .leaflet-tooltip { opacity: 1 !important; visibility: visible !important; transition: opacity 500ms ease !important; }
           #location-map-sheet .leaflet-tooltip.hop-tooltip-hidden { opacity: 0 !important; }
           @keyframes hop-card-in {
             from { opacity: 0; transform: translateY(6px) scale(0.97); }
@@ -300,7 +300,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
                   ...mapSettings,
                   default_center_lat: site.latitude,
                   default_center_lng: site.longitude,
-                  default_zoom: 16,
+                  default_zoom: 18,
                 }}
                 icons={mapIcons}
                 highlightSiteId={site.id}
@@ -317,17 +317,14 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           type="button"
           onClick={closeWithAnimation}
           aria-label="Close map"
-          className="absolute z-[4000] flex items-center justify-center w-11 h-11 rounded-full transition-transform active:scale-90"
+          className="absolute z-[4000] flex items-center justify-center transition-transform active:scale-90"
           style={{
             top: "max(env(safe-area-inset-top, 0px), 16px)",
             left: "16px",
-            background: "rgba(255,255,255,0.55)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))",
           }}
         >
-          <Icon name="arrow-left" size={18} className="text-gray-800" />
+          <Icon name="circle-arrow-left" size={28} className="text-gray-800" />
         </button>
       </div>
     </div>,

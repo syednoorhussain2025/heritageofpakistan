@@ -673,7 +673,7 @@ function PopupTooltipHideEffect() {
       if (!tooltip) return;
       const el = tooltip.getElement();
       if (!el) return;
-      setTimeout(() => el.classList.remove("hop-tooltip-hidden"), 320);
+      setTimeout(() => el.classList.remove("hop-tooltip-hidden"), 420);
     };
     map.on("popupopen", onOpen);
     map.on("popupclose", onClose);
@@ -998,7 +998,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
               </span>
             </Tooltip>
           )}
-          {!directMarkerSelect && (
+          {!directMarkerSelect && site.id !== highlightSiteId && (
             <Popup>
               <SitePreviewCard
                 site={site}

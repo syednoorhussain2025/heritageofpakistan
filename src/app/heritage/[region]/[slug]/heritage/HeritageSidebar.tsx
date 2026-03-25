@@ -12,6 +12,11 @@ const LocationMapSheet = dynamic(
   { ssr: false }
 );
 
+const DotLottieReact = dynamic(
+  () => import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact })),
+  { ssr: false }
+);
+
 const MOBILE_PREVIEW_ROWS = 4;
 
 function GeneralInfoSlidePanel({
@@ -576,29 +581,15 @@ export default function HeritageSidebar({
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-                {maps.link ? (
-                  <span
-                    aria-label="Open Pin in Google Maps"
-                    className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10"
-                  >
-                    <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      {site.title}
-                    </span>
-                    <Icon
-                      name="map-marker-alt"
-                      size={34}
-                      className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] transition-colors duration-200 group-hover:text-neutral-700"
-                    />
-                  </span>
-                ) : (
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
-                    <Icon
-                      name="map-marker-alt"
-                      size={34}
-                      className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
-                    />
-                  </div>
-                )}
+                {/* Lottie pin animation */}
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                  <DotLottieReact
+                    src="/map-pin.lottie"
+                    loop
+                    autoplay
+                    style={{ width: "100%", height: "100%" }}
+                  />
+                </div>
               </button>
             ) : maps.embed ? (
               <button
