@@ -44,6 +44,12 @@ export type LocationMapSheetSite = {
   title: string;
   latitude: number;
   longitude: number;
+  cover_photo_url?: string | null;
+  cover_photo_thumb_url?: string | null;
+  location_free?: string | null;
+  heritage_type?: string | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
 };
 
 interface Props {
@@ -136,7 +142,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
       const lat = site.latitude;
       const lng = site.longitude;
 
-      // Current site as a MapSite (always shown)
+      // Current site as a MapSite — use all rich data passed from the listing page
       const currentSite: MapSite = {
         id: site.id,
         slug: site.slug,
@@ -144,6 +150,12 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
         latitude: lat,
         longitude: lng,
         province_slug: site.province_slug ?? null,
+        cover_photo_url: site.cover_photo_url ?? null,
+        cover_photo_thumb_url: site.cover_photo_thumb_url ?? null,
+        location_free: site.location_free ?? null,
+        heritage_type: site.heritage_type ?? null,
+        avg_rating: site.avg_rating ?? null,
+        review_count: site.review_count ?? null,
         site_categories: [],
       };
 
@@ -250,21 +262,11 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
       role="dialog"
       aria-label={`Map for ${site.title}`}
     >
-      {/* Backdrop */}
+      {/* Full-screen panel sliding in from the right */}
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${
-          sheetVisible ? "opacity-100" : "opacity-0"
+        className={`absolute inset-0 bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          sheetVisible ? "translate-x-0" : "translate-x-full"
         }`}
-        onClick={closeWithAnimation}
-        aria-hidden="true"
-      />
-
-      {/* Full-height sheet sliding up from bottom */}
-      <div
-        className={`absolute left-0 right-0 bottom-0 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          sheetVisible ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ top: 0 }}
       >
         {/* Header — safe area aware */}
         <div

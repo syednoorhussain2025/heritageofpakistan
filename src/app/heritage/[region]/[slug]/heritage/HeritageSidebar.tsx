@@ -1157,6 +1157,12 @@ export default function HeritageSidebar({
           title: site.title,
           latitude: Number(site.latitude),
           longitude: Number(site.longitude),
+          cover_photo_url: (site as any).cover_photo_url ?? null,
+          cover_photo_thumb_url: (site as any).cover_photo_thumb_url ?? null,
+          location_free: site.location_free ?? null,
+          heritage_type: site.heritage_type ?? null,
+          avg_rating: (site as any).avg_rating ?? null,
+          review_count: (site as any).review_count ?? null,
         }}
         isOpen={mapSheetOpen}
         onClose={() => setMapSheetOpen(false)}
