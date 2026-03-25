@@ -580,7 +580,7 @@ export default function HeritageSidebar({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 {/* Lottie pin animation */}
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
               </button>
@@ -598,7 +598,7 @@ export default function HeritageSidebar({
                   referrerPolicy="no-referrer-when-downgrade"
                   className="absolute inset-0 h-full w-full border-0 pointer-events-none"
                 />
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
               </button>
@@ -744,7 +744,7 @@ export default function HeritageSidebar({
                 loading="lazy"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
             </button>
@@ -762,7 +762,7 @@ export default function HeritageSidebar({
                 referrerPolicy="no-referrer-when-downgrade"
                 className="absolute inset-0 h-full w-full border-0 pointer-events-none"
               />
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
             </button>
