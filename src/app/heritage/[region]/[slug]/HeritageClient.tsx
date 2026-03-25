@@ -310,29 +310,30 @@ export default function HeritageClient({
             </>
           ) : (
             <>
-              {/* 1. Where is it? (map + location) */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-location"
-                />
-              </LazySection>
-
-              {/* 2. General Information */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={9} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-general"
-                />
-              </LazySection>
+              {/* 1. Where is it? + General Information — merged into one card */}
+              <div className="rounded-2xl overflow-hidden">
+                <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
+                  <HeritageSidebar
+                    site={site as any}
+                    provinceName={provinceName}
+                    regions={regions}
+                    maps={maps}
+                    travelGuideSummary={travelGuideSummary}
+                    sectionGroup="mobile-location"
+                  />
+                </LazySection>
+                <div className="h-px bg-slate-100 mx-4" />
+                <LazySection skeleton={<SidebarCardSkeleton lines={9} />}>
+                  <HeritageSidebar
+                    site={site as any}
+                    provinceName={provinceName}
+                    regions={regions}
+                    maps={maps}
+                    travelGuideSummary={travelGuideSummary}
+                    sectionGroup="mobile-general"
+                  />
+                </LazySection>
+              </div>
 
               {/* 3. Heritage Categories */}
               <HeritageUpperArticle categories={categories} />
