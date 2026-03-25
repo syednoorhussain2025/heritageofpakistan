@@ -183,13 +183,25 @@ const LANDFORM_MAP: Record<
 // MOBILE_GENERAL_INFO_PREVIEW_ROWS replaced by MOBILE_PREVIEW_ROWS above
 
 /* ---- Key/value row ---- */
-function KeyVal({ k, v }: { k: string; v?: string | number | null }) {
+function KeyVal({ k, v, idx = 0 }: { k: string; v?: string | number | null; idx?: number }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className="grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2 border-b border-black/5 last:border-b-0 overflow-x-visible">
-      <div className="text-[15px] font-semibold text-slate-900">{k}</div>
-      <div className="text-[15px] text-slate-700 text-left break-words whitespace-pre-wrap overflow-x-visible">
+    <div className={`grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2.5 border-b border-black/5 last:border-b-0 overflow-x-visible ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
+      <div className="text-[13px] font-bold uppercase tracking-wide text-slate-400">{k}</div>
+      <div className="text-[14px] font-medium text-slate-800 text-left break-words whitespace-pre-wrap overflow-x-visible">
         {String(v)}
+      </div>
+    </div>
+  );
+}
+
+function GpsCoords({ lat, lng }: { lat?: number | string | null; lng?: number | string | null }) {
+  if (lat == null || lng == null || lat === "" || lng === "") return null;
+  return (
+    <div className="grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2.5 border-b border-black/5 last:border-b-0">
+      <div className="text-[13px] font-bold uppercase tracking-wide text-slate-400">GPS</div>
+      <div className="text-[14px] font-medium text-slate-800 font-mono tabular-nums">
+        {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
       </div>
     </div>
   );
@@ -570,7 +582,7 @@ export default function HeritageSidebar({
                 type="button"
                 onClick={() => setMapSheetOpen(true)}
                 aria-label={`Open map for ${site.title}`}
-                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
+                className="relative aspect-[4/3] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -583,13 +595,18 @@ export default function HeritageSidebar({
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
+                {/* Tap hint */}
+                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                  <Icon name="map-marker-alt" size={11} className="text-white/80" />
+                  <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
+                </div>
               </button>
             ) : maps.embed ? (
               <button
                 type="button"
                 onClick={() => setMapSheetOpen(true)}
                 aria-label={`Open map for ${site.title}`}
-                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
+                className="relative aspect-[4/3] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
               >
                 <iframe
                   title={`Map for ${site.title}`}
@@ -601,6 +618,11 @@ export default function HeritageSidebar({
                 <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
+                {/* Tap hint */}
+                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                  <Icon name="map-marker-alt" size={11} className="text-white/80" />
+                  <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
+                </div>
               </button>
             ) : (
               <div
@@ -611,21 +633,21 @@ export default function HeritageSidebar({
               </div>
             )}
 
-            <KeyVal k="Town/City/Village" v={site.town_city_village} />
-            <KeyVal k="Tehsil" v={site.tehsil} />
-            <KeyVal k="District" v={site.district} />
-            <KeyVal k="Region/Province" v={provinceName} />
-            <KeyVal k="Latitude" v={site.latitude} />
-            <KeyVal k="Longitude" v={site.longitude} />
+            <KeyVal k="Town/City/Village" v={site.town_city_village} idx={0} />
+            <KeyVal k="Tehsil" v={site.tehsil} idx={1} />
+            <KeyVal k="District" v={site.district} idx={2} />
+            <KeyVal k="Region/Province" v={provinceName} idx={3} />
+            <GpsCoords lat={site.latitude} lng={site.longitude} />
             {maps.link ? (
               <div className="mt-4 flex justify-center">
                 <a
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[var(--brand-blue)] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[var(--brand-blue)]"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
                 >
-                  Open in Maps
+                  <Icon name="map-marker-alt" size={13} />
+                  Open in Google Maps
                 </a>
               </div>
             ) : null}
@@ -735,7 +757,7 @@ export default function HeritageSidebar({
               type="button"
               onClick={() => setMapSheetOpen(true)}
               aria-label={`Open map for ${site.title}`}
-              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
+              className="relative aspect-[4/3] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -747,13 +769,18 @@ export default function HeritageSidebar({
               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
+              {/* Tap hint */}
+              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                <Icon name="map-marker-alt" size={11} className="text-white/80" />
+                <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
+              </div>
             </button>
           ) : maps.embed ? (
             <button
               type="button"
               onClick={() => setMapSheetOpen(true)}
               aria-label={`Open map for ${site.title}`}
-              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
+              className="relative aspect-[4/3] md:aspect-[5/4] w-full overflow-hidden rounded-[28px] border border-slate-200 mb-3 block cursor-pointer"
             >
               <iframe
                 title={`Map for ${site.title}`}
@@ -765,6 +792,11 @@ export default function HeritageSidebar({
               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 64, height: 64, filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.35))" }}>
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
+              {/* Tap hint */}
+              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                <Icon name="map-marker-alt" size={11} className="text-white/80" />
+                <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
+              </div>
             </button>
           ) : (
             <div
@@ -774,21 +806,21 @@ export default function HeritageSidebar({
               Location coordinates not available.
             </div>
           )}
-          <KeyVal k="Town/City/Village" v={site.town_city_village} />
-          <KeyVal k="Tehsil" v={site.tehsil} />
-          <KeyVal k="District" v={site.district} />
-          <KeyVal k="Region/Province" v={provinceName} />
-          <KeyVal k="Latitude" v={site.latitude} />
-          <KeyVal k="Longitude" v={site.longitude} />
+          <KeyVal k="Town/City/Village" v={site.town_city_village} idx={0} />
+          <KeyVal k="Tehsil" v={site.tehsil} idx={1} />
+          <KeyVal k="District" v={site.district} idx={2} />
+          <KeyVal k="Region/Province" v={provinceName} idx={3} />
+          <GpsCoords lat={site.latitude} lng={site.longitude} />
           {maps.link ? (
             <div className="mt-4 flex justify-center">
               <a
                 href={maps.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex cursor-pointer items-center justify-center rounded-sm bg-[var(--brand-blue)] px-6 py-2.5 text-[15px] font-semibold text-white transition-colors duration-200 hover:bg-[var(--brand-blue)]"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
               >
-                Open in Maps
+                <Icon name="map-marker-alt" size={13} />
+                Open in Google Maps
               </a>
             </div>
           ) : null}
