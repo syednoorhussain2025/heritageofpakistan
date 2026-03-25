@@ -1046,6 +1046,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
         scrollWheelZoom={true}
         zoomControl={false}
         zoomSnap={0}
+        maxZoom={21}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
@@ -1057,6 +1058,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
             settings.tile_layer_url ||
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
+          maxZoom={21}
+          maxNativeZoom={19}
         />
         {/* Light red radius circle when "Search Around a Site" is active */}
         {radiusCircle && (

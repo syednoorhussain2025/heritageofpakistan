@@ -300,7 +300,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
                   ...mapSettings,
                   default_center_lat: site.latitude,
                   default_center_lng: site.longitude,
-                  default_zoom: 18,
+                  default_zoom: 17,
                 }}
                 icons={mapIcons}
                 highlightSiteId={site.id}
