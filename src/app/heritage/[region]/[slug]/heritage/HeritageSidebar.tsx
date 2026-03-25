@@ -3,8 +3,14 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+
+const LocationMapSheet = dynamic(
+  () => import("@/components/LocationMapSheet"),
+  { ssr: false }
+);
 
 const MOBILE_PREVIEW_ROWS = 4;
 
@@ -493,6 +499,7 @@ export default function HeritageSidebar({
     ov
   );
   const [showGeneralInfoPanel, setShowGeneralInfoPanel] = useState(false);
+  const [mapSheetOpen, setMapSheetOpen] = useState(false);
 
   const generalInfoRows: Array<{ k: string; v?: string | number | null }> = [
     { k: "Heritage Type", v: site.heritage_type },
@@ -545,6 +552,7 @@ export default function HeritageSidebar({
       : null;
 
   return (
+    <>
     <div className="space-y-2">
       {showTop && (
         <>
@@ -555,7 +563,12 @@ export default function HeritageSidebar({
             mobileDefaultOpen
           >
             {staticMapUrl ? (
-              <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              <button
+                type="button"
+                onClick={() => setMapSheetOpen(true)}
+                aria-label={`Open map for ${site.title}`}
+                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={staticMapUrl}
@@ -564,12 +577,9 @@ export default function HeritageSidebar({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 {maps.link ? (
-                  <a
-                    href={maps.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <span
                     aria-label="Open Pin in Google Maps"
-                    className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10 cursor-pointer"
+                    className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10"
                   >
                     <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       {site.title}
@@ -579,7 +589,7 @@ export default function HeritageSidebar({
                       size={34}
                       className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] transition-colors duration-200 group-hover:text-neutral-700"
                     />
-                  </a>
+                  </span>
                 ) : (
                   <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
                     <Icon
@@ -589,17 +599,22 @@ export default function HeritageSidebar({
                     />
                   </div>
                 )}
-              </div>
+              </button>
             ) : maps.embed ? (
-              <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+              <button
+                type="button"
+                onClick={() => setMapSheetOpen(true)}
+                aria-label={`Open map for ${site.title}`}
+                className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+              >
                 <iframe
                   title={`Map for ${site.title}`}
                   src={maps.embed}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  className="absolute inset-0 h-full w-full border-0"
+                  className="absolute inset-0 h-full w-full border-0 pointer-events-none"
                 />
-              </div>
+              </button>
             ) : (
               <div
                 className="mb-3 text-[15px]"
@@ -729,7 +744,12 @@ export default function HeritageSidebar({
           mobileDefaultOpen
         >
           {staticMapUrl ? (
-            <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+            <button
+              type="button"
+              onClick={() => setMapSheetOpen(true)}
+              aria-label={`Open map for ${site.title}`}
+              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={staticMapUrl}
@@ -737,43 +757,29 @@ export default function HeritageSidebar({
                 loading="lazy"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              {maps.link ? (
-                <a
-                  href={maps.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open Pin in Google Maps"
-                  className="group absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10 cursor-pointer"
-                >
-                  <span className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] whitespace-nowrap rounded bg-black px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    {site.title}
-                  </span>
-                  <Icon
-                    name="map-marker-alt"
-                    size={34}
-                    className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] transition-colors duration-200 group-hover:text-neutral-700"
-                  />
-                </a>
-              ) : (
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
-                  <Icon
-                    name="map-marker-alt"
-                    size={34}
-                    className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
-                  />
-                </div>
-              )}
-            </div>
+              <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
+                <Icon
+                  name="map-marker-alt"
+                  size={34}
+                  className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
+                />
+              </span>
+            </button>
           ) : maps.embed ? (
-            <div className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3">
+            <button
+              type="button"
+              onClick={() => setMapSheetOpen(true)}
+              aria-label={`Open map for ${site.title}`}
+              className="relative aspect-[16/9] md:aspect-[5/4] w-full overflow-hidden rounded-lg border border-slate-200 mb-3 block cursor-pointer"
+            >
               <iframe
                 title={`Map for ${site.title}`}
                 src={maps.embed}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                className="absolute inset-0 h-full w-full border-0"
+                className="absolute inset-0 h-full w-full border-0 pointer-events-none"
               />
-            </div>
+            </button>
           ) : (
             <div
               className="mb-3 text-[15px]"
@@ -1140,5 +1146,22 @@ export default function HeritageSidebar({
         </>
       )}
     </div>
+
+    {/* Location map sheet — only rendered when site has coordinates */}
+    {site.latitude && site.longitude && (
+      <LocationMapSheet
+        site={{
+          id: site.id,
+          slug: site.slug,
+          province_slug: (site as any).province_slug ?? null,
+          title: site.title,
+          latitude: Number(site.latitude),
+          longitude: Number(site.longitude),
+        }}
+        isOpen={mapSheetOpen}
+        onClose={() => setMapSheetOpen(false)}
+      />
+    )}
+    </>
   );
 }
