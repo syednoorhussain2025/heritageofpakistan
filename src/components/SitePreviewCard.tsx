@@ -102,6 +102,7 @@ export default function SitePreviewCard({
   index = 0,
   onCardClick,
   onPlacesNearby,
+  hideActions = false,
 }: {
   site: Site;
   onClose?: () => void;
@@ -111,6 +112,8 @@ export default function SitePreviewCard({
   onCardClick?: () => void;
   /** When provided, "Places Nearby" applies this site on the current page (e.g. map) instead of navigating to Explore. */
   onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
+  /** When true, hides the ellipsis actions button. */
+  hideActions?: boolean;
 }) {
   const router = useRouter();
 
@@ -325,7 +328,7 @@ export default function SitePreviewCard({
 
 
   return (
-    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-xl overflow-hidden bg-white relative border border-[var(--brand-light-grey)]">
+    <div className="w-[calc(100%+0.5rem)] -mx-1 sm:w-full sm:mx-0 rounded-[20px] overflow-hidden bg-white relative border border-[var(--brand-light-grey)]">
       {onClose && (
         <button
           onClick={onClose}
@@ -486,16 +489,43 @@ export default function SitePreviewCard({
                   {site.location_free}
                 </div>
               )}
+              {site.avg_rating != null && (
+                <div className="mt-1 flex items-center gap-1">
+                  {[1,2,3,4,5].map((s) => {
+                    const filled = site.avg_rating! >= s;
+                    const half = !filled && site.avg_rating! >= s - 0.5;
+                    return (
+                      <svg key={s} width="11" height="11" viewBox="0 0 24 24" fill={filled ? "#F78300" : half ? "url(#half)" : "none"} stroke="#F78300" strokeWidth="2">
+                        {half && (
+                          <defs>
+                            <linearGradient id="half">
+                              <stop offset="50%" stopColor="#F78300"/>
+                              <stop offset="50%" stopColor="transparent"/>
+                            </linearGradient>
+                          </defs>
+                        )}
+                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                      </svg>
+                    );
+                  })}
+                  <span className="text-[11px] font-semibold text-[#F78300] ml-0.5">{site.avg_rating.toFixed(1)}</span>
+                  {site.review_count != null && (
+                    <span className="text-[10px] text-gray-400">({site.review_count})</span>
+                  )}
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              title="More actions"
-              aria-label="More actions"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
-            >
-              <Icon name="ellipsis" size={18} />
-            </button>
+            {!hideActions && (
+              <button
+                type="button"
+                title="More actions"
+                aria-label="More actions"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu(true); }}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                <Icon name="ellipsis" size={18} />
+              </button>
+            )}
           </div>
 
           {/* Desktop / tablet: Lat/Long left (pill), actions menu right */}
@@ -505,18 +535,20 @@ export default function SitePreviewCard({
               <span className="font-mono tracking-tight">{fmtLatLong(site.latitude, site.longitude)}</span>
             </span>
 
-            <div className="ml-auto relative" ref={actionsMenuRef}>
-              <button
-                type="button"
-                title="More actions"
-                aria-label="More actions"
-                aria-expanded={showActionsMenu}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu((v) => !v); }}
-                className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
-              >
-                <Icon name="ellipsis" size={24} className="text-current" />
-              </button>
-            </div>
+            {!hideActions && (
+              <div className="ml-auto relative" ref={actionsMenuRef}>
+                <button
+                  type="button"
+                  title="More actions"
+                  aria-label="More actions"
+                  aria-expanded={showActionsMenu}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowActionsMenu((v) => !v); }}
+                  className="p-1 flex items-center justify-center text-gray-600 hover:text-[var(--brand-orange)] transition-colors cursor-pointer"
+                >
+                  <Icon name="ellipsis" size={24} className="text-current" />
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

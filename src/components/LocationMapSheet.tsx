@@ -75,6 +75,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
   const [nearbySites, setNearbySites] = useState<MapSite[]>([]);
   const [sitesReady, setSitesReady] = useState(false);
 
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -264,55 +265,70 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
     >
       {/* Full-screen panel sliding in from the right */}
       <div
-        className={`absolute inset-0 bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`absolute inset-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           sheetVisible ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header — safe area aware */}
-        <div
-          className="shrink-0 flex items-center gap-3 px-4 bg-white border-b border-gray-100 z-10"
-          style={{
-            paddingTop: "max(env(safe-area-inset-top, 0px), 16px)",
-            paddingBottom: "12px",
-          }}
-        >
-          <button
-            type="button"
-            onClick={closeWithAnimation}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors shrink-0"
-            aria-label="Close map"
-          >
-            <Icon name="arrow-left" size={16} className="text-gray-700" />
-          </button>
-          <h2 className="flex-1 min-w-0 text-[15px] font-semibold text-[var(--brand-blue)] truncate">
-            {site.title}
-          </h2>
-        </div>
+        {/* Scoped Leaflet overrides — only affect this sheet's map */}
+        <style>{`
+          #location-map-sheet .leaflet-container { background: #f0ebe3 !important; }
+          #location-map-sheet .leaflet-fade-anim .leaflet-popup { transition: opacity 220ms ease !important; }
+          #location-map-sheet .leaflet-zoom-anim .leaflet-zoom-hide { visibility: visible !important; }
+          #location-map-sheet .leaflet-tooltip { opacity: 1 !important; visibility: visible !important; transition: opacity 200ms ease !important; }
+          #location-map-sheet .leaflet-tooltip.hop-tooltip-hidden { opacity: 0 !important; }
+          @keyframes hop-card-in {
+            from { opacity: 0; transform: translateY(6px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+          }
+          #location-map-sheet .leaflet-popup-content-wrapper {
+            animation: hop-card-in 220ms cubic-bezier(0.22,1,0.36,1) both !important;
+          }
+        `}</style>
 
-        {/* Map — fills remaining space */}
-        <div className="flex-1 relative overflow-hidden">
-          {(!bootstrapReady || !sitesReady) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-50 z-10">
-              <Icon name="spinner" size={32} className="animate-spin text-[var(--brand-orange)]" />
-              <span className="text-sm text-gray-500">Loading map…</span>
+        {/* Map — full screen */}
+        <div id="location-map-sheet" className="absolute inset-0">
+          {/* Spinner — stays under map, hidden once map fades in */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f0ebe3]">
+            <Icon name="spinner" size={32} className="animate-spin text-[var(--brand-orange)]" />
+            <span className="text-sm text-gray-500">Loading map…</span>
+          </div>
+          {bootstrapReady && sitesReady && (
+            <div className="absolute inset-0 animate-in fade-in duration-500">
+              <ClientOnlyMap
+                locations={nearbySites}
+                settings={{
+                  ...mapSettings,
+                  default_center_lat: site.latitude,
+                  default_center_lng: site.longitude,
+                  default_zoom: 16,
+                }}
+                icons={mapIcons}
+                highlightSiteId={site.id}
+                openPreviewWithoutZoom
+                lockHighlightPopup
+                mapType="osm"
+              />
             </div>
           )}
-          {bootstrapReady && sitesReady && (
-            <ClientOnlyMap
-              locations={nearbySites}
-              settings={{
-                ...mapSettings,
-                default_center_lat: site.latitude,
-                default_center_lng: site.longitude,
-                default_zoom: 14,
-              }}
-              icons={mapIcons}
-              highlightSiteId={site.id}
-              openPreviewWithoutZoom
-              mapType="osm"
-            />
-          )}
         </div>
+
+        {/* Floating back button — safe-area aware, frosted glass */}
+        <button
+          type="button"
+          onClick={closeWithAnimation}
+          aria-label="Close map"
+          className="absolute z-[4000] flex items-center justify-center w-11 h-11 rounded-full transition-transform active:scale-90"
+          style={{
+            top: "max(env(safe-area-inset-top, 0px), 16px)",
+            left: "16px",
+            background: "rgba(255,255,255,0.55)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+          }}
+        >
+          <Icon name="arrow-left" size={18} className="text-gray-800" />
+        </button>
       </div>
     </div>,
     document.body

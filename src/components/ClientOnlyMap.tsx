@@ -180,8 +180,8 @@ const DynamicPopupStyles = () => {
       box-shadow: none !important;
       border: none !important;
       padding: 0 !important; /* Let the inner component control padding */
-      min-width: 340px !important;
-      max-width: 360px !important;
+      min-width: 300px !important;
+      max-width: 320px !important;
     }
     .leaflet-popup-tip-container {
       display: none !important; /* Hide the popup tip/arrow */
@@ -190,19 +190,19 @@ const DynamicPopupStyles = () => {
       margin: 0 !important; /* Remove default margin */
       width: 100% !important;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08) !important;
-      border-radius: 0.75rem !important;
+      border-radius: 1.25rem !important;
       overflow: hidden !important;
     }
     @media (max-width: 1023px) {
       .leaflet-popup-content-wrapper {
         min-width: 0 !important;
-        max-width: min(256px, 82vw) !important;
-        width: min(256px, 82vw) !important;
+        max-width: min(220px, 78vw) !important;
+        width: min(220px, 78vw) !important;
       }
       .map-preview-card-wrapper {
         min-width: 0 !important;
-        max-width: min(256px, 82vw) !important;
-        width: min(256px, 82vw) !important;
+        max-width: min(220px, 78vw) !important;
+        width: min(220px, 78vw) !important;
       }
     }
   `;
@@ -239,6 +239,7 @@ function ClientOnlyMap({
   resetMapViewTrigger = 0,
   fitFilteredTrigger = 0,
   openPreviewWithoutZoom = false,
+  lockHighlightPopup = false,
   /** When true, map fits bounds to current locations (e.g. after applying "Search Around a Site"). */
   fitBoundsToLocations = false,
   /** When set, draw a light red circle on the map showing the search radius (e.g. "Search Around a Site"). */
@@ -259,6 +260,8 @@ function ClientOnlyMap({
   onHighlightConsumed?: () => void;
   /** When true, opening the highlight popup only pans to the marker (no zoom). Used e.g. from saved list panel. */
   openPreviewWithoutZoom?: boolean;
+  /** When true, the highlight popup cannot be closed by tapping the map or the X button. */
+  lockHighlightPopup?: boolean;
   /** When provided, clicking a marker calls this instead of showing a popup. */
   onSiteSelect?: (site: Site) => void;
   mapType?: MapType;
@@ -366,6 +369,7 @@ function ClientOnlyMap({
         resetMapViewTrigger={resetMapViewTrigger}
         fitFilteredTrigger={fitFilteredTrigger}
         openPreviewWithoutZoom={openPreviewWithoutZoom}
+        lockHighlightPopup={lockHighlightPopup}
         fitBoundsToLocations={fitBoundsToLocations}
         radiusCircle={radiusCircle}
         onPlacesNearbyApply={stableOnPlacesNearbyApply}
@@ -650,23 +654,77 @@ function ResetMapViewEffect({
 }
 
 /* Fly to (or pan to) and show popup when parent sets highlightSiteId */
+/* When lockHighlightPopup=true, hide the tooltip of whichever marker has its popup open */
+function PopupTooltipHideEffect() {
+  const map = useMap();
+  useEffect(() => {
+    const onOpen = (e: L.LeafletEvent) => {
+      const marker = (e as any).popup?._source as L.Marker | undefined;
+      if (!marker) return;
+      const tooltip = (marker as any)._tooltip as L.Tooltip | undefined;
+      if (!tooltip) return;
+      const el = tooltip.getElement();
+      if (el) el.classList.add("hop-tooltip-hidden");
+    };
+    const onClose = (e: L.LeafletEvent) => {
+      const marker = (e as any).popup?._source as L.Marker | undefined;
+      if (!marker) return;
+      const tooltip = (marker as any)._tooltip as L.Tooltip | undefined;
+      if (!tooltip) return;
+      const el = tooltip.getElement();
+      if (!el) return;
+      setTimeout(() => el.classList.remove("hop-tooltip-hidden"), 320);
+    };
+    map.on("popupopen", onOpen);
+    map.on("popupclose", onClose);
+    return () => {
+      map.off("popupopen", onOpen);
+      map.off("popupclose", onClose);
+    };
+  }, [map]);
+  return null;
+}
+
+/* When lockHighlightPopup=true, prevent any map click from closing the highlight popup */
+function HighlightPopupLockEffect({ popupRef }: { popupRef: React.MutableRefObject<L.Popup | null> }) {
+  const map = useMap();
+  useEffect(() => {
+    const handler = () => {
+      // Reopen on next frame if map click would have closed it
+      requestAnimationFrame(() => {
+        const popup = popupRef.current;
+        if (popup && !map.hasLayer(popup)) {
+          popup.openOn(map);
+        }
+      });
+    };
+    map.on("click", handler);
+    return () => { map.off("click", handler); };
+  }, [map, popupRef]);
+  return null;
+}
+
 function OSMHighlightEffect({
   locations,
   highlightSiteId,
   onHighlightConsumed,
   onSiteSelect,
   openPreviewWithoutZoom = false,
+  lockHighlightPopup = false,
   onPlacesNearbyApply = null,
 }: {
   locations: Site[];
   highlightSiteId: string | null;
   onHighlightConsumed?: () => void;
   onSiteSelect?: (site: Site) => void;
-  /** When true, only pan to the marker (no zoom). Used e.g. from saved list panel. */
+  /** When true, skip all map movement and open the popup in place. */
   openPreviewWithoutZoom?: boolean;
+  /** When true, the popup cannot be dismissed by clicking the map or the close button. */
+  lockHighlightPopup?: boolean;
   onPlacesNearbyApply?: ((site: { id: string; title: string; latitude: number; longitude: number }) => void) | null;
 }) {
   const map = useMap();
+  const popupRef = useRef<L.Popup | null>(null);
   const site = highlightSiteId
     ? locations.find((s) => s.id === highlightSiteId)
     : null;
@@ -674,7 +732,10 @@ function OSMHighlightEffect({
   useEffect(() => {
     if (!site) return;
     if (openPreviewWithoutZoom) {
-      map.panTo([site.latitude, site.longitude], { animate: true, duration: 0.3 });
+      // Map is already centered — just open the popup with no movement
+      requestAnimationFrame(() => {
+        popupRef.current?.openOn(map);
+      });
     } else {
       map.flyTo([site.latitude, site.longitude], 14, { duration: 0.5 });
     }
@@ -682,18 +743,28 @@ function OSMHighlightEffect({
 
   if (!site) return null;
   return (
-    <Popup
-      position={[site.latitude, site.longitude]}
-      eventHandlers={{
-        remove: () => onHighlightConsumed?.(),
-      }}
-    >
+    <>
+      {lockHighlightPopup && <HighlightPopupLockEffect popupRef={popupRef} />}
+      <Popup
+        ref={popupRef}
+        position={[site.latitude, site.longitude]}
+        autoPan={false}
+        keepInView={false}
+        autoClose={lockHighlightPopup ? false : undefined}
+        closeOnClick={lockHighlightPopup ? false : undefined}
+        closeButton={!lockHighlightPopup}
+        eventHandlers={lockHighlightPopup ? {} : {
+          remove: () => onHighlightConsumed?.(),
+        }}
+      >
       <SitePreviewCard
         site={site}
         onCardClick={onSiteSelect ? () => onSiteSelect(site) : undefined}
         onPlacesNearby={onPlacesNearbyApply ?? undefined}
+        hideActions
       />
-    </Popup>
+      </Popup>
+    </>
   );
 }
 
@@ -710,6 +781,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
   resetMapViewTrigger = 0,
   fitFilteredTrigger = 0,
   openPreviewWithoutZoom = false,
+  lockHighlightPopup = false,
   fitBoundsToLocations = false,
   radiusCircle = null,
   onPlacesNearbyApply = null,
@@ -729,6 +801,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
   resetMapViewTrigger?: number;
   fitFilteredTrigger?: number;
   openPreviewWithoutZoom?: boolean;
+  /** When true, the highlight popup cannot be closed by clicking the map or the X button. */
+  lockHighlightPopup?: boolean;
   /** When true, map fits bounds to current locations (e.g. after "Search Around a Site"). */
   fitBoundsToLocations?: boolean;
   /** When set, draw a light red circle showing the search radius. */
@@ -902,9 +976,26 @@ const OSMLeafletView = memo(function OSMLeafletView({
           }}
         >
           {/* In trip view, tooltips are rendered by TripViewTooltipLayer, not Leaflet */}
-          {!permanentTooltips && (
-            <Tooltip direction="top" offset={[0, -(iconData.size / 2 + 6)]}>
-              {site.title}
+          {/* Skip tooltip for the highlighted site — its popup is always open */}
+          {!permanentTooltips && site.id !== highlightSiteId && (
+            <Tooltip
+              direction="top"
+              offset={[0, -(iconData.size / 2 + 6)]}
+              permanent={lockHighlightPopup}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                <span>{site.title}</span>
+                {site.avg_rating != null && (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: "3px",
+                    fontWeight: 600, color: "rgba(255,255,255,0.9)",
+                    borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: "6px",
+                  }}>
+                    <span style={{ color: "#FBBF24" }}>★</span>
+                    {site.avg_rating.toFixed(1)}
+                  </span>
+                )}
+              </span>
             </Tooltip>
           )}
           {!directMarkerSelect && (
@@ -917,6 +1008,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
                   setTimeout(() => { pendingPopupId.current = null; }, 300);
                 } : undefined}
                 onPlacesNearby={onPlacesNearbyApply ?? undefined}
+                hideActions
               />
             </Popup>
           )}
@@ -930,6 +1022,8 @@ const OSMLeafletView = memo(function OSMLeafletView({
     memoizedIcons,
     tripViewIcons,
     permanentTooltips,
+    lockHighlightPopup,
+    highlightSiteId,
     directMarkerSelect,
     onSiteSelect,
     onPlacesNearbyApply,
@@ -951,6 +1045,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
         zoom={settings.default_zoom}
         scrollWheelZoom={true}
         zoomControl={false}
+        zoomSnap={0}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
@@ -1023,20 +1118,26 @@ const OSMLeafletView = memo(function OSMLeafletView({
         {permanentTooltips && (
           <TripViewTooltipLayer locations={locations} iconSizes={siteIconSizes} siteDates={siteDates} />
         )}
+        {lockHighlightPopup && <PopupTooltipHideEffect />}
         <OSMHighlightEffect
           locations={locations}
           highlightSiteId={highlightSiteId ?? null}
           onHighlightConsumed={onHighlightConsumed}
           onSiteSelect={onSiteSelect}
           openPreviewWithoutZoom={openPreviewWithoutZoom}
+          lockHighlightPopup={lockHighlightPopup}
           onPlacesNearbyApply={onPlacesNearbyApply}
         />
-        <MarkerClusterGroup
-          disableClusteringAtZoom={settings.disable_clustering_at_zoom}
-          maxClusterRadius={settings.cluster_max_radius}
-        >
-          {markerChildren}
-        </MarkerClusterGroup>
+        {lockHighlightPopup ? (
+          <>{markerChildren}</>
+        ) : (
+          <MarkerClusterGroup
+            disableClusteringAtZoom={settings.disable_clustering_at_zoom}
+            maxClusterRadius={settings.cluster_max_radius}
+          >
+            {markerChildren}
+          </MarkerClusterGroup>
+        )}
         {/* User location blue dot with pulse rings */}
         {userLat != null && userLng != null && Number.isFinite(userLat) && Number.isFinite(userLng) && (
           <>
