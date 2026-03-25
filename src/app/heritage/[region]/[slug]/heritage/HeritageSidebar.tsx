@@ -596,7 +596,7 @@ export default function HeritageSidebar({
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
                 {/* Tap hint */}
-                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/25 to-transparent rounded-b-[28px]">
                   <Icon name="map-marker-alt" size={11} className="text-white/80" />
                   <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
                 </div>
@@ -619,7 +619,7 @@ export default function HeritageSidebar({
                   <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
                 </div>
                 {/* Tap hint */}
-                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+                <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/25 to-transparent rounded-b-[28px]">
                   <Icon name="map-marker-alt" size={11} className="text-white/80" />
                   <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
                 </div>
@@ -644,7 +644,7 @@ export default function HeritageSidebar({
                   href={maps.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
                 >
                   <Icon name="map-marker-alt" size={13} />
                   Open in Google Maps
@@ -770,7 +770,7 @@ export default function HeritageSidebar({
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
               {/* Tap hint */}
-              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/25 to-transparent rounded-b-[28px]">
                 <Icon name="map-marker-alt" size={11} className="text-white/80" />
                 <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
               </div>
@@ -793,7 +793,7 @@ export default function HeritageSidebar({
                 <Lottie animationData={mapPinData} loop autoplay style={{ width: "100%", height: "100%" }} />
               </div>
               {/* Tap hint */}
-              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-[28px]">
+              <div className="pointer-events-none absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-t from-black/25 to-transparent rounded-b-[28px]">
                 <Icon name="map-marker-alt" size={11} className="text-white/80" />
                 <span className="text-white/90 text-[12px] font-medium tracking-wide">Tap to explore map</span>
               </div>
@@ -817,7 +817,7 @@ export default function HeritageSidebar({
                 href={maps.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
               >
                 <Icon name="map-marker-alt" size={13} />
                 Open in Google Maps
