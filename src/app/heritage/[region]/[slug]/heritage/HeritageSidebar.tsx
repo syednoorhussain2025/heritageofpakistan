@@ -605,6 +605,9 @@ export default function HeritageSidebar({
                   referrerPolicy="no-referrer-when-downgrade"
                   className="absolute inset-0 h-full w-full border-0 pointer-events-none"
                 />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                  <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+                </div>
               </button>
             ) : (
               <div
@@ -748,13 +751,9 @@ export default function HeritageSidebar({
                 loading="lazy"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-10">
-                <Icon
-                  name="map-marker-alt"
-                  size={34}
-                  className="text-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]"
-                />
-              </span>
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+              </div>
             </button>
           ) : maps.embed ? (
             <button
@@ -770,6 +769,9 @@ export default function HeritageSidebar({
                 referrerPolicy="no-referrer-when-downgrade"
                 className="absolute inset-0 h-full w-full border-0 pointer-events-none"
               />
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[85%] z-10" style={{ width: 100, height: 100 }}>
+                <DotLottieReact src="/map-pin.lottie" loop autoplay style={{ width: "100%", height: "100%" }} />
+              </div>
             </button>
           ) : (
             <div
