@@ -300,7 +300,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
                   ...mapSettings,
                   default_center_lat: site.latitude,
                   default_center_lng: site.longitude,
-                  default_zoom: 17,
+                  default_zoom: 18,
                 }}
                 icons={mapIcons}
                 highlightSiteId={site.id}
@@ -319,8 +319,8 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           aria-label="Close map"
           className="absolute z-[4000] flex items-center justify-center transition-transform active:scale-90"
           style={{
-            top: "max(env(safe-area-inset-top, 0px), 16px)",
-            left: "16px",
+            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+            left: "calc(env(safe-area-inset-left, 0px) + 16px)",
             filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))",
           }}
         >
