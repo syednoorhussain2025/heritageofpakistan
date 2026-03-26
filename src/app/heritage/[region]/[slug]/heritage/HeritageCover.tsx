@@ -289,11 +289,7 @@ export default function HeritageCover({
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
-    const container = document.getElementById("heritage-page-root") ?? window;
-
     const PARALLAX_RATIO = 0.4;
-    // Lerp factor: how quickly current catches up to target each frame (0–1).
-    // 0.1 = slow/heavy ease-out, 0.18 = snappy but still eased.
     const LERP = 0.12;
 
     let raf = 0;
@@ -304,7 +300,9 @@ export default function HeritageCover({
       const fade = mobileFadeRef.current;
       if (!slide || !fade) { raf = requestAnimationFrame(tick); return; }
 
-      const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
+      // Re-query each tick so we never miss a late-mounted container
+      const container = document.getElementById("heritage-page-root");
+      const scrollTop = container ? container.scrollTop : window.scrollY;
       const slideH = slide.offsetHeight;
       const targetY = -(scrollTop * PARALLAX_RATIO);
 
@@ -341,7 +339,7 @@ export default function HeritageCover({
     const overlay = overlayRef.current;
     if (!hero || !overlay) return;
 
-    const container = document.getElementById("heritage-page-root") ?? window;
+    const container = document.getElementById("heritage-page-root") ?? window as EventTarget;
 
     let raf = 0;
     const onScroll = () => {
