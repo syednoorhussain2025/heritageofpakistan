@@ -423,7 +423,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const sheet = (
     <>
       <div
-        className={`fixed inset-0 z-[5500] transition-all duration-500 ease-in-out ${visible ? "backdrop-blur-sm bg-black/40" : "backdrop-blur-none bg-black/0"}`}
+        className={`fixed inset-0 z-[5500] transition-all duration-500 ease-in-out ${visible ? "bg-black/0" : "bg-black/0"}`}
         onClick={closeSheet}
         aria-hidden="true"
       />

@@ -253,7 +253,7 @@ export default function AddToTripModal({
       {/* Main overlay */}
       <div
         className={`fixed inset-0 z-[9999999999] transition-all duration-500 ease-in-out ${
-          isOpen ? "opacity-100 backdrop-blur-sm bg-black/40" : "opacity-0 backdrop-blur-none bg-black/0"
+          isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
@@ -406,7 +406,7 @@ export default function AddToTripModal({
       {isCreateVisible && (
         <div
           className={`fixed inset-0 z-[99999999999] transition-all duration-500 ease-in-out ${
-            isCreateAnimatingOpen ? "opacity-100 backdrop-blur-sm bg-black/40" : "opacity-0 backdrop-blur-none bg-black/0"
+            isCreateAnimatingOpen ? "opacity-100" : "opacity-0"
           }`}
           role="dialog"
           aria-modal="true"
