@@ -2,13 +2,16 @@
 
 import { useEffect } from "react";
 
-const SCALE = 0.92;
-const TRANSLATE_Y = "12px";
+const SCALE = 0.88;
+const TRANSLATE_Y = "22px";
 const BORDER_RADIUS = "24px";
-const TRANSITION = "transform 0.55s cubic-bezier(0.32,0.72,0,1), border-radius 0.55s cubic-bezier(0.32,0.72,0,1), filter 0.55s cubic-bezier(0.32,0.72,0,1)";
-const BODY_TRANSITION = "background-color 0.55s cubic-bezier(0.32,0.72,0,1)";
+// Slower with ease-in-out feel: longer duration + gentler bezier
+const TRANSITION = "transform 0.72s cubic-bezier(0.4,0,0.2,1), border-radius 0.72s cubic-bezier(0.4,0,0.2,1), filter 0.72s cubic-bezier(0.4,0,0.2,1)";
+const BODY_TRANSITION = "background-color 0.72s cubic-bezier(0.4,0,0.2,1)";
 const BODY_COLOR_OPEN = "#111111";
 const BODY_COLOR_CLOSED = "#f4f4f4";
+const FILTER_OPEN = "brightness(0.75) blur(1.5px)";
+const FILTER_CLOSED = "brightness(1) blur(0px)";
 
 export function useBottomSheetParallax(active: boolean) {
   useEffect(() => {
@@ -23,12 +26,14 @@ export function useBottomSheetParallax(active: boolean) {
       page.style.transformOrigin = "top center";
       page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
       page.style.borderRadius = BORDER_RADIUS;
+      page.style.filter = FILTER_OPEN;
     } else {
       page.style.transition = TRANSITION;
       body.style.transition = BODY_TRANSITION;
       body.style.backgroundColor = BODY_COLOR_CLOSED;
-      page.style.transform = "scale(1)";
+      page.style.transform = "scale(1) translateY(0px)";
       page.style.borderRadius = "0px";
+      page.style.filter = FILTER_CLOSED;
     }
   }, [active]);
 }
