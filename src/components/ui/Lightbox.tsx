@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import NextImage from "next/image";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, PanInfo, useAnimate } from "framer-motion";
 import {
   TransformWrapper,
   TransformComponent,
@@ -147,23 +147,24 @@ export function Lightbox({
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
 
-  // Shared-element expand phases:
-  // "start"   — thumbnail sits at origin rect (one paint frame)
-  // "expand"  — thumbnail animates to fullscreen
-  // "done"    — real lightbox content visible, thumbnail hidden
-  const [expandPhase, setExpandPhase] = useState<"start" | "expand" | "done">(
-    originRect ? "start" : "done"
-  );
+  // Shared-element expand: imperatively animated overlay
+  const [overlayScope, animateOverlay] = useAnimate();
+  const [contentVisible, setContentVisible] = useState(!originRect);
+
   useEffect(() => {
-    if (!originRect) return;
-    // Phase 1: one rAF so the "start" position is painted
-    const raf = requestAnimationFrame(() => {
-      setExpandPhase("expand");
-      // Phase 2: after expand animation completes (~400ms), show real content
-      const t = window.setTimeout(() => setExpandPhase("done"), 420);
-      return () => window.clearTimeout(t);
+    if (!originRect || !originThumb) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Start: overlay at thumbnail position, content hidden
+    // Then animate overlay to fullscreen, then fade overlay out and show content
+    void animateOverlay(overlayScope.current, {
+      left: 0, top: 0, width: vw, height: vh, borderRadius: 0,
+    }, { duration: 0.4, ease: [0.32, 0.72, 0, 1] }).then(() => {
+      setContentVisible(true);
+      // Fade out the overlay so real lightbox image takes over
+      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.18, ease: "easeIn" });
     });
-    return () => cancelAnimationFrame(raf);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Tracks if the hi-res image has finished decoding to fade it in
@@ -521,10 +522,6 @@ export function Lightbox({
   ======================================================= */
   if (!photos.length) return null;
 
-  // Compute shared-element rect values (stable — only used during expand phases)
-  const vw = typeof window !== "undefined" ? window.innerWidth : 390;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 844;
-
   return (
     <AnimatePresence>
       <motion.div
@@ -537,32 +534,20 @@ export function Lightbox({
         onClick={onClose}
         onPanEnd={onSwipe}
       >
-        {/* ── Shared-element thumbnail overlay ── */}
-        {originRect && originThumb && expandPhase !== "done" && (
-          <motion.div
+        {/* ── Shared-element thumbnail overlay — imperatively animated ── */}
+        {originRect && originThumb && (
+          <div
+            ref={overlayScope}
             className="fixed overflow-hidden pointer-events-none"
-            style={{ zIndex: 50 }}
-            initial={{
+            style={{
+              zIndex: 50,
               left: originRect.left,
               top: originRect.top,
               width: originRect.width,
               height: originRect.height,
               borderRadius: 6,
+              opacity: 1,
             }}
-            animate={expandPhase === "expand" ? {
-              left: 0,
-              top: 0,
-              width: vw,
-              height: vh,
-              borderRadius: 0,
-            } : {
-              left: originRect.left,
-              top: originRect.top,
-              width: originRect.width,
-              height: originRect.height,
-              borderRadius: 6,
-            }}
-            transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -570,15 +555,15 @@ export function Lightbox({
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
-          </motion.div>
+          </div>
         )}
 
-        {/* ── Real lightbox content — hidden until expand is done ── */}
+        {/* ── Real lightbox content — fades in after expand completes ── */}
         <AnimatePresence mode="wait">
           <motion.div
             key={(photo as any)?.id}
             initial={{ opacity: 0 }}
-            animate={{ opacity: expandPhase === "done" ? 1 : 0 }}
+            animate={{ opacity: contentVisible ? 1 : 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
