@@ -557,6 +557,7 @@ export function Lightbox({
     if (!container) return;
 
     const onStart = (e: TouchEvent) => {
+      if (window.innerWidth >= 768) return;
       if (isZoomedRef.current) return;
       const t = e.touches[0];
       touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
@@ -619,19 +620,18 @@ export function Lightbox({
       }
     };
 
-    container.addEventListener("touchstart", onStart, { passive: true });
-    container.addEventListener("touchmove", onMove, { passive: false });
-    container.addEventListener("touchend", onEnd, { passive: true });
+    container.addEventListener("touchstart", onStart, { passive: true, capture: true });
+    container.addEventListener("touchmove", onMove, { passive: false, capture: true });
+    container.addEventListener("touchend", onEnd, { passive: true, capture: true });
     return () => {
-      container.removeEventListener("touchstart", onStart);
-      container.removeEventListener("touchmove", onMove);
-      container.removeEventListener("touchend", onEnd);
+      container.removeEventListener("touchstart", onStart, { capture: true });
+      container.removeEventListener("touchmove", onMove, { capture: true });
+      container.removeEventListener("touchend", onEnd, { capture: true });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const carouselContainerCallbackRef = useCallback((el: HTMLDivElement | null) => {
-    (mobileContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  const rootOverlayRef = useCallback((el: HTMLDivElement | null) => {
     attachTouchListeners(el);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -679,6 +679,7 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
+        ref={rootOverlayRef}
         className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
         initial={{ opacity: originRect ? 1 : 0 }}
         animate={{ opacity: 1 }}
@@ -717,7 +718,6 @@ export function Lightbox({
         {/* ────────────── MOBILE CAROUSEL ────────────── */}
         {!isMdUp && (
           <div
-            ref={carouselContainerCallbackRef}
             className="absolute inset-0 overflow-hidden"
           >
             {/* Sliding track */}
