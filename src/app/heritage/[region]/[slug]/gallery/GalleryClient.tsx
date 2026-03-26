@@ -140,13 +140,16 @@ type MasonryTileProps = {
   ensureSignedIn: () => boolean | Promise<boolean>;
 };
 
+type TileVariant = "feature" | "small";
+
 const MasonryTile = memo(function MasonryTile({
   photo,
   onOpen,
   siteId,
   isPriority,
   ensureSignedIn,
-}: MasonryTileProps) {
+  variant = "small",
+}: MasonryTileProps & { variant?: TileVariant }) {
   const extras = photo as PhotoWithExtras;
 
   const [isNearViewport, setIsNearViewport] = useState(false);
@@ -192,10 +195,19 @@ const MasonryTile = memo(function MasonryTile({
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <figure className="relative [content-visibility:auto] [contain-intrinsic-size:300px_225px]">
+    <figure className="relative [content-visibility:auto]">
+      {/*
+        Small tiles: aspect-square wrapper drives height.
+        Feature tiles: aspect-[2/3] wrapper drives height — grid row-span-2
+        means the cell is exactly 2× a square row, so aspect-[2/3] fills it
+        perfectly when cols are equal width.
+        Desktop: always aspect-[4/3].
+      */}
       <div
+        className={`relative w-full overflow-hidden group cursor-pointer active:opacity-80 transition-opacity duration-100
+          ${variant === "feature" ? "aspect-[2/3] md:aspect-[4/3]" : "aspect-[4/3] md:aspect-[4/3]"}
+        `}
         ref={tileRef}
-        className="relative w-full overflow-hidden group rounded-xl aspect-[4/3] cursor-pointer active:scale-95 transition-transform duration-100"
         onClick={() => { void hapticLight(); onOpen(); }}
         title="Open"
       >
@@ -222,34 +234,24 @@ const MasonryTile = memo(function MasonryTile({
           alt={photo.caption ?? ""}
           fill
           unoptimized
-          className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-200 ease-out group-hover:scale-110 transition-opacity duration-500 ease-out ${
+          className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 transition-opacity duration-500 ease-out ${
             loaded ? "opacity-100" : "opacity-0"
           }`}
-          sizes="
-            (min-width: 1280px) 16vw,
-            (min-width: 1024px) 18vw,
-            (min-width: 768px) 22vw,
-            (min-width: 640px) 30vw,
-            32vw
-          "
+          sizes="(min-width: 768px) 22vw, 50vw"
           priority={isPriority}
           loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "low"}
           placeholder={blurDataURL ? "blur" : "empty"}
           blurDataURL={blurDataURL}
-          onLoadingComplete={() => {
-            setLoaded(true);
-          }}
-          onError={() => {
-            setLoaded(true);
-          }}
+          onLoadingComplete={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
         />
 
         <div
-          className="absolute bottom-0 right-0 z-20 p-2"
+          className="absolute bottom-0 right-0 z-20 p-1.5"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-black/25 backdrop-blur-sm rounded-xl p-1">
+          <div className="bg-black/25 backdrop-blur-sm rounded-lg p-1">
             <CollectHeart
               variant="overlay"
               siteImageId={photo.id}
@@ -467,21 +469,21 @@ export default function GalleryClient({
 
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
-      {/* Mobile teal header with back button */}
-      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
+      {/* Mobile white header */}
+      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-2 pb-2.5 border-b border-gray-100" style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.06)" }}>
         <button
           type="button"
           onClick={() => router.back()}
           aria-label="Back"
-          className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
+          className="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
         >
-          <Icon name="arrow-left" size={20} className="text-white" />
+          <Icon name="arrow-left" size={20} className="text-gray-800" />
         </button>
-        <span className="flex-1 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
-          {site?.title ? `${site.title} — Gallery` : "Gallery"}
+        <span className="flex-1 text-center text-gray-900 text-[17px] font-semibold pr-10">
+          Gallery
         </span>
       </MobilePageHeader>
-      {/* Mobile: push content below teal header */}
+      {/* Mobile: push content below header */}
       <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 48px)" }} />
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
@@ -520,12 +522,11 @@ export default function GalleryClient({
         />
       )}
 
-      {/* Header */}
+      {/* Header — hidden on mobile, shown on desktop */}
       {loading ? (
-        <HeaderSkeleton />
+        <div className="hidden lg:block"><HeaderSkeleton /></div>
       ) : site ? (
-        /* Header content unchanged */
-        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-3 sm:pt-8 pb-4">
+        <section className="hidden lg:block w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-3 sm:pt-8 pb-4">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-orange-400/80 shadow-md flex-shrink-0">
               <Image
@@ -638,19 +639,64 @@ export default function GalleryClient({
       {loading ? (
         <GridSkeleton />
       ) : (
-        <section className="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pb-10">
+        <section className="w-full md:max-w-7xl md:mx-auto md:px-6 lg:px-16 xl:px-24 pb-10">
           {photos.length === 0 ? (
-            <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600">
+            <div className="bg-white rounded-xl border shadow-sm p-6 text-gray-600 mx-4">
               No photos uploaded yet for this site.
             </div>
           ) : (
             <>
-              <div
-                className="
-                  grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5
-                  gap-2 sm:gap-4
-                "
-              >
+              {/* ── MOBILE: editorial alternating groups of 3 ── */}
+              {/* Each group: 1 tall feature + 2 square smalls side by side in two flex cols */}
+              <div className="md:hidden flex flex-col gap-[2px]">
+                {Array.from({ length: Math.ceil(visiblePhotos.length / 3) }).map((_, groupIdx) => {
+                  const base = groupIdx * 3;
+                  const group = visiblePhotos.slice(base, base + 3);
+                  if (group.length === 0) return null;
+
+                  const featureOnLeft = groupIdx % 2 === 0;
+                  const feature = group[0];
+                  const smalls = group.slice(1);
+
+                  const featureEl = feature ? (
+                    <div key={feature.id} className="flex-shrink-0 w-1/2">
+                      <MasonryTile
+                        photo={feature}
+                        siteId={site!.id}
+                        onOpen={() => setLightboxIndex(base)}
+                        isPriority={base < TOP_PRIORITY_COUNT}
+                        ensureSignedIn={ensureSignedIn}
+                        variant="feature"
+                      />
+                    </div>
+                  ) : null;
+
+                  const smallsEl = (
+                    <div key="smalls" className="flex-shrink-0 w-1/2 flex flex-col gap-[2px]">
+                      {smalls.map((p, si) => (
+                        <MasonryTile
+                          key={p.id}
+                          photo={p}
+                          siteId={site!.id}
+                          onOpen={() => setLightboxIndex(base + 1 + si)}
+                          isPriority={base + 1 + si < TOP_PRIORITY_COUNT}
+                          ensureSignedIn={ensureSignedIn}
+                          variant="small"
+                        />
+                      ))}
+                    </div>
+                  );
+
+                  return (
+                    <div key={groupIdx} className="flex gap-[2px]">
+                      {featureOnLeft ? <>{featureEl}{smallsEl}</> : <>{smallsEl}{featureEl}</>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── DESKTOP: uniform grid ── */}
+              <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {visiblePhotos.map((photo, idx) => (
                   <MasonryTile
                     key={photo.id}
@@ -659,6 +705,7 @@ export default function GalleryClient({
                     onOpen={() => setLightboxIndex(idx)}
                     isPriority={idx < TOP_PRIORITY_COUNT}
                     ensureSignedIn={ensureSignedIn}
+                    variant="small"
                   />
                 ))}
               </div>
