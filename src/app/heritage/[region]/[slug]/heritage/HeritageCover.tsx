@@ -285,45 +285,61 @@ export default function HeritageCover({
   const mobileFadeRef = useRef<HTMLDivElement | null>(null);
 
   // Mobile: parallax push-up + fade-to-white as content scrolls over slideshow.
-  // Push starts immediately at scroll 0; fade starts after a brief offset.
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const PARALLAX_RATIO = 0.4;
     const LERP = 0.12;
+    const SETTLE_THRESHOLD = 0.1; // px — stop looping when this close to target
 
     let raf = 0;
     let currentY = 0;
+    let targetY = 0;
+    let running = false;
 
     const tick = () => {
       const slide = mobileSlideRef.current;
       const fade = mobileFadeRef.current;
-      if (!slide || !fade) { raf = requestAnimationFrame(tick); return; }
+      if (!slide || !fade) { running = false; return; }
 
-      // Re-query each tick so we never miss a late-mounted container
-      const container = document.getElementById("heritage-page-root");
-      const scrollTop = container ? container.scrollTop : window.scrollY;
       const slideH = slide.offsetHeight;
-      // Clamp to <= 0: prevent positive translateY from iOS overscroll rubber-band
-      // (negative scrollTop would push slide down, exposing white above it)
-      const targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
-
-      // Lerp current toward target — natural ease-out curve on every frame
       currentY += (targetY - currentY) * LERP;
 
       slide.style.transform = `translateY(${currentY.toFixed(2)}px) translateZ(0)`;
 
-      // Fade starts after parallax has moved ~30% of slide height
+      const container = document.getElementById("heritage-page-root");
+      const scrollTop = container ? container.scrollTop : window.scrollY;
       const fadeStart = slideH * 0.3;
       const fadeEnd = slideH * 0.75;
       const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
       fade.style.opacity = String(opacity);
 
-      raf = requestAnimationFrame(tick);
+      if (Math.abs(targetY - currentY) > SETTLE_THRESHOLD) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        // Snap to exact target and stop looping — no continuous rAF while idle
+        slide.style.transform = `translateY(${targetY.toFixed(2)}px) translateZ(0)`;
+        running = false;
+      }
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const onScroll = () => {
+      const container = document.getElementById("heritage-page-root");
+      const scrollTop = container ? container.scrollTop : window.scrollY;
+      // Clamp to <= 0: prevents positive translateY from iOS overscroll rubber-band
+      targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
+      if (!running) {
+        running = true;
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
+    const container = document.getElementById("heritage-page-root") ?? window as EventTarget;
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const [mounted, setMounted] = useState(false);
@@ -440,7 +456,7 @@ export default function HeritageCover({
           <div
             ref={mobileSlideRef}
             className="sticky top-0 z-0 relative w-full bg-black overflow-hidden"
-            style={{ minHeight: 440, height: "120vw", maxHeight: 580, willChange: "transform", ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
+            style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
             onClick={isSingleSlide ? () => { void hapticLight(); setShowGalleryLoader(true); router.push(galleryHref); } : undefined}
           >
             {/* White fade overlay — animates on scroll */}
