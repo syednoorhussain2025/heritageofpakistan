@@ -84,7 +84,7 @@ export default async function RootLayout({
       </head>
 
       <body
-        className={`${plusJakartaSans.variable} ${geistMono.variable} ${futura.variable} antialiased min-h-screen bg-black font-jakarta`}
+        className={`${plusJakartaSans.variable} ${geistMono.variable} ${futura.variable} antialiased min-h-screen bg-[#f4f4f4] font-jakarta`}
         suppressHydrationWarning
       >
         <IconProvider>
