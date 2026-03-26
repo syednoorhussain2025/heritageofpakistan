@@ -470,21 +470,26 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-2 pb-2.5 border-b border-gray-100 shadow-[0_1px_0_rgba(0,0,0,0.06)]">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label="Back"
-          className="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
-        >
-          <Icon name="arrow-left" size={20} className="text-gray-800" />
-        </button>
-        <span className="flex-1 text-center text-gray-900 text-[17px] font-semibold pr-10">
-          Gallery
-        </span>
+      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-3 pb-2 border-b border-gray-100 shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between w-full h-full">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
+          >
+            <Icon name="circle-arrow-left" size={38} className="text-gray-800" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Icon name="images" size={16} className="text-gray-500" />
+            <span className="text-[17px] font-bold text-gray-900">Gallery</span>
+          </div>
+          {/* Spacer to balance back button */}
+          <div className="w-11" />
+        </div>
       </MobilePageHeader>
       {/* Mobile: push content below header */}
-      <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 48px)" }} />
+      <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 44px)" }} />
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}
