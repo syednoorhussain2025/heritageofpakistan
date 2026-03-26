@@ -473,7 +473,7 @@ export default function GalleryClient({
   }, [photos, site?.cover_photo_url]);
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
+    <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden">
       {/* Mobile white header */}
       <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5" zIndex={2147483648}>
         {/* Gradient + blur background — masked separately so text stays fully opaque */}
