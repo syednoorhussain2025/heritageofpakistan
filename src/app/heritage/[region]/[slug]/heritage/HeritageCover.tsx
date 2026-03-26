@@ -293,29 +293,37 @@ export default function HeritageCover({
 
     // Parallax ratio: slide moves up at 40% of scroll speed (slower = more depth)
     const PARALLAX_RATIO = 0.4;
+    let raf = 0;
 
     const onScroll = () => {
-      const slide = mobileSlideRef.current;
-      const fade = mobileFadeRef.current;
-      if (!slide || !fade) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const slide = mobileSlideRef.current;
+        const fade = mobileFadeRef.current;
+        if (!slide || !fade) return;
 
-      const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
-      const slideH = slide.offsetHeight;
+        const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
+        const slideH = slide.offsetHeight;
 
-      // Push the slide up — translateY negative at fraction of scroll
-      const pushY = -(scrollTop * PARALLAX_RATIO);
-      slide.style.transform = `translateY(${pushY}px)`;
+        // Push the slide up — translateY negative at fraction of scroll
+        // translateZ(0) keeps the layer GPU-composited for smooth painting
+        const pushY = -(scrollTop * PARALLAX_RATIO);
+        slide.style.transform = `translateY(${pushY}px) translateZ(0)`;
 
-      // Fade starts after parallax has moved ~20% of slide height
-      const fadeStart = slideH * 0.3;
-      const fadeEnd = slideH * 0.75;
-      const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
-      fade.style.opacity = String(opacity);
+        // Fade starts after parallax has moved ~30% of slide height
+        const fadeStart = slideH * 0.3;
+        const fadeEnd = slideH * 0.75;
+        const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
+        fade.style.opacity = String(opacity);
+      });
     };
 
     onScroll();
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const [mounted, setMounted] = useState(false);
@@ -432,7 +440,7 @@ export default function HeritageCover({
           <div
             ref={mobileSlideRef}
             className="sticky top-0 z-0 relative w-full bg-black overflow-hidden"
-            style={{ minHeight: 440, height: "120vw", maxHeight: 580, ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
+            style={{ minHeight: 440, height: "120vw", maxHeight: 580, willChange: "transform", ...(isSingleSlide ? { cursor: "pointer" } : {}) }}
             onClick={isSingleSlide ? () => { void hapticLight(); setShowGalleryLoader(true); router.push(galleryHref); } : undefined}
           >
             {/* White fade overlay — animates on scroll */}
