@@ -284,12 +284,15 @@ export default function HeritageCover({
   const mobileSlideRef = useRef<HTMLDivElement | null>(null);
   const mobileFadeRef = useRef<HTMLDivElement | null>(null);
 
-  // Mobile: fade slideshow to white as content scrolls over it.
-  // Uses the fixed scroll container (#heritage-page-root) scrollTop.
+  // Mobile: parallax push-up + fade-to-white as content scrolls over slideshow.
+  // Push starts immediately at scroll 0; fade starts after a brief offset.
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const container = document.getElementById("heritage-page-root") ?? window;
+
+    // Parallax ratio: slide moves up at 40% of scroll speed (slower = more depth)
+    const PARALLAX_RATIO = 0.4;
 
     const onScroll = () => {
       const slide = mobileSlideRef.current;
@@ -298,12 +301,19 @@ export default function HeritageCover({
 
       const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
       const slideH = slide.offsetHeight;
-      const fadeStart = slideH * 0.15;
-      const fadeEnd = slideH * 0.7;
+
+      // Push the slide up — translateY negative at fraction of scroll
+      const pushY = -(scrollTop * PARALLAX_RATIO);
+      slide.style.transform = `translateY(${pushY}px)`;
+
+      // Fade starts after parallax has moved ~20% of slide height
+      const fadeStart = slideH * 0.3;
+      const fadeEnd = slideH * 0.75;
       const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
       fade.style.opacity = String(opacity);
     };
 
+    onScroll();
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
   }, []);
