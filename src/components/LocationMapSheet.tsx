@@ -320,7 +320,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           aria-label="Close map"
           className="absolute z-[4000] flex items-center justify-center transition-transform active:scale-90"
           style={{
-            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+            top: "calc(var(--sat, 44px) + 16px)",
             left: "calc(env(safe-area-inset-left, 0px) + 16px)",
             filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))",
           }}
