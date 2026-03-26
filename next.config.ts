@@ -2,7 +2,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["vaul"],
   // ✅ IMAGE OPTIMIZATION (Next.js Image Component + Vercel pipeline)
   images: {
     // Allow optimized loading from your Supabase public bucket(s).
