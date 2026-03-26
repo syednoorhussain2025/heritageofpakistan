@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 
 const SCALE = 0.88;
-const TRANSLATE_Y = "22px";
+const TRANSLATE_Y = "38px";
 const BORDER_RADIUS = "24px";
-// Slower with ease-in-out feel: longer duration + gentler bezier
-const TRANSITION = "transform 0.58s cubic-bezier(0.4,0,0.2,1), border-radius 0.58s cubic-bezier(0.4,0,0.2,1), filter 0.58s cubic-bezier(0.4,0,0.2,1)";
-const BODY_TRANSITION = "background-color 0.58s cubic-bezier(0.4,0,0.2,1)";
+const TRANSITION = "transform 0.46s cubic-bezier(0.4,0,0.2,1), border-radius 0.46s cubic-bezier(0.4,0,0.2,1), filter 0.46s cubic-bezier(0.4,0,0.2,1)";
+const BODY_TRANSITION = "background-color 0.46s cubic-bezier(0.4,0,0.2,1)";
 const BODY_COLOR_OPEN = "#111111";
 const BODY_COLOR_CLOSED = "#f4f4f4";
 const FILTER_OPEN = "brightness(0.75) blur(0.6px)";
@@ -20,9 +19,14 @@ export function useBottomSheetParallax(active: boolean) {
     if (!page) return;
 
     if (active) {
-      page.style.transition = TRANSITION;
-      body.style.transition = BODY_TRANSITION;
+      // Set body bg instantly (no transition) to prevent white flash in the gap
+      body.style.transition = "none";
       body.style.backgroundColor = BODY_COLOR_OPEN;
+      // Force reflow so the instant bg change paints before the transition starts
+      body.offsetHeight; // eslint-disable-line @typescript-eslint/no-unused-expressions
+      body.style.transition = BODY_TRANSITION;
+
+      page.style.transition = TRANSITION;
       page.style.transformOrigin = "top center";
       page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
       page.style.borderRadius = BORDER_RADIUS;
