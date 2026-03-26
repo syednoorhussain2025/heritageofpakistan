@@ -470,7 +470,7 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-2 pb-2.5 border-b border-gray-100" style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.06)" }}>
+      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-2 pb-2.5 border-b border-gray-100 shadow-[0_1px_0_rgba(0,0,0,0.06)]">
         <button
           type="button"
           onClick={() => router.back()}
