@@ -10,6 +10,7 @@ import {
   useRef,
   memo,
 } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -345,6 +346,8 @@ export default function GalleryClient({
   }, []);
 
   const [site] = useState<SiteHeaderInfo | null>(initialSite);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [photos, setPhotos] = useState<LightboxPhoto[]>(initialPhotos);
   const [loading] = useState(false);
 
@@ -475,7 +478,7 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden">
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5" zIndex={2147483648}>
+      {mounted && createPortal(<MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5" zIndex={2147483648}>
         {/* Gradient + blur background — masked separately so text stays fully opaque */}
         <div className="absolute inset-x-0 top-0 [backdrop-filter:blur(2px)] [mask-image:linear-gradient(to_bottom,black_60%,transparent)] [background:linear-gradient(to_bottom,rgba(0,0,0,0.62)_0%,transparent_100%)] pointer-events-none" style={{ height: "120%" }} />
         <div className="relative flex items-center justify-between w-full h-full">
@@ -495,7 +498,7 @@ export default function GalleryClient({
           </div>
           <div className="w-10" />
         </div>
-      </MobilePageHeader>
+      </MobilePageHeader>, document.body)}
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}
