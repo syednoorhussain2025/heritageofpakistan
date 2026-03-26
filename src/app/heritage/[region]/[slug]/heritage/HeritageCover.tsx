@@ -291,39 +291,39 @@ export default function HeritageCover({
 
     const container = document.getElementById("heritage-page-root") ?? window;
 
-    // Parallax ratio: slide moves up at 40% of scroll speed (slower = more depth)
     const PARALLAX_RATIO = 0.4;
+    // Lerp factor: how quickly current catches up to target each frame (0–1).
+    // 0.1 = slow/heavy ease-out, 0.18 = snappy but still eased.
+    const LERP = 0.12;
+
     let raf = 0;
+    let currentY = 0;
 
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const slide = mobileSlideRef.current;
-        const fade = mobileFadeRef.current;
-        if (!slide || !fade) return;
+    const tick = () => {
+      const slide = mobileSlideRef.current;
+      const fade = mobileFadeRef.current;
+      if (!slide || !fade) { raf = requestAnimationFrame(tick); return; }
 
-        const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
-        const slideH = slide.offsetHeight;
+      const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
+      const slideH = slide.offsetHeight;
+      const targetY = -(scrollTop * PARALLAX_RATIO);
 
-        // Push the slide up — translateY negative at fraction of scroll
-        // translateZ(0) keeps the layer GPU-composited for smooth painting
-        const pushY = -(scrollTop * PARALLAX_RATIO);
-        slide.style.transform = `translateY(${pushY}px) translateZ(0)`;
+      // Lerp current toward target — natural ease-out curve on every frame
+      currentY += (targetY - currentY) * LERP;
 
-        // Fade starts after parallax has moved ~30% of slide height
-        const fadeStart = slideH * 0.3;
-        const fadeEnd = slideH * 0.75;
-        const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
-        fade.style.opacity = String(opacity);
-      });
+      slide.style.transform = `translateY(${currentY.toFixed(2)}px) translateZ(0)`;
+
+      // Fade starts after parallax has moved ~30% of slide height
+      const fadeStart = slideH * 0.3;
+      const fadeEnd = slideH * 0.75;
+      const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
+      fade.style.opacity = String(opacity);
+
+      raf = requestAnimationFrame(tick);
     };
 
-    onScroll();
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      container.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const [mounted, setMounted] = useState(false);
