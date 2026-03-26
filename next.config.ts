@@ -2,6 +2,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Force vaul to use CJS build — ESM build has template literal syntax
+  // that Turbopack cannot parse in some versions.
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      vaul: require.resolve("vaul/dist/index.js"),
+    };
+    return config;
+  },
   // ✅ IMAGE OPTIMIZATION (Next.js Image Component + Vercel pipeline)
   images: {
     // Allow optimized loading from your Supabase public bucket(s).
