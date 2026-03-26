@@ -480,8 +480,10 @@ export default function GalleryClient({
           >
             <Icon name="circle-arrow-left" size={38} className="text-gray-800" />
           </button>
-          <div className="flex items-center gap-1.5">
-            <Icon name="images" size={16} className="text-gray-500" />
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <Icon name="images" size={15} className="text-gray-600" />
+            </div>
             <span className="text-[17px] font-bold text-gray-900">Gallery</span>
           </div>
           {/* Spacer to balance back button */}
