@@ -553,8 +553,7 @@ export function Lightbox({
   const photosLengthRef = useRef(photos.length);
   useEffect(() => { photosLengthRef.current = photos.length; }, [photos.length]);
 
-  useEffect(() => {
-    const container = mobileContainerRef.current;
+  const attachTouchListeners = useCallback((container: HTMLDivElement | null) => {
     if (!container) return;
 
     const onStart = (e: TouchEvent) => {
@@ -631,6 +630,12 @@ export function Lightbox({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const carouselContainerCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    (mobileContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    attachTouchListeners(el);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ---------- Helpers ---------- */
   const googleMapsUrl =
     photo?.site?.latitude != null && photo?.site?.longitude != null
@@ -674,7 +679,7 @@ export function Lightbox({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[2147483647] touch-none"
+        className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
         initial={{ opacity: originRect ? 1 : 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -712,7 +717,7 @@ export function Lightbox({
         {/* ────────────── MOBILE CAROUSEL ────────────── */}
         {!isMdUp && (
           <div
-            ref={mobileContainerRef}
+            ref={carouselContainerCallbackRef}
             className="absolute inset-0 overflow-hidden"
           >
             {/* Sliding track */}
