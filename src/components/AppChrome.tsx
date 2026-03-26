@@ -127,7 +127,7 @@ export default function AppChrome({
     return () => { removers.forEach((r) => r()); };
   }, []);
   const isAdminRoute = pathname.startsWith("/admin");
-  const isHomePage = pathname.startsWith("/auth");
+  const isHomePage = pathname.startsWith("/auth") || pathname.endsWith("/gallery");
   const onTabRoute = isTabRoute(pathname);
 
   // Prevent body scroll on tab routes — all content is in fixed divs

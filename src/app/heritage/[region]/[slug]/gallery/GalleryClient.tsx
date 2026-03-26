@@ -475,28 +475,27 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-4 backdrop-blur-sm [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
-        <div className="flex items-center justify-between w-full h-full">
+      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5">
+        {/* Gradient + blur background — masked separately so text stays fully opaque */}
+        <div className="absolute inset-0 [backdrop-filter:blur(4px)] [mask-image:linear-gradient(to_bottom,black_55%,transparent)] [background:linear-gradient(to_bottom,rgba(0,0,0,0.32)_0%,transparent_100%)] pointer-events-none" />
+        <div className="relative flex items-center justify-between w-full h-full">
           <button
             type="button"
             onClick={() => router.back()}
             aria-label="Back"
-            className="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
+            className="w-10 h-10 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
           >
-            <Icon name="circle-arrow-left" size={30} className="text-gray-400" />
+            <Icon name="circle-arrow-left" size={30} className="text-white" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-              <Icon name="images" size={15} className="text-[var(--brand-orange)]" />
-            </div>
-            <span className="text-[17px] font-bold text-gray-900">Gallery</span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[22px] font-bold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{site?.title ?? ""}</span>
+            {site?.location_free && (
+              <span className="text-[13px] font-medium text-white/90 leading-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>{site.location_free}</span>
+            )}
           </div>
-          {/* Spacer to balance back button */}
-          <div className="w-11" />
+          <div className="w-10" />
         </div>
       </MobilePageHeader>
-      {/* Mobile: push content below header */}
-      <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 44px)" }} />
       {/* -------------------------------------------------------------
          JSON-LD Structured Data for SEO (ImageGallery Schema)
       -------------------------------------------------------------- */}
