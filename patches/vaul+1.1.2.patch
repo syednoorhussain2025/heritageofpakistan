@@ -1,5 +1,5 @@
 diff --git a/node_modules/vaul/dist/index.js b/node_modules/vaul/dist/index.js
-index 7f343be..796fec7 100644
+index 7f343be..db71836 100644
 --- a/node_modules/vaul/dist/index.js
 +++ b/node_modules/vaul/dist/index.js
 @@ -81,7 +81,7 @@ const useDrawerContext = ()=>{
@@ -43,7 +43,7 @@ index 7f343be..796fec7 100644
                  transitionProperty: 'transform, border-radius',
                  transitionDuration: `${TRANSITIONS.DURATION}s`,
 -                transitionTimingFunction: `cubic-bezier(${TRANSITIONS.EASE.join(',')})`
-+                transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)"
++                transitionTimingFunction: `cubic-bezier(0.4, 0, 0.2, 1)`
 +            })`
              }));
              const wrapperStylesCleanup = assignStyle(wrapper, {
@@ -73,13 +73,13 @@ index 7f343be..796fec7 100644
                  transitionProperty: 'transform, border-radius',
                  transitionDuration: `${TRANSITIONS.DURATION}s`,
 -                transitionTimingFunction: `cubic-bezier(${TRANSITIONS.EASE.join(',')})`
-+                transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)"
++                transitionTimingFunction: `cubic-bezier(0.4, 0, 0.2, 1)`
 +            })`
              }, true);
          }
      }
 diff --git a/node_modules/vaul/dist/index.mjs b/node_modules/vaul/dist/index.mjs
-index 0dbbce5..a8df722 100644
+index 0dbbce5..69080aa 100644
 --- a/node_modules/vaul/dist/index.mjs
 +++ b/node_modules/vaul/dist/index.mjs
 @@ -59,7 +59,7 @@ const useDrawerContext = ()=>{
@@ -123,7 +123,7 @@ index 0dbbce5..a8df722 100644
                  transitionProperty: 'transform, border-radius',
                  transitionDuration: `${TRANSITIONS.DURATION}s`,
 -                transitionTimingFunction: `cubic-bezier(${TRANSITIONS.EASE.join(',')})`
-+                transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)"
++                transitionTimingFunction: `cubic-bezier(0.4, 0, 0.2, 1)`
 +            })`
              }));
              const wrapperStylesCleanup = assignStyle(wrapper, {
@@ -153,7 +153,7 @@ index 0dbbce5..a8df722 100644
                  transitionProperty: 'transform, border-radius',
                  transitionDuration: `${TRANSITIONS.DURATION}s`,
 -                transitionTimingFunction: `cubic-bezier(${TRANSITIONS.EASE.join(',')})`
-+                transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)"
++                transitionTimingFunction: `cubic-bezier(0.4, 0, 0.2, 1)`
 +            })`
              }, true);
          }
