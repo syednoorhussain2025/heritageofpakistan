@@ -17,6 +17,7 @@ type Props = {
   backgroundColor?: string;
   className?: string;
   minHeight?: string;
+  zIndex?: number;
 };
 
 export default function MobilePageHeader({
@@ -24,11 +25,13 @@ export default function MobilePageHeader({
   backgroundColor = "var(--brand-green)",
   className = "",
   minHeight = "180px",
+  zIndex = 1100,
 }: Props) {
   return (
     <div
-      className={`lg:hidden fixed inset-x-0 top-0 z-[1100] w-full ${className}`}
+      className={`lg:hidden fixed inset-x-0 top-0 w-full ${className}`}
       style={{
+        zIndex,
         backgroundColor,
         paddingTop: "var(--sat, 44px)",
         minHeight,

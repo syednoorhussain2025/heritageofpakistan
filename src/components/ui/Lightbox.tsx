@@ -615,14 +615,7 @@ export function Lightbox({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Mobile: centered title + location matching gallery header */}
-              <div className="md:hidden flex flex-col items-center gap-0.5">
-                <span className="text-[22px] font-bold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{photo?.site?.name}</span>
-                {(photo as any)?.site?.location && (
-                  <span className="text-[13px] font-medium text-white/90 leading-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>{(photo as any).site.location}</span>
-                )}
-              </div>
-              {/* Desktop: title + location + credit */}
+              {/* Desktop only: title + location + credit (mobile uses gallery header above lightbox) */}
               <div className="hidden md:flex text-white justify-between items-end gap-4">
                 <div>
                   <h3 className="font-bold text-xl leading-tight">{photo?.site?.name}</h3>

@@ -475,7 +475,7 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5">
+      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-5" zIndex={2147483648}>
         {/* Gradient + blur background — masked separately so text stays fully opaque */}
         <div className="absolute inset-x-0 top-0 [backdrop-filter:blur(2px)] [mask-image:linear-gradient(to_bottom,black_60%,transparent)] [background:linear-gradient(to_bottom,rgba(0,0,0,0.62)_0%,transparent_100%)] pointer-events-none" style={{ height: "120%" }} />
         <div className="relative flex items-center justify-between w-full h-full">
