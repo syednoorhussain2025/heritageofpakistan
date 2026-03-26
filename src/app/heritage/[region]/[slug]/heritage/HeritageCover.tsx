@@ -304,7 +304,9 @@ export default function HeritageCover({
       const container = document.getElementById("heritage-page-root");
       const scrollTop = container ? container.scrollTop : window.scrollY;
       const slideH = slide.offsetHeight;
-      const targetY = -(scrollTop * PARALLAX_RATIO);
+      // Clamp to <= 0: prevent positive translateY from iOS overscroll rubber-band
+      // (negative scrollTop would push slide down, exposing white above it)
+      const targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
 
       // Lerp current toward target — natural ease-out curve on every frame
       currentY += (targetY - currentY) * LERP;
