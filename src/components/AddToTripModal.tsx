@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 import { supabase } from "@/lib/supabase/browser";
 import { createTrip, getTripUrlById } from "@/lib/trips";
 
@@ -47,6 +48,7 @@ export default function AddToTripModal({
   useBodyScrollLock();
 
   const [isOpen, setIsOpen] = useState(false);
+  useBottomSheetParallax(isOpen);
   const closeTimerRef = useRef<number | null>(null);
 
   const [search, setSearch] = useState("");

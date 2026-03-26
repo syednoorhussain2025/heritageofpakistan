@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
@@ -123,6 +124,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   // Sheet visibility for animation
   const [sheetVisible, setSheetVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  useBottomSheetParallax(sheetVisible && !closing);
   const closeTimerRef = useRef<number | null>(null);
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);

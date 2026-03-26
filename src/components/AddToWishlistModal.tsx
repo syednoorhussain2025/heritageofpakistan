@@ -7,6 +7,7 @@ import NextImage from "next/image";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 import { useWishlists } from "@/components/WishlistProvider";
 import {
   addItemToWishlist,
@@ -80,6 +81,7 @@ export default function AddToWishlistModal({
   useBodyScrollLock();
 
   const [isOpen, setIsOpen] = useState(false);
+  useBottomSheetParallax(isOpen);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
   const [search, setSearch] = useState("");
