@@ -82,6 +82,7 @@ export default function HeritageCover({
   site,
   hasPhotoStory,
   galleryCount,
+  mobileSlot,
 }: {
   site: {
     id: string;
@@ -114,6 +115,7 @@ export default function HeritageCover({
   };
   hasPhotoStory: boolean;
   galleryCount?: number | null;
+  mobileSlot?: React.ReactNode;
 }) {
   const router = useRouter();
   const cover = site.cover ?? null;
@@ -527,7 +529,7 @@ export default function HeritageCover({
 
         {/* Info block — overlaps hero with rounded top corners, slides over sticky hero */}
         <div
-          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-5 space-y-2 z-10"
+          className="relative bg-white rounded-t-3xl -mt-5 px-4 pt-5 pb-4 space-y-2 z-10"
           style={{ boxShadow: "0 -2px 12px rgba(0,0,0,0.06)" }}
         >
           {/* Heritage Type pill — above title */}
@@ -610,6 +612,11 @@ export default function HeritageCover({
               <p className="text-[14px] leading-relaxed text-slate-500 italic">
                 {site.tagline}
               </p>
+            </div>
+          )}
+          {mobileSlot && (
+            <div className="mt-4">
+              {mobileSlot}
             </div>
           )}
         </div>

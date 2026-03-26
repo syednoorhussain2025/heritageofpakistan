@@ -60,10 +60,7 @@ interface Props {
 
 export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
-  const raf1Ref = useRef<number | null>(null);
-  const raf2Ref = useRef<number | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Map bootstrap (settings + icons) from cache or fetch ── */
@@ -222,56 +219,60 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, site.id]);
 
-  /* ── Open/close animation (matches SiteBottomSheet pattern) ── */
+  /* ── Parallax push ── */
+  useEffect(() => {
+    if (!isOpen && !closing) return;
+    const el = document.getElementById("heritage-page-root");
+    if (!el) return;
+    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transform = closing ? "translateX(0)" : "translateX(-173px)";
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen, closing]);
+
+  /* ── Open/close animation ── */
   useEffect(() => {
     if (!isOpen) {
-      setVisible(false);
       setClosing(false);
       return;
     }
     void hapticMedium();
-    raf1Ref.current = requestAnimationFrame(() => {
-      raf2Ref.current = requestAnimationFrame(() => {
-        raf2Ref.current = null;
-        setVisible(true);
-      });
-    });
-    return () => {
-      if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
-      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
-    };
   }, [isOpen]);
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
     setClosing(true);
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null;
-      setClosing(false);
-      onClose();
-    }, 300);
-  }, [onClose]);
+  }, []);
 
   if (!mounted || (!isOpen && !closing)) return null;
 
-  const sheetVisible = visible && !closing;
-
   const sheet = createPortal(
-    <div
-      className="fixed inset-0 z-[3500] touch-none"
-      aria-modal="true"
-      role="dialog"
-      aria-label={`Map for ${site.title}`}
-    >
-      {/* Full-screen panel sliding in from the right */}
+    <>
+      {/* Backdrop */}
       <div
-        className={`absolute inset-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          sheetVisible ? "translate-x-0" : "translate-x-full"
-        }`}
+        className="fixed inset-0 z-[3499]"
+        style={{
+          backgroundColor: "rgba(0,0,0,0)",
+          animation: closing
+            ? "sideSheetBackdropOut 0.35s ease-in forwards"
+            : "sideSheetBackdropIn 0.72s ease-out forwards",
+        }}
+      />
+      <div
+        className={`fixed inset-0 z-[3500] touch-none ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+        aria-modal="true"
+        role="dialog"
+        aria-label={`Map for ${site.title}`}
+        onAnimationEnd={() => { if (closing) { setClosing(false); onClose(); } }}
+      >
+      {/* Full-screen panel */}
+      <div
+        className="absolute inset-0 overflow-hidden"
       >
         {/* Scoped Leaflet overrides — only affect this sheet's map */}
         <style>{`
-          #location-map-sheet .leaflet-container { background: #f0ebe3 !important; }
+          #location-map-sheet .leaflet-container { background: #ffffff !important; }
           #location-map-sheet .leaflet-fade-anim .leaflet-popup { transition: opacity 220ms ease !important; }
           #location-map-sheet .leaflet-zoom-anim .leaflet-zoom-hide { visibility: visible !important; }
           #location-map-sheet .leaflet-tooltip { opacity: 1 !important; visibility: visible !important; transition: opacity 500ms ease !important; }
@@ -288,7 +289,7 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
         {/* Map — full screen */}
         <div id="location-map-sheet" className="absolute inset-0">
           {/* Spinner — stays under map, hidden once map fades in */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f0ebe3]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white">
             <Icon name="spinner" size={32} className="animate-spin text-[var(--brand-orange)]" />
             <span className="text-sm text-gray-500">Loading map…</span>
           </div>
@@ -327,7 +328,8 @@ export default function LocationMapSheet({ site, isOpen, onClose }: Props) {
           <Icon name="circle-arrow-left" size={28} className="text-gray-800" />
         </button>
       </div>
-    </div>,
+      </div>
+    </>,
     document.body
   );
 

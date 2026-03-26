@@ -1,0 +1,205 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import Icon from "@/components/Icon";
+import HeritageSidebar from "./HeritageSidebar";
+import type { TravelGuideSummary } from "./heritagedata";
+
+function SlidePanel({
+  site,
+  provinceName,
+  regions,
+  maps,
+  travelGuideSummary,
+  onClose,
+}: {
+  site: any;
+  provinceName: string | null;
+  regions: any[];
+  maps: { embed: string | null; link: string | null };
+  travelGuideSummary?: TravelGuideSummary | null;
+  onClose: () => void;
+}) {
+  const [closing, setClosing] = useState(false);
+
+  // Parallax push — slide in on mount, slide back when closing
+  useEffect(() => {
+    const el = document.getElementById("heritage-page-root");
+    if (!el) return;
+    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transform = closing ? "translateX(0)" : "translateX(-173px)";
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [closing]);
+
+  function handleClose() {
+    setClosing(true);
+  }
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[4999]"
+        style={{
+          backgroundColor: "rgba(0,0,0,0)",
+          animation: closing
+            ? "sideSheetBackdropOut 0.35s ease-in forwards"
+            : "sideSheetBackdropIn 0.72s ease-out forwards",
+        }}
+      />
+      <div
+        className={`fixed inset-0 z-[5000] bg-[#f8f8f8] flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+        onAnimationEnd={() => { if (closing) onClose(); }}
+      >
+      {/* Header */}
+      <div
+        className="flex items-center gap-3 px-4 bg-white border-b border-slate-100"
+        style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}
+      >
+        <button
+          type="button"
+          onClick={handleClose}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+          </svg>
+        </button>
+        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">Travel Information</h2>
+      </div>
+
+      {/* Content — all 3 section groups stacked */}
+      <div className="flex-1 overflow-y-auto space-y-4 p-4">
+        <HeritageSidebar
+          site={site}
+          provinceName={provinceName}
+          regions={regions}
+          maps={maps}
+          travelGuideSummary={travelGuideSummary}
+          sectionGroup="mobile-travel"
+        />
+        <HeritageSidebar
+          site={site}
+          provinceName={provinceName}
+          regions={regions}
+          maps={maps}
+          travelGuideSummary={travelGuideSummary}
+          sectionGroup="mobile-climate"
+        />
+        <HeritageSidebar
+          site={site}
+          provinceName={provinceName}
+          regions={regions}
+          maps={maps}
+          travelGuideSummary={travelGuideSummary}
+          sectionGroup="mobile-stay"
+        />
+      </div>
+    </div>
+    </>,
+    document.body
+  );
+}
+
+function PreviewRow({ iconName, label, value }: { iconName: string; label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+      <div className="mt-0.5 shrink-0">
+        <Icon name={iconName} size={28} className="text-slate-800" />
+      </div>
+      <div>
+        <div className="text-[15px] font-bold text-slate-800">{label}</div>
+        <div className="text-[13px] text-slate-500 mt-0.5">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+export default function TravelGuideSheet({
+  site,
+  provinceName,
+  regions,
+  maps,
+  travelGuideSummary,
+}: {
+  site: any;
+  provinceName: string | null;
+  regions: any[];
+  maps: { embed: string | null; link: string | null };
+  travelGuideSummary?: TravelGuideSummary | null;
+}) {
+  const [showPanel, setShowPanel] = useState(false);
+
+  const tgs = travelGuideSummary;
+  const ov = site.overrides ?? {};
+
+  function pick(siteVal: any, guideVal: any) {
+    if (ov) return siteVal ?? guideVal ?? null;
+    return guideVal ?? siteVal ?? null;
+  }
+
+  const location = pick(site.travel_location, tgs?.location);
+  const howToReach = pick(site.travel_how_to_reach, tgs?.how_to_reach);
+  const nearestCity = pick(site.travel_nearest_major_city, tgs?.nearest_major_city);
+  const bestTime = pick(site.travel_best_time_free, tgs?.best_time_to_visit);
+
+  const previewRows = [
+    { iconName: "map-pin-house", label: "Location", value: location },
+    { iconName: "compass-light", label: "How to Reach", value: howToReach },
+    { iconName: "city-light", label: "Nearest City", value: nearestCity },
+    { iconName: "calendar-dots-light", label: "Best Time to Visit", value: bestTime },
+  ].filter((r) => r.value);
+
+  if (previewRows.length === 0) return null;
+
+  return (
+    <>
+      <section
+        className="md:hidden bg-white pt-4 pb-3 cursor-pointer"
+        onClick={() => setShowPanel(true)}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2 px-4">
+          <h2
+            className="flex items-center gap-2 text-[22px] font-extrabold"
+            style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+          >
+            <Icon name="travel-guide" size={18} className="text-[var(--brand-orange)]" />
+            <span>Travel Guide</span>
+          </h2>
+          <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+              <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+            </svg>
+          </span>
+        </div>
+
+        {/* Preview rows */}
+        <div className="mt-1 px-8">
+          {previewRows.map((r) => (
+            <PreviewRow key={r.label} iconName={r.iconName} label={r.label} value={r.value} />
+          ))}
+        </div>
+
+        {/* Tap hint */}
+        <p className="mt-3 px-4 text-[12px] text-slate-400 text-center">Tap to view full travel information</p>
+      </section>
+
+      {showPanel && (
+        <SlidePanel
+          site={site}
+          provinceName={provinceName}
+          regions={regions}
+          maps={maps}
+          travelGuideSummary={travelGuideSummary}
+          onClose={() => setShowPanel(false)}
+        />
+      )}
+    </>
+  );
+}

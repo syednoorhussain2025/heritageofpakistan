@@ -24,6 +24,7 @@ html {
   --sab: env(safe-area-inset-bottom, 34px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+  --vaul-drawer-border-radius: 24px;
 }
 
 /* Tab routes: lock scroll — all content is in fixed divs */
@@ -418,6 +419,22 @@ code {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
+@keyframes sideSheetBackdropIn {
+  from { background-color: rgba(0,0,0,0); }
+  to   { background-color: rgba(0,0,0,0.15); }
+}
+@keyframes sideSheetBackdropOut {
+  from { background-color: rgba(0,0,0,0.15); }
+  to   { background-color: rgba(0,0,0,0); }
+}
+@keyframes sideSheetPushIn {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-173px); }
+}
+@keyframes sideSheetPushOut {
+  from { transform: translateX(-173px); }
+  to   { transform: translateX(0); }
+}
 
 .animate-fadeIn        { animation: fadeIn       0.25s ease-out forwards; }
 .animate-fadeSlideUp   { animation: fadeSlideUp  0.35s ease-out forwards; }
@@ -427,6 +444,12 @@ code {
 .animate-slideInLeft   { animation: slideInLeft  0.3s  cubic-bezier(0.22,1,0.36,1) forwards; }
 .animate-slide-in-right  { animation: slideInRight  0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
 .animate-slide-out-right { animation: slideOutRight 0.28s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-side-sheet-in  { animation: slideInRight  0.72s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-out { animation: slideOutRight 0.72s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-backdrop-in  { animation: sideSheetBackdropIn  0.5s ease-out forwards; }
+.animate-side-sheet-backdrop-out { animation: sideSheetBackdropOut 0.45s ease-out forwards; }
+.animate-side-sheet-push-in  { animation: sideSheetPushIn  0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-push-out { animation: sideSheetPushOut 0.45s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-slideOutLeft  { animation: slideOutLeft 0.25s cubic-bezier(0.22,1,0.36,1) forwards; }
 .animate-fadeInBackdrop  { animation: fadeInBackdrop  0.2s ease-out forwards; }
 .animate-fadeOutBackdrop { animation: fadeOutBackdrop 0.25s ease-out forwards; }

@@ -1,7 +1,7 @@
 // src/app/heritage/[region]/[slug]/heritage/HeritageSidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { Site, Taxonomy } from "./heritagedata";
@@ -26,34 +26,55 @@ function GeneralInfoSlidePanel({
 }) {
   const [closing, setClosing] = useState(false);
 
+  useEffect(() => {
+    const el = document.getElementById("heritage-page-root");
+    if (!el) return;
+    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transform = closing ? "translateX(0)" : "translateX(-173px)";
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [closing]);
+
   function handleClose() {
     setClosing(true);
   }
 
   return createPortal(
-    <div
-      className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
-      onAnimationEnd={() => { if (closing) onClose(); }}
-    >
-      <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}>
-        <button
-          type="button"
-          onClick={handleClose}
-          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
-          aria-label="Back"
-        >
-          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
-            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-          </svg>
-        </button>
-        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">General Information</h2>
+    <>
+      <div
+        className="fixed inset-0 z-[4999]"
+        style={{
+          backgroundColor: "rgba(0,0,0,0)",
+          animation: closing
+            ? "sideSheetBackdropOut 0.35s ease-in forwards"
+            : "sideSheetBackdropIn 0.72s ease-out forwards",
+        }}
+      />
+      <div
+        className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+        onAnimationEnd={() => { if (closing) onClose(); }}
+      >
+        <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+            aria-label="Back"
+          >
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+              <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+            </svg>
+          </button>
+          <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">General Information</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-2">
+          {rows.map((row, idx) => (
+            <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+          ))}
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-2">
-        {rows.map((row, idx) => (
-          <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
-        ))}
-      </div>
-    </div>,
+    </>,
     document.body
   );
 }
@@ -235,8 +256,9 @@ function SidebarAccordionSection({
   title,
   iconName,
   id,
-  mobileDefaultOpen = true,
   onHeaderTap,
+  className,
+  noPaddingTop,
   children,
 }: {
   title: string;
@@ -244,10 +266,10 @@ function SidebarAccordionSection({
   id?: string;
   mobileDefaultOpen?: boolean;
   onHeaderTap?: () => void;
+  className?: string;
+  noPaddingTop?: boolean;
   children: React.ReactNode;
 }) {
-  const [openMobile, setOpenMobile] = useState(mobileDefaultOpen);
-
   const titleEl = (
     <h2
       className="flex items-center gap-2 text-[22px] font-extrabold"
@@ -258,33 +280,16 @@ function SidebarAccordionSection({
     </h2>
   );
 
-  const chevronRight = (
-    <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
-      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-        <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
-      </svg>
-    </span>
-  );
-
-  const chevronDown = (
-    <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
-      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style={{ transform: openMobile ? "rotate(180deg)" : "rotate(0deg)" }}>
-        <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.13l3.71-3.9a.75.75 0 111.08 1.04l-4.25 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-      </svg>
-    </span>
-  );
-
-  /* When onHeaderTap is set: whole card is one tappable button on mobile */
+  /* When onHeaderTap is set: whole header is tappable on mobile */
   if (onHeaderTap) {
     return (
-      <section id={id} className="scroll-mt-[var(--sticky-offset)] bg-white">
+      <section id={id} className={`scroll-mt-[var(--sticky-offset)] bg-white${className ? ` ${className}` : ""}`}>
         <button
           type="button"
           onClick={onHeaderTap}
           className="md:hidden w-full flex items-center justify-between gap-3 px-4 py-4 text-left cursor-pointer active:bg-slate-50"
         >
           {titleEl}
-          {chevronRight}
         </button>
         <div className="md:hidden px-4 pb-4">
           {children}
@@ -305,28 +310,12 @@ function SidebarAccordionSection({
   }
 
   return (
-    <section className="bg-white p-4">
+    <section className={className ?? `bg-white px-4 pb-4${noPaddingTop ? "" : " pt-4"}`}>
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
-
-      <button
-        type="button"
-        className="md:hidden mb-3 w-full flex items-center justify-between gap-3 text-left cursor-pointer"
-        onClick={() => setOpenMobile((prev) => !prev)}
-        aria-expanded={openMobile}
-      >
+      <div className="mb-3">
         {titleEl}
-        {chevronDown}
-      </button>
-
-      <h2
-        className="mb-3 hidden md:flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
-        style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
-      >
-        {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
-        <span>{title}</span>
-      </h2>
-
-      <div className={`${openMobile ? "block" : "hidden"} md:block`}>
+      </div>
+      <div>
         {children}
       </div>
     </section>
@@ -681,31 +670,54 @@ export default function HeritageSidebar({
             </SidebarAccordionSection>
           )}
 
-          <SidebarAccordionSection
+          {/* Mobile: full-card tappable */}
+          <section
             id="general"
-            title="General Information"
-            iconName="general-info"
-            mobileDefaultOpen
-            onHeaderTap={hasMoreGeneralInfo ? () => setShowGeneralInfoPanel(true) : undefined}
+            className="md:hidden bg-white px-4 pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
-            <div className="md:hidden">
-              {previewGeneralInfoRows.map((row, idx) => (
-                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
-              ))}
-              {showGeneralInfoPanel && (
-                <GeneralInfoSlidePanel
-                  rows={availableGeneralInfoRows}
-                  onClose={() => setShowGeneralInfoPanel(false)}
-                />
-              )}
+            <div className="flex items-center justify-between mb-3">
+              <h2
+                className="flex items-center gap-2 text-[22px] font-extrabold"
+                style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+              >
+                <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+                <span>General Information</span>
+              </h2>
+              <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                  <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                </svg>
+              </span>
             </div>
+            {previewGeneralInfoRows.map((row, idx) => (
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+            ))}
+            {availableGeneralInfoRows.length === 0 && (
+              <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+            )}
+          </section>
 
-            <div className="hidden md:block">
-              {availableGeneralInfoRows.map((row, idx) => (
-                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
-              ))}
-            </div>
-          </SidebarAccordionSection>
+          {/* Desktop: static */}
+          <section id="general" className="hidden md:block p-4 scroll-mt-[var(--sticky-offset)]">
+            <h2
+              className="mb-3 flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
+              style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+            >
+              <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+              <span>General Information</span>
+            </h2>
+            {availableGeneralInfoRows.map((row, idx) => (
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+            ))}
+          </section>
+
+          {showGeneralInfoPanel && (
+            <GeneralInfoSlidePanel
+              rows={availableGeneralInfoRows}
+              onClose={() => setShowGeneralInfoPanel(false)}
+            />
+          )}
 
           {showUNESCO ? (
             <section className="bg-white p-4">
@@ -751,6 +763,7 @@ export default function HeritageSidebar({
           title="Where is it?"
           iconName="where-is-it"
           mobileDefaultOpen
+          className=""
         >
           {staticMapUrl ? (
             <button
@@ -829,25 +842,38 @@ export default function HeritageSidebar({
 
       {sectionGroup === "mobile-general" && (
         <>
-          <SidebarAccordionSection
+          <section
             id="general"
-            title="General Information"
-            iconName="general-info"
-            mobileDefaultOpen
-            onHeaderTap={hasMoreGeneralInfo ? () => setShowGeneralInfoPanel(true) : undefined}
+            className="bg-white px-4 pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
-            <div className="md:hidden">
-              {previewGeneralInfoRows.map((row, idx) => (
-                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
-              ))}
-              {showGeneralInfoPanel && (
-                <GeneralInfoSlidePanel
-                  rows={availableGeneralInfoRows}
-                  onClose={() => setShowGeneralInfoPanel(false)}
-                />
-              )}
+            <div className="flex items-center justify-between mb-3">
+              <h2
+                className="flex items-center gap-2 text-[22px] font-extrabold"
+                style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+              >
+                <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+                <span>General Information</span>
+              </h2>
+              <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                  <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                </svg>
+              </span>
             </div>
-          </SidebarAccordionSection>
+            {previewGeneralInfoRows.map((row, idx) => (
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+            ))}
+            {availableGeneralInfoRows.length === 0 && (
+              <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+            )}
+          </section>
+          {showGeneralInfoPanel && (
+            <GeneralInfoSlidePanel
+              rows={availableGeneralInfoRows}
+              onClose={() => setShowGeneralInfoPanel(false)}
+            />
+          )}
           {showUNESCO ? (
             <section className="bg-white p-4">
               <h2

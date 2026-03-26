@@ -13,11 +13,7 @@
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
     "cap:run:ios": "npx cap run ios",
-    "cap:run:android": "npx cap run android",
-    "test": "playwright test",
-    "test:mobile": "playwright test --project='Mobile Chrome (Pixel 5)'",
-    "test:ui": "playwright test --ui",
-    "test:report": "playwright show-report"
+    "cap:run:android": "npx cap run android"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
@@ -99,13 +95,13 @@
     "sharp": "^0.34.5",
     "svgo": "^4.0.0",
     "unified": "^11.0.5",
+    "vaul": "^1.1.2",
     "yet-another-react-lightbox": "^3.25.0",
     "zod": "^4.1.5"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@eslint/eslintrc": "^3",
-    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.25",
     "@types/react": "^19",

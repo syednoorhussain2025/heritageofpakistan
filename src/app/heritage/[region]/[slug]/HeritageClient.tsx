@@ -26,6 +26,7 @@ import HeritageInteractions from "./heritage/HeritageInteractions";
 
 // client islands
 import HeritageArticle from "./heritage/HeritageArticle";
+import TravelGuideSheet from "./heritage/TravelGuideSheet";
 import HeritageNearby from "./heritage/HeritageNearby";
 import ReviewsTab from "@/components/reviews/ReviewsTab";
 import AllReviewsPanel from "@/components/reviews/AllReviewsPanel";
@@ -264,12 +265,26 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-[#f8f8f8]" style={{ willChange: "transform" }}>
+    <div id="heritage-page-root" ref={pageRef} data-vaul-drawer-wrapper="" className="min-h-screen bg-[#f8f8f8]">
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />
       ) : (
-        <HeritageCover site={site} hasPhotoStory={hasPhotoStory} galleryCount={gallery.length} />
+        <HeritageCover
+          site={site}
+          hasPhotoStory={hasPhotoStory}
+          galleryCount={gallery.length}
+          mobileSlot={
+            <HeritageSidebar
+              site={site as any}
+              provinceName={provinceName}
+              regions={regions}
+              maps={maps}
+              travelGuideSummary={travelGuideSummary}
+              sectionGroup="mobile-location"
+            />
+          }
+        />
       )}
 
       {/* Sticky header, bookmarks, modals, research bubble (client island) */}
@@ -294,12 +309,12 @@ export default function HeritageClient({
       />
 
       {/* Content layout */}
-      <div className="max-w-screen-2xl mx-auto my-2 lg:my-6 px-0 lg:px-[109px] flex flex-col gap-2 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+      <div className="max-w-screen-2xl mx-auto mt-0 mb-2 lg:my-6 px-0 lg:px-[109px] flex flex-col gap-2 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
 
         {/* ============================================================ */}
         {/* MOBILE LAYOUT — linear single-column, ordered for UX         */}
         {/* ============================================================ */}
-        <div className="lg:hidden space-y-2 w-full">
+        <div className="lg:hidden space-y-4 w-full">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
@@ -310,19 +325,19 @@ export default function HeritageClient({
             </>
           ) : (
             <>
-              {/* 1. Where is it? (map + location) */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-location"
-                />
-              </LazySection>
+              {/* 1. Heritage Categories */}
+              <HeritageUpperArticle categories={categories} />
 
-              {/* 2. General Information */}
+              {/* 2. Travel Guide (preview card → full sheet) */}
+              <TravelGuideSheet
+                site={site as any}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
+                travelGuideSummary={travelGuideSummary}
+              />
+
+              {/* 3. General Information */}
               <LazySection skeleton={<SidebarCardSkeleton lines={9} />}>
                 <HeritageSidebar
                   site={site as any}
@@ -333,9 +348,6 @@ export default function HeritageClient({
                   sectionGroup="mobile-general"
                 />
               </LazySection>
-
-              {/* 3. Heritage Categories */}
-              <HeritageUpperArticle categories={categories} />
 
               {/* 4. History and Background */}
               {site.history_layout_html && (
@@ -420,48 +432,7 @@ export default function HeritageClient({
                     </HeritageSection>
                   ))}
 
-              {/* 7. Travel Guide */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={8} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-travel"
-                />
-              </LazySection>
-
-              {/* 8. Best Time to Visit + Climate & Topography */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={6} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-climate"
-                />
-              </LazySection>
-
-              {/* 9. Places to Stay */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={4} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-stay"
-                />
-              </LazySection>
-
-              {/* 10. Gallery & Photo Story */}
-              <LazySection skeleton={<GallerySkeleton count={6} />}>
-                <HeritageGalleryLink siteSlug={site.slug} gallery={gallery} />
-              </LazySection>
-
-              {/* 11. Places Nearby */}
+              {/* 7. Places Nearby */}
               <LazySection
                 skeleton={
                   <HeritageSection id="nearby" title="Places Nearby" iconName="regiontax">
