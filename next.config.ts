@@ -11,13 +11,6 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        vaul: "./node_modules/vaul/dist/index.js",
-      },
-    },
-  },
   // ✅ IMAGE OPTIMIZATION (Next.js Image Component + Vercel pipeline)
   images: {
     // Allow optimized loading from your Supabase public bucket(s).
