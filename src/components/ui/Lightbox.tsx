@@ -595,24 +595,37 @@ export function Lightbox({
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. MOBILE HEADER — hidden on mobile (gallery header persists through expand) */}
+            {/* 1. HEADER (desktop: above image; mobile: top of screen below safe area) */}
             <div
-              className={`hidden md:block absolute z-20 pointer-events-auto transition-opacity duration-300 ${
+              className={`absolute z-20 pointer-events-auto transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}
-              style={{
+              style={isMdUp ? {
                 left: geom.imgLeft,
                 width: geom.imgW,
                 top: geom.imgTop - 12,
                 transform: "translateY(-100%)",
+              } : {
+                left: 0,
+                right: 0,
+                top: `calc(var(--sat, 44px) + 8px)`,
+                textAlign: "center",
+                paddingLeft: "52px",
+                paddingRight: "52px",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-white flex justify-between items-end gap-4">
+              {/* Mobile: centered title + location matching gallery header */}
+              <div className="md:hidden flex flex-col items-center gap-0.5">
+                <span className="text-[22px] font-bold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{photo?.site?.name}</span>
+                {(photo as any)?.site?.location && (
+                  <span className="text-[13px] font-medium text-white/90 leading-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>{(photo as any).site.location}</span>
+                )}
+              </div>
+              {/* Desktop: title + location + credit */}
+              <div className="hidden md:flex text-white justify-between items-end gap-4">
                 <div>
-                  <h3 className="font-bold text-xl leading-tight">
-                    {photo?.site?.name}
-                  </h3>
+                  <h3 className="font-bold text-xl leading-tight">{photo?.site?.name}</h3>
                   {(photo as any)?.site?.location && (
                     <p className="text-sm text-gray-300 mt-1 flex items-center">
                       {(photo as any).site.location}
@@ -632,7 +645,7 @@ export function Lightbox({
                   )}
                 </div>
                 <div className="text-right shrink-0 flex items-center justify-end">
-                  <p className="text-xs text-gray-500 md:text-gray-400">{PHOTO_CREDIT}</p>
+                  <p className="text-xs text-gray-400">{PHOTO_CREDIT}</p>
                 </div>
               </div>
             </div>
