@@ -238,16 +238,17 @@ export function Lightbox({
     };
   }, []);
 
-  // Keep ref in sync and snap track position on index change
-  const prevIndexRef = useRef<number | null>(null);
+  // Keep ref in sync; initial mount positions track with no animation
   useEffect(() => {
     currentIndexRef.current = currentIndex;
-    if (mobileTrackRef.current) {
-      const animated = prevIndexRef.current !== null;
-      applyTrackTransform(mobileTrackRef.current, 0, currentIndex, animated);
-    }
-    prevIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (mobileTrackRef.current) {
+      applyTrackTransform(mobileTrackRef.current, 0, startIndex, false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!photos.length) {
@@ -610,9 +611,13 @@ export function Lightbox({
       const shouldNav = Math.abs(dx) > 50 || velocity > 0.4;
 
       if (shouldNav && dx < 0 && idx < n - 1) {
-        setCurrentIndex(idx + 1);
+        const newIdx = idx + 1;
+        if (mobileTrackRef.current) applyTrackTransform(mobileTrackRef.current, 0, newIdx, true);
+        setCurrentIndex(newIdx);
       } else if (shouldNav && dx > 0 && idx > 0) {
-        setCurrentIndex(idx - 1);
+        const newIdx = idx - 1;
+        if (mobileTrackRef.current) applyTrackTransform(mobileTrackRef.current, 0, newIdx, true);
+        setCurrentIndex(newIdx);
       } else {
         if (mobileTrackRef.current) {
           applyTrackTransform(mobileTrackRef.current, 0, idx, true);
