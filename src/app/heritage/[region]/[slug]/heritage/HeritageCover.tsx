@@ -285,76 +285,48 @@ export default function HeritageCover({
   const mobileFadeRef = useRef<HTMLDivElement | null>(null);
 
   // Mobile: parallax push-up + fade-to-white as content scrolls over slideshow.
+  // Uses a continuous rAF loop reading scrollTop directly — iOS Safari does not
+  // reliably fire scroll events on fixed+overflow-y:auto containers during
+  // momentum scrolling, so event-driven approaches miss frames.
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const PARALLAX_RATIO = 0.4;
     const LERP = 0.12;
-    const SETTLE_THRESHOLD = 0.1; // px — stop looping when this close to target
 
     let raf = 0;
     let currentY = 0;
-    let targetY = 0;
-    let running = false;
+    let lastScrollTop = -1;
 
     const tick = () => {
       const slide = mobileSlideRef.current;
       const fade = mobileFadeRef.current;
-      if (!slide || !fade) { running = false; return; }
-
-      const slideH = slide.offsetHeight;
-      currentY += (targetY - currentY) * LERP;
-
-      slide.style.transform = `translateY(${currentY.toFixed(2)}px) translateZ(0)`;
-
       const container = document.getElementById("heritage-page-root");
-      const scrollTop = container ? container.scrollTop : window.scrollY;
-      const fadeStart = slideH * 0.3;
-      const fadeEnd = slideH * 0.75;
-      const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
-      fade.style.opacity = String(opacity);
 
-      if (Math.abs(targetY - currentY) > SETTLE_THRESHOLD) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        // Snap to exact target and stop looping — no continuous rAF while idle
-        slide.style.transform = `translateY(${targetY.toFixed(2)}px) translateZ(0)`;
-        running = false;
+      if (slide && fade) {
+        const scrollTop = container ? container.scrollTop : window.scrollY;
+        const slideH = slide.offsetHeight;
+
+        // Clamp to <= 0: prevent iOS overscroll rubber-band pushing slide down
+        const targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
+        currentY += (targetY - currentY) * LERP;
+        slide.style.transform = `translateY(${currentY.toFixed(2)}px) translateZ(0)`;
+
+        // Only update fade opacity when scroll position actually changed
+        if (scrollTop !== lastScrollTop) {
+          lastScrollTop = scrollTop;
+          const fadeStart = slideH * 0.3;
+          const fadeEnd = slideH * 0.75;
+          const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
+          fade.style.opacity = String(opacity);
+        }
       }
+
+      raf = requestAnimationFrame(tick);
     };
 
-    const onScroll = () => {
-      const container = document.getElementById("heritage-page-root");
-      const scrollTop = container ? container.scrollTop : window.scrollY;
-      // Clamp to <= 0: prevents positive translateY from iOS overscroll rubber-band
-      targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
-      if (!running) {
-        running = true;
-        raf = requestAnimationFrame(tick);
-      }
-    };
-
-    // Retry finding the container — on iOS it may not be in the DOM yet at mount
-    let container: Element | Window = window;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const attach = () => {
-      const el = document.getElementById("heritage-page-root");
-      if (el) {
-        container = el;
-        el.addEventListener("scroll", onScroll, { passive: true });
-      } else {
-        // Retry after next paint
-        retryTimer = setTimeout(attach, 100);
-      }
-    };
-    attach();
-
-    return () => {
-      if (retryTimer != null) clearTimeout(retryTimer);
-      container.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const [mounted, setMounted] = useState(false);
