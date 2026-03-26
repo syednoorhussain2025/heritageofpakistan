@@ -106,6 +106,8 @@ type LightboxProps = {
   onClose: () => void;
   onBookmarkToggle?: (photo: LightboxPhoto) => void;
   onAddToCollection?: (photo: LightboxPhoto) => void;
+  originRect?: DOMRect | null;
+  originThumb?: string | null;
 };
 
 /* =======================================================
@@ -117,6 +119,8 @@ export function Lightbox({
   startIndex,
   onClose,
   onAddToCollection,
+  originRect,
+  originThumb,
 }: LightboxProps) {
   const { ensureSignedIn } = useSignedInActions();
   const [currentIndex, setCurrentIndex] = useState(startIndex);
@@ -142,6 +146,17 @@ export function Lightbox({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
+
+  // Shared-element expand: true during the opening animation
+  const [isExpanding, setIsExpanding] = useState(!!originRect);
+  useEffect(() => {
+    if (!originRect) return;
+    // Let one frame render the thumbnail at origin position, then animate to fullscreen
+    const raf = requestAnimationFrame(() => {
+      setIsExpanding(false);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [originRect]);
   // Tracks if the hi-res image has finished decoding to fade it in
   const [isHighResReady, setIsHighResReady] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -497,23 +512,68 @@ export function Lightbox({
   ======================================================= */
   if (!photos.length) return null;
 
+  // Compute shared-element CSS values
+  const vw = typeof window !== "undefined" ? window.innerWidth : 390;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 844;
+  const expandFrom = originRect ? {
+    left: originRect.left,
+    top: originRect.top,
+    width: originRect.width,
+    height: originRect.height,
+    borderRadius: "4px",
+  } : null;
+  const expandTo = {
+    left: 0,
+    top: 0,
+    width: vw,
+    height: vh,
+    borderRadius: "0px",
+  };
+
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[2147483647] bg-black/98 touch-none"
-        initial={{ opacity: 0 }}
+        className="fixed inset-0 z-[2147483647] touch-none"
+        initial={originRect ? { opacity: 0 } : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: originRect ? 0.05 : 0.22, ease: "easeOut" }}
+        style={{ backgroundColor: "rgb(5,5,5)" }}
         onClick={onClose}
         onPanEnd={onSwipe}
       >
+        {/* Shared-element thumbnail: expands from origin rect to fullscreen */}
+        {originRect && originThumb && expandFrom && (
+          <motion.div
+            className="fixed z-10 overflow-hidden pointer-events-none"
+            initial={expandFrom}
+            animate={isExpanding ? expandFrom : expandTo}
+            transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+            style={{ position: "fixed" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={originThumb}
+              alt=""
+              className="w-full h-full object-cover"
+              style={{ display: "block" }}
+            />
+            {/* Fade in black overlay as expand completes, to transition to real image */}
+            <motion.div
+              className="absolute inset-0 bg-black"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isExpanding ? 0 : 1 }}
+              transition={{ duration: 0.22, delay: 0.28, ease: "easeIn" }}
+            />
+          </motion.div>
+        )}
         <AnimatePresence mode="wait">
           <motion.div
             key={(photo as any)?.id}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            transition={{ duration: 0.28, ease: "easeOut", delay: originRect ? 0.3 : 0 }}
             className="absolute inset-0 w-full h-full"
           >
             {/* 1. MOBILE HEADER */}

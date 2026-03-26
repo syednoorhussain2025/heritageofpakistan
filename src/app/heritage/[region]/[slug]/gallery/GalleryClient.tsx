@@ -134,7 +134,7 @@ function BlurhashPlaceholder({ hash }: { hash: string }) {
 
 type MasonryTileProps = {
   photo: LightboxPhoto;
-  onOpen: () => void;
+  onOpen: (rect: DOMRect, thumbUrl: string) => void;
   siteId: string;
   isPriority: boolean;
   ensureSignedIn: () => boolean | Promise<boolean>;
@@ -208,7 +208,11 @@ const MasonryTile = memo(function MasonryTile({
           ${variant === "feature" ? "aspect-[2/3] md:aspect-[4/3]" : "aspect-[4/3] md:aspect-[4/3]"}
         `}
         ref={tileRef}
-        onClick={() => { void hapticLight(); onOpen(); }}
+        onClick={() => {
+          void hapticLight();
+          const rect = tileRef.current?.getBoundingClientRect();
+          if (rect) onOpen(rect, thumbUrl ?? photo.url ?? "");
+        }}
         title="Open"
       >
         <div
@@ -350,6 +354,7 @@ export default function GalleryClient({
   const batchLoadingRef = useRef(false);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxOrigin, setLightboxOrigin] = useState<{ rect: DOMRect; thumb: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<LightboxPhoto | null>(
     null
@@ -476,13 +481,13 @@ export default function GalleryClient({
             type="button"
             onClick={() => router.back()}
             aria-label="Back"
-            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
+            className="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors shrink-0"
           >
-            <Icon name="circle-arrow-left" size={38} className="text-gray-800" />
+            <Icon name="circle-arrow-left" size={30} className="text-gray-400" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-              <Icon name="images" size={15} className="text-gray-600" />
+            <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+              <Icon name="images" size={15} className="text-[var(--brand-orange)]" />
             </div>
             <span className="text-[17px] font-bold text-gray-900">Gallery</span>
           </div>
@@ -670,7 +675,7 @@ export default function GalleryClient({
                       <MasonryTile
                         photo={feature}
                         siteId={site!.id}
-                        onOpen={() => setLightboxIndex(base)}
+                        onOpen={(rect, thumb) => { setLightboxOrigin({ rect, thumb }); setLightboxIndex(base); }}
                         isPriority={base < TOP_PRIORITY_COUNT}
                         ensureSignedIn={ensureSignedIn}
                         variant="feature"
@@ -685,7 +690,7 @@ export default function GalleryClient({
                           key={p.id}
                           photo={p}
                           siteId={site!.id}
-                          onOpen={() => setLightboxIndex(base + 1 + si)}
+                          onOpen={(rect, thumb) => { setLightboxOrigin({ rect, thumb }); setLightboxIndex(base + 1 + si); }}
                           isPriority={base + 1 + si < TOP_PRIORITY_COUNT}
                           ensureSignedIn={ensureSignedIn}
                           variant="small"
@@ -709,7 +714,7 @@ export default function GalleryClient({
                     key={photo.id}
                     photo={photo}
                     siteId={site!.id}
-                    onOpen={() => setLightboxIndex(idx)}
+                    onOpen={(rect, thumb) => { setLightboxOrigin({ rect, thumb }); setLightboxIndex(idx); }}
                     isPriority={idx < TOP_PRIORITY_COUNT}
                     ensureSignedIn={ensureSignedIn}
                     variant="small"
@@ -741,7 +746,9 @@ export default function GalleryClient({
         <Lightbox
           photos={photos}
           startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          originRect={lightboxOrigin?.rect ?? null}
+          originThumb={lightboxOrigin?.thumb ?? null}
+          onClose={() => { setLightboxIndex(null); setLightboxOrigin(null); }}
           onBookmarkToggle={handleBookmarkToggle}
           onAddToCollection={handleOpenCollectionModal}
         />
