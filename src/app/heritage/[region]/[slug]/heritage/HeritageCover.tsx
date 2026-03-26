@@ -334,9 +334,24 @@ export default function HeritageCover({
       }
     };
 
-    const container = document.getElementById("heritage-page-root") ?? window as EventTarget;
-    container.addEventListener("scroll", onScroll, { passive: true });
+    // Retry finding the container — on iOS it may not be in the DOM yet at mount
+    let container: Element | Window = window;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const attach = () => {
+      const el = document.getElementById("heritage-page-root");
+      if (el) {
+        container = el;
+        el.addEventListener("scroll", onScroll, { passive: true });
+      } else {
+        // Retry after next paint
+        retryTimer = setTimeout(attach, 100);
+      }
+    };
+    attach();
+
     return () => {
+      if (retryTimer != null) clearTimeout(retryTimer);
       container.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(raf);
     };
