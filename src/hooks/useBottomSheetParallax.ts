@@ -5,7 +5,7 @@ const BODY_TRANSITION = "background-color 0.5s cubic-bezier(0.25,0.1,0.25,1)";
 const RADIUS = "28px";
 const BODY_COLOR_OPEN = "#111111";
 const SCALE = 0.94;
-const TRANSLATE_Y = -60; // px upward nudge
+const TRANSLATE_Y = -100; // px upward nudge
 
 /**
  * Applies a scale-down parallax effect to `#heritage-page-root` when a
@@ -40,7 +40,7 @@ export function useBottomSheetParallax(active: boolean) {
       const raf = requestAnimationFrame(() => {
         page.style.transform = `scale(${SCALE}) translateY(${ty}px)`;
         page.style.borderRadius = RADIUS;
-        page.style.filter = "blur(0.6px)";
+        page.style.filter = "blur(0.3px)";
       });
       return () => cancelAnimationFrame(raf);
     } else {
