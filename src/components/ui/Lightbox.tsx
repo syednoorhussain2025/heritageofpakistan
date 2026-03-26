@@ -15,6 +15,23 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 import CollectHeart from "@/components/CollectHeart";
 import { useSignedInActions } from "@/hooks/useSignedInActions";
 
+/* ---------- Mobile carousel helpers ---------- */
+const CAROUSEL_EASE = "cubic-bezier(0.25,0.46,0.45,0.94)";
+const CAROUSEL_DURATION = "0.4s";
+
+function applyTrackTransform(
+  el: HTMLDivElement,
+  dx: number,
+  atIdx: number,
+  animated: boolean
+) {
+  const pct = -atIdx * 100;
+  el.style.transition = animated
+    ? `transform ${CAROUSEL_DURATION} ${CAROUSEL_EASE}`
+    : "none";
+  el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
+}
+
 /* ---------- CONFIG ---------- */
 const PANEL_W = 264;
 const GAP = 20;
@@ -124,6 +141,15 @@ export function Lightbox({
 }: LightboxProps) {
   const { ensureSignedIn } = useSignedInActions();
   const [currentIndex, setCurrentIndex] = useState(startIndex);
+
+  // Mobile swipe carousel
+  const mobileTrackRef = useRef<HTMLDivElement>(null);
+  const mobileContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const touchDxRef = useRef(0);
+  const gestureLockedRef = useRef<"horizontal" | "vertical" | null>(null);
+  const currentIndexRef = useRef(startIndex);
+
   const safeCurrentIndex =
     photos.length > 0
       ? ((currentIndex % photos.length) + photos.length) % photos.length
@@ -210,6 +236,14 @@ export function Lightbox({
       }
     };
   }, []);
+
+  // Keep ref in sync and snap track position on index change
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+    if (mobileTrackRef.current) {
+      applyTrackTransform(mobileTrackRef.current, 0, currentIndex, true);
+    }
+  }, [currentIndex]);
 
   useEffect(() => {
     if (!photos.length) {
@@ -509,6 +543,90 @@ export function Lightbox({
     [triggerHighResLoad]
   );
 
+  /* ---------- Mobile carousel touch handlers (native, non-passive) ---------- */
+  const isZoomedRef = useRef(isZoomed);
+  useEffect(() => { isZoomedRef.current = isZoomed; }, [isZoomed]);
+  const photosLengthRef = useRef(photos.length);
+  useEffect(() => { photosLengthRef.current = photos.length; }, [photos.length]);
+
+  useEffect(() => {
+    const container = mobileContainerRef.current;
+    if (!container) return;
+
+    const onStart = (e: TouchEvent) => {
+      if (isZoomedRef.current) return;
+      const t = e.touches[0];
+      touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+      touchDxRef.current = 0;
+      gestureLockedRef.current = null;
+      if (mobileTrackRef.current) {
+        applyTrackTransform(mobileTrackRef.current, 0, currentIndexRef.current, false);
+      }
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!touchStartRef.current || isZoomedRef.current) return;
+      const t = e.touches[0];
+      const dx = t.clientX - touchStartRef.current.x;
+      const dy = t.clientY - touchStartRef.current.y;
+
+      if (!gestureLockedRef.current) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          gestureLockedRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+        }
+      }
+
+      if (gestureLockedRef.current !== "horizontal") return;
+      e.preventDefault();
+
+      const idx = currentIndexRef.current;
+      const n = photosLengthRef.current;
+      let resistedDx = dx;
+      if ((idx === 0 && dx > 0) || (idx === n - 1 && dx < 0)) {
+        resistedDx = dx * 0.25;
+      }
+      touchDxRef.current = resistedDx;
+      if (mobileTrackRef.current) {
+        applyTrackTransform(mobileTrackRef.current, resistedDx, idx, false);
+      }
+    };
+
+    const onEnd = () => {
+      if (!touchStartRef.current) return;
+      const dx = touchDxRef.current;
+      const elapsed = Date.now() - touchStartRef.current.t;
+      const velocity = Math.abs(dx) / Math.max(elapsed, 1);
+      touchStartRef.current = null;
+      touchDxRef.current = 0;
+
+      if (gestureLockedRef.current !== "horizontal") return;
+
+      const idx = currentIndexRef.current;
+      const n = photosLengthRef.current;
+      const shouldNav = Math.abs(dx) > 50 || velocity > 0.4;
+
+      if (shouldNav && dx < 0 && idx < n - 1) {
+        setCurrentIndex(idx + 1);
+      } else if (shouldNav && dx > 0 && idx > 0) {
+        setCurrentIndex(idx - 1);
+      } else {
+        if (mobileTrackRef.current) {
+          applyTrackTransform(mobileTrackRef.current, 0, idx, true);
+        }
+      }
+    };
+
+    container.addEventListener("touchstart", onStart, { passive: true });
+    container.addEventListener("touchmove", onMove, { passive: false });
+    container.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", onStart);
+      container.removeEventListener("touchmove", onMove);
+      container.removeEventListener("touchend", onEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ---------- Helpers ---------- */
   const googleMapsUrl =
     photo?.site?.latitude != null && photo?.site?.longitude != null
@@ -559,7 +677,7 @@ export function Lightbox({
         transition={{ duration: 0.2, ease: "easeOut" }}
         style={{ backgroundColor: "rgb(5,5,5)" }}
         onClick={onClose}
-        onPanEnd={onSwipe}
+        onPanEnd={isMdUp ? onSwipe : undefined}
       >
         {/* ── Shared-element thumbnail overlay — imperatively animated ── */}
         {originRect && originThumb && (
@@ -586,6 +704,183 @@ export function Lightbox({
         )}
 
         {/* ── Real lightbox content ── */}
+
+        {/* ────────────── MOBILE CAROUSEL ────────────── */}
+        {!isMdUp && (
+          <div
+            ref={mobileContainerRef}
+            className="absolute inset-0 overflow-hidden"
+          >
+            {/* Sliding track */}
+            <div
+              ref={mobileTrackRef}
+              className="absolute top-0 left-0 h-full flex"
+              style={{
+                width: `${photos.length * 100}%`,
+                transform: `translateX(${-safeCurrentIndex * 100}%)`,
+                willChange: "transform",
+              }}
+            >
+              {photos.map((p, idx) => {
+                const pw = (p as any).width && (p as any).width > 0 ? (p as any).width : 4;
+                const ph = (p as any).height && (p as any).height > 0 ? (p as any).height : 3;
+                const slideVw = win.w || window.innerWidth;
+                const slideVh = win.h || window.innerHeight;
+                const slidePad = 16;
+                const slideMaxH = slideVh * (MAX_VH.base / 100);
+                const slideScale = Math.min((slideVw - slidePad * 2) / pw, slideMaxH / ph);
+                const slideW = pw * slideScale;
+                const slideH = ph * slideScale;
+                const slideLeft = Math.round((slideVw - slideW) / 2);
+                const slideTop = Math.round((slideVh - slideH) / 2);
+                const isActive = idx === safeCurrentIndex;
+                const pMedUrl = (p as any).storagePath
+                  ? (() => { try { return getVariantPublicUrl((p as any).storagePath, "md"); } catch { return (p as any).url; } })()
+                  : (p as any).url;
+
+                return (
+                  <div
+                    key={(p as any).id ?? idx}
+                    className="relative flex-shrink-0"
+                    style={{ width: `${100 / photos.length}%`, height: "100%" }}
+                  >
+                    {/* Image container */}
+                    <div
+                      ref={isActive ? imgContainerRef : undefined}
+                      className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${isZoomed ? "z-50" : "z-10"}`}
+                      style={{
+                        visibility: isActive && originRect ? "hidden" : "visible",
+                        left: isZoomed && isActive ? 0 : slideLeft,
+                        top: isZoomed && isActive ? 0 : slideTop,
+                        width: isZoomed && isActive ? "100%" : slideW,
+                        height: isZoomed && isActive ? "100%" : slideH,
+                        transition: "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1)",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Heart */}
+                      {isActive && (
+                        <div
+                          className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDownCapture={(e) => e.stopPropagation()}
+                        >
+                          <CollectHeart
+                            variant="overlay"
+                            siteImageId={(photo as any).siteImageId ?? (photo as any).id}
+                            storagePath={(photo as any).storagePath}
+                            imageUrl={(photo as any).url}
+                            siteId={photo.site?.id ?? ""}
+                            caption={(photo as any).caption}
+                            credit={(photo as any)?.author?.name}
+                            requireSignedIn={ensureSignedIn}
+                          />
+                        </div>
+                      )}
+
+                      {/* BlurHash + spinner — only for active slide without shared-element */}
+                      {isActive && !originRect && (p as any)?.blurHash && (
+                        <div className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${isImageLoaded ? "opacity-0" : "opacity-100"}`}>
+                          <BlurhashPlaceholder hash={(p as any).blurHash} aspectRatio={pw / ph} />
+                        </div>
+                      )}
+                      {isActive && !originRect && !isImageLoaded && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                          <span className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin" aria-hidden="true" />
+                        </div>
+                      )}
+
+                      {/* Zoom wrapper (active slide only) */}
+                      {isActive ? (
+                        <TransformWrapper
+                          ref={transformRef}
+                          wheel={{ step: 0.2 }}
+                          doubleClick={{ disabled: true }}
+                          onZoomStart={onZoomStart}
+                          onTransformed={onTransformed}
+                          onZoomStop={onInteractionStop}
+                          onPanningStop={onInteractionStop}
+                          alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+                          centerZoomedOut={true}
+                          centerOnInit={true}
+                          minScale={1}
+                          limitToBounds={true}
+                        >
+                          <TransformComponent
+                            wrapperStyle={{ width: "100%", height: "100%" }}
+                            contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <div
+                              className={`relative w-full h-full flex items-center justify-center`}
+                              onDoubleClick={handleDoubleTap}
+                            >
+                              <NextImage
+                                src={pMedUrl || ""}
+                                alt={(p as any)?.caption ?? ""}
+                                fill unoptimized sizes="100vw"
+                                className="object-contain select-none"
+                                draggable={false}
+                                priority
+                                onLoadingComplete={() => {
+                                  setIsImageLoaded(true);
+                                  imageLoadedRef.current = true;
+                                  tryHideOverlay();
+                                }}
+                                onError={() => {
+                                  setIsImageLoaded(true);
+                                  imageLoadedRef.current = true;
+                                  tryHideOverlay();
+                                }}
+                              />
+                              {showHighRes && (
+                                <NextImage
+                                  src={highResPhotoUrl || ""}
+                                  alt={(p as any)?.caption ?? ""}
+                                  fill unoptimized sizes="100vw"
+                                  className={`object-contain select-none absolute inset-0 transition-opacity duration-500 ease-in-out ${isHighResReady ? "opacity-100" : "opacity-0"}`}
+                                  draggable={false}
+                                  priority
+                                  onLoadingComplete={() => { setIsHighResReady(true); setIsHighResLoading(false); }}
+                                  onError={() => { setIsHighResLoading(false); }}
+                                />
+                              )}
+                            </div>
+                          </TransformComponent>
+                        </TransformWrapper>
+                      ) : (
+                        /* Lazy non-active slides: plain image, no zoom */
+                        <div className="relative w-full h-full">
+                          <NextImage
+                            src={pMedUrl || ""}
+                            alt={(p as any)?.caption ?? ""}
+                            fill unoptimized sizes="100vw"
+                            className="object-contain select-none"
+                            draggable={false}
+                          />
+                        </div>
+                      )}
+
+                      {isActive && isHighResLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+                          <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-3 rounded-lg flex flex-col items-center gap-2">
+                            <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <span className="text-xs font-medium">Loading High Res</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ────────────── DESKTOP CONTENT (AnimatePresence fade) ────────────── */}
+        {isMdUp && (
         <AnimatePresence mode="wait">
           <motion.div
             key={(photo as any)?.id}
@@ -595,28 +890,20 @@ export function Lightbox({
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. HEADER (desktop: above image; mobile: top of screen below safe area) */}
+            {/* 1. HEADER (desktop: above image) */}
             <div
               className={`absolute z-20 pointer-events-auto transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}
-              style={isMdUp ? {
+              style={{
                 left: geom.imgLeft,
                 width: geom.imgW,
                 top: geom.imgTop - 12,
                 transform: "translateY(-100%)",
-              } : {
-                left: 0,
-                right: 0,
-                top: `calc(var(--sat, 44px) + 8px)`,
-                textAlign: "center",
-                paddingLeft: "52px",
-                paddingRight: "52px",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Desktop only: title + location + credit (mobile uses gallery header above lightbox) */}
-              <div className="hidden md:flex text-white justify-between items-end gap-4">
+              <div className="flex text-white justify-between items-end gap-4">
                 <div>
                   <h3 className="font-bold text-xl leading-tight">{photo?.site?.name}</h3>
                   {(photo as any)?.site?.location && (
@@ -814,47 +1101,6 @@ export function Lightbox({
 
             </div>
 
-            {/* 3. MOBILE FOOTER */}
-            <div
-              className={`md:hidden absolute z-20 pointer-events-auto flex justify-between items-start gap-4 transition-opacity duration-300 ${
-                isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
-              }`}
-              style={{
-                left: geom.imgLeft,
-                width: geom.imgW,
-                top: geom.imgTop + geom.imgH + 12,
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex-1">
-                {(photo as any)?.caption && (
-                  <p className="text-sm text-gray-600 md:text-gray-200 italic leading-snug">
-                    {(photo as any).caption}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
-                  onClick={handleDownload}
-                  title="Download Image"
-                >
-                  <Icon name="download" className="w-4 h-4" />
-                </button>
-                {onAddToCollection && (
-                  <button
-                    className="shrink-0 px-4 py-2 rounded-full text-xs font-semibold bg-gray-200 md:bg-white/10 hover:bg-gray-300 md:hover:bg-white/20 text-gray-800 md:text-white transition-colors cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddToCollection(photo);
-                    }}
-                  >
-                    Add to Collection
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* 4. DESKTOP INFO PANEL */}
             <div
               className={`hidden md:block pointer-events-auto absolute z-20 transition-opacity duration-300 ${
@@ -971,9 +1217,10 @@ export function Lightbox({
             </div>
           </motion.div>
         </AnimatePresence>
+        )}
 
         {/* ---------- CONTROLS */}
-        {/* Mobile: back arrow */}
+        {/* Mobile: back arrow (hidden — gallery header handles it) */}
         <button
           className={`md:hidden absolute left-3 p-1.5 rounded-full active:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -994,8 +1241,9 @@ export function Lightbox({
         >
           <Icon name="xmark" size={20} />
         </button>
+        {/* Desktop-only prev/next arrows (mobile uses swipe carousel) */}
         <button
-          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`hidden md:flex absolute md:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           onClick={(e) => { e.stopPropagation(); handlePrev(); }}
@@ -1003,7 +1251,7 @@ export function Lightbox({
           <Icon name="chevron-left" />
         </button>
         <button
-          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`hidden md:flex absolute md:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           onClick={(e) => { e.stopPropagation(); handleNext(); }}
