@@ -484,7 +484,14 @@ export default function GalleryClient({
         <div className="relative flex items-center justify-between w-full h-full">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (lightboxIndex !== null) {
+                setLightboxIndex(null);
+                setLightboxOrigin(null);
+              } else {
+                router.back();
+              }
+            }}
             aria-label="Back"
             className="w-10 h-10 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
           >
