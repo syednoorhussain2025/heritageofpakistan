@@ -149,8 +149,7 @@ export function Lightbox({
 
   // Shared-element expand: imperatively animated overlay
   const [overlayScope, animateOverlay] = useAnimate();
-  const [contentVisible, setContentVisible] = useState(!originRect);
-  // Set to true when image has loaded AND expand is done — triggers overlay fadeout
+  const imgContainerRef = useRef<HTMLDivElement>(null);
   const expandDoneRef = useRef(!originRect);
   const imageLoadedRef = useRef(false);
   const overlayHiddenRef = useRef(false);
@@ -158,7 +157,8 @@ export function Lightbox({
   const tryHideOverlay = useCallback(() => {
     if (!overlayHiddenRef.current && expandDoneRef.current && imageLoadedRef.current) {
       overlayHiddenRef.current = true;
-      // Instantly hide — real image is already perfectly behind it, no crossfade needed
+      // Reveal image container and hide overlay in the same frame — no gap
+      if (imgContainerRef.current) imgContainerRef.current.style.visibility = "visible";
       if (overlayScope.current) overlayScope.current.style.display = "none";
     }
   }, [overlayScope]);
@@ -187,9 +187,8 @@ export function Lightbox({
       top: imgTop,
       width: imgW,
       height: imgH,
-      borderRadius: 4,
+      borderRadius: 0,
     }, { duration: 0.52, ease: [0.32, 0.72, 0, 1] }).then(() => {
-      setContentVisible(true);
       expandDoneRef.current = true;
       tryHideOverlay();
     });
@@ -573,7 +572,7 @@ export function Lightbox({
               top: originRect.top,
               width: originRect.width,
               height: originRect.height,
-              borderRadius: 6,
+              borderRadius: 0,
               opacity: 1,
             }}
           >
@@ -586,12 +585,12 @@ export function Lightbox({
           </div>
         )}
 
-        {/* ── Real lightbox content — fades in after expand completes ── */}
+        {/* ── Real lightbox content ── */}
         <AnimatePresence mode="wait">
           <motion.div
             key={(photo as any)?.id}
             initial={{ opacity: 0 }}
-            animate={{ opacity: contentVisible ? 1 : 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
@@ -639,20 +638,19 @@ export function Lightbox({
             </div>
 
             {/* 2. IMAGE CONTAINER */}
-            <motion.div
-              className={`absolute rounded-2xl overflow-hidden shadow-2xl pointer-events-auto ${
-                isZoomed ? "z-50 rounded-none" : "z-10"
-              } ${originRect ? "" : "bg-black/20"}`}
+            <div
+              ref={imgContainerRef}
+              className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${
+                isZoomed ? "z-50" : "z-10"
+              } ${originRect ? "" : "bg-black/20 rounded-2xl"}`}
               style={{
+                visibility: originRect ? "hidden" : "visible",
                 left: isZoomed ? 0 : geom.imgLeft,
                 top: isZoomed ? 0 : geom.imgTop,
                 width: isZoomed ? "100%" : geom.imgW,
                 height: isZoomed ? "100%" : geom.imgH,
                 transition: "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1), border-radius 0.4s cubic-bezier(0.22,1,0.36,1)",
               }}
-              initial={originRect ? { scale: 0.96, opacity: 0 } : false}
-              animate={contentVisible ? { scale: 1, opacity: 1 } : { scale: 0.96, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Heart Button */}
@@ -808,7 +806,7 @@ export function Lightbox({
                 </div>
               )}
 
-            </motion.div>
+            </div>
 
             {/* 3. MOBILE FOOTER */}
             <div

@@ -475,7 +475,7 @@ export default function GalleryClient({
   return (
     <div ref={pageRef} className="min-h-screen bg-white overflow-x-hidden" style={{ willChange: "transform" }}>
       {/* Mobile white header */}
-      <MobilePageHeader backgroundColor="white" minHeight="0px" className="flex items-center px-3 pb-2 border-b border-gray-100 shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+      <MobilePageHeader backgroundColor="transparent" minHeight="0px" className="flex items-center px-3 pb-4 backdrop-blur-sm [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
         <div className="flex items-center justify-between w-full h-full">
           <button
             type="button"
