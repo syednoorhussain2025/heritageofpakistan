@@ -150,11 +150,21 @@ export function Lightbox({
   // Shared-element expand: imperatively animated overlay
   const [overlayScope, animateOverlay] = useAnimate();
   const [contentVisible, setContentVisible] = useState(!originRect);
+  // Set to true when image has loaded AND expand is done — triggers overlay fadeout
+  const overlayReadyToFade = useRef(false);
+  const expandDoneRef = useRef(!originRect);
+  const imageLoadedRef = useRef(false);
+
+  const tryFadeOverlay = useCallback(() => {
+    if (!overlayReadyToFade.current && expandDoneRef.current && imageLoadedRef.current) {
+      overlayReadyToFade.current = true;
+      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.2, ease: "easeIn" });
+    }
+  }, [animateOverlay, overlayScope]);
 
   useEffect(() => {
     if (!originRect || !originThumb) return;
 
-    // Compute where the image will sit inside the lightbox (same logic as geom)
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const isMd = vw >= 768;
@@ -171,7 +181,6 @@ export function Lightbox({
     const imgLeft = Math.round((vw - totalW) / 2);
     const imgTop = Math.round((vh - imgH) / 2);
 
-    // Animate thumbnail from its grid position to the exact image rect in lightbox
     void animateOverlay(overlayScope.current, {
       left: imgLeft,
       top: imgTop,
@@ -179,9 +188,9 @@ export function Lightbox({
       height: imgH,
       borderRadius: 4,
     }, { duration: 0.42, ease: [0.32, 0.72, 0, 1] }).then(() => {
-      // Thumbnail is now perfectly behind the real image — crossfade
       setContentVisible(true);
-      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.16, ease: "easeIn" });
+      expandDoneRef.current = true;
+      tryFadeOverlay();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -629,16 +638,20 @@ export function Lightbox({
             </div>
 
             {/* 2. IMAGE CONTAINER */}
-            <div
-              className={`absolute rounded-2xl overflow-hidden shadow-2xl bg-black/20 pointer-events-auto transition-all duration-300 ${
+            <motion.div
+              className={`absolute rounded-2xl overflow-hidden shadow-2xl pointer-events-auto ${
                 isZoomed ? "z-50 rounded-none" : "z-10"
-              }`}
+              } ${originRect ? "" : "bg-black/20"}`}
               style={{
                 left: isZoomed ? 0 : geom.imgLeft,
                 top: isZoomed ? 0 : geom.imgTop,
                 width: isZoomed ? "100%" : geom.imgW,
                 height: isZoomed ? "100%" : geom.imgH,
+                transition: "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1), border-radius 0.4s cubic-bezier(0.22,1,0.36,1)",
               }}
+              initial={originRect ? { scale: 0.96, opacity: 0 } : false}
+              animate={contentVisible ? { scale: 1, opacity: 1 } : { scale: 0.96, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Heart Button */}
@@ -661,8 +674,8 @@ export function Lightbox({
                 />
               </div>
 
-              {/* BlurHash Background */}
-              {(photo as any)?.blurHash && (
+              {/* BlurHash + spinner — only when no thumbnail overlay (no shared element open) */}
+              {!originRect && (photo as any)?.blurHash && (
                 <div
                   className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${
                     isImageLoaded ? "opacity-0" : "opacity-100"
@@ -675,7 +688,7 @@ export function Lightbox({
                 </div>
               )}
 
-              {!isImageLoaded && (
+              {!originRect && !isImageLoaded && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                   <span
                     className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin"
@@ -731,9 +744,13 @@ export function Lightbox({
                       priority
                       onLoadingComplete={() => {
                         setIsImageLoaded(true);
+                        imageLoadedRef.current = true;
+                        tryFadeOverlay();
                       }}
                       onError={() => {
                         setIsImageLoaded(true);
+                        imageLoadedRef.current = true;
+                        tryFadeOverlay();
                       }}
                     />
 
@@ -790,7 +807,7 @@ export function Lightbox({
                 </div>
               )}
 
-            </div>
+            </motion.div>
 
             {/* 3. MOBILE FOOTER */}
             <div

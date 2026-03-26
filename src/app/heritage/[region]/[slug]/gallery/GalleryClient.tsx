@@ -204,7 +204,7 @@ const MasonryTile = memo(function MasonryTile({
         Desktop: always aspect-[4/3].
       */}
       <div
-        className={`relative w-full overflow-hidden group cursor-pointer active:opacity-80 transition-opacity duration-100
+        className={`relative w-full overflow-hidden group cursor-pointer
           ${variant === "feature" ? "aspect-[2/3] md:aspect-[4/3]" : "aspect-[4/3] md:aspect-[4/3]"}
         `}
         ref={tileRef}
