@@ -171,6 +171,7 @@ export function Lightbox({
   const lastZoomAction = useRef<number>(0);
 
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showActionsSheet, setShowActionsSheet] = useState(false);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
 
@@ -885,9 +886,76 @@ export function Lightbox({
                         </div>
                       )}
                     </div>
+
+                    {/* Caption below image — only on active slide */}
+                    {isActive && (photo as any)?.caption && (
+                      <div
+                        className={`absolute pointer-events-none transition-opacity duration-300 ${isZoomed ? "opacity-0" : "opacity-100"}`}
+                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 10 }}
+                      >
+                        <p className="text-xs text-white/70 italic text-center leading-snug px-1">
+                          {(photo as any).caption}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Mobile actions: + button (bottom-right, above bottom safe area) ── */}
+        {!isMdUp && (
+          <div
+            className={`fixed right-4 z-[2147483648] transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+            style={{ bottom: "calc(var(--sab, 24px) + 16px)" }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+          >
+            <button
+              className="w-11 h-11 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:bg-white/25"
+              onClick={() => setShowActionsSheet(true)}
+              aria-label="More actions"
+            >
+              <Icon name="plus" size={22} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Mobile actions bottom sheet ── */}
+        {!isMdUp && showActionsSheet && (
+          <div
+            className="fixed inset-0 z-[2147483649] flex flex-col justify-end"
+            onClick={() => setShowActionsSheet(false)}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50" />
+            {/* Sheet */}
+            <div
+              className="relative bg-[#1c1c1e] rounded-t-2xl overflow-hidden"
+              style={{ paddingBottom: "calc(var(--sab, 24px) + 8px)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-4" />
+              {onAddToCollection && (
+                <button
+                  className="w-full flex items-center gap-4 px-6 py-4 active:bg-white/10 text-white"
+                  onClick={(e) => { e.stopPropagation(); setShowActionsSheet(false); onAddToCollection(photo); }}
+                >
+                  <Icon name="folder-plus" size={22} className="text-white/70" />
+                  <span className="text-[17px]">Save to Collection</span>
+                </button>
+              )}
+              <div className="h-px bg-white/10 mx-6" />
+              <button
+                className="w-full flex items-center gap-4 px-6 py-4 active:bg-white/10 text-white"
+                onClick={(e) => { e.stopPropagation(); setShowActionsSheet(false); handleDownload(e as any); }}
+              >
+                <Icon name="download" size={22} className="text-white/70" />
+                <span className="text-[17px]">Download Image</span>
+              </button>
             </div>
           </div>
         )}
