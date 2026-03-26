@@ -762,7 +762,7 @@ export function Lightbox({
                       ref={isActive ? imgContainerRef : undefined}
                       className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${isZoomed ? "z-50" : "z-10"}`}
                       style={{
-                        visibility: isActive && originRect ? "hidden" : "visible",
+                        visibility: isActive && originRect && !overlayHiddenRef.current ? "hidden" : "visible",
                         left: isZoomed && isActive ? 0 : slideLeft,
                         top: isZoomed && isActive ? 0 : slideTop,
                         width: isZoomed && isActive ? "100%" : slideW,
