@@ -156,7 +156,7 @@ export default function HeritageCover({
     const el = mobileTrackRef.current;
     if (!el) return;
     const pct = slides.length > 1 ? -atIdx * (100 / slides.length) : 0;
-    el.style.transition = animated ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none";
+    el.style.transition = animated ? "transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)" : "none";
     el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
   }).current;
 
