@@ -151,16 +151,17 @@ export function Lightbox({
   const [overlayScope, animateOverlay] = useAnimate();
   const [contentVisible, setContentVisible] = useState(!originRect);
   // Set to true when image has loaded AND expand is done — triggers overlay fadeout
-  const overlayReadyToFade = useRef(false);
   const expandDoneRef = useRef(!originRect);
   const imageLoadedRef = useRef(false);
+  const overlayHiddenRef = useRef(false);
 
-  const tryFadeOverlay = useCallback(() => {
-    if (!overlayReadyToFade.current && expandDoneRef.current && imageLoadedRef.current) {
-      overlayReadyToFade.current = true;
-      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.2, ease: "easeIn" });
+  const tryHideOverlay = useCallback(() => {
+    if (!overlayHiddenRef.current && expandDoneRef.current && imageLoadedRef.current) {
+      overlayHiddenRef.current = true;
+      // Instantly hide — real image is already perfectly behind it, no crossfade needed
+      if (overlayScope.current) overlayScope.current.style.display = "none";
     }
-  }, [animateOverlay, overlayScope]);
+  }, [overlayScope]);
 
   useEffect(() => {
     if (!originRect || !originThumb) return;
@@ -187,10 +188,10 @@ export function Lightbox({
       width: imgW,
       height: imgH,
       borderRadius: 4,
-    }, { duration: 0.42, ease: [0.32, 0.72, 0, 1] }).then(() => {
+    }, { duration: 0.52, ease: [0.32, 0.72, 0, 1] }).then(() => {
       setContentVisible(true);
       expandDoneRef.current = true;
-      tryFadeOverlay();
+      tryHideOverlay();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -745,12 +746,12 @@ export function Lightbox({
                       onLoadingComplete={() => {
                         setIsImageLoaded(true);
                         imageLoadedRef.current = true;
-                        tryFadeOverlay();
+                        tryHideOverlay();
                       }}
                       onError={() => {
                         setIsImageLoaded(true);
                         imageLoadedRef.current = true;
-                        tryFadeOverlay();
+                        tryHideOverlay();
                       }}
                     />
 
