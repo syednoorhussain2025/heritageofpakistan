@@ -25,11 +25,12 @@ function applyTrackTransform(
   atIdx: number,
   animated: boolean
 ) {
-  const pct = -atIdx * 100;
+  const vw = window.innerWidth;
+  const offset = -atIdx * vw + dx;
   el.style.transition = animated
     ? `transform ${CAROUSEL_DURATION} ${CAROUSEL_EASE}`
     : "none";
-  el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
+  el.style.transform = `translateX(${offset}px)`;
 }
 
 /* ---------- CONFIG ---------- */
@@ -238,11 +239,14 @@ export function Lightbox({
   }, []);
 
   // Keep ref in sync and snap track position on index change
+  const prevIndexRef = useRef<number | null>(null);
   useEffect(() => {
     currentIndexRef.current = currentIndex;
     if (mobileTrackRef.current) {
-      applyTrackTransform(mobileTrackRef.current, 0, currentIndex, true);
+      const animated = prevIndexRef.current !== null;
+      applyTrackTransform(mobileTrackRef.current, 0, currentIndex, animated);
     }
+    prevIndexRef.current = currentIndex;
   }, [currentIndex]);
 
   useEffect(() => {
@@ -717,7 +721,6 @@ export function Lightbox({
               className="absolute top-0 left-0 h-full flex"
               style={{
                 width: `${photos.length * 100}%`,
-                transform: `translateX(${-safeCurrentIndex * 100}%)`,
                 willChange: "transform",
               }}
             >
