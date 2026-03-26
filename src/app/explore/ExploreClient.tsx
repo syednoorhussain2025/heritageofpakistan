@@ -807,6 +807,9 @@ async function attachActiveCovers(sites: Site[]) {
 function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Stable string key — avoids infinite loops when useSearchParams() returns
+  // a new object reference with identical content on each render.
+  const searchParamsStr = searchParams.toString();
   const { userId: authUserId, authLoading } = useAuthUserId();
   const isSignedIn = !authLoading && authUserId !== null;
 
@@ -963,7 +966,8 @@ function ExplorePageContent() {
         isHydratingRef.current = false;
       }, 0);
     }
-  }, [searchParams, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParamsStr, router]);
 
   /* Load name maps once + pre-warm province slug cache in parallel */
   useEffect(() => {
@@ -1036,7 +1040,8 @@ function ExplorePageContent() {
     return () => {
       if (debounceIdRef.current) window.clearTimeout(debounceIdRef.current);
     };
-  }, [filters, buildParamsFrom, router, searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, buildParamsFrom, router, searchParamsStr]);
 
   /* Sync URL → filters and reset page when search params change */
   useEffect(() => {
@@ -1070,7 +1075,8 @@ function ExplorePageContent() {
       isHydratingRef.current = false;
     }, 0);
     return () => clearTimeout(t);
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParamsStr]);
 
   const [categoryMapState, regionMapState] = [categoryMap, regionMap];
 
