@@ -153,17 +153,35 @@ export function Lightbox({
 
   useEffect(() => {
     if (!originRect || !originThumb) return;
+
+    // Compute where the image will sit inside the lightbox (same logic as geom)
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const isMd = vw >= 768;
+    const isLg = vw >= 1024;
+    const nw = (photo?.width && photo.width > 0) ? photo.width : 4;
+    const nh = (photo?.height && photo.height > 0) ? photo.height : 3;
+    const pad = isMd ? PADDING : 16;
+    const maxH = vh * ((isLg ? MAX_VH.lg : isMd ? MAX_VH.md : MAX_VH.base) / 100);
+    const usableW = isMd ? vw - pad * 2 - (PANEL_W + GAP) : vw - pad * 2;
+    const scale = Math.min(usableW / nw, maxH / nh);
+    const imgW = nw * scale;
+    const imgH = nh * scale;
+    const totalW = isMd ? imgW + GAP + PANEL_W : imgW;
+    const imgLeft = Math.round((vw - totalW) / 2);
+    const imgTop = Math.round((vh - imgH) / 2);
 
-    // Start: overlay at thumbnail position, content hidden
-    // Then animate overlay to fullscreen, then fade overlay out and show content
+    // Animate thumbnail from its grid position to the exact image rect in lightbox
     void animateOverlay(overlayScope.current, {
-      left: 0, top: 0, width: vw, height: vh, borderRadius: 0,
-    }, { duration: 0.4, ease: [0.32, 0.72, 0, 1] }).then(() => {
+      left: imgLeft,
+      top: imgTop,
+      width: imgW,
+      height: imgH,
+      borderRadius: 4,
+    }, { duration: 0.42, ease: [0.32, 0.72, 0, 1] }).then(() => {
+      // Thumbnail is now perfectly behind the real image — crossfade
       setContentVisible(true);
-      // Fade out the overlay so real lightbox image takes over
-      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.18, ease: "easeIn" });
+      void animateOverlay(overlayScope.current, { opacity: 0 }, { duration: 0.16, ease: "easeIn" });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
