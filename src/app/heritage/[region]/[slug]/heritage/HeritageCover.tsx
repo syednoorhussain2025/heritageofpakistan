@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
@@ -1320,14 +1321,15 @@ export default function HeritageCover({
         `}</style>
       </section>
 
-      {showTripModal && (
+      {mounted && showTripModal && createPortal(
         <AddToTripModal
           siteId={site.id}
           onClose={() => setShowTripModal(false)}
-        />
+        />,
+        document.body
       )}
 
-      {showWishlistModal && (
+      {mounted && showWishlistModal && createPortal(
         <AddToWishlistModal
           siteId={site.id}
           onClose={() => {
@@ -1343,7 +1345,8 @@ export default function HeritageCover({
             imageUrl: heroUrl ?? undefined,
             location: site.location_free ?? undefined,
           }}
-        />
+        />,
+        document.body
       )}
     </>
   );
