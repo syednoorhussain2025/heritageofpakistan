@@ -595,9 +595,9 @@ export function Lightbox({
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* 1. MOBILE HEADER */}
+            {/* 1. MOBILE HEADER — hidden on mobile (gallery header persists through expand) */}
             <div
-              className={`md:hidden absolute z-20 pointer-events-auto transition-opacity duration-300 ${
+              className={`hidden md:block absolute z-20 pointer-events-auto transition-opacity duration-300 ${
                 isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}
               style={{
@@ -967,16 +967,16 @@ export function Lightbox({
         </AnimatePresence>
 
         {/* ---------- CONTROLS */}
-        {/* Mobile: back arrow (top-left, safe-area aware) */}
+        {/* Mobile: back arrow */}
         <button
-          className={`md:hidden absolute left-3 p-2.5 rounded-full bg-white/10 active:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`md:hidden absolute left-3 p-1.5 rounded-full active:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
-          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
+          style={{ top: "calc(var(--sat, 44px) + 6px)" }}
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           aria-label="Back"
         >
-          <Icon name="arrow-left" size={20} />
+          <Icon name="circle-arrow-left" size={30} className="text-white" />
         </button>
         {/* Desktop: X close button (top-right) */}
         <button
