@@ -265,7 +265,7 @@ export default function HeritageClient({
   /* ---------------- Render ---------------- */
 
   return (
-    <div id="heritage-page-root" ref={pageRef} data-vaul-drawer-wrapper="" className="min-h-screen bg-[#f8f8f8]">
+    <div id="heritage-page-root" ref={pageRef} className="min-h-screen bg-[#f8f8f8] overflow-hidden">
       {/* HERO */}
       {!site ? (
         <HeroSkeleton />
