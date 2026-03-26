@@ -101,7 +101,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
       closeTimerRef.current = null;
       setClosing(false);
       onClose();
-    }, 500);
+    }, 680);
   }, [onClose]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -145,7 +145,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         setClosing(false);
         onClose();
         if (el) el.style.transform = "";
-      }, 500);
+      }, 680);
     } else {
       if (el) el.style.transform = "translateY(0)";
     }
@@ -223,7 +223,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         {/* Sheet */}
         <div
           ref={sheetElRef}
-          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[82vh] flex flex-col pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"}`}
+          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[82vh] flex flex-col pointer-events-auto transition-all duration-[680ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"}`}
         >
           <div
             className="w-full flex justify-center pt-3 pb-2 shrink-0 touch-none"

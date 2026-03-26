@@ -6,11 +6,11 @@ const SCALE = 0.88;
 const TRANSLATE_Y = "22px";
 const BORDER_RADIUS = "24px";
 // Slower with ease-in-out feel: longer duration + gentler bezier
-const TRANSITION = "transform 0.72s cubic-bezier(0.4,0,0.2,1), border-radius 0.72s cubic-bezier(0.4,0,0.2,1), filter 0.72s cubic-bezier(0.4,0,0.2,1)";
-const BODY_TRANSITION = "background-color 0.72s cubic-bezier(0.4,0,0.2,1)";
+const TRANSITION = "transform 0.58s cubic-bezier(0.4,0,0.2,1), border-radius 0.58s cubic-bezier(0.4,0,0.2,1), filter 0.58s cubic-bezier(0.4,0,0.2,1)";
+const BODY_TRANSITION = "background-color 0.58s cubic-bezier(0.4,0,0.2,1)";
 const BODY_COLOR_OPEN = "#111111";
 const BODY_COLOR_CLOSED = "#f4f4f4";
-const FILTER_OPEN = "brightness(0.75) blur(1.5px)";
+const FILTER_OPEN = "brightness(0.75) blur(0.6px)";
 const FILTER_CLOSED = "brightness(1) blur(0px)";
 
 export function useBottomSheetParallax(active: boolean) {
