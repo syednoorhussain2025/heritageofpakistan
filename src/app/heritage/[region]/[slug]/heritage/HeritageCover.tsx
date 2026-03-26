@@ -285,25 +285,27 @@ export default function HeritageCover({
   const mobileFadeRef = useRef<HTMLDivElement | null>(null);
 
   // Mobile: fade slideshow to white as content scrolls over it.
-  // The slide is `sticky top-0` so it stays pinned — we just use window.scrollY
-  // directly as the "scrolled past" value (hero starts at top of page).
+  // Uses the fixed scroll container (#heritage-page-root) scrollTop.
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
+
+    const container = document.getElementById("heritage-page-root") ?? window;
 
     const onScroll = () => {
       const slide = mobileSlideRef.current;
       const fade = mobileFadeRef.current;
       if (!slide || !fade) return;
 
+      const scrollTop = container instanceof Element ? container.scrollTop : window.scrollY;
       const slideH = slide.offsetHeight;
       const fadeStart = slideH * 0.15;
       const fadeEnd = slideH * 0.7;
-      const opacity = Math.min(1, Math.max(0, (window.scrollY - fadeStart) / (fadeEnd - fadeStart)));
+      const opacity = Math.min(1, Math.max(0, (scrollTop - fadeStart) / (fadeEnd - fadeStart)));
       fade.style.opacity = String(opacity);
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
   }, []);
 
   const [mounted, setMounted] = useState(false);
@@ -321,6 +323,8 @@ export default function HeritageCover({
     const overlay = overlayRef.current;
     if (!hero || !overlay) return;
 
+    const container = document.getElementById("heritage-page-root") ?? window;
+
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -336,10 +340,10 @@ export default function HeritageCover({
     };
 
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    container.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      container.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
       cancelAnimationFrame(raf);
     };
