@@ -40,6 +40,9 @@ export function useBottomSheetParallax(active: boolean) {
       page.offsetHeight;
 
       // 3. Now enable transition and animate
+      // transform-origin: top center means scale origin is viewport top edge,
+      // so the visible content scales down in place regardless of scroll position.
+      page.style.transformOrigin = "top center";
       page.style.transition = TRANSITION;
       body.style.transition = BODY_TRANSITION;
       body.style.backgroundColor = BODY_COLOR_OPEN;
@@ -78,6 +81,7 @@ export function useBottomSheetParallax(active: boolean) {
         page.style.transform = "";
         page.style.borderRadius = "";
         page.style.filter = "";
+        page.style.transformOrigin = "";
         window.scrollTo({ top: scrollY, behavior: "instant" });
       }, 520);
 
