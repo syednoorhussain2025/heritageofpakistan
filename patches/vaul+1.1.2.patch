@@ -1,5 +1,5 @@
 diff --git a/node_modules/vaul/dist/index.js b/node_modules/vaul/dist/index.js
-index 7f343be..a78fac5 100644
+index 7f343be..a678b5a 100644
 --- a/node_modules/vaul/dist/index.js
 +++ b/node_modules/vaul/dist/index.js
 @@ -81,7 +81,7 @@ const useDrawerContext = ()=>{
@@ -38,15 +38,13 @@ index 7f343be..a78fac5 100644
  const DRAG_CLASS = 'vaul-dragging';
  
  // This code comes from https://github.com/radix-ui/primitives/blob/main/packages/react/use-controllable-state/src/useControllableState.tsx
-@@ -752,15 +752,16 @@ function useScaleBackground() {
+@@ -752,15 +752,15 @@ function useScaleBackground() {
                  transformOrigin: isVertical(direction) ? 'top' : 'left',
                  transitionProperty: 'transform, border-radius',
                  transitionDuration: `${TRANSITIONS.DURATION}s`,
 -                transitionTimingFunction: `cubic-bezier(${TRANSITIONS.EASE.join(',')})`
--            }));
 +                transitionTimingFunction: `cubic-bezier(0.4, 0, 0.2, 1)`
-+            })
-+            ));
+             }));
              const wrapperStylesCleanup = assignStyle(wrapper, {
                  borderRadius: `${BORDER_RADIUS}px`,
                  overflow: 'hidden',
@@ -59,7 +57,7 @@ index 7f343be..a78fac5 100644
                  }
              });
              return ()=>{
-@@ -1222,15 +1223,16 @@ function Root({ open: openProp, onOpenChange, children, onDrag: onDragProp, onRe
+@@ -1222,15 +1222,16 @@ function Root({ open: openProp, onOpenChange, children, onDrag: onDragProp, onRe
                  borderRadius: `${BORDER_RADIUS}px`,
                  overflow: 'hidden',
                  ...isVertical(direction) ? {
