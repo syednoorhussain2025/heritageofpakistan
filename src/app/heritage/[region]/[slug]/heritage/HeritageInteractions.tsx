@@ -64,6 +64,7 @@ export default function HeritageInteractions({
   const pathname = usePathname();
   const { bookmarkedIds, toggleBookmark, isLoaded } = useBookmarks();
   const { userId } = useAuthUserId();
+  const [mounted, setMounted] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -74,13 +75,20 @@ export default function HeritageInteractions({
     toastTimer.current = window.setTimeout(() => setToast(null), 2200);
   };
 
-  /* Track scroll to toggle icon style */
+  useEffect(() => { setMounted(true); }, []);
+
+  /* Track scroll to toggle icon style — listen on the fixed scroll container */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onScroll = () => setScrolled(window.scrollY > 80);
+    const container = document.getElementById("heritage-page-root");
+    const onScroll = () => {
+      const scrollTop = container ? container.scrollTop : window.scrollY;
+      setScrolled(scrollTop > 80);
+    };
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const target = container ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+    return () => target.removeEventListener("scroll", onScroll);
   }, []);
 
   /* Remember last opened heritage page for mobile Heritage tab */
@@ -134,36 +142,39 @@ export default function HeritageInteractions({
         </div>
       )}
 
-      {/* Mobile header — transparent overlay with back + actions */}
-      <MobilePageHeader backgroundColor="transparent" minHeight="64px">
-        <div className="flex items-center justify-between w-full px-3 h-full">
-          <button
-            type="button"
-            onClick={() => {
-              if (window.history.length > 1) {
-                window.history.back();
-              } else {
-                window.location.href = "/explore";
-              }
-            }}
-            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
-            aria-label="Go back"
-          >
-            <Icon name="circle-arrow-left" size={38} className="text-white" />
-          </button>
-          <div className="flex items-center gap-1">
+      {/* Mobile header — portalled to body so it stays fixed to viewport even when parent is transformed */}
+      {mounted && createPortal(
+        <MobilePageHeader backgroundColor="transparent" minHeight="64px">
+          <div className="flex items-center justify-between w-full px-3 h-full">
             <button
               type="button"
-              onClick={() => setActionsSheetOpen(true)}
-              className="w-11 h-11 flex items-center justify-center rounded-full active:scale-95 transition-all"
-              style={{ background: "var(--brand-green, #16a34a)" }}
-              aria-label="More actions"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/explore";
+                }
+              }}
+              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
+              aria-label="Go back"
             >
-              <Icon name="plus" size={22} style={{ color: "#ffffff", width: 22, height: 22, minWidth: 22, minHeight: 22 }} />
+              <Icon name="circle-arrow-left" size={38} className="text-white" />
             </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActionsSheetOpen(true)}
+                className="w-11 h-11 flex items-center justify-center rounded-full active:scale-95 transition-all"
+                style={{ background: "var(--brand-green, #16a34a)" }}
+                aria-label="More actions"
+              >
+                <Icon name="plus" size={22} style={{ color: "#ffffff", width: 22, height: 22, minWidth: 22, minHeight: 22 }} />
+              </button>
+            </div>
           </div>
-        </div>
-      </MobilePageHeader>
+        </MobilePageHeader>,
+        document.body
+      )}
       <div className="hidden md:block">
         <StickyHeader
           site={{ id: site.id, slug: site.slug, title: site.title }}
