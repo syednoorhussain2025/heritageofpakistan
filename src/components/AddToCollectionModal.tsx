@@ -2,7 +2,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import NextImage from "next/image";
 import Icon from "@/components/Icon";
 import {
@@ -341,6 +340,10 @@ export default function AddToCollectionModal({
   }, [collectionToDelete, isCreateOpen, requestClose, requestCreateClose]);
 
   function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === overlayRef.current) requestClose();
+  }
+
+  function onOverlayTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
     if (e.target === overlayRef.current) requestClose();
   }
 
@@ -716,6 +719,7 @@ export default function AddToCollectionModal({
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
+        onTouchEnd={onOverlayTouchEnd}
         className={`fixed inset-0 z-[9999999999] flex flex-col justify-end bg-black/40 transition-opacity duration-500 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
@@ -724,7 +728,7 @@ export default function AddToCollectionModal({
       >
         {/* Bottom sheet */}
         <div
-          className={`relative w-full max-h-[82dvh] bg-white shadow-2xl rounded-t-3xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
+          className={`relative w-full h-[82dvh] bg-white shadow-2xl rounded-t-3xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
             isOpen ? "translate-y-0" : "translate-y-full"
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -1073,29 +1077,14 @@ export default function AddToCollectionModal({
 
           {/* Footer */}
           <div
-            className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-3 shrink-0 bg-gray-50/80 sm:rounded-b-3xl backdrop-blur-md"
+            className="px-4 pt-3 pb-8 border-t border-gray-100 shrink-0 bg-white"
             data-noswipe="true"
           >
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-[var(--brand-orange)] text-white font-medium cursor-pointer hover:brightness-105 transition-all shadow-sm active:scale-95 text-sm"
+              className="w-full py-3 rounded-full bg-[var(--brand-orange)] text-white font-semibold text-[14px] active:scale-95 transition-all shadow-sm"
             >
-              Create New Collection
-            </button>
-
-            <Link
-              href="/dashboard/mycollections"
-              onClick={requestClose}
-              className="px-5 py-2.5 rounded-xl bg-gray-900 text-white font-medium cursor-pointer hover:brightness-110 transition-all shadow-lg shadow-gray-200 text-sm"
-            >
-              My Collections
-            </Link>
-
-            <button
-              onClick={requestClose}
-              className="hidden sm:inline-flex px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
-            >
-              Close
+              + Create New Collection
             </button>
           </div>
         </div>
@@ -1124,67 +1113,48 @@ export default function AddToCollectionModal({
             <div className="shrink-0 flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">
-                Create Collection
-              </h3>
-              <button
-                onClick={requestCreateClose}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <Icon name="times" size={20} />
-              </button>
+            <div className="px-4 py-3 shrink-0 text-center">
+              <h3 className="text-base font-semibold text-gray-900">New Collection</h3>
             </div>
 
-            <div className="p-6 space-y-4 flex-1 overflow-y-auto bg-gray-50/30">
+            <div className="px-4 pb-4 space-y-4 flex-1 overflow-y-auto">
               {!identityOk && (
                 <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                   Cannot add this photo because identity is missing
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Collection Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Vacation, Architecture..."
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={handleCreateKeyDown}
-                  autoFocus
-                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100 transition-all placeholder:text-gray-400"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Collection name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={handleCreateKeyDown}
+                autoFocus
+                className="w-full bg-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400"
+              />
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                  Privacy
-                </label>
-                <div className="relative">
-                  <select
-                    value={privacy}
-                    onChange={(e) =>
-                      setPrivacy(e.target.value as "private" | "public")
-                    }
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-4 py-3 outline-none focus:border-gray-400 appearance-none cursor-pointer"
-                  >
-                    <option value="private">Private (Only you)</option>
-                    <option value="public">Public (Visible to everyone)</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                    <Icon name="chevron-down" size={16} />
-                  </div>
-                </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPrivacy("private")}
+                  className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all ${privacy === "private" ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-gray-600"}`}
+                >
+                  Private
+                </button>
+                <button
+                  onClick={() => setPrivacy("public")}
+                  className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all ${privacy === "public" ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-gray-600"}`}
+                >
+                  Public
+                </button>
               </div>
             </div>
 
-            <div className="p-6 pt-0 sm:pt-4 sm:border-t sm:border-gray-100 bg-white shrink-0">
+            <div className="px-4 pt-3 pb-8 border-t border-gray-100 shrink-0 bg-white">
               <button
                 onClick={handleCreate}
                 disabled={busyCreate || !newName.trim() || !identityOk}
-                className="w-full py-3.5 rounded-xl bg-[var(--brand-orange)] text-white font-bold text-lg sm:text-base hover:brightness-105 disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                className="w-full py-3 rounded-full bg-[var(--brand-orange)] text-white font-semibold text-[14px] disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
               >
                 {busyCreate && <Spinner size={16} className="border-white/80" />}
                 {busyCreate ? "Creating..." : "Create Collection"}
