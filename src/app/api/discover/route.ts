@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       if (siteImgs && siteImgs.length > 0) {
         // Pick a deterministic-but-varied image: seed + cycle + site hash
         const siteHash = site.id.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-        const pick = Math.abs(Math.sin(seed * 7919 + cycle * 3571 + siteHash)) % 1;
+        const pick = Math.abs(Math.sin(seed * 7919 + cycle * 3571 + page * 1327 + siteHash)) % 1;
         const row = siteImgs[Math.floor(pick * siteImgs.length)];
         id = row.id;
         storagePath = row.storage_path;
