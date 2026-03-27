@@ -367,7 +367,7 @@ export default function BottomNav() {
       <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
-          <NavItem label="Discover" icon="sparkle" isActive={isDiscoverActive} href="/discover" onPress={() => setOptimisticHref("/discover")} />
+          <NavItem label="Discover" icon="compass" isActive={isDiscoverActive} href="/discover" onPress={() => setOptimisticHref("/discover")} />
           <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" onPress={() => setOptimisticHref("/explore")} />
           <NavItem label="Map" icon="adminmap" isActive={isMapActive} href="/map" onPress={() => setOptimisticHref("/map")} />
 
