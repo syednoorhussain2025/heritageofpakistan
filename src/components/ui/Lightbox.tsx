@@ -266,6 +266,30 @@ export function Lightbox({
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
 
+  // Per-slide loaded state — tracks which slide indices have their image loaded
+  const [slideLoaded, setSlideLoaded] = useState<Record<number, boolean>>({});
+  const markSlideLoaded = useCallback((idx: number) => {
+    setSlideLoaded((prev) => prev[idx] ? prev : { ...prev, [idx]: true });
+  }, []);
+
+  // Preload neighbours whenever current index changes
+  useEffect(() => {
+    const preload = (idx: number) => {
+      const p = photos[idx];
+      if (!p) return;
+      const storagePath = (p as any).storagePath;
+      if (!storagePath) return;
+      try {
+        const url = getVariantPublicUrl(storagePath, "md");
+        const img = new window.Image();
+        img.src = url;
+        img.onload = () => markSlideLoaded(idx);
+      } catch {}
+    };
+    preload(safeCurrentIndex + 1);
+    preload(safeCurrentIndex - 1);
+  }, [safeCurrentIndex, photos, markSlideLoaded]);
+
   // Shared-element expand: imperatively animated overlay
   const [overlayScope, animateOverlay] = useAnimate();
   const imgContainerRef = useRef<HTMLDivElement>(null);
@@ -916,8 +940,8 @@ export function Lightbox({
                           }}
                         />
                       )}
-                      {/* Spinner on nearby non-active slides while image loads */}
-                      {isNearby && !isActive && (
+                      {/* Spinner on nearby non-active slides while image hasn't loaded */}
+                      {isNearby && !isActive && !slideLoaded[idx] && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                           <span className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin" aria-hidden="true" />
                         </div>
@@ -958,11 +982,13 @@ export function Lightbox({
                                   setIsImageLoaded(true);
                                   imageLoadedRef.current = true;
                                   tryHideOverlay();
+                                  markSlideLoaded(idx);
                                 }}
                                 onError={() => {
                                   setIsImageLoaded(true);
                                   imageLoadedRef.current = true;
                                   tryHideOverlay();
+                                  markSlideLoaded(idx);
                                 }}
                               />
                               {showHighRes && (
@@ -989,6 +1015,9 @@ export function Lightbox({
                             fill unoptimized sizes="100vw"
                             className="object-contain select-none"
                             draggable={false}
+                            priority
+                            onLoadingComplete={() => markSlideLoaded(idx)}
+                            onError={() => markSlideLoaded(idx)}
                           />
                         </div>
                       ) : null}
