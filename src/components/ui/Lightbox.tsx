@@ -172,6 +172,20 @@ export function Lightbox({
 
   const [isZoomed, setIsZoomed] = useState(false);
   const [showActionsSheet, setShowActionsSheet] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
+
+  // Animate sheet in on open, animate out then unmount on close
+  useEffect(() => {
+    if (showActionsSheet) {
+      // Mount first, then animate in next frame
+      requestAnimationFrame(() => setSheetVisible(true));
+    }
+  }, [showActionsSheet]);
+
+  const closeSheet = useCallback(() => {
+    setSheetVisible(false);
+    setTimeout(() => setShowActionsSheet(false), 400);
+  }, []);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
 
@@ -687,14 +701,27 @@ export function Lightbox({
       <motion.div
         ref={rootOverlayRef}
         className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
-        initial={{ opacity: originRect ? 1 : 0 }}
+        initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        style={{ backgroundColor: "rgb(5,5,5)" }}
+        style={{ backgroundColor: "transparent" }}
         onClick={onClose}
         onPanEnd={isMdUp ? onSwipe : undefined}
       >
+        {/* ── Background — fades in independently of image overlay ── */}
+        <motion.div
+          className="absolute inset-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={originRect
+            ? { duration: 0.2, ease: "easeOut", delay: 0.04 }
+            : { duration: 0.2, ease: "easeOut" }
+          }
+          style={{ backgroundColor: "rgb(5,5,5)", zIndex: 0 }}
+        />
+
         {/* ── Shared-element thumbnail overlay — imperatively animated ── */}
         {originRect && originThumb && (
           <div
@@ -757,6 +784,7 @@ export function Lightbox({
                     key={(p as any).id ?? idx}
                     className="relative flex-shrink-0"
                     style={{ width: `${100 / photos.length}%`, height: "100%" }}
+                    onClick={onClose}
                   >
                     {/* Image container */}
                     <div
@@ -768,29 +796,10 @@ export function Lightbox({
                         top: isZoomed && isActive ? 0 : slideTop,
                         width: isZoomed && isActive ? "100%" : slideW,
                         height: isZoomed && isActive ? "100%" : slideH,
-                        transition: "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1)",
+                        transition: isActive ? "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1)" : "none",
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* Heart */}
-                      {isActive && (
-                        <div
-                          className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                          onClick={(e) => e.stopPropagation()}
-                          onPointerDownCapture={(e) => e.stopPropagation()}
-                        >
-                          <CollectHeart
-                            variant="overlay"
-                            siteImageId={(photo as any).siteImageId ?? (photo as any).id}
-                            storagePath={(photo as any).storagePath}
-                            imageUrl={(photo as any).url}
-                            siteId={photo.site?.id ?? ""}
-                            caption={(photo as any).caption}
-                            credit={(photo as any)?.author?.name}
-                            requireSignedIn={ensureSignedIn}
-                          />
-                        </div>
-                      )}
 
                       {/* BlurHash + spinner — only for active slide without shared-element */}
                       {isActive && !originRect && (p as any)?.blurHash && (
@@ -887,15 +896,33 @@ export function Lightbox({
                       )}
                     </div>
 
-                    {/* Caption below image — only on active slide */}
-                    {isActive && (photo as any)?.caption && (
+                    {/* Heart + caption row below image — only on active slide */}
+                    {isActive && (
                       <div
-                        className={`absolute pointer-events-none transition-opacity duration-300 ${isZoomed ? "opacity-0" : "opacity-100"}`}
-                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 10 }}
+                        className={`absolute flex items-center gap-2 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 4 }}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDownCapture={(e) => e.stopPropagation()}
                       >
-                        <p className="text-xs text-white/70 italic text-center leading-snug px-1">
-                          {(photo as any).caption}
-                        </p>
+                        {/* Heart */}
+                        <div className="shrink-0 -ml-2 w-14 h-14 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-[52px] [&_svg]:h-[52px]">
+                          <CollectHeart
+                            variant="overlay"
+                            siteImageId={(photo as any).siteImageId ?? (photo as any).id}
+                            storagePath={(photo as any).storagePath}
+                            imageUrl={(photo as any).url}
+                            siteId={photo.site?.id ?? ""}
+                            caption={(photo as any).caption}
+                            credit={(photo as any)?.author?.name}
+                            requireSignedIn={ensureSignedIn}
+                          />
+                        </div>
+                        {/* Caption */}
+                        {(photo as any)?.caption && (
+                          <p className="flex-1 text-xs text-white/70 italic leading-snug pointer-events-none">
+                            {(photo as any).caption}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -909,7 +936,7 @@ export function Lightbox({
         {!isMdUp && (
           <div
             className={`fixed right-4 z-[2147483648] transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-            style={{ bottom: "calc(var(--sab, 24px) + 16px)" }}
+            style={{ bottom: "calc(var(--sab, 24px) + 48px)" }}
             onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >
@@ -927,35 +954,55 @@ export function Lightbox({
         {!isMdUp && showActionsSheet && (
           <div
             className="fixed inset-0 z-[2147483649] flex flex-col justify-end"
-            onClick={() => setShowActionsSheet(false)}
+            onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50" />
+            {/* Backdrop — tap to close */}
+            <div
+              className="absolute inset-0 bg-black/60 transition-opacity duration-300 ease-out"
+              style={{ opacity: sheetVisible ? 1 : 0 }}
+              onClick={(e) => { e.stopPropagation(); closeSheet(); }}
+            />
             {/* Sheet */}
             <div
-              className="relative bg-[#1c1c1e] rounded-t-2xl overflow-hidden"
-              style={{ paddingBottom: "calc(var(--sab, 24px) + 8px)" }}
+              className="relative bg-[#1c1c1e] rounded-t-3xl overflow-hidden transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+              style={{
+                transform: sheetVisible ? "translateY(0)" : "translateY(100%)",
+                paddingBottom: "calc(var(--sab, 24px) + 32px)",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-4" />
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-4 mb-2" />
+              <p className="text-white/40 text-xs text-center uppercase tracking-widest mt-1 mb-2">Photo</p>
               {onAddToCollection && (
                 <button
-                  className="w-full flex items-center gap-4 px-6 py-4 active:bg-white/10 text-white"
-                  onClick={(e) => { e.stopPropagation(); setShowActionsSheet(false); onAddToCollection(photo); }}
+                  className="w-full flex items-center gap-5 px-6 py-5 active:bg-white/10 text-white"
+                  onClick={(e) => { e.stopPropagation(); closeSheet(); onAddToCollection(photo); }}
                 >
-                  <Icon name="folder-plus" size={22} className="text-white/70" />
-                  <span className="text-[17px]">Save to Collection</span>
+                  <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                    <Icon name="cards" size={21} className="text-white" />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-[17px] font-medium">Save to Collection</span>
+                    <span className="text-xs text-white/50 mt-0.5">Add this photo to your collections</span>
+                  </div>
                 </button>
               )}
               <div className="h-px bg-white/10 mx-6" />
               <button
-                className="w-full flex items-center gap-4 px-6 py-4 active:bg-white/10 text-white"
-                onClick={(e) => { e.stopPropagation(); setShowActionsSheet(false); handleDownload(e as any); }}
+                className="w-full flex items-center gap-5 px-6 py-5 active:bg-white/10 text-white"
+                onClick={(e) => { e.stopPropagation(); closeSheet(); handleDownload(e as any); }}
               >
-                <Icon name="download" size={22} className="text-white/70" />
-                <span className="text-[17px]">Download Image</span>
+                <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                  <Icon name="download" size={21} className="text-white" />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-[17px] font-medium">Download Image</span>
+                  <span className="text-xs text-white/50 mt-0.5">Save the full resolution photo</span>
+                </div>
               </button>
+              {/* Spacer so buttons aren't crammed at the bottom */}
+              <div className="h-4" />
             </div>
           </div>
         )}
