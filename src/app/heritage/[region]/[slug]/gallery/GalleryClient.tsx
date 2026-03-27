@@ -157,11 +157,25 @@ const MasonryTile = memo(function MasonryTile({
   const blurDataURL = extras.blurDataURL ?? undefined;
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  const onImgLoad = useCallback(() => {
-    if (imgRef.current) {
-      imgRef.current.style.transition = "opacity 0.6s cubic-bezier(0.4,0,0.2,1)";
-      imgRef.current.style.opacity = "1";
+  const setImgRef = useCallback((el: HTMLImageElement | null) => {
+    imgRef.current = el;
+    if (!el) return;
+    // If already cached, show immediately — no flash
+    if (el.complete && el.naturalWidth > 0) {
+      el.style.opacity = "1";
     }
+  }, []);
+
+  const onImgLoad = useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    // Double rAF: ensures grey is painted first, then fade in
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        img.style.transition = "opacity 0.6s cubic-bezier(0.4,0,0.2,1)";
+        img.style.opacity = "1";
+      });
+    });
   }, []);
 
   const thumbUrl = useMemo(() => {
@@ -195,39 +209,31 @@ const MasonryTile = memo(function MasonryTile({
           if (rect) onOpen(rect, thumbUrl ?? photo.url ?? "");
         }}
         title="Open"
+        style={{ backgroundColor: "#e8e8e8" }}
       >
-        {/* Placeholder — always visible, never white.
-            blurDataURL = instant base64 JPEG (preferred).
-            blurHash = canvas decode fallback for older images.
-            Plain grey = last resort. */}
-        {blurDataURL ? (
-          <img
-            src={blurDataURL}
-            aria-hidden
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none scale-110"
-            style={{ filter: "blur(6px)" }}
+        {/* Blur layer on top of grey background, if available */}
+        {blurDataURL && (
+          <div
+            className="absolute inset-0"
+            style={{
+              zIndex: 1,
+              backgroundImage: `url(${blurDataURL})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
           />
-        ) : extras.blurHash ? (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <BlurhashPlaceholder hash={extras.blurHash} />
-          </div>
-        ) : (
-          <div className="absolute inset-0 bg-gray-200 pointer-events-none" />
         )}
+
         {/* Real image — starts invisible, fades in only once loaded */}
-        <Image
-          ref={imgRef}
+        <img
+          ref={setImgRef}
           src={thumbUrl}
           alt={photo.caption ?? ""}
-          fill
-          unoptimized
-          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105"
-          style={{ opacity: isPriority ? 1 : 0 }}
-          sizes="(min-width: 768px) 22vw, 50vw"
-          priority={isPriority}
-          loading={isPriority ? "eager" : "lazy"}
+          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 absolute inset-0"
+          style={{ opacity: 0, zIndex: 2 }}
+          loading="eager"
           fetchPriority={isPriority ? "high" : "auto"}
-          onLoadingComplete={onImgLoad}
+          onLoad={onImgLoad}
           onError={onImgLoad}
         />
 
@@ -331,9 +337,6 @@ export default function GalleryClient({
   const [loading] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState<number>(BATCH_SIZE);
-  const [isBatchLoading, setIsBatchLoading] = useState(false);
-  const loaderRef = useRef<HTMLDivElement | null>(null);
-  const batchLoadingRef = useRef(false);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxOrigin, setLightboxOrigin] = useState<{ rect: DOMRect; thumb: string } | null>(null);
@@ -360,51 +363,13 @@ export default function GalleryClient({
     [photos, visibleCount]
   );
 
-  /* Pagination observer */
+  /* Auto-load all batches sequentially on mount */
   useEffect(() => {
-    batchLoadingRef.current = isBatchLoading;
-  }, [isBatchLoading]);
-
-  useEffect(() => {
-    const el = loaderRef.current;
-    if (!el) return;
-
     if (visibleCount >= photos.length) return;
-
-    let timeoutId: number | undefined;
-    let disposed = false;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (!entry.isIntersecting || batchLoadingRef.current || disposed) return;
-
-        batchLoadingRef.current = true;
-        setIsBatchLoading(true);
-        timeoutId = window.setTimeout(() => {
-          if (disposed) return;
-          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, photos.length));
-          batchLoadingRef.current = false;
-          setIsBatchLoading(false);
-        }, 250);
-      },
-      {
-        root: null,
-        rootMargin: "200px 0px",
-        threshold: 0.1,
-      }
-    );
-
-    observer.observe(el);
-
-    return () => {
-      disposed = true;
-      batchLoadingRef.current = false;
-      observer.disconnect();
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
+    const id = window.setTimeout(() => {
+      setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, photos.length));
+    }, 300);
+    return () => window.clearTimeout(id);
   }, [visibleCount, photos.length]);
 
   const handleBookmarkToggle = useCallback(
@@ -710,20 +675,6 @@ export default function GalleryClient({
                 ))}
               </div>
 
-              {visiblePhotos.length > 0 &&
-                visiblePhotos.length < photos.length && (
-                  <div
-                    ref={loaderRef}
-                    className="mt-6 flex justify-center items-center py-4"
-                  >
-                    {isBatchLoading && (
-                      <div className="flex items-center gap-2 text-gray-500 text-sm">
-                        <span className="inline-flex h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
-                        <span>Loading more photos</span>
-                      </div>
-                    )}
-                  </div>
-                )}
             </>
           )}
         </section>
