@@ -185,6 +185,84 @@ export function Lightbox({
     setSheetVisible(false);
     setTimeout(() => setShowActionsSheet(false), 400);
   }, []);
+
+  // Drag-to-close refs (actions sheet)
+  const actionsSheetRef = useRef<HTMLDivElement | null>(null);
+  const actionsDragStartY = useRef<number | null>(null);
+  const actionsDragStartX = useRef<number>(0);
+  const actionsDragCurrentY = useRef<number>(0);
+  const actionsDragStartTime = useRef<number>(0);
+  const actionsIsDragging = useRef<boolean>(false);
+  const actionsDragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
+
+  const onActionsTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    actionsDragStartY.current = e.touches[0].clientY;
+    actionsDragStartX.current = e.touches[0].clientX;
+    actionsDragStartTime.current = Date.now();
+    actionsDragCurrentY.current = 0;
+    actionsIsDragging.current = true;
+    actionsDragDirectionLocked.current = null;
+    const el = actionsSheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
+
+  const onActionsTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!actionsIsDragging.current || actionsDragStartY.current === null) return;
+    const dy = e.touches[0].clientY - actionsDragStartY.current;
+    const dx = e.touches[0].clientX - actionsDragStartX.current;
+
+    if (!actionsDragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        actionsDragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        actionsDragDirectionLocked.current = "vertical";
+      }
+    }
+
+    if (actionsDragDirectionLocked.current === "horizontal") {
+      actionsIsDragging.current = false;
+      const el = actionsSheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (actionsDragDirectionLocked.current !== "vertical") return;
+
+    if (dy < 0) {
+      actionsDragCurrentY.current = 0;
+      const el = actionsSheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    actionsDragCurrentY.current = dy;
+    const el = actionsSheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const onActionsTouchEnd = useCallback(() => {
+    if (!actionsIsDragging.current) return;
+    actionsIsDragging.current = false;
+
+    const dy = actionsDragCurrentY.current;
+    const elapsed = Date.now() - actionsDragStartTime.current;
+    const velocity = dy / elapsed;
+
+    const el = actionsSheetRef.current;
+    if (el) el.style.transition = "";
+
+    if (dy >= 80 || velocity >= 0.4) {
+      if (el) {
+        el.style.transition = "transform 300ms cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(110%)";
+      }
+      setTimeout(() => setShowActionsSheet(false), 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    actionsDragStartY.current = null;
+    actionsDragCurrentY.current = 0;
+  }, []);
   const [showHighRes, setShowHighRes] = useState(false);
   const [isHighResLoading, setIsHighResLoading] = useState(false);
 
@@ -427,13 +505,24 @@ export function Lightbox({
   /* ---------- Actions ---------- */
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = document.createElement("a");
-    link.href = highResPhotoUrl || (photo as any).url;
-    link.download = `heritage-site-${(photo as any).id}.jpg`;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = highResPhotoUrl || (photo as any).url;
+    const filename = `heritage-site-${(photo as any).id}.jpg`;
+    fetch(url)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      })
+      .catch(() => {
+        // Fallback: open in new tab
+        window.open(url, "_blank");
+      });
   };
 
   /* ---------- Swipe Handler ---------- */
@@ -790,7 +879,7 @@ export function Lightbox({
                       ref={isActive ? imgContainerRef : undefined}
                       className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${isZoomed ? "z-50" : "z-10"}`}
                       style={{
-                        backgroundColor: "#111",
+                        backgroundColor: "transparent",
                         visibility: isActive && originRect && !overlayHiddenRef.current ? "hidden" : "visible",
                         left: isZoomed && isActive ? 0 : slideLeft,
                         top: isZoomed && isActive ? 0 : slideTop,
@@ -813,8 +902,8 @@ export function Lightbox({
                         </div>
                       )}
 
-                      {/* Thumb background — cached from gallery, prevents black flash on swipe */}
-                      {(p as any).storagePath && (
+                      {/* Thumb background — shown on all nearby slides to prevent black flash */}
+                      {isNearby && (p as any).storagePath && (
                         <div
                           className="absolute inset-0"
                           style={{
@@ -826,6 +915,12 @@ export function Lightbox({
                             transform: "scale(1.05)",
                           }}
                         />
+                      )}
+                      {/* Spinner on nearby non-active slides while image loads */}
+                      {isNearby && !isActive && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                          <span className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin" aria-hidden="true" />
+                        </div>
                       )}
 
                       {/* Active slide: full zoom/pan support */}
@@ -980,13 +1075,19 @@ export function Lightbox({
               onClick={(e) => { e.stopPropagation(); closeSheet(); }}
             />
             <div
+              ref={actionsSheetRef}
               className="relative bg-[#1c1c1e] rounded-t-3xl overflow-hidden transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
               style={{
                 transform: sheetVisible ? "translateY(0)" : "translateY(100%)",
                 paddingBottom: "calc(var(--sab, 24px) + 32px)",
               }}
+              onTouchStart={onActionsTouchStart}
+              onTouchMove={onActionsTouchMove}
+              onTouchEnd={onActionsTouchEnd}
             >
-              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-4 mb-2" />
+              <div className="flex justify-center items-center h-10 cursor-grab active:cursor-grabbing">
+                <div className="w-10 h-1.5 bg-white/20 rounded-full" />
+              </div>
               <p className="text-white/40 text-xs text-center uppercase tracking-widest mt-1 mb-2">Photo</p>
               {onAddToCollection && (
                 <button

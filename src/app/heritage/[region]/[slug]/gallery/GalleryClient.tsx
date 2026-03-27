@@ -190,22 +190,6 @@ const MasonryTile = memo(function MasonryTile({
           onError={onImgLoad}
         />
 
-        <div
-          className="absolute bottom-0 right-0 z-20 p-1.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="bg-black/25 backdrop-blur-sm rounded-lg p-1">
-            <CollectHeart
-              variant="overlay"
-              siteImageId={photo.id}
-              storagePath={photo.storagePath}
-              siteId={siteId}
-              caption={photo.caption}
-              credit={photo.author?.name}
-              requireSignedIn={ensureSignedIn}
-            />
-          </div>
-        </div>
       </div>
     </figure>
   );
