@@ -15,11 +15,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import HomeClient from "@/app/HomeClient";
 import ExploreClient from "@/app/explore/ExploreClient";
+import DiscoverClient from "@/app/discover/DiscoverClient";
 
 export function isTabRoute(pathname: string) {
   return (
     pathname === "/" ||
-    pathname.startsWith("/explore")
+    pathname.startsWith("/explore") ||
+    pathname.startsWith("/discover")
   );
 }
 
@@ -86,13 +88,15 @@ function TabPane({
 export default function TabShell() {
   const pathname = usePathname() || "/";
 
-  const isHome    = pathname === "/";
-  const isExplore = pathname.startsWith("/explore");
+  const isHome     = pathname === "/";
+  const isExplore  = pathname.startsWith("/explore");
+  const isDiscover = pathname.startsWith("/discover");
 
   return (
     <>
       <TabPane active={isHome}><HomeClient /></TabPane>
       <TabPane active={isExplore}><ExploreClient /></TabPane>
+      <TabPane active={isDiscover}><DiscoverClient initialPhotos={[]} /></TabPane>
     </>
   );
 }

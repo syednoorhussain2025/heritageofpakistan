@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import Image from "next/image";
 import Icon from "./Icon";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -166,7 +165,6 @@ function ProfilePanel({
     router.refresh();
   };
 
-  const initial = displayName.charAt(0).toUpperCase() || "?";
 
   if (!open) return null;
 
@@ -279,7 +277,6 @@ export default function BottomNav() {
   const { profile } = useProfile();
   const { startNavigation } = useLoaderEngine();
 
-  const [lastHeritagePath, setLastHeritagePath] = useState<string | null>(null);
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);
@@ -351,21 +348,11 @@ export default function BottomNav() {
     closePanel();
   };
 
-  const isHomeActive = optimisticHref === "/" || (!optimisticHref && pathname === "/");
-  const isHeritageActive = optimisticHref?.startsWith("/heritage") || (!optimisticHref && pathname.startsWith("/heritage"));
-  const isExploreActive = optimisticHref === "/explore" || (!optimisticHref && pathname.startsWith("/explore"));
-  const isMapActive = optimisticHref === "/map" || (!optimisticHref && pathname.startsWith("/map"));
+  const isHomeActive     = optimisticHref === "/" || (!optimisticHref && pathname === "/");
+  const isDiscoverActive = optimisticHref?.startsWith("/discover") || (!optimisticHref && pathname.startsWith("/discover"));
+  const isExploreActive  = optimisticHref === "/explore" || (!optimisticHref && pathname.startsWith("/explore"));
+  const isMapActive      = optimisticHref === "/map" || (!optimisticHref && pathname.startsWith("/map"));
   const isDashboardActive = pathname.startsWith("/dashboard");
-
-  const heritageDetailRe = /^\/heritage\/[^/]+\/[^/]+\/?$/;
-  const isHeritageDetail = heritageDetailRe.test(pathname || "");
-  const isTabPage = pathname === "/" || pathname.startsWith("/explore");
-  const isHomePage = isTabPage;
-
-  const heritageHref =
-    lastHeritagePath && lastHeritagePath.startsWith("/heritage/")
-      ? lastHeritagePath
-      : "/heritage/punjab/lahore-fort";
 
   const displayName = profile?.full_name || "My Account";
   const avatarUrl = avatarThumbUrl(profile?.avatar_url);
@@ -380,7 +367,7 @@ export default function BottomNav() {
       <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
-          <NavItem label="Heritage" icon="compass" isActive={isHeritageActive} href={heritageHref} onPress={() => setOptimisticHref(heritageHref)} />
+          <NavItem label="Discover" icon="sparkle" isActive={isDiscoverActive} href="/discover" onPress={() => setOptimisticHref("/discover")} />
           <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" onPress={() => setOptimisticHref("/explore")} />
           <NavItem label="Map" icon="adminmap" isActive={isMapActive} href="/map" onPress={() => setOptimisticHref("/map")} />
 
