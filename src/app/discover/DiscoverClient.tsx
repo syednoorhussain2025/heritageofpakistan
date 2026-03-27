@@ -10,35 +10,31 @@ import {
 } from "react";
 import dynamicImport from "next/dynamic";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
+import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { hapticLight } from "@/lib/haptics";
+import CollectHeart from "@/components/CollectHeart";
 
 async function loadPhotos(page: number, cycle: number): Promise<DiscoverPhoto[]> {
   const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}`);
   if (!res.ok) return [];
   return res.json();
 }
-import { getVariantPublicUrl } from "@/lib/imagevariants";
-import { hapticLight } from "@/lib/haptics";
-import type { LightboxPhoto } from "@/types/lightbox";
 
-const Lightbox = dynamicImport(
-  () => import("@/components/ui/Lightbox").then((m) => m.Lightbox),
+const SiteBottomSheet = dynamicImport(
+  () => import("@/components/SiteBottomSheet"),
   { ssr: false }
 );
 
-/* ─── Tile aspect ratio pattern ───────────────────────────────────────────
-   We repeat a pattern of aspect ratios per column to create a natural
-   staggered Pinterest feel. Left col and right col have different rhythms
-   so they never align at the same height simultaneously.
-*/
+/* ─── Tile aspect ratio pattern ─────────────────────────────────────────── */
 const LEFT_ASPECTS  = ["aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
 const RIGHT_ASPECTS = ["aspect-[2/3]", "aspect-square", "aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]"];
 
-/* ─── Single tile ─────────────────────────────────────────────────────── */
+/* ─── Single tile ──────────────────────────────────────────────────────── */
 
 type TileProps = {
   photo: DiscoverPhoto;
   aspectClass: string;
-  onOpen: (rect: DOMRect, thumb: string) => void;
+  onOpen: () => void;
   isPriority: boolean;
 };
 
@@ -50,7 +46,6 @@ const DiscoverTile = memo(function DiscoverTile({
 }: TileProps) {
   const tileRef = useRef<HTMLDivElement>(null);
   const imgRef  = useRef<HTMLImageElement>(null);
-
   const setImgRef = useCallback((el: HTMLImageElement | null) => {
     (imgRef as React.MutableRefObject<HTMLImageElement | null>).current = el;
     if (!el) return;
@@ -73,18 +68,31 @@ const DiscoverTile = memo(function DiscoverTile({
     try { return getVariantPublicUrl(photo.storagePath, "md"); } catch { return photo.url; }
   }, [photo.storagePath, photo.url]);
 
-  const handlePress = useCallback(() => {
+  const [pressed, setPressed] = useState(false);
+
+  const handlePressStart = useCallback(() => {
+    setPressed(true);
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    setPressed(false);
     void hapticLight();
-    const rect = tileRef.current?.getBoundingClientRect();
-    if (rect) onOpen(rect, thumbUrl);
-  }, [onOpen, thumbUrl]);
+    onOpen();
+  }, [onOpen]);
+
+  const handlePressCancel = useCallback(() => {
+    setPressed(false);
+  }, []);
 
   return (
     <div
       ref={tileRef}
-      className={`relative w-full overflow-hidden rounded-2xl cursor-pointer group ${aspectClass}`}
+      className={`relative w-full overflow-hidden rounded-2xl cursor-pointer ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
-      onClick={handlePress}
+      onPointerDown={handlePressStart}
+      onPointerUp={handlePressEnd}
+      onPointerLeave={handlePressCancel}
+      onPointerCancel={handlePressCancel}
     >
       {/* Blur placeholder */}
       {photo.blurDataURL && (
@@ -105,12 +113,24 @@ const DiscoverTile = memo(function DiscoverTile({
         ref={setImgRef}
         src={thumbUrl}
         alt={photo.caption ?? photo.site.name}
-        className="absolute inset-0 w-full h-full object-cover z-[2] group-active:scale-[1.03] transition-transform duration-300 ease-out"
+        className="absolute inset-0 w-full h-full object-cover z-[2] transition-transform duration-500 ease-in-out"
+        style={{ transform: pressed ? "scale(1.06)" : "scale(1)" }}
         style={{ opacity: 0 }}
         loading={isPriority ? "eager" : "lazy"}
         fetchPriority={isPriority ? "high" : "auto"}
         onLoad={onImgLoad}
         onError={onImgLoad}
+      />
+
+      {/* Collect heart — top right */}
+      <CollectHeart
+        siteImageId={photo.id}
+        storagePath={photo.storagePath}
+        imageUrl={photo.url}
+        siteId={photo.site.id}
+        altText={photo.caption}
+        variant="overlay"
+        size={20}
       />
 
       {/* Bottom overlay: site name */}
@@ -133,7 +153,7 @@ const DiscoverTile = memo(function DiscoverTile({
   );
 });
 
-/* ─── Skeleton tile ───────────────────────────────────────────────────── */
+/* ─── Skeleton tile ────────────────────────────────────────────────────── */
 
 function SkeletonTile({ aspectClass }: { aspectClass: string }) {
   return (
@@ -141,7 +161,7 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
   );
 }
 
-/* ─── Main component ──────────────────────────────────────────────────── */
+/* ─── Main component ───────────────────────────────────────────────────── */
 
 const LOAD_THRESHOLD_PX = 1500;
 
@@ -152,19 +172,15 @@ export default function DiscoverClient({
 }) {
   const [photos, setPhotos]   = useState<DiscoverPhoto[]>(initialPhotos);
   const [loading, setLoading] = useState(false);
-  // Use refs for page/cycle so loadMore always reads current values (no stale closure)
   const pageRef  = useRef(initialPhotos.length > 0 ? 1 : 0);
   const cycleRef = useRef(0);
 
-  // Lightbox
-  const [lightboxIndex, setLightboxIndex]   = useState<number | null>(null);
-  const [lightboxOrigin, setLightboxOrigin] = useState<{ rect: DOMRect; thumb: string } | null>(null);
+  // Bottom sheet state
+  const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
 
-  // Scroll container + sentinel refs for infinite scroll
-  const scrollRef  = useRef<HTMLDivElement>(null);
+  const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-
-  const loadingRef = useRef(false);
+  const loadingRef  = useRef(false);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return;
@@ -187,13 +203,11 @@ export default function DiscoverClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Initial fetch when mounted with no photos
   useEffect(() => {
     if (initialPhotos.length === 0) void loadMore();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // IntersectionObserver on sentinel — no custom root, uses viewport
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -205,7 +219,6 @@ export default function DiscoverClient({
     return () => observer.disconnect();
   }, [loadMore]);
 
-  // Split photos into two columns with staggered aspect ratios
   const [leftPhotos, rightPhotos] = useMemo(() => {
     const left: DiscoverPhoto[]  = [];
     const right: DiscoverPhoto[] = [];
@@ -215,23 +228,28 @@ export default function DiscoverClient({
     return [left, right];
   }, [photos]);
 
-  const handleOpen = useCallback(
-    (photo: DiscoverPhoto, rect: DOMRect, thumb: string) => {
-      const idx = photos.findIndex((p) => p.id === photo.id);
-      if (idx !== -1) {
-        setLightboxIndex(idx);
-        setLightboxOrigin({ rect, thumb });
-      }
-    },
-    [photos]
-  );
-
-  // Stub — discover feed is read-only for bookmark toggle (no-op for now)
-  const handleBookmarkToggle = useCallback(async (_photo: LightboxPhoto) => {}, []);
-  const handleAddToCollection = useCallback(async (_photo: LightboxPhoto) => {}, []);
-
-  // Skeleton tiles while first load
   const showSkeleton = photos.length === 0;
+
+  // Build BottomSheetSite from a DiscoverPhoto
+  const sheetSite = useMemo(() => {
+    if (!sheetPhoto) return null;
+    const s = sheetPhoto.site;
+    return {
+      id: s.id,
+      slug: sheetPhoto.siteSlug,
+      province_slug: sheetPhoto.regionSlug,
+      title: s.name,
+      cover_photo_url: s.coverPhotoUrl ?? null,
+      cover_slideshow_image_ids: s.coverSlideshowImageIds ?? null,
+      avg_rating: s.avgRating ?? null,
+      review_count: s.reviewCount ?? null,
+      heritage_type: s.heritageType ?? null,
+      location_free: s.location ?? null,
+      tagline: s.tagline ?? null,
+      latitude: s.latitude ?? null,
+      longitude: s.longitude ?? null,
+    };
+  }, [sheetPhoto]);
 
   return (
     <div
@@ -240,11 +258,8 @@ export default function DiscoverClient({
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
     >
 
-      {/* ── Fixed header: gradient + blur + "Discover" title ── */}
-      <div
-        className="fixed inset-x-0 top-0 z-[1100] pointer-events-none lg:hidden"
-      >
-        {/* Gradient + blur backdrop */}
+      {/* ── Fixed header ── */}
+      <div className="fixed inset-x-0 top-0 z-[1100] pointer-events-none lg:hidden">
         <div
           className="absolute inset-0"
           style={{
@@ -256,7 +271,6 @@ export default function DiscoverClient({
             height: "110%",
           }}
         />
-        {/* Title — sits just below the status bar */}
         <div
           className="relative flex items-center justify-center"
           style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: "12px" }}
@@ -277,12 +291,9 @@ export default function DiscoverClient({
       {/* ── Feed ── */}
       <div
         className="px-2 pb-8"
-        style={{
-          paddingTop: "calc(var(--sat, 44px) + 70px)",
-        }}
+        style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
       >
         {showSkeleton ? (
-          /* Skeleton two-column grid */
           <div className="flex gap-2">
             <div className="flex flex-col gap-2 flex-1">
               {LEFT_ASPECTS.slice(0, 5).map((a, i) => (
@@ -305,7 +316,7 @@ export default function DiscoverClient({
                   photo={photo}
                   aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                   isPriority={colIdx < 4}
-                  onOpen={(rect, thumb) => handleOpen(photo, rect, thumb)}
+                  onOpen={() => setSheetPhoto(photo)}
                 />
               ))}
               {loading && [0, 1, 2].map((i) => (
@@ -321,7 +332,7 @@ export default function DiscoverClient({
                   photo={photo}
                   aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                   isPriority={colIdx < 4}
-                  onOpen={(rect, thumb) => handleOpen(photo, rect, thumb)}
+                  onOpen={() => setSheetPhoto(photo)}
                 />
               ))}
               {loading && [0, 1, 2].map((i) => (
@@ -338,18 +349,12 @@ export default function DiscoverClient({
         <div className="h-[calc(env(safe-area-inset-bottom,0px)+72px)]" />
       </div>
 
-      {/* Lightbox */}
-      {lightboxIndex !== null && (
-        <Lightbox
-          photos={photos}
-          startIndex={lightboxIndex}
-          originRect={lightboxOrigin?.rect ?? null}
-          originThumb={lightboxOrigin?.thumb ?? null}
-          onClose={() => { setLightboxIndex(null); setLightboxOrigin(null); }}
-          onBookmarkToggle={handleBookmarkToggle}
-          onAddToCollection={handleAddToCollection}
-        />
-      )}
+      {/* Site bottom sheet */}
+      <SiteBottomSheet
+        site={sheetSite}
+        isOpen={sheetSite !== null}
+        onClose={() => setSheetPhoto(null)}
+      />
     </div>
   );
 }

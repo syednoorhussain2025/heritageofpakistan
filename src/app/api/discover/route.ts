@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
-import type { LightboxPhoto } from "@/types/lightbox";
+import type { LightboxPhoto, LightboxSite } from "@/types/lightbox";
 
-export type DiscoverPhoto = LightboxPhoto & {
+export type DiscoverSiteInfo = LightboxSite & {
+  coverPhotoUrl: string | null;
+  coverSlideshowImageIds: string[] | null;
+  avgRating: number | null;
+  reviewCount: number | null;
+  heritageType: string | null;
+};
+
+export type DiscoverPhoto = Omit<LightboxPhoto, "site"> & {
   siteSlug: string;
   regionSlug: string;
+  site: DiscoverSiteInfo;
 };
 
 const PAGE_SIZE = 30;
@@ -20,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Fetch all sites — we'll filter to those with images after getting image counts
   const { data: allSites, error: sitesError } = await supabase
     .from("sites")
-    .select("id, title, slug, tagline, location_free, latitude, longitude, province_id, cover_photo_url")
+    .select("id, title, slug, tagline, location_free, latitude, longitude, province_id, cover_photo_url, cover_slideshow_image_ids, avg_rating, review_count, heritage_type")
     .limit(1000);
 
   if (sitesError || !allSites || allSites.length === 0) return NextResponse.json([]);
@@ -118,6 +127,11 @@ export async function GET(req: NextRequest) {
           region: regionSlug,
           categories: [],
           tagline: site.tagline ?? null,
+          coverPhotoUrl: site.cover_photo_url ?? null,
+          coverSlideshowImageIds: site.cover_slideshow_image_ids ?? null,
+          avgRating: site.avg_rating ?? null,
+          reviewCount: site.review_count ?? null,
+          heritageType: site.heritage_type ?? null,
         },
       } as DiscoverPhoto;
     })
