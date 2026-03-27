@@ -153,27 +153,8 @@ const MasonryTile = memo(function MasonryTile({
 }: MasonryTileProps & { variant?: TileVariant }) {
   const extras = photo as PhotoWithExtras;
 
-  const [shouldLoad, setShouldLoad] = useState(isPriority);
   const tileRef = useRef<HTMLDivElement | null>(null);
   const blurDataURL = extras.blurDataURL ?? undefined;
-
-  useEffect(() => {
-    if (isPriority) return; // already loading
-    const el = tileRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldLoad(true);
-          observer.unobserve(entry.target);
-        }
-      },
-      { rootMargin: "800px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const thumbUrl = useMemo(() => {
     if (photo.storagePath) {
@@ -207,28 +188,29 @@ const MasonryTile = memo(function MasonryTile({
         }}
         title="Open"
       >
-        {/* Blur placeholder — always visible until real image paints */}
-        {blurDataURL && (
-          <img
-            src={blurDataURL}
-            aria-hidden
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            style={{ filter: "blur(8px)", transform: "scale(1.05)" }}
-          />
-        )}
-        {shouldLoad && (
-          <Image
-            src={thumbUrl}
-            alt={photo.caption ?? ""}
-            fill
-            unoptimized
-            className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.8s_cubic-bezier(0.4,0,0.2,1)_both]"
-            sizes="(min-width: 768px) 22vw, 50vw"
-            priority={isPriority}
-            loading={isPriority ? "eager" : "lazy"}
-            fetchPriority={isPriority ? "high" : "auto"}
-          />
-        )}
+        {/* Placeholder — always rendered so tile is never white */}
+        <div
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={blurDataURL ? {
+            backgroundImage: `url(${blurDataURL})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            filter: "blur(8px)",
+            transform: "scale(1.05)",
+          } : { backgroundColor: "#d1d5db" }}
+        />
+        {/* Real image — lazy loaded, fades in over placeholder */}
+        <Image
+          src={thumbUrl}
+          alt={photo.caption ?? ""}
+          fill
+          unoptimized
+          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.8s_cubic-bezier(0.4,0,0.2,1)_both]"
+          sizes="(min-width: 768px) 22vw, 50vw"
+          priority={isPriority}
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : "auto"}
+        />
 
         <div
           className="absolute bottom-0 right-0 z-20 p-1.5"
