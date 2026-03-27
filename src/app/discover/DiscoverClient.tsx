@@ -9,7 +9,7 @@ import {
   memo,
 } from "react";
 import dynamicImport from "next/dynamic";
-import type { DiscoverPhoto } from "@/lib/discover-actions";
+import type { DiscoverPhoto } from "@/app/api/discover/route";
 
 async function loadPhotos(page: number, seed: number): Promise<DiscoverPhoto[]> {
   const res = await fetch(`/api/discover?page=${page}&seed=${seed}`);
@@ -257,7 +257,6 @@ export default function DiscoverClient({
       {/* ── Fixed header: gradient + blur + "Discover" title ── */}
       <div
         className="fixed inset-x-0 top-0 z-[1100] pointer-events-none lg:hidden"
-        style={{ paddingTop: "var(--sat, 44px)" }}
       >
         {/* Gradient + blur backdrop */}
         <div
@@ -271,10 +270,10 @@ export default function DiscoverClient({
             height: "110%",
           }}
         />
-        {/* Title */}
+        {/* Title — sits just below the status bar */}
         <div
           className="relative flex items-center justify-center"
-          style={{ paddingTop: "10px", paddingBottom: "14px" }}
+          style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: "12px" }}
         >
           <h1
             className="text-white font-bold tracking-tight"
