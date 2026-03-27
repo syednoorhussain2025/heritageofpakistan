@@ -915,7 +915,7 @@ export function Lightbox({
                     {isActive && (
                       <div
                         className={`absolute flex items-center gap-2 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 4, opacity: 0, animation: "fadeIn 0.3s ease-out 0.4s forwards" }}>
+                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 4, opacity: 0, animation: "fadeIn 0.3s ease-out 0.4s forwards" }}
                         onClick={(e) => e.stopPropagation()}
                         onPointerDownCapture={(e) => e.stopPropagation()}
                       >
