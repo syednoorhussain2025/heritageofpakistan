@@ -317,12 +317,6 @@ export default function BottomNav() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("lastHeritagePath");
-    setLastHeritagePath(stored);
-  }, [pathname]);
-
   const openPanel = () => {
     if (userId) {
       // Logged in: go to dashboard hub directly — no panel
