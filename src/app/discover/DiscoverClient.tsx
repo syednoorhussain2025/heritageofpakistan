@@ -162,7 +162,8 @@ export default function DiscoverClient({
   const [lightboxIndex, setLightboxIndex]   = useState<number | null>(null);
   const [lightboxOrigin, setLightboxOrigin] = useState<{ rect: DOMRect; thumb: string } | null>(null);
 
-  // Sentinel ref for infinite scroll
+  // Scroll container + sentinel refs for infinite scroll
+  const scrollRef  = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Initial fetch when mounted with no photos (e.g. from TabShell)
@@ -206,13 +207,13 @@ export default function DiscoverClient({
     }
   }, [loading, done, page, seed]);
 
-  // IntersectionObserver on sentinel
+  // IntersectionObserver on sentinel — root is the scroll container
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) void loadMore(); },
-      { rootMargin: `${LOAD_THRESHOLD_PX}px` }
+      { root: scrollRef.current, rootMargin: `${LOAD_THRESHOLD_PX}px` }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -247,7 +248,11 @@ export default function DiscoverClient({
   const showSkeleton = photos.length === 0;
 
   return (
-    <div className="min-h-screen bg-[#f5f2ef]">
+    <div
+      ref={scrollRef}
+      className="fixed inset-0 bg-[#f5f2ef] overflow-y-auto lg:static lg:min-h-screen"
+      style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+    >
 
       {/* ── Fixed header: gradient + blur + "Discover" title ── */}
       <div
