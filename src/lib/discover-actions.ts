@@ -63,7 +63,7 @@ export async function fetchDiscoverPhotos(
   });
 
   if (error || !data) {
-    // Fallback: plain random query if RPC not yet deployed
+    console.error("[discover] RPC error, falling back", error);
     return fetchDiscoverPhotosFallback(page);
   }
 
@@ -108,14 +108,18 @@ async function fetchDiscoverPhotosFallback(page: number): Promise<DiscoverPhoto[
     .from("site_images")
     .select(`
       id, storage_path, alt_text, caption, credit, width, height, blur_hash, blur_data_url,
-      sites!inner ( id, title, slug, tagline, location_free, latitude, longitude,
-        provinces!inner ( slug )
+      sites!inner (
+        id, title, slug, tagline, location_free, latitude, longitude,
+        provinces!sites_province_id_fkey ( slug )
       )
     `)
     .not("storage_path", "is", null)
     .range(offset, offset + DISCOVER_PAGE_SIZE - 1);
 
-  if (error || !data) return [];
+  if (error || !data) {
+    console.error("[discover fallback] supabase error", error);
+    return [];
+  }
 
   return (data as any[]).map((row): DiscoverPhoto => {
     const site = row.sites;
