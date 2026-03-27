@@ -188,17 +188,24 @@ const MasonryTile = memo(function MasonryTile({
         }}
         title="Open"
       >
-        {/* Placeholder — always rendered so tile is never white */}
-        <div
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={blurDataURL ? {
-            backgroundImage: `url(${blurDataURL})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            filter: "blur(8px)",
-            transform: "scale(1.05)",
-          } : { backgroundColor: "#d1d5db" }}
-        />
+        {/* Placeholder — always visible, never white.
+            blurDataURL = instant base64 JPEG (preferred).
+            blurHash = canvas decode fallback for older images.
+            Plain grey = last resort. */}
+        {blurDataURL ? (
+          <img
+            src={blurDataURL}
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none scale-110"
+            style={{ filter: "blur(6px)" }}
+          />
+        ) : extras.blurHash ? (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <BlurhashPlaceholder hash={extras.blurHash} />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-gray-200 pointer-events-none" />
+        )}
         {/* Real image — lazy loaded, fades in over placeholder */}
         <Image
           src={thumbUrl}
