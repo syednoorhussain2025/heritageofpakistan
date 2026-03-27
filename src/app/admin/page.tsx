@@ -187,6 +187,12 @@ export default function AdminHome() {
       desc: "Configure AI-powered features.",
       icon: "ai",
     },
+    {
+      href: "/admin/image-tags",
+      title: "Image Tags",
+      desc: "Manage photo tag dimensions and vocabulary.",
+      icon: "categorytax",
+    },
     // Layouts & Templates hub
     {
       href: "/admin/layouts",
