@@ -8,9 +8,14 @@ import {
   useMemo,
   memo,
 } from "react";
-import { useRouter } from "next/navigation";
 import dynamicImport from "next/dynamic";
-import { fetchDiscoverPhotos, type DiscoverPhoto } from "@/lib/discover-actions";
+import type { DiscoverPhoto } from "@/lib/discover-actions";
+
+async function loadPhotos(page: number, seed: number): Promise<DiscoverPhoto[]> {
+  const res = await fetch(`/api/discover?page=${page}&seed=${seed}`);
+  if (!res.ok) return [];
+  return res.json();
+}
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight } from "@/lib/haptics";
 import type { LightboxPhoto } from "@/types/lightbox";
@@ -145,8 +150,6 @@ export default function DiscoverClient({
 }: {
   initialPhotos: DiscoverPhoto[];
 }) {
-  const router = useRouter();
-
   // Stable random seed for this session
   const seed = useRef(Math.random()).current;
 
@@ -168,7 +171,7 @@ export default function DiscoverClient({
       void (async () => {
         setLoading(true);
         try {
-          const first = await fetchDiscoverPhotos(0, seed);
+          const first = await loadPhotos(0, seed);
           if (first.length > 0) {
             setPhotos(first);
             setPage(1);
@@ -186,7 +189,7 @@ export default function DiscoverClient({
     if (loading || done) return;
     setLoading(true);
     try {
-      const next = await fetchDiscoverPhotos(page, seed);
+      const next = await loadPhotos(page, seed);
       if (next.length === 0) {
         setDone(true);
       } else {
