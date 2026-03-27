@@ -222,7 +222,7 @@ const MasonryTile = memo(function MasonryTile({
             alt={photo.caption ?? ""}
             fill
             unoptimized
-            className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.4s_ease-out_both]"
+            className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.8s_cubic-bezier(0.4,0,0.2,1)_both]"
             sizes="(min-width: 768px) 22vw, 50vw"
             priority={isPriority}
             loading={isPriority ? "eager" : "lazy"}
