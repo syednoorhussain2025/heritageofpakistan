@@ -164,27 +164,14 @@ export default function DiscoverClient({
   const scrollRef  = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const loadingRef  = useRef(false);
-  // Cache for the next page — fetched in background while user reads current batch
-  const prefetchRef = useRef<Promise<DiscoverPhoto[]> | null>(null);
-
-  const prefetchNext = useCallback(() => {
-    const nextPage  = pageRef.current;
-    const nextCycle = cycleRef.current;
-    prefetchRef.current = loadPhotos(nextPage, nextCycle);
-  }, []);
+  const loadingRef = useRef(false);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
     try {
-      // Use prefetched data if available, otherwise fetch now
-      const next = prefetchRef.current
-        ? await prefetchRef.current
-        : await loadPhotos(pageRef.current, cycleRef.current);
-      prefetchRef.current = null;
-
+      const next = await loadPhotos(pageRef.current, cycleRef.current);
       if (next.length > 0) {
         setPhotos((prev) => [...prev, ...next]);
         pageRef.current += 1;
@@ -193,24 +180,16 @@ export default function DiscoverClient({
         cycleRef.current += 1;
         pageRef.current = 0;
       }
-
-      // Immediately prefetch the next batch in background
-      prefetchNext();
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefetchNext]);
+  }, []);
 
-  // Initial fetch when mounted with no photos, then prefetch page 1
+  // Initial fetch when mounted with no photos
   useEffect(() => {
-    if (initialPhotos.length === 0) {
-      void loadMore();
-    } else {
-      // Already have photos from SSR — prefetch next page immediately
-      prefetchNext();
-    }
+    if (initialPhotos.length === 0) void loadMore();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
