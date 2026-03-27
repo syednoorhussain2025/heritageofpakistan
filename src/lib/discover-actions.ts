@@ -9,7 +9,7 @@ export type DiscoverPhoto = LightboxPhoto & {
   regionSlug: string;
 };
 
-export const DISCOVER_PAGE_SIZE = 30;
+const DISCOVER_PAGE_SIZE = 30;
 
 /**
  * Fetches a seeded-random page of photos from across all sites.
