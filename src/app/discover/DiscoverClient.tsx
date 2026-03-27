@@ -193,13 +193,13 @@ export default function DiscoverClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // IntersectionObserver on sentinel — root is the scroll container
+  // IntersectionObserver on sentinel — no custom root, uses viewport
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) void loadMore(); },
-      { root: scrollRef.current, rootMargin: `${LOAD_THRESHOLD_PX}px` }
+      { rootMargin: `${LOAD_THRESHOLD_PX}px` }
     );
     observer.observe(el);
     return () => observer.disconnect();
