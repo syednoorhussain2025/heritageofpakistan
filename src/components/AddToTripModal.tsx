@@ -1,7 +1,7 @@
 // src/components/AddToTripModal.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
@@ -51,6 +51,15 @@ export default function AddToTripModal({
   useBottomSheetParallax(isOpen);
   const closeTimerRef = useRef<number | null>(null);
 
+  // Drag-to-close refs
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartX = useRef<number>(0);
+  const dragCurrentY = useRef<number>(0);
+  const dragStartTime = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
+
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [privacy, setPrivacy] = useState<"private" | "public">("private");
@@ -80,6 +89,76 @@ export default function AddToTripModal({
     const t = setTimeout(() => setIsOpen(true), 10);
     return () => clearTimeout(t);
   }, []);
+
+  const onCardTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragStartX.current = e.touches[0].clientX;
+    dragStartTime.current = Date.now();
+    dragCurrentY.current = 0;
+    isDragging.current = true;
+    dragDirectionLocked.current = null;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
+
+  const onCardTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    const dx = e.touches[0].clientX - dragStartX.current;
+
+    if (!dragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        dragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        dragDirectionLocked.current = "vertical";
+      }
+    }
+
+    if (dragDirectionLocked.current === "horizontal") {
+      isDragging.current = false;
+      const el = sheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (dragDirectionLocked.current !== "vertical") return;
+
+    if (dy < 0) {
+      dragCurrentY.current = 0;
+      const el = sheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    dragCurrentY.current = dy;
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const onCardTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    const dy = dragCurrentY.current;
+    const elapsed = Date.now() - dragStartTime.current;
+    const velocity = dy / elapsed;
+
+    const el = sheetRef.current;
+    if (el) el.style.transition = "";
+
+    if (dy >= 80 || velocity >= 0.4) {
+      if (el) {
+        el.style.transition = "transform 300ms cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(110%)";
+      }
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = window.setTimeout(() => onClose(), 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+  }, [onClose]);
 
   function requestClose() {
     void hapticLight();
@@ -260,15 +339,19 @@ export default function AddToTripModal({
         onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
       >
         <div
+          ref={sheetRef}
           className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl h-[82vh] max-h-[82vh] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
             isOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={onCardTouchStart}
+          onTouchMove={onCardTouchMove}
+          onTouchEnd={onCardTouchEnd}
         >
           {/* Drag handle */}
-          <div className="w-full flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          <div className="w-full flex justify-center items-center h-10 shrink-0 cursor-grab active:cursor-grabbing">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </div>
 
           {/* Header */}

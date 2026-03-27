@@ -115,21 +115,14 @@ export default function AddToWishlistModal({
 
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
-  const swipeStartRef = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    lastX: number;
-    lastY: number;
-    startedOnNoSwipe: boolean;
-  }>({
-    active: false,
-    startX: 0,
-    startY: 0,
-    lastX: 0,
-    lastY: 0,
-    startedOnNoSwipe: false,
-  });
+  // Drag-to-close refs
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartX = useRef<number>(0);
+  const dragCurrentY = useRef<number>(0);
+  const dragStartTime = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
 
   const previewUrl = site?.imageUrl?.trim() || null;
   const previewTitle = site?.name?.trim() || "";
@@ -391,35 +384,76 @@ export default function AddToWishlistModal({
     }
   }
 
-  function onCardTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    if (e.touches.length !== 1) return;
-    const t = e.touches[0];
-    swipeStartRef.current = {
-      active: true,
-      startX: t.clientX,
-      startY: t.clientY,
-      lastX: t.clientX,
-      lastY: t.clientY,
-      startedOnNoSwipe: isNoSwipeTarget(e.target),
-    };
-  }
+  const onCardTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isNoSwipeTarget(e.target)) return;
+    dragStartY.current = e.touches[0].clientY;
+    dragStartX.current = e.touches[0].clientX;
+    dragStartTime.current = Date.now();
+    dragCurrentY.current = 0;
+    isDragging.current = true;
+    dragDirectionLocked.current = null;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
 
-  function onCardTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    if (!swipeStartRef.current.active) return;
-    if (e.touches.length !== 1) return;
-    const t = e.touches[0];
-    swipeStartRef.current.lastX = t.clientX;
-    swipeStartRef.current.lastY = t.clientY;
-  }
+  const onCardTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    const dx = e.touches[0].clientX - dragStartX.current;
 
-  function onCardTouchEnd() {
-    const s = swipeStartRef.current;
-    swipeStartRef.current.active = false;
-    if (s.startedOnNoSwipe) return;
-    const dx = s.lastX - s.startX;
-    const dy = s.startY - s.lastY;
-    if (dy > 90 && Math.abs(dx) < 60) requestClose();
-  }
+    if (!dragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        dragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        dragDirectionLocked.current = "vertical";
+      }
+    }
+
+    if (dragDirectionLocked.current === "horizontal") {
+      isDragging.current = false;
+      const el = sheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (dragDirectionLocked.current !== "vertical") return;
+
+    if (dy < 0) {
+      dragCurrentY.current = 0;
+      const el = sheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    dragCurrentY.current = dy;
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const onCardTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    const dy = dragCurrentY.current;
+    const elapsed = Date.now() - dragStartTime.current;
+    const velocity = dy / elapsed;
+
+    const el = sheetRef.current;
+    if (el) el.style.transition = "";
+
+    if (dy >= 80 || velocity >= 0.4) {
+      if (el) {
+        el.style.transition = "transform 300ms cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(110%)";
+      }
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = window.setTimeout(() => onClose(), 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+  }, [onClose]);
 
   const anyToggleInFlight = Boolean(toggling);
   const itemCount = (w: { wishlist_items?: { count?: number }[] }) =>
@@ -437,6 +471,7 @@ export default function AddToWishlistModal({
         onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
       >
         <div
+          ref={sheetRef}
           className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl h-[82vh] max-h-[82vh] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
             isOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
           }`}
@@ -447,8 +482,8 @@ export default function AddToWishlistModal({
           onTouchEnd={onCardTouchEnd}
         >
           {/* Drag handle */}
-          <div className="w-full flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          <div className="w-full flex justify-center items-center h-10 shrink-0 cursor-grab active:cursor-grabbing">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </div>
           {listToDelete && (
             <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
