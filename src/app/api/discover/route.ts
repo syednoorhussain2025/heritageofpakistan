@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
-import type { DiscoverPhoto } from "@/lib/discover-actions";
+import type { LightboxPhoto } from "@/types/lightbox";
+
+export type DiscoverPhoto = LightboxPhoto & {
+  siteSlug: string;
+  regionSlug: string;
+};
 
 const PAGE_SIZE = 30;
 
@@ -16,7 +21,8 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const page = parseInt(searchParams.get("page") ?? "0", 10);
+  const page  = parseInt(searchParams.get("page")  ?? "0", 10);
+  const cycle = parseInt(searchParams.get("cycle") ?? "0", 10);
 
   const supabase = await createClient();
 
@@ -29,8 +35,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([]);
   }
 
-  // Step 2: shuffle sites, then pick PAGE_SIZE sites for this page
-  const shuffledSites = shuffleArray(allSites as any[]);
+  // Step 2: deterministically shuffle based on cycle so each loop differs
+  // Seed Math.random isn't possible in JS, so we do a seeded sort instead
+  const shuffledSites = (allSites as any[])
+    .map((s, i) => ({ s, order: Math.sin(i * 9301 + cycle * 49297 + 233720) }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ s }) => s);
   const pageSites = shuffledSites.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   if (pageSites.length === 0) return NextResponse.json([]);
 

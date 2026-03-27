@@ -11,8 +11,8 @@ import {
 import dynamicImport from "next/dynamic";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 
-async function loadPhotos(page: number, seed: number): Promise<DiscoverPhoto[]> {
-  const res = await fetch(`/api/discover?page=${page}&seed=${seed}`);
+async function loadPhotos(page: number, cycle: number): Promise<DiscoverPhoto[]> {
+  const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -150,13 +150,12 @@ export default function DiscoverClient({
 }: {
   initialPhotos: DiscoverPhoto[];
 }) {
-  // Stable random seed for this session
-  const seed = useRef(Math.random()).current;
-
   const [photos, setPhotos]   = useState<DiscoverPhoto[]>(initialPhotos);
   const [page, setPage]       = useState(initialPhotos.length > 0 ? 1 : 0);
   const [loading, setLoading] = useState(false);
-  const [done, setDone]       = useState(false);
+  // cycleRef tracks how many times we've looped back to page 0
+  // so the API gets a different shuffle each cycle
+  const cycleRef = useRef(0);
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex]   = useState<number | null>(null);
@@ -172,12 +171,11 @@ export default function DiscoverClient({
       void (async () => {
         setLoading(true);
         try {
-          const first = await loadPhotos(0, seed);
+          const first = await loadPhotos(0, cycleRef.current);
           if (first.length > 0) {
             setPhotos(first);
             setPage(1);
           }
-          if (first.length < 30) setDone(true);
         } finally {
           setLoading(false);
         }
@@ -187,20 +185,20 @@ export default function DiscoverClient({
   }, []);
 
   const loadMore = useCallback(async () => {
-    if (loading || done) return;
+    if (loading) return;
     setLoading(true);
     try {
-      const next = await loadPhotos(page, seed);
-      if (next.length === 0) {
-        setDone(true);
+      const next = await loadPhotos(page, cycleRef.current);
+      if (next.length === 0 || next.length < 30) {
+        // End of sites — loop back to page 0 with a new cycle (fresh shuffle)
+        cycleRef.current += 1;
+        setPage(0);
       } else {
         setPhotos((prev) => {
-          // Deduplicate by id
           const seen = new Set(prev.map((p) => p.id));
           return [...prev, ...next.filter((p) => !seen.has(p.id))];
         });
         setPage((p) => p + 1);
-        if (next.length < 30) setDone(true); // fewer than a full page = exhausted
       }
     } finally {
       setLoading(false);
