@@ -17,22 +17,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // Step 1: get all site_ids that have at least one image
-  const { data: siteIdsWithImages } = await supabase
-    .from("site_images")
-    .select("site_id")
-    .not("storage_path", "is", null)
-    .limit(10000);
-
-  if (!siteIdsWithImages || siteIdsWithImages.length === 0) return NextResponse.json([]);
-
-  const uniqueSiteIds = [...new Set((siteIdsWithImages as any[]).map((r) => r.site_id))];
-
-  // Step 2: fetch all sites that have gallery images (by their IDs)
+  // Fetch all sites — we'll filter to those with images after getting image counts
   const { data: allSites, error: sitesError } = await supabase
     .from("sites")
     .select("id, title, slug, tagline, location_free, latitude, longitude, province_id, cover_photo_url")
-    .in("id", uniqueSiteIds)
     .limit(1000);
 
   if (sitesError || !allSites || allSites.length === 0) return NextResponse.json([]);
