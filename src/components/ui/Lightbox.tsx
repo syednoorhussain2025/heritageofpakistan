@@ -150,6 +150,7 @@ export function Lightbox({
   const touchDxRef = useRef(0);
   const gestureLockedRef = useRef<"horizontal" | "vertical" | null>(null);
   const currentIndexRef = useRef(startIndex);
+  const prevIndexRef = useRef(startIndex);
 
   const safeCurrentIndex =
     photos.length > 0
@@ -625,12 +626,14 @@ export function Lightbox({
 
       if (shouldNav && dx < 0 && idx < n - 1) {
         const newIdx = idx + 1;
+        currentIndexRef.current = newIdx;
         if (mobileTrackRef.current) applyTrackTransform(mobileTrackRef.current, 0, newIdx, true);
-        setCurrentIndex(newIdx);
+        setTimeout(() => setCurrentIndex(newIdx), 400);
       } else if (shouldNav && dx > 0 && idx > 0) {
         const newIdx = idx - 1;
+        currentIndexRef.current = newIdx;
         if (mobileTrackRef.current) applyTrackTransform(mobileTrackRef.current, 0, newIdx, true);
-        setCurrentIndex(newIdx);
+        setTimeout(() => setCurrentIndex(newIdx), 400);
       } else {
         if (mobileTrackRef.current) {
           applyTrackTransform(mobileTrackRef.current, 0, idx, true);
@@ -770,6 +773,8 @@ export function Lightbox({
                 const slideLeft = Math.round((slideVw - slideW) / 2);
                 const slideTop = Math.round((slideVh - slideH) / 2);
                 const isActive = idx === safeCurrentIndex;
+                // Render image on active + immediate neighbours to prevent black flash on swipe
+                const isNearby = Math.abs(idx - safeCurrentIndex) <= 1;
                 const pMedUrl = (p as any).storagePath
                   ? (() => { try { return getVariantPublicUrl((p as any).storagePath, "md"); } catch { return (p as any).url; } })()
                   : (p as any).url;
@@ -785,6 +790,7 @@ export function Lightbox({
                       ref={isActive ? imgContainerRef : undefined}
                       className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${isZoomed ? "z-50" : "z-10"}`}
                       style={{
+                        backgroundColor: "#111",
                         visibility: isActive && originRect && !overlayHiddenRef.current ? "hidden" : "visible",
                         left: isZoomed && isActive ? 0 : slideLeft,
                         top: isZoomed && isActive ? 0 : slideTop,
@@ -794,25 +800,6 @@ export function Lightbox({
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* Heart */}
-                      {isActive && (
-                        <div
-                          className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                          onClick={(e) => e.stopPropagation()}
-                          onPointerDownCapture={(e) => e.stopPropagation()}
-                        >
-                          <CollectHeart
-                            variant="overlay"
-                            siteImageId={(photo as any).siteImageId ?? (photo as any).id}
-                            storagePath={(photo as any).storagePath}
-                            imageUrl={(photo as any).url}
-                            siteId={photo.site?.id ?? ""}
-                            caption={(photo as any).caption}
-                            credit={(photo as any)?.author?.name}
-                            requireSignedIn={ensureSignedIn}
-                          />
-                        </div>
-                      )}
 
                       {/* BlurHash + spinner — only for active slide without shared-element */}
                       {isActive && !originRect && (p as any)?.blurHash && (
@@ -826,7 +813,22 @@ export function Lightbox({
                         </div>
                       )}
 
-                      {/* Zoom wrapper (active slide only) */}
+                      {/* Thumb background — cached from gallery, prevents black flash on swipe */}
+                      {(p as any).storagePath && (
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url(${(() => { try { return getVariantPublicUrl((p as any).storagePath, "thumb"); } catch { return ""; } })()})`,
+                            backgroundSize: "contain",
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "center",
+                            filter: "blur(8px)",
+                            transform: "scale(1.05)",
+                          }}
+                        />
+                      )}
+
+                      {/* Active slide: full zoom/pan support */}
                       {isActive ? (
                         <TransformWrapper
                           ref={transformRef}
@@ -847,7 +849,7 @@ export function Lightbox({
                             contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                           >
                             <div
-                              className={`relative w-full h-full flex items-center justify-center`}
+                              className="relative w-full h-full flex items-center justify-center"
                               onDoubleClick={handleDoubleTap}
                             >
                               <NextImage
@@ -883,8 +885,8 @@ export function Lightbox({
                             </div>
                           </TransformComponent>
                         </TransformWrapper>
-                      ) : (
-                        /* Lazy non-active slides: plain image, no zoom */
+                      ) : isNearby ? (
+                        /* Adjacent slides: always render image so no black flash on swipe */
                         <div className="relative w-full h-full">
                           <NextImage
                             src={pMedUrl || ""}
@@ -894,7 +896,7 @@ export function Lightbox({
                             draggable={false}
                           />
                         </div>
-                      )}
+                      ) : null}
 
                       {isActive && isHighResLoading && (
                         <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
@@ -913,14 +915,15 @@ export function Lightbox({
                     {isActive && (
                       <div
                         className={`absolute flex items-center gap-2 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 4 }}
+                        style={{ left: slideLeft, width: slideW, top: slideTop + slideH + 4, opacity: 0, animation: "fadeIn 0.3s ease-out 0.4s forwards" }}>
                         onClick={(e) => e.stopPropagation()}
                         onPointerDownCapture={(e) => e.stopPropagation()}
                       >
                         {/* Heart */}
-                        <div className="shrink-0 -ml-2 w-14 h-14 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-[52px] [&_svg]:h-[52px]">
+                        <div className="shrink-0 -ml-2 w-16 h-16 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-[60px] [&_svg]:h-[60px]">
                           <CollectHeart
-                            variant="overlay"
+                            variant="icon"
+                            size={36}
                             siteImageId={(photo as any).siteImageId ?? (photo as any).id}
                             storagePath={(photo as any).storagePath}
                             imageUrl={(photo as any).url}
@@ -949,7 +952,7 @@ export function Lightbox({
         {!isMdUp && (
           <div
             className={`fixed right-4 z-[2147483648] transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-            style={{ bottom: "calc(var(--sab, 24px) + 16px)" }}
+            style={{ bottom: "calc(var(--sab, 24px) + 48px)" }}
             onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >
@@ -967,7 +970,6 @@ export function Lightbox({
         {!isMdUp && showActionsSheet && (
           <div
             className="fixed inset-0 z-[2147483649] flex flex-col justify-end"
-            style={{ bottom: "calc(var(--sab, 24px) + 48px)" }}
             onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >

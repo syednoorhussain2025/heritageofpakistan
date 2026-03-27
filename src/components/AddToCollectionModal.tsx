@@ -13,6 +13,8 @@ import {
   deletePhotoCollection,
 } from "@/lib/photoCollections";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 /* Match the shape we pass from the Lightbox */
 type ImageIdentity = {
@@ -145,9 +147,11 @@ export default function AddToCollectionModal({
 }) {
   const stableImage = useMemo(() => normalizeIdentity(image), [image]);
 
-  // Mount/fade animation (main modal)
+  // Mount/slide animation (bottom sheet)
   const [isOpen, setIsOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  useBottomSheetParallax(isOpen);
+  useBodyScrollLock(isOpen);
 
   // Data
   const [collections, setCollections] = useState<any[]>([]);
@@ -292,7 +296,7 @@ export default function AddToCollectionModal({
   const requestClose = useCallback(() => {
     setIsOpen(false);
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => onClose(), 250);
+    closeTimerRef.current = window.setTimeout(() => onClose(), 500);
   }, [onClose]);
 
   const requestCreateClose = useCallback(() => {
@@ -302,7 +306,7 @@ export default function AddToCollectionModal({
     createCloseTimerRef.current = window.setTimeout(() => {
       setIsCreateVisible(false);
       setIsCreateOpen(false);
-    }, 250);
+    }, 500);
   }, []);
 
   // Sync create modal visibility + fade animation
@@ -314,7 +318,7 @@ export default function AddToCollectionModal({
     } else {
       setIsCreateAnimatingOpen(false);
       if (isCreateVisible) {
-        const t = window.setTimeout(() => setIsCreateVisible(false), 250);
+        const t = window.setTimeout(() => setIsCreateVisible(false), 500);
         return () => window.clearTimeout(t);
       }
     }
@@ -708,28 +712,31 @@ export default function AddToCollectionModal({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Backdrop */}
       <div
         ref={overlayRef}
         onMouseDown={onOverlayMouseDown}
-        className={`fixed inset-0 z-[9999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[9999999999] flex flex-col justify-end bg-black/40 transition-opacity duration-500 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
       >
-        {/* Card */}
+        {/* Bottom sheet */}
         <div
-          className={`relative w-full h-[100dvh] sm:h-[590px] sm:max-h-[90vh] sm:max-w-5xl sm:mx-3 bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-300 transform rounded-none sm:rounded-3xl flex flex-col overflow-hidden ${
-            isOpen
-              ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-95 translate-y-4"
+          className={`relative w-full max-h-[82dvh] bg-white shadow-2xl rounded-t-3xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
+            isOpen ? "translate-y-0" : "translate-y-full"
           }`}
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={onCardTouchStart}
           onTouchMove={onCardTouchMove}
           onTouchEnd={onCardTouchEnd}
         >
+          {/* Drag handle */}
+          <div className="shrink-0 flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
           {/* --- Delete Confirmation Overlay (Internal) --- */}
           {collectionToDelete && (
             <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
@@ -1097,7 +1104,7 @@ export default function AddToCollectionModal({
       {/* --- Create New Collection Modal --- */}
       {isCreateVisible && (
         <div
-          className={`fixed inset-0 z-[99999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 transition-opacity duration-300 ${
+          className={`fixed inset-0 z-[99999999999] flex flex-col justify-end bg-black/40 transition-opacity duration-500 ${
             isCreateAnimatingOpen ? "opacity-100" : "opacity-0"
           }`}
           role="dialog"
@@ -1107,14 +1114,16 @@ export default function AddToCollectionModal({
           }}
         >
           <div
-            className={`w-full h-[100dvh] sm:h-auto sm:max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform ${
-              isCreateAnimatingOpen
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 translate-y-4"
+            className={`w-full bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
+              isCreateAnimatingOpen ? "translate-y-0" : "translate-y-full"
             }`}
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             onMouseDown={(e) => e.stopPropagation()}
             data-noswipe="true"
           >
+            <div className="shrink-0 flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-gray-900">
                 Create Collection
