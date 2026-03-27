@@ -1,11 +1,7 @@
-import { fetchDiscoverPhotos } from "@/lib/discover-actions";
-import DiscoverClient from "./DiscoverClient";
+import dynamic from "next/dynamic";
 
-export const dynamic = "force-dynamic";
+const DiscoverClient = dynamic(() => import("./DiscoverClient"), { ssr: false });
 
-export default async function DiscoverPage() {
-  // Use a fixed seed for the initial SSR load; client takes over with its own seed
-  const initialPhotos = await fetchDiscoverPhotos(0, 0.5);
-
-  return <DiscoverClient initialPhotos={initialPhotos} />;
+export default function DiscoverPage() {
+  return <DiscoverClient initialPhotos={[]} />;
 }
