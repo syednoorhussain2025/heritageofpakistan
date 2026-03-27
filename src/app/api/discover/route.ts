@@ -4,9 +4,6 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 import type { DiscoverPhoto } from "@/lib/discover-actions";
 
 const PAGE_SIZE = 30;
-// Fetch a much larger pool then shuffle — guarantees cross-site mixing
-// without needing ORDER BY random() in Postgres (unsupported by Supabase JS client)
-const FETCH_POOL = 300;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -23,43 +20,51 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // Fetch a large pool offset by page, then shuffle and slice
-  const poolOffset = page * FETCH_POOL;
+  // Step 1: get all sites
+  const { data: allSites, error: sitesError } = await supabase
+    .from("sites")
+    .select("id, title, slug, tagline, location_free, latitude, longitude, provinces!sites_province_id_fkey ( slug )");
 
+  if (sitesError || !allSites || allSites.length === 0) {
+    return NextResponse.json([]);
+  }
+
+  // Step 2: shuffle sites, then pick PAGE_SIZE sites for this page
+  const shuffledSites = shuffleArray(allSites as any[]);
+  const pageSites = shuffledSites.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  if (pageSites.length === 0) return NextResponse.json([]);
+
+  const pageSiteIds = pageSites.map((s: any) => s.id);
+
+  // Step 3: for each site, pick ONE random image
+  // Fetch all images for the page's sites, then pick one per site
   const { data: images, error: imgError } = await supabase
     .from("site_images")
     .select("id, storage_path, alt_text, caption, credit, width, height, blur_hash, blur_data_url, site_id")
-    .not("storage_path", "is", null)
-    .range(poolOffset, poolOffset + FETCH_POOL - 1);
+    .in("site_id", pageSiteIds)
+    .not("storage_path", "is", null);
 
   if (imgError || !images || images.length === 0) {
-    console.error("[discover] images error", imgError);
     return NextResponse.json([]);
   }
 
-  // Collect unique site IDs and fetch their site + province data
-  const siteIds = [...new Set((images as any[]).map((r) => r.site_id))];
-
-  const { data: sites, error: siteError } = await supabase
-    .from("sites")
-    .select("id, title, slug, tagline, location_free, latitude, longitude, provinces!sites_province_id_fkey ( slug )")
-    .in("id", siteIds);
-
-  if (siteError) {
-    console.error("[discover] sites error", siteError);
-    return NextResponse.json([]);
+  // Group images by site, pick one random image per site
+  const bySite = new Map<string, any[]>();
+  for (const img of images as any[]) {
+    if (!bySite.has(img.site_id)) bySite.set(img.site_id, []);
+    bySite.get(img.site_id)!.push(img);
   }
 
-  const siteMap = new Map((sites as any[]).map((s) => [s.id, s]));
+  const siteMap = new Map((allSites as any[]).map((s) => [s.id, s]));
 
-  // Shuffle the full pool, then take one PAGE_SIZE slice
-  const shuffled = shuffleArray(images as any[]).slice(0, PAGE_SIZE);
+  // Build one photo per site, in the shuffled site order
+  const photos: DiscoverPhoto[] = pageSites
+    .map((site: any) => {
+      const siteImgs = bySite.get(site.id);
+      if (!siteImgs || siteImgs.length === 0) return null;
 
-  const photos: DiscoverPhoto[] = shuffled
-    .map((row) => {
-      const site = siteMap.get(row.site_id);
-      if (!site) return null;
-
+      // Pick a random image from this site
+      const row = siteImgs[Math.floor(Math.random() * siteImgs.length)];
       const province = Array.isArray(site.provinces) ? site.provinces[0] : site.provinces;
       const regionSlug = province?.slug ?? "punjab";
 

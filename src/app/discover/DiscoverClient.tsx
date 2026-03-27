@@ -274,7 +274,7 @@ export default function DiscoverClient({
         {/* Title */}
         <div
           className="relative flex items-center justify-center"
-          style={{ paddingTop: "var(--sat, 44px)", paddingBottom: "14px" }}
+          style={{ paddingTop: "10px", paddingBottom: "14px" }}
         >
           <h1
             className="text-white font-bold tracking-tight"
