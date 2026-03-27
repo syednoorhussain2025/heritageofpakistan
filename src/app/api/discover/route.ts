@@ -4,21 +4,33 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 import type { DiscoverPhoto } from "@/lib/discover-actions";
 
 const PAGE_SIZE = 30;
+// Fetch a much larger pool then shuffle — guarantees cross-site mixing
+// without needing ORDER BY random() in Postgres (unsupported by Supabase JS client)
+const FETCH_POOL = 300;
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const page = parseInt(searchParams.get("page") ?? "0", 10);
-  const offset = page * PAGE_SIZE;
 
   const supabase = await createClient();
 
-  // Query site_images with a flat join via site_id filter approach:
-  // select images first, then enrich with site data in a second query
+  // Fetch a large pool offset by page, then shuffle and slice
+  const poolOffset = page * FETCH_POOL;
+
   const { data: images, error: imgError } = await supabase
     .from("site_images")
     .select("id, storage_path, alt_text, caption, credit, width, height, blur_hash, blur_data_url, site_id")
     .not("storage_path", "is", null)
-    .range(offset, offset + PAGE_SIZE - 1);
+    .range(poolOffset, poolOffset + FETCH_POOL - 1);
 
   if (imgError || !images || images.length === 0) {
     console.error("[discover] images error", imgError);
@@ -40,7 +52,10 @@ export async function GET(req: NextRequest) {
 
   const siteMap = new Map((sites as any[]).map((s) => [s.id, s]));
 
-  const photos: DiscoverPhoto[] = (images as any[])
+  // Shuffle the full pool, then take one PAGE_SIZE slice
+  const shuffled = shuffleArray(images as any[]).slice(0, PAGE_SIZE);
+
+  const photos: DiscoverPhoto[] = shuffled
     .map((row) => {
       const site = siteMap.get(row.site_id);
       if (!site) return null;
