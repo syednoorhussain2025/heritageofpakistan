@@ -269,7 +269,7 @@ export default function DiscoverClient({
           <h1
             className="text-white font-bold tracking-tight"
             style={{
-              fontSize: "clamp(28px, 8vw, 36px)",
+              fontSize: "clamp(20px, 5.5vw, 26px)",
               textShadow: "0 2px 12px rgba(0,0,0,0.45)",
               letterSpacing: "-0.02em",
             }}
