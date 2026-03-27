@@ -82,7 +82,7 @@ const DiscoverTile = memo(function DiscoverTile({
   return (
     <div
       ref={tileRef}
-      className={`relative w-full overflow-hidden rounded-xl cursor-pointer group ${aspectClass}`}
+      className={`relative w-full overflow-hidden rounded-2xl cursor-pointer group ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
       onClick={handlePress}
     >
@@ -137,7 +137,7 @@ const DiscoverTile = memo(function DiscoverTile({
 
 function SkeletonTile({ aspectClass }: { aspectClass: string }) {
   return (
-    <div className={`w-full rounded-xl bg-gray-200 animate-pulse ${aspectClass}`} />
+    <div className={`w-full rounded-2xl bg-gray-200 animate-pulse ${aspectClass}`} />
   );
 }
 
