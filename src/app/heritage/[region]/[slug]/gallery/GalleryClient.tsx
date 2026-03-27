@@ -16,7 +16,6 @@ import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
-import { decode } from "blurhash";
 
 // Collections
 import { useCollections } from "@/components/CollectionsProvider";
@@ -82,54 +81,6 @@ const BATCH_SIZE = 20;
 const TOP_PRIORITY_COUNT = 4;
 
 /* ---------- Blurhash ---------- */
-
-function BlurhashPlaceholder({ hash }: { hash: string }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!hash || !canvasRef.current) return;
-
-    const draw = () => {
-      const width = 32;
-      const height = 32;
-      const pixels = decode(hash, width, height);
-      const ctx = canvasRef.current?.getContext("2d");
-      if (!ctx) return;
-
-      const imageData = ctx.createImageData(width, height);
-      imageData.data.set(pixels);
-      ctx.putImageData(imageData, 0, 0);
-    };
-
-    let idleId: number | null = null;
-    let timeoutId: number | null = null;
-
-    const w = window as any;
-    if (typeof w.requestIdleCallback === "function") {
-      idleId = w.requestIdleCallback(draw);
-    } else {
-      timeoutId = window.setTimeout(draw, 0);
-    }
-
-    return () => {
-      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
-        w.cancelIdleCallback(idleId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [hash]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full"
-      width={32}
-      height={32}
-    />
-  );
-}
 
 /* ---------- Masonry Tile ---------- */
 
@@ -220,6 +171,8 @@ const MasonryTile = memo(function MasonryTile({
               backgroundImage: `url(${blurDataURL})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
+              filter: "blur(12px)",
+              transform: "scale(1.1)",
             }}
           />
         )}
