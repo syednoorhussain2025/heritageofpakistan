@@ -151,9 +151,9 @@ export default function DiscoverClient({
   const seed = useRef(Math.random()).current;
 
   const [photos, setPhotos]   = useState<DiscoverPhoto[]>(initialPhotos);
-  const [page, setPage]       = useState(1);
+  const [page, setPage]       = useState(initialPhotos.length > 0 ? 1 : 0);
   const [loading, setLoading] = useState(false);
-  const [done, setDone]       = useState(initialPhotos.length < 30);
+  const [done, setDone]       = useState(false);
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex]   = useState<number | null>(null);
@@ -161,6 +161,26 @@ export default function DiscoverClient({
 
   // Sentinel ref for infinite scroll
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Initial fetch when mounted with no photos (e.g. from TabShell)
+  useEffect(() => {
+    if (initialPhotos.length === 0 && photos.length === 0 && !loading) {
+      void (async () => {
+        setLoading(true);
+        try {
+          const first = await fetchDiscoverPhotos(0, seed);
+          if (first.length > 0) {
+            setPhotos(first);
+            setPage(1);
+          }
+          if (first.length < 30) setDone(true);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loading || done) return;
@@ -176,7 +196,7 @@ export default function DiscoverClient({
           return [...prev, ...next.filter((p) => !seen.has(p.id))];
         });
         setPage((p) => p + 1);
-        if (next.length < 30) setDone(true);
+        if (next.length < 30) setDone(true); // fewer than a full page = exhausted
       }
     } finally {
       setLoading(false);
