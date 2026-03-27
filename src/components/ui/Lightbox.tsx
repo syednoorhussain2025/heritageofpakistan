@@ -174,10 +174,8 @@ export function Lightbox({
   const [showActionsSheet, setShowActionsSheet] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
 
-  // Animate sheet in on open, animate out then unmount on close
   useEffect(() => {
     if (showActionsSheet) {
-      // Mount first, then animate in next frame
       requestAnimationFrame(() => setSheetVisible(true));
     }
   }, [showActionsSheet]);
@@ -709,16 +707,13 @@ export function Lightbox({
         onClick={onClose}
         onPanEnd={isMdUp ? onSwipe : undefined}
       >
-        {/* ── Background — fades in independently of image overlay ── */}
+        {/* ── Black background fades in independently ── */}
         <motion.div
           className="absolute inset-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={originRect
-            ? { duration: 0.2, ease: "easeOut", delay: 0.04 }
-            : { duration: 0.2, ease: "easeOut" }
-          }
+          transition={{ duration: 0.4, ease: "easeOut" }}
           style={{ backgroundColor: "rgb(5,5,5)", zIndex: 0 }}
         />
 
@@ -784,7 +779,6 @@ export function Lightbox({
                     key={(p as any).id ?? idx}
                     className="relative flex-shrink-0"
                     style={{ width: `${100 / photos.length}%`, height: "100%" }}
-                    onClick={onClose}
                   >
                     {/* Image container */}
                     <div
@@ -796,10 +790,29 @@ export function Lightbox({
                         top: isZoomed && isActive ? 0 : slideTop,
                         width: isZoomed && isActive ? "100%" : slideW,
                         height: isZoomed && isActive ? "100%" : slideH,
-                        transition: isActive ? "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1)" : "none",
+                        transition: "left 0.4s cubic-bezier(0.22,1,0.36,1), top 0.4s cubic-bezier(0.22,1,0.36,1), width 0.4s cubic-bezier(0.22,1,0.36,1), height 0.4s cubic-bezier(0.22,1,0.36,1)",
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {/* Heart */}
+                      {isActive && (
+                        <div
+                          className={`absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center text-white drop-shadow-md [&_svg]:w-8 [&_svg]:h-8 transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDownCapture={(e) => e.stopPropagation()}
+                        >
+                          <CollectHeart
+                            variant="overlay"
+                            siteImageId={(photo as any).siteImageId ?? (photo as any).id}
+                            storagePath={(photo as any).storagePath}
+                            imageUrl={(photo as any).url}
+                            siteId={photo.site?.id ?? ""}
+                            caption={(photo as any).caption}
+                            credit={(photo as any)?.author?.name}
+                            requireSignedIn={ensureSignedIn}
+                          />
+                        </div>
+                      )}
 
                       {/* BlurHash + spinner — only for active slide without shared-element */}
                       {isActive && !originRect && (p as any)?.blurHash && (
@@ -936,7 +949,7 @@ export function Lightbox({
         {!isMdUp && (
           <div
             className={`fixed right-4 z-[2147483648] transition-opacity duration-300 ${isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-            style={{ bottom: "calc(var(--sab, 24px) + 48px)" }}
+            style={{ bottom: "calc(var(--sab, 24px) + 16px)" }}
             onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >
@@ -954,6 +967,7 @@ export function Lightbox({
         {!isMdUp && showActionsSheet && (
           <div
             className="fixed inset-0 z-[2147483649] flex flex-col justify-end"
+            style={{ bottom: "calc(var(--sab, 24px) + 48px)" }}
             onClick={(e) => e.stopPropagation()}
             onPointerDownCapture={(e) => e.stopPropagation()}
           >
@@ -963,14 +977,12 @@ export function Lightbox({
               style={{ opacity: sheetVisible ? 1 : 0 }}
               onClick={(e) => { e.stopPropagation(); closeSheet(); }}
             />
-            {/* Sheet */}
             <div
               className="relative bg-[#1c1c1e] rounded-t-3xl overflow-hidden transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
               style={{
                 transform: sheetVisible ? "translateY(0)" : "translateY(100%)",
                 paddingBottom: "calc(var(--sab, 24px) + 32px)",
               }}
-              onClick={(e) => e.stopPropagation()}
             >
               <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-4 mb-2" />
               <p className="text-white/40 text-xs text-center uppercase tracking-widest mt-1 mb-2">Photo</p>
@@ -988,7 +1000,6 @@ export function Lightbox({
                   </div>
                 </button>
               )}
-              <div className="h-px bg-white/10 mx-6" />
               <button
                 className="w-full flex items-center gap-5 px-6 py-5 active:bg-white/10 text-white"
                 onClick={(e) => { e.stopPropagation(); closeSheet(); handleDownload(e as any); }}
@@ -1001,7 +1012,6 @@ export function Lightbox({
                   <span className="text-xs text-white/50 mt-0.5">Save the full resolution photo</span>
                 </div>
               </button>
-              {/* Spacer so buttons aren't crammed at the bottom */}
               <div className="h-4" />
             </div>
           </div>
