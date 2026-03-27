@@ -70,7 +70,7 @@ const DiscoverTile = memo(function DiscoverTile({
 
   const thumbUrl = useMemo(() => {
     if (!photo.storagePath) return photo.url;
-    try { return getVariantPublicUrl(photo.storagePath, "sm"); } catch { return photo.url; }
+    try { return getVariantPublicUrl(photo.storagePath, "md"); } catch { return photo.url; }
   }, [photo.storagePath, photo.url]);
 
   const handlePress = useCallback(() => {
@@ -172,18 +172,15 @@ export default function DiscoverClient({
     setLoading(true);
     try {
       const next = await loadPhotos(pageRef.current, cycleRef.current);
-      if (next.length === 0 || next.length < 30) {
-        // End of sites — start a new cycle with fresh shuffle, fetch page 0 immediately
-        cycleRef.current += 1;
-        pageRef.current = 0;
-        const fresh = await loadPhotos(0, cycleRef.current);
-        if (fresh.length > 0) {
-          setPhotos((prev) => [...prev, ...fresh]);
-          pageRef.current = 1;
-        }
-      } else {
+      if (next.length > 0) {
+        // Always append what we got, whether it's a full page or the last partial page
         setPhotos((prev) => [...prev, ...next]);
         pageRef.current += 1;
+      }
+      if (next.length < 30) {
+        // Fewer than a full page = exhausted this cycle, reset for next scroll trigger
+        cycleRef.current += 1;
+        pageRef.current = 0;
       }
     } finally {
       loadingRef.current = false;

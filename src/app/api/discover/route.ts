@@ -26,10 +26,23 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // Step 1: get all sites
+  // Step 1: get all site_ids that have at least one image, then fetch those sites
+  const { data: siteIdsWithImages } = await supabase
+    .from("site_images")
+    .select("site_id")
+    .not("storage_path", "is", null)
+    .limit(10000);
+
+  if (!siteIdsWithImages || siteIdsWithImages.length === 0) return NextResponse.json([]);
+
+  const uniqueSiteIds = [...new Set((siteIdsWithImages as any[]).map((r) => r.site_id))];
+
   const { data: allSites, error: sitesError } = await supabase
     .from("sites")
-    .select("id, title, slug, tagline, location_free, latitude, longitude, provinces!sites_province_id_fkey ( slug )");
+    .select("id, title, slug, tagline, location_free, latitude, longitude, province_id, provinces!sites_province_id_fkey ( slug )")
+    .in("id", uniqueSiteIds)
+    .not("province_id", "is", null)
+    .limit(1000);
 
   if (sitesError || !allSites || allSites.length === 0) {
     return NextResponse.json([]);
@@ -79,7 +92,7 @@ export async function GET(req: NextRequest) {
       const regionSlug = province?.slug ?? "punjab";
 
       let url = "";
-      try { url = getVariantPublicUrl(row.storage_path, "sm"); } catch { url = getVariantPublicUrl(row.storage_path); }
+      try { url = getVariantPublicUrl(row.storage_path, "md"); } catch { url = getVariantPublicUrl(row.storage_path); }
 
       return {
         id: row.id,
