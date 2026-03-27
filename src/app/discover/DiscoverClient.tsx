@@ -151,10 +151,9 @@ export default function DiscoverClient({
   initialPhotos: DiscoverPhoto[];
 }) {
   const [photos, setPhotos]   = useState<DiscoverPhoto[]>(initialPhotos);
-  const [page, setPage]       = useState(initialPhotos.length > 0 ? 1 : 0);
   const [loading, setLoading] = useState(false);
-  // cycleRef tracks how many times we've looped back to page 0
-  // so the API gets a different shuffle each cycle
+  // Use refs for page/cycle so loadMore always reads current values (no stale closure)
+  const pageRef  = useRef(initialPhotos.length > 0 ? 1 : 0);
   const cycleRef = useRef(0);
 
   // Lightbox
@@ -165,45 +164,39 @@ export default function DiscoverClient({
   const scrollRef  = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Initial fetch when mounted with no photos (e.g. from TabShell)
-  useEffect(() => {
-    if (initialPhotos.length === 0 && photos.length === 0 && !loading) {
-      void (async () => {
-        setLoading(true);
-        try {
-          const first = await loadPhotos(0, cycleRef.current);
-          if (first.length > 0) {
-            setPhotos(first);
-            setPage(1);
-          }
-        } finally {
-          setLoading(false);
+  const loadingRef = useRef(false);
+
+  const loadMore = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoading(true);
+    try {
+      const next = await loadPhotos(pageRef.current, cycleRef.current);
+      if (next.length === 0 || next.length < 30) {
+        // End of sites — start a new cycle with fresh shuffle, fetch page 0 immediately
+        cycleRef.current += 1;
+        pageRef.current = 0;
+        const fresh = await loadPhotos(0, cycleRef.current);
+        if (fresh.length > 0) {
+          setPhotos((prev) => [...prev, ...fresh]);
+          pageRef.current = 1;
         }
-      })();
+      } else {
+        setPhotos((prev) => [...prev, ...next]);
+        pageRef.current += 1;
+      }
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadMore = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const next = await loadPhotos(page, cycleRef.current);
-      if (next.length === 0 || next.length < 30) {
-        // End of sites — loop back to page 0 with a new cycle (fresh shuffle)
-        cycleRef.current += 1;
-        setPage(0);
-      } else {
-        setPhotos((prev) => {
-          const seen = new Set(prev.map((p) => p.id));
-          return [...prev, ...next.filter((p) => !seen.has(p.id))];
-        });
-        setPage((p) => p + 1);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, page]);
+  // Initial fetch when mounted with no photos (e.g. from TabShell)
+  useEffect(() => {
+    if (initialPhotos.length === 0) void loadMore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // IntersectionObserver on sentinel — root is the scroll container
   useEffect(() => {
