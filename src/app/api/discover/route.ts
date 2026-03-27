@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const page  = parseInt(searchParams.get("page")  ?? "0", 10);
   const cycle = parseInt(searchParams.get("cycle") ?? "0", 10);
+  const seed  = parseInt(searchParams.get("seed")  ?? "0", 10);
 
   const supabase = await createClient();
 
@@ -43,9 +44,9 @@ export async function GET(req: NextRequest) {
 
   const provinceMap = new Map((allProvinces ?? []).map((p: any) => [p.id, p.slug]));
 
-  // Step 4: deterministic shuffle by cycle
+  // Step 4: deterministic shuffle by seed + cycle (unique per session + cycle)
   const shuffledSites = eligibleSites
-    .map((s, i) => ({ s, order: Math.sin(i * 9301 + cycle * 49297 + 233720) }))
+    .map((s, i) => ({ s, order: Math.sin(i * 9301 + seed * 1979 + cycle * 49297 + 233720) }))
     .sort((a, b) => a.order - b.order)
     .map(({ s }) => s);
 
@@ -87,8 +88,10 @@ export async function GET(req: NextRequest) {
       let blurDataURL: string | null = null;
 
       if (siteImgs && siteImgs.length > 0) {
-        // Pick a random gallery image
-        const row = siteImgs[Math.floor(Math.random() * siteImgs.length)];
+        // Pick a deterministic-but-varied image: seed + cycle + site hash
+        const siteHash = site.id.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+        const pick = Math.abs(Math.sin(seed * 7919 + cycle * 3571 + siteHash)) % 1;
+        const row = siteImgs[Math.floor(pick * siteImgs.length)];
         id = row.id;
         storagePath = row.storage_path;
         caption = row.caption ?? row.alt_text ?? null;

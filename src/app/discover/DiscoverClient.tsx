@@ -14,8 +14,22 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
 
-async function loadPhotos(page: number, cycle: number): Promise<DiscoverPhoto[]> {
-  const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}`);
+const SESSION_SEED_KEY = "discover:seed";
+
+function getOrCreateSeed(): number {
+  try {
+    const stored = sessionStorage.getItem(SESSION_SEED_KEY);
+    if (stored) return parseInt(stored, 10);
+    const seed = Math.floor(Math.random() * 1_000_000);
+    sessionStorage.setItem(SESSION_SEED_KEY, String(seed));
+    return seed;
+  } catch {
+    return Math.floor(Math.random() * 1_000_000);
+  }
+}
+
+async function loadPhotos(page: number, cycle: number, seed: number): Promise<DiscoverPhoto[]> {
+  const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}&seed=${seed}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -173,6 +187,7 @@ export default function DiscoverClient({
   const [loading, setLoading] = useState(false);
   const pageRef  = useRef(initialPhotos.length > 0 ? 1 : 0);
   const cycleRef = useRef(0);
+  const seedRef  = useRef(0); // populated on mount from sessionStorage
 
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
@@ -186,7 +201,7 @@ export default function DiscoverClient({
     loadingRef.current = true;
     setLoading(true);
     try {
-      const next = await loadPhotos(pageRef.current, cycleRef.current);
+      const next = await loadPhotos(pageRef.current, cycleRef.current, seedRef.current);
       if (next.length > 0) {
         setPhotos((prev) => [...prev, ...next]);
         pageRef.current += 1;
@@ -203,6 +218,7 @@ export default function DiscoverClient({
   }, []);
 
   useEffect(() => {
+    seedRef.current = getOrCreateSeed();
     if (initialPhotos.length === 0) void loadMore();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
