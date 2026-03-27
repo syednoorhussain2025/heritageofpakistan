@@ -153,34 +153,27 @@ const MasonryTile = memo(function MasonryTile({
 }: MasonryTileProps & { variant?: TileVariant }) {
   const extras = photo as PhotoWithExtras;
 
-  const [isNearViewport, setIsNearViewport] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(isPriority);
   const tileRef = useRef<HTMLDivElement | null>(null);
+  const blurDataURL = extras.blurDataURL ?? undefined;
 
   useEffect(() => {
+    if (isPriority) return; // already loading
     const el = tileRef.current;
     if (!el) return;
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsNearViewport(true);
+          setShouldLoad(true);
           observer.unobserve(entry.target);
         }
       },
-      {
-        root: null,
-        rootMargin: "300px 0px",
-        threshold: 0.1,
-      }
+      { rootMargin: "800px 0px" }
     );
-
     observer.observe(el);
     return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const blurHash =
-    isNearViewport && extras.blurHash ? extras.blurHash : undefined;
-  const blurDataURL = extras.blurDataURL ?? undefined;
 
   const thumbUrl = useMemo(() => {
     if (photo.storagePath) {
@@ -193,10 +186,8 @@ const MasonryTile = memo(function MasonryTile({
     return photo.url;
   }, [photo.storagePath, photo.url]);
 
-  const [loaded, setLoaded] = useState(false);
-
   return (
-    <figure className="relative [content-visibility:auto]">
+    <figure className="relative">
       {/*
         Small tiles: aspect-square wrapper drives height.
         Feature tiles: aspect-[2/3] wrapper drives height — grid row-span-2
@@ -216,41 +207,28 @@ const MasonryTile = memo(function MasonryTile({
         }}
         title="Open"
       >
-        <div
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${
-            loaded ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          {blurHash ? (
-            <BlurhashPlaceholder hash={blurHash} />
-          ) : (
-            <div className="w-full h-full bg-gray-100 animate-pulse" />
-          )}
-        </div>
-
-        {!loaded && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <span className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin shadow-sm" />
-          </div>
+        {/* Blur placeholder — always visible until real image paints */}
+        {blurDataURL && (
+          <img
+            src={blurDataURL}
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            style={{ filter: "blur(8px)", transform: "scale(1.05)" }}
+          />
         )}
-
-        <Image
-          src={thumbUrl}
-          alt={photo.caption ?? ""}
-          fill
-          unoptimized
-          className={`object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 transition-opacity duration-500 ease-out ${
-            loaded ? "opacity-100" : "opacity-0"
-          }`}
-          sizes="(min-width: 768px) 22vw, 50vw"
-          priority={isPriority}
-          loading={isPriority ? "eager" : "lazy"}
-          fetchPriority={isPriority ? "high" : "low"}
-          placeholder={blurDataURL ? "blur" : "empty"}
-          blurDataURL={blurDataURL}
-          onLoadingComplete={() => setLoaded(true)}
-          onError={() => setLoaded(true)}
-        />
+        {shouldLoad && (
+          <Image
+            src={thumbUrl}
+            alt={photo.caption ?? ""}
+            fill
+            unoptimized
+            className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.4s_ease-out_both]"
+            sizes="(min-width: 768px) 22vw, 50vw"
+            priority={isPriority}
+            loading={isPriority ? "eager" : "lazy"}
+            fetchPriority={isPriority ? "high" : "auto"}
+          />
+        )}
 
         <div
           className="absolute bottom-0 right-0 z-20 p-1.5"
