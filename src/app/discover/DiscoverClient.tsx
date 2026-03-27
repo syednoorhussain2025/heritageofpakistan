@@ -203,7 +203,7 @@ export default function DiscoverClient({
     } finally {
       setLoading(false);
     }
-  }, [loading, done, page, seed]);
+  }, [loading, page]);
 
   // IntersectionObserver on sentinel — root is the scroll container
   useEffect(() => {
