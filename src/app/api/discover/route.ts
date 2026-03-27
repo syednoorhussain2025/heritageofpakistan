@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const page  = parseInt(searchParams.get("page")  ?? "0", 10);
   const cycle = parseInt(searchParams.get("cycle") ?? "0", 10);
   const seed  = parseInt(searchParams.get("seed")  ?? "0", 10);
+  const rn    = parseInt(searchParams.get("rn")    ?? "0", 10); // ever-increasing request number
 
   const supabase = await createClient();
 
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
       if (siteImgs && siteImgs.length > 0) {
         // Pick a deterministic-but-varied image: seed + cycle + site hash
         const siteHash = site.id.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-        const pick = Math.abs(Math.sin(seed * 7919 + cycle * 3571 + page * 1327 + siteHash)) % 1;
+        const pick = Math.abs(Math.sin(seed * 7919 + rn * 1327 + siteHash)) % 1;
         const row = siteImgs[Math.floor(pick * siteImgs.length)];
         id = row.id;
         storagePath = row.storage_path;

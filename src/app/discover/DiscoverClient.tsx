@@ -28,8 +28,8 @@ function getOrCreateSeed(): number {
   }
 }
 
-async function loadPhotos(page: number, cycle: number, seed: number): Promise<DiscoverPhoto[]> {
-  const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}&seed=${seed}`);
+async function loadPhotos(page: number, cycle: number, seed: number, requestNum: number): Promise<DiscoverPhoto[]> {
+  const res = await fetch(`/api/discover?page=${page}&cycle=${cycle}&seed=${seed}&rn=${requestNum}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -185,9 +185,10 @@ export default function DiscoverClient({
 }) {
   const [photos, setPhotos]   = useState<DiscoverPhoto[]>(initialPhotos);
   const [loading, setLoading] = useState(false);
-  const pageRef  = useRef(initialPhotos.length > 0 ? 1 : 0);
-  const cycleRef = useRef(0);
-  const seedRef  = useRef(0); // populated on mount from sessionStorage
+  const pageRef       = useRef(initialPhotos.length > 0 ? 1 : 0);
+  const cycleRef      = useRef(0);
+  const seedRef       = useRef(0); // populated on mount from sessionStorage
+  const requestNumRef = useRef(0);  // ever-increasing across cycles, never resets
 
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
@@ -201,7 +202,8 @@ export default function DiscoverClient({
     loadingRef.current = true;
     setLoading(true);
     try {
-      const next = await loadPhotos(pageRef.current, cycleRef.current, seedRef.current);
+      const next = await loadPhotos(pageRef.current, cycleRef.current, seedRef.current, requestNumRef.current);
+      requestNumRef.current += 1;
       if (next.length > 0) {
         setPhotos((prev) => [...prev, ...next]);
         pageRef.current += 1;
