@@ -137,7 +137,7 @@ const DiscoverTile = memo(function DiscoverTile({
 
 function SkeletonTile({ aspectClass }: { aspectClass: string }) {
   return (
-    <div className={`w-full rounded-2xl bg-gray-200 animate-pulse ${aspectClass}`} />
+    <div className={`w-full rounded-2xl bg-gray-300 animate-pulse ${aspectClass}`} />
   );
 }
 
