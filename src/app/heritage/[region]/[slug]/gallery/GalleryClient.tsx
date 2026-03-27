@@ -155,6 +155,14 @@ const MasonryTile = memo(function MasonryTile({
 
   const tileRef = useRef<HTMLDivElement | null>(null);
   const blurDataURL = extras.blurDataURL ?? undefined;
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  const onImgLoad = useCallback(() => {
+    if (imgRef.current) {
+      imgRef.current.style.transition = "opacity 0.6s cubic-bezier(0.4,0,0.2,1)";
+      imgRef.current.style.opacity = "1";
+    }
+  }, []);
 
   const thumbUrl = useMemo(() => {
     if (photo.storagePath) {
@@ -206,17 +214,21 @@ const MasonryTile = memo(function MasonryTile({
         ) : (
           <div className="absolute inset-0 bg-gray-200 pointer-events-none" />
         )}
-        {/* Real image — lazy loaded, fades in over placeholder */}
+        {/* Real image — starts invisible, fades in only once loaded */}
         <Image
+          ref={imgRef}
           src={thumbUrl}
           alt={photo.caption ?? ""}
           fill
           unoptimized
-          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105 animate-[fadeIn_0.8s_cubic-bezier(0.4,0,0.2,1)_both]"
+          className="object-cover w-full h-full transform-gpu will-change-transform transition-transform duration-300 ease-out group-hover:scale-105"
+          style={{ opacity: isPriority ? 1 : 0 }}
           sizes="(min-width: 768px) 22vw, 50vw"
           priority={isPriority}
           loading={isPriority ? "eager" : "lazy"}
           fetchPriority={isPriority ? "high" : "auto"}
+          onLoadingComplete={onImgLoad}
+          onError={onImgLoad}
         />
 
         <div
