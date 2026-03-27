@@ -301,7 +301,7 @@ export default function DiscoverClient({
             <div className="flex flex-col gap-2 flex-1">
               {leftPhotos.map((photo, colIdx) => (
                 <DiscoverTile
-                  key={photo.id}
+                  key={`${photo.id}-${colIdx}`}
                   photo={photo}
                   aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                   isPriority={colIdx < 4}
@@ -317,7 +317,7 @@ export default function DiscoverClient({
             <div className="flex flex-col gap-2 flex-1">
               {rightPhotos.map((photo, colIdx) => (
                 <DiscoverTile
-                  key={photo.id}
+                  key={`${photo.id}-${colIdx}`}
                   photo={photo}
                   aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                   isPriority={colIdx < 4}
