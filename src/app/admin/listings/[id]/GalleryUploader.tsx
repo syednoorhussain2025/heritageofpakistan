@@ -13,9 +13,19 @@ import {
 import { Lightbox } from "@/components/ui/Lightbox";
 import {
   generateAltAndCaptionsAction,
+  generateTagsAction,
   getCaptionEngineInfo,
 } from "./gallery-actions";
-import type { CaptionAltOut } from "./gallery-actions";
+import type { CaptionAltOut, TagDimensionVocab } from "./gallery-actions";
+import {
+  getTagVocabulary,
+  getTagsForImages,
+  saveAiTagsAction,
+  addManualTagAction,
+  deleteTagAction,
+  deleteAllTagsForSiteAction,
+} from "./photo-tag-actions";
+import type { TagDimension, ImageTag } from "./photo-tag-actions";
 import { encode } from "blurhash";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
@@ -316,6 +326,15 @@ export default function GalleryUploader({
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
+  // Tag state
+  const [vocabulary, setVocabulary] = useState<TagDimension[]>([]);
+  // imageId → array of saved tags
+  const [imageTags, setImageTags] = useState<Record<string, ImageTag[]>>({});
+  const [tagLoading, setTagLoading] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
+  // imageId → dimension_id → input value for manual tag entry
+  const [manualTagInput, setManualTagInput] = useState<Record<string, Record<string, string>>>({});
+
   // progress
   const [genTotal, setGenTotal] = useState(0);
   const [genDone, setGenDone] = useState(0);
@@ -411,11 +430,25 @@ export default function GalleryUploader({
     setRows(withUrls);
     setLoading(false);
     computeAllMeta(withUrls);
+
+    // Load existing tags for all images
+    const ids = withUrls.map((r) => r.id);
+    if (ids.length) {
+      getTagsForImages(ids).then((tags) => {
+        const byImage: Record<string, ImageTag[]> = {};
+        for (const t of tags) {
+          if (!byImage[t.site_image_id]) byImage[t.site_image_id] = [];
+          byImage[t.site_image_id].push(t);
+        }
+        setImageTags(byImage);
+      }).catch(console.error);
+    }
   }
 
   useEffect(() => {
     load();
     fetchActiveModelLabel();
+    getTagVocabulary().then(setVocabulary).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]);
 
@@ -909,17 +942,118 @@ export default function GalleryUploader({
     }
   }
 
+  async function generateTagsFor(list: Row[]) {
+    if (!list.length || !vocabulary.length) return;
+
+    const vocab: TagDimensionVocab[] = vocabulary.map((d) => ({
+      slug: d.slug,
+      name: d.name,
+      ai_enabled: d.ai_enabled,
+      values: d.values.map((v) => v.value),
+    }));
+
+    const resolved = await Promise.all(
+      list.map(async (r) => {
+        const best = await bestUrlForAI(r.storage_path);
+        return {
+          id: r.id,
+          aiUrl: best.url,
+          filename: r.storage_path.split("/").pop() || r.storage_path,
+        };
+      })
+    );
+
+    const checks = await Promise.all(
+      resolved.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) }))
+    );
+    const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
+    if (!good.length) return;
+
+    const TAG_CHUNK = 6;
+    const allSuggestions: { imageId: string; tags: Record<string, string[]> }[] = [];
+
+    for (let i = 0; i < good.length; i += TAG_CHUNK) {
+      const chunk = good.slice(i, i + TAG_CHUNK);
+      const res = await generateTagsAction({
+        contextArticle: contextArticle ?? "",
+        imagesIn: chunk.map((c) => ({ id: c.id, publicUrl: c.aiUrl, filename: c.filename })),
+        vocabulary: vocab,
+        siteId: String(siteId),
+        siteName: siteTitle,
+      });
+      allSuggestions.push(...res.items);
+    }
+
+    // Save to DB
+    await saveAiTagsAction(allSuggestions);
+
+    // Refresh tags in state
+    const imageIds = list.map((r) => r.id);
+    const freshTags = await getTagsForImages(imageIds);
+    setImageTags((prev) => {
+      const next = { ...prev };
+      for (const id of imageIds) next[id] = [];
+      for (const t of freshTags) {
+        if (!next[t.site_image_id]) next[t.site_image_id] = [];
+        next[t.site_image_id].push(t);
+      }
+      return next;
+    });
+  }
+
+  async function handleDeleteTag(tagId: string, imageId: string) {
+    await deleteTagAction(tagId);
+    setImageTags((prev) => ({
+      ...prev,
+      [imageId]: (prev[imageId] ?? []).filter((t) => t.id !== tagId),
+    }));
+  }
+
+  async function handleAddManualTag(imageId: string, dimensionId: string, value: string) {
+    if (!value.trim()) return;
+    try {
+      const newTag = await addManualTagAction(imageId, dimensionId, value.trim());
+      setImageTags((prev) => ({
+        ...prev,
+        [imageId]: [...(prev[imageId] ?? []), newTag],
+      }));
+      setManualTagInput((prev) => ({
+        ...prev,
+        [imageId]: { ...(prev[imageId] ?? {}), [dimensionId]: "" },
+      }));
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to add tag");
+    }
+  }
+
+  async function handleDeleteAllTags() {
+    if (!confirm("Delete ALL tags for every photo on this site? This cannot be undone.")) return;
+    try {
+      await deleteAllTagsForSiteAction(String(siteId));
+      setImageTags({});
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to delete tags");
+    }
+  }
+
   async function onGenerateAll() {
     try {
       setGenError(null);
+      setTagError(null);
       setGenLoading(true);
+      setTagLoading(true);
       setSuggestions({});
       setSkipped([]);
-      await generateFor(rows.filter((r) => !!r.storage_path));
+      const list = rows.filter((r) => !!r.storage_path);
+      await Promise.all([
+        generateFor(list),
+        generateTagsFor(list),
+      ]);
     } catch (e: any) {
       setGenError(e?.message ?? "Failed to generate");
     } finally {
       setGenLoading(false);
+      setTagLoading(false);
     }
   }
 
@@ -1141,6 +1275,16 @@ export default function GalleryUploader({
                 >
                   Discard
                 </button>
+
+                <button
+                  type="button"
+                  className="px-3.5 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm disabled:opacity-60 ml-auto"
+                  disabled={rows.length === 0}
+                  onClick={handleDeleteAllTags}
+                  title="Delete all AI and manual tags for every photo on this site"
+                >
+                  Delete All Tags
+                </button>
               </div>
             </div>
           </div>
@@ -1285,6 +1429,103 @@ export default function GalleryUploader({
                     </div>
                   </div>
                 )}
+
+                {/* ── Photo Tags ── */}
+                {(() => {
+                  const tags = imageTags[img.id] ?? [];
+                  const dimMap = new Map(vocabulary.map((d) => [d.id, d]));
+                  // Group tags by dimension
+                  const byDim: Record<string, ImageTag[]> = {};
+                  for (const t of tags) {
+                    if (!byDim[t.dimension_id]) byDim[t.dimension_id] = [];
+                    byDim[t.dimension_id].push(t);
+                  }
+                  return (
+                    <div className="border-t pt-1.5 mt-1 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</span>
+                        {tagLoading && <span className="text-[10px] text-blue-500 animate-pulse">Generating…</span>}
+                      </div>
+
+                      {/* Existing tags grouped by dimension */}
+                      {vocabulary.map((dim) => {
+                        const dimTags = byDim[dim.id] ?? [];
+                        const input = manualTagInput[img.id]?.[dim.id] ?? "";
+                        return (
+                          <div key={dim.id}>
+                            <div className="text-[9px] font-medium text-gray-400 uppercase mb-0.5">{dim.name}</div>
+                            <div className="flex flex-wrap gap-1">
+                              {dimTags.map((t) => (
+                                <span
+                                  key={t.id}
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                    t.source === "manual"
+                                      ? "bg-purple-100 text-purple-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {t.value}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTag(t.id, img.id)}
+                                    className="ml-0.5 hover:text-red-500 leading-none"
+                                    title="Remove tag"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+
+                              {/* Manual tag input */}
+                              {dim.values.length > 0 ? (
+                                <select
+                                  className="text-[10px] border border-dashed border-gray-300 rounded px-1 py-0.5 bg-white text-gray-500 max-w-[100px]"
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      void handleAddManualTag(img.id, dim.id, e.target.value);
+                                    }
+                                  }}
+                                >
+                                  <option value="">+ add</option>
+                                  {dim.values
+                                    .filter((v) => !dimTags.find((t) => t.value === v.value))
+                                    .map((v) => (
+                                      <option key={v.id} value={v.value}>{v.value}</option>
+                                    ))}
+                                </select>
+                              ) : (
+                                /* Free-text for 'specific' dimension */
+                                <form
+                                  className="flex gap-0.5"
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void handleAddManualTag(img.id, dim.id, input);
+                                  }}
+                                >
+                                  <input
+                                    className="text-[10px] border border-dashed border-gray-300 rounded px-1 py-0.5 w-20 bg-white"
+                                    placeholder="+ add…"
+                                    value={input}
+                                    onChange={(ev) =>
+                                      setManualTagInput((prev) => ({
+                                        ...prev,
+                                        [img.id]: { ...(prev[img.id] ?? {}), [dim.id]: ev.target.value },
+                                      }))
+                                    }
+                                  />
+                                  {input.trim() && (
+                                    <button type="submit" className="text-[10px] text-blue-600 underline">ok</button>
+                                  )}
+                                </form>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );

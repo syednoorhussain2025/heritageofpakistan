@@ -15,6 +15,20 @@ export type InputImage = {
 type AiImage = { aiId: string; realId: string; url: string; filename: string };
 export type CaptionAltOut = { id: string; alt: string; caption: string };
 
+export type TagDimensionVocab = {
+  slug: string;
+  name: string;
+  ai_enabled: boolean;
+  values: string[]; // allowed values (empty for 'specific' free-text)
+};
+
+export type TagsOut = {
+  /** site_image real id */
+  imageId: string;
+  /** dimension_slug → assigned values */
+  tags: Record<string, string[]>;
+};
+
 const PROVIDER = "openai";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 if (!OPENAI_API_KEY) {
@@ -290,6 +304,161 @@ async function callOpenAIVisionBatch(
   }
 }
 
+/* ------------------ Tag Generation ------------------ */
+
+async function callOpenAITagBatch(
+  cfg: {
+    modelId: string;
+    temperature: number;
+    topP: number;
+    maxOutputTokens: number | null;
+  },
+  images: AiImage[],
+  context: string,
+  vocabulary: TagDimensionVocab[]
+): Promise<{
+  tags: Record<string, Record<string, string[]>>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}> {
+  const normalizedId = mapModelAlias(cfg.modelId);
+
+  // Build vocabulary description for the prompt
+  const aiDimensions = vocabulary.filter((d) => d.ai_enabled);
+  const vocabLines = aiDimensions.map((d) => {
+    if (d.slug === "specific") {
+      return `- "${d.slug}": FREE TEXT array, max 3 short phrases describing unique visible details not covered by other dimensions. Can be empty [].`;
+    }
+    return `- "${d.slug}": pick 0–${d.values.length} values ONLY from: [${d.values.map((v) => `"${v}"`).join(", ")}]`;
+  }).join("\n");
+
+  const schemaExample = `{"images":[{"id":"img1","tags":{"architectural_structural":["dome","arch"],"color":["white","gold/yellow"],"specific":["carved wooden pulpit"]}}]}`;
+
+  const system = [
+    {
+      role: "system",
+      content:
+        "You are a visual analyst for a heritage and travel photography website covering Pakistan.\n" +
+        "Your job is to tag photos accurately based ONLY on what is visually present in each image.\n" +
+        "Do not infer meaning from site context — describe only what you can see.\n" +
+        "Output strict JSON exactly as requested. Do not invent values outside the allowed lists.",
+    },
+  ];
+
+  const expectedIds = images.map((x) => x.aiId);
+  const content: any[] = [
+    {
+      type: "text",
+      text:
+        "Site context (for reference only — do not let it bias visual tags):\n" +
+        context +
+        "\n\nDimensions and allowed values:\n" +
+        vocabLines +
+        "\n\nRules:\n" +
+        "- Only include a dimension if relevant values are clearly visible in the image.\n" +
+        "- For 'specific': write short descriptive phrases for unique details you see that no other dimension captures.\n" +
+        "- Use EXACT ids provided. Output JSON ONLY with this schema:\n" +
+        `  ${schemaExample}\n` +
+        `Expected ids (all must appear once): ${expectedIds.join(", ")}`,
+    },
+  ];
+
+  for (const img of images) {
+    content.push({ type: "text", text: `Image id: ${img.aiId}  filename: ${img.filename}` });
+    content.push({ type: "image_url", image_url: { url: img.url } });
+  }
+
+  const body: Record<string, any> = {
+    model: normalizedId,
+    messages: [...system, { role: "user", content }],
+    response_format: { type: "json_object" },
+  };
+
+  if (cfg.maxOutputTokens != null) {
+    if (normalizedId.startsWith("gpt-5")) {
+      body.max_completion_tokens = cfg.maxOutputTokens;
+    } else {
+      body.max_tokens = cfg.maxOutputTokens;
+    }
+  }
+
+  const supportsTuning = normalizedId.startsWith("gpt-4") || normalizedId === "gpt-5";
+  if (supportsTuning) {
+    body.temperature = cfg.temperature;
+    body.top_p = cfg.topP;
+  }
+
+  // Build allowed value sets per dimension for validation
+  const allowedMap = new Map<string, Set<string>>();
+  for (const d of aiDimensions) {
+    if (d.slug !== "specific") {
+      allowedMap.set(d.slug, new Set(d.values));
+    }
+  }
+
+  let attempts = 0;
+  const maxAttempts = 6;
+  while (true) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+
+    if (res.status !== 429) {
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`OpenAI tag error ${res.status}: ${errText}`);
+      }
+      const json = await res.json();
+      const text = json?.choices?.[0]?.message?.content || "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(text); } catch {}
+
+      const out: Record<string, Record<string, string[]>> = {};
+      const arr = Array.isArray(parsed?.images) ? parsed.images : [];
+      for (const item of arr) {
+        if (!item || typeof item.id !== "string") continue;
+        const cleanTags: Record<string, string[]> = {};
+        if (item.tags && typeof item.tags === "object") {
+          for (const [slug, vals] of Object.entries(item.tags)) {
+            if (!Array.isArray(vals)) continue;
+            if (slug === "specific") {
+              // Free text — just trim and limit to 3
+              const specific = vals
+                .filter((v) => typeof v === "string" && v.trim())
+                .map((v) => String(v).trim())
+                .slice(0, 3);
+              if (specific.length) cleanTags[slug] = specific;
+            } else {
+              // Validate against allowed values — drop anything not in list
+              const allowed = allowedMap.get(slug);
+              if (!allowed) continue;
+              const valid = vals
+                .filter((v) => typeof v === "string" && allowed.has(v))
+                .map((v) => String(v));
+              if (valid.length) cleanTags[slug] = valid;
+            }
+          }
+        }
+        out[item.id] = cleanTags;
+      }
+      return { tags: out, usage: json?.usage ?? undefined };
+    }
+
+    attempts++;
+    if (attempts > maxAttempts) throw new Error("OpenAI tag error 429 (max retries)");
+    const retryAfter = res.headers.get("retry-after") || res.headers.get("x-ratelimit-reset-requests");
+    let waitMs = 2000 * attempts;
+    const parsed = Number(retryAfter);
+    if (!Number.isNaN(parsed) && parsed > 0) waitMs = Math.max(waitMs, parsed * 1000);
+    await sleep(waitMs);
+  }
+}
+
 /* ------------------ Main Action ------------------ */
 export async function generateAltAndCaptionsAction(args: {
   contextArticle: string;
@@ -479,6 +648,105 @@ export async function generateAltAndCaptionsAction(args: {
         completion_tokens: totalOut,
         total_tokens: total,
       },
+      usdEstimate: estimateUsd(cfg.modelId, totalIn, totalOut),
+    },
+  };
+}
+
+/* ------------------ Tag Generation Action ------------------ */
+
+export async function generateTagsAction(args: {
+  contextArticle: string;
+  imagesIn: InputImage[];
+  vocabulary: TagDimensionVocab[];
+  siteId?: string;
+  siteName?: string;
+}): Promise<{
+  items: TagsOut[];
+  meta: {
+    modelId: string;
+    usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    usdEstimate: number | null;
+  };
+}> {
+  const { contextArticle, imagesIn, vocabulary, siteId, siteName } = args;
+
+  if (!imagesIn?.length) {
+    return {
+      items: [],
+      meta: { modelId: "—", usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, usdEstimate: null },
+    };
+  }
+
+  const engine = await getCaptionEngineInfo();
+  const cfg = {
+    modelId: engine.modelId,
+    temperature: engine.temperature,
+    topP: engine.topP,
+    maxOutputTokens: engine.maxOutputTokens,
+  };
+
+  const aiItems: AiImage[] = imagesIn.map((img, i) => ({
+    aiId: `img${i + 1}`,
+    realId: img.id,
+    filename: img.filename || img.publicUrl.split("/").pop() || "image",
+    url: resizedForAI(img.publicUrl),
+  }));
+
+  const PRIMARY_BATCH = 6; // smaller batch for tags — more complex output
+  const results: TagsOut[] = [];
+  let totalIn = 0, totalOut = 0, total = 0;
+
+  async function runTagBatchWithFallback(batch: AiImage[]) {
+    try {
+      const { tags, usage } = await callOpenAITagBatch(cfg, batch, contextArticle ?? "", vocabulary);
+      totalIn  += usage?.prompt_tokens    ?? 0;
+      totalOut += usage?.completion_tokens ?? 0;
+      total    += usage?.total_tokens      ?? 0;
+      for (const item of batch) {
+        results.push({ imageId: item.realId, tags: tags[item.aiId] ?? {} });
+      }
+    } catch (e: any) {
+      const is429 = e?.status === 429 || /rate[_\s-]*limit/i.test(String(e?.message));
+      if (is429 && batch.length > 1) {
+        for (const item of batch) await runTagBatchWithFallback([item]);
+        return;
+      }
+      // On error for a single image, push empty tags rather than crashing
+      for (const item of batch) {
+        results.push({ imageId: item.realId, tags: {} });
+      }
+    }
+  }
+
+  for (let i = 0; i < aiItems.length; i += PRIMARY_BATCH) {
+    await runTagBatchWithFallback(aiItems.slice(i, i + PRIMARY_BATCH));
+  }
+
+  // Log usage
+  try {
+    await logAIUsage({
+      feature: "photo_tags",
+      siteId: siteId ?? null,
+      provider: PROVIDER,
+      modelId: cfg.modelId,
+      inputTokens: totalIn,
+      outputTokens: totalOut,
+      totalTokens: total,
+      usdEstimate: estimateUsd(cfg.modelId, totalIn, totalOut),
+      durationMs: null,
+      requestId: null,
+      metadata: { images_count: imagesIn.length, site_name: siteName ?? null },
+    });
+  } catch (e) {
+    console.error("[photo_tags] logAIUsage failed:", e);
+  }
+
+  return {
+    items: results,
+    meta: {
+      modelId: cfg.modelId,
+      usage: { prompt_tokens: totalIn, completion_tokens: totalOut, total_tokens: total },
       usdEstimate: estimateUsd(cfg.modelId, totalIn, totalOut),
     },
   };
