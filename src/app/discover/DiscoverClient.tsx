@@ -143,7 +143,7 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
 
 /* ─── Main component ──────────────────────────────────────────────────── */
 
-const LOAD_THRESHOLD_PX = 600;
+const LOAD_THRESHOLD_PX = 1500;
 
 export default function DiscoverClient({
   initialPhotos,
@@ -164,34 +164,53 @@ export default function DiscoverClient({
   const scrollRef  = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const loadingRef = useRef(false);
+  const loadingRef  = useRef(false);
+  // Cache for the next page — fetched in background while user reads current batch
+  const prefetchRef = useRef<Promise<DiscoverPhoto[]> | null>(null);
+
+  const prefetchNext = useCallback(() => {
+    const nextPage  = pageRef.current;
+    const nextCycle = cycleRef.current;
+    prefetchRef.current = loadPhotos(nextPage, nextCycle);
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
     try {
-      const next = await loadPhotos(pageRef.current, cycleRef.current);
+      // Use prefetched data if available, otherwise fetch now
+      const next = prefetchRef.current
+        ? await prefetchRef.current
+        : await loadPhotos(pageRef.current, cycleRef.current);
+      prefetchRef.current = null;
+
       if (next.length > 0) {
-        // Always append what we got, whether it's a full page or the last partial page
         setPhotos((prev) => [...prev, ...next]);
         pageRef.current += 1;
       }
       if (next.length < 30) {
-        // Fewer than a full page = exhausted this cycle, reset for next scroll trigger
         cycleRef.current += 1;
         pageRef.current = 0;
       }
+
+      // Immediately prefetch the next batch in background
+      prefetchNext();
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [prefetchNext]);
 
-  // Initial fetch when mounted with no photos (e.g. from TabShell)
+  // Initial fetch when mounted with no photos, then prefetch page 1
   useEffect(() => {
-    if (initialPhotos.length === 0) void loadMore();
+    if (initialPhotos.length === 0) {
+      void loadMore();
+    } else {
+      // Already have photos from SSR — prefetch next page immediately
+      prefetchNext();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -310,6 +329,9 @@ export default function DiscoverClient({
                   onOpen={(rect, thumb) => handleOpen(photo, rect, thumb)}
                 />
               ))}
+              {loading && [0, 1, 2].map((i) => (
+                <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
+              ))}
             </div>
 
             {/* Right column */}
@@ -323,19 +345,15 @@ export default function DiscoverClient({
                   onOpen={(rect, thumb) => handleOpen(photo, rect, thumb)}
                 />
               ))}
+              {loading && [0, 1, 2].map((i) => (
+                <SkeletonTile key={`r-sk-${i}`} aspectClass={RIGHT_ASPECTS[(rightPhotos.length + i) % RIGHT_ASPECTS.length]} />
+              ))}
             </div>
           </div>
         )}
 
         {/* Infinite scroll sentinel */}
         <div ref={sentinelRef} className="h-4" />
-
-        {/* Loading spinner */}
-        {loading && (
-          <div className="flex justify-center py-6">
-            <div className="w-6 h-6 border-2 border-gray-300 border-t-[var(--brand-orange)] rounded-full animate-spin" />
-          </div>
-        )}
 
         {/* Bottom nav clearance */}
         <div className="h-[calc(env(safe-area-inset-bottom,0px)+72px)]" />
