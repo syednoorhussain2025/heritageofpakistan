@@ -386,12 +386,14 @@ export default function DiscoverClient({
   const sheetSite = useMemo(() => {
     if (!sheetPhoto) return null;
     const s = sheetPhoto.site;
+    // Fall back to the tapped photo's own URL if site has no cover
+    const coverUrl = s.coverPhotoUrl ?? sheetPhoto.url ?? null;
     return {
       id: s.id,
       slug: sheetPhoto.siteSlug,
       province_slug: sheetPhoto.regionSlug,
       title: s.name,
-      cover_photo_url: s.coverPhotoUrl ?? null,
+      cover_photo_url: coverUrl,
       cover_slideshow_image_ids: s.coverSlideshowImageIds ?? null,
       avg_rating: s.avgRating ?? null,
       review_count: s.reviewCount ?? null,
@@ -426,38 +428,39 @@ export default function DiscoverClient({
         <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: searchOpen ? "10px" : "12px" }}>
           {/* Title row */}
           <div className="flex items-center justify-between px-4 pb-1">
-            {/* Left: back arrow when search active */}
-            <div className="w-8 pointer-events-auto">
+            {/* Left: spacer */}
+            <div className="w-8" />
+
+            {/* Center: always show title, query as subtitle when active */}
+            <div className="flex-1 text-center">
+              <h1
+                className="text-white font-bold tracking-tight"
+                style={{
+                  fontSize: "clamp(20px, 5.5vw, 26px)",
+                  textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Discover
+              </h1>
               {searchActive && (
-                <button onClick={clearSearch} className="text-white/80 active:text-white">
+                <div className="flex justify-center mt-1 pointer-events-auto">
+                  <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
+                    {searchQuery}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right: search icon or clear X when search active */}
+            <div className="w-8 pointer-events-auto flex justify-end">
+              {searchActive ? (
+                <button onClick={clearSearch} className="text-white/90 active:text-white">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 5l-7 7 7 7" />
+                    <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
-              )}
-            </div>
-
-            {/* Center: title or active query */}
-            <div className="flex-1 text-center">
-              {searchActive ? (
-                <p className="text-white text-sm font-semibold truncate px-2">"{searchQuery}"</p>
-              ) : (
-                <h1
-                  className="text-white font-bold tracking-tight"
-                  style={{
-                    fontSize: "clamp(20px, 5.5vw, 26px)",
-                    textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  Discover
-                </h1>
-              )}
-            </div>
-
-            {/* Right: search icon */}
-            <div className="w-8 pointer-events-auto flex justify-end">
-              {!searchOpen && (
+              ) : !searchOpen && (
                 <button onClick={() => setSearchOpen(true)} className="text-white/90 active:text-white">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
                     <circle cx="11" cy="11" r="7" />
@@ -520,7 +523,7 @@ export default function DiscoverClient({
                   onOpen={() => setSheetPhoto(photo)}
                 />
               ))}
-              {loading && [0, 1, 2].map((i) => (
+              {(loading || searchLoading) && [0, 1, 2].map((i) => (
                 <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
               ))}
             </div>
@@ -536,7 +539,7 @@ export default function DiscoverClient({
                   onOpen={() => setSheetPhoto(photo)}
                 />
               ))}
-              {loading && [0, 1, 2].map((i) => (
+              {(loading || searchLoading) && [0, 1, 2].map((i) => (
                 <SkeletonTile key={`r-sk-${i}`} aspectClass={RIGHT_ASPECTS[(rightPhotos.length + i) % RIGHT_ASPECTS.length]} />
               ))}
             </div>
