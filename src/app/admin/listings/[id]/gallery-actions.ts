@@ -192,7 +192,7 @@ async function callOpenAIVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description of the image (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
-        "- SCENE DESCRIPTION: exactly 3 vivid sentences describing the photo visually. Sentence 1: overall framing and dominant impression. Sentence 2: key architectural/decorative/material details visible. Sentence 3: light, setting, and surrounding context.\n" +
+        "- SCENE DESCRIPTION: exactly 3 sentences, HARD LIMIT 50 words total. Count your words. Describe only what is visually present. Sentence 1: dominant subject and framing (10-15 words). Sentence 2: the single most specific visible detail — colour, pattern, texture, or form that makes this image distinctive (20-25 words). Sentence 3: one concrete fact about light or immediate surroundings, nothing else (8-12 words). No filler. No historical inference.\n" +
         "Do not invent details. Output JSON exactly as requested.",
     },
   ];
@@ -208,7 +208,7 @@ async function callOpenAIVisionBatch(
         "- Alt = factual description for accessibility.\n" +
         "- Caption = short narrative line.\n" +
         `- Alt and caption each <= ${cfg.maxWords} words.\n` +
-        "- scene_description = exactly 3 vivid sentences (framing/impression, details, light/context).\n" +
+        "- scene_description = exactly 3 sentences, purely visual observation, no historical inference.\n" +
         "- Use EXACT ids I provide (do not rename or reorder).\n" +
         "- Output JSON ONLY with this schema:\n" +
         '  {"images":[{"id":"img1","alt":"...","caption":"...","scene_description":"..."}]}\n' +
@@ -340,7 +340,7 @@ async function callAnthropicVisionBatch(
         "- Alt = factual description for accessibility.\n" +
         "- Caption = short narrative line.\n" +
         `- Alt and caption each <= ${cfg.maxWords} words.\n` +
-        "- scene_description = exactly 3 vivid sentences (framing/impression, details, light/context).\n" +
+        "- scene_description = exactly 3 sentences, purely visual observation, no historical inference.\n" +
         "- Use EXACT ids I provide.\n" +
         "- Output JSON ONLY: {\"images\":[{\"id\":\"img1\",\"alt\":\"...\",\"caption\":\"...\",\"scene_description\":\"...\"}]}\n" +
         `Expected ids: ${expectedIds.join(", ")}`,
