@@ -14,6 +14,12 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
 
+async function searchPhotos(query: string, offset: number): Promise<DiscoverPhoto[]> {
+  const res = await fetch(`/api/search/photos?q=${encodeURIComponent(query)}&offset=${offset}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 const SESSION_SEED_KEY = "discover:seed";
 
 function getOrCreateSeed(): number {
@@ -174,6 +180,118 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
   );
 }
 
+/* ─── Search bottom sheet ──────────────────────────────────────────────── */
+
+function SearchSheet({ onSearch, onClose }: { onSearch: (q: string) => void; onClose: () => void }) {
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Small delay so the sheet animates in first
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  const submit = useCallback(() => {
+    const q = value.trim();
+    if (!q) return;
+    onSearch(q);
+  }, [value, onSearch]);
+
+  const handleKey = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") submit();
+    if (e.key === "Escape") onClose();
+  }, [submit, onClose]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[1200] bg-black/50"
+        onClick={onClose}
+        style={{ backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
+      />
+
+      {/* Sheet */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-[1201] bg-white rounded-t-3xl"
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom, 20px) + 16px)",
+          animation: "slideUp 0.22s cubic-bezier(0.32,0.72,0,1)",
+        }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-9 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        <div className="px-4 pt-2 pb-4">
+          <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Search photos
+          </p>
+
+          {/* Input row */}
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-2xl px-4 py-3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-gray-400 flex-shrink-0">
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="M20 20l-3-3" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="search"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="e.g. Mughal arch, blue tiles, Lahore…"
+                className="flex-1 bg-transparent text-[15px] text-gray-800 placeholder-gray-400 outline-none"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              {value && (
+                <button onClick={() => setValue("")} className="text-gray-400 active:text-gray-600 flex-shrink-0">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path d="M12 10.586l4.95-4.95 1.414 1.414L13.414 12l4.95 4.95-1.414 1.414L12 13.414l-4.95 4.95-1.414-1.414L10.586 12 5.636 7.05 7.05 5.636z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={submit}
+              disabled={!value.trim()}
+              className="bg-stone-800 text-white rounded-2xl px-5 text-[14px] font-semibold disabled:opacity-40 active:bg-stone-700 transition-colors"
+            >
+              Search
+            </button>
+          </div>
+
+          {/* Hint chips */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {["Mughal", "Lahore", "blue tiles", "mosque", "colonial"].map((hint) => (
+              <button
+                key={hint}
+                onClick={() => { setValue(hint); setTimeout(() => inputRef.current?.focus(), 0); }}
+                className="px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 text-[12px] font-medium active:bg-stone-200"
+              >
+                {hint}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
+    </>
+  );
+}
+
 /* ─── Main component ───────────────────────────────────────────────────── */
 
 const LOAD_THRESHOLD_PX = 1500;
@@ -187,8 +305,19 @@ export default function DiscoverClient({
   const [loading, setLoading] = useState(false);
   const pageRef       = useRef(initialPhotos.length > 0 ? 1 : 0);
   const cycleRef      = useRef(0);
-  const seedRef       = useRef(0); // populated on mount from sessionStorage
-  const requestNumRef = useRef(0);  // ever-increasing across cycles, never resets
+  const seedRef       = useRef(0);
+  const requestNumRef = useRef(0);
+
+  // Search state
+  const [searchOpen, setSearchOpen]     = useState(false);
+  const [searchQuery, setSearchQuery]   = useState("");
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchPhotosArr, setSearchPhotosArr] = useState<DiscoverPhoto[]>([]);
+  const [searchLoading, setSearchLoading]     = useState(false);
+  const [searchOffset, setSearchOffset]       = useState(0);
+  const [searchHasMore, setSearchHasMore]     = useState(true);
+  const searchLoadingRef = useRef(false);
+  const activeQueryRef   = useRef("");
 
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
@@ -219,6 +348,46 @@ export default function DiscoverClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const runSearch = useCallback(async (query: string, offset: number, replace: boolean) => {
+    if (searchLoadingRef.current) return;
+    searchLoadingRef.current = true;
+    setSearchLoading(true);
+    try {
+      const results = await searchPhotos(query, offset);
+      if (activeQueryRef.current !== query) return; // stale
+      if (replace) {
+        setSearchPhotosArr(results);
+      } else {
+        setSearchPhotosArr((prev) => [...prev, ...results]);
+      }
+      setSearchOffset(offset + results.length);
+      setSearchHasMore(results.length === 30);
+    } finally {
+      searchLoadingRef.current = false;
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const handleSearch = useCallback((q: string) => {
+    const query = q.trim();
+    if (!query) return;
+    activeQueryRef.current = query;
+    setSearchQuery(query);
+    setSearchActive(true);
+    setSearchOpen(false);
+    setSearchOffset(0);
+    setSearchHasMore(true);
+    void runSearch(query, 0, true);
+  }, [runSearch]);
+
+  const clearSearch = useCallback(() => {
+    setSearchActive(false);
+    setSearchQuery("");
+    setSearchPhotosArr([]);
+    setSearchOffset(0);
+    activeQueryRef.current = "";
+  }, []);
+
   useEffect(() => {
     seedRef.current = getOrCreateSeed();
     if (initialPhotos.length === 0) void loadMore();
@@ -229,23 +398,35 @@ export default function DiscoverClient({
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) void loadMore(); },
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        if (searchActive) {
+          if (searchHasMore && !searchLoadingRef.current) {
+            void runSearch(activeQueryRef.current, searchOffset, false);
+          }
+        } else {
+          void loadMore();
+        }
+      },
       { rootMargin: `${LOAD_THRESHOLD_PX}px` }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore]);
+  }, [loadMore, searchActive, searchHasMore, searchOffset, runSearch]);
+
+  const activePhotos = searchActive ? searchPhotosArr : photos;
 
   const [leftPhotos, rightPhotos] = useMemo(() => {
     const left: DiscoverPhoto[]  = [];
     const right: DiscoverPhoto[] = [];
-    photos.forEach((p, i) => {
+    activePhotos.forEach((p, i) => {
       if (i % 2 === 0) left.push(p); else right.push(p);
     });
     return [left, right];
-  }, [photos]);
+  }, [activePhotos]);
 
-  const showSkeleton = photos.length === 0;
+  const showSkeleton = !searchActive && photos.length === 0;
+  const showSearchSkeleton = searchActive && searchLoading && searchPhotosArr.length === 0;
 
   // Build BottomSheetSite from a DiscoverPhoto
   const sheetSite = useMemo(() => {
@@ -289,19 +470,52 @@ export default function DiscoverClient({
           }}
         />
         <div
-          className="relative flex items-center justify-center"
+          className="relative flex items-center justify-between px-4"
           style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: "12px" }}
         >
-          <h1
-            className="text-white font-bold tracking-tight"
-            style={{
-              fontSize: "clamp(20px, 5.5vw, 26px)",
-              textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Discover
-          </h1>
+          {/* Left: clear search or spacer */}
+          <div className="w-8 pointer-events-auto">
+            {searchActive && (
+              <button onClick={clearSearch} className="text-white/80 active:text-white">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Center: title or active query */}
+          <div className="flex-1 text-center">
+            {searchActive ? (
+              <p className="text-white text-sm font-semibold truncate px-2">
+                "{searchQuery}"
+              </p>
+            ) : (
+              <h1
+                className="text-white font-bold tracking-tight"
+                style={{
+                  fontSize: "clamp(20px, 5.5vw, 26px)",
+                  textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Discover
+              </h1>
+            )}
+          </div>
+
+          {/* Right: search icon */}
+          <div className="w-8 pointer-events-auto flex justify-end">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="text-white/90 active:text-white"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="M20 20l-3-3" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -310,7 +524,19 @@ export default function DiscoverClient({
         className="px-2 pb-8"
         style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
       >
-        {showSkeleton ? (
+        {/* Search empty state */}
+        {searchActive && !searchLoading && searchPhotosArr.length === 0 && (
+          <div className="flex flex-col items-center justify-center pt-24 gap-3 text-center px-8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-12 h-12 text-gray-300">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M20 20l-3-3" />
+            </svg>
+            <p className="text-gray-500 text-sm font-medium">No photos found for "{searchQuery}"</p>
+            <button onClick={clearSearch} className="text-sm text-gray-400 underline mt-1">Back to Discover</button>
+          </div>
+        )}
+
+        {(showSkeleton || showSearchSkeleton) ? (
           <div className="flex gap-2">
             <div className="flex flex-col gap-2 flex-1">
               {LEFT_ASPECTS.slice(0, 5).map((a, i) => (
@@ -372,6 +598,14 @@ export default function DiscoverClient({
         isOpen={sheetSite !== null}
         onClose={() => setSheetPhoto(null)}
       />
+
+      {/* Search bottom sheet */}
+      {searchOpen && (
+        <SearchSheet
+          onSearch={handleSearch}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </div>
   );
 }

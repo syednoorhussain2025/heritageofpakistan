@@ -17,15 +17,54 @@ import {
   getCaptionEngineInfo,
 } from "./gallery-actions";
 import type { CaptionAltOut, TagDimensionVocab } from "./gallery-actions";
-import {
-  getTagVocabulary,
-  getTagsForImages,
-  saveAiTagsAction,
-  addManualTagAction,
-  deleteTagAction,
-  deleteAllTagsForSiteAction,
-} from "./photo-tag-actions";
-import type { TagDimension, ImageTag } from "./photo-tag-actions";
+type TagDimension = { id: string; name: string; slug: string; is_multi: boolean; ai_enabled: boolean; values: { id: string; value: string; is_active: boolean }[] };
+type ImageTag = { id: string; site_image_id: string; dimension_id: string; value: string; source: "ai" | "manual" };
+
+/* ── Photo tag API helpers (fetch-based, avoids server action nesting issue) ── */
+async function getTagVocabulary(): Promise<TagDimension[]> {
+  const res = await fetch("/api/admin/photo-tags?action=vocabulary");
+  if (!res.ok) throw new Error("Failed to fetch tag vocabulary");
+  return res.json();
+}
+async function getTagsForImages(imageIds: string[]): Promise<ImageTag[]> {
+  if (!imageIds.length) return [];
+  const res = await fetch(`/api/admin/photo-tags?action=for-images&imageIds=${imageIds.join(",")}`);
+  if (!res.ok) throw new Error("Failed to fetch tags");
+  return res.json();
+}
+async function saveAiTags(suggestions: { imageId: string; tags: Record<string, string[]> }[]): Promise<void> {
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "save-ai-tags", suggestions }),
+  });
+  if (!res.ok) throw new Error("Failed to save tags");
+}
+async function addManualTag(siteImageId: string, dimensionId: string, value: string): Promise<ImageTag> {
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "add-manual-tag", siteImageId, dimensionId, value }),
+  });
+  if (!res.ok) throw new Error("Failed to add tag");
+  return res.json();
+}
+async function deleteTag(tagId: string): Promise<void> {
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "delete-tag", tagId }),
+  });
+  if (!res.ok) throw new Error("Failed to delete tag");
+}
+async function deleteAllTagsForSite(siteId: string): Promise<void> {
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "delete-all-tags-for-site", siteId }),
+  });
+  if (!res.ok) throw new Error("Failed to delete all tags");
+}
 import { encode } from "blurhash";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 
@@ -943,9 +982,16 @@ export default function GalleryUploader({
   }
 
   async function generateTagsFor(list: Row[]) {
-    if (!list.length || !vocabulary.length) return;
+    if (!list.length) return;
+    // If vocabulary not loaded yet, fetch it now
+    let vocab_dims = vocabulary;
+    if (!vocab_dims.length) {
+      vocab_dims = await getTagVocabulary();
+      setVocabulary(vocab_dims);
+    }
+    if (!vocab_dims.length) throw new Error("Tag vocabulary is empty — add dimensions in Image Tags admin.");
 
-    const vocab: TagDimensionVocab[] = vocabulary.map((d) => ({
+    const vocab: TagDimensionVocab[] = vocab_dims.map((d) => ({
       slug: d.slug,
       name: d.name,
       ai_enabled: d.ai_enabled,
@@ -985,7 +1031,7 @@ export default function GalleryUploader({
     }
 
     // Save to DB
-    await saveAiTagsAction(allSuggestions);
+    await saveAiTags(allSuggestions);
 
     // Refresh tags in state
     const imageIds = list.map((r) => r.id);
@@ -1002,7 +1048,7 @@ export default function GalleryUploader({
   }
 
   async function handleDeleteTag(tagId: string, imageId: string) {
-    await deleteTagAction(tagId);
+    await deleteTag(tagId);
     setImageTags((prev) => ({
       ...prev,
       [imageId]: (prev[imageId] ?? []).filter((t) => t.id !== tagId),
@@ -1012,7 +1058,7 @@ export default function GalleryUploader({
   async function handleAddManualTag(imageId: string, dimensionId: string, value: string) {
     if (!value.trim()) return;
     try {
-      const newTag = await addManualTagAction(imageId, dimensionId, value.trim());
+      const newTag = await addManualTag(imageId, dimensionId, value.trim());
       setImageTags((prev) => ({
         ...prev,
         [imageId]: [...(prev[imageId] ?? []), newTag],
@@ -1029,7 +1075,7 @@ export default function GalleryUploader({
   async function handleDeleteAllTags() {
     if (!confirm("Delete ALL tags for every photo on this site? This cannot be undone.")) return;
     try {
-      await deleteAllTagsForSiteAction(String(siteId));
+      await deleteAllTagsForSite(String(siteId));
       setImageTags({});
     } catch (e: any) {
       alert(e?.message ?? "Failed to delete tags");
@@ -1037,24 +1083,29 @@ export default function GalleryUploader({
   }
 
   async function onGenerateAll() {
-    try {
-      setGenError(null);
-      setTagError(null);
-      setGenLoading(true);
-      setTagLoading(true);
-      setSuggestions({});
-      setSkipped([]);
-      const list = rows.filter((r) => !!r.storage_path);
-      await Promise.all([
-        generateFor(list),
-        generateTagsFor(list),
-      ]);
-    } catch (e: any) {
-      setGenError(e?.message ?? "Failed to generate");
-    } finally {
-      setGenLoading(false);
-      setTagLoading(false);
+    setGenError(null);
+    setTagError(null);
+    setGenLoading(true);
+    setTagLoading(true);
+    setSuggestions({});
+    setSkipped([]);
+    const list = rows.filter((r) => !!r.storage_path);
+
+    // Run captions and tags independently so one failing doesn't block the other
+    const [captionResult, tagResult] = await Promise.allSettled([
+      generateFor(list),
+      generateTagsFor(list),
+    ]);
+
+    if (captionResult.status === "rejected") {
+      setGenError(captionResult.reason?.message ?? "Caption generation failed");
     }
+    if (tagResult.status === "rejected") {
+      setTagError(tagResult.reason?.message ?? "Tag generation failed");
+    }
+
+    setGenLoading(false);
+    setTagLoading(false);
   }
 
   async function onGenerateRemaining() {
@@ -1216,7 +1267,10 @@ export default function GalleryUploader({
               )}
 
               {genError && (
-                <div className="text-xs text-red-600">{genError}</div>
+                <div className="text-xs text-red-600">Captions: {genError}</div>
+              )}
+              {tagError && (
+                <div className="text-xs text-red-600">Tags: {tagError}</div>
               )}
 
               <div className="flex flex-wrap gap-2">
