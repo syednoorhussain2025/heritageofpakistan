@@ -13,7 +13,7 @@ export type InputImage = {
 };
 
 type AiImage = { aiId: string; realId: string; url: string; filename: string };
-export type CaptionAltOut = { id: string; alt: string; caption: string };
+export type CaptionAltOut = { id: string; alt: string; caption: string; sceneDescription?: string };
 
 export type TagDimensionVocab = {
   slug: string;
@@ -86,6 +86,7 @@ function resizedForAI(url: string): string {
 
 /** Public server action the UI can call to know what model Captions will use. */
 export async function getCaptionEngineInfo(): Promise<{
+  provider: string;
   modelId: string;
   temperature: number;
   topP: number;
@@ -95,6 +96,7 @@ export async function getCaptionEngineInfo(): Promise<{
   type Row = {
     scope?: string | null;
     data?: {
+      providerKey?: string | null;
       modelId?: string | null;
       temperature?: number | null;
       topP?: number | null;
@@ -104,6 +106,7 @@ export async function getCaptionEngineInfo(): Promise<{
   };
 
   const FALLBACK = {
+    provider: "openai",
     modelId: "gpt-4o-mini",
     temperature: 0.2,
     topP: 1,
@@ -124,7 +127,12 @@ export async function getCaptionEngineInfo(): Promise<{
       settings?.modelId?.trim() ||
       FALLBACK.modelId;
 
+    // Infer provider from model id if not explicitly set
+    const providerKey = settings?.providerKey?.trim() || FALLBACK.provider;
+    const provider = modelId.startsWith("claude-") ? "anthropic" : providerKey;
+
     return {
+      provider,
       modelId,
       temperature:
         typeof settings?.temperature === "number"
@@ -184,6 +192,7 @@ async function callOpenAIVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description of the image (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
+        "- SCENE DESCRIPTION: exactly 3 vivid sentences describing the photo visually. Sentence 1: overall framing and dominant impression. Sentence 2: key architectural/decorative/material details visible. Sentence 3: light, setting, and surrounding context.\n" +
         "Do not invent details. Output JSON exactly as requested.",
     },
   ];
@@ -195,16 +204,15 @@ async function callOpenAIVisionBatch(
         "Site context:\n" +
         context +
         "\n\nTask:\n" +
-        "- For each image, return BOTH alt and caption.\n" +
+        "- For each image, return alt, caption, and scene_description.\n" +
         "- Alt = factual description for accessibility.\n" +
         "- Caption = short narrative line.\n" +
-        `- Each <= ${cfg.maxWords} words.\n` +
+        `- Alt and caption each <= ${cfg.maxWords} words.\n` +
+        "- scene_description = exactly 3 vivid sentences (framing/impression, details, light/context).\n" +
         "- Use EXACT ids I provide (do not rename or reorder).\n" +
         "- Output JSON ONLY with this schema:\n" +
-        '  {"images":[{"id":"img1","alt":"...","caption":"..."}, {"id":"img2","alt":"...","caption":"..."}]}\n' +
-        `Expected ids (all must be present once each): ${expectedIds.join(
-          ", "
-        )}`,
+        '  {"images":[{"id":"img1","alt":"...","caption":"...","scene_description":"..."}]}\n' +
+        `Expected ids (all must be present once each): ${expectedIds.join(", ")}`,
     },
   ];
   for (const img of images) {
@@ -268,7 +276,7 @@ async function callOpenAIVisionBatch(
       try {
         parsed = JSON.parse(text);
       } catch {}
-      const out: Record<string, { alt: string; caption: string }> = {};
+      const out: Record<string, { alt: string; caption: string; sceneDescription?: string }> = {};
       const arr = Array.isArray(parsed?.images) ? parsed.images : [];
       for (const item of arr) {
         if (!item || typeof item.id !== "string") continue;
@@ -280,7 +288,11 @@ async function callOpenAIVisionBatch(
           typeof item.caption === "string"
             ? limitWords(item.caption.trim(), cfg.maxWords)
             : "Heritage site photo.";
-        out[item.id] = { alt, caption };
+        const sceneDescription =
+          typeof item.scene_description === "string"
+            ? item.scene_description.trim()
+            : undefined;
+        out[item.id] = { alt, caption, sceneDescription };
       }
       return { captions: out, usage: json?.usage ?? undefined };
     }
@@ -302,6 +314,189 @@ async function callOpenAIVisionBatch(
       waitMs = Math.max(waitMs, parsed * 1000);
     await sleep(waitMs);
   }
+}
+
+/* ------------------ Anthropic Vision (captions) ------------------ */
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+async function callAnthropicVisionBatch(
+  cfg: { modelId: string; maxOutputTokens: number | null; maxWords: number },
+  images: AiImage[],
+  context: string
+): Promise<{
+  captions: Record<string, { alt: string; caption: string }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}> {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set.");
+
+  const expectedIds = images.map((x) => x.aiId);
+  const userContent: any[] = [
+    {
+      type: "text",
+      text:
+        "Site context:\n" + context +
+        "\n\nTask:\n" +
+        "- For each image, return alt, caption, and scene_description.\n" +
+        "- Alt = factual description for accessibility.\n" +
+        "- Caption = short narrative line.\n" +
+        `- Alt and caption each <= ${cfg.maxWords} words.\n` +
+        "- scene_description = exactly 3 vivid sentences (framing/impression, details, light/context).\n" +
+        "- Use EXACT ids I provide.\n" +
+        "- Output JSON ONLY: {\"images\":[{\"id\":\"img1\",\"alt\":\"...\",\"caption\":\"...\",\"scene_description\":\"...\"}]}\n" +
+        `Expected ids: ${expectedIds.join(", ")}`,
+    },
+  ];
+  for (const img of images) {
+    userContent.push({ type: "text", text: `Image id: ${img.aiId}  filename: ${img.filename}` });
+    userContent.push({ type: "image", source: { type: "url", url: img.url } });
+  }
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: cfg.modelId,
+      max_tokens: cfg.maxOutputTokens ?? 1200,
+      system:
+        "You are assisting a heritage & travel website.\n" +
+        `- ALT TEXT: factual, literal description (<= ${cfg.maxWords} words).\n` +
+        `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
+        "- SCENE DESCRIPTION: exactly 3 vivid sentences. Sentence 1: overall framing and dominant impression. Sentence 2: key architectural/decorative/material details. Sentence 3: light, setting, surrounding context.\n" +
+        "Output JSON only.",
+      messages: [{ role: "user", content: userContent }],
+    }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic error ${res.status}: ${errText}`);
+  }
+  const json = await res.json();
+  const raw = json?.content?.[0]?.text || "{}";
+  const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  let parsed: any = {};
+  try { parsed = JSON.parse(text); } catch {}
+  const out: Record<string, { alt: string; caption: string; sceneDescription?: string }> = {};
+  for (const item of (Array.isArray(parsed?.images) ? parsed.images : [])) {
+    if (!item || typeof item.id !== "string") continue;
+    out[item.id] = {
+      alt: limitWords(typeof item.alt === "string" ? item.alt.trim() : "Photo of heritage site.", cfg.maxWords),
+      caption: limitWords(typeof item.caption === "string" ? item.caption.trim() : "Heritage site photo.", cfg.maxWords),
+      sceneDescription: typeof item.scene_description === "string" ? item.scene_description.trim() : undefined,
+    };
+  }
+  return {
+    captions: out,
+    usage: json?.usage ? {
+      prompt_tokens: json.usage.input_tokens ?? 0,
+      completion_tokens: json.usage.output_tokens ?? 0,
+      total_tokens: (json.usage.input_tokens ?? 0) + (json.usage.output_tokens ?? 0),
+    } : undefined,
+  };
+}
+
+/* ------------------ Anthropic Vision (tags) ------------------ */
+async function callAnthropicTagBatch(
+  cfg: { modelId: string; maxOutputTokens: number | null },
+  images: AiImage[],
+  context: string,
+  vocabulary: TagDimensionVocab[]
+): Promise<{
+  tags: Record<string, Record<string, string[]>>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}> {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set.");
+
+  const aiDimensions = vocabulary.filter((d) => d.ai_enabled);
+  const vocabLines = aiDimensions.map((d) => {
+    if (d.slug === "specific") return `- "${d.slug}": FREE TEXT array, max 3 short phrases. Can be [].`;
+    return `- "${d.slug}": pick 0–${d.values.length} values ONLY from: [${d.values.map((v) => `"${v}"`).join(", ")}]`;
+  }).join("\n");
+
+  const allowedMap = new Map<string, Set<string>>();
+  for (const d of aiDimensions) {
+    if (d.slug !== "specific") allowedMap.set(d.slug, new Set(d.values));
+  }
+
+  const expectedIds = images.map((x) => x.aiId);
+  const userContent: any[] = [
+    {
+      type: "text",
+      text:
+        "Site context (for reference only):\n" + context +
+        "\n\nDimensions and allowed values:\n" + vocabLines +
+        "\n\nRules:\n" +
+        "- Only include a dimension if relevant values are clearly visible.\n" +
+        "- Output JSON ONLY: {\"images\":[{\"id\":\"img1\",\"tags\":{\"architectural_structural\":[\"dome\"]}}]}\n" +
+        `Expected ids: ${expectedIds.join(", ")}`,
+    },
+  ];
+  for (const img of images) {
+    userContent.push({ type: "text", text: `Image id: ${img.aiId}  filename: ${img.filename}` });
+    userContent.push({ type: "image", source: { type: "url", url: img.url } });
+  }
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: cfg.modelId,
+      max_tokens: cfg.maxOutputTokens ?? 1200,
+      system:
+        "You are a visual analyst for a heritage photography website covering Pakistan.\n" +
+        "Tag photos accurately based ONLY on what is visually present. Output strict JSON only.",
+      messages: [{ role: "user", content: userContent }],
+    }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic error ${res.status}: ${errText}`);
+  }
+  const json = await res.json();
+  const raw = json?.content?.[0]?.text || "{}";
+  const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  let parsed: any = {};
+  try { parsed = JSON.parse(text); } catch {}
+
+  const out: Record<string, Record<string, string[]>> = {};
+  for (const item of (Array.isArray(parsed?.images) ? parsed.images : [])) {
+    if (!item || typeof item.id !== "string") continue;
+    const cleanTags: Record<string, string[]> = {};
+    if (item.tags && typeof item.tags === "object") {
+      for (const [slug, vals] of Object.entries(item.tags)) {
+        if (!Array.isArray(vals)) continue;
+        if (slug === "specific") {
+          const specific = vals.filter((v) => typeof v === "string" && v.trim()).map((v) => String(v).trim()).slice(0, 3);
+          if (specific.length) cleanTags[slug] = specific;
+        } else {
+          const allowed = allowedMap.get(slug);
+          if (!allowed) continue;
+          const valid = vals.filter((v) => typeof v === "string" && allowed.has(v)).map((v) => String(v));
+          if (valid.length) cleanTags[slug] = valid;
+        }
+      }
+    }
+    out[item.id] = cleanTags;
+  }
+  return {
+    tags: out,
+    usage: json?.usage ? {
+      prompt_tokens: json.usage.input_tokens ?? 0,
+      completion_tokens: json.usage.output_tokens ?? 0,
+      total_tokens: (json.usage.input_tokens ?? 0) + (json.usage.output_tokens ?? 0),
+    } : undefined,
+  };
 }
 
 /* ------------------ Tag Generation ------------------ */
@@ -523,7 +718,7 @@ export async function generateAltAndCaptionsAction(args: {
       completion_tokens?: number;
       total_tokens?: number;
     },
-    data?: Record<string, { alt: string; caption: string }>
+    data?: Record<string, { alt: string; caption: string; sceneDescription?: string }>
   ) => {
     totalIn += usage?.prompt_tokens ?? 0;
     totalOut += usage?.completion_tokens ?? 0;
@@ -534,17 +729,16 @@ export async function generateAltAndCaptionsAction(args: {
         id: item.realId,
         alt: d?.alt || "Heritage site photo.",
         caption: d?.caption || "Heritage site image.",
+        sceneDescription: d?.sceneDescription,
       });
     }
   };
 
   async function runBatchWithFallback(batch: AiImage[]) {
     try {
-      const { captions, usage } = await callOpenAIVisionBatch(
-        cfg,
-        batch,
-        contextArticle
-      );
+      const { captions, usage } = engine.provider === "anthropic"
+        ? await callAnthropicVisionBatch(cfg, batch, contextArticle)
+        : await callOpenAIVisionBatch(cfg, batch, contextArticle);
       consume(batch, usage, captions);
       return;
     } catch (e: any) {
@@ -699,7 +893,9 @@ export async function generateTagsAction(args: {
 
   async function runTagBatchWithFallback(batch: AiImage[]) {
     try {
-      const { tags, usage } = await callOpenAITagBatch(cfg, batch, contextArticle ?? "", vocabulary);
+      const { tags, usage } = engine.provider === "anthropic"
+        ? await callAnthropicTagBatch(cfg, batch, contextArticle ?? "", vocabulary)
+        : await callOpenAITagBatch(cfg, batch, contextArticle ?? "", vocabulary);
       totalIn  += usage?.prompt_tokens    ?? 0;
       totalOut += usage?.completion_tokens ?? 0;
       total    += usage?.total_tokens      ?? 0;

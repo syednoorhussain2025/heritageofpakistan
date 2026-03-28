@@ -177,6 +177,7 @@ type Row = {
   sort_order: number | null;
   alt_text: string | null;
   caption: string | null;
+  scene_description: string | null;
   width?: number | null;
   height?: number | null;
   blur_hash?: string | null;
@@ -345,7 +346,7 @@ function AutoGrowTextarea(
 }
 
 /* ---------------------- Component ---------------------- */
-const GEN_CHUNK_SIZE = 12;
+const GEN_CHUNK_SIZE = 6;
 
 export default function GalleryUploader({
   siteId,
@@ -362,8 +363,15 @@ export default function GalleryUploader({
   const [suggestions, setSuggestions] = useState<
     Record<string, { alt: string; caption: string }>
   >({});
+  const [sceneDescriptions, setSceneDescriptions] = useState<Record<string, string>>({});
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const stopRequestedRef = useRef(false);
+  const [applyingAll, setApplyingAll] = useState<"idle" | "applying" | "done">("idle");
+  const [applyProgress, setApplyProgress] = useState({ done: 0, total: 0 });
+
+  // Description popup
+  const [descPopup, setDescPopup] = useState<{ imageId: string; text: string } | null>(null);
 
   // Tag state
   const [vocabulary, setVocabulary] = useState<TagDimension[]>([]);
@@ -946,6 +954,7 @@ export default function GalleryUploader({
     setChunksTotal(totalChunks);
 
     for (let i = 0; i < good.length; i += GEN_CHUNK_SIZE) {
+      if (stopRequestedRef.current) break;
       const chunk = good.slice(i, i + GEN_CHUNK_SIZE);
 
       const res = (await generateAltAndCaptionsAction({
@@ -975,6 +984,14 @@ export default function GalleryUploader({
         for (const c of items) next[c.id] = { alt: c.alt, caption: c.caption };
         return next;
       });
+
+      // Save scene descriptions to DB in background
+      for (const c of items) {
+        if (c.sceneDescription) {
+          setSceneDescriptions((prev) => ({ ...prev, [c.id]: c.sceneDescription! }));
+          supabase.from("site_images").update({ scene_description: c.sceneDescription }).eq("id", c.id).then(() => {});
+        }
+      }
 
       setGenDone((prev) => prev + chunk.length);
       setChunksDone((prev) => prev + 1);
@@ -1019,6 +1036,7 @@ export default function GalleryUploader({
     const allSuggestions: { imageId: string; tags: Record<string, string[]> }[] = [];
 
     for (let i = 0; i < good.length; i += TAG_CHUNK) {
+      if (stopRequestedRef.current) break;
       const chunk = good.slice(i, i + TAG_CHUNK);
       const res = await generateTagsAction({
         contextArticle: contextArticle ?? "",
@@ -1027,24 +1045,44 @@ export default function GalleryUploader({
         siteId: String(siteId),
         siteName: siteTitle,
       });
+      if (!res.items.length) continue;
       allSuggestions.push(...res.items);
+
+      // Show tags immediately in UI from AI response (optimistic)
+      const slugToId = new Map(vocab_dims.map((d) => [d.slug, d.id]));
+      setImageTags((prev) => {
+        const next = { ...prev };
+        for (const s of res.items) {
+          const existing = (prev[s.imageId] ?? []).filter((t) => t.source === "manual");
+          const aiTags: ImageTag[] = [];
+          for (const [slug, values] of Object.entries(s.tags)) {
+            const dimensionId = slugToId.get(slug);
+            if (!dimensionId) continue;
+            for (const value of values) {
+              aiTags.push({ id: `tmp-${slug}-${value}`, site_image_id: s.imageId, dimension_id: dimensionId, value, source: "ai" });
+            }
+          }
+          next[s.imageId] = [...existing, ...aiTags];
+        }
+        return next;
+      });
+
+      // Save to DB in background, then replace tmp ids with real ones
+      saveAiTags(res.items).then(() => {
+        const chunkImageIds = res.items.map((s) => s.imageId);
+        getTagsForImages(chunkImageIds).then((freshTags) => {
+          setImageTags((prev) => {
+            const next = { ...prev };
+            for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
+            for (const t of freshTags) {
+              if (!next[t.site_image_id]) next[t.site_image_id] = [];
+              next[t.site_image_id].push(t);
+            }
+            return next;
+          });
+        });
+      });
     }
-
-    // Save to DB
-    await saveAiTags(allSuggestions);
-
-    // Refresh tags in state
-    const imageIds = list.map((r) => r.id);
-    const freshTags = await getTagsForImages(imageIds);
-    setImageTags((prev) => {
-      const next = { ...prev };
-      for (const id of imageIds) next[id] = [];
-      for (const t of freshTags) {
-        if (!next[t.site_image_id]) next[t.site_image_id] = [];
-        next[t.site_image_id].push(t);
-      }
-      return next;
-    });
   }
 
   async function handleDeleteTag(tagId: string, imageId: string) {
@@ -1082,27 +1120,71 @@ export default function GalleryUploader({
     }
   }
 
-  async function onGenerateAll() {
+  function getTargetList(scope: "all" | "selected"): Row[] {
+    const base = rows.filter((r) => !!r.storage_path);
+    if (scope === "selected" && selectedIds.size > 0) return base.filter((r) => selectedIds.has(r.id));
+    return base;
+  }
+
+  async function onGenerateCaptions(scope: "all" | "selected" = "all") {
+    setGenError(null);
+    setGenLoading(true);
+    setSuggestions({});
+    setSkipped([]);
+    stopRequestedRef.current = false;
+    try {
+      await generateFor(getTargetList(scope));
+    } catch (e: any) {
+      setGenError(e?.message ?? "Caption generation failed");
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  async function onGenerateTags(scope: "all" | "selected" = "all") {
+    setTagError(null);
+    setTagLoading(true);
+    stopRequestedRef.current = false;
+    try {
+      await generateTagsFor(getTargetList(scope));
+    } catch (e: any) {
+      setTagError(e?.message ?? "Tag generation failed");
+    } finally {
+      setTagLoading(false);
+    }
+  }
+
+  async function onGenerateDescriptions(scope: "all" | "selected" = "all") {
+    setGenError(null);
+    setGenLoading(true);
+    setSkipped([]);
+    stopRequestedRef.current = false;
+    try {
+      await generateFor(getTargetList(scope));
+    } catch (e: any) {
+      setGenError(e?.message ?? "Description generation failed");
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  async function onGenerateAll(scope: "all" | "selected" = "all") {
     setGenError(null);
     setTagError(null);
     setGenLoading(true);
     setTagLoading(true);
     setSuggestions({});
     setSkipped([]);
-    const list = rows.filter((r) => !!r.storage_path);
+    stopRequestedRef.current = false;
+    const list = getTargetList(scope);
 
-    // Run captions and tags independently so one failing doesn't block the other
     const [captionResult, tagResult] = await Promise.allSettled([
       generateFor(list),
       generateTagsFor(list),
     ]);
 
-    if (captionResult.status === "rejected") {
-      setGenError(captionResult.reason?.message ?? "Caption generation failed");
-    }
-    if (tagResult.status === "rejected") {
-      setTagError(tagResult.reason?.message ?? "Tag generation failed");
-    }
+    if (captionResult.status === "rejected") setGenError(captionResult.reason?.message ?? "Caption generation failed");
+    if (tagResult.status === "rejected") setTagError(tagResult.reason?.message ?? "Tag generation failed");
 
     setGenLoading(false);
     setTagLoading(false);
@@ -1273,72 +1355,103 @@ export default function GalleryUploader({
                 <div className="text-xs text-red-600">Tags: {tagError}</div>
               )}
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-xl bg-black text-white text-sm disabled:opacity-60"
-                  disabled={rows.length === 0 || genLoading}
-                  onClick={onGenerateAll}
-                >
-                  {genLoading && genTotal > 0
-                    ? `Generating… ${genDone}/${genTotal}`
-                    : "Generate All"}
-                </button>
+              <div className="space-y-2">
+                {/* Generate buttons */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl bg-black text-white text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || genLoading || tagLoading}
+                    onClick={() => onGenerateAll("all")}
+                  >
+                    {(genLoading || tagLoading) && genTotal > 0 ? `Generating… ${genDone}/${genTotal}` : "Generate All"}
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || genLoading}
+                    onClick={() => onGenerateCaptions("all")}
+                    title="Generate captions + alt text for all photos"
+                  >
+                    Captions
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || tagLoading}
+                    onClick={() => onGenerateTags("all")}
+                    title="Generate tags for all photos"
+                  >
+                    Tags
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || genLoading}
+                    onClick={() => onGenerateDescriptions("all")}
+                    title="Generate scene descriptions for all photos"
+                  >
+                    Descriptions
+                  </button>
+                  {(genLoading || tagLoading) && (
+                    <button
+                      type="button"
+                      className="px-3.5 py-2 rounded-xl border border-red-300 bg-white text-red-600 text-sm hover:bg-red-50"
+                      onClick={() => { stopRequestedRef.current = true; }}
+                    >
+                      Stop
+                    </button>
+                  )}
+                </div>
 
-                <button
-                  type="button"
-                  className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                  disabled={
-                    rows.length === 0 || genLoading || missingCount === 0
-                  }
-                  onClick={onGenerateRemaining}
-                  title={
-                    missingCount === 0
-                      ? "No photos with missing alt/caption"
-                      : "Generate for missing only"
-                  }
-                >
-                  Generate Remaining
-                </button>
-
-                <button
-                  type="button"
-                  className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                  disabled={Object.keys(suggestions).length === 0 || genLoading}
-                  onClick={async () => {
-                    for (const r of rows) {
-                      const s = suggestions[r.id];
-                      if (s) {
-                        await updateRow(r.id, {
-                          alt_text: s.alt.trim(),
-                          caption: s.caption.trim(),
-                        });
+                {/* Apply / Discard */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={Object.keys(suggestions).length === 0 || genLoading}
+                    onClick={async () => {
+                      const toApply = rows.filter((r) => !!suggestions[r.id]);
+                      setApplyProgress({ done: 0, total: toApply.length });
+                      setApplyingAll("applying");
+                      let done = 0;
+                      for (const r of toApply) {
+                        const s = suggestions[r.id];
+                        await updateRow(r.id, { alt_text: s.alt.trim(), caption: s.caption.trim() });
+                        done++;
+                        setApplyProgress({ done, total: toApply.length });
                       }
-                    }
-                    setSuggestions({});
-                  }}
-                >
-                  Apply all
-                </button>
-
-                <button
-                  type="button"
-                  className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                  disabled={Object.keys(suggestions).length === 0 || genLoading}
-                  onClick={() => setSuggestions({})}
-                >
-                  Discard
-                </button>
-
-                <button
-                  type="button"
-                  className="px-3.5 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm disabled:opacity-60 ml-auto"
-                  disabled={rows.length === 0}
-                  onClick={handleDeleteAllTags}
-                  title="Delete all AI and manual tags for every photo on this site"
-                >
-                  Delete All Tags
-                </button>
+                      setSuggestions({});
+                      setApplyingAll("done");
+                    }}
+                  >
+                    Apply All
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || genLoading || missingCount === 0}
+                    onClick={onGenerateRemaining}
+                  >
+                    Generate Remaining
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
+                    disabled={Object.keys(suggestions).length === 0 || genLoading}
+                    onClick={() => setSuggestions({})}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm disabled:opacity-60"
+                    disabled={rows.length === 0}
+                    onClick={handleDeleteAllTags}
+                  >
+                    Delete All Tags
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1483,6 +1596,21 @@ export default function GalleryUploader({
                     </div>
                   </div>
                 )}
+
+                {/* ── Scene Description button ── */}
+                {(() => {
+                  const desc = img.scene_description || sceneDescriptions[img.id];
+                  if (!desc) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setDescPopup({ imageId: img.id, text: desc })}
+                      className="w-full text-left px-2 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium hover:bg-amber-100 transition-colors"
+                    >
+                      📄 Description
+                    </button>
+                  );
+                })()}
 
                 {/* ── Photo Tags ── */}
                 {(() => {
@@ -1666,11 +1794,35 @@ export default function GalleryUploader({
               </button>
               <button
                 type="button"
-                onClick={recreateCaptionsSelected}
+                onClick={() => onGenerateAll("selected")}
+                disabled={genLoading || tagLoading || bulkWorking}
+                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+              >
+                Generate All
+              </button>
+              <button
+                type="button"
+                onClick={() => onGenerateCaptions("selected")}
                 disabled={genLoading || bulkWorking}
                 className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
               >
-                Recreate Captions
+                Captions
+              </button>
+              <button
+                type="button"
+                onClick={() => onGenerateTags("selected")}
+                disabled={tagLoading || bulkWorking}
+                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+              >
+                Tags
+              </button>
+              <button
+                type="button"
+                onClick={() => onGenerateDescriptions("selected")}
+                disabled={genLoading || bulkWorking}
+                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+              >
+                Descriptions
               </button>
               <button
                 type="button"
@@ -1815,6 +1967,69 @@ export default function GalleryUploader({
           startIndex={lbIndex}
           onClose={() => setLbOpen(false)}
         />
+      )}
+
+      {/* Scene description popup */}
+      {descPopup && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setDescPopup(null)}>
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-800">Scene Description</h3>
+              <button onClick={() => setDescPopup(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">{descPopup.text}</p>
+            <button
+              className="mt-4 w-full px-3 py-2 rounded-xl bg-gray-900 text-white text-sm"
+              onClick={() => setDescPopup(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Apply All progress modal */}
+      {applyingAll !== "idle" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl px-8 py-7 w-80 text-center space-y-4">
+            {applyingAll === "applying" ? (
+              <>
+                <div className="flex justify-center">
+                  <svg className="animate-spin h-8 w-8 text-gray-800" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-700">
+                  Saving… {applyProgress.done} / {applyProgress.total}
+                </p>
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div
+                    className="bg-gray-800 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${applyProgress.total ? (applyProgress.done / applyProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-center text-green-500">
+                  <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l3 3 5-5" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-gray-800">All captions &amp; alt text applied and saved</p>
+                <button
+                  type="button"
+                  className="mt-1 px-5 py-2 rounded-xl bg-gray-900 text-white text-sm"
+                  onClick={() => setApplyingAll("idle")}
+                >
+                  Done
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
