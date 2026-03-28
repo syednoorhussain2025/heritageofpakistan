@@ -205,7 +205,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
   return (
     <div
       className="flex items-center gap-2 bg-white rounded-full px-4 py-2.5 mx-4 shadow-lg"
-      style={{ animation: "dropIn 0.2s cubic-bezier(0.32,0.72,0,1)" }}
+      style={{ animation: "dropIn 0.45s cubic-bezier(0.16,1,0.3,1)" }}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 text-gray-400 flex-shrink-0">
         <circle cx="11" cy="11" r="7" />
@@ -238,7 +238,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
       )}
       <style>{`
         @keyframes dropIn {
-          from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+          from { opacity: 0; transform: translateY(-14px) scale(0.96); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
