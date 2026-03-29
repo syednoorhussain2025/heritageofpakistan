@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "backfill:image-dimensions": "ts-node scripts/backfill-image-dimensions.ts",
+    "vocab:gap": "ts-node scripts/vocab-gap-analysis.ts",
     "regenerate:thumbs": "ts-node scripts/regenerate-thumbs.ts",
     "cap:sync": "npx cap sync",
     "cap:ios": "npx cap open ios",
@@ -16,6 +17,7 @@
     "cap:run:android": "npx cap run android"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@capacitor/android": "^8.2.0",
     "@capacitor/app": "^8.0.1",
     "@capacitor/camera": "^8.0.2",
