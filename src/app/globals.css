@@ -27,11 +27,14 @@ html {
   --vaul-drawer-border-radius: 24px;
 }
 
-/* Tab routes: lock scroll — all content is in fixed divs */
-html.tab-route,
-body.tab-route {
-  overflow: hidden !important;
-  height: 100% !important;
+/* Tab routes: lock scroll on mobile — all content is in fixed divs.
+   Desktop keeps normal page scroll (explore sidebar+grid uses it). */
+@media (max-width: 1023px) {
+  html.tab-route,
+  body.tab-route {
+    overflow: hidden !important;
+    height: 100% !important;
+  }
 }
 
 /* Fullscreen pages override body padding-top */
