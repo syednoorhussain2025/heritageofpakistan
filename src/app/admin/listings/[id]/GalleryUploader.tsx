@@ -1064,7 +1064,7 @@ export default function GalleryUploader({
       if (!res.items.length) continue;
       allSuggestions.push(...res.items);
 
-      // Show tags immediately in UI from AI response (optimistic)
+      // Show tags immediately in UI (optimistic with tmp ids)
       const slugToId = new Map(vocab_dims.map((d) => [d.slug, d.id]));
       setImageTags((prev) => {
         const next = { ...prev };
@@ -1083,19 +1083,33 @@ export default function GalleryUploader({
         return next;
       });
 
-      // Save to DB in background, then replace tmp ids with real ones
-      saveAiTags(res.items).then(() => {
-        const chunkImageIds = res.items.map((s) => s.imageId);
-        getTagsForImages(chunkImageIds).then((freshTags) => {
-          setImageTags((prev) => {
-            const next = { ...prev };
-            for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
-            for (const t of freshTags) {
-              if (!next[t.site_image_id]) next[t.site_image_id] = [];
-              next[t.site_image_id].push(t);
-            }
-            return next;
-          });
+      // Save this batch to DB immediately — await with retry so a network blip
+      // doesn't silently discard tags for already-generated images.
+      const chunkImageIds = res.items.map((s) => s.imageId);
+      let saved = false;
+      for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+        try {
+          await saveAiTags(res.items);
+          saved = true;
+        } catch {
+          if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
+        }
+      }
+      if (!saved) {
+        setTagError((prev) => prev ?? `Failed to save tags for batch ending at image ${chunkImageIds.at(-1)} after 3 attempts — earlier batches were saved.`);
+        break;
+      }
+
+      // Replace tmp ids with real DB ids
+      getTagsForImages(chunkImageIds).then((freshTags) => {
+        setImageTags((prev) => {
+          const next = { ...prev };
+          for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
+          for (const t of freshTags) {
+            if (!next[t.site_image_id]) next[t.site_image_id] = [];
+            next[t.site_image_id].push(t);
+          }
+          return next;
         });
       });
     }
