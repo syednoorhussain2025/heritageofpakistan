@@ -127,7 +127,7 @@ export default function HeritageUpperArticle({
 
   return (
     <>
-      {/* Mobile: horizontal scroll chips */}
+      {/* Mobile: horizontal scroll chiggps */}
       <section className="md:hidden bg-white px-4 pt-4 pb-4" onClick={() => setShowPanel(true)}>
         {/* Header: title + count + chevron */}
         <div className="flex items-center justify-between mb-3">
