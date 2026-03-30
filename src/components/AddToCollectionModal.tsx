@@ -206,22 +206,23 @@ export default function AddToCollectionModal({
   // Preview loading
   const [previewLoaded, setPreviewLoaded] = useState(false);
 
-  // Swipe-to-close (main modal) state
-  const swipeStartRef = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    lastX: number;
-    lastY: number;
-    startedOnNoSwipe: boolean;
-  }>({
-    active: false,
-    startX: 0,
-    startY: 0,
-    lastX: 0,
-    lastY: 0,
-    startedOnNoSwipe: false,
-  });
+  // Drag-to-close refs (main sheet)
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartX = useRef<number>(0);
+  const dragCurrentY = useRef<number>(0);
+  const dragStartTime = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
+
+  // Drag-to-close refs (create sheet)
+  const createSheetRef = useRef<HTMLDivElement | null>(null);
+  const createDragStartY = useRef<number | null>(null);
+  const createDragStartX = useRef<number>(0);
+  const createDragCurrentY = useRef<number>(0);
+  const createDragStartTime = useRef<number>(0);
+  const createIsDragging = useRef<boolean>(false);
+  const createDragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
 
   // CALCULATE PREVIEW URL (MD VARIANT) from stableImage.storagePath
   const previewUrl = useMemo(() => {
@@ -295,7 +296,7 @@ export default function AddToCollectionModal({
   const requestClose = useCallback(() => {
     setIsOpen(false);
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => onClose(), 500);
+    closeTimerRef.current = window.setTimeout(() => onClose(), 250);
   }, [onClose]);
 
   const requestCreateClose = useCallback(() => {
@@ -339,13 +340,6 @@ export default function AddToCollectionModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [collectionToDelete, isCreateOpen, requestClose, requestCreateClose]);
 
-  function onOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === overlayRef.current) requestClose();
-  }
-
-  function onOverlayTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
-    if (e.target === overlayRef.current) requestClose();
-  }
 
   function runFlipReorder(updateSort: () => void) {
     if (flipTimerRef.current) {
@@ -671,44 +665,151 @@ export default function AddToCollectionModal({
     }
   }
 
-  // Swipe up to close (mobile) when starting on non functional areas
-  function onCardTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    if (e.touches.length !== 1) return;
+  const onCardTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isNoSwipeTarget(e.target)) return;
+    dragStartY.current = e.touches[0].clientY;
+    dragStartX.current = e.touches[0].clientX;
+    dragStartTime.current = Date.now();
+    dragCurrentY.current = 0;
+    isDragging.current = true;
+    dragDirectionLocked.current = null;
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
 
-    const t = e.touches[0];
-    swipeStartRef.current = {
-      active: true,
-      startX: t.clientX,
-      startY: t.clientY,
-      lastX: t.clientX,
-      lastY: t.clientY,
-      startedOnNoSwipe: isNoSwipeTarget(e.target),
-    };
-  }
+  const onCardTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    const dx = e.touches[0].clientX - dragStartX.current;
 
-  function onCardTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    if (!swipeStartRef.current.active) return;
-    if (e.touches.length !== 1) return;
-
-    const t = e.touches[0];
-    swipeStartRef.current.lastX = t.clientX;
-    swipeStartRef.current.lastY = t.clientY;
-  }
-
-  function onCardTouchEnd() {
-    const s = swipeStartRef.current;
-    swipeStartRef.current.active = false;
-
-    if (s.startedOnNoSwipe) return;
-
-    const dx = s.lastX - s.startX;
-    const dy = s.startY - s.lastY; // positive when swiping up
-
-    // Require mostly vertical, meaningful swipe up
-    if (dy > 90 && Math.abs(dx) < 60) {
-      requestClose();
+    if (!dragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        dragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        dragDirectionLocked.current = "vertical";
+      }
     }
-  }
+
+    if (dragDirectionLocked.current === "horizontal") {
+      isDragging.current = false;
+      const el = sheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (dragDirectionLocked.current !== "vertical") return;
+
+    if (dy < 0) {
+      dragCurrentY.current = 0;
+      const el = sheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    dragCurrentY.current = dy;
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const onCardTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    const dy = dragCurrentY.current;
+    const elapsed = Date.now() - dragStartTime.current;
+    const velocity = dy / elapsed;
+
+    const el = sheetRef.current;
+    if (el) el.style.transition = "";
+
+    if (dy >= 80 || velocity >= 0.4) {
+      // Animate sheet off-screen directly without touching React state
+      if (el) {
+        el.style.transition = "transform 300ms cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(110%)";
+      }
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = window.setTimeout(() => onClose(), 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+  }, [requestClose]);
+
+  const onCreateTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isNoSwipeTarget(e.target)) return;
+    createDragStartY.current = e.touches[0].clientY;
+    createDragStartX.current = e.touches[0].clientX;
+    createDragStartTime.current = Date.now();
+    createDragCurrentY.current = 0;
+    createIsDragging.current = true;
+    createDragDirectionLocked.current = null;
+    const el = createSheetRef.current;
+    if (el) el.style.transition = "none";
+  }, []);
+
+  const onCreateTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!createIsDragging.current || createDragStartY.current === null) return;
+    const dy = e.touches[0].clientY - createDragStartY.current;
+    const dx = e.touches[0].clientX - createDragStartX.current;
+
+    if (!createDragDirectionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
+        createDragDirectionLocked.current = "horizontal";
+      } else if (Math.abs(dy) > 4) {
+        createDragDirectionLocked.current = "vertical";
+      }
+    }
+
+    if (createDragDirectionLocked.current === "horizontal") {
+      createIsDragging.current = false;
+      const el = createSheetRef.current;
+      if (el) { el.style.transition = ""; el.style.transform = ""; }
+      return;
+    }
+
+    if (createDragDirectionLocked.current !== "vertical") return;
+
+    if (dy < 0) {
+      createDragCurrentY.current = 0;
+      const el = createSheetRef.current;
+      if (el) el.style.transform = "translateY(0)";
+      return;
+    }
+    createDragCurrentY.current = dy;
+    const el = createSheetRef.current;
+    if (el) el.style.transform = `translateY(${dy}px)`;
+  }, []);
+
+  const onCreateTouchEnd = useCallback(() => {
+    if (!createIsDragging.current) return;
+    createIsDragging.current = false;
+
+    const dy = createDragCurrentY.current;
+    const elapsed = Date.now() - createDragStartTime.current;
+    const velocity = dy / elapsed;
+
+    const el = createSheetRef.current;
+    if (el) el.style.transition = "";
+
+    if (dy >= 80 || velocity >= 0.4) {
+      if (el) {
+        el.style.transition = "transform 300ms cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(110%)";
+      }
+      if (createCloseTimerRef.current) window.clearTimeout(createCloseTimerRef.current);
+      createCloseTimerRef.current = window.setTimeout(() => {
+        setIsCreateVisible(false);
+        setIsCreateOpen(false);
+      }, 300);
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+
+    createDragStartY.current = null;
+    createDragCurrentY.current = 0;
+  }, []);
 
   const identityOk = hasValidIdentity(stableImage);
   const anyToggleInFlight = Boolean(toggling);
@@ -718,18 +819,18 @@ export default function AddToCollectionModal({
       {/* Backdrop */}
       <div
         ref={overlayRef}
-        onMouseDown={onOverlayMouseDown}
-        onTouchEnd={onOverlayTouchEnd}
-        className={`fixed inset-0 z-[9999999999] flex flex-col justify-end bg-black/40 transition-opacity duration-500 ${
+        className={`fixed inset-0 z-[9999999999] transition-all duration-500 ease-in-out ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-modal="true"
         role="dialog"
+        onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
       >
         {/* Bottom sheet */}
         <div
-          className={`relative w-full h-[82dvh] bg-white shadow-2xl rounded-t-3xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
-            isOpen ? "translate-y-0" : "translate-y-full"
+          ref={sheetRef}
+          className={`absolute bottom-0 left-0 right-0 bg-white shadow-2xl rounded-t-3xl h-[82dvh] flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            isOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
           }`}
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -738,8 +839,8 @@ export default function AddToCollectionModal({
           onTouchEnd={onCardTouchEnd}
         >
           {/* Drag handle */}
-          <div className="shrink-0 flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          <div className="shrink-0 flex justify-center items-center h-10 cursor-grab active:cursor-grabbing">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </div>
           {/* --- Delete Confirmation Overlay (Internal) --- */}
           {collectionToDelete && (
@@ -1101,23 +1202,29 @@ export default function AddToCollectionModal({
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) requestCreateClose();
           }}
+          onTouchEnd={(e) => {
+            if (e.target === e.currentTarget) requestCreateClose();
+          }}
         >
           <div
-            className={`w-full bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
+            ref={createSheetRef}
+            className={`w-full h-[52dvh] bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] ${
               isCreateAnimatingOpen ? "translate-y-0" : "translate-y-full"
             }`}
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             onMouseDown={(e) => e.stopPropagation()}
-            data-noswipe="true"
+            onTouchStart={onCreateTouchStart}
+            onTouchMove={onCreateTouchMove}
+            onTouchEnd={onCreateTouchEnd}
           >
-            <div className="shrink-0 flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            <div className="shrink-0 flex justify-center items-center h-10 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
             </div>
             <div className="px-4 py-3 shrink-0 text-center">
               <h3 className="text-base font-semibold text-gray-900">New Collection</h3>
             </div>
 
-            <div className="px-4 pb-4 space-y-4 flex-1 overflow-y-auto">
+            <div className="px-4 pb-4 space-y-5 flex-1 overflow-y-auto pt-2">
               {!identityOk && (
                 <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                   Cannot add this photo because identity is missing
@@ -1131,19 +1238,19 @@ export default function AddToCollectionModal({
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={handleCreateKeyDown}
                 autoFocus
-                className="w-full bg-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400"
+                className="w-full bg-gray-100 text-gray-900 rounded-full px-5 py-3.5 outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 transition-all placeholder:text-gray-400 text-[15px]"
               />
 
               <div className="flex gap-2">
                 <button
                   onClick={() => setPrivacy("private")}
-                  className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all ${privacy === "private" ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-gray-600"}`}
+                  className={`flex-1 py-3 rounded-full text-sm font-medium transition-all ${privacy === "private" ? "bg-gray-200 text-gray-800" : "bg-gray-100 text-gray-400"}`}
                 >
                   Private
                 </button>
                 <button
                   onClick={() => setPrivacy("public")}
-                  className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all ${privacy === "public" ? "bg-[var(--brand-orange)] text-white" : "bg-gray-100 text-gray-600"}`}
+                  className={`flex-1 py-3 rounded-full text-sm font-medium transition-all ${privacy === "public" ? "bg-gray-200 text-gray-800" : "bg-gray-100 text-gray-400"}`}
                 >
                   Public
                 </button>

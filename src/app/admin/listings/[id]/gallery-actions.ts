@@ -192,7 +192,11 @@ async function callOpenAIVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description of the image (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
-        "- SCENE DESCRIPTION: exactly 3 sentences, HARD LIMIT 50 words total. Count your words. Describe only what is visually present. Sentence 1: dominant subject and framing (10-15 words). Sentence 2: the single most specific visible detail — colour, pattern, texture, or form that makes this image distinctive (20-25 words). Sentence 3: one concrete fact about light or immediate surroundings, nothing else (8-12 words). No filler. No historical inference.\n" +
+        "- SCENE DESCRIPTION: exactly 3 sentences, 40-50 words total. Only what is visually present. No historical inference, no location names, no technical jargon. Match this style exactly:\n" +
+        "  Example 1 (gateway): \"A symmetrical four-minaret gateway fills the frame, approached by a straight path flanked by low hedges. The facade is covered in dense polychrome tile panels — blue, yellow, green — across arched openings and octagonal minaret shafts. Urban buildings and power lines are visible through the central arch.\"\n" +
+        "  Example 2 (tile detail): \"A single rectangular tile panel set flush in a weathered brick wall. A symmetrical flowering tree in deep blue, green, and brown spreads across a cream ground, bordered by bold yellow diamond tiles. Even daylight, no shadows.\"\n" +
+        "  Example 3 (minaret close-up): \"Close-up of an octagonal minaret shaft covered edge to edge in individual polychrome tile panels. Each panel is distinct — floral vases, botanical sprays, geometric rosettes in vivid yellow, blue, and green on cream. Trees visible behind, bright midday light.\"\n" +
+        "  Example 4 (wide landscape): \"A wide shot of a domed structure set within a walled garden, centred in the frame against an open sky. The dome is white with a drum base, flanked by two smaller domed chambers in red brick. Grass forecourt, no people.\"\n" +
         "Do not invent details. Output JSON exactly as requested.",
     },
   ];
@@ -201,14 +205,14 @@ async function callOpenAIVisionBatch(
     {
       type: "text",
       text:
-        "Site context:\n" +
+        "Site context (use ONLY for alt and caption — do NOT use for scene_description):\n" +
         context +
         "\n\nTask:\n" +
         "- For each image, return alt, caption, and scene_description.\n" +
         "- Alt = factual description for accessibility.\n" +
         "- Caption = short narrative line.\n" +
         `- Alt and caption each <= ${cfg.maxWords} words.\n` +
-        "- scene_description = exactly 3 sentences, purely visual observation, no historical inference.\n" +
+        "- scene_description = ignore the site context above entirely. Write only what you can see in the photo: shapes, colours, textures, light, composition. No site names, no historical terms, no architectural jargon.\n" +
         "- Use EXACT ids I provide (do not rename or reorder).\n" +
         "- Output JSON ONLY with this schema:\n" +
         '  {"images":[{"id":"img1","alt":"...","caption":"...","scene_description":"..."}]}\n' +
@@ -334,13 +338,13 @@ async function callAnthropicVisionBatch(
     {
       type: "text",
       text:
-        "Site context:\n" + context +
+        "Site context (use ONLY for alt and caption — do NOT use for scene_description):\n" + context +
         "\n\nTask:\n" +
         "- For each image, return alt, caption, and scene_description.\n" +
         "- Alt = factual description for accessibility.\n" +
         "- Caption = short narrative line.\n" +
         `- Alt and caption each <= ${cfg.maxWords} words.\n` +
-        "- scene_description = exactly 3 sentences, purely visual observation, no historical inference.\n" +
+        "- scene_description = ignore the site context above entirely. Write only what you can see in the photo: shapes, colours, textures, light, composition. No site names, no historical terms, no architectural jargon.\n" +
         "- Use EXACT ids I provide.\n" +
         "- Output JSON ONLY: {\"images\":[{\"id\":\"img1\",\"alt\":\"...\",\"caption\":\"...\",\"scene_description\":\"...\"}]}\n" +
         `Expected ids: ${expectedIds.join(", ")}`,
@@ -365,7 +369,11 @@ async function callAnthropicVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
-        "- SCENE DESCRIPTION: exactly 3 vivid sentences. Sentence 1: overall framing and dominant impression. Sentence 2: key architectural/decorative/material details. Sentence 3: light, setting, surrounding context.\n" +
+        "- SCENE DESCRIPTION: exactly 3 sentences, 40-50 words total. Only what is visually present. No historical inference, no location names, no technical jargon. Match this style exactly:\n" +
+        "  Example 1 (gateway): \"A symmetrical four-minaret gateway fills the frame, approached by a straight path flanked by low hedges. The facade is covered in dense polychrome tile panels — blue, yellow, green — across arched openings and octagonal minaret shafts. Urban buildings and power lines are visible through the central arch.\"\n" +
+        "  Example 2 (tile detail): \"A single rectangular tile panel set flush in a weathered brick wall. A symmetrical flowering tree in deep blue, green, and brown spreads across a cream ground, bordered by bold yellow diamond tiles. Even daylight, no shadows.\"\n" +
+        "  Example 3 (minaret close-up): \"Close-up of an octagonal minaret shaft covered edge to edge in individual polychrome tile panels. Each panel is distinct — floral vases, botanical sprays, geometric rosettes in vivid yellow, blue, and green on cream. Trees visible behind, bright midday light.\"\n" +
+        "  Example 4 (wide landscape): \"A wide shot of a domed structure set within a walled garden, centred in the frame against an open sky. The dome is white with a drum base, flanked by two smaller domed chambers in red brick. Grass forecourt, no people.\"\n" +
         "Output JSON only.",
       messages: [{ role: "user", content: userContent }],
     }),

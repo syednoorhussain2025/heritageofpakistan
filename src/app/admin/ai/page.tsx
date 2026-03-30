@@ -95,6 +95,11 @@ const MODEL_OPTIONS: { id: string; label: string; note: string }[] = [
   // ——— Legacy/compatibility (optional to keep) ———
   { id: "gpt-4-turbo", label: "GPT-4 Turbo", note: "High quality (older)" },
   { id: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", note: "Legacy, cheap" },
+
+  // ——— Anthropic Claude ———
+  { id: "claude-opus-4-6", label: "Claude Opus 4.6", note: "Most capable Claude (Anthropic)" },
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", note: "Balanced Claude (Anthropic)" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", note: "Fastest + cheapest Claude (Anthropic)" },
 ];
 
 // Types for usage summary modal

@@ -1527,6 +1527,7 @@ export default function GalleryUploader({
 
               <div className="p-2 space-y-1.5">
                 <div className="relative group/tbx">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Alt text</p>
                   <AutoGrowTextarea
                     minRows={2}
                     placeholder="Alt text"
@@ -1550,6 +1551,7 @@ export default function GalleryUploader({
                 </div>
 
                 <div className="relative group/tbx">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Caption</p>
                   <AutoGrowTextarea
                     minRows={2}
                     placeholder="Caption"
