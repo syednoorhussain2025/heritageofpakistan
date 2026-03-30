@@ -75,12 +75,22 @@ export async function POST(req: NextRequest) {
     if (imgErr) return NextResponse.json({ error: imgErr.message }, { status: 500 });
     const imageIds = (images ?? []).map((r: any) => r.id);
     if (!imageIds.length) return NextResponse.json([]);
-    const { data, error } = await db
-      .from("site_image_tags")
-      .select("*")
-      .in("site_image_id", imageIds);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data ?? []);
+    // Fetch in pages of 1000 to avoid Supabase default row limit
+    const PAGE = 1000;
+    let allTags: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await db
+        .from("site_image_tags")
+        .select("*")
+        .in("site_image_id", imageIds)
+        .range(from, from + PAGE - 1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      allTags = allTags.concat(data ?? []);
+      if ((data ?? []).length < PAGE) break;
+      from += PAGE;
+    }
+    return NextResponse.json(allTags);
   }
 
   if (action === "save-ai-tags") {
