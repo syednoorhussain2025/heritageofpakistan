@@ -51,6 +51,17 @@ export async function POST(req: NextRequest) {
   const { action } = body;
   const db = svc();
 
+  if (action === "get-tags-for-images") {
+    const ids: string[] = body.imageIds ?? [];
+    if (!ids.length) return NextResponse.json([]);
+    const { data, error } = await db
+      .from("site_image_tags")
+      .select("*")
+      .in("site_image_id", ids);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data ?? []);
+  }
+
   if (action === "save-ai-tags") {
     const suggestions: { imageId: string; tags: Record<string, string[]> }[] = body.suggestions ?? [];
     if (!suggestions.length) return NextResponse.json({ ok: true });

@@ -28,7 +28,12 @@ async function getTagVocabulary(): Promise<TagDimension[]> {
 }
 async function getTagsForImages(imageIds: string[]): Promise<ImageTag[]> {
   if (!imageIds.length) return [];
-  const res = await fetch(`/api/admin/photo-tags?action=for-images&imageIds=${imageIds.join(",")}`);
+  // Use POST to avoid URL length limits with large image sets (250+ UUIDs breaks GET query string)
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "get-tags-for-images", imageIds }),
+  });
   if (!res.ok) throw new Error("Failed to fetch tags");
   return res.json();
 }
@@ -121,6 +126,20 @@ async function urlReachable(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Run urlReachable checks with limited concurrency to avoid storage 429s. */
+async function checkUrlsBatched<T extends { aiUrl: string }>(
+  items: T[],
+  concurrency = 8
+): Promise<{ x: T; ch: Awaited<ReturnType<typeof urlReachable>> }[]> {
+  const results: { x: T; ch: Awaited<ReturnType<typeof urlReachable>> }[] = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const checked = await Promise.all(batch.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) })));
+    results.push(...checked);
+  }
+  return results;
 }
 
 /**
@@ -367,9 +386,6 @@ export default function GalleryUploader({
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const stopRequestedRef = useRef(false);
-  const [applyingAll, setApplyingAll] = useState<"idle" | "applying" | "done">("idle");
-  const [applyProgress, setApplyProgress] = useState({ done: 0, total: 0 });
-
   // Description popup
   const [descPopup, setDescPopup] = useState<{ imageId: string; text: string } | null>(null);
 
@@ -385,6 +401,19 @@ export default function GalleryUploader({
   // progress
   const [genTotal, setGenTotal] = useState(0);
   const [genDone, setGenDone] = useState(0);
+
+  // Generation popup visualizer
+  type BatchStep = "pending" | "captions" | "captions_saved" | "tags" | "tags_saved" | "done" | "error";
+  type BatchEntry = {
+    batchIndex: number;
+    imageIds: string[];
+    filenames: string[];
+    captionStep: BatchStep;
+    tagStep: BatchStep;
+    error?: string;
+  };
+  const [genPopupOpen, setGenPopupOpen] = useState(false);
+  const [genBatches, setGenBatches] = useState<BatchEntry[]>([]);
 
   // diagnostics
   const [skipped, setSkipped] = useState<
@@ -793,57 +822,6 @@ export default function GalleryUploader({
     }
   }
 
-  async function recreateCaptionsSelected() {
-    if (selectedIds.size === 0) return;
-    try {
-      setGenError(null);
-      setGenLoading(true);
-      setSuggestions({});
-      setSkipped([]);
-
-      const selected = rows.filter((r) => selectedIds.has(r.id));
-      await generateFor(selected);
-    } catch (e: any) {
-      setGenError(e?.message ?? "Failed to regenerate captions.");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
-  async function applySuggestionsForSelected() {
-    for (const id of Array.from(selectedIds)) {
-      const s = suggestions[id];
-      if (s) {
-        await updateRow(id, {
-          alt_text: s.alt.trim(),
-          caption: s.caption.trim(),
-        });
-      }
-    }
-    setSuggestions((prev) => {
-      const next = { ...prev };
-      for (const id of Array.from(selectedIds)) delete next[id];
-      return next;
-    });
-  }
-
-  function discardSuggestionsForSelected() {
-    setSuggestions((prev) => {
-      const next = { ...prev };
-      for (const id of Array.from(selectedIds)) delete next[id];
-      return next;
-    });
-  }
-
-  const selectedSuggestionsCount = useMemo(
-    () =>
-      Array.from(selectedIds).reduce(
-        (acc, id) => acc + (suggestions[id] ? 1 : 0),
-        0
-      ),
-    [selectedIds, suggestions]
-  );
-
   // -------- Lightbox photos --------
   const lightboxPhotos = useMemo(
     () =>
@@ -870,18 +848,16 @@ export default function GalleryUploader({
   );
 
   /* ---------------------- Generate helpers ---------------------- */
-  function isMissingCaptions(r: Row) {
-    const a = (r.alt_text || "").trim();
-    const c = (r.caption || "").trim();
-    return a.length === 0 || c.length === 0;
+  function isMissingAlt(r: Row) { return !(r.alt_text || "").trim(); }
+  function isMissingCaption(r: Row) { return !(r.caption || "").trim(); }
+  function isMissingDescription(r: Row) {
+    return !(r.scene_description || sceneDescriptions[r.id] || "").trim();
   }
-
-  function isMissingTags(r: Row) {
-    return !(imageTags[r.id]?.length);
-  }
+  function isMissingCaptions(r: Row) { return isMissingAlt(r) || isMissingCaption(r); }
+  function isMissingTags(r: Row) { return !(imageTags[r.id]?.length); }
 
   function isMissing(r: Row) {
-    return isMissingCaptions(r) || isMissingTags(r);
+    return isMissingCaptions(r) || isMissingTags(r) || isMissingDescription(r);
   }
 
   type GenExtract = {
@@ -911,217 +887,197 @@ export default function GalleryUploader({
     };
   }
 
-  async function bestUrlForAI(
-    key: string
-  ): Promise<{ url: string; variant: string }> {
-    for (const variant of ["lg", "md", "sm"] as const) {
-      const url = getVariantPublicUrl(key, variant);
-      const chk = await urlReachable(url);
-      if (chk.ok) return { url, variant };
-    }
-    // Final fallback: original base file (no variant suffix)
-    return { url: getVariantPublicUrl(key), variant: "base" };
+  function bestUrlForAI(key: string): { url: string; variant: string } {
+    // Prefer _lg variant; fall back to base. No HEAD probing — doing so for
+    // hundreds of images in parallel causes Supabase storage 429s.
+    // The urlReachable check after this call will catch any truly missing files.
+    const lgUrl = getVariantPublicUrl(key, "lg");
+    return { url: lgUrl, variant: "lg" };
   }
 
-  async function generateFor(list: Row[]) {
-    setTokIn(0);
-    setTokOut(0);
-    setTokTotal(0);
-    setUsd(null);
-    setChunksDone(0);
+  function updateBatch(index: number, patch: Partial<BatchEntry>) {
+    setGenBatches((prev) => prev.map((b) => b.batchIndex === index ? { ...b, ...patch } : b));
+  }
+
+  /**
+   * Unified generator: processes each batch of images fully
+   * (captions saved + tags saved) before moving to the next batch.
+   */
+  async function generateAllForList(
+    list: Row[],
+    mode: "captions_only" | "tags_only" | "all"
+  ) {
+    if (!list.length) return;
+
+    setTokIn(0); setTokOut(0); setTokTotal(0); setUsd(null);
+    setChunksDone(0); setSkipped([]);
+    setGenBatches([]);
+    setGenPopupOpen(true);
 
     await fetchActiveModelLabel();
 
-    const resolved = await Promise.all(
-      list.map(async (r) => {
-        const best = await bestUrlForAI(r.storage_path);
+    // Load vocab if needed (for tags)
+    let vocab_dims = vocabulary;
+    if (mode !== "captions_only" && !vocab_dims.length) {
+      vocab_dims = await getTagVocabulary();
+      setVocabulary(vocab_dims);
+    }
+    if (mode !== "captions_only" && !vocab_dims.length) {
+      throw new Error("Tag vocabulary is empty — add dimensions in Image Tags admin.");
+    }
+    const vocab: TagDimensionVocab[] = vocab_dims.map((d) => ({
+      slug: d.slug, name: d.name, ai_enabled: d.ai_enabled,
+      values: d.values.map((v) => v.value),
+    }));
+    const slugToId = new Map(vocab_dims.map((d) => [d.slug, d.id]));
+
+    // URL check
+    const resolved = list.map((r) => {
+      const best = bestUrlForAI(r.storage_path);
+      return { id: r.id, aiUrl: best.url, variant: best.variant, filename: r.storage_path.split("/").pop() || r.storage_path };
+    });
+    const checks = await checkUrlsBatched(resolved);
+    const bad = checks.filter(({ ch }) => !ch.ok).map(({ x, ch }) => ({
+      id: x.id, url: x.aiUrl, filename: x.filename, variant: x.variant, status: ch.status, contentType: ch.contentType,
+    }));
+    if (bad.length) setSkipped(bad);
+    const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
+    if (!good.length) return;
+
+    const CHUNK = 6;
+    const totalChunks = Math.ceil(good.length / CHUNK);
+    setGenTotal(good.length);
+    setGenDone(0);
+    setChunksTotal(totalChunks);
+
+    // Pre-populate all batch entries as pending
+    setGenBatches(
+      Array.from({ length: totalChunks }, (_, i) => {
+        const chunk = good.slice(i * CHUNK, (i + 1) * CHUNK);
         return {
-          id: r.id,
-          aiUrl: best.url,
-          variant: best.variant,
-          filename: r.storage_path.split("/").pop() || r.storage_path,
-          alt: r.alt_text || null,
-        };
+          batchIndex: i,
+          imageIds: chunk.map((c) => c.id),
+          filenames: chunk.map((c) => c.filename),
+          captionStep: mode === "tags_only" ? "done" : "pending",
+          tagStep: mode === "captions_only" ? "done" : "pending",
+        } as BatchEntry;
       })
     );
 
-    const checks = await Promise.all(
-      resolved.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) }))
-    );
-    const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
-    const bad = checks
-      .filter(({ ch }) => !ch.ok)
-      .map(({ x, ch }) => ({
-        id: x.id,
-        url: x.aiUrl,
-        filename: x.filename || "",
-        status: ch.status,
-        contentType: ch.contentType,
-        variant: x.variant,
-      }));
-
-    setSkipped(bad);
-    setGenTotal(good.length);
-    setGenDone(0);
-
-    const totalChunks = Math.ceil(good.length / GEN_CHUNK_SIZE);
-    setChunksTotal(totalChunks);
-
-    for (let i = 0; i < good.length; i += GEN_CHUNK_SIZE) {
+    for (let i = 0; i < good.length; i += CHUNK) {
       if (stopRequestedRef.current) break;
-      const chunk = good.slice(i, i + GEN_CHUNK_SIZE);
+      const chunk = good.slice(i, i + CHUNK);
+      const batchIndex = Math.floor(i / CHUNK);
 
-      const res = (await generateAltAndCaptionsAction({
-        contextArticle,
-        imagesIn: chunk.map((c) => ({
-          id: c.id,
-          publicUrl: c.aiUrl,
-          filename: c.filename,
-          alt: null,
-        })),
-        siteId: String(siteId), // ensure string for action typing
-        siteName: siteTitle,
-      })) as ActionReturn;
+      // ── Step 1: Captions ──
+      if (mode !== "tags_only") {
+        updateBatch(batchIndex, { captionStep: "captions" });
+        try {
+          const res = (await generateAltAndCaptionsAction({
+            contextArticle,
+            imagesIn: chunk.map((c) => ({ id: c.id, publicUrl: c.aiUrl, filename: c.filename, alt: null })),
+            siteId: String(siteId),
+            siteName: siteTitle,
+          })) as ActionReturn;
 
-      const { items, modelId, usageIn, usageOut, usageTotal, usdEstimate } =
-        extractActionPayload(res);
+          const { items, modelId, usageIn, usageOut, usageTotal, usdEstimate } = extractActionPayload(res);
+          if (modelId && !activeModel) setActiveModel(modelId);
+          if (typeof usageIn === "number") setTokIn((p) => p + usageIn);
+          if (typeof usageOut === "number") setTokOut((p) => p + usageOut);
+          if (typeof usageTotal === "number") setTokTotal((p) => p + usageTotal);
+          if (typeof usdEstimate === "number") setUsd((p) => (p ?? 0) + usdEstimate);
 
-      if (modelId && !activeModel) setActiveModel(modelId);
-      if (typeof usageIn === "number") setTokIn((p) => p + usageIn);
-      if (typeof usageOut === "number") setTokOut((p) => p + usageOut);
-      if (typeof usageTotal === "number") setTokTotal((p) => p + usageTotal);
-      if (typeof usdEstimate === "number")
-        setUsd((p) => (p ?? 0) + usdEstimate);
-
-      setSuggestions((prev) => {
-        const next = { ...prev };
-        for (const c of items) next[c.id] = { alt: c.alt, caption: c.caption };
-        return next;
-      });
-
-      // Save scene descriptions to DB in background
-      for (const c of items) {
-        if (c.sceneDescription) {
-          setSceneDescriptions((prev) => ({ ...prev, [c.id]: c.sceneDescription! }));
-          supabase.from("site_images").update({ scene_description: c.sceneDescription }).eq("id", c.id).then(() => {});
+          for (const c of items) {
+            const patch: Partial<Row> = {};
+            if (c.alt?.trim()) patch.alt_text = c.alt.trim();
+            if (c.caption?.trim()) patch.caption = c.caption.trim();
+            if (c.sceneDescription?.trim()) {
+              patch.scene_description = c.sceneDescription.trim();
+              setSceneDescriptions((prev) => ({ ...prev, [c.id]: c.sceneDescription! }));
+            }
+            if (Object.keys(patch).length) await updateRow(c.id, patch);
+          }
+          updateBatch(batchIndex, { captionStep: "captions_saved" });
+        } catch (e: any) {
+          updateBatch(batchIndex, { captionStep: "error", error: e?.message ?? "Caption error" });
+          setGenError(e?.message ?? "Caption generation failed");
+          break;
         }
       }
 
+      // ── Step 2: Tags ──
+      if (mode !== "captions_only") {
+        updateBatch(batchIndex, { tagStep: "tags" });
+        try {
+          const res = await generateTagsAction({
+            contextArticle: contextArticle ?? "",
+            imagesIn: chunk.map((c) => ({ id: c.id, publicUrl: c.aiUrl, filename: c.filename })),
+            vocabulary: vocab,
+            siteId: String(siteId),
+            siteName: siteTitle,
+          });
+
+          if (res.items.length) {
+            // Optimistic UI
+            setImageTags((prev) => {
+              const next = { ...prev };
+              for (const s of res.items) {
+                const existing = (prev[s.imageId] ?? []).filter((t) => t.source === "manual");
+                const aiTags: ImageTag[] = [];
+                for (const [slug, values] of Object.entries(s.tags)) {
+                  const dimensionId = slugToId.get(slug);
+                  if (!dimensionId) continue;
+                  for (const value of values) {
+                    aiTags.push({ id: `tmp-${slug}-${value}`, site_image_id: s.imageId, dimension_id: dimensionId, value, source: "ai" });
+                  }
+                }
+                next[s.imageId] = [...existing, ...aiTags];
+              }
+              return next;
+            });
+
+            // Save with retry
+            let saved = false;
+            for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+              try { await saveAiTags(res.items); saved = true; }
+              catch { if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500)); }
+            }
+            if (!saved) throw new Error("Failed to save tags after 3 attempts");
+
+            // Replace tmp ids
+            const chunkImageIds = res.items.map((s) => s.imageId);
+            getTagsForImages(chunkImageIds).then((freshTags) => {
+              setImageTags((prev) => {
+                const next = { ...prev };
+                for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
+                for (const t of freshTags) {
+                  if (!next[t.site_image_id]) next[t.site_image_id] = [];
+                  next[t.site_image_id].push(t);
+                }
+                return next;
+              });
+            });
+          }
+          updateBatch(batchIndex, { tagStep: "tags_saved" });
+        } catch (e: any) {
+          updateBatch(batchIndex, { tagStep: "error", error: e?.message ?? "Tag error" });
+          setTagError(e?.message ?? "Tag generation failed");
+          break;
+        }
+      }
+
+      updateBatch(batchIndex, {
+        captionStep: mode === "tags_only" ? "done" : "captions_saved",
+        tagStep: mode === "captions_only" ? "done" : "tags_saved",
+      });
       setGenDone((prev) => prev + chunk.length);
       setChunksDone((prev) => prev + 1);
     }
   }
 
-  async function generateTagsFor(list: Row[]) {
-    if (!list.length) return;
-    // If vocabulary not loaded yet, fetch it now
-    let vocab_dims = vocabulary;
-    if (!vocab_dims.length) {
-      vocab_dims = await getTagVocabulary();
-      setVocabulary(vocab_dims);
-    }
-    if (!vocab_dims.length) throw new Error("Tag vocabulary is empty — add dimensions in Image Tags admin.");
-
-    const vocab: TagDimensionVocab[] = vocab_dims.map((d) => ({
-      slug: d.slug,
-      name: d.name,
-      ai_enabled: d.ai_enabled,
-      values: d.values.map((v) => v.value),
-    }));
-
-    const resolved = await Promise.all(
-      list.map(async (r) => {
-        const best = await bestUrlForAI(r.storage_path);
-        return {
-          id: r.id,
-          aiUrl: best.url,
-          variant: best.variant,
-          filename: r.storage_path.split("/").pop() || r.storage_path,
-        };
-      })
-    );
-
-    const checks = await Promise.all(
-      resolved.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) }))
-    );
-    const skippedNow = checks.filter(({ ch }) => !ch.ok).map(({ x, ch }) => ({
-      id: x.id,
-      url: x.aiUrl,
-      filename: x.filename,
-      variant: x.variant,
-      status: ch.status,
-      contentType: ch.contentType,
-    }));
-    if (skippedNow.length) setSkipped((prev) => [...prev, ...skippedNow]);
-    const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
-    if (!good.length) return;
-
-    const TAG_CHUNK = 6;
-    const allSuggestions: { imageId: string; tags: Record<string, string[]> }[] = [];
-
-    for (let i = 0; i < good.length; i += TAG_CHUNK) {
-      if (stopRequestedRef.current) break;
-      const chunk = good.slice(i, i + TAG_CHUNK);
-      const res = await generateTagsAction({
-        contextArticle: contextArticle ?? "",
-        imagesIn: chunk.map((c) => ({ id: c.id, publicUrl: c.aiUrl, filename: c.filename })),
-        vocabulary: vocab,
-        siteId: String(siteId),
-        siteName: siteTitle,
-      });
-      if (!res.items.length) continue;
-      allSuggestions.push(...res.items);
-
-      // Show tags immediately in UI (optimistic with tmp ids)
-      const slugToId = new Map(vocab_dims.map((d) => [d.slug, d.id]));
-      setImageTags((prev) => {
-        const next = { ...prev };
-        for (const s of res.items) {
-          const existing = (prev[s.imageId] ?? []).filter((t) => t.source === "manual");
-          const aiTags: ImageTag[] = [];
-          for (const [slug, values] of Object.entries(s.tags)) {
-            const dimensionId = slugToId.get(slug);
-            if (!dimensionId) continue;
-            for (const value of values) {
-              aiTags.push({ id: `tmp-${slug}-${value}`, site_image_id: s.imageId, dimension_id: dimensionId, value, source: "ai" });
-            }
-          }
-          next[s.imageId] = [...existing, ...aiTags];
-        }
-        return next;
-      });
-
-      // Save this batch to DB immediately — await with retry so a network blip
-      // doesn't silently discard tags for already-generated images.
-      const chunkImageIds = res.items.map((s) => s.imageId);
-      let saved = false;
-      for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
-        try {
-          await saveAiTags(res.items);
-          saved = true;
-        } catch {
-          if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
-        }
-      }
-      if (!saved) {
-        setTagError((prev) => prev ?? `Failed to save tags for batch ending at image ${chunkImageIds.at(-1)} after 3 attempts — earlier batches were saved.`);
-        break;
-      }
-
-      // Replace tmp ids with real DB ids
-      getTagsForImages(chunkImageIds).then((freshTags) => {
-        setImageTags((prev) => {
-          const next = { ...prev };
-          for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
-          for (const t of freshTags) {
-            if (!next[t.site_image_id]) next[t.site_image_id] = [];
-            next[t.site_image_id].push(t);
-          }
-          return next;
-        });
-      });
-    }
-  }
+  // Keep these thin wrappers so existing callers still work
+  async function generateFor(list: Row[]) { return generateAllForList(list, "captions_only"); }
+  async function generateTagsFor(list: Row[]) { return generateAllForList(list, "tags_only"); }
 
   async function handleDeleteTag(tagId: string, imageId: string) {
     await deleteTag(tagId);
@@ -1193,75 +1149,33 @@ export default function GalleryUploader({
     }
   }
 
-  async function onGenerateTagsEmpty() {
+  async function runGeneration(list: Row[], mode: "captions_only" | "tags_only" | "all") {
+    setGenError(null);
     setTagError(null);
+    setGenLoading(true);
     setTagLoading(true);
-    setSkipped([]);
+    setSuggestions({});
     stopRequestedRef.current = false;
     try {
-      const emptyOnly = rows.filter((r) => !!r.storage_path && !(imageTags[r.id]?.length));
-      await generateTagsFor(emptyOnly);
+      await generateAllForList(list, mode);
     } catch (e: any) {
-      setTagError(e?.message ?? "Tag generation failed");
+      setGenError(e?.message ?? "Generation failed");
     } finally {
+      setGenLoading(false);
       setTagLoading(false);
     }
   }
 
-  async function onGenerateDescriptions(scope: "all" | "selected" = "all") {
-    setGenError(null);
-    setGenLoading(true);
-    setSkipped([]);
-    stopRequestedRef.current = false;
-    try {
-      await generateFor(getTargetList(scope));
-    } catch (e: any) {
-      setGenError(e?.message ?? "Description generation failed");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
   async function onGenerateAll(scope: "all" | "selected" = "all") {
-    setGenError(null);
-    setTagError(null);
-    setGenLoading(true);
-    setTagLoading(true);
-    setSuggestions({});
-    setSkipped([]);
-    stopRequestedRef.current = false;
-    const list = getTargetList(scope);
-
-    const [captionResult, tagResult] = await Promise.allSettled([
-      generateFor(list),
-      generateTagsFor(list),
-    ]);
-
-    if (captionResult.status === "rejected") setGenError(captionResult.reason?.message ?? "Caption generation failed");
-    if (tagResult.status === "rejected") setTagError(tagResult.reason?.message ?? "Tag generation failed");
-
-    setGenLoading(false);
-    setTagLoading(false);
+    await runGeneration(getTargetList(scope), "all");
   }
 
   async function onGenerateRemaining() {
-    setGenError(null);
-    setTagError(null);
-    setGenLoading(true);
-    setTagLoading(true);
-    setSuggestions({});
-    setSkipped([]);
-    stopRequestedRef.current = false;
-    const missingCaptions = rows.filter((r) => !!r.storage_path && isMissingCaptions(r));
-    const missingTags = rows.filter((r) => !!r.storage_path && isMissingTags(r));
-    const [captionResult, tagResult] = await Promise.allSettled([
-      missingCaptions.length ? generateFor(missingCaptions) : Promise.resolve(),
-      missingTags.length ? generateTagsFor(missingTags) : Promise.resolve(),
-    ]);
-    if (captionResult.status === "rejected") setGenError(captionResult.reason?.message ?? "Caption generation failed");
-    if (tagResult.status === "rejected") setTagError(tagResult.reason?.message ?? "Tag generation failed");
-    setGenLoading(false);
-    setTagLoading(false);
+    // Build a unified list of all images missing anything, deduplicated
+    const needsWork = rows.filter(
+      (r) => !!r.storage_path && (isMissingCaptions(r) || isMissingDescription(r) || isMissingTags(r))
+    );
+    await runGeneration(needsWork, "all");
   }
 
   /* ---------------- Render ---------------- */
@@ -1275,6 +1189,10 @@ export default function GalleryUploader({
     genTotal > 0 ? Math.min(100, Math.round((genDone / genTotal) * 100)) : 0;
 
   const missingCount = rows.reduce((acc, r) => acc + (isMissing(r) ? 1 : 0), 0);
+  const missingAltCount = rows.filter((r) => !!r.storage_path && isMissingAlt(r)).length;
+  const missingCaptionCount = rows.filter((r) => !!r.storage_path && isMissingCaption(r)).length;
+  const missingDescCount = rows.filter((r) => !!r.storage_path && isMissingDescription(r)).length;
+  const missingTagsCount = rows.filter((r) => !!r.storage_path && isMissingTags(r)).length;
 
   return (
     <div className="relative">
@@ -1299,230 +1217,212 @@ export default function GalleryUploader({
         )}
       </div>
 
+      {/* Generation progress popup */}
+      {genPopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end p-4 pointer-events-none">
+          <div className="pointer-events-auto w-[420px] max-h-[80vh] flex flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+            {/* header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50/80">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">Generation Progress</span>
+                {(genLoading || tagLoading) && (
+                  <span className="text-xs text-indigo-600 animate-pulse">Running…</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {(genLoading || tagLoading) && (
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => { stopRequestedRef.current = true; }}
+                  >Stop</button>
+                )}
+                {!genLoading && !tagLoading && (
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+                    onClick={() => setGenPopupOpen(false)}
+                  >Close</button>
+                )}
+              </div>
+            </div>
+            {/* summary bar */}
+            <div className="px-4 py-2 border-b border-gray-100 bg-white text-xs text-gray-600 flex items-center gap-4">
+              <span>Batches: <b>{chunksDone}/{chunksTotal}</b></span>
+              <span>Images: <b>{genDone}/{genTotal}</b></span>
+              {usd != null && <span>~<b>${usd.toFixed(4)}</b></span>}
+              {genTotal > 0 && (
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-1.5 bg-emerald-500 transition-all" style={{ width: `${Math.round((genDone / genTotal) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+            {/* batch list */}
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+              {genBatches.map((b) => {
+                const isActive = b.captionStep === "captions" || b.tagStep === "tags";
+                const hasError = b.captionStep === "error" || b.tagStep === "error";
+                const isDone = b.captionStep !== "pending" && b.captionStep !== "captions" &&
+                               b.tagStep !== "pending" && b.tagStep !== "tags";
+                return (
+                  <div key={b.batchIndex} className={`px-4 py-2.5 text-xs ${isActive ? "bg-indigo-50/60" : ""}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-700">Batch {b.batchIndex + 1} <span className="font-normal text-gray-400">({b.imageIds.length} images)</span></span>
+                      <span className={`font-semibold ${hasError ? "text-red-500" : isDone ? "text-emerald-600" : isActive ? "text-indigo-600" : "text-gray-400"}`}>
+                        {hasError ? "Error" : isDone ? "✓ Done" : isActive ? "Processing…" : "Pending"}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-[11px]">
+                      <span className={
+                        b.captionStep === "captions_saved" || b.captionStep === "done" ? "text-emerald-600" :
+                        b.captionStep === "captions" ? "text-indigo-500 animate-pulse" :
+                        b.captionStep === "error" ? "text-red-500" : "text-gray-300"
+                      }>
+                        {b.captionStep === "captions" ? "⟳ Captions…" :
+                         b.captionStep === "captions_saved" || b.captionStep === "done" ? "✓ Captions saved" :
+                         b.captionStep === "error" ? "✕ Captions failed" : "○ Captions"}
+                      </span>
+                      <span className={
+                        b.tagStep === "tags_saved" || b.tagStep === "done" ? "text-emerald-600" :
+                        b.tagStep === "tags" ? "text-indigo-500 animate-pulse" :
+                        b.tagStep === "error" ? "text-red-500" : "text-gray-300"
+                      }>
+                        {b.tagStep === "tags" ? "⟳ Tags…" :
+                         b.tagStep === "tags_saved" || b.tagStep === "done" ? "✓ Tags saved" :
+                         b.tagStep === "error" ? "✕ Tags failed" : "○ Tags"}
+                      </span>
+                    </div>
+                    {b.error && <div className="mt-1 text-red-500">{b.error}</div>}
+                    <div className="mt-1 text-gray-400 truncate">{b.filenames.slice(0, 3).join(", ")}{b.filenames.length > 3 ? "…" : ""}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {genError && <div className="px-4 py-2 text-xs text-red-600 border-t border-red-100 bg-red-50">{genError}</div>}
+            {tagError && <div className="px-4 py-2 text-xs text-red-600 border-t border-red-100 bg-red-50">{tagError}</div>}
+          </div>
+        </div>
+      )}
+
       {/* right panel */}
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-[1fr,360px] gap-4 items-start">
         <div />
-        <aside className="lg:sticky lg:top-4">
+        <aside className="lg:sticky lg:top-4 space-y-3">
+
+          {/* Summary table */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
-              <h3 className="text-sm font-semibold text-gray-900">
-                Alt + Caption Generator
-              </h3>
+              <h3 className="text-sm font-semibold text-gray-900">Gallery Summary</h3>
             </div>
             <div className="p-4 space-y-4">
+              <table className="w-full text-sm">
+                <tbody>
+                  {[
+                    { label: "Total Images", value: rows.length, total: rows.length, warn: false },
+                    { label: "Missing Alt", value: missingAltCount, total: rows.length, warn: missingAltCount > 0 },
+                    { label: "Missing Captions", value: missingCaptionCount, total: rows.length, warn: missingCaptionCount > 0 },
+                    { label: "Missing Descriptions", value: missingDescCount, total: rows.length, warn: missingDescCount > 0 },
+                    { label: "Missing Tags", value: missingTagsCount, total: rows.length, warn: missingTagsCount > 0 },
+                  ].map(({ label, value, total, warn }) => (
+                    <tr key={label} className="border-b border-gray-100 last:border-0">
+                      <td className="py-2 text-gray-600">{label}</td>
+                      <td className="py-2 text-right font-semibold tabular-nums">
+                        {label === "Total Images" ? (
+                          <span>{value}</span>
+                        ) : (
+                          <span className={warn ? "text-amber-600" : "text-emerald-600"}>
+                            {value} <span className="font-normal text-gray-400">/ {total}</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-medium disabled:opacity-50"
+                  disabled={rows.length === 0 || genLoading || tagLoading}
+                  onClick={() => onGenerateAll("all")}
+                >
+                  Generate All
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm font-medium disabled:opacity-50"
+                  disabled={rows.length === 0 || genLoading || tagLoading || missingCount === 0}
+                  onClick={onGenerateRemaining}
+                >
+                  {(genLoading || tagLoading) ? `…${genDone}/${genTotal}` : `Remaining (${missingCount})`}
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                {(genLoading || tagLoading) && (
+                  <button
+                    type="button"
+                    className="flex-1 px-4 py-2 rounded-xl border border-red-300 text-red-600 text-sm hover:bg-red-50"
+                    onClick={() => { stopRequestedRef.current = true; }}
+                  >Stop</button>
+                )}
+                {genBatches.length > 0 && !genPopupOpen && (
+                  <button
+                    type="button"
+                    className="flex-1 px-4 py-2 rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 text-sm"
+                    onClick={() => setGenPopupOpen(true)}
+                  >View Progress</button>
+                )}
+              </div>
+
+              {genError && <div className="text-xs text-red-600">{genError}</div>}
+              {tagError && <div className="text-xs text-red-600">{tagError}</div>}
+            </div>
+          </div>
+
+          {/* AI Generator controls */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
+              <h3 className="text-sm font-semibold text-gray-900">Context</h3>
+            </div>
+            <div className="p-4 space-y-3">
               <textarea
-                className="mt-1 w-full border border-gray-300 rounded-xl p-3 min-h-[120px] text-sm"
-                placeholder="Paste site article/context..."
+                className="w-full border border-gray-300 rounded-xl p-3 min-h-[100px] text-sm"
+                placeholder="Paste site article / context for better captions…"
                 value={contextArticle}
                 onChange={(e) => setContextArticle(e.target.value)}
               />
 
-              {/* quick stats */}
-              <div className="text-xs text-gray-600">
-                Missing items: <b>{missingCount}</b> / {rows.length}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs disabled:opacity-60"
+                  disabled={rows.length === 0 || genLoading} onClick={() => onGenerateCaptions("all")}>Rerun Captions</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs disabled:opacity-60"
+                  disabled={rows.length === 0 || tagLoading} onClick={() => onGenerateTags("all")}>Rerun Tags</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs disabled:opacity-60"
+                  disabled={rows.length === 0} onClick={handleDeleteAllTags}>Delete All Tags</button>
               </div>
 
-              {(genLoading || tokTotal > 0 || activeModel) && (
-                <div className="rounded-2xl border border-gray-200 p-3 bg-white/60">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm">
-                      <div>
-                        <span className="text-gray-600">Model:&nbsp;</span>
-                        <span className="font-medium">
-                          {activeModel ?? "—"}
-                        </span>
-                      </div>
-                      <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] text-gray-700">
-                        <div>
-                          Prompt tokens: <b>{tokIn}</b>
-                        </div>
-                        <div>
-                          Completion tokens: <b>{tokOut}</b>
-                        </div>
-                        <div>
-                          Total tokens: <b>{tokTotal}</b>
-                        </div>
-                        <div>
-                          Estimated USD:{" "}
-                          <b>{usd != null ? `$${usd.toFixed(4)}` : "—"}</b>
-                        </div>
-                      </div>
-                    </div>
-                    {chunksTotal > 0 && (
-                      <div className="text-[12px] text-gray-600">
-                        Chunks: <b>{chunksDone}</b>/<b>{chunksTotal}</b>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* diagnostics for skipped images */}
               {skipped.length > 0 && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                  <div className="font-medium mb-1">
-                    Skipped {skipped.length} unreachable image
-                    {skipped.length > 1 ? "s" : ""}.
-                  </div>
-                  <ul className="list-disc pl-4 space-y-0.5 max-h-28 overflow-auto">
+                  <div className="font-medium mb-1">Skipped {skipped.length} unreachable image{skipped.length > 1 ? "s" : ""}.</div>
+                  <ul className="list-disc pl-4 space-y-0.5 max-h-24 overflow-auto">
                     {skipped.slice(0, 6).map((s) => (
                       <li key={s.id}>
                         <span className="font-mono">{s.filename}</span>{" "}
                         <span className="text-amber-700">
-                          [{s.variant ?? "—"}]
-                          {s.status ? ` status ${s.status}` : ""}
-                          {s.contentType && !s.contentType.startsWith("image/")
-                            ? `, content-type: ${s.contentType}`
-                            : ""}
+                          [{s.variant ?? "—"}]{s.status ? ` status ${s.status}` : ""}
+                          {s.contentType && !s.contentType.startsWith("image/") ? `, ${s.contentType}` : ""}
                         </span>
                       </li>
                     ))}
                   </ul>
-                  {skipped.length > 6 && (
-                    <div className="mt-1">…and {skipped.length - 6} more.</div>
-                  )}
-                  <div className="mt-2 text-[11px] text-amber-800">
-                    Tip: we prefer <b>signed + transformed</b> URLs to reduce
-                    timeouts. If you still see skips, try again.
-                  </div>
+                  {skipped.length > 6 && <div className="mt-1">…and {skipped.length - 6} more.</div>}
                 </div>
               )}
-
-              {(hasGenProgress || genTotal > 0) && (
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <div className="font-medium">
-                      Generating… {genDone}/{genTotal}
-                    </div>
-                    <div className="text-gray-600">
-                      Remaining: {Math.max(0, genTotal - genDone)}
-                    </div>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className="h-2 bg-emerald-500 transition-all"
-                      style={{ width: `${genPct}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {genError && (
-                <div className="text-xs text-red-600">Captions: {genError}</div>
-              )}
-              {tagError && (
-                <div className="text-xs text-red-600">Tags: {tagError}</div>
-              )}
-
-              <div className="space-y-2">
-                {/* Generate buttons */}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl bg-black text-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || genLoading || tagLoading}
-                    onClick={() => onGenerateAll("all")}
-                  >
-                    {(genLoading || tagLoading) && genTotal > 0 ? `Generating… ${genDone}/${genTotal}` : "Generate All"}
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || genLoading}
-                    onClick={() => onGenerateCaptions("all")}
-                    title="Generate captions + alt text for all photos"
-                  >
-                    Captions
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || tagLoading}
-                    onClick={() => onGenerateTags("all")}
-                    title="Generate tags for all photos"
-                  >
-                    Tags
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || tagLoading}
-                    onClick={onGenerateTagsEmpty}
-                    title="Generate tags only for photos with no tags yet"
-                  >
-                    Tags (empty only)
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || genLoading}
-                    onClick={() => onGenerateDescriptions("all")}
-                    title="Generate scene descriptions for all photos"
-                  >
-                    Descriptions
-                  </button>
-                  {(genLoading || tagLoading) && (
-                    <button
-                      type="button"
-                      className="px-3.5 py-2 rounded-xl border border-red-300 bg-white text-red-600 text-sm hover:bg-red-50"
-                      onClick={() => { stopRequestedRef.current = true; }}
-                    >
-                      Stop
-                    </button>
-                  )}
-                </div>
-
-                {/* Apply / Discard */}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={Object.keys(suggestions).length === 0 || genLoading}
-                    onClick={async () => {
-                      const toApply = rows.filter((r) => !!suggestions[r.id]);
-                      setApplyProgress({ done: 0, total: toApply.length });
-                      setApplyingAll("applying");
-                      let done = 0;
-                      for (const r of toApply) {
-                        const s = suggestions[r.id];
-                        await updateRow(r.id, { alt_text: s.alt.trim(), caption: s.caption.trim() });
-                        done++;
-                        setApplyProgress({ done, total: toApply.length });
-                      }
-                      setSuggestions({});
-                      setApplyingAll("done");
-                    }}
-                  >
-                    Apply All
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || genLoading || tagLoading || missingCount === 0}
-                    onClick={onGenerateRemaining}
-                  >
-                    Generate Remaining
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={Object.keys(suggestions).length === 0 || genLoading}
-                    onClick={() => setSuggestions({})}
-                  >
-                    Discard
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-xl border border-red-200 bg-white text-red-600 text-sm disabled:opacity-60"
-                    disabled={rows.length === 0}
-                    onClick={handleDeleteAllTags}
-                  >
-                    Delete All Tags
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
+
         </aside>
       </div>
 
@@ -1530,7 +1430,6 @@ export default function GalleryUploader({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
         {rows.map((img) => {
           const meta = metaMap[img.id] || {};
-          const s = suggestions[img.id];
           const selected = selectedIds.has(img.id);
           return (
             <div
@@ -1641,31 +1540,6 @@ export default function GalleryUploader({
                     <FaRedoAlt className="w-3 h-3" />
                   </button>
                 </div>
-
-                {s && (
-                  <div className="space-y-1 border-t pt-1">
-                    <div className="text-[11px]">
-                      <b>Suggested Alt:</b> {s.alt}
-                      <button
-                        className="ml-2 text-[11px] underline"
-                        onClick={() => updateRow(img.id, { alt_text: s.alt })}
-                      >
-                        Apply
-                      </button>
-                    </div>
-                    <div className="text-[11px]">
-                      <b>Suggested Caption:</b> {s.caption}
-                      <button
-                        className="ml-2 text-[11px] underline"
-                        onClick={() =>
-                          updateRow(img.id, { caption: s.caption })
-                        }
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* ── Scene Description button ── */}
                 {(() => {
@@ -1849,11 +1723,38 @@ export default function GalleryUploader({
       {/* Bottom bulk toolbar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t border-gray-200 shadow-lg">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-gray-700">
-                <b>{selectedIds.size}</b> selected
-              </div>
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+            <div className="text-sm font-medium text-gray-700">
+              <b>{selectedIds.size}</b> selected
+            </div>
+            <button
+              type="button"
+              onClick={() => onGenerateAll("selected")}
+              disabled={genLoading || tagLoading || bulkWorking}
+              className="px-3.5 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-60"
+            >
+              Generate Selected
+            </button>
+            <button
+              type="button"
+              onClick={() => onGenerateCaptions("selected")}
+              disabled={genLoading || bulkWorking}
+              className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+            >
+              Captions
+            </button>
+            <button
+              type="button"
+              onClick={() => onGenerateTags("selected")}
+              disabled={tagLoading || bulkWorking}
+              className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+            >
+              Tags
+            </button>
+            {(genLoading || tagLoading) && (
+              <span className="text-xs text-indigo-600 animate-pulse">{genDone}/{genTotal} processing…</span>
+            )}
+            <div className="ml-auto flex items-center gap-3">
               <button
                 type="button"
                 onClick={deleteSelected}
@@ -1864,122 +1765,12 @@ export default function GalleryUploader({
               </button>
               <button
                 type="button"
-                onClick={() => onGenerateAll("selected")}
-                disabled={genLoading || tagLoading || bulkWorking}
-                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-sm text-gray-500 hover:text-gray-700"
               >
-                Generate All
+                Clear selection
               </button>
-              <button
-                type="button"
-                onClick={() => onGenerateCaptions("selected")}
-                disabled={genLoading || bulkWorking}
-                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
-              >
-                Captions
-              </button>
-              <button
-                type="button"
-                onClick={() => onGenerateTags("selected")}
-                disabled={tagLoading || bulkWorking}
-                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
-              >
-                Tags
-              </button>
-              <button
-                type="button"
-                onClick={() => onGenerateDescriptions("selected")}
-                disabled={genLoading || bulkWorking}
-                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
-              >
-                Descriptions
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTempContext(contextArticle || "");
-                  setShowContextModal(true);
-                }}
-                className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
-                title="Provide site context for generation"
-              >
-                Add context
-              </button>
-
-              <div className="ml-auto flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={applySuggestionsForSelected}
-                  disabled={selectedSuggestionsCount === 0 || genLoading}
-                  className="px-3.5 py-2 rounded-lg border border-gray-300 bg-black text-white text-sm disabled:opacity-60"
-                  title={
-                    selectedSuggestionsCount === 0
-                      ? "No new suggestions for selected items"
-                      : "Apply suggestions to selected"
-                  }
-                >
-                  Apply Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={discardSuggestionsForSelected}
-                  disabled={selectedSuggestionsCount === 0 || genLoading}
-                  className="px-3.5 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm disabled:opacity-60"
-                >
-                  Discard Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-sm text-gray-600 underline"
-                >
-                  Clear
-                </button>
-              </div>
             </div>
-
-            {(genLoading || genTotal > 0 || tokTotal > 0 || activeModel) && (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-[12px] text-gray-700">
-                  <div className="flex items-center gap-3">
-                    <span>
-                      Model: <b>{activeModel ?? "—"}</b>
-                    </span>
-                    <span>
-                      Prompt: <b>{tokIn}</b>
-                    </span>
-                    <span>
-                      Completion: <b>{tokOut}</b>
-                    </span>
-                    <span>
-                      Total: <b>{tokTotal}</b>
-                    </span>
-                    <span>
-                      USD:&nbsp;
-                      <b>{usd != null ? `$${usd.toFixed(4)}` : "—"}</b>
-                    </span>
-                    {chunksTotal > 0 && (
-                      <span>
-                        Chunks: <b>{chunksDone}</b>/<b>{chunksTotal}</b>
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-gray-600">
-                    {genLoading
-                      ? `Generating… ${genDone}/${genTotal}`
-                      : genTotal > 0
-                      ? `Generated ${genDone}/${genTotal}`
-                      : ""}
-                  </div>
-                </div>
-                <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className="h-2 bg-emerald-500 transition-all"
-                    style={{ width: `${genPct}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -2058,49 +1849,6 @@ export default function GalleryUploader({
         </div>
       )}
 
-      {/* Apply All progress modal */}
-      {applyingAll !== "idle" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl px-8 py-7 w-80 text-center space-y-4">
-            {applyingAll === "applying" ? (
-              <>
-                <div className="flex justify-center">
-                  <svg className="animate-spin h-8 w-8 text-gray-800" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-gray-700">
-                  Saving… {applyProgress.done} / {applyProgress.total}
-                </p>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div
-                    className="bg-gray-800 h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${applyProgress.total ? (applyProgress.done / applyProgress.total) * 100 : 0}%` }}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-center text-green-500">
-                  <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l3 3 5-5" />
-                  </svg>
-                </div>
-                <p className="text-sm font-semibold text-gray-800">All captions &amp; alt text applied and saved</p>
-                <button
-                  type="button"
-                  className="mt-1 px-5 py-2 rounded-xl bg-gray-900 text-white text-sm"
-                  onClick={() => setApplyingAll("idle")}
-                >
-                  Done
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
