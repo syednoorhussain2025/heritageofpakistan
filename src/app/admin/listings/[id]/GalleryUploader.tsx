@@ -100,7 +100,7 @@ async function urlReachable(
     });
     const ct = res.headers.get("content-type") || "";
     return {
-      ok: res.ok && ct.startsWith("image/"),
+      ok: res.ok, // trust HTTP 200 — Supabase sometimes returns octet-stream for valid images
       status: res.status,
       contentType: ct,
     };
