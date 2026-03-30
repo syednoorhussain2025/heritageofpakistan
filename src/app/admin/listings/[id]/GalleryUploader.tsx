@@ -906,7 +906,13 @@ export default function GalleryUploader({
   async function bestUrlForAI(
     key: string
   ): Promise<{ url: string; variant: string }> {
-    return { url: getVariantPublicUrl(key, "lg"), variant: "public" };
+    for (const variant of ["lg", "md", "sm"] as const) {
+      const url = getVariantPublicUrl(key, variant);
+      const chk = await urlReachable(url);
+      if (chk.ok) return { url, variant };
+    }
+    // Final fallback: original base file (no variant suffix)
+    return { url: getVariantPublicUrl(key), variant: "base" };
   }
 
   async function generateFor(list: Row[]) {
@@ -1021,6 +1027,7 @@ export default function GalleryUploader({
         return {
           id: r.id,
           aiUrl: best.url,
+          variant: best.variant,
           filename: r.storage_path.split("/").pop() || r.storage_path,
         };
       })
@@ -1029,6 +1036,15 @@ export default function GalleryUploader({
     const checks = await Promise.all(
       resolved.map(async (x) => ({ x, ch: await urlReachable(x.aiUrl) }))
     );
+    const skippedNow = checks.filter(({ ch }) => !ch.ok).map(({ x, ch }) => ({
+      id: x.id,
+      url: x.aiUrl,
+      filename: x.filename,
+      variant: x.variant,
+      status: ch.status,
+      contentType: ch.contentType,
+    }));
+    if (skippedNow.length) setSkipped((prev) => [...prev, ...skippedNow]);
     const good = checks.filter(({ ch }) => ch.ok).map(({ x }) => x);
     if (!good.length) return;
 
@@ -1144,9 +1160,25 @@ export default function GalleryUploader({
   async function onGenerateTags(scope: "all" | "selected" = "all") {
     setTagError(null);
     setTagLoading(true);
+    setSkipped([]);
     stopRequestedRef.current = false;
     try {
       await generateTagsFor(getTargetList(scope));
+    } catch (e: any) {
+      setTagError(e?.message ?? "Tag generation failed");
+    } finally {
+      setTagLoading(false);
+    }
+  }
+
+  async function onGenerateTagsEmpty() {
+    setTagError(null);
+    setTagLoading(true);
+    setSkipped([]);
+    stopRequestedRef.current = false;
+    try {
+      const emptyOnly = rows.filter((r) => !!r.storage_path && !(imageTags[r.id]?.length));
+      await generateTagsFor(emptyOnly);
     } catch (e: any) {
       setTagError(e?.message ?? "Tag generation failed");
     } finally {
@@ -1383,6 +1415,15 @@ export default function GalleryUploader({
                     title="Generate tags for all photos"
                   >
                     Tags
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 text-sm disabled:opacity-60"
+                    disabled={rows.length === 0 || tagLoading}
+                    onClick={onGenerateTagsEmpty}
+                    title="Generate tags only for photos with no tags yet"
+                  >
+                    Tags (empty only)
                   </button>
                   <button
                     type="button"
