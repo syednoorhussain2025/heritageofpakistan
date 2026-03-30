@@ -62,6 +62,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data ?? []);
   }
 
+  if (action === "get-tags-for-site") {
+    const { siteId } = body;
+    if (!siteId) return NextResponse.json([]);
+    // Single join query — no need to fetch image IDs first
+    const { data, error } = await db
+      .from("site_image_tags")
+      .select("id, site_image_id, dimension_id, value, source, created_at, site_images!inner(site_id)")
+      .eq("site_images.site_id", siteId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Strip the joined site_images column before returning
+    return NextResponse.json((data ?? []).map(({ site_images: _si, ...rest }: any) => rest));
+  }
+
   if (action === "save-ai-tags") {
     const suggestions: { imageId: string; tags: Record<string, string[]> }[] = body.suggestions ?? [];
     if (!suggestions.length) return NextResponse.json({ ok: true });

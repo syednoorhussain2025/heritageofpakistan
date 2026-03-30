@@ -37,6 +37,16 @@ async function getTagsForImages(imageIds: string[]): Promise<ImageTag[]> {
   if (!res.ok) throw new Error("Failed to fetch tags");
   return res.json();
 }
+async function getTagsForSite(siteId: string): Promise<ImageTag[]> {
+  // Query by site_id directly — no ID list needed, avoids passing 250+ UUIDs on initial load
+  const res = await fetch("/api/admin/photo-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "get-tags-for-site", siteId }),
+  });
+  if (!res.ok) throw new Error("Failed to fetch tags");
+  return res.json();
+}
 async function saveAiTags(suggestions: { imageId: string; tags: Record<string, string[]> }[]): Promise<void> {
   const res = await fetch("/api/admin/photo-tags", {
     method: "POST",
@@ -75,33 +85,6 @@ import { getVariantPublicUrl } from "@/lib/imagevariants";
 
 /* -------------------- URL + Reachability Helpers -------------------- */
 
-function encodeRFC3986(seg: string) {
-  return encodeURIComponent(seg).replace(
-    /[!'()*]/g,
-    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
-  );
-}
-
-function safeURL(input?: string | null): URL | null {
-  try {
-    return input ? new URL(input) : null;
-  } catch {
-    return null;
-  }
-}
-
-function rawUrlFromStoragePath(bucket: string, key: string): string {
-  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
-  const encodedKey = key
-    .split("/")
-    .map((seg) => encodeRFC3986(seg.trim()))
-    .join("/");
-  const url = new URL(
-    `${base}/storage/v1/object/public/${bucket}/${encodedKey}`
-  );
-  url.searchParams.set("t", String(Date.now()));
-  return url.toString();
-}
 
 async function urlReachable(
   url: string,
@@ -142,51 +125,6 @@ async function checkUrlsBatched<T extends { aiUrl: string }>(
   return results;
 }
 
-/**
- * Get a best-effort display URL that works for BOTH private and public buckets.
- * 1) try signed + transform
- * 2) try publicUrl + transform
- * 3) fall back to raw public object path
- */
-async function displayUrl(
-  bucket: string,
-  key: string
-): Promise<string | null> {
-  // 1) signed URL (no transform — avoids Supabase image transformation billing)
-  try {
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(key, 900);
-    if (!error && data?.signedUrl) {
-      const u = safeURL(data.signedUrl);
-      if (u) {
-        u.searchParams.set("t", String(Date.now()));
-        const chk = await urlReachable(u.toString());
-        if (chk.ok) return u.toString();
-      }
-    }
-  } catch {
-    // ignore and fallthrough
-  }
-
-  // 2) public URL (no transform)
-  try {
-    const { data } = supabase.storage.from(bucket).getPublicUrl(key);
-    const u = safeURL(data?.publicUrl);
-    if (u) {
-      u.searchParams.set("t", String(Date.now()));
-      const chk = await urlReachable(u.toString());
-      if (chk.ok) return u.toString();
-    }
-  } catch {
-    // ignore and fallthrough
-  }
-
-  // 3) raw public path (only works if bucket is public)
-  const raw = rawUrlFromStoragePath(bucket, key);
-  const chk = await urlReachable(raw);
-  return chk.ok ? raw : null;
-}
 
 /* ------------------------- Types ------------------------- */
 type Row = {
@@ -379,9 +317,6 @@ export default function GalleryUploader({
 
   // AI state
   const [contextArticle, setContextArticle] = useState<string>("");
-  const [suggestions, setSuggestions] = useState<
-    Record<string, { alt: string; caption: string }>
-  >({});
   const [sceneDescriptions, setSceneDescriptions] = useState<Record<string, string>>({});
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -452,13 +387,24 @@ export default function GalleryUploader({
 
   const [siteTitle, setSiteTitle] = useState<string>("");
 
+  // Page load visualizer
+  type LoadStep = { label: string; status: "pending" | "loading" | "done" | "error"; detail?: string };
+  const [loadSteps, setLoadSteps] = useState<LoadStep[]>([]);
+  const [loadPopupOpen, setLoadPopupOpen] = useState(false);
+
+  function setLoadStep(label: string, status: LoadStep["status"], detail?: string) {
+    setLoadSteps((prev) => {
+      const idx = prev.findIndex((s) => s.label === label);
+      const updated = { label, status, detail };
+      if (idx === -1) return [...prev, updated];
+      return prev.map((s, i) => (i === idx ? updated : s));
+    });
+  }
+
   // Bulk select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkWorking, setBulkWorking] = useState(false);
 
-  // Context popup
-  const [showContextModal, setShowContextModal] = useState(false);
-  const [tempContext, setTempContext] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -483,6 +429,11 @@ export default function GalleryUploader({
 
   async function load() {
     setLoading(true);
+    setLoadSteps([]);
+    setLoadPopupOpen(true);
+
+    // Step 1: images
+    setLoadStep("Images", "loading");
     const { data, error } = await supabase
       .from("site_images")
       .select("*")
@@ -490,9 +441,11 @@ export default function GalleryUploader({
       .order("sort_order", { ascending: true });
 
     if (error) {
+      setLoadStep("Images", "error", error.message);
       console.error("site_images load error:", error);
       alert(error.message);
       setLoading(false);
+      setLoadPopupOpen(false);
       return;
     }
 
@@ -502,23 +455,44 @@ export default function GalleryUploader({
         : null;
       return { ...r, publicUrl: url };
     });
+    setLoadStep("Images", "done", `${withUrls.length} photos`);
 
     setRows(withUrls);
     setLoading(false);
-    computeAllMeta(withUrls);
 
-    // Load existing tags for all images
-    const ids = withUrls.map((r) => r.id);
-    if (ids.length) {
-      getTagsForImages(ids).then((tags) => {
-        const byImage: Record<string, ImageTag[]> = {};
-        for (const t of tags) {
-          if (!byImage[t.site_image_id]) byImage[t.site_image_id] = [];
-          byImage[t.site_image_id].push(t);
-        }
-        setImageTags(byImage);
-      }).catch(console.error);
+    // Step 2: tags (fast — single query)
+    setLoadStep("Tags", "loading");
+    try {
+      const tags = await getTagsForSite(String(siteId));
+      const byImage: Record<string, ImageTag[]> = {};
+      for (const t of tags) {
+        if (!byImage[t.site_image_id]) byImage[t.site_image_id] = [];
+        byImage[t.site_image_id].push(t);
+      }
+      setImageTags(byImage);
+      setLoadStep("Tags", "done", `${tags.length} tags loaded`);
+    } catch (e: any) {
+      setLoadStep("Tags", "error", e?.message ?? "Failed");
     }
+
+    // Step 3: metadata (slow — batched image loads)
+    setLoadStep("Metadata", "loading", `0 / ${withUrls.length}`);
+    const BATCH = 12;
+    for (let i = 0; i < withUrls.length; i += BATCH) {
+      const batch = withUrls.slice(i, i + BATCH);
+      const entries = await Promise.all(
+        batch.map(async (r) => [r.id, await computeMetaForRow(r)] as const)
+      );
+      setMetaMap((prev) => {
+        const next = { ...prev };
+        for (const [id, meta] of entries) next[id] = meta;
+        return next;
+      });
+      setLoadStep("Metadata", "loading", `${Math.min(i + BATCH, withUrls.length)} / ${withUrls.length}`);
+    }
+    setLoadStep("Metadata", "done", `${withUrls.length} images`);
+
+    setLoadPopupOpen(false);
   }
 
   useEffect(() => {
@@ -682,7 +656,8 @@ export default function GalleryUploader({
       }
     }
 
-    // HEAD for KB (optional)
+    // HEAD for KB — skip if we already have dimensions from DB to reduce load-time requests
+    if (meta.w && meta.h) return meta;
     try {
       const resp = await fetch(r.publicUrl, {
         method: "HEAD",
@@ -698,14 +673,6 @@ export default function GalleryUploader({
     return meta;
   }
 
-  async function computeAllMeta(items: Row[]) {
-    const entries = await Promise.all(
-      items.map(async (r) => [r.id, await computeMetaForRow(r)] as const)
-    );
-    const map: Record<string, Meta> = {};
-    for (const [id, meta] of entries) map[id] = meta;
-    setMetaMap(map);
-  }
 
   // -------- Delete All --------
   const galleryFolder = useMemo(() => `gallery/${siteId}`, [siteId]);
@@ -1123,7 +1090,6 @@ export default function GalleryUploader({
   async function onGenerateCaptions(scope: "all" | "selected" = "all") {
     setGenError(null);
     setGenLoading(true);
-    setSuggestions({});
     setSkipped([]);
     stopRequestedRef.current = false;
     try {
@@ -1154,7 +1120,6 @@ export default function GalleryUploader({
     setTagError(null);
     setGenLoading(true);
     setTagLoading(true);
-    setSuggestions({});
     stopRequestedRef.current = false;
     try {
       await generateAllForList(list, mode);
@@ -1179,14 +1144,9 @@ export default function GalleryUploader({
   }
 
   /* ---------------- Render ---------------- */
-  if (loading) return <div className="text-gray-500">Loading Gallery…</div>;
-
   const uploadingCount = uploads.filter((u) => !u.done).length;
   const showPopup = uploadingCount > 0;
 
-  const hasGenProgress = genLoading && genTotal > 0;
-  const genPct =
-    genTotal > 0 ? Math.min(100, Math.round((genDone / genTotal) * 100)) : 0;
 
   const missingCount = rows.reduce((acc, r) => acc + (isMissing(r) ? 1 : 0), 0);
   const missingAltCount = rows.filter((r) => !!r.storage_path && isMissingAlt(r)).length;
@@ -1216,6 +1176,38 @@ export default function GalleryUploader({
           </button>
         )}
       </div>
+
+      {/* Page load popup */}
+      {loadPopupOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-80 rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/60">
+              <h3 className="text-sm font-semibold text-gray-900">Loading Gallery…</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {loadSteps.map((s) => (
+                <div key={s.label} className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${
+                    s.status === "done" ? "bg-emerald-100 text-emerald-600" :
+                    s.status === "error" ? "bg-red-100 text-red-600" :
+                    s.status === "loading" ? "bg-indigo-100 text-indigo-600 animate-pulse" :
+                    "bg-gray-100 text-gray-400"
+                  }`}>
+                    {s.status === "done" ? "✓" : s.status === "error" ? "✕" : s.status === "loading" ? "…" : "○"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800">{s.label}</div>
+                    {s.detail && <div className="text-xs text-gray-500">{s.detail}</div>}
+                  </div>
+                </div>
+              ))}
+              {loadSteps.length === 0 && (
+                <div className="text-sm text-gray-500 animate-pulse">Connecting…</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Generation progress popup */}
       {genPopupOpen && (
@@ -1775,52 +1767,6 @@ export default function GalleryUploader({
         </div>
       )}
 
-      {/* Context popup */}
-      {showContextModal && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setShowContextModal(false)}
-          />
-          <div className="relative w-full max-w-lg mx-auto mb-16 sm:mb-0 bg-white border border-gray-200 rounded-xl shadow-xl">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <div className="text-sm font-semibold">Add context</div>
-              <div className="text-xs text-gray-600 mt-0.5">
-                This text will be used as site context when recreating captions
-                for the selected photos.
-              </div>
-            </div>
-            <div className="p-4">
-              <textarea
-                rows={6}
-                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700"
-                placeholder="Enter site context…"
-                value={tempContext}
-                onChange={(e) => setTempContext(e.target.value)}
-              />
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm"
-                  onClick={() => setShowContextModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg bg-black text-white text-sm"
-                  onClick={() => {
-                    setContextArticle(tempContext.trim());
-                    setShowContextModal(false);
-                  }}
-                >
-                  Save context
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {lbOpen && lightboxPhotos.length > 0 && (
         <Lightbox
