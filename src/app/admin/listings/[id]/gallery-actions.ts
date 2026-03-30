@@ -422,7 +422,7 @@ async function callAnthropicTagBatch(
 
   const aiDimensions = vocabulary.filter((d) => d.ai_enabled);
   const vocabLines = aiDimensions.map((d) => {
-    if (d.slug === "specific") return `- "${d.slug}": FREE TEXT array, max 3 short phrases. Can be [].`;
+    if (d.slug === "specific") return `- "${d.slug}": FREE TEXT array, max 3 short phrases describing only physical/visual details visible in THIS photo — materials, textures, construction techniques, decorative motifs. NEVER use building type names (mosque, tomb, fort, temple, caravanserai), site names, or era/dynasty names. Can be [].`;
     return `- "${d.slug}": pick 0–${d.values.length} values ONLY from: [${d.values.map((v) => `"${v}"`).join(", ")}]`;
   }).join("\n");
 
@@ -436,10 +436,12 @@ async function callAnthropicTagBatch(
     {
       type: "text",
       text:
-        "Site context (for reference only):\n" + context +
+        "Site context (for caption/alt reference only — do NOT use for tags):\n" + context +
         "\n\nDimensions and allowed values:\n" + vocabLines +
         "\n\nRules:\n" +
-        "- Only include a dimension if relevant values are clearly visible.\n" +
+        "- Only include a dimension if the value is DIRECTLY AND CLEARLY VISIBLE in this specific photo.\n" +
+        "- Do NOT infer from site context — if you cannot see it in the photo, do not tag it.\n" +
+        "- For 'specific': physical/visual details only — materials, textures, construction, decorative motifs. No building types, no site names, no historical terms.\n" +
         "- Output JSON ONLY: {\"images\":[{\"id\":\"img1\",\"tags\":{\"architectural_structural\":[\"dome\"]}}]}\n" +
         `Expected ids: ${expectedIds.join(", ")}`,
     },
@@ -461,7 +463,9 @@ async function callAnthropicTagBatch(
       max_tokens: cfg.maxOutputTokens ?? 1200,
       system:
         "You are a visual analyst for a heritage photography website covering Pakistan.\n" +
-        "Tag photos accurately based ONLY on what is visually present. Output strict JSON only.",
+        "Tag photos based ONLY on what is directly visible in each photo — not what you know about the site.\n" +
+        "Never use building type names (mosque, tomb, fort, temple), site names, or historical terms as tags.\n" +
+        "Output strict JSON only.",
       messages: [{ role: "user", content: userContent }],
     }),
     cache: "no-store",
@@ -529,7 +533,7 @@ async function callOpenAITagBatch(
   const aiDimensions = vocabulary.filter((d) => d.ai_enabled);
   const vocabLines = aiDimensions.map((d) => {
     if (d.slug === "specific") {
-      return `- "${d.slug}": FREE TEXT array, max 3 short phrases describing unique visible details not covered by other dimensions. Can be empty [].`;
+      return `- "${d.slug}": FREE TEXT array, max 3 short phrases describing only physical/visual details visible in THIS photo — materials, textures, construction techniques, decorative motifs. NEVER use building type names (mosque, tomb, fort, temple, caravanserai), site names, or era/dynasty names. Can be empty [].`;
     }
     return `- "${d.slug}": pick 0–${d.values.length} values ONLY from: [${d.values.map((v) => `"${v}"`).join(", ")}]`;
   }).join("\n");
@@ -552,13 +556,14 @@ async function callOpenAITagBatch(
     {
       type: "text",
       text:
-        "Site context (for reference only — do not let it bias visual tags):\n" +
+        "Site context (for caption/alt reference only — do NOT use for tags):\n" +
         context +
         "\n\nDimensions and allowed values:\n" +
         vocabLines +
         "\n\nRules:\n" +
-        "- Only include a dimension if relevant values are clearly visible in the image.\n" +
-        "- For 'specific': write short descriptive phrases for unique details you see that no other dimension captures.\n" +
+        "- Only include a dimension if the value is DIRECTLY AND CLEARLY VISIBLE in this specific photo.\n" +
+        "- Do NOT infer from site context — if you cannot see it in the photo, do not tag it.\n" +
+        "- For 'specific': physical/visual details only — materials, textures, construction, decorative motifs. No building types, no site names, no historical terms.\n" +
         "- Use EXACT ids provided. Output JSON ONLY with this schema:\n" +
         `  ${schemaExample}\n` +
         `Expected ids (all must appear once): ${expectedIds.join(", ")}`,
