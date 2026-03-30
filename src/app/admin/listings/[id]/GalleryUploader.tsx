@@ -475,6 +475,13 @@ export default function GalleryUploader({
         byImage[t.site_image_id].push(t);
       }
       console.log("[load] images with tags:", Object.keys(byImage).length);
+      // Check if rows ids match tag keys
+      const rowIds = withUrls.map((r) => r.id);
+      const tagIds = Object.keys(byImage);
+      const matched = rowIds.filter((id) => tagIds.includes(id));
+      const unmatched = tagIds.filter((id) => !rowIds.includes(id));
+      console.log("[load] row IDs with matching tags:", matched.length, "/ total rows:", rowIds.length);
+      console.log("[load] tag imageIds NOT matching any row:", unmatched.length, unmatched.slice(0, 3));
       setImageTags(byImage);
       setLoadStep("Tags", "done", `${tags.length} tags loaded`);
     } catch (e: any) {
