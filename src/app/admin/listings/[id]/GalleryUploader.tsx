@@ -467,21 +467,11 @@ export default function GalleryUploader({
     setLoadStep("Tags", "loading");
     try {
       const tags = await getTagsForSite(String(siteId));
-      console.log("[load] getTagsForSite returned:", tags.length, "siteId:", String(siteId));
-      if (tags.length > 0) console.log("[load] sample tag:", JSON.stringify(tags[0]));
       const byImage: Record<string, ImageTag[]> = {};
       for (const t of tags) {
         if (!byImage[t.site_image_id]) byImage[t.site_image_id] = [];
         byImage[t.site_image_id].push(t);
       }
-      console.log("[load] images with tags:", Object.keys(byImage).length);
-      // Check if rows ids match tag keys
-      const rowIds = withUrls.map((r) => r.id);
-      const tagIds = Object.keys(byImage);
-      const matched = rowIds.filter((id) => tagIds.includes(id));
-      const unmatched = tagIds.filter((id) => !rowIds.includes(id));
-      console.log("[load] row IDs with matching tags:", matched.length, "/ total rows:", rowIds.length);
-      console.log("[load] tag imageIds NOT matching any row:", unmatched.length, unmatched.slice(0, 3));
       setImageTags(byImage);
       setLoadStep("Tags", "done", `${tags.length} tags loaded`);
     } catch (e: any) {
@@ -1017,28 +1007,17 @@ export default function GalleryUploader({
               return next;
             });
 
-            // DEBUG
-            console.log("[tags] res.items count:", res.items.length);
-            if (res.items[0]) {
-              console.log("[tags] first imageId:", res.items[0].imageId);
-              console.log("[tags] first tags:", JSON.stringify(res.items[0].tags));
-            }
-
             // Save with retry
             let saved = false;
             for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
               try { await saveAiTags(res.items); saved = true; }
-              catch (err) {
-                console.log("[tags] save attempt", attempt, "failed:", err);
-                if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
-              }
+              catch { if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500)); }
             }
             if (!saved) throw new Error("Failed to save tags after 3 attempts");
 
             // Replace tmp ids with real DB ids
             const chunkImageIds = res.items.map((s) => s.imageId);
             getTagsForImages(chunkImageIds).then((freshTags) => {
-              console.log("[tags] freshTags from DB after save:", freshTags.length, freshTags);
               setImageTags((prev) => {
                 const next = { ...prev };
                 for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
