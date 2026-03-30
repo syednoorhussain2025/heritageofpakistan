@@ -1006,17 +1006,28 @@ export default function GalleryUploader({
               return next;
             });
 
+            // DEBUG
+            console.log("[tags] res.items count:", res.items.length);
+            if (res.items[0]) {
+              console.log("[tags] first imageId:", res.items[0].imageId);
+              console.log("[tags] first tags:", JSON.stringify(res.items[0].tags));
+            }
+
             // Save with retry
             let saved = false;
             for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
               try { await saveAiTags(res.items); saved = true; }
-              catch { if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500)); }
+              catch (err) {
+                console.log("[tags] save attempt", attempt, "failed:", err);
+                if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
+              }
             }
             if (!saved) throw new Error("Failed to save tags after 3 attempts");
 
-            // Replace tmp ids
+            // Replace tmp ids with real DB ids
             const chunkImageIds = res.items.map((s) => s.imageId);
             getTagsForImages(chunkImageIds).then((freshTags) => {
+              console.log("[tags] freshTags from DB after save:", freshTags.length, freshTags);
               setImageTags((prev) => {
                 const next = { ...prev };
                 for (const id of chunkImageIds) next[id] = (prev[id] ?? []).filter((t) => t.source === "manual");
