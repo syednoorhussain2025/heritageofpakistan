@@ -870,10 +870,18 @@ export default function GalleryUploader({
   );
 
   /* ---------------------- Generate helpers ---------------------- */
-  function isMissing(r: Row) {
+  function isMissingCaptions(r: Row) {
     const a = (r.alt_text || "").trim();
     const c = (r.caption || "").trim();
     return a.length === 0 || c.length === 0;
+  }
+
+  function isMissingTags(r: Row) {
+    return !(imageTags[r.id]?.length);
+  }
+
+  function isMissing(r: Row) {
+    return isMissingCaptions(r) || isMissingTags(r);
   }
 
   type GenExtract = {
@@ -1237,18 +1245,23 @@ export default function GalleryUploader({
   }
 
   async function onGenerateRemaining() {
-    try {
-      setGenError(null);
-      setGenLoading(true);
-      setSuggestions({});
-      setSkipped([]);
-      const remaining = rows.filter((r) => !!r.storage_path && isMissing(r));
-      await generateFor(remaining);
-    } catch (e: any) {
-      setGenError(e?.message ?? "Failed to generate");
-    } finally {
-      setGenLoading(false);
-    }
+    setGenError(null);
+    setTagError(null);
+    setGenLoading(true);
+    setTagLoading(true);
+    setSuggestions({});
+    setSkipped([]);
+    stopRequestedRef.current = false;
+    const missingCaptions = rows.filter((r) => !!r.storage_path && isMissingCaptions(r));
+    const missingTags = rows.filter((r) => !!r.storage_path && isMissingTags(r));
+    const [captionResult, tagResult] = await Promise.allSettled([
+      missingCaptions.length ? generateFor(missingCaptions) : Promise.resolve(),
+      missingTags.length ? generateTagsFor(missingTags) : Promise.resolve(),
+    ]);
+    if (captionResult.status === "rejected") setGenError(captionResult.reason?.message ?? "Caption generation failed");
+    if (tagResult.status === "rejected") setTagError(tagResult.reason?.message ?? "Tag generation failed");
+    setGenLoading(false);
+    setTagLoading(false);
   }
 
   /* ---------------- Render ---------------- */
@@ -1485,7 +1498,7 @@ export default function GalleryUploader({
                   <button
                     type="button"
                     className="px-3.5 py-2 rounded-xl border border-gray-300 bg-white text-sm disabled:opacity-60"
-                    disabled={rows.length === 0 || genLoading || missingCount === 0}
+                    disabled={rows.length === 0 || genLoading || tagLoading || missingCount === 0}
                     onClick={onGenerateRemaining}
                   >
                     Generate Remaining
