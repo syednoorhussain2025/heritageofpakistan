@@ -65,14 +65,22 @@ export async function POST(req: NextRequest) {
   if (action === "get-tags-for-site") {
     const { siteId } = body;
     if (!siteId) return NextResponse.json([]);
-    // Single join query — no need to fetch image IDs first
+    // Two-step: fetch image IDs for site, then fetch tags.
+    // The single-join approach (site_images!inner + .eq on joined col) is unreliable
+    // in Supabase JS v2 — the filter is ignored and returns all rows.
+    const { data: images, error: imgErr } = await db
+      .from("site_images")
+      .select("id")
+      .eq("site_id", siteId);
+    if (imgErr) return NextResponse.json({ error: imgErr.message }, { status: 500 });
+    const imageIds = (images ?? []).map((r: any) => r.id);
+    if (!imageIds.length) return NextResponse.json([]);
     const { data, error } = await db
       .from("site_image_tags")
-      .select("id, site_image_id, dimension_id, value, source, created_at, site_images!inner(site_id)")
-      .eq("site_images.site_id", siteId);
+      .select("*")
+      .in("site_image_id", imageIds);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    // Strip the joined site_images column before returning
-    return NextResponse.json((data ?? []).map(({ site_images: _si, ...rest }: any) => rest));
+    return NextResponse.json(data ?? []);
   }
 
   if (action === "save-ai-tags") {
@@ -81,9 +89,6 @@ export async function POST(req: NextRequest) {
 
     const { data: dims } = await db.from("photo_tag_dimensions").select("id, slug");
     const slugToId = new Map((dims ?? []).map((d: any) => [d.slug, d.id]));
-
-    const imageIds = suggestions.map((s) => s.imageId);
-    await db.from("site_image_tags").delete().in("site_image_id", imageIds).eq("source", "ai");
 
     const rows: any[] = [];
     for (const s of suggestions) {
@@ -96,7 +101,11 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // Only delete existing AI tags for images that have new rows to insert.
+    // Deleting before building rows meant a failed/empty generation wiped saved tags.
     if (rows.length) {
+      const affectedIds = [...new Set(rows.map((r) => r.site_image_id))];
+      await db.from("site_image_tags").delete().in("site_image_id", affectedIds).eq("source", "ai");
       const { error } = await db.from("site_image_tags").insert(rows);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }

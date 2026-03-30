@@ -1,7 +1,8 @@
 // src/app/admin/listings/[id]/GalleryUploader.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TextareaHTMLAttributes } from "react";
 import { supabase } from "@/lib/supabase/browser";
 import {
@@ -323,6 +324,8 @@ export default function GalleryUploader({
   const stopRequestedRef = useRef(false);
   // Description popup
   const [descPopup, setDescPopup] = useState<{ imageId: string; text: string } | null>(null);
+  // Tag popup (deferred rendering — tags already in imageTags state)
+  const [tagPopupImageId, setTagPopupImageId] = useState<string | null>(null);
 
   // Tag state
   const [vocabulary, setVocabulary] = useState<TagDimension[]>([]);
@@ -475,21 +478,21 @@ export default function GalleryUploader({
       setLoadStep("Tags", "error", e?.message ?? "Failed");
     }
 
-    // Step 3: metadata (slow — batched image loads)
+    // Step 3: metadata — collect all first, then single setMetaMap to avoid 20+ re-renders
     setLoadStep("Metadata", "loading", `0 / ${withUrls.length}`);
     const BATCH = 12;
+    const allMeta: Record<string, Meta> = {};
+    let done = 0;
     for (let i = 0; i < withUrls.length; i += BATCH) {
       const batch = withUrls.slice(i, i + BATCH);
       const entries = await Promise.all(
         batch.map(async (r) => [r.id, await computeMetaForRow(r)] as const)
       );
-      setMetaMap((prev) => {
-        const next = { ...prev };
-        for (const [id, meta] of entries) next[id] = meta;
-        return next;
-      });
-      setLoadStep("Metadata", "loading", `${Math.min(i + BATCH, withUrls.length)} / ${withUrls.length}`);
+      for (const [id, meta] of entries) allMeta[id] = meta;
+      done += batch.length;
+      setLoadStep("Metadata", "loading", `${done} / ${withUrls.length}`);
     }
+    setMetaMap(allMeta); // single state update → single re-render
     setLoadStep("Metadata", "done", `${withUrls.length} images`);
 
     setLoadPopupOpen(false);
@@ -1143,10 +1146,31 @@ export default function GalleryUploader({
     await runGeneration(needsWork, "all");
   }
 
+  /* ---------------- Virtual grid setup ---------------- */
+  // Number of columns matches the Tailwind grid breakpoints on the grid below.
+  // We use a fixed 5 columns (lg default) for the virtualizer calculation.
+  // The actual responsive grid CSS still controls visual layout.
+  const COLS = 5;
+  const gridParentRef = useRef<HTMLDivElement>(null);
+
+  const gridRows = useMemo(() => {
+    const result: Row[][] = [];
+    for (let i = 0; i < rows.length; i += COLS) {
+      result.push(rows.slice(i, i + COLS));
+    }
+    return result;
+  }, [rows]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: gridRows.length,
+    getScrollElement: () => document.scrollingElement as HTMLElement,
+    estimateSize: useCallback(() => 520, []), // estimated card height in px
+    overscan: 3, // render 3 extra rows above/below viewport
+  });
+
   /* ---------------- Render ---------------- */
   const uploadingCount = uploads.filter((u) => !u.done).length;
   const showPopup = uploadingCount > 0;
-
 
   const missingCount = rows.reduce((acc, r) => acc + (isMissing(r) ? 1 : 0), 0);
   const missingAltCount = rows.filter((r) => !!r.storage_path && isMissingAlt(r)).length;
@@ -1418,233 +1442,150 @@ export default function GalleryUploader({
         </aside>
       </div>
 
-      {/* grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {rows.map((img) => {
-          const meta = metaMap[img.id] || {};
-          const selected = selectedIds.has(img.id);
+      {/* Virtual grid — only visible rows are rendered */}
+      <div
+        ref={gridParentRef}
+        style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const rowImages = gridRows[virtualRow.index];
           return (
             <div
-              key={img.id}
-              className={`border border-gray-200 rounded-lg overflow-hidden bg-white ${
-                selected
-                  ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white"
-                  : ""
-              }`}
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 pb-2"
             >
-              <div className="relative group">
-                {img.publicUrl && (
+              {rowImages.map((img) => {
+                const meta = metaMap[img.id] || {};
+                const selected = selectedIds.has(img.id);
+                return (
                   <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggleSelect(img.id)}
-                    className="block w-full cursor-pointer"
+                    key={img.id}
+                    className={`border border-gray-200 rounded-lg overflow-hidden bg-white ${
+                      selected ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""
+                    }`}
                   >
-                    <div className="w-full aspect-square bg-gray-50 overflow-hidden">
-                      <img
-                        src={img.publicUrl}
-                        alt={img.alt_text || ""}
-                        className="w-full h-full object-contain transform-gpu transition-transform duration-150 ease-out group-hover:scale-[1.03] select-none"
-                        style={{ willChange: "transform" }}
-                      />
+                    <div className="relative group">
+                      {img.publicUrl && (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleSelect(img.id)}
+                          className="block w-full cursor-pointer"
+                        >
+                          <div className="w-full aspect-square bg-gray-50 overflow-hidden">
+                            <img
+                              src={img.publicUrl}
+                              alt={img.alt_text || ""}
+                              loading="lazy"
+                              className="w-full h-full object-contain transform-gpu transition-transform duration-150 ease-out group-hover:scale-[1.03] select-none"
+                              style={{ willChange: "transform" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {img.publicUrl && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openLightboxFor(img.id); }}
+                          className="absolute top-1 left-1 p-1.5 bg-white/80 rounded-md shadow-sm text-gray-400 hover:text-gray-600"
+                          title="Open preview"
+                        >
+                          <FaSearchPlus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeRow(img.id, img.storage_path); }}
+                        className="absolute top-1 right-1 p-1.5 bg-white/80 rounded-md text-gray-400 hover:text-gray-600"
+                        title="Delete"
+                      >
+                        <FaTrash className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  </div>
-                )}
 
-                {img.publicUrl && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openLightboxFor(img.id);
-                    }}
-                    className="absolute top-1 left-1 p-1.5 bg-white/80 rounded-md shadow-sm text-gray-400 hover:text-gray-600"
-                    title="Open preview"
-                  >
-                    <FaSearchPlus className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                    <div className="px-2 pt-1 pb-0.5 text-[11px] flex items-center">
+                      <span>
+                        {meta.w && meta.h ? `${meta.w}×${meta.h}` : "—"}
+                        {typeof meta.kb === "number" ? ` • ${meta.kb} KB` : ""}
+                      </span>
+                      <FaCheckCircle className="w-3.5 h-3.5 text-green-600 ml-auto" />
+                    </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeRow(img.id, img.storage_path);
-                  }}
-                  className="absolute top-1 right-1 p-1.5 bg-white/80 rounded-md text-gray-400 hover:text-gray-600"
-                  title="Delete"
-                >
-                  <FaTrash className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="px-2 pt-1 pb-0.5 text-[11px] flex items-center">
-                <span>
-                  {meta.w && meta.h ? `${meta.w}×${meta.h}` : "—"}
-                  {typeof meta.kb === "number" ? ` • ${meta.kb} KB` : ""}
-                </span>
-                <FaCheckCircle className="w-3.5 h-3.5 text-green-600 ml-auto" />
-              </div>
-
-              <div className="p-2 space-y-1.5">
-                <div className="relative group/tbx">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Alt text</p>
-                  <AutoGrowTextarea
-                    minRows={2}
-                    placeholder="Alt text"
-                    value={img.alt_text || ""}
-                    onChange={(e) =>
-                      updateRow(img.id, { alt_text: e.target.value })
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
-                    title="copy from caption"
-                    onClick={() =>
-                      updateRow(img.id, {
-                        alt_text: (img.caption || "").trim(),
-                      })
-                    }
-                  >
-                    <FaRedoAlt className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <div className="relative group/tbx">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Caption</p>
-                  <AutoGrowTextarea
-                    minRows={2}
-                    placeholder="Caption"
-                    value={img.caption || ""}
-                    onChange={(e) =>
-                      updateRow(img.id, { caption: e.target.value })
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
-                    title="copy from alt text"
-                    onClick={() =>
-                      updateRow(img.id, {
-                        caption: (img.alt_text || "").trim(),
-                      })
-                    }
-                  >
-                    <FaRedoAlt className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* ── Scene Description button ── */}
-                {(() => {
-                  const desc = img.scene_description || sceneDescriptions[img.id];
-                  if (!desc) return null;
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setDescPopup({ imageId: img.id, text: desc })}
-                      className="w-full text-left px-2 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium hover:bg-amber-100 transition-colors"
-                    >
-                      📄 Description
-                    </button>
-                  );
-                })()}
-
-                {/* ── Photo Tags ── */}
-                {(() => {
-                  const tags = imageTags[img.id] ?? [];
-                  const dimMap = new Map(vocabulary.map((d) => [d.id, d]));
-                  // Group tags by dimension
-                  const byDim: Record<string, ImageTag[]> = {};
-                  for (const t of tags) {
-                    if (!byDim[t.dimension_id]) byDim[t.dimension_id] = [];
-                    byDim[t.dimension_id].push(t);
-                  }
-                  return (
-                    <div className="border-t pt-1.5 mt-1 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</span>
-                        {tagLoading && <span className="text-[10px] text-blue-500 animate-pulse">Generating…</span>}
+                    <div className="p-2 space-y-1.5">
+                      <div className="relative group/tbx">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Alt text</p>
+                        <AutoGrowTextarea
+                          minRows={2}
+                          placeholder="Alt text"
+                          value={img.alt_text || ""}
+                          onChange={(e) => updateRow(img.id, { alt_text: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
+                          title="copy from caption"
+                          onClick={() => updateRow(img.id, { alt_text: (img.caption || "").trim() })}
+                        >
+                          <FaRedoAlt className="w-3 h-3" />
+                        </button>
                       </div>
 
-                      {/* Existing tags grouped by dimension */}
-                      {vocabulary.map((dim) => {
-                        const dimTags = byDim[dim.id] ?? [];
-                        const input = manualTagInput[img.id]?.[dim.id] ?? "";
-                        return (
-                          <div key={dim.id}>
-                            <div className="text-[9px] font-medium text-gray-400 uppercase mb-0.5">{dim.name}</div>
-                            <div className="flex flex-wrap gap-1">
-                              {dimTags.map((t) => (
-                                <span
-                                  key={t.id}
-                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                    t.source === "manual"
-                                      ? "bg-purple-100 text-purple-700"
-                                      : "bg-blue-100 text-blue-700"
-                                  }`}
-                                >
-                                  {t.value}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTag(t.id, img.id)}
-                                    className="ml-0.5 hover:text-red-500 leading-none"
-                                    title="Remove tag"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
+                      <div className="relative group/tbx">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 px-0.5">Caption</p>
+                        <AutoGrowTextarea
+                          minRows={2}
+                          placeholder="Caption"
+                          value={img.caption || ""}
+                          onChange={(e) => updateRow(img.id, { caption: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 p-1 rounded-md bg-white/80 text-gray-500 hover:text-gray-700 transition-opacity opacity-0 group-hover/tbx:opacity-100"
+                          title="copy from alt text"
+                          onClick={() => updateRow(img.id, { caption: (img.alt_text || "").trim() })}
+                        >
+                          <FaRedoAlt className="w-3 h-3" />
+                        </button>
+                      </div>
 
-                              {/* Manual tag input */}
-                              {dim.values.length > 0 ? (
-                                <select
-                                  className="text-[10px] border border-dashed border-gray-300 rounded px-1 py-0.5 bg-white text-gray-500 max-w-[100px]"
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      void handleAddManualTag(img.id, dim.id, e.target.value);
-                                    }
-                                  }}
-                                >
-                                  <option value="">+ add</option>
-                                  {dim.values
-                                    .filter((v) => !dimTags.find((t) => t.value === v.value))
-                                    .map((v) => (
-                                      <option key={v.id} value={v.value}>{v.value}</option>
-                                    ))}
-                                </select>
-                              ) : (
-                                /* Free-text for 'specific' dimension */
-                                <form
-                                  className="flex gap-0.5"
-                                  onSubmit={(e) => {
-                                    e.preventDefault();
-                                    void handleAddManualTag(img.id, dim.id, input);
-                                  }}
-                                >
-                                  <input
-                                    className="text-[10px] border border-dashed border-gray-300 rounded px-1 py-0.5 w-20 bg-white"
-                                    placeholder="+ add…"
-                                    value={input}
-                                    onChange={(ev) =>
-                                      setManualTagInput((prev) => ({
-                                        ...prev,
-                                        [img.id]: { ...(prev[img.id] ?? {}), [dim.id]: ev.target.value },
-                                      }))
-                                    }
-                                  />
-                                  {input.trim() && (
-                                    <button type="submit" className="text-[10px] text-blue-600 underline">ok</button>
-                                  )}
-                                </form>
-                              )}
-                            </div>
-                          </div>
+                      {/* Scene Description button */}
+                      {(img.scene_description || sceneDescriptions[img.id]) && (
+                        <button
+                          type="button"
+                          onClick={() => setDescPopup({ imageId: img.id, text: (img.scene_description || sceneDescriptions[img.id])! })}
+                          className="w-full text-left px-2 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium hover:bg-amber-100 transition-colors"
+                        >
+                          📄 Description
+                        </button>
+                      )}
+
+                      {/* Tags badge */}
+                      {(() => {
+                        const tagCount = (imageTags[img.id] ?? []).length;
+                        const hasTags = tagCount > 0;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setTagPopupImageId(img.id)}
+                            className={`w-full mt-1 flex items-center justify-between px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
+                              hasTags
+                                ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                            }`}
+                          >
+                            <span>{hasTags ? `${tagCount} tag${tagCount !== 1 ? "s" : ""}` : "No tags"}</span>
+                            {tagLoading && <span className="text-[10px] animate-pulse opacity-70">…</span>}
+                            <span className="opacity-50 text-[10px]">edit →</span>
+                          </button>
                         );
-                      })}
+                      })()}
                     </div>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -1794,6 +1735,126 @@ export default function GalleryUploader({
           </div>
         </div>
       )}
+
+      {/* Tag editor popup */}
+      {tagPopupImageId && (() => {
+        const imageId = tagPopupImageId;
+        const tags = imageTags[imageId] ?? [];
+        const byDim: Record<string, ImageTag[]> = {};
+        for (const t of tags) {
+          if (!byDim[t.dimension_id]) byDim[t.dimension_id] = [];
+          byDim[t.dimension_id].push(t);
+        }
+        const img = rows.find((r) => r.id === imageId);
+        return (
+          <div
+            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-0"
+            onClick={() => setTagPopupImageId(null)}
+          >
+            <div
+              className="w-full max-w-lg bg-white rounded-t-2xl shadow-2xl border-t border-gray-200 max-h-[80vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900">Tags</div>
+                  {img && (
+                    <div className="text-xs text-gray-400 truncate">{img.storage_path.split("/").pop()}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTagPopupImageId(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-4 flex-shrink-0"
+                >×</button>
+              </div>
+
+              {/* tag dimensions */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {vocabulary.map((dim) => {
+                  const dimTags = byDim[dim.id] ?? [];
+                  const input = manualTagInput[imageId]?.[dim.id] ?? "";
+                  return (
+                    <div key={dim.id}>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{dim.name}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {dimTags.map((t) => (
+                          <span
+                            key={t.id}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                              t.source === "manual"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {t.value}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTag(t.id, imageId)}
+                              className="hover:text-red-500 leading-none"
+                            >×</button>
+                          </span>
+                        ))}
+                        {dim.values.length > 0 ? (
+                          <select
+                            className="text-xs border border-dashed border-gray-300 rounded-full px-2 py-0.5 bg-white text-gray-500"
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) void handleAddManualTag(imageId, dim.id, e.target.value);
+                            }}
+                          >
+                            <option value="">+ add</option>
+                            {dim.values
+                              .filter((v) => !dimTags.find((t) => t.value === v.value))
+                              .map((v) => (
+                                <option key={v.id} value={v.value}>{v.value}</option>
+                              ))}
+                          </select>
+                        ) : (
+                          <form
+                            className="flex gap-1"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              void handleAddManualTag(imageId, dim.id, input);
+                            }}
+                          >
+                            <input
+                              className="text-xs border border-dashed border-gray-300 rounded-full px-2 py-0.5 w-24 bg-white"
+                              placeholder="+ add…"
+                              value={input}
+                              onChange={(ev) =>
+                                setManualTagInput((prev) => ({
+                                  ...prev,
+                                  [imageId]: { ...(prev[imageId] ?? {}), [dim.id]: ev.target.value },
+                                }))
+                              }
+                            />
+                            {input.trim() && (
+                              <button type="submit" className="text-xs text-blue-600 underline">ok</button>
+                            )}
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {vocabulary.length === 0 && (
+                  <div className="text-sm text-gray-400">No tag vocabulary loaded.</div>
+                )}
+              </div>
+
+              <div className="px-4 py-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 rounded-xl bg-gray-900 text-white text-sm"
+                  onClick={() => setTagPopupImageId(null)}
+                >Done</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
