@@ -1,8 +1,7 @@
 // src/app/admin/listings/[id]/GalleryUploader.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TextareaHTMLAttributes } from "react";
 import { supabase } from "@/lib/supabase/browser";
 import {
@@ -1147,28 +1146,6 @@ export default function GalleryUploader({
     await runGeneration(needsWork, "all");
   }
 
-  /* ---------------- Virtual grid setup ---------------- */
-  // Number of columns matches the Tailwind grid breakpoints on the grid below.
-  // We use a fixed 5 columns (lg default) for the virtualizer calculation.
-  // The actual responsive grid CSS still controls visual layout.
-  const COLS = 5;
-  const gridParentRef = useRef<HTMLDivElement>(null);
-
-  const gridRows = useMemo(() => {
-    const result: Row[][] = [];
-    for (let i = 0; i < rows.length; i += COLS) {
-      result.push(rows.slice(i, i + COLS));
-    }
-    return result;
-  }, [rows]);
-
-  const rowVirtualizer = useVirtualizer({
-    count: gridRows.length,
-    getScrollElement: () => document.scrollingElement as HTMLElement,
-    estimateSize: useCallback(() => 520, []), // estimated card height in px
-    overscan: 3, // render 3 extra rows above/below viewport
-  });
-
   /* ---------------- Render ---------------- */
   const uploadingCount = uploads.filter((u) => !u.done).length;
   const showPopup = uploadingCount > 0;
@@ -1443,31 +1420,19 @@ export default function GalleryUploader({
         </aside>
       </div>
 
-      {/* Virtual grid — only visible rows are rendered */}
-      <div
-        ref={gridParentRef}
-        style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
-      >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const rowImages = gridRows[virtualRow.index];
+      {/* Grid — content-visibility:auto skips layout/paint for off-screen cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+        {rows.map((img) => {
+          const meta = metaMap[img.id] || {};
+          const selected = selectedIds.has(img.id);
           return (
             <div
-              key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={rowVirtualizer.measureElement}
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 pb-2"
+              key={img.id}
+              style={{ contentVisibility: "auto", containIntrinsicSize: "0 520px" }}
+              className={`border border-gray-200 rounded-lg overflow-hidden bg-white ${
+                selected ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""
+              }`}
             >
-              {rowImages.map((img) => {
-                const meta = metaMap[img.id] || {};
-                const selected = selectedIds.has(img.id);
-                return (
-                  <div
-                    key={img.id}
-                    className={`border border-gray-200 rounded-lg overflow-hidden bg-white ${
-                      selected ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""
-                    }`}
-                  >
                     <div className="relative group">
                       {img.publicUrl && (
                         <div
@@ -1586,9 +1551,6 @@ export default function GalleryUploader({
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          );
         })}
       </div>
 
