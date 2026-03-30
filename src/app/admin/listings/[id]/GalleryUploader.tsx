@@ -467,14 +467,18 @@ export default function GalleryUploader({
     setLoadStep("Tags", "loading");
     try {
       const tags = await getTagsForSite(String(siteId));
+      console.log("[load] getTagsForSite returned:", tags.length, "siteId:", String(siteId));
+      if (tags.length > 0) console.log("[load] sample tag:", JSON.stringify(tags[0]));
       const byImage: Record<string, ImageTag[]> = {};
       for (const t of tags) {
         if (!byImage[t.site_image_id]) byImage[t.site_image_id] = [];
         byImage[t.site_image_id].push(t);
       }
+      console.log("[load] images with tags:", Object.keys(byImage).length);
       setImageTags(byImage);
       setLoadStep("Tags", "done", `${tags.length} tags loaded`);
     } catch (e: any) {
+      console.log("[load] getTagsForSite error:", e?.message);
       setLoadStep("Tags", "error", e?.message ?? "Failed");
     }
 
