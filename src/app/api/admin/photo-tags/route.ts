@@ -85,29 +85,40 @@ export async function POST(req: NextRequest) {
 
   if (action === "save-ai-tags") {
     const suggestions: { imageId: string; tags: Record<string, string[]> }[] = body.suggestions ?? [];
+    console.log("[save-ai-tags] suggestions count:", suggestions.length);
+    if (suggestions.length > 0) {
+      console.log("[save-ai-tags] first suggestion imageId:", suggestions[0].imageId);
+      console.log("[save-ai-tags] first suggestion tags keys:", Object.keys(suggestions[0].tags));
+      console.log("[save-ai-tags] first suggestion tags sample:", JSON.stringify(suggestions[0].tags).slice(0, 300));
+    }
     if (!suggestions.length) return NextResponse.json({ ok: true });
 
     const { data: dims } = await db.from("photo_tag_dimensions").select("id, slug");
+    console.log("[save-ai-tags] dimension slugs in DB:", (dims ?? []).map((d: any) => d.slug));
     const slugToId = new Map((dims ?? []).map((d: any) => [d.slug, d.id]));
 
     const rows: any[] = [];
     for (const s of suggestions) {
       for (const [slug, values] of Object.entries(s.tags)) {
         const dimensionId = slugToId.get(slug);
-        if (!dimensionId) continue;
+        if (!dimensionId) { console.log("[save-ai-tags] slug NOT FOUND in DB:", slug); continue; }
         for (const value of values) {
           if (!value?.trim()) continue;
           rows.push({ site_image_id: s.imageId, dimension_id: dimensionId, value: value.trim(), source: "ai" });
         }
       }
     }
+    console.log("[save-ai-tags] rows to insert:", rows.length);
     // Only delete existing AI tags for images that have new rows to insert.
     // Deleting before building rows meant a failed/empty generation wiped saved tags.
     if (rows.length) {
       const affectedIds = [...new Set(rows.map((r) => r.site_image_id))];
       await db.from("site_image_tags").delete().in("site_image_id", affectedIds).eq("source", "ai");
       const { error } = await db.from("site_image_tags").insert(rows);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) {
+        console.log("[save-ai-tags] insert error:", error.message);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
     return NextResponse.json({ ok: true });
   }
