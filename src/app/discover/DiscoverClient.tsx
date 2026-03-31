@@ -417,7 +417,7 @@ export default function DiscoverClient({
   return (
     <div
       ref={scrollRef}
-      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef]"
+      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
     >
 
@@ -483,16 +483,14 @@ export default function DiscoverClient({
       </div>
 
       {/* ── Desktop sticky header ── */}
-      <div className="hidden lg:block sticky top-0 z-[1100]">
+      <div className="hidden lg:block sticky top-[56px] z-[1090] overflow-visible">
         <div
-          className="absolute inset-0"
+          className="absolute inset-x-0 top-0 pointer-events-none"
           style={{
+            height: "140px",
             background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
-            maskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            height: "110%",
           }}
         />
         <div className="relative py-3" style={{ paddingBottom: searchOpen ? "10px" : "14px" }}>
@@ -547,7 +545,7 @@ export default function DiscoverClient({
         .discover-feed { padding-top: calc(var(--sat, 44px) + 70px); }
         @media (min-width: 1024px) { .discover-feed { padding-top: 8px; } }
       `}</style>
-      <div className="discover-feed px-2 pb-8 lg:px-4">
+      <div className="discover-feed px-2 pb-8 lg:px-10 xl:px-16">
         {/* Search empty state */}
         {searchActive && !searchLoading && searchPhotosArr.length === 0 && (
           <div className="flex flex-col items-center justify-center pt-24 gap-3 text-center px-8">
