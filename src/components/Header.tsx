@@ -1136,24 +1136,8 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           >
             {/* Desktop nav */}
             <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
-              {/* Discover */}
-              <div className="relative" style={stagger(0)}>
-                <Link
-                  href="/discover"
-                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
-                >
-                  <Icon name="image" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
-                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
-                    Discover
-                  </span>
-                </Link>
-                {pathname.startsWith("/discover") && (
-                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
-                )}
-              </div>
-
               {/* Home */}
-              <div className="relative" style={stagger(1)}>
+              <div className="relative" style={stagger(0)}>
                 <Link
                   href="/"
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
@@ -1164,6 +1148,22 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
                   </span>
                 </Link>
                 {pathname === "/" && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
+
+              {/* Discover */}
+              <div className="relative" style={stagger(1)}>
+                <Link
+                  href="/discover"
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
+                >
+                  <Icon name="image" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
+                    Discover
+                  </span>
+                </Link>
+                {pathname.startsWith("/discover") && (
                   <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
                 )}
               </div>

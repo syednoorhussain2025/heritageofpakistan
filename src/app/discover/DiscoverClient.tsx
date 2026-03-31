@@ -489,9 +489,46 @@ export default function DiscoverClient({
         </div>
       </div>
 
+      {/* ── Desktop page header (title + search) ── */}
+      <div className="hidden lg:flex items-center justify-between px-10 xl:px-16 pt-8 pb-5">
+        <div>
+          <h1 className="text-[32px] font-bold text-stone-800 tracking-tight leading-none">Discover</h1>
+          {searchActive && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="bg-stone-200 text-stone-700 text-[13px] font-semibold px-3 py-1 rounded-full">
+                {searchQuery}
+              </span>
+              <button onClick={clearSearch} className="text-stone-400 hover:text-stone-600 transition-colors">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+                  <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Search area */}
+        {searchOpen ? (
+          <div className="w-80">
+            <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+          </div>
+        ) : (
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 bg-white border border-stone-200 rounded-full px-4 py-2.5 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-all text-sm shadow-sm"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 flex-shrink-0">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M20 20l-3-3" />
+            </svg>
+            Search photos, places, styles…
+          </button>
+        )}
+      </div>
+
       {/* ── Feed ── */}
       <div
-        className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-8"
+        className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
         style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
       >
         {/* Search empty state */}
