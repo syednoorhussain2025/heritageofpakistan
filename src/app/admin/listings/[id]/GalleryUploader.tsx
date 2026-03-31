@@ -434,24 +434,33 @@ export default function GalleryUploader({
     setLoadSteps([]);
     setLoadPopupOpen(true);
 
-    // Step 1: images
+    // Step 1: images — paginated to handle 500+ photos past Supabase 1000-row limit
     setLoadStep("Images", "loading");
-    const { data, error } = await supabase
-      .from("site_images")
-      .select("*")
-      .eq("site_id", siteId)
-      .order("sort_order", { ascending: true });
-
-    if (error) {
+    let allImageData: any[] = [];
+    try {
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("site_images")
+          .select("*")
+          .eq("site_id", siteId)
+          .order("sort_order", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        allImageData = allImageData.concat(data ?? []);
+        if ((data ?? []).length < PAGE) break;
+        from += PAGE;
+      }
+    } catch (error: any) {
       setLoadStep("Images", "error", error.message);
-      console.error("site_images load error:", error);
       alert(error.message);
       setLoading(false);
       setLoadPopupOpen(false);
       return;
     }
 
-    const withUrls: Row[] = (data || []).map((r: any) => {
+    const withUrls: Row[] = allImageData.map((r: any) => {
       const url = r.storage_path
         ? getVariantPublicUrl(r.storage_path, "md")
         : null;
@@ -965,13 +974,20 @@ export default function GalleryUploader({
               patch.scene_description = c.sceneDescription.trim();
               setSceneDescriptions((prev) => ({ ...prev, [c.id]: c.sceneDescription! }));
             }
-            if (Object.keys(patch).length) await updateRow(c.id, patch);
+            if (Object.keys(patch).length) {
+              // Retry caption DB save up to 3 times
+              let rowSaved = false;
+              for (let attempt = 1; attempt <= 3 && !rowSaved; attempt++) {
+                try { await updateRow(c.id, patch); rowSaved = true; }
+                catch { if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000)); }
+              }
+            }
           }
           updateBatch(batchIndex, { captionStep: "captions_saved" });
         } catch (e: any) {
+          // Log error but continue to next batch — don't abort entire run on one batch failure
           updateBatch(batchIndex, { captionStep: "error", error: e?.message ?? "Caption error" });
           setGenError(e?.message ?? "Caption generation failed");
-          break;
         }
       }
 
@@ -1030,9 +1046,9 @@ export default function GalleryUploader({
           }
           updateBatch(batchIndex, { tagStep: "tags_saved" });
         } catch (e: any) {
+          // Log error but continue to next batch
           updateBatch(batchIndex, { tagStep: "error", error: e?.message ?? "Tag error" });
           setTagError(e?.message ?? "Tag generation failed");
-          break;
         }
       }
 

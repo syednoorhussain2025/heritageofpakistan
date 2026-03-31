@@ -9,8 +9,28 @@ function svc() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-/* GET /api/admin/photo-tags?action=vocabulary
-   GET /api/admin/photo-tags?action=for-images&imageIds=id1,id2 */
+/** Fetch all rows from a paginated Supabase query, bypassing the 1000-row default limit. */
+async function fetchAllRows(
+  db: ReturnType<typeof svc>,
+  table: string,
+  filter: (q: any) => any,
+  select = "*"
+): Promise<any[]> {
+  const PAGE = 1000;
+  let all: any[] = [];
+  let from = 0;
+  while (true) {
+    const query = filter(db.from(table).select(select)).range(from, from + PAGE - 1);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    all = all.concat(data ?? []);
+    if ((data ?? []).length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+/* GET /api/admin/photo-tags?action=vocabulary */
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const action = searchParams.get("action");
@@ -30,22 +50,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(merged);
   }
 
-  if (action === "for-images") {
-    const ids = searchParams.get("imageIds")?.split(",").filter(Boolean) ?? [];
-    if (!ids.length) return NextResponse.json([]);
-    const { data, error } = await db
-      .from("site_image_tags")
-      .select("*")
-      .in("site_image_id", ids);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data ?? []);
-  }
-
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
 
-/* POST /api/admin/photo-tags
-   body: { action, ...payload } */
+/* POST /api/admin/photo-tags */
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { action } = body;
@@ -54,43 +62,40 @@ export async function POST(req: NextRequest) {
   if (action === "get-tags-for-images") {
     const ids: string[] = body.imageIds ?? [];
     if (!ids.length) return NextResponse.json([]);
-    const { data, error } = await db
-      .from("site_image_tags")
-      .select("*")
-      .in("site_image_id", ids);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data ?? []);
+    try {
+      const all = await fetchAllRows(db, "site_image_tags", (q) => q.in("site_image_id", ids));
+      return NextResponse.json(all);
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
+    }
   }
 
   if (action === "get-tags-for-site") {
     const { siteId } = body;
     if (!siteId) return NextResponse.json([]);
-    // Two-step: fetch image IDs for site, then fetch tags.
-    // The single-join approach (site_images!inner + .eq on joined col) is unreliable
-    // in Supabase JS v2 — the filter is ignored and returns all rows.
-    const { data: images, error: imgErr } = await db
-      .from("site_images")
-      .select("id")
-      .eq("site_id", siteId);
-    if (imgErr) return NextResponse.json({ error: imgErr.message }, { status: 500 });
-    const imageIds = (images ?? []).map((r: any) => r.id);
-    if (!imageIds.length) return NextResponse.json([]);
-    // Fetch in pages of 1000 to avoid Supabase default row limit
-    const PAGE = 1000;
-    let allTags: any[] = [];
-    let from = 0;
-    while (true) {
-      const { data, error } = await db
-        .from("site_image_tags")
-        .select("*")
-        .in("site_image_id", imageIds)
-        .range(from, from + PAGE - 1);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      allTags = allTags.concat(data ?? []);
-      if ((data ?? []).length < PAGE) break;
-      from += PAGE;
+    // Query site_image_tags joined to site_images on site_id — avoids passing 500 UUIDs to .in()
+    // which causes Supabase to silently drop rows when the filter list is large.
+    try {
+      const PAGE = 1000;
+      let all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await db
+          .from("site_image_tags")
+          .select("*, site_images!inner(site_id)")
+          .eq("site_images.site_id", siteId)
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(error.message);
+        // Strip the joined site_images column before returning
+        const rows = (data ?? []).map(({ site_images: _si, ...rest }: any) => rest);
+        all = all.concat(rows);
+        if ((data ?? []).length < PAGE) break;
+        from += PAGE;
+      }
+      return NextResponse.json(all);
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
     }
-    return NextResponse.json(allTags);
   }
 
   if (action === "save-ai-tags") {
@@ -113,9 +118,19 @@ export async function POST(req: NextRequest) {
     }
     if (rows.length) {
       const affectedIds = [...new Set(rows.map((r) => r.site_image_id))];
-      await db.from("site_image_tags").delete().in("site_image_id", affectedIds).eq("source", "ai");
-      const { error } = await db.from("site_image_tags").insert(rows);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      // Delete existing AI tags for affected images only
+      const { error: delErr } = await db
+        .from("site_image_tags")
+        .delete()
+        .in("site_image_id", affectedIds)
+        .eq("source", "ai");
+      if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+      // Insert in chunks of 500 to stay well within Supabase payload limits
+      const CHUNK = 500;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const { error } = await db.from("site_image_tags").insert(rows.slice(i, i + CHUNK));
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
     return NextResponse.json({ ok: true });
   }
@@ -141,11 +156,15 @@ export async function POST(req: NextRequest) {
 
   if (action === "delete-all-tags-for-site") {
     const { siteId } = body;
-    const { data: images } = await db.from("site_images").select("id").eq("site_id", siteId);
-    const imageIds = (images ?? []).map((r: any) => r.id);
-    if (imageIds.length) {
-      const { error } = await db.from("site_image_tags").delete().in("site_image_id", imageIds);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+      const images = await fetchAllRows(db, "site_images", (q) => q.eq("site_id", siteId), "id");
+      const imageIds = images.map((r: any) => r.id);
+      if (imageIds.length) {
+        const { error } = await db.from("site_image_tags").delete().in("site_image_id", imageIds);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }
