@@ -8,7 +8,7 @@ import {
   generateTagsAction,
   type TagDimensionVocab,
 } from "@/app/admin/listings/[id]/gallery-actions";
-import { fetchSiteImagesAction, type SiteImageRow } from "./bulk-generate-actions";
+import { fetchSiteImagesAction, saveCaptionsBatchAction, type SiteImageRow } from "./bulk-generate-actions";
 
 /* ================================================================
    URL reachability helpers (copied from GalleryUploader — pure client logic)
@@ -272,9 +272,13 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
      Main generation orchestrator
      ================================================================ */
 
-  async function runBulkGeneration(resuming: boolean) {
+  async function runBulkGeneration(priorSession: BulkGenSession | null) {
     setStep("running");
     stopRef.current = false;
+
+    // Snapshot mutable state at call time to avoid stale closures in the long async loop
+    const contextsSnapshot = { ...contexts };
+    const regenerateSnapshot = regenerate;
 
     // Fetch vocabulary once
     let vocab: TagDimensionVocab[] = [];
@@ -299,11 +303,11 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
       siteContexts: selectedSites.map((s) => ({
         siteId: s.id,
         siteName: s.title,
-        context: contexts[s.id] ?? "",
+        context: contextsSnapshot[s.id] ?? "",
       })),
-      completedSiteIds: resuming && resumeSession ? [...resumeSession.completedSiteIds] : [],
-      regenerate,
-      startedAt: resuming && resumeSession ? resumeSession.startedAt : now,
+      completedSiteIds: priorSession ? [...priorSession.completedSiteIds] : [],
+      regenerate: regenerateSnapshot,
+      startedAt: priorSession ? priorSession.startedAt : now,
       lastUpdatedAt: now,
     };
     sessionRef.current = session;
@@ -341,7 +345,9 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
       if (stopRef.current) break;
 
       setCurrentSiteIndex(si);
-      const contextArticle = contexts[site.id] ?? "";
+      // Use session-captured values to avoid stale closure across the long async loop
+      const contextArticle = session.siteContexts.find((sc) => sc.siteId === site.id)?.context ?? "";
+      const shouldRegenerate = session.regenerate;
 
       /* ── Load images ── */
       updateSiteProgress(site.id, { status: "loading_images" });
@@ -354,7 +360,7 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
       }
 
       /* ── Filter images ── */
-      const toProcess = regenerate
+      const toProcess = shouldRegenerate
         ? images
         : images.filter((img) => !(img.alt_text && img.caption && img.scene_description));
 
@@ -461,7 +467,6 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
           // Retry caption save up to 3 times
           for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-              const { saveCaptionsBatchAction } = await import("./bulk-generate-actions");
               await saveCaptionsBatchAction(updates);
               break;
             } catch {
@@ -896,7 +901,7 @@ export default function BulkGenerateModal({ open, onClose, selectedSites }: Prop
                 Cancel
               </button>
               <button
-                onClick={() => runBulkGeneration(resumeSession !== null && !resumeOffered)}
+                onClick={() => runBulkGeneration(!resumeOffered ? resumeSession : null)}
                 disabled={!allContextsFilled}
                 className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
