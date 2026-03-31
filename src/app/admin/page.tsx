@@ -206,6 +206,12 @@ export default function AdminHome() {
       desc: "Change brand colors live across the entire webapp.",
       icon: "admin",
     },
+    {
+      href: "/admin/writer",
+      title: "Writer",
+      desc: "Write and manage long-form documents.",
+      icon: "file-alt",
+    },
   ];
 
   const filtered = useMemo(() => {
