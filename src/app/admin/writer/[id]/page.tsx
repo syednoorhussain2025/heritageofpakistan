@@ -614,6 +614,25 @@ function ResearchPanel() {
   const [notes, setNotes] = useState("");
   const [tab, setTab] = useState<"browser"|"notes">("browser");
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeWrapRef = useRef<HTMLDivElement>(null);
+
+  // Forward wheel events into the iframe so user can scroll without clicking into it
+  // This keeps editor focus active on the right while scrolling the browser on the left
+  useEffect(()=>{
+    const el = iframeWrapRef.current;
+    if(!el) return;
+    const onWheel = (e: WheelEvent) => {
+      try {
+        const iwin = iframeRef.current?.contentWindow;
+        if(iwin) {
+          e.preventDefault();
+          iwin.scrollBy({ left: e.deltaX, top: e.deltaY, behavior: "auto" });
+        }
+      } catch { /* cross-origin — silently ignore */ }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   function navigate(raw: string) {
     let href = raw.trim();
@@ -663,10 +682,12 @@ function ResearchPanel() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
           </button>
         </div>
-        {/* iframe */}
-        <iframe ref={iframeRef} src={url} className="flex-1 w-full border-none" style={{minHeight:0}}
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-          title="Research browser"/>
+        {/* iframe wrapper — wheel events forwarded so editor focus is never stolen */}
+        <div ref={iframeWrapRef} className="flex-1 relative" style={{minHeight:0}}>
+          <iframe ref={iframeRef} src={url} className="absolute inset-0 w-full h-full border-none"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+            title="Research browser"/>
+        </div>
       </>)}
 
       {tab==="notes"&&(
