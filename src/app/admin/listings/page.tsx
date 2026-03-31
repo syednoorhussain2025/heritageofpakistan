@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import AdminGuard from "@/components/AdminGuard";
 import { supabase } from "@/lib/supabase/browser";
 import { FaExclamationCircle, FaTimes, FaArrowLeft } from "react-icons/fa";
+import BulkGenerateModal from "./BulkGenerateModal";
 
 /* =========================================================================
    CONFIG (matches provided schemas)
@@ -206,6 +207,19 @@ export default function AdminListingsPage() {
 
   // Indicator data (computed)
   const [indicators, setIndicators] = useState<Record<string, Indicators>>({});
+
+  // Bulk selection + generation modal
+  const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  function toggleSiteSelect(id: string) {
+    setSelectedSiteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // Base loads
   async function load() {
@@ -731,6 +745,17 @@ export default function AdminListingsPage() {
   const endIdx = startIdx + LIST_PAGE_SIZE;
   const pagedRows = sorted.slice(startIdx, endIdx);
 
+  function toggleSelectAllVisible() {
+    const visibleIds = pagedRows.map((r) => r.id);
+    const allSelected = visibleIds.every((id) => selectedSiteIds.has(id));
+    setSelectedSiteIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
   function goPrev() {
     setPage((p) => Math.max(1, p - 1));
   }
@@ -1125,10 +1150,42 @@ export default function AdminListingsPage() {
                 pageSize={LIST_PAGE_SIZE}
               />
 
+              {/* Bulk generation floating bar */}
+              {selectedSiteIds.size > 0 && tab === "active" && (
+                <div className="sticky top-3 z-20 mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-lg">
+                  <span className="text-sm font-medium flex-1">
+                    {selectedSiteIds.size} site{selectedSiteIds.size !== 1 ? "s" : ""} selected
+                  </span>
+                  <button
+                    onClick={() => setBulkModalOpen(true)}
+                    className="px-4 py-1.5 bg-blue-500 hover:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Generate Image Data
+                  </button>
+                  <button
+                    onClick={() => setSelectedSiteIds(new Set())}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-sm rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full min-w-[1060px] text-sm">
                   <thead className="bg-slate-50 text-left">
                     <tr>
+                      {tab === "active" && (
+                        <th className="px-4 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600"
+                            checked={pagedRows.length > 0 && pagedRows.every((r) => selectedSiteIds.has(r.id))}
+                            onChange={toggleSelectAllVisible}
+                            title="Select all on this page"
+                          />
+                        </th>
+                      )}
                       <th className="px-4 py-3 font-medium text-slate-600 w-14">
                         #
                       </th>
@@ -1166,7 +1223,17 @@ export default function AdminListingsPage() {
                     {pagedRows.map((r, idx) => {
                       const ind = indicators[r.id];
                       return (
-                        <tr key={r.id} className="hover:bg-slate-50/60">
+                        <tr key={r.id} className={`hover:bg-slate-50/60 ${selectedSiteIds.has(r.id) ? "bg-blue-50/60" : ""}`}>
+                          {tab === "active" && (
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-slate-300 text-blue-600"
+                                checked={selectedSiteIds.has(r.id)}
+                                onChange={() => toggleSiteSelect(r.id)}
+                              />
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-slate-500">
                             {startIdx + idx + 1}
                           </td>
@@ -1341,7 +1408,7 @@ export default function AdminListingsPage() {
                       <tr>
                         <td
                           className="px-4 py-10 text-center text-slate-500"
-                          colSpan={10}
+                          colSpan={tab === "active" ? 11 : 10}
                         >
                           {tab === "active"
                             ? "No listings match the current filters."
@@ -1424,6 +1491,20 @@ export default function AdminListingsPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Bulk Generate Modal */}
+        {bulkModalOpen && (
+          <BulkGenerateModal
+            open={bulkModalOpen}
+            onClose={() => {
+              setBulkModalOpen(false);
+              setSelectedSiteIds(new Set());
+            }}
+            selectedSites={rowsActive
+              .filter((r) => selectedSiteIds.has(r.id))
+              .map((r) => ({ id: r.id, title: r.title ?? "Untitled" }))}
+          />
         )}
       </div>
     </AdminGuard>
