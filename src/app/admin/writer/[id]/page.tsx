@@ -718,6 +718,7 @@ export default function WriterEditorPage() {
   const [spellCheck, setSpellCheck] = useState(true);
   const [mode, setMode] = useState<"writing"|"research">("writing");
   const [splitPct, setSplitPct] = useState(50);
+  const [isDraggingSplit, setIsDraggingSplit] = useState(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(100);
   const saveTimer = useRef<any>(null);
@@ -933,26 +934,25 @@ export default function WriterEditorPage() {
               e.preventDefault();
               const container = splitContainerRef.current;
               if(!container) return;
+              setIsDraggingSplit(true);
               const onMove = (mv: MouseEvent) => {
                 const rect = container.getBoundingClientRect();
                 const pct = Math.min(75, Math.max(25, ((mv.clientX - rect.left) / rect.width) * 100));
                 setSplitPct(pct);
               };
               const onUp = () => {
+                setIsDraggingSplit(false);
                 window.removeEventListener("mousemove", onMove);
                 window.removeEventListener("mouseup", onUp);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
               };
-              document.body.style.cursor = "col-resize";
-              document.body.style.userSelect = "none";
               window.addEventListener("mousemove", onMove);
               window.addEventListener("mouseup", onUp);
             }}
             style={{
-              width:5, flexShrink:0, cursor:"col-resize",
-              background:"#c7c8ca", position:"relative",
-              zIndex:10,
+              width:8, flexShrink:0, cursor:"col-resize",
+              background: isDraggingSplit ? "#1a73e8" : "#c7c8ca",
+              position:"relative", zIndex:10,
+              transition:"background 0.1s",
             }}
             title="Drag to resize"
           >
@@ -963,10 +963,15 @@ export default function WriterEditorPage() {
               display:"flex", flexDirection:"column", gap:3,
             }}>
               {[0,1,2,3,4].map(i=>(
-                <div key={i} style={{width:3,height:3,borderRadius:"50%",background:"#80868b"}}/>
+                <div key={i} style={{width:3,height:3,borderRadius:"50%",background: isDraggingSplit?"#fff":"#80868b"}}/>
               ))}
             </div>
           </div>
+        )}
+
+        {/* Full-viewport drag capture overlay — sits over iframes during drag so mouse events aren't swallowed */}
+        {isDraggingSplit&&(
+          <div style={{position:"fixed",inset:0,zIndex:9999,cursor:"col-resize"}}/>
         )}
 
         {/* Right panel: full editor — 100% in writing, remainder in research */}
