@@ -146,6 +146,16 @@ export default function AppChrome({
   }, [onTabRoute]);
 
   if (isAdminRoute) {
+    // Writer editor gets full viewport — no site header, no main wrapper
+    if (/^\/admin\/writer\/[^/]+/.test(pathname)) {
+      return (
+        <ErrorBoundary>
+          <LoaderEngineProvider>
+            {children}
+          </LoaderEngineProvider>
+        </ErrorBoundary>
+      );
+    }
     return (
       <ErrorBoundary>
         <LoaderEngineProvider>
