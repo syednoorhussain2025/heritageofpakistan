@@ -302,10 +302,58 @@ function MenuBar({ editor, onLink, onImage }: { editor: Editor|null; onLink:()=>
 }
 
 /* ═══════════════ TOOLBAR ═══════════════ */
-function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, saveStatus, onBack }: {
+/* ─── Mode icons ─── */
+const ModeIcons = {
+  Writing: ()=><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>,
+  Research: ()=><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>,
+};
+
+function ModeDropdown({ mode, onModeChange }: { mode:"writing"|"research"; onModeChange:(m:"writing"|"research")=>void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown",h); return ()=>document.removeEventListener("mousedown",h);
+  },[]);
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        onClick={()=>setOpen(s=>!s)}
+        className={`h-7 px-2.5 flex items-center gap-1.5 rounded text-[13px] font-medium transition border ${open||mode==="research" ? "bg-[#e8f0fe] text-[#1967d2] border-[#c5d6f8]" : "text-[#3c4043] border-transparent hover:bg-[#e9eaeb]"}`}
+        title="Switch mode"
+      >
+        {mode==="research" ? <ModeIcons.Research/> : <ModeIcons.Writing/>}
+        {mode==="writing" ? "Writing" : "Research"}
+        <Ico.ChevDown/>
+      </button>
+      {open&&(
+        <div className="absolute top-full right-0 mt-1 w-52 rounded-lg bg-white shadow-2xl border border-[#dadce0] py-1.5 z-[300]">
+          <div className="px-3 py-1 text-[11px] font-semibold text-[#80868b] uppercase tracking-wide">Mode</div>
+          {(["writing","research"] as const).map(m=>(
+            <button key={m} onClick={()=>{ onModeChange(m); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-[13px] transition hover:bg-[#f1f3f4] ${mode===m?"text-[#1967d2] font-medium":"text-[#3c4043]"}`}>
+              <span className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${mode===m?"bg-[#e8f0fe] text-[#1967d2]":"bg-[#f1f3f4] text-[#5f6368]"}`}>
+                {m==="writing"?<ModeIcons.Writing/>:<ModeIcons.Research/>}
+              </span>
+              <span>
+                <div className="font-medium capitalize">{m}</div>
+                <div className="text-[11px] text-[#80868b]">{m==="writing"?"Full-page editor":"Split view with web browser"}</div>
+              </span>
+              {mode===m&&<svg className="ml-auto flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="#1967d2"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, saveStatus, onBack, spellCheck, onToggleSpellCheck, mode, onModeChange }: {
   editor: Editor|null; onLink:()=>void; onImage:()=>void;
   wordCount:number; title:string; onTitleChange:(v:string)=>void;
   saveStatus:SaveStatus; onBack:()=>void;
+  spellCheck:boolean; onToggleSpellCheck:()=>void;
+  mode:"writing"|"research"; onModeChange:(m:"writing"|"research")=>void;
 }) {
   const [,fu] = useState({});
   const [hOpen, setHOpen] = useState(false);
@@ -388,16 +436,10 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         {/* Print */}
         <TB title="Print (Ctrl+P)" onClick={()=>window.print()}><Ico.Print/></TB>
         {/* Spell check */}
-        <TB title="Spell check" onClick={()=>{}}><Ico.SpellCheck/></TB>
+        <TB title="Toggle spell check" onClick={onToggleSpellCheck} active={spellCheck}><Ico.SpellCheck/></TB>
 
         <Sep/>
 
-        {/* 100% zoom */}
-        <button className="h-7 px-2 flex items-center gap-0.5 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition flex-shrink-0">
-          100% <Ico.ChevDown/>
-        </button>
-
-        <Sep/>
 
         {/* Heading */}
         <div className="relative flex-shrink-0" ref={hRef}>
@@ -522,6 +564,14 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         {/* Blockquote / Clear formatting */}
         <TB title="Blockquote" onClick={()=>editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")}><Ico.Blockquote/></TB>
         <TB title="Clear formatting" onClick={()=>editor.chain().focus().clearNodes().unsetAllMarks().run()}><Ico.ClearFormat/></TB>
+
+        {/* Spacer pushes Modes to far right */}
+        <div className="flex-1"/>
+
+        <Sep/>
+
+        {/* Modes dropdown */}
+        <ModeDropdown mode={mode} onModeChange={onModeChange}/>
       </div>
 
       {/* ── Row 3: Ruler — full viewport width, gray outside page, white inside ── */}
@@ -553,6 +603,81 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ═══════════ RESEARCH PANEL ═══════════ */
+function ResearchPanel() {
+  const [url, setUrl] = useState("https://www.google.com/webhp?igu=1");
+  const [input, setInput] = useState("");
+  const [notes, setNotes] = useState("");
+  const [tab, setTab] = useState<"browser"|"notes">("browser");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  function navigate(raw: string) {
+    let href = raw.trim();
+    if(!href) return;
+    if(!/^https?:\/\//i.test(href)) href = `https://www.google.com/search?q=${encodeURIComponent(href)}`;
+    setUrl(href);
+    setInput(href);
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-white border-l border-[#c7c8ca]" style={{minWidth:0}}>
+      {/* Panel header */}
+      <div className="flex items-center gap-0 flex-shrink-0 border-b border-[#e0e0e0]" style={{height:36,background:"#f8f9fa"}}>
+        <button onClick={()=>setTab("browser")}
+          className={`px-4 h-full text-[13px] font-medium border-b-2 transition ${tab==="browser"?"border-[#1a73e8] text-[#1a73e8]":"border-transparent text-[#3c4043] hover:bg-[#e9eaeb]"}`}>
+          Browser
+        </button>
+        <button onClick={()=>setTab("notes")}
+          className={`px-4 h-full text-[13px] font-medium border-b-2 transition ${tab==="notes"?"border-[#1a73e8] text-[#1a73e8]":"border-transparent text-[#3c4043] hover:bg-[#e9eaeb]"}`}>
+          Notes
+        </button>
+      </div>
+
+      {tab==="browser"&&(<>
+        {/* Address bar */}
+        <div className="flex items-center gap-1.5 px-2 flex-shrink-0 border-b border-[#e0e0e0]" style={{height:34,background:"#fff"}}>
+          <button onClick={()=>{ if(iframeRef.current) iframeRef.current.contentWindow?.history.back(); }}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#5f6368] transition flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          <button onClick={()=>{ if(iframeRef.current) iframeRef.current.contentWindow?.history.forward(); }}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#5f6368] transition flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+          </button>
+          <button onClick={()=>{ if(iframeRef.current) iframeRef.current.src=url; }}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#5f6368] transition flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+          <form onSubmit={e=>{e.preventDefault();navigate(input);}} className="flex-1 flex">
+            <input value={input} onChange={e=>setInput(e.target.value)}
+              placeholder="Search or enter URL…"
+              className="w-full h-6 text-[12px] text-[#3c4043] bg-[#f1f3f4] rounded-full px-3 outline-none border border-transparent focus:border-[#1a73e8] focus:bg-white transition"/>
+          </form>
+          <button onClick={()=>window.open(url,"_blank")}
+            title="Open in new tab"
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#5f6368] transition flex-shrink-0">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+          </button>
+        </div>
+        {/* iframe */}
+        <iframe ref={iframeRef} src={url} className="flex-1 w-full border-none" style={{minHeight:0}}
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+          title="Research browser"/>
+      </>)}
+
+      {tab==="notes"&&(
+        <div className="flex-1 flex flex-col p-3 gap-2" style={{minHeight:0}}>
+          <p className="text-[11px] text-[#80868b]">Scratch pad — notes are saved locally in this session.</p>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)}
+            className="flex-1 w-full resize-none text-[13px] text-[#3c4043] border border-[#dadce0] rounded-lg p-3 outline-none focus:border-[#1a73e8] transition leading-relaxed"
+            placeholder="Jot down research notes, quotes, references…"
+            style={{minHeight:0}}/>
+        </div>
+      )}
     </div>
   );
 }
@@ -590,7 +715,9 @@ export default function WriterEditorPage() {
   const [wordCount, setWordCount] = useState(0);
   const [showLink, setShowLink] = useState(false);
   const [showImage, setShowImage] = useState(false);
-
+  const [spellCheck, setSpellCheck] = useState(true);
+  const [mode, setMode] = useState<"writing"|"research">("writing");
+  const [zoom, setZoom] = useState(100);
   const saveTimer = useRef<any>(null);
   const titleTimer = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -698,6 +825,7 @@ export default function WriterEditorPage() {
       attributes:{
         class:"gdoc-body focus:outline-none",
         style:"font-family:Arial,sans-serif;font-size:11pt;line-height:1.15;color:#000;caret-color:#000;",
+        spellcheck:"true",
       },
     },
     onUpdate:({editor})=>{
@@ -727,6 +855,13 @@ export default function WriterEditorPage() {
     }).catch(()=>router.push("/admin/writer"));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[editor,docId]);
+
+  // Sync spellcheck toggle to the ProseMirror contenteditable element
+  useEffect(()=>{
+    if(!editor) return;
+    const el = editor.view.dom as HTMLElement;
+    el.setAttribute("spellcheck", spellCheck ? "true" : "false");
+  },[editor, spellCheck]);
 
   const handleTitle = useCallback((v:string)=>{
     setTitle(v);
@@ -769,6 +904,10 @@ export default function WriterEditorPage() {
         .gdoc-body { cursor:text; user-select:text; -webkit-user-select:text; }
         .gdoc-body * { user-select:text; -webkit-user-select:text; }
         .gdoc-body .ProseMirror { cursor:text; user-select:text; -webkit-user-select:text; }
+        /* Zoom slider */
+        .zoom-slider { -webkit-appearance:none; appearance:none; height:4px; border-radius:2px; background:#c7c8ca; outline:none; }
+        .zoom-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#1a73e8; cursor:pointer; }
+        .zoom-slider::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:#1a73e8; cursor:pointer; border:none; }
         @media print { .gdoc-chrome{display:none!important;} .gdoc-shell{background:white!important;} .gdoc-page{box-shadow:none!important;} }
       `}</style>
 
@@ -785,31 +924,76 @@ export default function WriterEditorPage() {
           ):(
             <Toolbar editor={editor} onLink={()=>setShowLink(true)} onImage={()=>setShowImage(true)}
               wordCount={wordCount} title={title} onTitleChange={handleTitle}
-              saveStatus={saveStatus} onBack={()=>router.push("/admin/writer")}/>
+              saveStatus={saveStatus} onBack={()=>router.push("/admin/writer")}
+              spellCheck={spellCheck} onToggleSpellCheck={()=>setSpellCheck(s=>!s)}
+              mode={mode} onModeChange={setMode}/>
           )}
         </div>
 
-        {/* Scrollable canvas */}
-        <div
-          ref={scrollRef}
-          className="flex-1 gdoc-shell"
-          style={{minHeight:0, overflowY:"scroll", overflowX:"auto"}}
-        >
-          <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
-            {/* Google Docs page: 8.5in @ 96dpi = 816px, 1in margins = 96px */}
-            <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px",flexShrink:0}}>
-              <EditorContent editor={editor}/>
+        {/* Canvas — Writing: full width scroll | Research: split left=browser right=editor */}
+        <div className="flex-1 flex" style={{minHeight:0}}>
+
+          {/* Research panel — left side, only in research mode */}
+          {mode==="research"&&(
+            <div className="flex-shrink-0 flex flex-col" style={{width:"45%",minHeight:0}}>
+              <ResearchPanel/>
+            </div>
+          )}
+
+          {/* Editor scroll area */}
+          <div
+            ref={scrollRef}
+            className="flex-1 gdoc-shell"
+            style={{minHeight:0, overflowY:"scroll", overflowX:"auto"}}
+          >
+            <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
+              {/* Zoom wrapper */}
+              <div style={{
+                transformOrigin:"top center",
+                transform:`scale(${zoom/100})`,
+                width:816,
+                minHeight:1056*zoom/100,
+                flexShrink:0,
+              }}>
+                <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px"}}>
+                  <EditorContent editor={editor}/>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Status bar — exact Docs: thin 24px bar, text left, last saved right */}
-        <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:24,background:"#fff",borderTop:"1px solid #e0e0e0",position:"relative"}}>
+        {/* Status bar */}
+        <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:28,background:"#fff",borderTop:"1px solid #e0e0e0",position:"relative"}}>
+          {/* Left: word count + save hint */}
           <span className="text-[12px] text-[#3c4043] tabular-nums">{wordCount} words</span>
           <span className="text-[12px] text-[#3c4043]">·</span>
           <span className="text-[12px] text-[#3c4043]">Ctrl+S to save</span>
+          {doc&&<><span className="text-[12px] text-[#3c4043]">·</span><span className="text-[12px] text-[#3c4043]">Saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span></>}
+
           <div className="flex-1"/>
-          {doc&&<span className="text-[12px] text-[#3c4043]">Last saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
+
+          {/* Right: zoom controls — Word-style */}
+          <div className="flex items-center gap-1.5 select-none">
+            <button
+              onClick={()=>setZoom(z=>Math.max(25,z-10))}
+              className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition"
+              title="Zoom out">−</button>
+            <input
+              type="range" min={25} max={200} step={5} value={zoom}
+              onChange={e=>setZoom(Number(e.target.value))}
+              className="zoom-slider w-24 cursor-pointer"
+              title={`Zoom: ${zoom}%`}
+            />
+            <button
+              onClick={()=>setZoom(z=>Math.min(200,z+10))}
+              className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition"
+              title="Zoom in">+</button>
+            <button
+              onClick={()=>setZoom(100)}
+              className="min-w-[42px] text-right text-[12px] text-[#3c4043] hover:bg-[#e9eaeb] rounded px-1 transition tabular-nums"
+              title="Reset zoom">{zoom}%</button>
+          </div>
         </div>
         {/* N avatar — floats bottom-left, overlapping status bar, exactly like Docs */}
         <div style={{position:"fixed",bottom:8,left:8,zIndex:100}}
