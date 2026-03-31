@@ -593,6 +593,8 @@ export default function WriterEditorPage() {
 
   const saveTimer = useRef<any>(null);
   const titleTimer = useRef<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragScrollRef = useRef<number|null>(null);
 
   // Lock body scroll
   useEffect(()=>{
@@ -600,6 +602,60 @@ export default function WriterEditorPage() {
     const ph=html.style.overflowY, pb=body.style.overflow;
     html.style.overflowY="hidden"; body.style.overflow="hidden";
     return ()=>{ html.style.overflowY=ph; body.style.overflow=pb; };
+  },[]);
+
+  // Auto-scroll during drag-select: when mouse is held and moves near top/bottom edge
+  useEffect(()=>{
+    const el = scrollRef.current;
+    if(!el) return;
+    let isDragging = false;
+
+    function cancelDragScroll() {
+      isDragging = false;
+      if(dragScrollRef.current !== null) {
+        cancelAnimationFrame(dragScrollRef.current);
+        dragScrollRef.current = null;
+      }
+    }
+
+    function startDragScroll(clientY: number) {
+      if(!isDragging) return;
+      const rect = el!.getBoundingClientRect();
+      const zone = 60; // px from edge to start scrolling
+      const maxSpeed = 18;
+      let speed = 0;
+      if(clientY < rect.top + zone) {
+        speed = -maxSpeed * (1 - (clientY - rect.top) / zone);
+      } else if(clientY > rect.bottom - zone) {
+        speed = maxSpeed * (1 - (rect.bottom - clientY) / zone);
+      }
+      if(speed !== 0) {
+        el!.scrollTop += speed;
+      }
+    }
+
+    function onMouseDown(e: MouseEvent) {
+      if(e.button !== 0) return;
+      isDragging = true;
+      function onMouseMove(e: MouseEvent) {
+        if(!isDragging) return;
+        startDragScroll(e.clientY);
+      }
+      function onMouseUp() {
+        cancelDragScroll();
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      }
+      window.addEventListener("mousemove", onMouseMove, { passive: true });
+      window.addEventListener("mouseup", onMouseUp);
+    }
+
+    el.addEventListener("mousedown", onMouseDown);
+    return ()=>{
+      el.removeEventListener("mousedown", onMouseDown);
+      cancelDragScroll();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   // Ctrl+S
@@ -708,6 +764,11 @@ export default function WriterEditorPage() {
         .ri-sel img { outline:2px solid #1a73e8; }
         /* Page shadow — exact Docs */
         .gdoc-page { box-shadow:0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15); }
+        /* Smooth, glitch-free text selection */
+        .gdoc-page { cursor:text; user-select:text; -webkit-user-select:text; }
+        .gdoc-body { cursor:text; user-select:text; -webkit-user-select:text; }
+        .gdoc-body * { user-select:text; -webkit-user-select:text; }
+        .gdoc-body .ProseMirror { cursor:text; user-select:text; -webkit-user-select:text; }
         @media print { .gdoc-chrome{display:none!important;} .gdoc-shell{background:white!important;} .gdoc-page{box-shadow:none!important;} }
       `}</style>
 
@@ -729,7 +790,11 @@ export default function WriterEditorPage() {
         </div>
 
         {/* Scrollable canvas */}
-        <div className="flex-1 overflow-auto gdoc-shell" style={{minHeight:0}}>
+        <div
+          ref={scrollRef}
+          className="flex-1 gdoc-shell"
+          style={{minHeight:0, overflowY:"scroll", overflowX:"auto"}}
+        >
           <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
             {/* Google Docs page: 8.5in @ 96dpi = 816px, 1in margins = 96px */}
             <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px",flexShrink:0}}>
