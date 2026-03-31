@@ -911,125 +911,73 @@ export default function WriterEditorPage() {
         @media print { .gdoc-chrome{display:none!important;} .gdoc-shell{background:white!important;} .gdoc-page{box-shadow:none!important;} }
       `}</style>
 
-      {/* ── RESEARCH MODE: full-viewport split ── */}
-      {mode==="research"&&(
-        <div className="flex" style={{height:"100vh",overflow:"hidden"}}>
-          {/* Left half — browser */}
-          <div className="flex flex-col border-r-2 border-[#c7c8ca]" style={{width:"50%",minWidth:0}}>
-            <ResearchPanel/>
+      {/* ── SINGLE unified layout — EditorContent rendered exactly once ── */}
+      <div style={{display:"flex", height:"100vh", overflow:"hidden"}}>
+
+        {/* Left panel: Research browser — visible only in research mode */}
+        <div className="flex flex-col" style={{
+          width: mode==="research" ? "50%" : "0%",
+          minWidth:0, overflow:"hidden",
+          borderRight: mode==="research" ? "2px solid #c7c8ca" : "none",
+          transition:"width 0.2s ease",
+        }}>
+          <ResearchPanel/>
+        </div>
+
+        {/* Right panel: full editor — 100% in writing, 50% in research */}
+        <div className="flex flex-col gdoc-shell" style={{
+          flex:1, minWidth:0, overflow:"hidden",
+        }}>
+          {/* Toolbar */}
+          <div className="gdoc-chrome flex-shrink-0">
+            {loading?(
+              <div style={{background:"#fff"}}>
+                <div style={{height:60,borderBottom:"1px solid #c7c8ca"}} className="animate-pulse bg-white"/>
+                <div style={{height:36,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
+                <div style={{height:20,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
+              </div>
+            ):(
+              <Toolbar editor={editor} onLink={()=>setShowLink(true)} onImage={()=>setShowImage(true)}
+                wordCount={wordCount} title={title} onTitleChange={handleTitle}
+                saveStatus={saveStatus} onBack={()=>router.push("/admin/writer")}
+                spellCheck={spellCheck} onToggleSpellCheck={()=>setSpellCheck(s=>!s)}
+                mode={mode} onModeChange={setMode}/>
+            )}
           </div>
-          {/* Right half — full editor */}
-          <div className="flex flex-col gdoc-shell" style={{width:"50%",minWidth:0,overflow:"hidden"}}>
-            <div className="gdoc-chrome flex-shrink-0">
-              {loading?(
-                <div style={{background:"#fff"}}>
-                  <div style={{height:60,borderBottom:"1px solid #c7c8ca"}} className="animate-pulse bg-white"/>
-                  <div style={{height:36,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
-                  <div style={{height:20,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
+
+          {/* Canvas — EditorContent lives here, only once */}
+          <div ref={scrollRef} className="flex-1 gdoc-shell" style={{minHeight:0,overflowY:"scroll",overflowX:"auto"}}>
+            <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
+              <div style={{transformOrigin:"top center",transform:`scale(${zoom/100})`,width:816,minHeight:1056*zoom/100,flexShrink:0}}>
+                <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px"}}>
+                  <EditorContent editor={editor}/>
                 </div>
-              ):(
-                <Toolbar editor={editor} onLink={()=>setShowLink(true)} onImage={()=>setShowImage(true)}
-                  wordCount={wordCount} title={title} onTitleChange={handleTitle}
-                  saveStatus={saveStatus} onBack={()=>router.push("/admin/writer")}
-                  spellCheck={spellCheck} onToggleSpellCheck={()=>setSpellCheck(s=>!s)}
-                  mode={mode} onModeChange={setMode}/>
-              )}
-            </div>
-            <div ref={scrollRef} className="flex-1 gdoc-shell" style={{minHeight:0,overflowY:"scroll",overflowX:"auto"}}>
-              <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
-                <div style={{transformOrigin:"top center",transform:`scale(${zoom/100})`,width:816,minHeight:1056*zoom/100,flexShrink:0}}>
-                  <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px"}}>
-                    <EditorContent editor={editor}/>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:28,background:"#fff",borderTop:"1px solid #e0e0e0"}}>
-              <span className="text-[12px] text-[#3c4043] tabular-nums">{wordCount} words</span>
-              <span className="text-[12px] text-[#3c4043]">·</span>
-              <span className="text-[12px] text-[#3c4043]">Ctrl+S to save</span>
-              {doc&&<><span className="text-[12px] text-[#3c4043]">·</span><span className="text-[12px] text-[#3c4043]">Saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span></>}
-              <div className="flex-1"/>
-              <div className="flex items-center gap-1.5 select-none">
-                <button onClick={()=>setZoom(z=>Math.max(25,z-10))} className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition">−</button>
-                <input type="range" min={25} max={200} step={5} value={zoom} onChange={e=>setZoom(Number(e.target.value))} className="zoom-slider w-24 cursor-pointer"/>
-                <button onClick={()=>setZoom(z=>Math.min(200,z+10))} className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition">+</button>
-                <button onClick={()=>setZoom(100)} className="min-w-[42px] text-right text-[12px] text-[#3c4043] hover:bg-[#e9eaeb] rounded px-1 transition tabular-nums">{zoom}%</button>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ── WRITING MODE: standard full-width layout ── */}
-      {mode==="writing"&&<div className="flex flex-col gdoc-shell" style={{height:"100vh",overflow:"hidden"}}>
-
-        {/* Chrome */}
-        <div className="gdoc-chrome flex-shrink-0">
-          {loading?(
-            <div style={{background:"#fff"}}>
-              <div style={{height:60,borderBottom:"1px solid #c7c8ca"}} className="animate-pulse bg-white"/>
-              <div style={{height:36,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
-              <div style={{height:20,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
-            </div>
-          ):(
-            <Toolbar editor={editor} onLink={()=>setShowLink(true)} onImage={()=>setShowImage(true)}
-              wordCount={wordCount} title={title} onTitleChange={handleTitle}
-              saveStatus={saveStatus} onBack={()=>router.push("/admin/writer")}
-              spellCheck={spellCheck} onToggleSpellCheck={()=>setSpellCheck(s=>!s)}
-              mode={mode} onModeChange={setMode}/>
-          )}
-        </div>
-
-        {/* Canvas */}
-        <div ref={scrollRef} className="flex-1 gdoc-shell" style={{minHeight:0,overflowY:"scroll",overflowX:"auto"}}>
-          <div className="flex justify-center" style={{paddingTop:20,paddingBottom:40,minHeight:"100%"}}>
-            <div style={{transformOrigin:"top center",transform:`scale(${zoom/100})`,width:816,minHeight:1056*zoom/100,flexShrink:0}}>
-              <div className="gdoc-page bg-white" style={{width:816,minHeight:1056,padding:"96px 96px"}}>
-                <EditorContent editor={editor}/>
-              </div>
+          {/* Status bar */}
+          <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:28,background:"#fff",borderTop:"1px solid #e0e0e0"}}>
+            <span className="text-[12px] text-[#3c4043] tabular-nums">{wordCount} words</span>
+            <span className="text-[12px] text-[#3c4043]">·</span>
+            <span className="text-[12px] text-[#3c4043]">Ctrl+S to save</span>
+            {doc&&<><span className="text-[12px] text-[#3c4043]">·</span><span className="text-[12px] text-[#3c4043]">Saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span></>}
+            <div className="flex-1"/>
+            <div className="flex items-center gap-1.5 select-none">
+              <button onClick={()=>setZoom(z=>Math.max(25,z-10))} className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition" title="Zoom out">−</button>
+              <input type="range" min={25} max={200} step={5} value={zoom} onChange={e=>setZoom(Number(e.target.value))} className="zoom-slider w-24 cursor-pointer" title={`Zoom: ${zoom}%`}/>
+              <button onClick={()=>setZoom(z=>Math.min(200,z+10))} className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition" title="Zoom in">+</button>
+              <button onClick={()=>setZoom(100)} className="min-w-[42px] text-right text-[12px] text-[#3c4043] hover:bg-[#e9eaeb] rounded px-1 transition tabular-nums" title="Reset zoom">{zoom}%</button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Status bar */}
-        <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:28,background:"#fff",borderTop:"1px solid #e0e0e0",position:"relative"}}>
-          {/* Left: word count + save hint */}
-          <span className="text-[12px] text-[#3c4043] tabular-nums">{wordCount} words</span>
-          <span className="text-[12px] text-[#3c4043]">·</span>
-          <span className="text-[12px] text-[#3c4043]">Ctrl+S to save</span>
-          {doc&&<><span className="text-[12px] text-[#3c4043]">·</span><span className="text-[12px] text-[#3c4043]">Saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span></>}
-
-          <div className="flex-1"/>
-
-          {/* Right: zoom controls — Word-style */}
-          <div className="flex items-center gap-1.5 select-none">
-            <button
-              onClick={()=>setZoom(z=>Math.max(25,z-10))}
-              className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition"
-              title="Zoom out">−</button>
-            <input
-              type="range" min={25} max={200} step={5} value={zoom}
-              onChange={e=>setZoom(Number(e.target.value))}
-              className="zoom-slider w-24 cursor-pointer"
-              title={`Zoom: ${zoom}%`}
-            />
-            <button
-              onClick={()=>setZoom(z=>Math.min(200,z+10))}
-              className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition"
-              title="Zoom in">+</button>
-            <button
-              onClick={()=>setZoom(100)}
-              className="min-w-[42px] text-right text-[12px] text-[#3c4043] hover:bg-[#e9eaeb] rounded px-1 transition tabular-nums"
-              title="Reset zoom">{zoom}%</button>
-          </div>
-        </div>
-        {/* N avatar — floats bottom-left */}
-        <div style={{position:"fixed",bottom:8,left:8,zIndex:100}}
-          className="w-9 h-9 rounded-full bg-[#444746] flex items-center justify-center shadow-md cursor-pointer hover:opacity-90 transition select-none">
-          <span className="text-white text-[14px] font-medium">N</span>
-        </div>
-      </div>}
+      {/* N avatar */}
+      <div style={{position:"fixed",bottom:8,left:8,zIndex:100}}
+        className="w-9 h-9 rounded-full bg-[#444746] flex items-center justify-center shadow-md cursor-pointer hover:opacity-90 transition select-none">
+        <span className="text-white text-[14px] font-medium">N</span>
+      </div>
 
       {/* Bubble menus */}
       {editor&&<SelectionBubble editor={editor} onLink={()=>setShowLink(true)}/>}
