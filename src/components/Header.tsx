@@ -954,14 +954,14 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
 
           {/* Search pill — hidden on mobile (pages use slot); hidden on map page */}
           {pathname === "/map" ? (
-          <div className="hidden lg:block relative flex-1 max-w-2xl ml-2 invisible pointer-events-none" aria-hidden="true">
+          <div className="hidden lg:block relative flex-1 max-w-xl ml-2 invisible pointer-events-none" aria-hidden="true">
             <div className="flex items-center gap-2 rounded-full px-4 py-2" style={{ border: "1px solid transparent" }}>
               <Icon name="search" size={18} />
               <span className="w-full text-sm">&nbsp;</span>
             </div>
           </div>
           ) : (
-          <div className="hidden lg:block relative flex-1 max-w-2xl ml-2" ref={suggestRef}>
+          <div className="hidden lg:block relative flex-1 max-w-xl ml-2" ref={suggestRef}>
             <div
               className="flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-200 ease-in-out cursor-text"
               style={{
@@ -1136,8 +1136,24 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
           >
             {/* Desktop nav */}
             <nav ref={navRef} className="hidden lg:flex items-center gap-4 text-[15px]">
-              {/* Home */}
+              {/* Discover */}
               <div className="relative" style={stagger(0)}>
+                <Link
+                  href="/discover"
+                  className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"
+                >
+                  <Icon name="image" className={`transition-transform duration-200 group-hover:scale-110 ${iconStyles}`} />
+                  <span className={`transition-colors duration-200 group-hover:text-[var(--brand-orange)] [font-family:var(--font-headermenu)] [font-size:var(--font-headermenu-font-size)] ${isTransparentHeader ? 'text-white' : '[color:var(--brand-grey)]'}`}>
+                    Discover
+                  </span>
+                </Link>
+                {pathname.startsWith("/discover") && (
+                  <span className="absolute -bottom-1 left-0 h-0.5 w-full bg-[var(--brand-orange)] origin-left animate-underlineGrow rounded-full" />
+                )}
+              </div>
+
+              {/* Home */}
+              <div className="relative" style={stagger(1)}>
                 <Link
                   href="/"
                   className="group flex items-center gap-1 cursor-pointer transition-transform duration-200 ease-out hover:-translate-y-0.5"

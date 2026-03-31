@@ -48,6 +48,8 @@ const SiteBottomSheet = dynamicImport(
 /* ─── Tile aspect ratio pattern ─────────────────────────────────────────── */
 const LEFT_ASPECTS  = ["aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
 const RIGHT_ASPECTS = ["aspect-[2/3]", "aspect-square", "aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]"];
+const COL2_ASPECTS  = ["aspect-square", "aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]", "aspect-[2/3]"];
+const COL3_ASPECTS  = ["aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-[2/3]", "aspect-[3/4]"];
 
 /* ─── Single tile ──────────────────────────────────────────────────────── */
 
@@ -379,6 +381,13 @@ export default function DiscoverClient({
     return [left, right];
   }, [activePhotos]);
 
+  // Desktop: 4 columns distributed mod-4
+  const [col0, col1, col2, col3] = useMemo(() => {
+    const c: [DiscoverPhoto[], DiscoverPhoto[], DiscoverPhoto[], DiscoverPhoto[]] = [[], [], [], []];
+    activePhotos.forEach((p, i) => c[i % 4].push(p));
+    return c;
+  }, [activePhotos]);
+
   const showSkeleton = !searchActive && photos.length === 0;
   const showSearchSkeleton = searchActive && searchLoading && searchPhotosArr.length === 0;
 
@@ -408,7 +417,7 @@ export default function DiscoverClient({
   return (
     <div
       ref={scrollRef}
-      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef]"
+      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
     >
 
@@ -482,7 +491,7 @@ export default function DiscoverClient({
 
       {/* ── Feed ── */}
       <div
-        className="px-2 pb-8"
+        className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-8"
         style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
       >
         {/* Search empty state */}
@@ -498,52 +507,122 @@ export default function DiscoverClient({
         )}
 
         {(showSkeleton || showSearchSkeleton) ? (
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-2 flex-1">
+          <div className="flex gap-2 lg:gap-3">
+            <div className="flex flex-col gap-2 lg:gap-3 flex-1">
               {LEFT_ASPECTS.slice(0, 5).map((a, i) => (
                 <SkeletonTile key={i} aspectClass={a} />
               ))}
             </div>
-            <div className="flex flex-col gap-2 flex-1">
+            <div className="flex flex-col gap-2 lg:gap-3 flex-1">
               {RIGHT_ASPECTS.slice(0, 5).map((a, i) => (
+                <SkeletonTile key={i} aspectClass={a} />
+              ))}
+            </div>
+            <div className="hidden lg:flex flex-col gap-3 flex-1">
+              {COL2_ASPECTS.slice(0, 5).map((a, i) => (
+                <SkeletonTile key={i} aspectClass={a} />
+              ))}
+            </div>
+            <div className="hidden lg:flex flex-col gap-3 flex-1">
+              {COL3_ASPECTS.slice(0, 5).map((a, i) => (
                 <SkeletonTile key={i} aspectClass={a} />
               ))}
             </div>
           </div>
         ) : (
-          <div className="flex gap-2 items-start">
-            {/* Left column */}
-            <div className="flex flex-col gap-2 flex-1">
-              {leftPhotos.map((photo, colIdx) => (
-                <DiscoverTile
-                  key={`${photo.id}-${colIdx}`}
-                  photo={photo}
-                  aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
-                  isPriority={colIdx < 4}
-                  onOpen={() => setSheetPhoto(photo)}
-                />
-              ))}
-              {(loading || searchLoading) && [0, 1, 2].map((i) => (
-                <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
-              ))}
+          <>
+            {/* Mobile: 2-column grid */}
+            <div className="flex gap-2 items-start lg:hidden">
+              <div className="flex flex-col gap-2 flex-1">
+                {leftPhotos.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                {rightPhotos.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`r-sk-${i}`} aspectClass={RIGHT_ASPECTS[(rightPhotos.length + i) % RIGHT_ASPECTS.length]} />
+                ))}
+              </div>
             </div>
 
-            {/* Right column */}
-            <div className="flex flex-col gap-2 flex-1">
-              {rightPhotos.map((photo, colIdx) => (
-                <DiscoverTile
-                  key={`${photo.id}-${colIdx}`}
-                  photo={photo}
-                  aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
-                  isPriority={colIdx < 4}
-                  onOpen={() => setSheetPhoto(photo)}
-                />
-              ))}
-              {(loading || searchLoading) && [0, 1, 2].map((i) => (
-                <SkeletonTile key={`r-sk-${i}`} aspectClass={RIGHT_ASPECTS[(rightPhotos.length + i) % RIGHT_ASPECTS.length]} />
-              ))}
+            {/* Desktop: 4-column grid */}
+            <div className="hidden lg:flex gap-3 items-start">
+              <div className="flex flex-col gap-3 flex-1">
+                {col0.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`d0-${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`d0-sk-${i}`} aspectClass={LEFT_ASPECTS[(col0.length + i) % LEFT_ASPECTS.length]} />
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 flex-1">
+                {col1.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`d1-${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`d1-sk-${i}`} aspectClass={RIGHT_ASPECTS[(col1.length + i) % RIGHT_ASPECTS.length]} />
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 flex-1">
+                {col2.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`d2-${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`d2-sk-${i}`} aspectClass={COL2_ASPECTS[(col2.length + i) % COL2_ASPECTS.length]} />
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 flex-1">
+                {col3.map((photo, colIdx) => (
+                  <DiscoverTile
+                    key={`d3-${photo.id}-${colIdx}`}
+                    photo={photo}
+                    aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]}
+                    isPriority={colIdx < 4}
+                    onOpen={() => setSheetPhoto(photo)}
+                  />
+                ))}
+                {(loading || searchLoading) && [0, 1, 2].map((i) => (
+                  <SkeletonTile key={`d3-sk-${i}`} aspectClass={COL3_ASPECTS[(col3.length + i) % COL3_ASPECTS.length]} />
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Infinite scroll sentinel */}
