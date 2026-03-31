@@ -188,6 +188,119 @@ const LINE_SPACINGS = [
   {label:"Single",value:"1.15"},{label:"1.15",value:"1.15"},{label:"1.5",value:"1.5"},{label:"Double",value:"2"},
 ];
 
+/* ═══════════════ MENU BAR ═══════════════ */
+type MenuItemDef = { label: string; kbd?: string; action?: ()=>void; sep?: boolean; disabled?: boolean };
+
+function DropMenu({ label, items }: { label: string; items: MenuItemDef[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown",h); return ()=>document.removeEventListener("mousedown",h);
+  },[]);
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button onClick={()=>setOpen(s=>!s)}
+        className={`px-2 h-8 text-[13px] text-[#3c4043] rounded transition ${open?"bg-[#e9eaeb]":"hover:bg-[#e9eaeb]"}`}>
+        {label}
+      </button>
+      {open&&(
+        <div className="absolute top-full left-0 mt-0.5 min-w-[220px] rounded bg-white shadow-xl border border-[#dadce0] py-1 z-[200]">
+          {items.map((item,i)=>
+            item.sep
+              ? <div key={i} className="my-1 border-t border-[#e0e0e0]"/>
+              : (
+                <button key={i} disabled={item.disabled}
+                  onClick={()=>{ if(item.action){ item.action(); setOpen(false); } }}
+                  className="w-full flex items-center justify-between px-4 py-1.5 text-[13px] text-[#3c4043] hover:bg-[#e9eaeb] transition disabled:opacity-40 disabled:cursor-default">
+                  <span>{item.label}</span>
+                  {item.kbd&&<span className="text-[11px] text-[#80868b] ml-8">{item.kbd}</span>}
+                </button>
+              )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuBar({ editor, onLink, onImage }: { editor: Editor|null; onLink:()=>void; onImage:()=>void }) {
+  if(!editor) return null;
+  const menus: { label: string; items: MenuItemDef[] }[] = [
+    {
+      label:"File",
+      items:[
+        { label:"New document", kbd:"Ctrl+N", disabled:true },
+        { sep:true },
+        { label:"Print", kbd:"Ctrl+P", action:()=>window.print() },
+      ],
+    },
+    {
+      label:"Edit",
+      items:[
+        { label:"Undo", kbd:"Ctrl+Z", action:()=>editor.chain().focus().undo().run() },
+        { label:"Redo", kbd:"Ctrl+Y", action:()=>editor.chain().focus().redo().run() },
+        { sep:true },
+        { label:"Select all", kbd:"Ctrl+A", action:()=>editor.chain().focus().selectAll().run() },
+        { sep:true },
+        { label:"Find and replace", kbd:"Ctrl+H", disabled:true },
+      ],
+    },
+    {
+      label:"View",
+      items:[
+        { label:"100%", disabled:true },
+        { sep:true },
+        { label:"Show ruler", disabled:true },
+        { label:"Show word count", disabled:true },
+      ],
+    },
+    {
+      label:"Insert",
+      items:[
+        { label:"Image…", action:onImage },
+        { label:"Link…", kbd:"Ctrl+K", action:onLink },
+        { sep:true },
+        { label:"Horizontal line", action:()=>editor.chain().focus().setHorizontalRule().run() },
+        { sep:true },
+        { label:"Special characters", disabled:true },
+        { label:"Emoji", disabled:true },
+      ],
+    },
+    {
+      label:"Format",
+      items:[
+        { label:"Bold", kbd:"Ctrl+B", action:()=>editor.chain().focus().toggleBold().run() },
+        { label:"Italic", kbd:"Ctrl+I", action:()=>editor.chain().focus().toggleItalic().run() },
+        { label:"Underline", kbd:"Ctrl+U", action:()=>editor.chain().focus().toggleUnderline().run() },
+        { label:"Strikethrough", action:()=>editor.chain().focus().toggleStrike().run() },
+        { sep:true },
+        { label:"Heading 1", action:()=>editor.chain().focus().toggleHeading({level:1}).run() },
+        { label:"Heading 2", action:()=>editor.chain().focus().toggleHeading({level:2}).run() },
+        { label:"Heading 3", action:()=>editor.chain().focus().toggleHeading({level:3}).run() },
+        { sep:true },
+        { label:"Bulleted list", action:()=>editor.chain().focus().toggleBulletList().run() },
+        { label:"Numbered list", action:()=>editor.chain().focus().toggleOrderedList().run() },
+        { sep:true },
+        { label:"Clear formatting", kbd:"Ctrl+\\", action:()=>editor.chain().focus().clearNodes().unsetAllMarks().run() },
+      ],
+    },
+    {
+      label:"Tools",
+      items:[
+        { label:"Word count", disabled:true },
+        { sep:true },
+        { label:"Keyboard shortcuts", kbd:"Ctrl+/", disabled:true },
+      ],
+    },
+  ];
+  return (
+    <div className="flex items-center">
+      {menus.map(m=><DropMenu key={m.label} label={m.label} items={m.items}/>)}
+    </div>
+  );
+}
+
 /* ═══════════════ TOOLBAR ═══════════════ */
 function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, saveStatus, onBack }: {
   editor: Editor|null; onLink:()=>void; onImage:()=>void;
@@ -239,40 +352,31 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
     /* Entire chrome wrapper — white bg */
     <div style={{ background:"#fff", borderBottom:"1px solid #c7c8ca" }}>
 
-      {/* ── Row 1: Title bar ── */}
-      <div className="flex items-center px-3 gap-1" style={{ height:48 }}>
-        {/* Back */}
-        <button onClick={onBack} title="All documents"
-          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#e9eaeb] transition text-[#444746]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        </button>
-        {/* Forward (disabled) */}
-        <button disabled className="w-8 h-8 rounded-full flex items-center justify-center text-[#c7c8ca] cursor-not-allowed">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+      {/* ── Row 1: Title row — doc icon + title left, save status, word count right ── */}
+      <div className="flex items-center px-3 gap-1" style={{ height:44 }}>
+        {/* Blue doc icon (back button) */}
+        <button onClick={onBack} title="Back to documents" className="flex-shrink-0 mr-1 hover:opacity-80 transition">
+          <svg width="28" height="28" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a73e8"/><path d="M14 2v6h6" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/><path d="M8 12h8M8 15h5" stroke="rgba(255,255,255,0.8)" strokeWidth="1.2" strokeLinecap="round"/></svg>
         </button>
 
-        {/* Spacer */}
+        {/* Title */}
+        <input value={title} onChange={e=>onTitleChange(e.target.value)}
+          className="text-[18px] font-normal text-[#3c4043] bg-transparent outline-none border-b border-transparent hover:border-[#c7c8ca] focus:border-[#1a73e8] transition px-1"
+          style={{minWidth:140,maxWidth:380}}
+          placeholder="Untitled document"/>
+
+        {/* Saved to Drive */}
+        <span className="text-[13px] text-[#5f6368] whitespace-nowrap ml-1">{saveLabel}</span>
+
         <div className="flex-1"/>
 
-        {/* Title — centered */}
-        <div className="flex items-center gap-2">
-          <input value={title} onChange={e=>onTitleChange(e.target.value)}
-            className="text-[18px] font-normal text-[#3c4043] bg-transparent outline-none border-b border-transparent hover:border-[#c7c8ca] focus:border-[#1a73e8] transition px-1 text-center"
-            style={{minWidth:160,maxWidth:360}}
-            placeholder="Untitled document"/>
-          <span className="text-[13px] text-[#5f6368]">{saveLabel}</span>
-        </div>
+        {/* Word count — right side */}
+        <span className="text-[13px] text-[#3c4043] tabular-nums mr-1">{wordCount} words</span>
+      </div>
 
-        {/* Spacer */}
-        <div className="flex-1"/>
-
-        {/* Right: word count + menu */}
-        <div className="flex items-center gap-0.5">
-          <span className="text-[13px] text-[#3c4043] mr-2 tabular-nums">{wordCount} words</span>
-          {["File","Edit","View","Insert","Format","Tools"].map(m=>(
-            <button key={m} className="px-2 h-8 text-[13px] text-[#3c4043] hover:bg-[#e9eaeb] rounded transition">{m}</button>
-          ))}
-        </div>
+      {/* ── Row 2: Menu bar — File Edit View Insert Format Tools ── */}
+      <div className="flex items-center px-3" style={{ height:28 }}>
+        <MenuBar editor={editor} onLink={onLink} onImage={onImage}/>
       </div>
 
       {/* ── Row 2: Toolbar ── */}
@@ -421,41 +525,33 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         <TB title="Clear formatting" onClick={()=>editor.chain().focus().clearNodes().unsetAllMarks().run()}><Ico.ClearFormat/></TB>
       </div>
 
-      {/* ── Row 3: Ruler — full viewport width, white bg ── */}
-      <div style={{ height:22, background:"#fff", borderBottom:"1px solid #c7c8ca", overflow:"hidden", position:"relative" }}>
-        {/* Gray margin zones + ticks rendered as a full-width SVG */}
-        <svg width="100%" height="22" preserveAspectRatio="none" style={{display:"block",position:"absolute",top:0,left:0}}>
-          {/* We calculate page position as: (viewport - 816) / 2 for the left edge */}
-          {/* But since SVG is full-width we use a foreignObject trick — instead render relative marks */}
-        </svg>
-        {/* Centered ruler content matching page width */}
-        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:816, top:0, height:22 }}>
-          <svg width="816" height="22" style={{display:"block"}}>
-            {/* Left margin zone (0..96) */}
-            <rect x="0" y="0" width="96" height="22" fill="#e8eaed"/>
-            {/* Right margin zone (720..816) */}
-            <rect x="720" y="0" width="96" height="22" fill="#e8eaed"/>
-            {/* White content zone */}
-            <rect x="96" y="0" width="624" height="22" fill="#fff"/>
-            {/* Tick marks every 6px in content zone */}
-            {Array.from({length:105}).map((_,i)=>{
-              const x = 96 + i*6;
-              if(x>720) return null;
-              const rel = i*6;
-              const isMaj = rel%96===0;
-              const isMid = rel%48===0;
-              const y1 = isMaj?4:isMid?8:12;
-              return <line key={i} x1={x} y1={y1} x2={x} y2={22} stroke="#bdc1c6" strokeWidth="0.75"/>;
-            })}
-            {/* Inch labels */}
-            {[1,2,3,4,5,6].map(n=>(
-              <text key={n} x={96+n*96} y={8} fontSize="9" fill="#80868b" textAnchor="middle" fontFamily="Arial">{n}</text>
-            ))}
-            {/* Left margin handle — solid blue downward triangle */}
-            <polygon points="96,14 102,22 90,22" fill="#4285f4"/>
-            {/* Right margin handle */}
-            <polygon points="720,14 726,22 714,22" fill="#4285f4"/>
-          </svg>
+      {/* ── Row 3: Ruler — full viewport width, gray outside page, white inside ── */}
+      <div style={{ height:22, background:"#e8eaed", borderBottom:"1px solid #c7c8ca", overflow:"hidden", position:"relative", width:"100%" }}>
+        {/* Full-width gray base — page content zone rendered centered */}
+        <div style={{ position:"absolute", inset:0, display:"flex", justifyContent:"center" }}>
+          {/* White content zone + ticks, centered over the 816px page */}
+          <div style={{ position:"relative", width:816, height:22, flexShrink:0 }}>
+            <svg width="816" height="22" style={{display:"block",position:"absolute",top:0,left:0}}>
+              {/* White zone for content area (between margins) */}
+              <rect x="96" y="0" width="624" height="22" fill="#fff"/>
+              {/* Tick marks */}
+              {Array.from({length:105}).map((_,i)=>{
+                const x=96+i*6; if(x>720) return null;
+                const rel=i*6;
+                const isMaj=rel%96===0; const isMid=rel%48===0;
+                const y1=isMaj?3:isMid?8:12;
+                return <line key={i} x1={x} y1={y1} x2={x} y2={22} stroke="#bdc1c6" strokeWidth="0.75"/>;
+              })}
+              {/* Inch labels */}
+              {[1,2,3,4,5,6].map(n=>(
+                <text key={n} x={96+n*96} y={8} fontSize="9" fill="#80868b" textAnchor="middle" fontFamily="Arial">{n}</text>
+              ))}
+              {/* Left margin handle — upward-pointing triangle ▲ at top of ruler */}
+              <polygon points="96,0 90,10 102,10" fill="#4285f4"/>
+              {/* Right margin handle */}
+              <polygon points="720,0 714,10 726,10" fill="#4285f4"/>
+            </svg>
+          </div>
         </div>
       </div>
     </div>
@@ -643,17 +739,18 @@ export default function WriterEditorPage() {
           </div>
         </div>
 
-        {/* Status bar — exact Docs */}
-        <div className="gdoc-chrome flex-shrink-0 flex items-center" style={{height:24,background:"#fff",borderTop:"1px solid #e0e0e0"}}>
-          {/* Bottom-left avatar circle — like Docs */}
-          <div className="w-8 h-8 rounded-full bg-[#444746] flex items-center justify-center ml-2 flex-shrink-0">
-            <span className="text-white text-[12px] font-medium select-none">N</span>
-          </div>
-          <span className="text-[12px] text-[#3c4043] ml-3">{wordCount} words</span>
-          <span className="text-[12px] text-[#3c4043] mx-1">·</span>
+        {/* Status bar — exact Docs: thin 24px bar, text left, last saved right */}
+        <div className="gdoc-chrome flex-shrink-0 flex items-center px-4 gap-1" style={{height:24,background:"#fff",borderTop:"1px solid #e0e0e0",position:"relative"}}>
+          <span className="text-[12px] text-[#3c4043] tabular-nums">{wordCount} words</span>
+          <span className="text-[12px] text-[#3c4043]">·</span>
           <span className="text-[12px] text-[#3c4043]">Ctrl+S to save</span>
           <div className="flex-1"/>
-          {doc&&<span className="text-[12px] text-[#3c4043] mr-3">Last saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
+          {doc&&<span className="text-[12px] text-[#3c4043]">Last saved {new Date(doc.updated_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
+        </div>
+        {/* N avatar — floats bottom-left, overlapping status bar, exactly like Docs */}
+        <div style={{position:"fixed",bottom:8,left:8,zIndex:100}}
+          className="w-9 h-9 rounded-full bg-[#444746] flex items-center justify-center shadow-md cursor-pointer hover:opacity-90 transition select-none">
+          <span className="text-white text-[14px] font-medium">N</span>
         </div>
       </div>
 
