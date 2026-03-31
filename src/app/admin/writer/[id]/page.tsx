@@ -189,7 +189,7 @@ const LINE_SPACINGS = [
 ];
 
 /* ═══════════════ MENU BAR ═══════════════ */
-type MenuItemDef = { label: string; kbd?: string; action?: ()=>void; sep?: boolean; disabled?: boolean };
+type MenuItemDef = { label?: string; kbd?: string; action?: ()=>void; sep?: boolean; disabled?: boolean };
 
 function DropMenu({ label, items }: { label: string; items: MenuItemDef[] }) {
   const [open, setOpen] = useState(false);
