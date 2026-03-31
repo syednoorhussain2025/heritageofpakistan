@@ -174,7 +174,8 @@ async function callOpenAIVisionBatch(
     maxWords: number;
   },
   images: AiImage[],
-  context: string
+  context: string,
+  siteName?: string | null
 ): Promise<{
   captions: Record<string, { alt: string; caption: string }>;
   usage?: {
@@ -192,6 +193,9 @@ async function callOpenAIVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description of the image (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
+        (siteName
+          ? `- SITE NAME for captions: "${siteName}". Naturally weave the site name into roughly 1 in 3 captions — not every caption. Vary placement (beginning, middle, end) and sentence structure each time so it never feels templated. Never force it; only include it where it reads naturally.\n`
+          : "") +
         "- SCENE DESCRIPTION: exactly 3 sentences, 40-50 words total. Only what is visually present. No historical inference, no location names, no technical jargon. Match this style exactly:\n" +
         "  Example 1 (gateway): \"A symmetrical four-minaret gateway fills the frame, approached by a straight path flanked by low hedges. The facade is covered in dense polychrome tile panels — blue, yellow, green — across arched openings and octagonal minaret shafts. Urban buildings and power lines are visible through the central arch.\"\n" +
         "  Example 2 (tile detail): \"A single rectangular tile panel set flush in a weathered brick wall. A symmetrical flowering tree in deep blue, green, and brown spreads across a cream ground, bordered by bold yellow diamond tiles. Even daylight, no shadows.\"\n" +
@@ -326,7 +330,8 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 async function callAnthropicVisionBatch(
   cfg: { modelId: string; maxOutputTokens: number | null; maxWords: number },
   images: AiImage[],
-  context: string
+  context: string,
+  siteName?: string | null
 ): Promise<{
   captions: Record<string, { alt: string; caption: string }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
@@ -369,6 +374,9 @@ async function callAnthropicVisionBatch(
         "You are assisting a heritage & travel website.\n" +
         `- ALT TEXT: factual, literal description (<= ${cfg.maxWords} words).\n` +
         `- CAPTION: short narrative (<= ${cfg.maxWords} words), tied to heritage/travel context.\n` +
+        (siteName
+          ? `- SITE NAME for captions: "${siteName}". Naturally weave the site name into roughly 1 in 3 captions — not every caption. Vary placement (beginning, middle, end) and sentence structure each time so it never feels templated. Never force it; only include it where it reads naturally.\n`
+          : "") +
         "- SCENE DESCRIPTION: exactly 3 sentences, 40-50 words total. Only what is visually present. No historical inference, no location names, no technical jargon. Match this style exactly:\n" +
         "  Example 1 (gateway): \"A symmetrical four-minaret gateway fills the frame, approached by a straight path flanked by low hedges. The facade is covered in dense polychrome tile panels — blue, yellow, green — across arched openings and octagonal minaret shafts. Urban buildings and power lines are visible through the central arch.\"\n" +
         "  Example 2 (tile detail): \"A single rectangular tile panel set flush in a weathered brick wall. A symmetrical flowering tree in deep blue, green, and brown spreads across a cream ground, bordered by bold yellow diamond tiles. Even daylight, no shadows.\"\n" +
@@ -750,8 +758,8 @@ export async function generateAltAndCaptionsAction(args: {
   async function runBatchWithFallback(batch: AiImage[]) {
     try {
       const { captions, usage } = engine.provider === "anthropic"
-        ? await callAnthropicVisionBatch(cfg, batch, contextArticle)
-        : await callOpenAIVisionBatch(cfg, batch, contextArticle);
+        ? await callAnthropicVisionBatch(cfg, batch, contextArticle, siteName)
+        : await callOpenAIVisionBatch(cfg, batch, contextArticle, siteName);
       consume(batch, usage, captions);
       return;
     } catch (e: any) {
