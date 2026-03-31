@@ -717,6 +717,8 @@ export default function WriterEditorPage() {
   const [showImage, setShowImage] = useState(false);
   const [spellCheck, setSpellCheck] = useState(true);
   const [mode, setMode] = useState<"writing"|"research">("writing");
+  const [splitPct, setSplitPct] = useState(50);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(100);
   const saveTimer = useRef<any>(null);
   const titleTimer = useRef<any>(null);
@@ -912,19 +914,62 @@ export default function WriterEditorPage() {
       `}</style>
 
       {/* ── SINGLE unified layout — EditorContent rendered exactly once ── */}
-      <div style={{display:"flex", height:"100vh", overflow:"hidden"}}>
+      <div ref={splitContainerRef} style={{display:"flex", height:"100vh", overflow:"hidden"}}>
 
         {/* Left panel: Research browser — visible only in research mode */}
         <div className="flex flex-col" style={{
-          width: mode==="research" ? "50%" : "0%",
+          width: mode==="research" ? `${splitPct}%` : "0%",
           minWidth:0, overflow:"hidden",
-          borderRight: mode==="research" ? "2px solid #c7c8ca" : "none",
-          transition:"width 0.2s ease",
+          flexShrink:0,
+          transition: mode==="research" ? "none" : "width 0.2s ease",
         }}>
           <ResearchPanel/>
         </div>
 
-        {/* Right panel: full editor — 100% in writing, 50% in research */}
+        {/* Draggable divider — only visible in research mode */}
+        {mode==="research"&&(
+          <div
+            onMouseDown={e=>{
+              e.preventDefault();
+              const container = splitContainerRef.current;
+              if(!container) return;
+              const onMove = (mv: MouseEvent) => {
+                const rect = container.getBoundingClientRect();
+                const pct = Math.min(75, Math.max(25, ((mv.clientX - rect.left) / rect.width) * 100));
+                setSplitPct(pct);
+              };
+              const onUp = () => {
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+              };
+              document.body.style.cursor = "col-resize";
+              document.body.style.userSelect = "none";
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+            style={{
+              width:5, flexShrink:0, cursor:"col-resize",
+              background:"#c7c8ca", position:"relative",
+              zIndex:10,
+            }}
+            title="Drag to resize"
+          >
+            {/* Grip dots */}
+            <div style={{
+              position:"absolute", top:"50%", left:"50%",
+              transform:"translate(-50%,-50%)",
+              display:"flex", flexDirection:"column", gap:3,
+            }}>
+              {[0,1,2,3,4].map(i=>(
+                <div key={i} style={{width:3,height:3,borderRadius:"50%",background:"#80868b"}}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Right panel: full editor — 100% in writing, remainder in research */}
         <div className="flex flex-col gdoc-shell" style={{
           flex:1, minWidth:0, overflow:"hidden",
         }}>
