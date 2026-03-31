@@ -156,7 +156,7 @@ const TB = React.memo(function TB({ active, onClick, title, children, disabled }
 }) {
   return (
     <button title={title} onMouseDown={e=>e.preventDefault()} onClick={onClick} disabled={disabled}
-      className={`h-8 min-w-[28px] px-1 inline-flex items-center justify-center rounded transition-colors flex-shrink-0 ${active?"bg-[#e8f0fe] text-[#1967d2]":"text-[#444746] hover:bg-[#e9eaeb]"} disabled:opacity-40 disabled:cursor-not-allowed`}>
+      className={`h-7 min-w-[26px] px-1 inline-flex items-center justify-center rounded transition-colors flex-shrink-0 ${active?"bg-[#e8f0fe] text-[#1967d2]":"text-[#444746] hover:bg-[#e9eaeb]"} disabled:opacity-40 disabled:cursor-not-allowed`}>
       {children}
     </button>
   );
@@ -201,7 +201,7 @@ function DropMenu({ label, items }: { label: string; items: MenuItemDef[] }) {
   return (
     <div className="relative flex-shrink-0" ref={ref}>
       <button onClick={()=>setOpen(s=>!s)}
-        className={`px-2 h-8 text-[13px] text-[#3c4043] rounded transition ${open?"bg-[#e9eaeb]":"hover:bg-[#e9eaeb]"}`}>
+        className={`px-2 h-6 text-[13px] text-[#3c4043] rounded transition ${open?"bg-[#e9eaeb]":"hover:bg-[#e9eaeb]"}`}>
         {label}
       </button>
       {open&&(
@@ -353,15 +353,15 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
     <div style={{ background:"#fff", borderBottom:"1px solid #c7c8ca" }}>
 
       {/* ── Row 1: Title row — doc icon + title left, save status, word count right ── */}
-      <div className="flex items-center px-3 gap-1" style={{ height:44 }}>
+      <div className="flex items-center px-3 gap-1" style={{ height:36 }}>
         {/* Blue doc icon (back button) */}
         <button onClick={onBack} title="Back to documents" className="flex-shrink-0 mr-1 hover:opacity-80 transition">
-          <svg width="28" height="28" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a73e8"/><path d="M14 2v6h6" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/><path d="M8 12h8M8 15h5" stroke="rgba(255,255,255,0.8)" strokeWidth="1.2" strokeLinecap="round"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#1a73e8"/><path d="M14 2v6h6" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/><path d="M8 12h8M8 15h5" stroke="rgba(255,255,255,0.8)" strokeWidth="1.2" strokeLinecap="round"/></svg>
         </button>
 
         {/* Title */}
         <input value={title} onChange={e=>onTitleChange(e.target.value)}
-          className="text-[18px] font-normal text-[#3c4043] bg-transparent outline-none border-b border-transparent hover:border-[#c7c8ca] focus:border-[#1a73e8] transition px-1"
+          className="text-[16px] font-normal text-[#3c4043] bg-transparent outline-none border-b border-transparent hover:border-[#c7c8ca] focus:border-[#1a73e8] transition px-1"
           style={{minWidth:140,maxWidth:380}}
           placeholder="Untitled document"/>
 
@@ -375,13 +375,12 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
       </div>
 
       {/* ── Row 2: Menu bar — File Edit View Insert Format Tools ── */}
-      <div className="flex items-center px-3" style={{ height:28 }}>
+      <div className="flex items-center px-3" style={{ height:24 }}>
         <MenuBar editor={editor} onLink={onLink} onImage={onImage}/>
       </div>
 
-      {/* ── Row 2: Toolbar ── */}
-      {/* exact background: white. height: 40px */}
-      <div className="flex items-center px-2 gap-0.5" style={{ height:40, background:"#fff", borderTop:"1px solid #e0e0e0" }}>
+      {/* ── Row 3: Toolbar ── */}
+      <div className="flex items-center px-2 gap-0.5" style={{ height:36, background:"#fff", borderTop:"1px solid #e0e0e0" }}>
 
         {/* Undo/Redo */}
         <TB title="Undo (Ctrl+Z)" onClick={()=>editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Ico.Undo/></TB>
@@ -394,7 +393,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         <Sep/>
 
         {/* 100% zoom */}
-        <button className="h-8 px-2 flex items-center gap-0.5 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition flex-shrink-0">
+        <button className="h-7 px-2 flex items-center gap-0.5 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition flex-shrink-0">
           100% <Ico.ChevDown/>
         </button>
 
@@ -403,7 +402,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         {/* Heading */}
         <div className="relative flex-shrink-0" ref={hRef}>
           <button onMouseDown={e=>e.preventDefault()} onClick={()=>setHOpen(s=>!s)}
-            className="h-8 px-2 flex items-center gap-1 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition" style={{minWidth:106}}>
+            className="h-7 px-2 flex items-center gap-1 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition" style={{minWidth:106}}>
             <span className="flex-1 text-left">{headLabel()}</span><Ico.ChevDown/>
           </button>
           {hOpen&&(
@@ -422,7 +421,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         {/* Font family */}
         <div className="relative flex-shrink-0" ref={fRef}>
           <button onMouseDown={e=>e.preventDefault()} onClick={()=>setFOpen(s=>!s)}
-            className="h-8 px-2 flex items-center gap-1 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition" style={{minWidth:80}}>
+            className="h-7 px-2 flex items-center gap-1 rounded hover:bg-[#e9eaeb] text-[13px] text-[#3c4043] transition" style={{minWidth:80}}>
             <span className="flex-1 text-left truncate">{ffLabel}</span><Ico.ChevDown/>
           </button>
           {fOpen&&(
@@ -443,7 +442,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         <div className="flex items-center gap-0 flex-shrink-0">
           <button onMouseDown={e=>e.preventDefault()}
             onClick={()=>{ const n=parseInt(fs); if(n>1)(editor as any).chain().focus().setFontSize(`${n-1}px`).run(); }}
-            className="w-6 h-8 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[18px] leading-none transition">−</button>
+            className="w-5 h-7 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition">−</button>
           <input type="text"
             value={fsInput!==null?fsInput:fs}
             onFocus={()=>setFsInput(fs)}
@@ -453,7 +452,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
             className="w-[26px] text-center text-[13px] text-[#3c4043] bg-transparent outline-none border border-transparent hover:border-[#c7c8ca] focus:border-[#1a73e8] rounded transition"/>
           <button onMouseDown={e=>e.preventDefault()}
             onClick={()=>{ const n=parseInt(fs); (editor as any).chain().focus().setFontSize(`${n+1}px`).run(); }}
-            className="w-6 h-8 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[18px] leading-none transition">+</button>
+            className="w-5 h-7 flex items-center justify-center rounded hover:bg-[#e9eaeb] text-[#3c4043] text-[16px] leading-none transition">+</button>
         </div>
 
         <Sep/>
@@ -466,7 +465,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
 
         {/* Text color: A with colored underline bar — exactly like Docs */}
         <div className="relative flex-shrink-0" title="Text color">
-          <div className="h-8 w-8 flex flex-col items-center justify-center rounded hover:bg-[#e9eaeb] transition cursor-pointer">
+          <div className="h-7 w-7 flex flex-col items-center justify-center rounded hover:bg-[#e9eaeb] transition cursor-pointer">
             <span className="text-[14px] font-bold text-[#3c4043] leading-none select-none" style={{fontFamily:"Arial"}}>A</span>
             <div className="w-[18px] h-[3px] rounded-sm" style={{backgroundColor:textColor,marginTop:1}}/>
             <input type="color" onMouseDown={e=>e.preventDefault()}
@@ -476,7 +475,7 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
         </div>
 
         {/* Highlight: pen icon with yellow bar — exactly like Docs */}
-        <div className="h-8 w-8 flex flex-col items-center justify-center rounded hover:bg-[#e9eaeb] transition cursor-pointer flex-shrink-0"
+        <div className="h-7 w-7 flex flex-col items-center justify-center rounded hover:bg-[#e9eaeb] transition cursor-pointer flex-shrink-0"
           title="Highlight color"
           onClick={()=>editor.chain().focus().toggleHighlight({color:"#ffff00"}).run()}>
           <Ico.Highlight/>
@@ -526,25 +525,25 @@ function Toolbar({ editor, onLink, onImage, wordCount, title, onTitleChange, sav
       </div>
 
       {/* ── Row 3: Ruler — full viewport width, gray outside page, white inside ── */}
-      <div style={{ height:22, background:"#e8eaed", borderBottom:"1px solid #c7c8ca", overflow:"hidden", position:"relative", width:"100%" }}>
+      <div style={{ height:20, background:"#e8eaed", borderBottom:"1px solid #c7c8ca", overflow:"hidden", position:"relative", width:"100%" }}>
         {/* Full-width gray base — page content zone rendered centered */}
         <div style={{ position:"absolute", inset:0, display:"flex", justifyContent:"center" }}>
           {/* White content zone + ticks, centered over the 816px page */}
-          <div style={{ position:"relative", width:816, height:22, flexShrink:0 }}>
-            <svg width="816" height="22" style={{display:"block",position:"absolute",top:0,left:0}}>
+          <div style={{ position:"relative", width:816, height:20, flexShrink:0 }}>
+            <svg width="816" height="20" style={{display:"block",position:"absolute",top:0,left:0}}>
               {/* White zone for content area (between margins) */}
-              <rect x="96" y="0" width="624" height="22" fill="#fff"/>
+              <rect x="96" y="0" width="624" height="20" fill="#fff"/>
               {/* Tick marks */}
               {Array.from({length:105}).map((_,i)=>{
                 const x=96+i*6; if(x>720) return null;
                 const rel=i*6;
                 const isMaj=rel%96===0; const isMid=rel%48===0;
-                const y1=isMaj?3:isMid?8:12;
-                return <line key={i} x1={x} y1={y1} x2={x} y2={22} stroke="#bdc1c6" strokeWidth="0.75"/>;
+                const y1=isMaj?2:isMid?7:11;
+                return <line key={i} x1={x} y1={y1} x2={x} y2={20} stroke="#bdc1c6" strokeWidth="0.75"/>;
               })}
               {/* Inch labels */}
               {[1,2,3,4,5,6].map(n=>(
-                <text key={n} x={96+n*96} y={8} fontSize="9" fill="#80868b" textAnchor="middle" fontFamily="Arial">{n}</text>
+                <text key={n} x={96+n*96} y={7} fontSize="9" fill="#80868b" textAnchor="middle" fontFamily="Arial">{n}</text>
               ))}
               {/* Left margin handle — upward-pointing triangle ▲ at top of ruler */}
               <polygon points="96,0 90,10 102,10" fill="#4285f4"/>
@@ -718,9 +717,9 @@ export default function WriterEditorPage() {
         <div className="gdoc-chrome flex-shrink-0">
           {loading?(
             <div style={{background:"#fff"}}>
-              <div style={{height:48,borderBottom:"1px solid #c7c8ca"}} className="animate-pulse bg-white"/>
-              <div style={{height:40,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
-              <div style={{height:22,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
+              <div style={{height:60,borderBottom:"1px solid #c7c8ca"}} className="animate-pulse bg-white"/>
+              <div style={{height:36,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
+              <div style={{height:20,borderBottom:"1px solid #c7c8ca",background:"#fff"}} className="animate-pulse"/>
             </div>
           ):(
             <Toolbar editor={editor} onLink={()=>setShowLink(true)} onImage={()=>setShowImage(true)}
