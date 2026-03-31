@@ -128,6 +128,7 @@ export default function AppChrome({
   }, []);
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomePage = pathname.startsWith("/auth") || pathname.endsWith("/gallery");
+  const isDiscoverPage = pathname === "/discover";
   const onTabRoute = isTabRoute(pathname);
 
   // Prevent body scroll on tab routes — all content is in fixed divs
@@ -168,7 +169,7 @@ export default function AppChrome({
                   <ConnectivityBanner />
                   <AuthPendingToast />
 
-                  <div className={isHomePage ? "md:block hidden" : ""}>
+                  <div className={isHomePage || isDiscoverPage ? "md:block hidden" : ""}>
                     <Header initialItems={initialHeaderItems} />
                   </div>
 
