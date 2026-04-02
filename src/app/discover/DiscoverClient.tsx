@@ -278,6 +278,10 @@ export default function DiscoverClient({
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
 
+  // Desktop: fix the Discover header once it scrolls past the app Header
+  const [desktopFixed, setDesktopFixed] = useState(false);
+  const desktopHeaderSentinelRef = useRef<HTMLDivElement>(null);
+
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef  = useRef(false);
@@ -324,6 +328,11 @@ export default function DiscoverClient({
     }
   }, []);
 
+  const scrollToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   const handleSearch = useCallback((q: string) => {
     const query = q.trim();
     if (!query) return;
@@ -333,8 +342,9 @@ export default function DiscoverClient({
     setSearchOpen(false);
     setSearchOffset(0);
     setSearchHasMore(true);
+    scrollToTop();
     void runSearch(query, 0, true);
-  }, [runSearch]);
+  }, [runSearch, scrollToTop]);
 
   const clearSearch = useCallback(() => {
     setSearchActive(false);
@@ -342,12 +352,25 @@ export default function DiscoverClient({
     setSearchPhotosArr([]);
     setSearchOffset(0);
     activeQueryRef.current = "";
-  }, []);
+    scrollToTop();
+  }, [scrollToTop]);
 
   useEffect(() => {
     seedRef.current = getOrCreateSeed();
     if (initialPhotos.length === 0) void loadMore();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Desktop: watch when the in-flow header scrolls off the top
+  useEffect(() => {
+    const el = desktopHeaderSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { setDesktopFixed(!entries[0].isIntersecting); },
+      { rootMargin: "0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -482,28 +505,25 @@ export default function DiscoverClient({
         </div>
       </div>
 
-      {/* ── Desktop sticky header ── */}
-      <div className="hidden lg:block sticky top-[56px] z-[1090] overflow-visible">
-        <div
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: "140px",
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
-          }}
-        />
-        <div className="relative py-3" style={{ paddingBottom: searchOpen ? "10px" : "14px" }}>
-          {/* Title row */}
-          <div className="flex items-center justify-between px-6 pb-1">
+      {/* ── Desktop header — in-flow, becomes fixed once app Header scrolls away ── */}
+      <div className="hidden lg:block overflow-visible">
+        {/* In-flow version: always rendered to occupy space and act as scroll trigger */}
+        <div className="relative overflow-visible" style={{ paddingBottom: searchOpen ? "10px" : "14px", paddingTop: "12px" }}>
+          <div
+            className="absolute inset-x-0 top-0 pointer-events-none"
+            style={{
+              height: "140px",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+            }}
+          />
+          <div className="relative flex items-center justify-between px-6 pb-1">
             <div className="w-8" />
             <div className="flex-1 text-center">
               <h1
                 className="text-white font-bold tracking-tight text-[26px]"
-                style={{
-                  textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-                  letterSpacing: "-0.02em",
-                }}
+                style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)", letterSpacing: "-0.02em" }}
               >
                 Discover
               </h1>
@@ -533,17 +553,74 @@ export default function DiscoverClient({
             </div>
           </div>
           {searchOpen && (
-            <div className="pb-1">
+            <div className="relative pb-1">
               <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
             </div>
           )}
         </div>
+
+        {/* Sentinel: when this leaves the viewport top, header snaps to fixed */}
+        <div ref={desktopHeaderSentinelRef} className="h-0" />
       </div>
+
+      {/* Fixed copy — shown only after sentinel scrolls off screen */}
+      {desktopFixed && (
+        <div className="hidden lg:block fixed inset-x-0 top-0 z-[1090] overflow-visible">
+          <div
+            className="absolute inset-x-0 top-0 pointer-events-none"
+            style={{
+              height: "140px",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+            }}
+          />
+          <div className="relative flex items-center justify-between px-6 pb-1" style={{ paddingTop: "12px", paddingBottom: searchOpen ? "10px" : "14px" }}>
+            <div className="w-8" />
+            <div className="flex-1 text-center">
+              <h1
+                className="text-white font-bold tracking-tight text-[26px]"
+                style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)", letterSpacing: "-0.02em" }}
+              >
+                Discover
+              </h1>
+              {searchActive && (
+                <div className="flex justify-center mt-1">
+                  <span className="bg-white/90 text-stone-800 text-[12px] font-semibold px-3 py-1 rounded-full truncate max-w-[320px]">
+                    {searchQuery}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="w-8 flex justify-end">
+              {searchActive ? (
+                <button onClick={clearSearch} className="text-white/90 hover:text-white">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                    <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              ) : !searchOpen && (
+                <button onClick={() => setSearchOpen(true)} className="text-white/90 hover:text-white">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                    <circle cx="11" cy="11" r="7" />
+                    <path strokeLinecap="round" d="M20 20l-3-3" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          {searchOpen && (
+            <div className="relative pb-1">
+              <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Feed ── */}
       <style>{`
         .discover-feed { padding-top: calc(var(--sat, 44px) + 70px); }
-        @media (min-width: 1024px) { .discover-feed { padding-top: 8px; } }
+        @media (min-width: 1024px) { .discover-feed { padding-top: 0; } }
       `}</style>
       <div className="discover-feed px-2 pb-8 lg:px-10 xl:px-16">
         {/* Search empty state */}
