@@ -161,6 +161,11 @@ const DiscoverTile = memo(function DiscoverTile({
           background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
         }}
       >
+        {photo.caption && (
+          <p className="text-white/80 text-[10px] leading-tight truncate mb-0.5">
+            {photo.caption}
+          </p>
+        )}
         <p className="text-white text-[11px] font-semibold leading-tight truncate drop-shadow-sm">
           {photo.site.name}
         </p>
