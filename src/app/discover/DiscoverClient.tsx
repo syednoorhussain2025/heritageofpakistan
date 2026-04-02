@@ -13,6 +13,7 @@ import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
+import PhotoBottomSheet from "@/components/PhotoBottomSheet";
 
 async function searchPhotos(query: string, offset: number): Promise<DiscoverPhoto[]> {
   const res = await fetch(`/api/search/photos?q=${encodeURIComponent(query)}&offset=${offset}`);
@@ -40,10 +41,6 @@ async function loadPhotos(page: number, cycle: number, seed: number, requestNum:
   return res.json();
 }
 
-const SiteBottomSheet = dynamicImport(
-  () => import("@/components/SiteBottomSheet"),
-  { ssr: false }
-);
 
 /* ─── Tile aspect ratio pattern ─────────────────────────────────────────── */
 const LEFT_ASPECTS  = ["aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
@@ -56,7 +53,7 @@ const COL3_ASPECTS  = ["aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-
 type TileProps = {
   photo: DiscoverPhoto;
   aspectClass: string;
-  onOpen: () => void;
+  onOpen: (rect: DOMRect, thumb: string) => void;
   isPriority: boolean;
 };
 
@@ -99,8 +96,9 @@ const DiscoverTile = memo(function DiscoverTile({
   const handlePressEnd = useCallback(() => {
     setPressed(false);
     void hapticLight();
-    onOpen();
-  }, [onOpen]);
+    const rect = tileRef.current?.getBoundingClientRect();
+    if (rect) onOpen(rect, thumbUrl);
+  }, [onOpen, thumbUrl]);
 
   const handlePressCancel = useCallback(() => {
     setPressed(false);
@@ -282,6 +280,8 @@ export default function DiscoverClient({
 
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
+  const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
+  const [sheetOriginThumb, setSheetOriginThumb] = useState<string | null>(null);
 
   // Desktop: fix the Discover header once it scrolls past the app Header
   const [desktopFixed, setDesktopFixed] = useState(false);
@@ -419,28 +419,6 @@ export default function DiscoverClient({
   const showSkeleton = !searchActive && photos.length === 0;
   const showSearchSkeleton = searchActive && searchLoading && searchPhotosArr.length === 0;
 
-  // Build BottomSheetSite from a DiscoverPhoto
-  const sheetSite = useMemo(() => {
-    if (!sheetPhoto) return null;
-    const s = sheetPhoto.site;
-    // Fall back to the tapped photo's own URL if site has no cover
-    const coverUrl = s.coverPhotoUrl ?? sheetPhoto.url ?? null;
-    return {
-      id: s.id,
-      slug: sheetPhoto.siteSlug,
-      province_slug: sheetPhoto.regionSlug,
-      title: s.name,
-      cover_photo_url: coverUrl,
-      cover_slideshow_image_ids: s.coverSlideshowImageIds ?? null,
-      avg_rating: s.avgRating ?? null,
-      review_count: s.reviewCount ?? null,
-      heritage_type: s.heritageType ?? null,
-      location_free: s.location ?? null,
-      tagline: s.tagline ?? null,
-      latitude: s.latitude ?? null,
-      longitude: s.longitude ?? null,
-    };
-  }, [sheetPhoto]);
 
   return (
     <div
@@ -674,7 +652,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -688,7 +666,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -706,7 +684,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -720,7 +698,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -734,7 +712,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -748,7 +726,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -766,11 +744,12 @@ export default function DiscoverClient({
         <div className="h-[calc(env(safe-area-inset-bottom,0px)+72px)]" />
       </div>
 
-      {/* Site bottom sheet */}
-      <SiteBottomSheet
-        site={sheetSite}
-        isOpen={sheetSite !== null}
-        onClose={() => setSheetPhoto(null)}
+      {/* Photo bottom sheet */}
+      <PhotoBottomSheet
+        photo={sheetPhoto}
+        originRect={sheetOriginRect}
+        originThumb={sheetOriginThumb}
+        onClose={() => { setSheetPhoto(null); setSheetOriginRect(null); setSheetOriginThumb(null); }}
       />
 
     </div>
