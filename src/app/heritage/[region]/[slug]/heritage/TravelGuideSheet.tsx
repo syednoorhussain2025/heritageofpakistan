@@ -149,8 +149,8 @@ export default function TravelGuideSheet({
   const bestTime = pick(site.travel_best_time_free, tgs?.best_time_to_visit);
 
   const previewRows = [
-    { iconName: "map-pin-house", label: "Location", value: location },
-    { iconName: "compass-light", label: "How to Reach", value: howToReach },
+    { iconName: "map-pinned", label: "Location", value: location },
+    { iconName: "mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24", label: "How to Reach", value: howToReach },
     { iconName: "city-light", label: "Nearest City", value: nearestCity },
     { iconName: "calendar-dots-light", label: "Best Time to Visit", value: bestTime },
   ].filter((r) => r.value);
