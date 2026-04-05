@@ -432,30 +432,31 @@ export default function HeritageSidebar({
         title="General Information"
         iconName="general-info"
       >
-        <KeyVal k="Heritage Type" v={site.heritage_type} />
-        <KeyVal k="Architectural Style" v={site.architectural_style} />
-        <KeyVal k="Construction Materials" v={site.construction_materials} />
-        <KeyVal k="Local Name" v={site.local_name} />
-        <KeyVal k="Architect" v={site.architect} />
-        <KeyVal k="Construction Date" v={site.construction_date} />
-        <KeyVal k="Built by" v={site.built_by} />
-        <KeyVal k="Dynasty" v={site.dynasty} />
-        <KeyVal k="Conservation Status" v={site.conservation_status} />
-        <KeyVal k="Current Use" v={site.current_use} />
-        <KeyVal k="Restored by" v={site.restored_by} />
-        <KeyVal k="Known for" v={site.known_for} />
-        <KeyVal k="Era" v={site.era} />
-        <KeyVal k="Inhabited by" v={site.inhabited_by} />
+        <KeyVal k="Heritage Type" v={site.heritage_type} icon="icon-park-outline-monument-one" />
+        <KeyVal k="Architectural Style" v={site.architectural_style} icon="ph-mosque-thin" />
+        <KeyVal k="Construction Materials" v={site.construction_materials} icon="brick-wall" />
+        <KeyVal k="Local Name" v={site.local_name} icon="groups-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Architect" v={site.architect} icon="design-services-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Construction Date" v={site.construction_date} icon="today-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Built by" v={site.built_by} icon="foundation-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Dynasty" v={site.dynasty} icon="chess-queen-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Conservation Status" v={site.conservation_status} icon="nest-eco-leaf-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Current Use" v={site.current_use} icon="family-group-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Restored by" v={site.restored_by} icon="imagesearch-roller-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Known for" v={site.known_for} icon="man-4-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Era" v={site.era} icon="history-edu-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Inhabited by" v={site.inhabited_by} icon="groups-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
         <KeyVal
           k="National Park Established in"
           v={site.national_park_established_in}
+          icon="raven-24dp-1f1f1f-fill0-wght200-grad0-opsz24"
         />
-        <KeyVal k="Population" v={site.population} />
-        <KeyVal k="Ethnic Groups" v={site.ethnic_groups} />
-        <KeyVal k="Languages Spoken" v={site.languages_spoken} />
-        <KeyVal k="Excavation Status" v={site.excavation_status} />
-        <KeyVal k="Excavated by" v={site.excavated_by} />
-        <KeyVal k="Administered by" v={site.administered_by} />
+        <KeyVal k="Population" v={site.population} icon="groups-3-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Ethnic Groups" v={site.ethnic_groups} icon="face-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Languages Spoken" v={site.languages_spoken} icon="communication-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Excavation Status" v={site.excavation_status} icon="front-loader-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+        <KeyVal k="Excavated by" v={site.excavated_by} icon="shovel-light" />
+        <KeyVal k="Administered by" v={site.administered_by} icon="account-balance-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
       </HeritageSection>
 
       {/* UNESCO: render only when status exists and is not "None" */}

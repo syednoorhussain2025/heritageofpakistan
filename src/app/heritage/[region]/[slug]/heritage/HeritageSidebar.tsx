@@ -21,7 +21,7 @@ function GeneralInfoSlidePanel({
   rows,
   onClose,
 }: {
-  rows: Array<{ k: string; v?: string | number | null }>;
+  rows: Array<{ k: string; v?: string | number | null; icon?: string }>;
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
@@ -70,7 +70,7 @@ function GeneralInfoSlidePanel({
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-2">
           {rows.map((row, idx) => (
-            <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+            <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
           ))}
         </div>
       </div>
@@ -511,28 +511,28 @@ export default function HeritageSidebar({
   const [showGeneralInfoPanel, setShowGeneralInfoPanel] = useState(false);
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
 
-  const generalInfoRows: Array<{ k: string; v?: string | number | null }> = [
-    { k: "Heritage Type", v: site.heritage_type },
-    { k: "Architectural Style", v: site.architectural_style },
-    { k: "Construction Materials", v: site.construction_materials },
-    { k: "Local Name", v: site.local_name },
-    { k: "Architect", v: site.architect },
-    { k: "Construction Date", v: site.construction_date },
-    { k: "Built by", v: site.built_by },
-    { k: "Dynasty", v: site.dynasty },
-    { k: "Conservation Status", v: site.conservation_status },
-    { k: "Current Use", v: site.current_use },
-    { k: "Restored by", v: site.restored_by },
-    { k: "Known for", v: site.known_for },
-    { k: "Era", v: site.era },
-    { k: "Inhabited by", v: site.inhabited_by },
-    { k: "National Park Established in", v: site.national_park_established_in },
-    { k: "Population", v: site.population },
-    { k: "Ethnic Groups", v: site.ethnic_groups },
-    { k: "Languages Spoken", v: site.languages_spoken },
-    { k: "Excavation Status", v: site.excavation_status },
-    { k: "Excavated by", v: site.excavated_by },
-    { k: "Administered by", v: site.administered_by },
+  const generalInfoRows: Array<{ k: string; v?: string | number | null; icon?: string }> = [
+    { k: "Heritage Type", v: site.heritage_type, icon: "icon-park-outline-monument-one" },
+    { k: "Architectural Style", v: site.architectural_style, icon: "ph-mosque-thin" },
+    { k: "Construction Materials", v: site.construction_materials, icon: "brick-wall" },
+    { k: "Local Name", v: site.local_name, icon: "groups-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Architect", v: site.architect, icon: "design-services-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Construction Date", v: site.construction_date, icon: "today-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Built by", v: site.built_by, icon: "foundation-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Dynasty", v: site.dynasty, icon: "chess-queen-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Conservation Status", v: site.conservation_status, icon: "nest-eco-leaf-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Current Use", v: site.current_use, icon: "family-group-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Restored by", v: site.restored_by, icon: "imagesearch-roller-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Known for", v: site.known_for, icon: "man-4-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Era", v: site.era, icon: "history-edu-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Inhabited by", v: site.inhabited_by, icon: "groups-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "National Park Established in", v: site.national_park_established_in, icon: "raven-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Population", v: site.population, icon: "groups-3-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Ethnic Groups", v: site.ethnic_groups, icon: "face-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Languages Spoken", v: site.languages_spoken, icon: "communication-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Excavation Status", v: site.excavation_status, icon: "front-loader-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
+    { k: "Excavated by", v: site.excavated_by, icon: "shovel-light" },
+    { k: "Administered by", v: site.administered_by, icon: "account-balance-24dp-1f1f1f-fill0-wght200-grad0-opsz24" },
   ];
   const availableGeneralInfoRows = generalInfoRows.filter((row) =>
     hasDisplayValue(row.v)
@@ -697,7 +697,7 @@ export default function HeritageSidebar({
               </span>
             </div>
             {previewGeneralInfoRows.map((row, idx) => (
-              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
             ))}
             {availableGeneralInfoRows.length === 0 && (
               <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
@@ -714,7 +714,7 @@ export default function HeritageSidebar({
               <span>General Information</span>
             </h2>
             {availableGeneralInfoRows.map((row, idx) => (
-              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
             ))}
           </section>
 
@@ -868,7 +868,7 @@ export default function HeritageSidebar({
               </span>
             </div>
             {previewGeneralInfoRows.map((row, idx) => (
-              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} />
+              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
             ))}
             {availableGeneralInfoRows.length === 0 && (
               <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
