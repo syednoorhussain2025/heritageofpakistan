@@ -204,12 +204,15 @@ const LANDFORM_MAP: Record<
 // MOBILE_GENERAL_INFO_PREVIEW_ROWS replaced by MOBILE_PREVIEW_ROWS above
 
 /* ---- Key/value row ---- */
-function KeyVal({ k, v, idx = 0 }: { k: string; v?: string | number | null; idx?: number }) {
+function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null; idx?: number; icon?: string }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className={`grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2.5 border-b border-black/5 last:border-b-0 overflow-x-visible ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
-      <div className="text-[13px] font-bold uppercase tracking-wide text-slate-400">{k}</div>
-      <div className="text-[14px] font-medium text-slate-800 text-left break-words whitespace-pre-wrap overflow-x-visible">
+    <div className={`grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
+      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
+        {icon && <Icon name={icon} size={25} className="shrink-0" />}
+        {k}
+      </div>
+      <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap overflow-x-visible">
         {String(v)}
       </div>
     </div>
@@ -219,9 +222,12 @@ function KeyVal({ k, v, idx = 0 }: { k: string; v?: string | number | null; idx?
 function GpsCoords({ lat, lng }: { lat?: number | string | null; lng?: number | string | null }) {
   if (lat == null || lng == null || lat === "" || lng === "") return null;
   return (
-    <div className="grid grid-cols-[120px_minmax(0,2fr)] gap-x-4 py-2.5 border-b border-black/5 last:border-b-0">
-      <div className="text-[13px] font-bold uppercase tracking-wide text-slate-400">GPS</div>
-      <div className="text-[14px] font-medium text-slate-800 font-mono tabular-nums">
+    <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
+      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
+        <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={25} className="shrink-0" />
+        GPS
+      </div>
+      <div className="text-[14px] font-medium text-slate-500 font-mono tabular-nums">
         {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
       </div>
     </div>
@@ -622,11 +628,11 @@ export default function HeritageSidebar({
               </div>
             )}
 
-            <KeyVal k="Town/City/Village" v={site.town_city_village} idx={0} />
-            <KeyVal k="Tehsil" v={site.tehsil} idx={1} />
-            <KeyVal k="District" v={site.district} idx={2} />
-            <KeyVal k="Region/Province" v={provinceName} idx={3} />
             <GpsCoords lat={site.latitude} lng={site.longitude} />
+            <KeyVal k="Town/City" v={site.town_city_village} idx={0} icon="city-light" />
+            <KeyVal k="Tehsil" v={site.tehsil} idx={1} icon="building-office-light" />
+            <KeyVal k="District" v={site.district} idx={2} icon="shield" />
+            <KeyVal k="Region/Province" v={provinceName} idx={3} icon="landscape-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
             {maps.link ? (
               <div className="mt-4 flex justify-center">
                 <a
@@ -819,11 +825,11 @@ export default function HeritageSidebar({
               Location coordinates not available.
             </div>
           )}
-          <KeyVal k="Town/City/Village" v={site.town_city_village} idx={0} />
-          <KeyVal k="Tehsil" v={site.tehsil} idx={1} />
-          <KeyVal k="District" v={site.district} idx={2} />
-          <KeyVal k="Region/Province" v={provinceName} idx={3} />
           <GpsCoords lat={site.latitude} lng={site.longitude} />
+          <KeyVal k="Town/City" v={site.town_city_village} idx={0} icon="city-light" />
+          <KeyVal k="Tehsil" v={site.tehsil} idx={1} icon="building-office-light" />
+          <KeyVal k="District" v={site.district} idx={2} icon="shield" />
+          <KeyVal k="Region/Province" v={provinceName} idx={3} icon="landscape-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
           {maps.link ? (
             <div className="mt-4 flex justify-center">
               <a
@@ -910,14 +916,14 @@ export default function HeritageSidebar({
           mobileDefaultOpen
         >
           <KeyVal k="Heritage Site" v={site.title} />
-          <KeyVal k="Location" v={mergedTravelLocation} />
-          <KeyVal k="How to Reach" v={mergedHowToReach} />
-          <KeyVal k="Nearest Major City" v={mergedNearestCity} />
-          <KeyVal k="Airport Access" v={mergedAirportAccess} />
-          <KeyVal k="International Flight" v={site.travel_international_flight} />
-          <KeyVal k="Access Options" v={mergedAccessOptions} />
-          <KeyVal k="Road Type & Condition" v={mergedRoadType} />
-          <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} />
+          <KeyVal k="Location" v={mergedTravelLocation} icon="map-pinned" />
+          <KeyVal k="How to Reach" v={mergedHowToReach} icon="mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+          <KeyVal k="Nearest Major City" v={mergedNearestCity} icon="city-light" />
+          <KeyVal k="Airport Access" v={mergedAirportAccess} icon="plane" />
+          <KeyVal k="International Flight" v={site.travel_international_flight} icon="connecting-airports-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+          <KeyVal k="Access Options" v={mergedAccessOptions} icon="commute-24dp-1f1f1f-fill0-wght200-grad0-opsz24-1" />
+          <KeyVal k="Road Type & Condition" v={mergedRoadType} icon="flyover-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+          <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} icon="calendar-dots-light" />
           {site.travel_full_guide_url && (
             <a
               href={site.travel_full_guide_url}
@@ -956,12 +962,12 @@ export default function HeritageSidebar({
             iconName="climate-topography"
             mobileDefaultOpen
           >
-            <KeyVal k="Landform" v={mergedLandform} />
-            <KeyVal k="Altitude" v={mergedAltitude} />
+            <KeyVal k="Landform" v={mergedLandform} icon="streamline-ultimate-perspective-grid" />
+            <KeyVal k="Altitude" v={mergedAltitude} icon="altitude-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
             <KeyVal k="Mountain Range" v={mergedMountainRange} />
-            <KeyVal k="Weather Type" v={mergedWeatherType} />
-            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} />
-            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} />
+            <KeyVal k="Weather Type" v={mergedWeatherType} icon="weather-mix-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} icon="sunny-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} icon="snowflake-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
           </SidebarAccordionSection>
         </>
       )}
@@ -972,10 +978,10 @@ export default function HeritageSidebar({
           iconName="places-to-stay"
           mobileDefaultOpen
         >
-          <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
-          <KeyVal k="Spending Night Recommended" v={mergedSpendingNight} />
-          <KeyVal k="Camping Possible" v={mergedCamping} />
-          <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
+          <KeyVal k="Hotels Available" v={mergedHotelsAvailable} icon="bed-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+          <KeyVal k="Spending Night Recommended" v={mergedSpendingNight} icon="hotel-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+          <KeyVal k="Camping Possible" v={mergedCamping} icon="camping-24dp-1f1f1f-fill0-wght200-grad0-opsz24-1" />
+          <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} icon="soup" />
         </SidebarAccordionSection>
       )}
 
@@ -1085,12 +1091,12 @@ export default function HeritageSidebar({
             iconName="climate-topography"
             mobileDefaultOpen={true}
           >
-            <KeyVal k="Landform" v={mergedLandform} />
-            <KeyVal k="Altitude" v={mergedAltitude} />
+            <KeyVal k="Landform" v={mergedLandform} icon="streamline-ultimate-perspective-grid" />
+            <KeyVal k="Altitude" v={mergedAltitude} icon="altitude-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
             <KeyVal k="Mountain Range" v={mergedMountainRange} />
-            <KeyVal k="Weather Type" v={mergedWeatherType} />
-            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} />
-            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} />
+            <KeyVal k="Weather Type" v={mergedWeatherType} icon="weather-mix-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} icon="sunny-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} icon="snowflake-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
           </SidebarAccordionSection>
 
           <SidebarAccordionSection
@@ -1122,17 +1128,18 @@ export default function HeritageSidebar({
             mobileDefaultOpen={true}
           >
             <KeyVal k="Heritage Site" v={site.title} />
-            <KeyVal k="Location" v={mergedTravelLocation} />
-            <KeyVal k="How to Reach" v={mergedHowToReach} />
-            <KeyVal k="Nearest Major City" v={mergedNearestCity} />
-            <KeyVal k="Airport Access" v={mergedAirportAccess} />
+            <KeyVal k="Location" v={mergedTravelLocation} icon="map-pinned" />
+            <KeyVal k="How to Reach" v={mergedHowToReach} icon="mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Nearest Major City" v={mergedNearestCity} icon="city-light" />
+            <KeyVal k="Airport Access" v={mergedAirportAccess} icon="plane" />
             <KeyVal
               k="International Flight"
               v={site.travel_international_flight}
+              icon="connecting-airports-24dp-1f1f1f-fill0-wght200-grad0-opsz24"
             />
-            <KeyVal k="Access Options" v={mergedAccessOptions} />
-            <KeyVal k="Road Type & Condition" v={mergedRoadType} />
-            <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} />
+            <KeyVal k="Access Options" v={mergedAccessOptions} icon="commute-24dp-1f1f1f-fill0-wght200-grad0-opsz24-1" />
+            <KeyVal k="Road Type & Condition" v={mergedRoadType} icon="flyover-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            <KeyVal k="Best Time to Visit" v={mergedBestTimeFree} icon="calendar-dots-light" />
             {site.travel_full_guide_url && (
               <a
                 href={site.travel_full_guide_url}
@@ -1179,13 +1186,14 @@ export default function HeritageSidebar({
             iconName="places-to-stay"
             mobileDefaultOpen={true}
           >
-            <KeyVal k="Hotels Available" v={mergedHotelsAvailable} />
+            <KeyVal k="Hotels Available" v={mergedHotelsAvailable} icon="bed-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
             <KeyVal
               k="Spending Night Recommended"
               v={mergedSpendingNight}
+              icon="hotel-24dp-1f1f1f-fill0-wght200-grad0-opsz24"
             />
-            <KeyVal k="Camping Possible" v={mergedCamping} />
-            <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} />
+            <KeyVal k="Camping Possible" v={mergedCamping} icon="camping-24dp-1f1f1f-fill0-wght200-grad0-opsz24-1" />
+            <KeyVal k="Places to Eat Available" v={mergedPlacesToEat} icon="soup" />
           </SidebarAccordionSection>
         </>
       )}

@@ -108,13 +108,13 @@ function SlidePanel({
 function PreviewRow({ iconName, label, value }: { iconName: string; label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
-      <div className="mt-0.5 shrink-0">
-        <Icon name={iconName} size={28} className="text-slate-800" />
+    <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
+      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
+        <Icon name={iconName} size={25} className="shrink-0" />
+        {label}
       </div>
-      <div>
-        <div className="text-[15px] font-bold text-slate-800">{label}</div>
-        <div className="text-[13px] text-slate-500 mt-0.5">{value}</div>
+      <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap">
+        {value}
       </div>
     </div>
   );
