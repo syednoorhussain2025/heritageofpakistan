@@ -310,11 +310,11 @@ export default function HeritageCover({
 
         // Clamp to <= 0: prevent iOS overscroll rubber-band pushing slide down
         const targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
+        const scrollingUp = scrollTop < lastScrollTop && lastScrollTop !== -1;
 
-        // Scrolling back up toward top: snap currentY to target immediately so
-        // the image is already in position before it re-enters the viewport —
-        // no visible slide-down animation. Only lerp when scrolling down.
-        if (targetY > currentY) {
+        if (scrollingUp) {
+          // Scrolling up: no lerp, track target exactly so the image never
+          // lags behind and slides down while visible in the viewport
           currentY = targetY;
         } else {
           currentY += (targetY - currentY) * LERP_DOWN;
