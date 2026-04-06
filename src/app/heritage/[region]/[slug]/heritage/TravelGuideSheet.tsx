@@ -162,7 +162,7 @@ export default function TravelGuideSheet({
   return (
     <>
       <section
-        className="md:hidden pt-4 pb-3 cursor-pointer"
+        className="md:hidden pt-12 pb-12 cursor-pointer mobile-divider"
         onClick={() => setShowPanel(true)}
       >
         {/* Header */}

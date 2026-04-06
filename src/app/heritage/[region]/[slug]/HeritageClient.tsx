@@ -314,7 +314,7 @@ export default function HeritageClient({
         {/* ============================================================ */}
         {/* MOBILE LAYOUT — linear single-column, ordered for UX         */}
         {/* ============================================================ */}
-        <div className="lg:hidden w-full bg-white mobile-sections">
+        <div className="lg:hidden w-full bg-white">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
@@ -355,6 +355,7 @@ export default function HeritageClient({
                   id="history"
                   title="History and Background"
                   iconName="history-background"
+                  className="mobile-divider px-4 py-12 md:bg-white"
                 >
                   <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                     <CollectionsProvider>
@@ -376,6 +377,7 @@ export default function HeritageClient({
                   id="architecture"
                   title="Architecture and Design"
                   iconName="architecture-design"
+                  className="mobile-divider px-4 py-12 md:bg-white"
                 >
                   <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                     <CollectionsProvider>
@@ -397,6 +399,7 @@ export default function HeritageClient({
                   id="climate"
                   title="Climate & Environment"
                   iconName="climate-topography"
+                  className="mobile-divider px-4 py-12 md:bg-white"
                 >
                   <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                     <CollectionsProvider>
@@ -417,7 +420,7 @@ export default function HeritageClient({
                 site.custom_sections_json
                   .filter((cs: any) => !!cs.layout_html?.trim())
                   .map((cs: any) => (
-                    <HeritageSection key={cs.id} id={cs.id} title={cs.title} iconName="history-background">
+                    <HeritageSection key={cs.id} id={cs.id} title={cs.title} iconName="history-background" className="mobile-divider px-4 py-12 md:bg-white">
                       <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                         <CollectionsProvider>
                           <HeritageArticle
@@ -453,7 +456,7 @@ export default function HeritageClient({
               </LazySection>
 
               {/* 12. Traveler Reviews */}
-              <HeritageSection id="reviews" title="Traveler Reviews" iconName="star">
+              <HeritageSection id="reviews" title="Traveler Reviews" iconName="star" className="mobile-divider px-4 py-12 md:bg-white">
                 <LazySection
                   skeleton={
                     <div className="space-y-4">

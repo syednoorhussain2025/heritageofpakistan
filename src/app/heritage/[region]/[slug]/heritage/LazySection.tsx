@@ -11,12 +11,14 @@ type LazySectionProps = {
    * Default: "200px 0px"
    */
   rootMargin?: string;
+  className?: string;
 };
 
 export default function LazySection({
   children,
   skeleton = null,
   rootMargin = "200px 0px",
+  className,
 }: LazySectionProps) {
   const [visible, setVisible] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +50,7 @@ export default function LazySection({
   }, [visible, rootMargin]);
 
   return (
-    <div ref={hostRef}>
+    <div ref={hostRef} className={className}>
       {!visible && (
         <>
           <div className="flex justify-center py-4">

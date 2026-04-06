@@ -289,7 +289,7 @@ function SidebarAccordionSection({
   /* When onHeaderTap is set: whole header is tappable on mobile */
   if (onHeaderTap) {
     return (
-      <section id={id} className={`scroll-mt-[var(--sticky-offset)] md:bg-white${className ? ` ${className}` : ""}`}>
+      <section id={id} className={`scroll-mt-[var(--sticky-offset)] md:bg-white mobile-divider${className ? ` ${className}` : ""}`}>
         <button
           type="button"
           onClick={onHeaderTap}
@@ -316,7 +316,7 @@ function SidebarAccordionSection({
   }
 
   return (
-    <section className={className ?? `md:bg-white px-4 pb-12${noPaddingTop ? "" : " pt-12"}`}>
+    <section className={className ?? `md:bg-white px-4 pb-12 mobile-divider${noPaddingTop ? "" : " pt-12"}`}>
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
       <div className="mb-3">
         {titleEl}
@@ -679,7 +679,7 @@ export default function HeritageSidebar({
           {/* Mobile: full-card tappable */}
           <section
             id="general"
-            className="md:hidden py-12 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="md:hidden py-12 cursor-pointer scroll-mt-[var(--sticky-offset)] mobile-divider"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">

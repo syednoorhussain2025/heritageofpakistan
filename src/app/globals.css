@@ -509,15 +509,9 @@ code {
 }
 
 /* ── Mobile heritage page: inset dividers between sections ── */
-.mobile-sections > * {
-  position: relative;
-}
-.mobile-sections > * + *::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 1rem;
-  right: 1rem;
-  height: 1px;
-  background-color: #cbd5e1;
+.mobile-divider {
+  background-image: linear-gradient(to right, transparent 3rem, #cbd5e1 3rem, #cbd5e1 calc(100% - 3rem), transparent calc(100% - 3rem));
+  background-position: bottom;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
 }
