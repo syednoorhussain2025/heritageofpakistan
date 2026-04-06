@@ -13,7 +13,6 @@ import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
-import PhotoBottomSheet from "@/components/PhotoBottomSheet";
 
 async function searchPhotos(query: string, offset: number): Promise<DiscoverPhoto[]> {
   const res = await fetch(`/api/search/photos?q=${encodeURIComponent(query)}&offset=${offset}`);
@@ -41,6 +40,10 @@ async function loadPhotos(page: number, cycle: number, seed: number, requestNum:
   return res.json();
 }
 
+const SiteBottomSheet = dynamicImport(
+  () => import("@/components/SiteBottomSheet"),
+  { ssr: false }
+);
 
 /* ─── Tile aspect ratio pattern ─────────────────────────────────────────── */
 const LEFT_ASPECTS  = ["aspect-[3/4]", "aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-[2/3]"];
@@ -53,7 +56,7 @@ const COL3_ASPECTS  = ["aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-
 type TileProps = {
   photo: DiscoverPhoto;
   aspectClass: string;
-  onOpen: (rect: DOMRect, thumb: string) => void;
+  onOpen: () => void;
   isPriority: boolean;
 };
 
@@ -96,9 +99,8 @@ const DiscoverTile = memo(function DiscoverTile({
   const handlePressEnd = useCallback(() => {
     setPressed(false);
     void hapticLight();
-    const rect = tileRef.current?.getBoundingClientRect();
-    if (rect) onOpen(rect, thumbUrl);
-  }, [onOpen, thumbUrl]);
+    onOpen();
+  }, [onOpen]);
 
   const handlePressCancel = useCallback(() => {
     setPressed(false);
@@ -159,11 +161,6 @@ const DiscoverTile = memo(function DiscoverTile({
           background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
         }}
       >
-        {photo.caption && (
-          <p className="text-white/80 text-[10px] leading-tight line-clamp-2 mb-0.5">
-            {photo.caption}
-          </p>
-        )}
         <p className="text-white text-[11px] font-semibold leading-tight truncate drop-shadow-sm">
           {photo.site.name}
         </p>
@@ -280,12 +277,6 @@ export default function DiscoverClient({
 
   // Bottom sheet state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
-  const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
-  const [sheetOriginThumb, setSheetOriginThumb] = useState<string | null>(null);
-
-  // Desktop: fix the Discover header once it scrolls past the app Header
-  const [desktopFixed, setDesktopFixed] = useState(false);
-  const desktopHeaderSentinelRef = useRef<HTMLDivElement>(null);
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -333,11 +324,6 @@ export default function DiscoverClient({
     }
   }, []);
 
-  const scrollToTop = useCallback(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, []);
-
   const handleSearch = useCallback((q: string) => {
     const query = q.trim();
     if (!query) return;
@@ -347,9 +333,8 @@ export default function DiscoverClient({
     setSearchOpen(false);
     setSearchOffset(0);
     setSearchHasMore(true);
-    scrollToTop();
     void runSearch(query, 0, true);
-  }, [runSearch, scrollToTop]);
+  }, [runSearch]);
 
   const clearSearch = useCallback(() => {
     setSearchActive(false);
@@ -357,25 +342,12 @@ export default function DiscoverClient({
     setSearchPhotosArr([]);
     setSearchOffset(0);
     activeQueryRef.current = "";
-    scrollToTop();
-  }, [scrollToTop]);
+  }, []);
 
   useEffect(() => {
     seedRef.current = getOrCreateSeed();
     if (initialPhotos.length === 0) void loadMore();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Desktop: watch when the in-flow header scrolls off the top
-  useEffect(() => {
-    const el = desktopHeaderSentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => { setDesktopFixed(!entries[0].isIntersecting); },
-      { rootMargin: "0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -419,6 +391,28 @@ export default function DiscoverClient({
   const showSkeleton = !searchActive && photos.length === 0;
   const showSearchSkeleton = searchActive && searchLoading && searchPhotosArr.length === 0;
 
+  // Build BottomSheetSite from a DiscoverPhoto
+  const sheetSite = useMemo(() => {
+    if (!sheetPhoto) return null;
+    const s = sheetPhoto.site;
+    // Fall back to the tapped photo's own URL if site has no cover
+    const coverUrl = s.coverPhotoUrl ?? sheetPhoto.url ?? null;
+    return {
+      id: s.id,
+      slug: sheetPhoto.siteSlug,
+      province_slug: sheetPhoto.regionSlug,
+      title: s.name,
+      cover_photo_url: coverUrl,
+      cover_slideshow_image_ids: s.coverSlideshowImageIds ?? null,
+      avg_rating: s.avgRating ?? null,
+      review_count: s.reviewCount ?? null,
+      heritage_type: s.heritageType ?? null,
+      location_free: s.location ?? null,
+      tagline: s.tagline ?? null,
+      latitude: s.latitude ?? null,
+      longitude: s.longitude ?? null,
+    };
+  }, [sheetPhoto]);
 
   return (
     <div
@@ -427,7 +421,7 @@ export default function DiscoverClient({
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
     >
 
-      {/* ── Mobile fixed header ── */}
+      {/* ── Fixed header ── */}
       <div className="fixed inset-x-0 top-0 z-[1100] pointer-events-none lg:hidden">
         <div
           className="absolute inset-0"
@@ -443,7 +437,10 @@ export default function DiscoverClient({
         <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: searchOpen ? "10px" : "12px" }}>
           {/* Title row */}
           <div className="flex items-center justify-between px-4 pb-1">
+            {/* Left: spacer */}
             <div className="w-8" />
+
+            {/* Center: always show title, query as subtitle when active */}
             <div className="flex-1 text-center">
               <h1
                 className="text-white font-bold tracking-tight"
@@ -463,6 +460,8 @@ export default function DiscoverClient({
                 </div>
               )}
             </div>
+
+            {/* Right: search icon or clear X when search active */}
             <div className="w-8 pointer-events-auto flex justify-end">
               {searchActive ? (
                 <button onClick={clearSearch} className="text-white/90 active:text-white">
@@ -480,6 +479,8 @@ export default function DiscoverClient({
               )}
             </div>
           </div>
+
+          {/* Inline search bar — drops in below title */}
           {searchOpen && (
             <div className="pointer-events-auto pb-1">
               <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
@@ -488,124 +489,48 @@ export default function DiscoverClient({
         </div>
       </div>
 
-      {/* ── Desktop header — in-flow, becomes fixed once app Header scrolls away ── */}
-      <div className="hidden lg:block overflow-visible">
-        {/* In-flow version: always rendered to occupy space and act as scroll trigger */}
-        <div className="relative overflow-visible" style={{ paddingBottom: searchOpen ? "10px" : "14px", paddingTop: "12px" }}>
-          <div
-            className="absolute inset-x-0 top-0 pointer-events-none"
-            style={{
-              height: "140px",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
-              backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
-            }}
-          />
-          <div className="relative flex items-center justify-between px-6 pb-1">
-            <div className="w-8" />
-            <div className="flex-1 text-center">
-              <h1
-                className="text-white font-bold tracking-tight text-[26px]"
-                style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)", letterSpacing: "-0.02em" }}
-              >
-                Discover
-              </h1>
-              {searchActive && (
-                <div className="flex justify-center mt-1">
-                  <span className="bg-white/90 text-stone-800 text-[12px] font-semibold px-3 py-1 rounded-full truncate max-w-[320px]">
-                    {searchQuery}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="w-8 flex justify-end">
-              {searchActive ? (
-                <button onClick={clearSearch} className="text-white/90 hover:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
-                    <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              ) : !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="text-white/90 hover:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
-                    <circle cx="11" cy="11" r="7" />
-                    <path strokeLinecap="round" d="M20 20l-3-3" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-          {searchOpen && (
-            <div className="relative pb-1">
-              <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+      {/* ── Desktop page header (title + search) ── */}
+      <div className="hidden lg:flex items-center justify-between px-10 xl:px-16 pt-8 pb-5">
+        <div>
+          <h1 className="text-[32px] font-bold text-stone-800 tracking-tight leading-none">Discover</h1>
+          {searchActive && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="bg-stone-200 text-stone-700 text-[13px] font-semibold px-3 py-1 rounded-full">
+                {searchQuery}
+              </span>
+              <button onClick={clearSearch} className="text-stone-400 hover:text-stone-600 transition-colors">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+                  <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           )}
         </div>
 
-        {/* Sentinel: when this leaves the viewport top, header snaps to fixed */}
-        <div ref={desktopHeaderSentinelRef} className="h-0" />
+        {/* Search area */}
+        {searchOpen ? (
+          <div className="w-80">
+            <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+          </div>
+        ) : (
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 bg-white border border-stone-200 rounded-full px-4 py-2.5 text-stone-500 hover:border-stone-300 hover:text-stone-700 transition-all text-sm shadow-sm"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 flex-shrink-0">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M20 20l-3-3" />
+            </svg>
+            Search photos, places, styles…
+          </button>
+        )}
       </div>
 
-      {/* Fixed copy — shown only after sentinel scrolls off screen */}
-      {desktopFixed && (
-        <div className="hidden lg:block fixed inset-x-0 top-0 z-[1090] overflow-visible">
-          <div
-            className="absolute inset-x-0 top-0 pointer-events-none"
-            style={{
-              height: "140px",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, transparent 100%)",
-              backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
-            }}
-          />
-          <div className="relative flex items-center justify-between px-6 pb-1" style={{ paddingTop: "12px", paddingBottom: searchOpen ? "10px" : "14px" }}>
-            <div className="w-8" />
-            <div className="flex-1 text-center">
-              <h1
-                className="text-white font-bold tracking-tight text-[26px]"
-                style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)", letterSpacing: "-0.02em" }}
-              >
-                Discover
-              </h1>
-              {searchActive && (
-                <div className="flex justify-center mt-1">
-                  <span className="bg-white/90 text-stone-800 text-[12px] font-semibold px-3 py-1 rounded-full truncate max-w-[320px]">
-                    {searchQuery}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="w-8 flex justify-end">
-              {searchActive ? (
-                <button onClick={clearSearch} className="text-white/90 hover:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
-                    <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              ) : !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="text-white/90 hover:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
-                    <circle cx="11" cy="11" r="7" />
-                    <path strokeLinecap="round" d="M20 20l-3-3" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-          {searchOpen && (
-            <div className="relative pb-1">
-              <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── Feed ── */}
-      <style>{`
-        .discover-feed { padding-top: calc(var(--sat, 44px) + 70px); }
-        @media (min-width: 1024px) { .discover-feed { padding-top: 0; } }
-      `}</style>
-      <div className="discover-feed px-2 pb-8 lg:px-10 xl:px-16">
+      <div
+        className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
+        style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
+      >
         {/* Search empty state */}
         {searchActive && !searchLoading && searchPhotosArr.length === 0 && (
           <div className="flex flex-col items-center justify-center pt-24 gap-3 text-center px-8">
@@ -645,6 +570,7 @@ export default function DiscoverClient({
           <>
             {/* Mobile: 2-column grid */}
             <div className="flex gap-2 items-start lg:hidden">
+              {/* Left column */}
               <div className="flex flex-col gap-2 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
                   <DiscoverTile
@@ -652,13 +578,14 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
                   <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
                 ))}
               </div>
+              {/* Right column */}
               <div className="flex flex-col gap-2 flex-1">
                 {rightPhotos.map((photo, colIdx) => (
                   <DiscoverTile
@@ -666,7 +593,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -684,7 +611,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -698,7 +625,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -712,7 +639,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -726,7 +653,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetOriginThumb(thumb); }}
+                    onOpen={() => setSheetPhoto(photo)}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -744,12 +671,11 @@ export default function DiscoverClient({
         <div className="h-[calc(env(safe-area-inset-bottom,0px)+72px)]" />
       </div>
 
-      {/* Photo bottom sheet */}
-      <PhotoBottomSheet
-        photo={sheetPhoto}
-        originRect={sheetOriginRect}
-        originThumb={sheetOriginThumb}
-        onClose={() => { setSheetPhoto(null); setSheetOriginRect(null); setSheetOriginThumb(null); }}
+      {/* Site bottom sheet */}
+      <SiteBottomSheet
+        site={sheetSite}
+        isOpen={sheetSite !== null}
+        onClose={() => setSheetPhoto(null)}
       />
 
     </div>
