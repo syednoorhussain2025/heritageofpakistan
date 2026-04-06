@@ -51,7 +51,7 @@ function SlidePanel({
         }}
       />
       <div
-        className={`fixed inset-0 z-[5000] bg-[#f8f8f8] flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+        className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
         onAnimationEnd={() => { if (closing) onClose(); }}
       >
       {/* Header */}
@@ -69,7 +69,11 @@ function SlidePanel({
             <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
           </svg>
         </button>
-        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">Travel Information</h2>
+        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">
+          <span className="text-slate-400 font-medium">{site.title}</span>
+          <span className="text-slate-300 mx-1.5">·</span>
+          Travel Information
+        </h2>
       </div>
 
       {/* Content — all 3 section groups stacked */}

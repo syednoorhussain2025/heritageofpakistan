@@ -23,7 +23,7 @@ export default function HeritageSection({
 }: HeritageSectionProps) {
   return (
     <section
-      className={className ?? (noFrame ? "w-full" : "p-4 md:bg-white")}
+      className={className ?? (noFrame ? "w-full" : "px-4 py-12 md:bg-white")}
     >
       {/* Keep an anchor for scroll targeting even when header is hidden */}
       {hideHeader ? (
