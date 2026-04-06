@@ -108,9 +108,9 @@ function SlidePanel({
 function PreviewCell({ iconName, label, value }: { iconName: string; label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex flex-col items-center text-center gap-1 px-1">
-      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
-        <Icon name={iconName} size={32} className="text-slate-700" />
+    <div className="flex flex-col items-center text-center px-1">
+      <div className="w-14 h-14 flex items-center justify-center">
+        <Icon name={iconName} size={41} className="text-slate-700" />
       </div>
       <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{label}</span>
       <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{value}</span>
@@ -145,12 +145,16 @@ export default function TravelGuideSheet({
   const howToReach = pick(site.travel_how_to_reach, tgs?.how_to_reach);
   const nearestCity = pick(site.travel_nearest_major_city, tgs?.nearest_major_city);
   const bestTime = pick(site.travel_best_time_free, tgs?.best_time_to_visit);
+  const airportAccess = pick(site.travel_airport_access, tgs?.airport_access);
+  const accessOptions = pick(site.travel_access_options, tgs?.access_options);
 
   const previewRows = [
     { iconName: "map-pinned", label: "Location", value: location },
     { iconName: "mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24", label: "How to Reach", value: howToReach },
     { iconName: "city-light", label: "Nearest City", value: nearestCity },
     { iconName: "calendar-dots-light", label: "Best Time to Visit", value: bestTime },
+    { iconName: "plane", label: "Airport Access", value: airportAccess },
+    { iconName: "commute-24dp-1f1f1f-fill0-wght200-grad0-opsz24-1", label: "Access Options", value: accessOptions },
   ].filter((r) => r.value);
 
   if (previewRows.length === 0) return null;

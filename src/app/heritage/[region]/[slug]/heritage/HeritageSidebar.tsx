@@ -15,7 +15,7 @@ const LocationMapSheet = dynamic(
 import Lottie from "lottie-react";
 import mapPinData from "@/assets/map-pin.json";
 
-const MOBILE_PREVIEW_ROWS = 4;
+const MOBILE_PREVIEW_ROWS = 6;
 
 function GeneralInfoSlidePanel({
   rows,
@@ -699,10 +699,10 @@ export default function HeritageSidebar({
             <div className="px-4 grid grid-cols-3 gap-3 mt-1">
               {previewGeneralInfoRows.map((row, idx) => (
                 row.v != null && row.v !== "" ? (
-                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center gap-1 px-1">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
+                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
+                    <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={32} className="text-slate-700" />
+                        ? <Icon name={row.icon} size={41} className="text-slate-700" />
                         : <span className="text-2xl text-slate-400">•••</span>
                       }
                     </div>
@@ -884,10 +884,10 @@ export default function HeritageSidebar({
             <div className="px-4 grid grid-cols-3 gap-3 mt-1">
               {previewGeneralInfoRows.map((row, idx) => (
                 row.v != null && row.v !== "" ? (
-                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center gap-1 px-1">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
+                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
+                    <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={32} className="text-slate-700" />
+                        ? <Icon name={row.icon} size={41} className="text-slate-700" />
                         : <span className="text-2xl text-slate-400">•••</span>
                       }
                     </div>
