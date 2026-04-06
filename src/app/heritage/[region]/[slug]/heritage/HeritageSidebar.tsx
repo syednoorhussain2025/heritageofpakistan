@@ -679,7 +679,7 @@ export default function HeritageSidebar({
           {/* Mobile: full-card tappable */}
           <section
             id="general"
-            className="md:hidden py-12 cursor-pointer scroll-mt-[var(--sticky-offset)] mobile-divider"
+            className="md:hidden py-12 cursor-pointer scroll-mt-[var(--sticky-offset)] mobile-divider active:bg-slate-50 transition-colors"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">
@@ -715,7 +715,6 @@ export default function HeritageSidebar({
                 <div className="col-span-3 text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
               )}
             </div>
-            <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full information</p>
           </section>
 
           {/* Desktop: static */}
@@ -900,7 +899,6 @@ export default function HeritageSidebar({
                 <div className="col-span-3 text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
               )}
             </div>
-            <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full information</p>
           </section>
           {showGeneralInfoPanel && (
             <GeneralInfoSlidePanel

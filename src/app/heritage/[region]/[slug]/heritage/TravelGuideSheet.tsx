@@ -162,7 +162,7 @@ export default function TravelGuideSheet({
   return (
     <>
       <section
-        className="md:hidden pt-12 pb-12 cursor-pointer mobile-divider"
+        className="md:hidden pt-12 pb-12 cursor-pointer mobile-divider active:bg-slate-50 transition-colors"
         onClick={() => setShowPanel(true)}
       >
         {/* Header */}
@@ -188,8 +188,6 @@ export default function TravelGuideSheet({
           ))}
         </div>
 
-        {/* Tap hint */}
-        <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full travel information</p>
       </section>
 
       {showPanel && (
