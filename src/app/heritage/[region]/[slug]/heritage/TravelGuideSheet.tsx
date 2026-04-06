@@ -105,17 +105,15 @@ function SlidePanel({
   );
 }
 
-function PreviewRow({ iconName, label, value }: { iconName: string; label: string; value?: string | null }) {
+function PreviewCell({ iconName, label, value }: { iconName: string; label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
-      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        <Icon name={iconName} size={28} className="shrink-0" />
-        {label}
+    <div className="flex flex-col items-center text-center gap-1 px-1">
+      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
+        <Icon name={iconName} size={32} className="text-slate-700" />
       </div>
-      <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap">
-        {value}
-      </div>
+      <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{label}</span>
+      <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{value}</span>
     </div>
   );
 }
@@ -179,15 +177,15 @@ export default function TravelGuideSheet({
           </span>
         </div>
 
-        {/* Preview rows */}
-        <div className="mt-1 px-6">
+        {/* Preview grid */}
+        <div className="mt-3 px-4 grid grid-cols-3 gap-3">
           {previewRows.map((r) => (
-            <PreviewRow key={r.label} iconName={r.iconName} label={r.label} value={r.value} />
+            <PreviewCell key={r.label} iconName={r.iconName} label={r.label} value={r.value} />
           ))}
         </div>
 
         {/* Tap hint */}
-        <p className="mt-3 px-4 text-[12px] text-slate-400 text-center">Tap to view full travel information</p>
+        <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full travel information</p>
       </section>
 
       {showPanel && (

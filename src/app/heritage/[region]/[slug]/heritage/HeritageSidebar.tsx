@@ -696,14 +696,26 @@ export default function HeritageSidebar({
                 </svg>
               </span>
             </div>
-            <div className="px-6">
+            <div className="px-4 grid grid-cols-3 gap-3 mt-1">
               {previewGeneralInfoRows.map((row, idx) => (
-                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
+                row.v != null && row.v !== "" ? (
+                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center gap-1 px-1">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
+                      {row.icon
+                        ? <Icon name={row.icon} size={32} className="text-slate-700" />
+                        : <span className="text-2xl text-slate-400">•••</span>
+                      }
+                    </div>
+                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{row.k}</span>
+                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{String(row.v)}</span>
+                  </div>
+                ) : null
               ))}
               {availableGeneralInfoRows.length === 0 && (
-                <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+                <div className="col-span-3 text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
               )}
             </div>
+            <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full information</p>
           </section>
 
           {/* Desktop: static */}
@@ -869,14 +881,26 @@ export default function HeritageSidebar({
                 </svg>
               </span>
             </div>
-            <div className="px-6">
+            <div className="px-4 grid grid-cols-3 gap-3 mt-1">
               {previewGeneralInfoRows.map((row, idx) => (
-                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
+                row.v != null && row.v !== "" ? (
+                  <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center gap-1 px-1">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
+                      {row.icon
+                        ? <Icon name={row.icon} size={32} className="text-slate-700" />
+                        : <span className="text-2xl text-slate-400">•••</span>
+                      }
+                    </div>
+                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{row.k}</span>
+                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{String(row.v)}</span>
+                  </div>
+                ) : null
               ))}
               {availableGeneralInfoRows.length === 0 && (
-                <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+                <div className="col-span-3 text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
               )}
             </div>
+            <p className="mt-4 px-4 text-[12px] text-slate-400 text-center">Tap to view full information</p>
           </section>
           {showGeneralInfoPanel && (
             <GeneralInfoSlidePanel
