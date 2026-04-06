@@ -293,11 +293,11 @@ function SidebarAccordionSection({
         <button
           type="button"
           onClick={onHeaderTap}
-          className="md:hidden w-full flex items-center justify-between gap-3 px-4 py-4 text-left cursor-pointer active:bg-slate-50"
+          className="md:hidden w-full flex items-center justify-between gap-3 px-4 py-12 text-left cursor-pointer active:bg-slate-50"
         >
           {titleEl}
         </button>
-        <div className="md:hidden px-6 pb-4">
+        <div className="md:hidden px-6 pb-12">
           {children}
         </div>
         {/* Desktop: static heading + content */}
@@ -316,7 +316,7 @@ function SidebarAccordionSection({
   }
 
   return (
-    <section className={className ?? `md:bg-white px-4 pb-4${noPaddingTop ? "" : " pt-4"}`}>
+    <section className={className ?? `md:bg-white px-4 pb-12${noPaddingTop ? "" : " pt-12"}`}>
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
       <div className="mb-3">
         {titleEl}
@@ -679,7 +679,7 @@ export default function HeritageSidebar({
           {/* Mobile: full-card tappable */}
           <section
             id="general"
-            className="md:hidden pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="md:hidden py-12 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">
@@ -783,7 +783,7 @@ export default function HeritageSidebar({
           title="Where is it?"
           iconName="where-is-it"
           mobileDefaultOpen
-          className="bg-white pb-4 pt-4 px-2"
+          className="bg-white py-12 px-2"
         >
           {staticMapUrl ? (
             <button
@@ -864,7 +864,7 @@ export default function HeritageSidebar({
         <>
           <section
             id="general"
-            className="pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="py-12 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">
