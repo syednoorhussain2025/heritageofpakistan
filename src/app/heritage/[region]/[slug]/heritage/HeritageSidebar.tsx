@@ -289,7 +289,7 @@ function SidebarAccordionSection({
   /* When onHeaderTap is set: whole header is tappable on mobile */
   if (onHeaderTap) {
     return (
-      <section id={id} className={`scroll-mt-[var(--sticky-offset)] bg-white${className ? ` ${className}` : ""}`}>
+      <section id={id} className={`scroll-mt-[var(--sticky-offset)] md:bg-white${className ? ` ${className}` : ""}`}>
         <button
           type="button"
           onClick={onHeaderTap}
@@ -316,7 +316,7 @@ function SidebarAccordionSection({
   }
 
   return (
-    <section className={className ?? `bg-white px-4 pb-4${noPaddingTop ? "" : " pt-4"}`}>
+    <section className={className ?? `md:bg-white px-4 pb-4${noPaddingTop ? "" : " pt-4"}`}>
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
       <div className="mb-3">
         {titleEl}
@@ -679,7 +679,7 @@ export default function HeritageSidebar({
           {/* Mobile: full-card tappable */}
           <section
             id="general"
-            className="md:hidden bg-white pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="md:hidden pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">
@@ -702,12 +702,12 @@ export default function HeritageSidebar({
                   <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
                     <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={41} className="text-slate-700" />
-                        : <span className="text-2xl text-slate-400">•••</span>
+                        ? <Icon name={row.icon} size={41} className="text-[var(--brand-blue)]" />
+                        : <span className="text-2xl text-[var(--brand-blue)]">•••</span>
                       }
                     </div>
-                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{row.k}</span>
-                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{String(row.v)}</span>
+                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight -mt-0.5">{row.k}</span>
+                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-1.5">{String(row.v)}</span>
                   </div>
                 ) : null
               ))}
@@ -740,7 +740,7 @@ export default function HeritageSidebar({
           )}
 
           {showUNESCO ? (
-            <section className="bg-white p-4">
+            <section className="md:bg-white p-4">
               <h2
                 className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[22px] md:text-[18px] font-extrabold md:font-semibold"
                 style={{
@@ -864,7 +864,7 @@ export default function HeritageSidebar({
         <>
           <section
             id="general"
-            className="bg-white pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
             <div className="flex items-center justify-between mb-3 px-4">
@@ -887,12 +887,12 @@ export default function HeritageSidebar({
                   <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
                     <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={41} className="text-slate-700" />
-                        : <span className="text-2xl text-slate-400">•••</span>
+                        ? <Icon name={row.icon} size={41} className="text-[var(--brand-blue)]" />
+                        : <span className="text-2xl text-[var(--brand-blue)]">•••</span>
                       }
                     </div>
-                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{row.k}</span>
-                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{String(row.v)}</span>
+                    <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight -mt-0.5">{row.k}</span>
+                    <span className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-1.5">{String(row.v)}</span>
                   </div>
                 ) : null
               ))}
@@ -909,7 +909,7 @@ export default function HeritageSidebar({
             />
           )}
           {showUNESCO ? (
-            <section className="bg-white p-4">
+            <section className="md:bg-white p-4">
               <h2
                 className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[22px] md:text-[18px] font-extrabold md:font-semibold"
                 style={{

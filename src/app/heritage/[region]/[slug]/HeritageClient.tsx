@@ -314,7 +314,7 @@ export default function HeritageClient({
         {/* ============================================================ */}
         {/* MOBILE LAYOUT — linear single-column, ordered for UX         */}
         {/* ============================================================ */}
-        <div className="lg:hidden space-y-4 w-full">
+        <div className="lg:hidden w-full bg-white divide-y divide-slate-100">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />

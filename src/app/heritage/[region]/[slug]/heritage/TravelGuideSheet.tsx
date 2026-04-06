@@ -110,10 +110,10 @@ function PreviewCell({ iconName, label, value }: { iconName: string; label: stri
   return (
     <div className="flex flex-col items-center text-center px-1">
       <div className="w-14 h-14 flex items-center justify-center">
-        <Icon name={iconName} size={41} className="text-slate-700" />
+        <Icon name={iconName} size={41} className="text-[var(--brand-blue)]" />
       </div>
-      <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight">{label}</span>
-      <span className="text-[11px] text-slate-500 leading-snug line-clamp-2">{value}</span>
+      <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight -mt-0.5">{label}</span>
+      <span className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-1.5">{value}</span>
     </div>
   );
 }
@@ -162,7 +162,7 @@ export default function TravelGuideSheet({
   return (
     <>
       <section
-        className="md:hidden bg-white pt-4 pb-3 cursor-pointer"
+        className="md:hidden pt-4 pb-3 cursor-pointer"
         onClick={() => setShowPanel(true)}
       >
         {/* Header */}
