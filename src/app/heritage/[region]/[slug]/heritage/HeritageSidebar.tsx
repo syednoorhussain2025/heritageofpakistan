@@ -20,9 +20,11 @@ const MOBILE_PREVIEW_ROWS = 6;
 function GeneralInfoSlidePanel({
   rows,
   onClose,
+  siteTitle,
 }: {
   rows: Array<{ k: string; v?: string | number | null; icon?: string }>;
   onClose: () => void;
+  siteTitle?: string;
 }) {
   const [closing, setClosing] = useState(false);
 
@@ -66,9 +68,12 @@ function GeneralInfoSlidePanel({
               <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
             </svg>
           </button>
-          <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">General Information</h2>
+          <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">
+            {siteTitle && <><span className="text-slate-400 font-medium">{siteTitle}</span><span className="text-slate-300 mx-1.5">·</span></>}
+            General Information
+          </h2>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-2">
+        <div className="flex-1 overflow-y-auto py-2">
           {rows.map((row, idx) => (
             <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
           ))}
@@ -207,7 +212,7 @@ const LANDFORM_MAP: Record<
 function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null; idx?: number; icon?: string }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className={`grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
+    <div className={`grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible px-4 ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
       <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
         {icon && <Icon name={icon} size={28} className="shrink-0" />}
         {k}
@@ -735,6 +740,7 @@ export default function HeritageSidebar({
             <GeneralInfoSlidePanel
               rows={availableGeneralInfoRows}
               onClose={() => setShowGeneralInfoPanel(false)}
+              siteTitle={site.title}
             />
           )}
 
@@ -904,6 +910,7 @@ export default function HeritageSidebar({
             <GeneralInfoSlidePanel
               rows={availableGeneralInfoRows}
               onClose={() => setShowGeneralInfoPanel(false)}
+              siteTitle={site.title}
             />
           )}
           {showUNESCO ? (
@@ -941,7 +948,6 @@ export default function HeritageSidebar({
           iconName="travel-guide"
           mobileDefaultOpen
         >
-          <KeyVal k="Heritage Site" v={site.title} />
           <KeyVal k="Location" v={mergedTravelLocation} icon="map-pinned" />
           <KeyVal k="How to Reach" v={mergedHowToReach} icon="mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
           <KeyVal k="Nearest Major City" v={mergedNearestCity} icon="city-light" />
@@ -1153,8 +1159,7 @@ export default function HeritageSidebar({
             iconName="travel-guide"
             mobileDefaultOpen={true}
           >
-            <KeyVal k="Heritage Site" v={site.title} />
-            <KeyVal k="Location" v={mergedTravelLocation} icon="map-pinned" />
+              <KeyVal k="Location" v={mergedTravelLocation} icon="map-pinned" />
             <KeyVal k="How to Reach" v={mergedHowToReach} icon="mode-of-travel-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
             <KeyVal k="Nearest Major City" v={mergedNearestCity} icon="city-light" />
             <KeyVal k="Airport Access" v={mergedAirportAccess} icon="plane" />
