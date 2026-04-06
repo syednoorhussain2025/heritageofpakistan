@@ -128,7 +128,7 @@ export default function HeritageUpperArticle({
   return (
     <>
       {/* Mobile: horizontal scroll chiggps */}
-      <section className="md:hidden px-4 pt-12 pb-12 mobile-divider" onClick={() => setShowPanel(true)}>
+      <section className="md:hidden px-4 pt-12 pb-12 mobile-divider mobile-divider-top" onClick={() => setShowPanel(true)}>
         {/* Header: title + count + chevron */}
         <div className="flex items-center justify-between mb-3">
           <h2

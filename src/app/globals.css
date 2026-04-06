@@ -515,3 +515,11 @@ code {
   background-size: 100% 1px;
   background-repeat: no-repeat;
 }
+.mobile-divider-top {
+  background-image:
+    linear-gradient(to right, transparent 3rem, #cbd5e1 3rem, #cbd5e1 calc(100% - 3rem), transparent calc(100% - 3rem)),
+    linear-gradient(to right, transparent 3rem, #cbd5e1 3rem, #cbd5e1 calc(100% - 3rem), transparent calc(100% - 3rem));
+  background-position: bottom, top;
+  background-size: 100% 1px, 100% 1px;
+  background-repeat: no-repeat;
+}
