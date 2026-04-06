@@ -293,7 +293,8 @@ export default function HeritageCover({
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const PARALLAX_RATIO = 0.4;
-    const LERP = 0.12;
+    const LERP_DOWN = 0.12;  // scrolling down (image moving up/away) — responsive
+    const LERP_UP = 0.07;    // scrolling back up (image sliding in) — slower for ease-out feel
 
     let raf = 0;
     let currentY = 0;
@@ -310,7 +311,9 @@ export default function HeritageCover({
 
         // Clamp to <= 0: prevent iOS overscroll rubber-band pushing slide down
         const targetY = Math.min(0, -(scrollTop * PARALLAX_RATIO));
-        currentY += (targetY - currentY) * LERP;
+        // Use slower lerp when image is returning into view (scrolling up toward 0)
+        const lerp = targetY > currentY ? LERP_UP : LERP_DOWN;
+        currentY += (targetY - currentY) * lerp;
         slide.style.transform = `translateY(${currentY.toFixed(2)}px) translateZ(0)`;
 
         // Only update fade opacity when scroll position actually changed
