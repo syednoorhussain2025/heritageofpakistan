@@ -55,7 +55,7 @@ function GeneralInfoSlidePanel({
         className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
         onAnimationEnd={() => { if (closing) onClose(); }}
       >
-        <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}>
+        <div className="flex items-center gap-3 px-6 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}>
           <button
             type="button"
             onClick={handleClose}
@@ -68,7 +68,7 @@ function GeneralInfoSlidePanel({
           </button>
           <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">General Information</h2>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-2">
+        <div className="flex-1 overflow-y-auto px-6 py-2">
           {rows.map((row, idx) => (
             <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
           ))}
@@ -209,7 +209,7 @@ function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null
   return (
     <div className={`grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
       <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        {icon && <Icon name={icon} size={25} className="shrink-0" />}
+        {icon && <Icon name={icon} size={28} className="shrink-0" />}
         {k}
       </div>
       <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap overflow-x-visible">
@@ -224,7 +224,7 @@ function GpsCoords({ lat, lng }: { lat?: number | string | null; lng?: number | 
   return (
     <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
       <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={25} className="shrink-0" />
+        <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={28} className="shrink-0" />
         GPS
       </div>
       <div className="text-[14px] font-medium text-slate-500 font-mono tabular-nums">
@@ -281,7 +281,7 @@ function SidebarAccordionSection({
       className="flex items-center gap-2 text-[22px] font-extrabold"
       style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
     >
-      {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
+      {iconName ? <Icon name={iconName} size={24} className="text-[var(--brand-orange)]" /> : null}
       <span>{title}</span>
     </h2>
   );
@@ -297,7 +297,7 @@ function SidebarAccordionSection({
         >
           {titleEl}
         </button>
-        <div className="md:hidden px-4 pb-4">
+        <div className="md:hidden px-6 pb-4">
           {children}
         </div>
         {/* Desktop: static heading + content */}
@@ -679,15 +679,15 @@ export default function HeritageSidebar({
           {/* Mobile: full-card tappable */}
           <section
             id="general"
-            className="md:hidden bg-white px-4 pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="md:hidden bg-white pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 px-4">
               <h2
                 className="flex items-center gap-2 text-[22px] font-extrabold"
                 style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
               >
-                <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+                <Icon name="general-info" size={24} className="text-[var(--brand-orange)]" />
                 <span>General Information</span>
               </h2>
               <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
@@ -696,12 +696,14 @@ export default function HeritageSidebar({
                 </svg>
               </span>
             </div>
-            {previewGeneralInfoRows.map((row, idx) => (
-              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
-            ))}
-            {availableGeneralInfoRows.length === 0 && (
-              <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
-            )}
+            <div className="px-6">
+              {previewGeneralInfoRows.map((row, idx) => (
+                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
+              ))}
+              {availableGeneralInfoRows.length === 0 && (
+                <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+              )}
+            </div>
           </section>
 
           {/* Desktop: static */}
@@ -736,7 +738,7 @@ export default function HeritageSidebar({
               >
                 <Icon
                   name="unesco"
-                  size={18}
+                  size={24}
                   className="text-[var(--brand-orange)]"
                 />
                 <span>UNESCO</span>
@@ -769,7 +771,7 @@ export default function HeritageSidebar({
           title="Where is it?"
           iconName="where-is-it"
           mobileDefaultOpen
-          className=""
+          className="bg-white pb-4 pt-4 px-2"
         >
           {staticMapUrl ? (
             <button
@@ -850,15 +852,15 @@ export default function HeritageSidebar({
         <>
           <section
             id="general"
-            className="bg-white px-4 pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
+            className="bg-white pt-4 pb-3 cursor-pointer scroll-mt-[var(--sticky-offset)]"
             onClick={() => availableGeneralInfoRows.length > 0 && setShowGeneralInfoPanel(true)}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 px-4">
               <h2
                 className="flex items-center gap-2 text-[22px] font-extrabold"
                 style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
               >
-                <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+                <Icon name="general-info" size={24} className="text-[var(--brand-orange)]" />
                 <span>General Information</span>
               </h2>
               <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
@@ -867,12 +869,14 @@ export default function HeritageSidebar({
                 </svg>
               </span>
             </div>
-            {previewGeneralInfoRows.map((row, idx) => (
-              <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
-            ))}
-            {availableGeneralInfoRows.length === 0 && (
-              <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
-            )}
+            <div className="px-6">
+              {previewGeneralInfoRows.map((row, idx) => (
+                <KeyVal key={`${row.k}-${idx}`} k={row.k} v={row.v} icon={row.icon} />
+              ))}
+              {availableGeneralInfoRows.length === 0 && (
+                <div className="text-[13px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>No information available.</div>
+              )}
+            </div>
           </section>
           {showGeneralInfoPanel && (
             <GeneralInfoSlidePanel
@@ -889,7 +893,7 @@ export default function HeritageSidebar({
                   fontFamily: "var(--font-article-heading, inherit)",
                 }}
               >
-                <Icon name="unesco" size={18} className="text-[var(--brand-orange)]" />
+                <Icon name="unesco" size={24} className="text-[var(--brand-orange)]" />
                 <span>UNESCO</span>
               </h2>
               <div className="flex items-start gap-3">

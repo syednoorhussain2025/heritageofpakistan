@@ -56,7 +56,7 @@ function SlidePanel({
       >
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 bg-white border-b border-slate-100"
+        className="flex items-center gap-3 px-6 bg-white border-b border-slate-100"
         style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}
       >
         <button
@@ -73,7 +73,7 @@ function SlidePanel({
       </div>
 
       {/* Content — all 3 section groups stacked */}
-      <div className="flex-1 overflow-y-auto space-y-4 p-4">
+      <div className="flex-1 overflow-y-auto space-y-4 p-0">
         <HeritageSidebar
           site={site}
           provinceName={provinceName}
@@ -110,7 +110,7 @@ function PreviewRow({ iconName, label, value }: { iconName: string; label: strin
   return (
     <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
       <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        <Icon name={iconName} size={25} className="shrink-0" />
+        <Icon name={iconName} size={28} className="shrink-0" />
         {label}
       </div>
       <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap">
@@ -169,7 +169,7 @@ export default function TravelGuideSheet({
             className="flex items-center gap-2 text-[22px] font-extrabold"
             style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
           >
-            <Icon name="travel-guide" size={18} className="text-[var(--brand-orange)]" />
+            <Icon name="travel-guide" size={24} className="text-[var(--brand-orange)]" />
             <span>Travel Guide</span>
           </h2>
           <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
@@ -180,7 +180,7 @@ export default function TravelGuideSheet({
         </div>
 
         {/* Preview rows */}
-        <div className="mt-1 px-8">
+        <div className="mt-1 px-6">
           {previewRows.map((r) => (
             <PreviewRow key={r.label} iconName={r.iconName} label={r.label} value={r.value} />
           ))}

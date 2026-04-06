@@ -36,11 +36,10 @@ export default function HeritageSection({
           }}
         >
           {iconName && (
-            <Icon
-              name={iconName}
-              size={18}
-              className="text-[var(--brand-orange)]"
-            />
+            <>
+              <span className="md:hidden"><Icon name={iconName} size={24} className="text-[var(--brand-orange)]" /></span>
+              <span className="hidden md:inline"><Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /></span>
+            </>
           )}
           <span>{title}</span>
         </h2>

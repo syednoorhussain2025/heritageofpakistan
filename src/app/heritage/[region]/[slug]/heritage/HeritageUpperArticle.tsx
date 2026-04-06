@@ -135,7 +135,7 @@ export default function HeritageUpperArticle({
             className="flex items-center gap-2 text-[22px] font-extrabold"
             style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
           >
-            <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
+            <Icon name="heritage-categories" size={24} className="text-[var(--brand-orange)]" />
             <span>Heritage Categories</span>
             {categories.length > 0 && (
               <span className="text-[14px] font-semibold text-slate-400">({categories.length})</span>
