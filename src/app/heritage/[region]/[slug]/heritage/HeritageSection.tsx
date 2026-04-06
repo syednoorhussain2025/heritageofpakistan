@@ -9,6 +9,7 @@ type HeritageSectionProps = {
   noFrame?: boolean;
   /** Hides the section heading (useful when inner cards provide their own) */
   hideHeader?: boolean;
+  className?: string;
 };
 
 export default function HeritageSection({
@@ -18,10 +19,11 @@ export default function HeritageSection({
   id,
   noFrame = false,
   hideHeader = false,
+  className,
 }: HeritageSectionProps) {
   return (
     <section
-      className={noFrame ? "w-full" : "p-4 md:bg-white"}
+      className={className ?? (noFrame ? "w-full" : "p-4 md:bg-white")}
     >
       {/* Keep an anchor for scroll targeting even when header is hidden */}
       {hideHeader ? (

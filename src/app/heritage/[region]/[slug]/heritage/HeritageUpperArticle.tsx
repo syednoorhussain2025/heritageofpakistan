@@ -194,7 +194,7 @@ export default function HeritageUpperArticle({
       </section>
 
       {/* Desktop: full scrollable grid (unchanged) */}
-      <HeritageSection id="categories" title="" hideHeader>
+      <HeritageSection id="categories" title="" hideHeader className="hidden md:block">
         <h2
           className="mb-3 hidden md:flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
           style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}

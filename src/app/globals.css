@@ -507,3 +507,17 @@ code {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ── Mobile heritage page: inset dividers between sections ── */
+.mobile-sections > * {
+  position: relative;
+}
+.mobile-sections > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 1px;
+  background-color: #cbd5e1;
+}
