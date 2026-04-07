@@ -1052,8 +1052,11 @@ export default function HeritageSidebar({
           iconName="did-you-know"
           mobileDefaultOpen
         >
-          <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-            {site.did_you_know}
+          <div className="bg-slate-50/50 px-4 py-3 border-l-4 border-[var(--brand-orange)] flex items-start gap-3">
+            <Icon name="live-help-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={64} className="shrink-0 text-slate-300 mt-0.5" />
+            <p className="whitespace-pre-wrap text-[16px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+              {site.did_you_know}
+            </p>
           </div>
         </SidebarAccordionSection>
       )}
