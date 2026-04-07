@@ -373,7 +373,7 @@ export default function HeritageSidebar({
   regions: Taxonomy[];
   maps: { embed: string | null; link: string | null };
   travelGuideSummary?: TravelGuideSummary | null;
-  sectionGroup?: "all" | "top" | "bottom" | "mobile-location" | "mobile-general" | "mobile-travel" | "mobile-climate" | "mobile-stay" | "mobile-bottom";
+  sectionGroup?: "all" | "top" | "bottom" | "mobile-location" | "mobile-general" | "mobile-travel" | "mobile-climate" | "mobile-stay" | "mobile-bottom" | "mobile-did-you-know" | "mobile-protected-under";
   regionsPlacement?: "top" | "bottom";
 }) {
   // use server-provided summary directly, no client Supabase calls
@@ -1046,34 +1046,32 @@ export default function HeritageSidebar({
         </SidebarAccordionSection>
       )}
 
+      {sectionGroup === "mobile-did-you-know" && site.did_you_know && (
+        <SidebarAccordionSection
+          title="Did you Know"
+          iconName="did-you-know"
+          mobileDefaultOpen
+        >
+          <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+            {site.did_you_know}
+          </div>
+        </SidebarAccordionSection>
+      )}
+
+      {sectionGroup === "mobile-protected-under" && site.protected_under && (
+        <SidebarAccordionSection
+          title="Protected under"
+          iconName="protected-under"
+          mobileDefaultOpen
+        >
+          <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+            {site.protected_under}
+          </div>
+        </SidebarAccordionSection>
+      )}
+
       {sectionGroup === "mobile-bottom" && (
         <>
-          <SidebarAccordionSection
-            title="Did you Know"
-            iconName="did-you-know"
-            mobileDefaultOpen
-          >
-            {site.did_you_know ? (
-              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-                {site.did_you_know}
-              </div>
-            ) : (
-              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
-            )}
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
-            title="Protected under"
-            iconName="protected-under"
-            mobileDefaultOpen
-          >
-            {site.protected_under ? (
-              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-                {site.protected_under}
-              </div>
-            ) : (
-              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>Not specified.</div>
-            )}
-          </SidebarAccordionSection>
         </>
       )}
 

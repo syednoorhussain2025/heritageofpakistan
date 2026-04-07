@@ -328,7 +328,17 @@ export default function HeritageClient({
               {/* 1. Heritage Categories */}
               <HeritageUpperArticle categories={categories} />
 
-              {/* 2. Travel Guide (preview card → full sheet) */}
+              {/* 2. Did you Know */}
+              <HeritageSidebar
+                site={site as any}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
+                travelGuideSummary={travelGuideSummary}
+                sectionGroup="mobile-did-you-know"
+              />
+
+              {/* 3. Travel Guide (preview card → full sheet) */}
               <TravelGuideSheet
                 site={site as any}
                 provinceName={provinceName}
@@ -337,7 +347,7 @@ export default function HeritageClient({
                 travelGuideSummary={travelGuideSummary}
               />
 
-              {/* 3. General Information */}
+              {/* 4. General Information */}
               <LazySection skeleton={<SidebarCardSkeleton lines={9} />}>
                 <HeritageSidebar
                   site={site as any}
@@ -349,7 +359,17 @@ export default function HeritageClient({
                 />
               </LazySection>
 
-              {/* 4. History and Background */}
+              {/* 5. Protected under */}
+              <HeritageSidebar
+                site={site as any}
+                provinceName={provinceName}
+                regions={regions}
+                maps={maps}
+                travelGuideSummary={travelGuideSummary}
+                sectionGroup="mobile-protected-under"
+              />
+
+              {/* 6. History and Background */}
               {site.history_layout_html && (
                 <HeritageSection
                   id="history"
@@ -487,17 +507,6 @@ export default function HeritageClient({
                 />
               )}
 
-              {/* 13. Did you Know + Regions + Protected under */}
-              <LazySection skeleton={<SidebarCardSkeleton lines={5} />}>
-                <HeritageSidebar
-                  site={site as any}
-                  provinceName={provinceName}
-                  regions={regions}
-                  maps={maps}
-                  travelGuideSummary={travelGuideSummary}
-                  sectionGroup="mobile-bottom"
-                />
-              </LazySection>
 
               {/* 14. Bibliography */}
               <LazySection skeleton={<BibliographySkeleton rows={4} />}>
