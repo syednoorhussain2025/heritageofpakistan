@@ -212,9 +212,11 @@ const LANDFORM_MAP: Record<
 function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null; idx?: number; icon?: string }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className={`grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible px-4 ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
-      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        {icon && <Icon name={icon} size={28} className="shrink-0" />}
+    <div className={`grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible px-4 ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
+      <div className="flex items-center justify-center">
+        {icon && <Icon name={icon} size={24} className="shrink-0 text-[var(--brand-blue)]" />}
+      </div>
+      <div className="flex items-center text-[14px] font-semibold text-[var(--brand-blue)]">
         {k}
       </div>
       <div className="text-[14px] font-medium text-slate-500 text-left break-words whitespace-pre-wrap overflow-x-visible">
@@ -227,11 +229,11 @@ function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null
 function GpsCoords({ lat, lng }: { lat?: number | string | null; lng?: number | string | null }) {
   if (lat == null || lng == null || lat === "" || lng === "") return null;
   return (
-    <div className="grid grid-cols-[150px_minmax(0,2fr)] gap-x-4 py-3.5 border-b border-black/5 last:border-b-0">
-      <div className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--brand-blue)]">
-        <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={28} className="shrink-0" />
-        GPS
+    <div className="grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 px-4">
+      <div className="flex items-center justify-center">
+        <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={24} className="shrink-0 text-[var(--brand-blue)]" />
       </div>
+      <div className="flex items-center text-[14px] font-semibold text-[var(--brand-blue)]">GPS</div>
       <div className="text-[14px] font-medium text-slate-500 font-mono tabular-nums">
         {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
       </div>
@@ -294,7 +296,7 @@ function SidebarAccordionSection({
   /* When onHeaderTap is set: whole header is tappable on mobile */
   if (onHeaderTap) {
     return (
-      <section id={id} className={`scroll-mt-[var(--sticky-offset)] md:bg-white mobile-divider${className ? ` ${className}` : ""}`}>
+      <section id={id} className={`scroll-mt-[var(--sticky-offset)] md:bg-white md:rounded-2xl mobile-divider${className ? ` ${className}` : ""}`}>
         <button
           type="button"
           onClick={onHeaderTap}
@@ -308,10 +310,10 @@ function SidebarAccordionSection({
         {/* Desktop: static heading + content */}
         <div className="hidden md:block p-4">
           <h2
-            className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[17px] md:text-[18px] font-semibold"
+            className="mb-3 flex items-center gap-2 scroll-mt-[var(--sticky-offset)] text-[20px] font-extrabold"
             style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
           >
-            {iconName ? <Icon name={iconName} size={18} className="text-[var(--brand-orange)]" /> : null}
+            {iconName ? <Icon name={iconName} size={22} className="text-[var(--brand-orange)]" /> : null}
             <span>{title}</span>
           </h2>
           {children}
@@ -321,7 +323,7 @@ function SidebarAccordionSection({
   }
 
   return (
-    <section className={className ?? `md:bg-white px-4 pb-12 mobile-divider${noPaddingTop ? "" : " pt-12"}`}>
+    <section className={className ?? `md:bg-white md:rounded-2xl md:px-6 md:py-6 px-4 pb-12 mobile-divider${noPaddingTop ? "" : " pt-12"}`}>
       <div id={id} className="scroll-mt-[var(--sticky-offset)]" />
       <div className="mb-3">
         {titleEl}
@@ -568,7 +570,7 @@ export default function HeritageSidebar({
 
   return (
     <>
-    <div className="space-y-2">
+    <div className="lg:space-y-6">
       {showTop && (
         <>
           <SidebarAccordionSection
@@ -723,12 +725,12 @@ export default function HeritageSidebar({
           </section>
 
           {/* Desktop: static */}
-          <section id="general" className="hidden md:block p-4 scroll-mt-[var(--sticky-offset)]">
+          <section id="general" className="hidden md:block bg-white rounded-2xl p-6 scroll-mt-[var(--sticky-offset)]">
             <h2
-              className="mb-3 flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
+              className="mb-3 flex items-center gap-2 text-[20px] font-extrabold"
               style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
             >
-              <Icon name="general-info" size={18} className="text-[var(--brand-orange)]" />
+              <Icon name="general-info" size={22} className="text-[var(--brand-orange)]" />
               <span>General Information</span>
             </h2>
             {availableGeneralInfoRows.map((row, idx) => (
@@ -849,6 +851,33 @@ export default function HeritageSidebar({
           <KeyVal k="Tehsil" v={site.tehsil} idx={1} icon="building-office-light" />
           <KeyVal k="District" v={site.district} idx={2} icon="shield" />
           <KeyVal k="Region/Province" v={provinceName} idx={3} icon="landscape-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+
+          {/* Region pills — mobile only, horizontal scroll */}
+          {regions.length > 0 && (
+            <div className="md:hidden relative mt-4 -mx-2">
+              <div className="hop-cats-scroll overflow-x-auto overflow-y-hidden px-2 py-1">
+                <div className="flex gap-2 pb-1">
+                  {regions.map((r) => (
+                    <a
+                      key={r.id}
+                      href={`/explore?regs=${r.id}`}
+                      style={{ minWidth: "calc(50% - 4px)" }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 active:bg-slate-100 shrink-0"
+                    >
+                      {r.icon_key && (
+                        <div className="w-6 h-6 rounded-full bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
+                          <Icon name={r.icon_key.trim()} size={12} className="text-white" />
+                        </div>
+                      )}
+                      <span className="text-[13px] font-semibold text-slate-700 whitespace-nowrap">{r.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
+            </div>
+          )}
+
           {maps.link ? (
             <div className="mt-4 flex justify-center">
               <a
@@ -1030,23 +1059,6 @@ export default function HeritageSidebar({
               </div>
             ) : (
               <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
-            )}
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
-            title="Regions"
-            iconName="regions"
-            mobileDefaultOpen
-          >
-            {regions.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4">
-                {regions.map((r) => (
-                  <IconChip key={r.id} iconName={r.icon_key} label={r.name} href={`/explore?regs=${r.id}`} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-                No regions specified.
-              </div>
             )}
           </SidebarAccordionSection>
           <SidebarAccordionSection

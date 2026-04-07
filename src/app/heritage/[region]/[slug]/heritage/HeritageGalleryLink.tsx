@@ -65,10 +65,10 @@ export default function HeritageGalleryLink({
         <div className="flex items-center gap-2">
           <Icon
             name={icon}
-            className="text-[var(--brand-orange)] text-lg"
+            className="text-[var(--brand-orange)]" size={22}
           />
           <h3
-            className="text-[22px] sm:text-lg font-extrabold sm:font-semibold"
+            className="text-[22px] sm:text-[20px] font-extrabold"
             style={{
               color: "var(--brand-blue, #1f6be0)",
               fontFamily: "var(--font-article-heading, inherit)",

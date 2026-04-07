@@ -196,10 +196,10 @@ export default function HeritageUpperArticle({
       {/* Desktop: full scrollable grid (unchanged) */}
       <HeritageSection id="categories" title="" hideHeader className="hidden md:block">
         <h2
-          className="mb-3 hidden md:flex items-center gap-2 text-[17px] md:text-[18px] font-semibold"
+          className="mb-3 hidden md:flex items-center gap-2 text-[20px] font-extrabold"
           style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
         >
-          <Icon name="heritage-categories" size={18} className="text-[var(--brand-orange)]" />
+          <Icon name="heritage-categories" size={22} className="text-[var(--brand-orange)]" />
           <span>Heritage Categories</span>
         </h2>
         <div className="hidden md:block">

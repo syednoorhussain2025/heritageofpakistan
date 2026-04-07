@@ -309,7 +309,7 @@ export default function HeritageClient({
       />
 
       {/* Content layout */}
-      <div className="max-w-screen-2xl mx-auto mt-0 mb-2 lg:my-6 px-0 lg:px-[109px] flex flex-col gap-2 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-4">
+      <div className="max-w-screen-2xl mx-auto mt-0 mb-2 lg:my-6 px-0 lg:px-[109px] flex flex-col gap-2 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-8">
 
         {/* ============================================================ */}
         {/* MOBILE LAYOUT — linear single-column, ordered for UX         */}
@@ -355,7 +355,7 @@ export default function HeritageClient({
                   id="history"
                   title="History and Background"
                   iconName="history-background"
-                  className="mobile-divider px-4 py-12 md:bg-white"
+                  className="mobile-divider mobile-divider-top px-4 py-12 md:bg-white"
                 >
                   <LazySection skeleton={<SidebarCardSkeleton lines={7} />}>
                     <CollectionsProvider>
@@ -456,7 +456,7 @@ export default function HeritageClient({
               </LazySection>
 
               {/* 12. Traveler Reviews */}
-              <HeritageSection id="reviews" title="Traveler Reviews" iconName="star" className="mobile-divider px-4 py-12 md:bg-white">
+              <HeritageSection id="reviews" title="Traveler Reviews" iconName="star" className="mobile-divider mobile-divider-top px-4 py-12 md:bg-white">
                 <LazySection
                   skeleton={
                     <div className="space-y-4">
@@ -519,7 +519,7 @@ export default function HeritageClient({
         {/* ============================================================ */}
 
         {/* LEFT SIDEBAR (DESKTOP FULL STACK) */}
-        <aside className="hidden lg:block lg:space-y-5 lg:w-auto lg:flex-shrink-0">
+        <aside className="hidden lg:block lg:space-y-10 lg:w-auto lg:flex-shrink-0">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={7} />
@@ -557,7 +557,7 @@ export default function HeritageClient({
         </aside>
 
         {/* RIGHT MAIN CONTENT (DESKTOP) */}
-        <main className="hidden lg:block space-y-2 w-full lg:flex-1">
+        <main className="hidden lg:block space-y-10 w-full lg:flex-1">
           {!site ? (
             <>
               <SidebarCardSkeleton lines={6} />
