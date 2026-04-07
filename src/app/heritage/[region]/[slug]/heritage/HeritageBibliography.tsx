@@ -12,8 +12,7 @@ const MOBILE_PREVIEW_COUNT = 2;
 
 function BibliographyItem({ entryHtml, note }: { entryHtml: string; note?: string | null }) {
   return (
-    <div className="bg-slate-50/50 mx-4 px-4 py-3 border-l-4 border-[var(--brand-orange)] flex items-start gap-3">
-      <Icon name="receipt-long-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={64} className="shrink-0 text-slate-300 mt-0.5" />
+    <div className="bg-slate-50/50 mx-6 px-4 py-3 border-l-4 border-[var(--brand-orange)]">
       <div className="text-[14px] text-slate-600 leading-relaxed">
         <span className="csl-entry" dangerouslySetInnerHTML={{ __html: entryHtml }} />
         {note ? <span className="text-slate-400"> — {note}</span> : null}
@@ -102,12 +101,11 @@ export default function HeritageBibliography({
   return (
     <>
       {/* Mobile */}
-      <section className="md:hidden py-12 mobile-divider mobile-divider-top scroll-mt-[var(--sticky-offset)]">
-        <button
-          type="button"
-          onClick={() => hasItems && setShowPanel(true)}
-          className="w-full flex items-center justify-between mb-4 px-4 text-left"
-        >
+      <section
+        className="md:hidden py-12 mobile-divider mobile-divider-top scroll-mt-[var(--sticky-offset)] cursor-pointer active:bg-slate-50 transition-colors"
+        onClick={() => hasItems && setShowPanel(true)}
+      >
+        <div className="w-full flex items-center justify-between mb-4 px-4">
           <h2
             className="flex items-center gap-2 text-[22px] font-extrabold"
             style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
@@ -115,14 +113,14 @@ export default function HeritageBibliography({
             <Icon name="bibliography-sources" size={24} className="text-[var(--brand-orange)]" />
             <span>Bibliography &amp; Sources</span>
           </h2>
-          {hasMore && (
+          {hasItems && (
             <span aria-hidden="true" className="inline-flex shrink-0 h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-500">
               <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
                 <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
               </svg>
             </span>
           )}
-        </button>
+        </div>
         {hasItems ? (
           <div className="space-y-3">
             {previewItems.map((row, i) => (
