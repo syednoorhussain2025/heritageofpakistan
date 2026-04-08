@@ -421,7 +421,7 @@ export default async function Page({ params }: HeritagePageProps) {
     /* 2a. Categories */
     supabase
       .from("site_categories")
-      .select("categories(id, name, icon_key)")
+      .select("categories(id, name, icon_key, parent_id, parent:parent_id(id, name))")
       .eq("site_id", site.id),
 
     /* 2b. Regions */
@@ -504,7 +504,15 @@ export default async function Page({ params }: HeritagePageProps) {
 
   /* 3. Category icon SVGs — one extra round-trip, only if icons are needed */
   const categoriesBase: Taxonomy[] = (sc || [])
-    .map((row: any) => row.categories)
+    .map((row: any) => {
+      const cat = row.categories;
+      if (!cat) return null;
+      return {
+        ...cat,
+        parent_id: cat.parent_id ?? null,
+        parent_name: cat.parent?.name ?? null,
+      };
+    })
     .filter(Boolean);
 
   const categoryIconKeys = Array.from(

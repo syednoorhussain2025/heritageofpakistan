@@ -181,6 +181,8 @@ export type Taxonomy = {
   name: string | null;
   icon_key: string | null;
   icon_svg?: string | null;
+  parent_id?: string | null;
+  parent_name?: string | null;
 };
 
 /* -------------------------------------------------------
@@ -372,10 +374,20 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
         -------------------------------------------------------- */
         const { data: sc } = await supabase
           .from("site_categories")
-          .select("categories(id, name, icon_key)")
+          .select("categories(id, name, icon_key, parent_id, parent:parent_id(id, name))")
           .eq("site_id", siteBase.id);
         setCategories(
-          (sc || []).map((row: any) => row.categories).filter(Boolean)
+          (sc || [])
+            .map((row: any) => {
+              const cat = row.categories;
+              if (!cat) return null;
+              return {
+                ...cat,
+                parent_id: cat.parent_id ?? null,
+                parent_name: cat.parent?.name ?? null,
+              };
+            })
+            .filter(Boolean)
         );
 
         /* -------------------------------------------------------
