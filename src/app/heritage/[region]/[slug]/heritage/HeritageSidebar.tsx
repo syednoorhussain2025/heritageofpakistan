@@ -74,7 +74,7 @@ function GeneralInfoSlidePanel({
                 {siteTitle}
               </span>
             )}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-bold bg-slate-100 text-[var(--brand-orange,#F78300)]">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-bold bg-slate-100 text-[var(--brand-blue,#1f6be0)]">
               <Icon name="general-info" size={13} className="text-[var(--brand-orange,#F78300)]" />
               General Information
             </span>
