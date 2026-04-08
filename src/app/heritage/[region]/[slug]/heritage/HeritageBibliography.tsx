@@ -62,25 +62,25 @@ function BibliographySlidePanel({
         className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
         onAnimationEnd={() => { if (closing) onClose(); }}
       >
-        <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}>
+        <div className="relative flex items-center justify-center px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}>
           <button
             type="button"
             onClick={() => setClosing(true)}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 shrink-0"
+            className="absolute left-4 inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 shrink-0"
             aria-label="Back"
           >
             <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
               <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
             </svg>
           </button>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col items-center gap-0.5">
             {siteTitle && (
               <span className="text-[18px] font-extrabold" style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}>
                 {siteTitle}
               </span>
             )}
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: "rgba(0,183,139,0.12)", color: "var(--brand-green, #00b78b)" }}>
-              <Icon name="bibliography-sources" size={11} className="text-[var(--brand-green)]" style={{ color: "var(--brand-green)" }} />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-bold bg-slate-100 text-[var(--brand-orange,#F78300)]">
+              <Icon name="bibliography-sources" size={13} className="text-[var(--brand-orange,#F78300)]" />
               Bibliography &amp; Sources
             </span>
           </div>
