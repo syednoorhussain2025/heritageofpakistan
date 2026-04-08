@@ -36,9 +36,11 @@ function CategoryItem({ c }: { c: Taxonomy }) {
 function CategoriesSlidePanel({
   categories,
   onClose,
+  siteTitle,
 }: {
   categories: Taxonomy[];
   onClose: () => void;
+  siteTitle?: string;
 }) {
   const [closing, setClosing] = useState(false);
 
@@ -82,7 +84,10 @@ function CategoriesSlidePanel({
             <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
           </svg>
         </button>
-        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">Heritage Categories</h2>
+        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">
+          {siteTitle && <><span className="text-slate-400 font-medium">{siteTitle}</span><span className="text-slate-300 mx-1.5">·</span></>}
+          Heritage Categories
+        </h2>
       </div>
       <div className="flex-1 overflow-y-auto py-2">
         {(() => {
@@ -95,7 +100,15 @@ function CategoriesSlidePanel({
           }
           // Render grouped sections; ungrouped first if present
           return Array.from(groups.entries()).map(([groupName, items], idx) => (
-            <div key={groupName ?? "__ungrouped__"} className={idx > 0 ? "mt-2 border-t border-slate-100" : ""}>
+            <div
+              key={groupName ?? "__ungrouped__"}
+              style={idx > 0 ? {
+                backgroundImage: "linear-gradient(to right, transparent 1rem, #e2e8f0 1rem, #e2e8f0 calc(100% - 1rem), transparent calc(100% - 1rem))",
+                backgroundPosition: "top",
+                backgroundSize: "100% 1px",
+                backgroundRepeat: "no-repeat",
+              } : undefined}
+            >
               {groupName && (
                 <div className="px-4 pt-6 pb-2">
                   <h3
@@ -141,8 +154,10 @@ function CategoriesSlidePanel({
 
 export default function HeritageUpperArticle({
   categories,
+  siteTitle,
 }: {
   categories: Taxonomy[];
+  siteTitle?: string;
 }) {
   const [showPanel, setShowPanel] = useState(false);
 
@@ -213,6 +228,7 @@ export default function HeritageUpperArticle({
           <CategoriesSlidePanel
             categories={categories}
             onClose={() => setShowPanel(false)}
+            siteTitle={siteTitle}
           />
         )}
       </section>

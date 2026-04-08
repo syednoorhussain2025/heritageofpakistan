@@ -326,7 +326,7 @@ export default function HeritageClient({
           ) : (
             <>
               {/* 1. Heritage Categories */}
-              <HeritageUpperArticle categories={categories} />
+              <HeritageUpperArticle categories={categories} siteTitle={site.title} />
 
               {/* 2. Did you Know */}
               <HeritageSidebar
@@ -580,7 +580,7 @@ export default function HeritageClient({
           ) : (
             <>
               {/* Top categories / overview */}
-              <HeritageUpperArticle categories={categories} />
+              <HeritageUpperArticle categories={categories} siteTitle={site.title} />
 
               {/* History */}
               {site.history_layout_html && (
