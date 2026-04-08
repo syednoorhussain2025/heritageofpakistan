@@ -709,8 +709,8 @@ export default function HeritageSidebar({
                   <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
                     <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={41} className="text-[var(--brand-blue)]" />
-                        : <span className="text-2xl text-[var(--brand-blue)]">•••</span>
+                        ? <Icon name={row.icon} size={41} className="text-slate-400" />
+                        : <span className="text-2xl text-slate-400">•••</span>
                       }
                     </div>
                     <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight -mt-0.5">{row.k}</span>
@@ -921,8 +921,8 @@ export default function HeritageSidebar({
                   <div key={`${row.k}-${idx}`} className="flex flex-col items-center text-center px-1">
                     <div className="w-14 h-14 flex items-center justify-center">
                       {row.icon
-                        ? <Icon name={row.icon} size={41} className="text-[var(--brand-blue)]" />
-                        : <span className="text-2xl text-[var(--brand-blue)]">•••</span>
+                        ? <Icon name={row.icon} size={41} className="text-slate-400" />
+                        : <span className="text-2xl text-slate-400">•••</span>
                       }
                     </div>
                     <span className="text-[11px] font-semibold text-[var(--brand-blue)] leading-tight -mt-0.5">{row.k}</span>

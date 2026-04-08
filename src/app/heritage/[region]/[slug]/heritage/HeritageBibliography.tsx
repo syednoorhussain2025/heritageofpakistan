@@ -12,10 +12,13 @@ const MOBILE_PREVIEW_COUNT = 2;
 
 function BibliographyItem({ entryHtml, note }: { entryHtml: string; note?: string | null }) {
   return (
-    <div className="bg-slate-50/50 mx-6 px-4 py-3 border-l-4 border-[var(--brand-orange)]">
-      <div className="text-[14px] text-slate-600 leading-relaxed">
-        <span className="csl-entry" dangerouslySetInnerHTML={{ __html: entryHtml }} />
-        {note ? <span className="text-slate-400"> — {note}</span> : null}
+    <div className="bg-slate-50/50 mx-6 px-4 py-4 border-l-4 border-[var(--brand-orange)]">
+      <div className="flex items-start gap-2.5">
+        <Icon name="receipt-long-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={18} className="shrink-0 text-slate-400 mt-[2px]" />
+        <div className="text-[14px] text-slate-600 leading-relaxed break-words min-w-0">
+          <span className="csl-entry" dangerouslySetInnerHTML={{ __html: entryHtml }} />
+          {note ? <span className="text-slate-400"> — {note}</span> : null}
+        </div>
       </div>
     </div>
   );
@@ -73,7 +76,7 @@ function BibliographySlidePanel({
             Bibliography &amp; Sources
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
           {items.map((row, i) => (
             <BibliographyItem key={row.id} entryHtml={entries[i] || ""} note={row.note} />
           ))}
@@ -122,7 +125,7 @@ export default function HeritageBibliography({
           )}
         </div>
         {hasItems ? (
-          <div className="space-y-3">
+          <div className="space-y-5">
             {previewItems.map((row, i) => (
               <BibliographyItem key={row.id} entryHtml={entries[i] || ""} note={row.note} />
             ))}

@@ -27,6 +27,7 @@ type NearbySite = {
 
   location_free?: string | null;
   heritage_type?: string | null;
+  tagline?: string | null;
   avg_rating?: number | null;
   review_count?: number | null;
   latitude: number | null;
@@ -191,7 +192,7 @@ export default function HeritageNearby({
           .select(
             `
             id, slug, province_id, title, cover_photo_url,
-            location_free, heritage_type, avg_rating, review_count,
+            location_free, heritage_type, tagline, avg_rating, review_count,
             latitude, longitude
           `
           )
@@ -350,6 +351,7 @@ export default function HeritageNearby({
               avg_rating: selectedSite.avg_rating,
               review_count: selectedSite.review_count,
               heritage_type: selectedSite.heritage_type,
+              tagline: selectedSite.tagline,
               location_free: selectedSite.location_free,
               latitude: selectedSite.latitude,
               longitude: selectedSite.longitude,
