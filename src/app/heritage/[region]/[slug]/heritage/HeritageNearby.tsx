@@ -328,7 +328,7 @@ export default function HeritageNearby({
                   className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold
                              bg-[var(--navy-deep,#0f2746)] text-white hover:brightness-110
                              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--navy-deep,#0f2746)]
-                             rounded-none"
+                             rounded-full"
                 >
                   Explore Nearby Sites
                 </Link>
