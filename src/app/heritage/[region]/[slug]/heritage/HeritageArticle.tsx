@@ -711,6 +711,15 @@ export default function HeritageArticle({
         .reading-article .flx-text {
           font-family: var(--font-jakarta), sans-serif !important;
           font-size: 1rem;
+          line-height: 1.75 !important;
+          text-align: left !important;
+        }
+        .reading-article p {
+          margin-top: 0;
+          margin-bottom: 0.9em;
+        }
+        .reading-article p:last-child {
+          margin-bottom: 0;
         }
         .reading-article [style*="font-family"] {
           font-family: var(--font-jakarta), sans-serif !important;

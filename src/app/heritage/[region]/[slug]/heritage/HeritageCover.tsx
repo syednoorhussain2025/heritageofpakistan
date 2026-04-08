@@ -643,7 +643,7 @@ export default function HeritageCover({
           {site.tagline && (
             <div className="flex items-start gap-2 pt-1">
               <Icon name="book-open-text-light" size={21} className="text-slate-400 shrink-0 mt-[2px]" />
-              <p className="text-[14px] leading-relaxed text-slate-500 italic">
+              <p className="text-[15px] leading-relaxed text-slate-500 italic">
                 {site.tagline}
               </p>
             </div>
