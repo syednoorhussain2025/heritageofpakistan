@@ -94,13 +94,16 @@ function CategoriesSlidePanel({
             groups.get(key)!.push(c);
           }
           // Render grouped sections; ungrouped first if present
-          return Array.from(groups.entries()).map(([groupName, items]) => (
-            <div key={groupName ?? "__ungrouped__"} className="mb-1">
+          return Array.from(groups.entries()).map(([groupName, items], idx) => (
+            <div key={groupName ?? "__ungrouped__"} className={idx > 0 ? "mt-2 border-t border-slate-100" : ""}>
               {groupName && (
-                <div className="px-4 pt-4 pb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="px-4 pt-6 pb-2">
+                  <h3
+                    className="text-[18px] font-extrabold"
+                    style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+                  >
                     {groupName}
-                  </span>
+                  </h3>
                 </div>
               )}
               <div className="px-4 flex flex-col gap-0">
