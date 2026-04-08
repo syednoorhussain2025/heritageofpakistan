@@ -79,8 +79,8 @@ function BibliographySlidePanel({
                 {siteTitle}
               </span>
             )}
-            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-400">
-              <Icon name="bibliography-sources" size={14} className="text-[var(--brand-orange)]" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: "rgba(0,183,139,0.12)", color: "var(--brand-green, #00b78b)" }}>
+              <Icon name="bibliography-sources" size={11} className="text-[var(--brand-green)]" style={{ color: "var(--brand-green)" }} />
               Bibliography &amp; Sources
             </span>
           </div>

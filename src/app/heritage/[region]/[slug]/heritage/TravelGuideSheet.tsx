@@ -73,8 +73,8 @@ function SlidePanel({
           <span className="text-[18px] font-extrabold" style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}>
             {site.title}
           </span>
-          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-400">
-            <Icon name="travel-guide" size={14} className="text-[var(--brand-orange)]" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: "rgba(0,183,139,0.12)", color: "var(--brand-green, #00b78b)" }}>
+            <Icon name="travel-guide" size={11} className="text-[var(--brand-green)]" style={{ color: "var(--brand-green)" }} />
             Travel Information
           </span>
         </div>
