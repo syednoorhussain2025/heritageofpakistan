@@ -28,10 +28,12 @@ function BibliographySlidePanel({
   items,
   entries,
   onClose,
+  siteTitle,
 }: {
   items: BiblioItem[];
   entries: string[];
   onClose: () => void;
+  siteTitle?: string;
 }) {
   const [closing, setClosing] = useState(false);
 
@@ -60,21 +62,28 @@ function BibliographySlidePanel({
         className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
         onAnimationEnd={() => { if (closing) onClose(); }}
       >
-        <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}>
+        <div className="flex items-center gap-3 px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}>
           <button
             type="button"
             onClick={() => setClosing(true)}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 shrink-0"
             aria-label="Back"
           >
             <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
               <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
             </svg>
           </button>
-          <h2 className="text-[17px] font-bold text-[var(--brand-blue)] flex items-center gap-2">
-            <Icon name="bibliography-sources" size={18} className="text-[var(--brand-orange)]" />
-            Bibliography &amp; Sources
-          </h2>
+          <div className="flex flex-col gap-0.5">
+            {siteTitle && (
+              <span className="text-[18px] font-extrabold" style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}>
+                {siteTitle}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-400">
+              <Icon name="bibliography-sources" size={14} className="text-[var(--brand-orange)]" />
+              Bibliography &amp; Sources
+            </span>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto py-4 space-y-5">
           {items.map((row, i) => (
@@ -91,10 +100,12 @@ export default function HeritageBibliography({
   items,
   styleId,
   entries,
+  siteTitle,
 }: {
   items: BiblioItem[];
   styleId: string;
   entries: string[];
+  siteTitle?: string;
 }) {
   const [showPanel, setShowPanel] = useState(false);
   const hasItems = items && items.length > 0;
@@ -166,6 +177,7 @@ export default function HeritageBibliography({
           items={items}
           entries={entries}
           onClose={() => setShowPanel(false)}
+          siteTitle={siteTitle}
         />
       )}
     </>

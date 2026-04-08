@@ -57,23 +57,27 @@ function SlidePanel({
       {/* Header */}
       <div
         className="flex items-center gap-3 px-6 bg-white border-b border-slate-100"
-        style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "12px" }}
+        style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}
       >
         <button
           type="button"
           onClick={handleClose}
-          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 shrink-0"
           aria-label="Back"
         >
           <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
             <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
           </svg>
         </button>
-        <h2 className="text-[17px] font-bold text-[var(--brand-blue)]">
-          <span className="text-slate-400 font-medium">{site.title}</span>
-          <span className="text-slate-300 mx-1.5">·</span>
-          Travel Information
-        </h2>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[18px] font-extrabold" style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}>
+            {site.title}
+          </span>
+          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-400">
+            <Icon name="travel-guide" size={14} className="text-[var(--brand-orange)]" />
+            Travel Information
+          </span>
+        </div>
       </div>
 
       {/* Content — all 3 section groups stacked */}

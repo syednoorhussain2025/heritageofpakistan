@@ -514,6 +514,7 @@ export default function HeritageClient({
                   items={bibliography}
                   styleId={styleId}
                   entries={bibliographyEntries}
+                  siteTitle={site.title}
                 />
               </LazySection>
 
@@ -751,6 +752,7 @@ export default function HeritageClient({
                   items={bibliography}
                   styleId={styleId}
                   entries={bibliographyEntries}
+                  siteTitle={site.title}
                 />
               </LazySection>
 
