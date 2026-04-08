@@ -90,8 +90,8 @@ function CategoriesSlidePanel({
               {siteTitle}
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: "rgba(0,183,139,0.12)", color: "var(--brand-green, #00b78b)" }}>
-            <Icon name="heritage-categories" size={11} className="text-[var(--brand-green)]" style={{ color: "var(--brand-green)" }} />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+            <Icon name="heritage-categories" size={11} className="text-slate-500" />
             Heritage Categories
           </span>
         </div>
