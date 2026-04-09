@@ -196,13 +196,13 @@ const DynamicPopupStyles = () => {
     @media (max-width: 1023px) {
       .leaflet-popup-content-wrapper {
         min-width: 0 !important;
-        max-width: min(220px, 78vw) !important;
-        width: min(220px, 78vw) !important;
+        max-width: min(178px, 63vw) !important;
+        width: min(178px, 63vw) !important;
       }
       .map-preview-card-wrapper {
         min-width: 0 !important;
-        max-width: min(220px, 78vw) !important;
-        width: min(220px, 78vw) !important;
+        max-width: min(178px, 63vw) !important;
+        width: min(178px, 63vw) !important;
       }
     }
   `;
@@ -983,19 +983,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
               offset={[0, -(iconData.size / 2 + 6)]}
               permanent={lockHighlightPopup}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                <span>{site.title}</span>
-                {site.avg_rating != null && (
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", gap: "3px",
-                    fontWeight: 600, color: "rgba(255,255,255,0.9)",
-                    borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: "6px",
-                  }}>
-                    <span style={{ color: "#FBBF24" }}>★</span>
-                    {site.avg_rating.toFixed(1)}
-                  </span>
-                )}
-              </span>
+              <span>{site.title}</span>
             </Tooltip>
           )}
           {!directMarkerSelect && site.id !== highlightSiteId && (

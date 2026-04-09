@@ -630,6 +630,11 @@ export default function HeritageArticle({
         .reading-article .sec-quotation {
           display: grid;
           grid-template-columns: 1fr;
+          text-align: center !important;
+        }
+        .reading-article .sec-quotation blockquote,
+        .reading-article .sec-quotation blockquote * {
+          text-align: center !important;
         }
 
         /* -------- Carousel (public page) -------- */

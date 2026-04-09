@@ -62,10 +62,10 @@ function SlidePanel({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute left-4 inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 shrink-0"
+          className="absolute left-4 inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 shrink-0"
           aria-label="Back"
         >
-          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
             <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
           </svg>
         </button>

@@ -432,15 +432,15 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Rating and reviews pills rating on top, reviews below */}
-          <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5">
+          {/* Rating and reviews pills — desktop/tablet only (mobile uses image overlay) */}
+          <div className="absolute top-2.5 right-2.5 flex-col items-end gap-1.5 hidden md:flex">
             {site.avg_rating != null && (
               <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-[11px] font-semibold shadow inline-flex items-center gap-1">
                 <Icon name="star" size={11} /> {site.avg_rating.toFixed(1)}
               </span>
             )}
             {site.review_count != null && (
-              <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
+              <span className="px-2 py-0.5 rounded-full bg-white/90 text-gray-800 text-[10px] font-medium shadow">
                 {site.review_count} Reviews
               </span>
             )}
@@ -457,7 +457,7 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Title and location giradient desktop / tablet only */}
+          {/* Title and location gradient desktop / tablet only + mobile stars overlay */}
           <div className="absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/60 to-transparent rounded-b-xl -m-3 p-3 pt-10">
               <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold transition-transform duration-300 group-hover:translate-x-1">
@@ -466,6 +466,32 @@ export default function SitePreviewCard({
               {site.location_free && (
                 <div className="hidden md:flex mt-1 items-center gap-1 text-white/90 text-xs sm:text-sm">
                   <Icon name="map-marker-alt" size={12} /> {site.location_free}
+                </div>
+              )}
+              {/* Mobile: stars overlaid on image bottom */}
+              {site.avg_rating != null && (
+                <div className="md:hidden flex items-center gap-0.5 mt-1">
+                  {[1,2,3,4,5].map((s) => {
+                    const filled = site.avg_rating! >= s;
+                    const half = !filled && site.avg_rating! >= s - 0.5;
+                    return (
+                      <svg key={s} width="11" height="11" viewBox="0 0 24 24" fill={filled ? "#F78300" : half ? "url(#half-ol)" : "none"} stroke="#F78300" strokeWidth="2">
+                        {half && (
+                          <defs>
+                            <linearGradient id="half-ol">
+                              <stop offset="50%" stopColor="#F78300"/>
+                              <stop offset="50%" stopColor="transparent"/>
+                            </linearGradient>
+                          </defs>
+                        )}
+                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                      </svg>
+                    );
+                  })}
+                  <span className="text-[11px] font-semibold text-white ml-0.5">{site.avg_rating.toFixed(1)}</span>
+                  {site.review_count != null && (
+                    <span className="text-[10px] text-white/75 ml-0.5">({site.review_count})</span>
+                  )}
                 </div>
               )}
             </div>
@@ -479,39 +505,15 @@ export default function SitePreviewCard({
           onClick={(e) => e.preventDefault()}
         >
           {/* Mobile title + location + ellipsis inside white card */}
-          <div className="md:hidden flex items-center gap-2 pt-0 pb-2">
+          <div className="md:hidden flex items-center gap-2 pt-0 pb-2 pl-1">
             <div className="flex-1 min-w-0">
               <h3 className="text-[16px] font-extrabold leading-tight truncate text-[var(--brand-blue)]">
                 {site.title}
               </h3>
               {site.location_free && (
-                <div className="mt-[1px] text-[11px] text-gray-400 truncate">
-                  {site.location_free}
-                </div>
-              )}
-              {site.avg_rating != null && (
-                <div className="mt-1 flex items-center gap-1">
-                  {[1,2,3,4,5].map((s) => {
-                    const filled = site.avg_rating! >= s;
-                    const half = !filled && site.avg_rating! >= s - 0.5;
-                    return (
-                      <svg key={s} width="11" height="11" viewBox="0 0 24 24" fill={filled ? "#F78300" : half ? "url(#half)" : "none"} stroke="#F78300" strokeWidth="2">
-                        {half && (
-                          <defs>
-                            <linearGradient id="half">
-                              <stop offset="50%" stopColor="#F78300"/>
-                              <stop offset="50%" stopColor="transparent"/>
-                            </linearGradient>
-                          </defs>
-                        )}
-                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-                      </svg>
-                    );
-                  })}
-                  <span className="text-[11px] font-semibold text-[#F78300] ml-0.5">{site.avg_rating.toFixed(1)}</span>
-                  {site.review_count != null && (
-                    <span className="text-[10px] text-gray-400">({site.review_count})</span>
-                  )}
+                <div className="mt-[1px] flex items-center gap-1 text-[11px] text-gray-400 truncate">
+                  <Icon name="map-pin-light" size={13} className="text-slate-400 shrink-0" />
+                  <span className="truncate">{site.location_free}</span>
                 </div>
               )}
             </div>

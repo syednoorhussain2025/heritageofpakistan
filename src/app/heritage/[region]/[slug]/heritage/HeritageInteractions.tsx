@@ -67,6 +67,8 @@ export default function HeritageInteractions({
   const [mounted, setMounted] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollTop = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
   const showToast = (msg: string) => {
@@ -77,13 +79,21 @@ export default function HeritageInteractions({
 
   useEffect(() => { setMounted(true); }, []);
 
-  /* Track scroll to toggle icon style — listen on the fixed scroll container */
+  /* Track scroll direction — hide on down, show on up */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const container = document.getElementById("heritage-page-root");
     const onScroll = () => {
       const scrollTop = container ? container.scrollTop : window.scrollY;
       setScrolled(scrollTop > 80);
+      if (scrollTop <= 40) {
+        setHeaderVisible(true);
+      } else if (scrollTop > lastScrollTop.current + 6) {
+        setHeaderVisible(false);
+      } else if (scrollTop < lastScrollTop.current - 4) {
+        setHeaderVisible(true);
+      }
+      lastScrollTop.current = scrollTop;
     };
     onScroll();
     const target = container ?? window;
@@ -144,7 +154,11 @@ export default function HeritageInteractions({
 
       {/* Mobile header — portalled to body so it stays fixed to viewport even when parent is transformed */}
       {mounted && createPortal(
-        <MobilePageHeader backgroundColor="transparent" minHeight="64px">
+        <MobilePageHeader
+          backgroundColor="transparent"
+          minHeight="64px"
+          className={`transition-transform duration-300 ease-in-out ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
+        >
           <div className="flex items-center justify-between w-full px-3 h-full">
             <button
               type="button"
@@ -155,10 +169,12 @@ export default function HeritageInteractions({
                   window.location.href = "/explore";
                 }
               }}
-              className="w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 shrink-0"
+              className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
               aria-label="Go back"
             >
-              <Icon name="circle-arrow-left" size={38} className="text-white" />
+              <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+              </svg>
             </button>
             <div className="flex items-center gap-1">
               <button
