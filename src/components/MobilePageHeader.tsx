@@ -10,7 +10,7 @@
  * - z-index above page content but below modals/bottom-nav
  */
 
-import { type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 type Props = {
   children: ReactNode;
@@ -18,6 +18,7 @@ type Props = {
   className?: string;
   minHeight?: string;
   zIndex?: number;
+  style?: React.CSSProperties;
 };
 
 export default function MobilePageHeader({
@@ -26,6 +27,7 @@ export default function MobilePageHeader({
   className = "",
   minHeight = "180px",
   zIndex = 1100,
+  style,
 }: Props) {
   return (
     <div
@@ -35,6 +37,7 @@ export default function MobilePageHeader({
         backgroundColor,
         paddingTop: "var(--sat, 44px)",
         minHeight,
+        ...style,
       }}
     >
       {children}
