@@ -68,7 +68,6 @@ export default function HeritageInteractions({
   const [mounted, setMounted] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollTop = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -89,15 +88,6 @@ export default function HeritageInteractions({
     let visible = true;
     const onScroll = () => {
       const scrollTop = container ? container.scrollTop : window.scrollY;
-
-      // Dark bg while hero is still behind the buttons (hero bottom > button height ~64px)
-      const hero = document.getElementById("heritage-hero-mobile");
-      if (hero && container) {
-        const heroBottom = hero.getBoundingClientRect().bottom;
-        setScrolled(heroBottom <= 64);
-      } else {
-        setScrolled(scrollTop > 80);
-      }
 
       let nextVisible = visible;
       if (scrollTop <= 40) {
@@ -162,11 +152,6 @@ export default function HeritageInteractions({
     if (result === "copied") showToast("Link copied");
   }
 
-  const iconColor = scrolled ? "#555555" : "#ffffff";
-  const btnClass = scrolled
-    ? "w-11 h-11 flex items-center justify-center rounded-full bg-white/50 shadow-sm active:bg-white/70 transition-all"
-    : "w-11 h-11 flex items-center justify-center rounded-full active:bg-white/20 transition-all";
-
   return (
     <>
       {/* Global toast */}
@@ -195,7 +180,7 @@ export default function HeritageInteractions({
                     window.location.href = "/explore";
                   }
                 }}
-                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 bg-black/30 text-white`}
                 aria-label="Go back"
               >
                 <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
@@ -205,7 +190,7 @@ export default function HeritageInteractions({
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 bg-black/30 text-white`}
                 aria-label="Search"
               >
                 <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
