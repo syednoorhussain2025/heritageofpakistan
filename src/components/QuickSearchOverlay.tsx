@@ -55,16 +55,17 @@ let _provinceSlugCachePromise: Promise<Record<string, string>> | null = null;
 async function warmProvinceSlugCache(): Promise<Record<string, string>> {
   if (_provinceSlugCache) return _provinceSlugCache;
   if (_provinceSlugCachePromise) return _provinceSlugCachePromise;
-  _provinceSlugCachePromise = getPublicClient()
-    .from("regions")
-    .select("id, slug")
-    .is("parent_id", null)
-    .then(({ data }) => {
-      const map: Record<string, string> = {};
-      (data || []).forEach((r: { id: string; slug: string }) => { map[r.id] = r.slug; });
-      _provinceSlugCache = map;
-      return map;
-    });
+  _provinceSlugCachePromise = Promise.resolve(
+    getPublicClient()
+      .from("regions")
+      .select("id, slug")
+      .is("parent_id", null)
+  ).then(({ data }) => {
+    const map: Record<string, string> = {};
+    (data || []).forEach((r: { id: string; slug: string }) => { map[r.id] = r.slug; });
+    _provinceSlugCache = map;
+    return map;
+  });
   return _provinceSlugCachePromise;
 }
 
