@@ -735,6 +735,19 @@ export default function TravelDetails({
                 ))}
               </select>
             </Labeled>
+            <Labeled label="Google Maps Listing URL">
+              <AutoGrow
+                className={inputStyles}
+                value={form.google_maps_url || ""}
+                onChange={(e) => setField("google_maps_url", e.target.value || null)}
+                placeholder="https://maps.app.goo.gl/... or https://www.google.com/maps/place/..."
+                minRows={1}
+                maxRows={3}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Paste the Google Maps place URL. Opens the full listing (photos, directions, reviews). Falls back to GPS pin if empty.
+              </p>
+            </Labeled>
           </div>
 
           {/* RIGHT: Map area */}

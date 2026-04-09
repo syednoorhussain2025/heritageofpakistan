@@ -588,12 +588,14 @@ export function useHeritageData(slug: string, deepLinkNoteId: string | null) {
       lat != null && lng != null
         ? `https://www.google.com/maps?q=${lat},${lng}&z=12&output=embed`
         : null;
+    // Prefer admin-entered Google Maps listing URL, fall back to GPS pin
     const link =
-      lat != null && lng != null
+      (site as any)?.google_maps_url ||
+      (lat != null && lng != null
         ? `https://www.google.com/maps?q=${lat},${lng}`
-        : null;
+        : null);
     return { embed, link };
-  }, [site?.latitude, site?.longitude]);
+  }, [site?.latitude, site?.longitude, (site as any)?.google_maps_url]);
 
   return {
     loading,
