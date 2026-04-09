@@ -461,14 +461,16 @@ export default function HeritageCover({
             {/* Dots loader while first image loads */}
             {showSpinner && (
               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                <Spinner variant="dots" size={120} />
+                <div style={{ background: "rgba(0,0,0,0.45)", borderRadius: 999, padding: "10px 22px" }}>
+                  <Spinner variant="dots" size={120} color="white" />
+                </div>
               </div>
             )}
 
             {/* Dots loader on tap → gallery transition */}
             {showGalleryLoader && (
               <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
-                <div style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))" }}>
+                <div style={{ background: "rgba(0,0,0,0.45)", borderRadius: 999, padding: "10px 22px" }}>
                   <Spinner variant="dots" size={220} color="white" />
                 </div>
               </div>
