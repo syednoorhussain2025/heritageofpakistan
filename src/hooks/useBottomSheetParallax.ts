@@ -42,6 +42,7 @@ function applyOpen() {
     header.style.transition = TRANSITION;
     header.style.transformOrigin = "top center";
     header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+    header.style.opacity = "1";
     header.style.filter = FILTER_OPEN;
   }
 }
@@ -62,6 +63,7 @@ function applyClose() {
   if (header) {
     header.style.transition = TRANSITION;
     header.style.transform = "scale(1) translateY(0px)";
+    header.style.opacity = "1";
     header.style.filter = FILTER_CLOSED;
   }
 

@@ -81,21 +81,33 @@ export default function HeritageInteractions({
 
   useEffect(() => { setMounted(true); }, []);
 
-  /* Track scroll direction — hide on down, show on up */
+  /* Track scroll direction — slide+fade buttons out on down, in on up */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const container = document.getElementById("heritage-page-root");
+    let visible = true;
     const onScroll = () => {
       const scrollTop = container ? container.scrollTop : window.scrollY;
       setScrolled(scrollTop > 80);
+      let nextVisible = visible;
       if (scrollTop <= 40) {
-        setHeaderVisible(true);
+        nextVisible = true;
       } else if (scrollTop > lastScrollTop.current + 6) {
-        setHeaderVisible(false);
+        nextVisible = false;
       } else if (scrollTop < lastScrollTop.current - 4) {
-        setHeaderVisible(true);
+        nextVisible = true;
       }
       lastScrollTop.current = scrollTop;
+      if (nextVisible !== visible) {
+        visible = nextVisible;
+        setHeaderVisible(nextVisible);
+        const el = document.getElementById("heritage-mobile-header");
+        if (el) {
+          el.style.transition = "transform 300ms ease-in-out, opacity 300ms ease-in-out";
+          el.style.transform = nextVisible ? "translateY(0)" : "translateY(-100%)";
+          el.style.opacity = nextVisible ? "1" : "0";
+        }
+      }
     };
     onScroll();
     const target = container ?? window;
@@ -160,7 +172,7 @@ export default function HeritageInteractions({
           id="heritage-mobile-header"
           backgroundColor="transparent"
           minHeight="64px"
-          className={`transition-transform duration-300 ease-in-out ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
+          className=""
         >
           <div className="flex items-center justify-between w-full px-3 h-full">
             <div className="flex items-center gap-1">
