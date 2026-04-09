@@ -13,6 +13,7 @@ import { saveResearchNote } from "@/lib/notebook";
 import { nativeShare } from "@/lib/nativeShare";
 import { createPortal } from "react-dom";
 import MobilePageHeader from "@/components/MobilePageHeader";
+import QuickSearchOverlay from "@/components/QuickSearchOverlay";
 
 const SiteActionsSheet = dynamic(
   () => import("@/components/SiteActionsSheet"),
@@ -66,6 +67,7 @@ export default function HeritageInteractions({
   const { userId } = useAuthUserId();
   const [mounted, setMounted] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollTop = useRef(0);
@@ -160,26 +162,26 @@ export default function HeritageInteractions({
           className={`transition-transform duration-300 ease-in-out ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
         >
           <div className="flex items-center justify-between w-full px-3 h-full">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  window.location.href = "/explore";
-                }
-              }}
-              className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
-              aria-label="Go back"
-            >
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-                <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-              </svg>
-            </button>
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new Event("hop:open-search"))}
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    window.location.href = "/explore";
+                  }
+                }}
+                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
+                aria-label="Go back"
+              >
+                <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                  <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
                 className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${scrolled ? "bg-slate-100 text-slate-600 shadow-md" : "bg-black/30 text-white"}`}
                 aria-label="Search"
               >
@@ -188,6 +190,8 @@ export default function HeritageInteractions({
                   <line x1="13" y1="13" x2="17" y2="17" />
                 </svg>
               </button>
+            </div>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setActionsSheetOpen(true)}
@@ -291,6 +295,11 @@ export default function HeritageInteractions({
           site={{ name: site.title }}
         />
       )}
+
+      <QuickSearchOverlay
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
     </>
   );
 }

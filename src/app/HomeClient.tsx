@@ -14,6 +14,7 @@ import NearbyMeSheet from "@/components/NearbyMeSheet";
 import { useNativeLocation } from "@/hooks/useNativeLocation";
 import { hapticLight, hapticMedium, hapticSelection } from "@/lib/haptics";
 import Icon from "@/components/Icon";
+import QuickSearchOverlay from "@/components/QuickSearchOverlay";
 
 /* ─── Search bar typewriter animation ────────────────────────────────────── */
 
@@ -1690,10 +1691,10 @@ function MobileHomepage() {
       </div>
 
       {/* Search overlay */}
-      <HomeSearchOverlay
+      <QuickSearchOverlay
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSiteSelect={(site) => { setSelectedSite(site); }}
+        onSiteSelect={(site) => { setSelectedSite(site as any); }}
       />
 
       {/* Site bottom sheet */}
