@@ -159,7 +159,7 @@ export default function HeritageInteractions({
         <MobilePageHeader
           backgroundColor="transparent"
           minHeight="64px"
-          className={`transition-transform duration-300 ease-in-out ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
+          className={`transition-all duration-[460ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${headerVisible ? "translate-y-0" : "-translate-y-full"} ${actionsSheetOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
           <div className="flex items-center justify-between w-full px-3 h-full">
             <div className="flex items-center gap-1">
