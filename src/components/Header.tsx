@@ -235,6 +235,16 @@ export default function Header({ initialItems }: { initialItems?: HeaderMainItem
   // Full-screen search overlay state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
 
+  // Listen for global "hop:open-search" custom events (e.g. from heritage detail page)
+  useEffect(() => {
+    const onOpenSearch = () => {
+      setSearchOverlayOpen(true);
+      setIsSearchFocused(true);
+      setOpenSuggest(true);
+    };
+    window.addEventListener("hop:open-search", onOpenSearch);
+    return () => window.removeEventListener("hop:open-search", onOpenSearch);
+  }, []);
 
   // Mobile hide-on-scroll-down / show-on-scroll-up (Instagram style)
   const [mobileHidden, setMobileHidden] = useState(false);

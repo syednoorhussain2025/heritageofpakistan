@@ -60,7 +60,9 @@ function recolorDots(color: "white") {
 
 export function Spinner({ size = 64, overlay = false, fill = false, variant = "spinner", color }: SpinnerProps) {
   const [animData, setAnimData] = useState(spinnerData);
-  const [dotsAnimData, setDotsAnimData] = useState(dotsData);
+  const [dotsAnimData, setDotsAnimData] = useState(() =>
+    variant === "dots" && color ? recolorDots(color) as typeof dotsData : dotsData
+  );
 
   useEffect(() => {
     if (variant !== "spinner") return;
