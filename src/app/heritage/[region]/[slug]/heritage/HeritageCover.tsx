@@ -447,7 +447,7 @@ export default function HeritageCover({
   return (
     <>
       {/* ---------- MOBILE HERO (phones) ---------- */}
-      <section aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
+      <section id="heritage-hero-mobile" aria-label="Hero" className="block md:hidden bg-[#f8f8f8]">
         {slides.length > 0 ? (
           <div
             ref={mobileSlideRef}

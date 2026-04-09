@@ -81,14 +81,24 @@ export default function HeritageInteractions({
 
   useEffect(() => { setMounted(true); }, []);
 
-  /* Track scroll direction — slide+fade buttons out on down, in on up */
+  /* Track scroll direction — slide+fade buttons out on down, in on up.
+     Button background dark/light = whether buttons overlap the hero image. */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const container = document.getElementById("heritage-page-root");
     let visible = true;
     const onScroll = () => {
       const scrollTop = container ? container.scrollTop : window.scrollY;
-      setScrolled(scrollTop > 80);
+
+      // Dark bg while hero is still behind the buttons (hero bottom > button height ~64px)
+      const hero = document.getElementById("heritage-hero-mobile");
+      if (hero && container) {
+        const heroBottom = hero.getBoundingClientRect().bottom;
+        setScrolled(heroBottom <= 64);
+      } else {
+        setScrolled(scrollTop > 80);
+      }
+
       let nextVisible = visible;
       if (scrollTop <= 40) {
         nextVisible = true;
