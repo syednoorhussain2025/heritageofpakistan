@@ -19,6 +19,7 @@ type Props = {
   minHeight?: string;
   zIndex?: number;
   style?: React.CSSProperties;
+  id?: string;
 };
 
 export default function MobilePageHeader({
@@ -28,9 +29,11 @@ export default function MobilePageHeader({
   minHeight = "180px",
   zIndex = 1100,
   style,
+  id,
 }: Props) {
   return (
     <div
+      id={id}
       className={`lg:hidden fixed inset-x-0 top-0 w-full ${className}`}
       style={{
         zIndex,

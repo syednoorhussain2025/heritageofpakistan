@@ -20,6 +20,7 @@ let bgTimer: ReturnType<typeof setTimeout> | null = null;
 
 function applyOpen() {
   const page = document.getElementById("heritage-page-root");
+  const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
 
@@ -36,10 +37,18 @@ function applyOpen() {
   page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
   page.style.borderRadius = BORDER_RADIUS;
   page.style.filter = FILTER_OPEN;
+
+  if (header) {
+    header.style.transition = TRANSITION;
+    header.style.transformOrigin = "top center";
+    header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+    header.style.filter = FILTER_OPEN;
+  }
 }
 
 function applyClose() {
   const page = document.getElementById("heritage-page-root");
+  const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
 
@@ -49,6 +58,12 @@ function applyClose() {
   page.style.transform = "scale(1) translateY(0px)";
   page.style.borderRadius = "0px";
   page.style.filter = FILTER_CLOSED;
+
+  if (header) {
+    header.style.transition = TRANSITION;
+    header.style.transform = "scale(1) translateY(0px)";
+    header.style.filter = FILTER_CLOSED;
+  }
 
   // Delay body bg restore until page has scaled back up
   bgTimer = setTimeout(() => {

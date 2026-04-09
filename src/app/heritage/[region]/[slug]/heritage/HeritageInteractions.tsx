@@ -157,15 +157,10 @@ export default function HeritageInteractions({
       {/* Mobile header — portalled to body so it stays fixed to viewport even when parent is transformed */}
       {mounted && createPortal(
         <MobilePageHeader
+          id="heritage-mobile-header"
           backgroundColor="transparent"
           minHeight="64px"
-          className={`transition-all duration-[460ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
-          style={actionsSheetOpen ? {
-            transform: "scale(0.88) translateY(38px)",
-            transformOrigin: "top center",
-            filter: "brightness(0.75) blur(0.6px)",
-            pointerEvents: "none",
-          } : undefined}
+          className={`transition-transform duration-300 ease-in-out ${headerVisible ? "translate-y-0" : "-translate-y-full"}`}
         >
           <div className="flex items-center justify-between w-full px-3 h-full">
             <div className="flex items-center gap-1">
