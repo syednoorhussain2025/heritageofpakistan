@@ -115,6 +115,13 @@ export default function HeritageInteractions({
     return () => target.removeEventListener("scroll", onScroll);
   }, [mounted]);
 
+  /* Listen for write-review event from ReviewsTab button */
+  useEffect(() => {
+    const handler = () => { setReviewRating(0); setShowReviewModal(true); };
+    window.addEventListener("hop:write-review", handler);
+    return () => window.removeEventListener("hop:write-review", handler);
+  }, []);
+
   /* Remember last opened heritage page for mobile Heritage tab */
   useEffect(() => {
     if (typeof window === "undefined") return;

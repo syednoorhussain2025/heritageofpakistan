@@ -323,8 +323,26 @@ export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowA
     return <div className="p-4 text-red-600">Error: {error}</div>;
   }
 
+  const WriteReviewButton = () => (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent("hop:write-review"))}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--brand-orange)] text-white text-[13px] font-semibold active:opacity-80 transition-opacity"
+    >
+      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+      </svg>
+      Write a Review
+    </button>
+  );
+
   if (!rows.length) {
-    return <div className="p-4 text-gray-600">No reviews yet.</div>;
+    return (
+      <div className="flex flex-col items-start gap-3 p-4">
+        <p className="text-gray-500 text-[13px]">No reviews yet. Be the first!</p>
+        <WriteReviewButton />
+      </div>
+    );
   }
 
   const visibleRows = previewCount ? rows.slice(0, previewCount) : rows;
@@ -470,6 +488,13 @@ export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowA
             <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
           </svg>
         </button>
+      )}
+
+      {/* Write a Review — always shown in preview mode */}
+      {previewCount && (
+        <div className="mt-3 flex justify-start">
+          <WriteReviewButton />
+        </div>
       )}
 
       {/* Universal Lightbox */}
