@@ -117,7 +117,7 @@ function CategoriesSlidePanel({
               } : undefined}
             >
               {groupName && (
-                <div className="px-4 pt-6 pb-2">
+                <div className="px-6 pt-6 pb-2">
                   <h3
                     className="text-[18px] font-extrabold"
                     style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
@@ -126,7 +126,7 @@ function CategoriesSlidePanel({
                   </h3>
                 </div>
               )}
-              <div className="px-4 flex flex-col gap-0">
+              <div className="px-6 flex flex-col gap-0">
                 {items.map((c) => (
                   <a
                     key={c.id}
