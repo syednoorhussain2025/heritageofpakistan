@@ -124,7 +124,7 @@ function CategoriesSlidePanel({
                   <a
                     key={c.id}
                     href={`/explore?cats=${c.id}`}
-                    className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-b-0 active:bg-slate-50"
+                    className="flex items-center gap-3 py-3 active:bg-slate-50"
                   >
                     <div className="w-8 h-8 rounded-full bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
                       {c.icon_svg ? (

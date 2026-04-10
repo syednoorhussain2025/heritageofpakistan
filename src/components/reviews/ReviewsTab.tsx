@@ -327,7 +327,7 @@ export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowA
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent("hop:write-review"))}
-      className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--brand-orange)] text-white text-[13px] font-semibold active:opacity-80 transition-opacity"
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--brand-blue)] text-white text-[13px] font-semibold active:opacity-80 transition-opacity"
     >
       <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -338,7 +338,7 @@ export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowA
 
   if (!rows.length) {
     return (
-      <div className="flex flex-col items-start gap-3 p-4">
+      <div className="flex flex-col items-center gap-3 p-4">
         <p className="text-gray-500 text-[13px]">No reviews yet. Be the first!</p>
         <WriteReviewButton />
       </div>
@@ -492,7 +492,7 @@ export default function ReviewsTab({ siteId, pinnedUserId, previewCount, onShowA
 
       {/* Write a Review — always shown in preview mode */}
       {previewCount && (
-        <div className="mt-3 flex justify-start">
+        <div className="mt-3 flex justify-center">
           <WriteReviewButton />
         </div>
       )}

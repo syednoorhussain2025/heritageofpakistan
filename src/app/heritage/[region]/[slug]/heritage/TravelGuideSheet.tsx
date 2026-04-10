@@ -118,12 +118,12 @@ function SlidePanel({
 
       {/* Fixed bottom — View on Google Maps */}
       {maps.link && (
-        <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-2.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}>
+        <div className="shrink-0 border-t border-slate-100 bg-white px-4 pt-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 20px)" }}>
           <a
             href={maps.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-full bg-[var(--brand-blue)] py-2.5 text-[14px] font-semibold text-white active:opacity-80 transition-opacity"
+            className="flex items-center justify-center gap-2 w-full rounded-full bg-[var(--brand-blue)] py-3.5 text-[14px] font-semibold text-white active:opacity-80 transition-opacity"
           >
             <Icon name="map-marker-alt" size={13} />
             View on Google Maps

@@ -449,7 +449,7 @@ export default function SitePreviewCard({
           {/* Distance badge */}
           {hasDistance && (
             <div
-              className="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-[var(--brand-green)] text-white shadow-xl flex items-center justify-center font-extrabold text-[10px] z-20"
+              className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-[var(--brand-green)] text-white shadow-xl flex items-center justify-center font-extrabold text-[13px] z-20"
               title={distanceLabel}
               aria-label={distanceLabel}
             >
