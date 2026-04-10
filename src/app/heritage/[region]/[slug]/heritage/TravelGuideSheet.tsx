@@ -81,7 +81,7 @@ function SlidePanel({
       </div>
 
       {/* Content — all 3 section groups stacked */}
-      <div className="flex-1 overflow-y-auto space-y-4 p-0">
+      <div className="flex-1 overflow-y-auto space-y-4 p-0" style={{ paddingBottom: maps.link ? 64 : 0 }}>
         <HeritageSidebar
           site={site}
           provinceName={provinceName}
@@ -107,6 +107,21 @@ function SlidePanel({
           sectionGroup="mobile-stay"
         />
       </div>
+
+      {/* Fixed bottom — View on Google Maps */}
+      {maps.link && (
+        <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-2.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}>
+          <a
+            href={maps.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-full bg-[var(--brand-blue)] py-2.5 text-[14px] font-semibold text-white active:opacity-80 transition-opacity"
+          >
+            <Icon name="map-marker-alt" size={13} />
+            View on Google Maps
+          </a>
+        </div>
+      )}
     </div>
     </>,
     document.body
