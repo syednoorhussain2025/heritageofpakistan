@@ -13,7 +13,7 @@ import { hapticLight, hapticMedium } from "@/lib/haptics";
 export type BottomSheetSite = {
   id: string;
   slug: string;
-  province_id?: string | null;
+  province_id?: string | number | null;
   province_slug?: string | null;
   title: string;
   cover_photo_url?: string | null;
@@ -51,7 +51,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-async function resolveProvinceSlug(provinceId: string): Promise<string | null> {
+async function resolveProvinceSlug(provinceId: string | number): Promise<string | null> {
   const { data } = await getPublicClient()
     .from("regions")
     .select("slug")
