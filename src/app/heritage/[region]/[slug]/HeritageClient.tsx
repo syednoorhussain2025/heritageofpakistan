@@ -186,8 +186,32 @@ export default function HeritageClient({
   hasPhotoStory,
   travelGuideSummary,
 }: HeritagePageProps) {
-  // Slide-in animation on mobile for client-side navigations (and direct loads)
+  // Pin the page root height to the layout viewport height on iOS.
+  // iOS Safari moves `position:fixed` elements with the visual viewport when
+  // the keyboard opens (fixed is relative to visual viewport on iOS, not layout).
+  // We listen to window resize (orientation changes) but NOT visualViewport
+  // resize (keyboard), so the height stays locked when keyboard opens.
   const pageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    // window.innerHeight = layout viewport height, stable against keyboard
+    const lock = () => { el.style.height = `${window.innerHeight}px`; };
+    lock();
+    // Only re-lock on orientation change — use a flag to skip keyboard-triggered resizes
+    let orientationTimer: ReturnType<typeof setTimeout>;
+    const onOrientationChange = () => {
+      clearTimeout(orientationTimer);
+      orientationTimer = setTimeout(lock, 200);
+    };
+    window.addEventListener("orientationchange", onOrientationChange);
+    return () => {
+      window.removeEventListener("orientationchange", onOrientationChange);
+      clearTimeout(orientationTimer);
+    };
+  }, []);
+
+  // Slide-in animation on mobile for client-side navigations (and direct loads)
   useLayoutEffect(() => {
     const el = pageRef.current;
     if (!el || window.innerWidth >= 768) return;
