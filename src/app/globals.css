@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Applied while review modal is open — overrides parallax dark body bg */
+html.review-modal-open,
+html.review-modal-open body {
+  background-color: #ffffff !important;
+}
+
 /* Force SVG icons to fill their container span */
 span[style*="width"] > svg,
 span[style*="font-size"] > svg {

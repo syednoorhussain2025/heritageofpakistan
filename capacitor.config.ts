@@ -12,13 +12,13 @@ const config: CapacitorConfig = {
 
   ios: {
     contentInset: 'never',
-    backgroundColor: '#00c9a7',
+    backgroundColor: '#ffffff',
     allowsLinkPreview: false,
   },
 
   android: {
     allowMixedContent: true,
-    backgroundColor: '#00c9a7',
+    backgroundColor: '#ffffff',
   },
 
   plugins: {

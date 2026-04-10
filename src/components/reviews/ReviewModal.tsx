@@ -119,29 +119,13 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // While review modal is open, keep all backgrounds white so the iOS
-  // keyboard push doesn't expose the brand-green theme-color or dark parallax.
+  // While review modal is open, force html+body bg to white via a CSS class.
+  // useBottomSheetParallax sets body bg to #111 — the class uses !important
+  // to win regardless of when the parallax hook runs.
   useEffect(() => {
     if (!open) return;
-    const prevBody = document.body.style.backgroundColor;
-    const prevHtml = document.documentElement.style.backgroundColor;
-    const root = document.getElementById("heritage-page-root");
-    const prevRoot = root?.style.backgroundColor ?? "";
-    // theme-color meta controls the iOS Safari chrome / area behind keyboard
-    const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    const prevTheme = themeMeta?.content ?? "";
-
-    document.body.style.backgroundColor = "#ffffff";
-    document.documentElement.style.backgroundColor = "#ffffff";
-    if (root) root.style.backgroundColor = "#ffffff";
-    if (themeMeta) themeMeta.content = "#ffffff";
-
-    return () => {
-      document.body.style.backgroundColor = prevBody;
-      document.documentElement.style.backgroundColor = prevHtml;
-      if (root) root.style.backgroundColor = prevRoot;
-      if (themeMeta) themeMeta.content = prevTheme;
-    };
+    document.documentElement.classList.add("review-modal-open");
+    return () => document.documentElement.classList.remove("review-modal-open");
   }, [open]);
 
   // Sheet visibility for animation
