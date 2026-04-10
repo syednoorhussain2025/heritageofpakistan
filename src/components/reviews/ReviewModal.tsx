@@ -119,13 +119,26 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // While review modal is open, force html+body bg to white via a CSS class.
-  // useBottomSheetParallax sets body bg to #111 — the class uses !important
-  // to win regardless of when the parallax hook runs.
+  // When keyboard opens, force html+body bg to white so the iOS viewport
+  // push doesn't expose the dark parallax background behind the modal.
+  // Only active while keyboard is open (visualViewport smaller than window).
   useEffect(() => {
     if (!open) return;
-    document.documentElement.classList.add("review-modal-open");
-    return () => document.documentElement.classList.remove("review-modal-open");
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const keyboardOpen = vv.height < window.innerHeight - 100;
+      if (keyboardOpen) {
+        document.documentElement.classList.add("review-modal-open");
+      } else {
+        document.documentElement.classList.remove("review-modal-open");
+      }
+    };
+    vv.addEventListener("resize", onResize);
+    return () => {
+      vv.removeEventListener("resize", onResize);
+      document.documentElement.classList.remove("review-modal-open");
+    };
   }, [open]);
 
   // Sheet visibility for animation
