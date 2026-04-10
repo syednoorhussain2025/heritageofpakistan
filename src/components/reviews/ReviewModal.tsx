@@ -523,6 +523,21 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
               </div>
             </div>
 
+            {/* Review text */}
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
+                Your Experience
+              </label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+                placeholder="Share road conditions, travel tips, what you loved…"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none"
+              />
+              <div className="mt-1 text-[12px] text-gray-400 text-right">{text.length} chars (min 20)</div>
+            </div>
+
             {/* When did you visit */}
             <div>
               <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
@@ -546,21 +561,6 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
                   {months.map((m) => <option key={m.v} value={m.v}>{m.n}</option>)}
                 </select>
               </div>
-            </div>
-
-            {/* Review text */}
-            <div>
-              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider ml-1">
-                Your Experience
-              </label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={4}
-                placeholder="Share road conditions, travel tips, what you loved…"
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-[15px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none"
-              />
-              <div className="mt-1 text-[12px] text-gray-400 text-right">{text.length} chars (min 20)</div>
             </div>
 
             {/* Photo upload */}
