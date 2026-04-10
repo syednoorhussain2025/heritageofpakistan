@@ -656,7 +656,7 @@ export default function HeritageSidebar({
                   className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
                 >
                   <Icon name="map-marker-alt" size={13} />
-                  Open in Google Maps
+                  View on Google Maps
                 </a>
               </div>
             ) : null}
@@ -894,7 +894,7 @@ export default function HeritageSidebar({
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--brand-blue)] px-6 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
               >
                 <Icon name="map-marker-alt" size={13} />
-                Open in Google Maps
+                View on Google Maps
               </a>
             </div>
           ) : null}
