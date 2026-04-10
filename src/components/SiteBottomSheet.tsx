@@ -53,10 +53,9 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 async function resolveProvinceSlug(provinceId: string | number): Promise<string | null> {
   const { data } = await getPublicClient()
-    .from("regions")
+    .from("provinces")
     .select("slug")
     .eq("id", provinceId)
-    .is("parent_id", null)
     .single();
   return (data as { slug: string | null } | null)?.slug ?? null;
 }
