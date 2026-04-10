@@ -119,27 +119,6 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // When keyboard opens, force html+body bg to white so the iOS viewport
-  // push doesn't expose the dark parallax background behind the modal.
-  // Only active while keyboard is open (visualViewport smaller than window).
-  useEffect(() => {
-    if (!open) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const keyboardOpen = vv.height < window.innerHeight - 100;
-      if (keyboardOpen) {
-        document.documentElement.classList.add("review-modal-open");
-      } else {
-        document.documentElement.classList.remove("review-modal-open");
-      }
-    };
-    vv.addEventListener("resize", onResize);
-    return () => {
-      vv.removeEventListener("resize", onResize);
-      document.documentElement.classList.remove("review-modal-open");
-    };
-  }, [open]);
 
   // Sheet visibility for animation
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -451,7 +430,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         className={`fixed left-0 right-0 bottom-0 z-[5501] pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
         }`}
-        style={{ height: "92dvh", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{ height: "92dvh", marginBottom: "-300px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 300px)" }}
         onClick={(e) => e.stopPropagation()}
       >
           {/* Drag handle — only this triggers swipe-to-close */}
