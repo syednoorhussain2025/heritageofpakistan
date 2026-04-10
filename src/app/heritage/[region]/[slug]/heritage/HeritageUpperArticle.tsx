@@ -19,7 +19,7 @@ function CategoryItem({ c }: { c: Taxonomy }) {
           <span
             className="inline-block hop-category-svg text-white leading-none"
             style={{ fontSize: 16 }}
-            // Icon SVG content is sanitized before persistence in admin.
+            // Icon SVG content is sanitized before persistence in admin..
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{ __html: c.icon_svg }}
           />
