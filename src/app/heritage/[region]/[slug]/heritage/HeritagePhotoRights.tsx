@@ -6,7 +6,8 @@ export default function HeritagePhotoRights() {
       id="photography"
       title="Photography & Content"
       iconName="photography-content"
-      className="mobile-divider mobile-divider-top px-4 py-12 md:bg-white"
+      className="mobile-divider mobile-divider-top px-4 pt-12 md:bg-white"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
     >
       <div
         className="text-[13px]"
