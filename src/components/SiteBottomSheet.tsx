@@ -35,6 +35,9 @@ interface Props {
   onPlacesNearby?: (site: { id: string; title: string; latitude: number; longitude: number }) => void;
   userLat?: number | null;
   userLng?: number | null;
+  fromLat?: number | null;
+  fromLng?: number | null;
+  fromTitle?: string | null;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -47,7 +50,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng }: Props) {
+export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng, fromLat, fromLng, fromTitle }: Props) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -352,6 +355,18 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
               {site.tagline}
             </p>
           )}
+
+          {/* Distance from origin site */}
+          {fromLat != null && fromLng != null && site.latitude != null && site.longitude != null && fromTitle && (() => {
+            const km = haversineKm(fromLat, fromLng, site.latitude, site.longitude);
+            const display = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+            return (
+              <div className="border-l-2 border-[var(--brand-blue)] pl-3 shrink-0 flex items-center gap-2 mt-1">
+                <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-xs font-bold">{display}</span>
+                <span className="text-sm text-gray-600">away from {fromTitle}</span>
+              </div>
+            );
+          })()}
 
           {/* Distance from user */}
           {userLat != null && userLng != null && site.latitude != null && site.longitude != null && (() => {

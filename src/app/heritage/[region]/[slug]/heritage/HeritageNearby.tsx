@@ -359,6 +359,9 @@ export default function HeritageNearby({
           : null}
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}
+        fromLat={lat}
+        fromLng={lng}
+        fromTitle={siteTitle}
       />
 
       <style jsx global>{`
