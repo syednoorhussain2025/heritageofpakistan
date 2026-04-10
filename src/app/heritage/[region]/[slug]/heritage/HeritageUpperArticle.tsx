@@ -119,7 +119,7 @@ function CategoriesSlidePanel({
                   {groupName}
                 </h3>
               )}
-              <div className="flex flex-col gap-0">
+              <div className="flex flex-col gap-0 pl-4">
                 {items.map((c) => (
                   <a
                     key={c.id}
