@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { Site, Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+import { hapticMedium } from "@/lib/haptics";
 
 const LocationMapSheet = dynamic(
   () => import("@/components/LocationMapSheet"),
@@ -27,6 +28,8 @@ function GeneralInfoSlidePanel({
   siteTitle?: string;
 }) {
   const [closing, setClosing] = useState(false);
+
+  useEffect(() => { void hapticMedium(); }, []);
 
   useEffect(() => {
     const el = document.getElementById("heritage-page-root");

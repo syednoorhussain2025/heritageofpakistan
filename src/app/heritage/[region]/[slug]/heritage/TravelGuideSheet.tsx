@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
+import { hapticMedium } from "@/lib/haptics";
 import HeritageSidebar from "./HeritageSidebar";
 import type { TravelGuideSummary } from "./heritagedata";
 
@@ -22,6 +23,8 @@ function SlidePanel({
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+
+  useEffect(() => { void hapticMedium(); }, []);
 
   // Parallax push — slide in on mount, slide back when closing
   useEffect(() => {

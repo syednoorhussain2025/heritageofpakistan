@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import HeritageSection from "./HeritageSection";
 import { Taxonomy } from "./heritagedata";
 import Icon from "@/components/Icon";
+import { hapticMedium } from "@/lib/haptics";
 
 const MOBILE_CAT_PREVIEW = 3;
 
@@ -43,6 +44,8 @@ function CategoriesSlidePanel({
   siteTitle?: string;
 }) {
   const [closing, setClosing] = useState(false);
+
+  useEffect(() => { void hapticMedium(); }, []);
 
   useEffect(() => {
     const el = document.getElementById("heritage-page-root");
