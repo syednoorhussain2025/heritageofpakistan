@@ -131,47 +131,28 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const prevBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = "#ffffff";
 
-    // iOS moves the visual viewport upward when any input is focused.
-    // Counter this by listening to visualViewport resize (fires when keyboard
-    // opens) and immediately applying inverse translateY to the sheet so it
-    // stays pinned. Using requestAnimationFrame(x2) to run after iOS finishes
-    // its own scroll-into-view pass, then snapping back without transition.
+    // When the keyboard opens, iOS shrinks the visual viewport.
+    // We measure the keyboard height and add it as padding-bottom to the
+    // modal's scroll container — this makes the textarea already visible
+    // above the keyboard so iOS has no reason to scroll the page at all.
     const el = sheetElRef.current;
+    const scrollBody = el?.querySelector<HTMLElement>(".review-scroll-body");
     const vv = window.visualViewport;
-    let raf1 = 0, raf2 = 0;
 
     const onViewportChange = () => {
-      if (!vv || !el) return;
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      // Disable transition so snap-back is instant (no jerk animation)
-      const prevTransition = el.style.transition;
-      el.style.transition = "none";
-      const offset = window.innerHeight - vv.offsetTop - vv.height;
-      el.style.transform = offset > 0 ? `translateY(${-Math.round(offset)}px)` : "";
-      // Re-enable transition after paint
-      raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => {
-          el.style.transition = prevTransition;
-        });
-      });
+      if (!vv || !scrollBody) return;
+      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+      scrollBody.style.paddingBottom = keyboardHeight > 0 ? `${keyboardHeight + 16}px` : "";
     };
-
-    // Also intercept focus on inputs — scroll window back to 0 immediately
-    const onFocus = () => { window.scrollTo(0, 0); };
-    el?.addEventListener("focusin", onFocus);
 
     vv?.addEventListener("resize", onViewportChange);
     vv?.addEventListener("scroll", onViewportChange);
 
     return () => {
       document.body.style.backgroundColor = prevBg;
-      el?.removeEventListener("focusin", onFocus);
       vv?.removeEventListener("resize", onViewportChange);
       vv?.removeEventListener("scroll", onViewportChange);
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      if (el) el.style.transform = "";
+      if (scrollBody) scrollBody.style.paddingBottom = "";
     };
   }, [open]);
 
@@ -531,7 +512,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
           </div>
 
           {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
+          <div className="review-scroll-body flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
 
             {/* Star rating */}
             <div>
