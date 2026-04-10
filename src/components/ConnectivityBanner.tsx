@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 export default function ConnectivityBanner() {
-  const [offline, setOffline] = useState(false);
+  // Start as null (unknown) — avoids flash on web where navigator.onLine is reliable
+  const [offline, setOffline] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Set initial state from browser
+    // Set initial state from browser immediately
     if (typeof navigator !== "undefined") {
       setOffline(!navigator.onLine);
     }
@@ -50,18 +51,17 @@ export default function ConnectivityBanner() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-red-600 px-4 py-3 text-white text-sm font-medium"
-      style={{ paddingBottom: "calc(0.75rem + var(--safe-bottom, 0px))" }}
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-5 bg-red-600 px-8 text-white text-center"
       role="alert"
       aria-live="assertive"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        className="h-4 w-4 shrink-0"
+        className="h-14 w-14 shrink-0 opacity-90"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth={2.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       >
@@ -73,7 +73,10 @@ export default function ConnectivityBanner() {
         <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
         <line x1="12" y1="20" x2="12.01" y2="20" />
       </svg>
-      Connectivity Error. Please check your internet.
+      <div>
+        <p className="text-[20px] font-bold leading-snug">No Internet Connection</p>
+        <p className="text-[14px] mt-1 opacity-80">Please check your connection and try again.</p>
+      </div>
     </div>
   );
 }
