@@ -119,20 +119,28 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // While review modal is open, keep body + page root background white.
-  // useBottomSheetParallax sets body to #111 (dark) when sheets open.
-  // iOS keyboard push exposes this background — keeping it white makes
-  // the push look clean instead of flashing dark.
+  // While review modal is open, keep all backgrounds white so the iOS
+  // keyboard push doesn't expose the brand-green theme-color or dark parallax.
   useEffect(() => {
     if (!open) return;
     const prevBody = document.body.style.backgroundColor;
+    const prevHtml = document.documentElement.style.backgroundColor;
     const root = document.getElementById("heritage-page-root");
     const prevRoot = root?.style.backgroundColor ?? "";
+    // theme-color meta controls the iOS Safari chrome / area behind keyboard
+    const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const prevTheme = themeMeta?.content ?? "";
+
     document.body.style.backgroundColor = "#ffffff";
-    if (root) root.style.backgroundColor = "#f8f8f8";
+    document.documentElement.style.backgroundColor = "#ffffff";
+    if (root) root.style.backgroundColor = "#ffffff";
+    if (themeMeta) themeMeta.content = "#ffffff";
+
     return () => {
       document.body.style.backgroundColor = prevBody;
+      document.documentElement.style.backgroundColor = prevHtml;
       if (root) root.style.backgroundColor = prevRoot;
+      if (themeMeta) themeMeta.content = prevTheme;
     };
   }, [open]);
 
