@@ -119,40 +119,20 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // iOS keyboard fix: when an input is focused inside a fixed modal, iOS
-  // scrolls window upward to bring the input above the keyboard.
-  // We counter this by: (1) forcing window.scrollY back to 0 on every
-  // visualViewport scroll event, and (2) keeping body bg white so any
-  // residual shift shows white instead of the dark parallax background.
+  // While review modal is open, keep body + page root background white.
+  // useBottomSheetParallax sets body to #111 (dark) when sheets open.
+  // iOS keyboard push exposes this background — keeping it white makes
+  // the push look clean instead of flashing dark.
   useEffect(() => {
     if (!open) return;
-
-    // Force body bg white (parallax sets it to #111 when sheets open)
-    const prevBg = document.body.style.backgroundColor;
+    const prevBody = document.body.style.backgroundColor;
+    const root = document.getElementById("heritage-page-root");
+    const prevRoot = root?.style.backgroundColor ?? "";
     document.body.style.backgroundColor = "#ffffff";
-
-    // When the keyboard opens, iOS shrinks the visual viewport.
-    // We measure the keyboard height and add it as padding-bottom to the
-    // modal's scroll container — this makes the textarea already visible
-    // above the keyboard so iOS has no reason to scroll the page at all.
-    const el = sheetElRef.current;
-    const scrollBody = el?.querySelector<HTMLElement>(".review-scroll-body");
-    const vv = window.visualViewport;
-
-    const onViewportChange = () => {
-      if (!vv || !scrollBody) return;
-      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
-      scrollBody.style.paddingBottom = keyboardHeight > 0 ? `${keyboardHeight + 16}px` : "";
-    };
-
-    vv?.addEventListener("resize", onViewportChange);
-    vv?.addEventListener("scroll", onViewportChange);
-
+    if (root) root.style.backgroundColor = "#f8f8f8";
     return () => {
-      document.body.style.backgroundColor = prevBg;
-      vv?.removeEventListener("resize", onViewportChange);
-      vv?.removeEventListener("scroll", onViewportChange);
-      if (scrollBody) scrollBody.style.paddingBottom = "";
+      document.body.style.backgroundColor = prevBody;
+      if (root) root.style.backgroundColor = prevRoot;
     };
   }, [open]);
 
@@ -512,7 +492,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
           </div>
 
           {/* Scrollable body */}
-          <div className="review-scroll-body flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
 
             {/* Star rating */}
             <div>
