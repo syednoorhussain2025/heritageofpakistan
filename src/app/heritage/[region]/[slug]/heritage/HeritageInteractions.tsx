@@ -84,9 +84,9 @@ export default function HeritageInteractions({
      Button background dark/light = whether buttons overlap the hero image. */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const container = document.getElementById("heritage-page-root");
     let visible = true;
     const onScroll = () => {
+      const container = document.getElementById("heritage-page-root");
       const scrollTop = container ? container.scrollTop : window.scrollY;
 
       let nextVisible = visible;
@@ -109,11 +109,11 @@ export default function HeritageInteractions({
         }
       }
     };
-    onScroll();
+    const container = document.getElementById("heritage-page-root");
     const target = container ?? window;
     target.addEventListener("scroll", onScroll, { passive: true });
     return () => target.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [mounted]);
 
   /* Remember last opened heritage page for mobile Heritage tab */
   useEffect(() => {
