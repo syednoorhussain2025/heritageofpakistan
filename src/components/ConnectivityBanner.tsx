@@ -51,13 +51,13 @@ export default function ConnectivityBanner() {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-5 bg-red-600 px-8 text-white text-center"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-5 bg-white px-8 text-center"
       role="alert"
       aria-live="assertive"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        className="h-14 w-14 shrink-0 opacity-90"
+        className="h-14 w-14 shrink-0 text-red-500"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -74,8 +74,8 @@ export default function ConnectivityBanner() {
         <line x1="12" y1="20" x2="12.01" y2="20" />
       </svg>
       <div>
-        <p className="text-[20px] font-bold leading-snug">No Internet Connection</p>
-        <p className="text-[14px] mt-1 opacity-80">Please check your connection and try again.</p>
+        <p className="text-[20px] font-bold leading-snug text-gray-900">No Internet Connection</p>
+        <p className="text-[14px] mt-1 text-gray-500">Please check your connection and try again.</p>
       </div>
     </div>
   );
