@@ -117,11 +117,30 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
 
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
-  // Capture viewport height before keyboard can resize it
-  const sheetHeightRef = useRef<number>(0);
+  useEffect(() => { setMounted(true); }, []);
+
+  // iOS/Android keyboard fix — visualViewport shrinks when keyboard opens.
+  // Counter-translate the sheet by the exact amount the viewport shrank so it
+  // stays pinned to the bottom of the *layout* viewport (not the visual one).
+  const [kbOffset, setKbOffset] = useState(0);
+  const kbOffsetRef = useRef(0);
   useEffect(() => {
-    setMounted(true);
-    sheetHeightRef.current = Math.round(window.innerHeight * 0.92);
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      // offsetTop: distance from layout viewport top to visual viewport top
+      // height: current visual viewport height
+      // window.innerHeight: layout viewport height (stable, never resizes with keyboard)
+      const pushed = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+      kbOffsetRef.current = pushed;
+      setKbOffset(pushed);
+    };
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
   }, []);
   // NOTE: scroll lock intentionally omitted — SiteActionsSheet parent already
   // locks scroll. A second competing lock on iOS causes viewport jump on keyboard open.
@@ -194,12 +213,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     if (dy < 0) {
       dragCurrentY.current = 0;
       const el = sheetElRef.current;
-      if (el) el.style.transform = "translateY(0)";
+      if (el) el.style.transform = `translateY(${-kbOffsetRef.current}px)`;
       return;
     }
     dragCurrentY.current = dy;
     const el = sheetElRef.current;
-    if (el) el.style.transform = `translateY(${dy}px)`;
+    if (el) el.style.transform = `translateY(${dy - kbOffsetRef.current}px)`;
   }, []);
 
   const handleTouchEnd = useCallback(() => {
@@ -212,7 +231,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     if (el) el.style.transition = "";
     if (dy >= 80 || velocity >= 0.4) {
       setClosing(true);
-      if (el) el.style.transform = "translateY(100%)";
+      if (el) el.style.transform = `translateY(100%)`;
       closeTimerRef.current = window.setTimeout(() => {
         closeTimerRef.current = null;
         setClosing(false);
@@ -220,7 +239,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         if (el) el.style.transform = "";
       }, 300);
     } else {
-      if (el) el.style.transform = "translateY(0)";
+      if (el) el.style.transform = `translateY(${-kbOffsetRef.current}px)`;
     }
     dragStartY.current = null;
     dragCurrentY.current = 0;
@@ -434,12 +453,16 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
       />
       <div
         ref={sheetElRef}
-        className={`fixed left-0 right-0 bottom-0 z-[5501] pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+        className={`fixed left-0 right-0 z-[5501] pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+          visible ? "opacity-100" : "opacity-0"
         }`}
         style={{
-          height: sheetHeightRef.current ? `${sheetHeightRef.current}px` : "92svh",
+          bottom: 0,
+          height: "92svh",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          transform: visible
+            ? `translateY(${-kbOffset}px)`
+            : "translateY(100%)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
