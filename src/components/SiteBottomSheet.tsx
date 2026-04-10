@@ -13,6 +13,7 @@ import { hapticLight, hapticMedium } from "@/lib/haptics";
 export type BottomSheetSite = {
   id: string;
   slug: string;
+  province_id?: string | null;
   province_slug?: string | null;
   title: string;
   cover_photo_url?: string | null;
