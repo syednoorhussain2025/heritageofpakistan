@@ -81,7 +81,7 @@ function SlidePanel({
       </div>
 
       {/* Content — all 3 section groups stacked */}
-      <div className="flex-1 overflow-y-auto space-y-4 p-0" style={{ paddingBottom: maps.link ? 64 : 0 }}>
+      <div className="travel-sheet-content flex-1 overflow-y-auto space-y-4 p-0" style={{ paddingBottom: maps.link ? 64 : 0 }}>
         <HeritageSidebar
           site={site}
           provinceName={provinceName}
@@ -105,6 +105,14 @@ function SlidePanel({
           maps={maps}
           travelGuideSummary={travelGuideSummary}
           sectionGroup="mobile-stay"
+        />
+        <HeritageSidebar
+          site={site}
+          provinceName={provinceName}
+          regions={regions}
+          maps={maps}
+          travelGuideSummary={travelGuideSummary}
+          sectionGroup="mobile-best-time"
         />
       </div>
 

@@ -380,7 +380,7 @@ export default function HeritageSidebar({
   regions: Taxonomy[];
   maps: { embed: string | null; link: string | null };
   travelGuideSummary?: TravelGuideSummary | null;
-  sectionGroup?: "all" | "top" | "bottom" | "mobile-location" | "mobile-general" | "mobile-travel" | "mobile-climate" | "mobile-stay" | "mobile-bottom" | "mobile-did-you-know" | "mobile-protected-under";
+  sectionGroup?: "all" | "top" | "bottom" | "mobile-location" | "mobile-general" | "mobile-travel" | "mobile-climate" | "mobile-best-time" | "mobile-stay" | "mobile-bottom" | "mobile-did-you-know" | "mobile-protected-under";
   regionsPlacement?: "top" | "bottom";
 }) {
   // use server-provided summary directly, no client Supabase calls
@@ -1005,38 +1005,42 @@ export default function HeritageSidebar({
         </SidebarAccordionSection>
       )}
 
-      {sectionGroup === "mobile-climate" && (
+      {(sectionGroup === "mobile-climate" || sectionGroup === "mobile-best-time") && (
         <>
-          <SidebarAccordionSection
-            title="Best Time to Visit"
-            iconName="best-time-to-visit"
-            mobileDefaultOpen
-          >
-            {mergedBestTimeLong ? (
-              <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-                {mergedBestTimeLong}
-              </div>
-            ) : site.best_time_option_key ? (
-              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
-                {site.best_time_option_key}
-              </div>
-            ) : (
-              <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
-            )}
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
-            id="climate-topography"
-            title="Climate & Topography"
-            iconName="climate-topography"
-            mobileDefaultOpen
-          >
-            <KeyVal k="Landform" v={mergedLandform} icon="streamline-ultimate-perspective-grid" />
-            <KeyVal k="Altitude" v={mergedAltitude} icon="altitude-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
-            <KeyVal k="Mountain Range" v={mergedMountainRange} />
-            <KeyVal k="Weather Type" v={mergedWeatherType} icon="weather-mix-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
-            <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} icon="sunny-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
-            <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} icon="snowflake-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
-          </SidebarAccordionSection>
+          {(sectionGroup === "mobile-climate") && (
+            <SidebarAccordionSection
+              id="climate-topography"
+              title="Climate & Topography"
+              iconName="climate-topography"
+              mobileDefaultOpen
+            >
+              <KeyVal k="Landform" v={mergedLandform} icon="streamline-ultimate-perspective-grid" />
+              <KeyVal k="Altitude" v={mergedAltitude} icon="altitude-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+              <KeyVal k="Mountain Range" v={mergedMountainRange} />
+              <KeyVal k="Weather Type" v={mergedWeatherType} icon="weather-mix-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+              <KeyVal k="Avg Temp (Summers)" v={mergedAvgSummer} icon="sunny-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+              <KeyVal k="Avg Temp (Winters)" v={mergedAvgWinter} icon="snowflake-24dp-1f1f1f-fill0-wght200-grad0-opsz24" />
+            </SidebarAccordionSection>
+          )}
+          {(sectionGroup === "mobile-best-time") && (
+            <SidebarAccordionSection
+              title="Best Time to Visit"
+              iconName="best-time-to-visit"
+              mobileDefaultOpen
+            >
+              {mergedBestTimeLong ? (
+                <div className="whitespace-pre-wrap text-[15px] overflow-x-visible" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                  {mergedBestTimeLong}
+                </div>
+              ) : site.best_time_option_key ? (
+                <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>
+                  {site.best_time_option_key}
+                </div>
+              ) : (
+                <div className="text-[15px]" style={{ color: "var(--muted-foreground, #5b6b84)" }}>-</div>
+              )}
+            </SidebarAccordionSection>
+          )}
         </>
       )}
 

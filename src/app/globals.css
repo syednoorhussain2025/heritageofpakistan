@@ -525,3 +525,9 @@ code {
     background-repeat: no-repeat;
   }
 }
+
+/* ── Travel Guide slide panel: halve section vertical spacing ── */
+.travel-sheet-content section.mobile-divider {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}

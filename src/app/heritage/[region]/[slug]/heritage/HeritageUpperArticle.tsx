@@ -96,38 +96,30 @@ function CategoriesSlidePanel({
           </span>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto py-2">
+      <div className="flex-1 overflow-y-auto">
         {(() => {
-          // Group by parent_name; ungrouped items go under null
           const groups = new Map<string | null, typeof categories>();
           for (const c of categories) {
             const key = c.parent_name ?? null;
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key)!.push(c);
           }
-          // Render grouped sections; ungrouped first if present
           return Array.from(groups.entries()).map(([groupName, items], idx) => (
-            <div
-              key={groupName ?? "__ungrouped__"}
-              style={idx > 0 ? {
-                backgroundImage: "linear-gradient(to right, transparent 1rem, #e2e8f0 1rem, #e2e8f0 calc(100% - 1rem), transparent calc(100% - 1rem))",
-                backgroundPosition: "top",
-                backgroundSize: "100% 1px",
-                backgroundRepeat: "no-repeat",
-              } : undefined}
-            >
-              {groupName && (
-                <div className="px-6 pt-6 pb-2">
-                  <h3
-                    className="flex items-center gap-2 text-[22px] font-extrabold"
-                    style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
-                  >
-                    <Icon name="heritage-categories" size={24} className="text-[var(--brand-orange)]" />
-                    {groupName}
-                  </h3>
-                </div>
+            <div key={groupName ?? "__ungrouped__"}>
+              {idx > 0 && (
+                <div className="border-t border-slate-200 mx-5" />
               )}
-              <div className="px-6 flex flex-col gap-0">
+            <div className="pl-5 pr-4 pt-6 pb-6">
+              {groupName && (
+                <h3
+                  className="flex items-center gap-2 text-[22px] font-extrabold mb-4"
+                  style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
+                >
+                  <Icon name="heritage-categories" size={24} className="text-[var(--brand-orange)]" />
+                  {groupName}
+                </h3>
+              )}
+              <div className="flex flex-col gap-0">
                 {items.map((c) => (
                   <a
                     key={c.id}
@@ -139,7 +131,6 @@ function CategoriesSlidePanel({
                         <span
                           className="inline-block hop-category-svg text-white leading-none"
                           style={{ fontSize: 13 }}
-                          // eslint-disable-next-line react/no-danger
                           dangerouslySetInnerHTML={{ __html: c.icon_svg }}
                         />
                       ) : c.icon_key ? (
@@ -150,6 +141,7 @@ function CategoriesSlidePanel({
                   </a>
                 ))}
               </div>
+            </div>
             </div>
           ));
         })()}
