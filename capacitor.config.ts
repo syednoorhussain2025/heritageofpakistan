@@ -14,7 +14,6 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     backgroundColor: '#00c9a7',
     allowsLinkPreview: false,
-    scrollAssist: false,
   },
 
   android: {
