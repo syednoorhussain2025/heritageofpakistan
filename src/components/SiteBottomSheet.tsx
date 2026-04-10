@@ -361,9 +361,11 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
             const km = haversineKm(fromLat, fromLng, site.latitude, site.longitude);
             const display = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
             return (
-              <div className="border-l-2 border-[var(--brand-blue)] pl-3 shrink-0 flex items-center gap-2 mt-1">
-                <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--brand-blue)] text-white text-xs font-bold">{display}</span>
-                <span className="text-sm text-gray-600">away from {fromTitle}</span>
+              <div className="border-l-2 border-[var(--brand-orange)] pl-3 shrink-0 flex flex-col gap-0.5 mt-1">
+                <span className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--brand-orange)] text-white text-xs font-bold">{display}</span>
+                  away from {fromTitle}
+                </span>
               </div>
             );
           })()}
