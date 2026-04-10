@@ -219,7 +219,7 @@ const LANDFORM_MAP: Record<
 function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null; idx?: number; icon?: string }) {
   if (v === null || v === undefined || v === "") return null;
   return (
-    <div className={`grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible px-4 ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
+    <div className={`grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 overflow-x-visible px-6 ${idx % 2 === 0 ? "" : "bg-slate-50/60"}`}>
       <div className="flex items-center justify-center">
         {icon && <Icon name={icon} size={24} className="shrink-0 text-[var(--brand-blue)]" />}
       </div>
@@ -236,7 +236,7 @@ function KeyVal({ k, v, idx = 0, icon }: { k: string; v?: string | number | null
 function GpsCoords({ lat, lng }: { lat?: number | string | null; lng?: number | string | null }) {
   if (lat == null || lng == null || lat === "" || lng === "") return null;
   return (
-    <div className="grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 px-4">
+    <div className="grid grid-cols-[32px_120px_minmax(0,1fr)] gap-x-3 py-3.5 border-b border-black/5 last:border-b-0 px-6">
       <div className="flex items-center justify-center">
         <Icon name="pin-drop-24dp-1f1f1f-fill0-wght200-grad0-opsz24" size={24} className="shrink-0 text-[var(--brand-blue)]" />
       </div>
@@ -861,27 +861,33 @@ export default function HeritageSidebar({
 
           {/* Region pills — mobile only, horizontal scroll */}
           {regions.length > 0 && (
-            <div className="md:hidden relative mt-4 -mx-2">
-              <div className="hop-cats-scroll overflow-x-auto overflow-y-hidden px-2 py-1">
-                <div className="flex gap-2 pb-1">
-                  {regions.map((r) => (
-                    <a
-                      key={r.id}
-                      href={`/explore?regs=${r.id}`}
-                      style={{ minWidth: "calc(50% - 4px)" }}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 active:bg-slate-100 shrink-0"
-                    >
-                      {r.icon_key && (
-                        <div className="w-6 h-6 rounded-full bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
-                          <Icon name={r.icon_key.trim()} size={12} className="text-white" />
-                        </div>
-                      )}
-                      <span className="text-[13px] font-semibold text-slate-700 whitespace-nowrap">{r.name}</span>
-                    </a>
-                  ))}
+            <div className="md:hidden mt-4 -mx-2">
+              <span className="px-2 text-[13px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground, #5b6b84)" }}>Regions</span>
+              <div className="relative mt-1.5">
+                <div className="hop-cats-scroll overflow-x-auto overflow-y-hidden px-2 py-1">
+                  <div className="flex gap-2 pb-1">
+                    {regions.map((r) => (
+                      <a
+                        key={r.id}
+                        href={`/explore?regs=${r.id}`}
+                        style={{ minWidth: "calc(50% - 4px)" }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 active:bg-slate-100 shrink-0"
+                      >
+                        {r.icon_key && (
+                          <div className="w-6 h-6 rounded-full bg-[var(--brand-orange)] flex items-center justify-center shrink-0">
+                            <Icon name={r.icon_key.trim()} size={12} className="text-white" />
+                          </div>
+                        )}
+                        <span className="text-[13px] font-semibold text-slate-700 whitespace-nowrap flex-1">{r.name}</span>
+                        <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" className="text-slate-400 shrink-0">
+                          <path d="M7.41 4.58a1 1 0 000 1.41L11.34 10l-3.93 4.01a1 1 0 101.42 1.42l4.64-4.72a1 1 0 000-1.42L8.83 4.58a1 1 0 00-1.42 0z" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
                 </div>
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
               </div>
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
             </div>
           )}
 
