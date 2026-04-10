@@ -20,6 +20,7 @@ type SearchSite = {
   avg_rating?: number | null;
   review_count?: number | null;
   location_free?: string | null;
+  tagline?: string | null;
 };
 
 type SearchRegion = {
@@ -139,7 +140,7 @@ export default function QuickSearchOverlay({ isOpen, onClose, onSiteSelect }: Qu
       const sb = getPublicClient();
       const [sitesRes, regionsRes] = await Promise.all([
         sb.from("sites")
-          .select("id, slug, province_id, title, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, location_free")
+          .select("id, slug, province_id, title, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, location_free, tagline")
           .eq("is_published", true)
           .or(`title.ilike.%${q}%,location_free.ilike.%${q}%`)
           .limit(15),
@@ -157,8 +158,13 @@ export default function QuickSearchOverlay({ isOpen, onClose, onSiteSelect }: Qu
     }, 280);
   }, [query]);
 
-  function handleSiteSelect(site: SearchSite) {
+  async function handleSiteSelect(site: SearchSite) {
     saveRecent(site.title);
+    // Ensure province_slug is resolved before navigating or opening bottom sheet
+    if (!site.province_slug && site.province_id) {
+      const cache = await warmProvinceSlugCache();
+      site.province_slug = cache[site.province_id] ?? null;
+    }
     if (onSiteSelect) {
       onSiteSelect(site);
       onClose();
