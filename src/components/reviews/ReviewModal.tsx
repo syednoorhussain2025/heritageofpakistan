@@ -131,13 +131,18 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const prevBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = "#ffffff";
 
-    // Whenever iOS scrolls window for keyboard, immediately undo it
-    const preventScroll = () => { window.scrollTo(0, 0); };
-    window.addEventListener("scroll", preventScroll, { passive: false });
-
-    // Also use visualViewport to counter translate if viewport shifts
-    const vv = window.visualViewport;
+    // Prevent iOS from scrolling window when keyboard opens.
+    // We block touchmove on document (stops iOS rubber-band scroll that
+    // causes the page-push), but allow touchmove inside the modal itself.
     const el = sheetElRef.current;
+    const blockTouchmove = (e: TouchEvent) => {
+      if (el && el.contains(e.target as Node)) return; // allow inside modal
+      e.preventDefault();
+    };
+    document.addEventListener("touchmove", blockTouchmove, { passive: false });
+
+    // Use visualViewport to counter any remaining visual viewport shift
+    const vv = window.visualViewport;
     const onViewportChange = () => {
       if (!vv || !el) return;
       const offset = window.innerHeight - vv.offsetTop - vv.height;
@@ -150,7 +155,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
 
     return () => {
       document.body.style.backgroundColor = prevBg;
-      window.removeEventListener("scroll", preventScroll);
+      document.removeEventListener("touchmove", blockTouchmove);
       vv?.removeEventListener("resize", onViewportChange);
       vv?.removeEventListener("scroll", onViewportChange);
       if (el) el.style.transform = "";
