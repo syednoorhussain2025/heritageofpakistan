@@ -62,7 +62,7 @@ function BibliographySlidePanel({
         className={`fixed inset-0 z-[5000] bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
         onAnimationEnd={() => { if (closing) onClose(); }}
       >
-        <div className="relative flex items-center justify-center px-4 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}>
+        <div className="relative flex items-center justify-center px-6 border-b border-slate-100" style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}>
           <button
             type="button"
             onClick={() => setClosing(true)}

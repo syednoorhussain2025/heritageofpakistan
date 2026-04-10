@@ -119,9 +119,10 @@ function CategoriesSlidePanel({
               {groupName && (
                 <div className="px-6 pt-6 pb-2">
                   <h3
-                    className="text-[18px] font-extrabold"
+                    className="flex items-center gap-2 text-[22px] font-extrabold"
                     style={{ color: "var(--brand-blue, #1f6be0)", fontFamily: "var(--font-article-heading, inherit)" }}
                   >
+                    <Icon name="heritage-categories" size={24} className="text-[var(--brand-orange)]" />
                     {groupName}
                   </h3>
                 </div>
