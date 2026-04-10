@@ -267,7 +267,7 @@ export default function HeritageArticle({
                     <div className="hop-heart">
                       <CollectHeart
                         variant="icon"
-                        size={22}
+                        size={28}
                         siteId={String(site.id)}
                         imageUrl={src}
                         altText={alt}
@@ -313,7 +313,7 @@ export default function HeritageArticle({
                   <div className="hop-heart">
                     <CollectHeart
                       variant="icon"
-                      size={22}
+                      size={28}
                       siteId={String(site.id)}
                       imageUrl={src}
                       altText={alt}
@@ -579,7 +579,7 @@ export default function HeritageArticle({
           line-height: 1.25rem;
           color: #6b7280;
           margin: 0;
-          padding: 0 32px;
+          padding: 0 36px;
           word-break: break-word;
           overflow-wrap: anywhere;
         }
@@ -591,10 +591,9 @@ export default function HeritageArticle({
         .reading-article figure .hop-heart {
           position: absolute;
           left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 24px;
-          height: 24px;
+          top: 0;
+          width: 28px;
+          height: 28px;
         }
         .reading-article figure .hop-heart button[aria-pressed="false"] svg {
           color: #111827 !important;
@@ -644,6 +643,7 @@ export default function HeritageArticle({
         .hop-carousel-strip {
           -ms-overflow-style: none;
           scrollbar-width: none;
+          touch-action: pan-x;
         }
         .hop-cnav {
           position: absolute;
