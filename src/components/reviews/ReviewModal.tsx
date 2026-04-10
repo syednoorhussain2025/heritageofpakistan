@@ -118,8 +118,19 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  // NOTE: scroll lock intentionally omitted — SiteActionsSheet parent already
-  // locks scroll. A second competing lock on iOS causes viewport jump on keyboard open.
+
+  // Lock the heritage page root scroll while modal is open.
+  // The page root is a `fixed inset-0 overflow-y-auto` div — iOS scrolls it
+  // to bring focused inputs above the keyboard, exposing the background.
+  // Setting overflow:hidden on it prevents that scroll entirely.
+  useEffect(() => {
+    if (!open) return;
+    const root = document.getElementById("heritage-page-root");
+    if (!root) return;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => { root.style.overflow = prev; };
+  }, [open]);
 
   // Sheet visibility for animation
   const [sheetVisible, setSheetVisible] = useState(false);
