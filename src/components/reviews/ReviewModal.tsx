@@ -119,30 +119,15 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // iOS Safari keyboard fix — visualViewport counter-translate.
-  // On iOS, position:fixed elements are relative to the VISUAL viewport.
-  // When the keyboard opens, the visual viewport shrinks and shifts up,
-  // taking all fixed elements with it. We use visualViewport to measure
-  // exactly how much iOS moved the viewport and apply the inverse translateY
-  // directly to the sheet DOM node (bypassing React state for performance).
+  // While the review modal is open, force body background to white.
+  // useBottomSheetParallax sets body bg to #111 (dark) while any sheet is open.
+  // When iOS Safari shifts the viewport up for the keyboard, that dark bg is
+  // exposed behind the modal. Overriding it to white hides the artifact.
   useEffect(() => {
     if (!open) return;
-    const el = sheetElRef.current;
-    const vv = window.visualViewport;
-    if (!el || !vv) return;
-    const update = () => {
-      // offsetTop = how far the visual viewport top is from the layout viewport top
-      // We want the sheet pinned to the bottom of the LAYOUT viewport
-      const offset = window.innerHeight - vv.height - vv.offsetTop;
-      el.style.transform = `translateY(${-offset}px)`;
-    };
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-      el.style.transform = "";
-    };
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = "#ffffff";
+    return () => { document.body.style.backgroundColor = prev; };
   }, [open]);
 
   // Sheet visibility for animation
@@ -190,10 +175,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     }, 500);
   }, [onClose]);
 
-  // sheetElRef = outer wrapper (keyboard offset applied here via visualViewport)
-  // dragElRef  = inner animated div (drag-to-close transform applied here)
   const sheetElRef = useRef<HTMLDivElement>(null);
-  const dragElRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const dragStartTime = useRef<number>(0);
   const dragCurrentY = useRef<number>(0);
@@ -205,7 +187,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     dragStartTime.current = Date.now();
     dragCurrentY.current = 0;
     isDragging.current = true;
-    const el = dragElRef.current;
+    const el = sheetElRef.current;
     if (el) el.style.transition = "none";
   }, []);
 
@@ -214,12 +196,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const dy = e.touches[0].clientY - dragStartY.current;
     if (dy < 0) {
       dragCurrentY.current = 0;
-      const el = dragElRef.current;
+      const el = sheetElRef.current;
       if (el) el.style.transform = "translateY(0)";
       return;
     }
     dragCurrentY.current = dy;
-    const el = dragElRef.current;
+    const el = sheetElRef.current;
     if (el) el.style.transform = `translateY(${dy}px)`;
   }, []);
 
@@ -229,7 +211,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const dy = dragCurrentY.current;
     const elapsed = Date.now() - dragStartTime.current;
     const velocity = dy / elapsed;
-    const el = dragElRef.current;
+    const el = sheetElRef.current;
     if (el) el.style.transition = "";
     if (dy >= 80 || velocity >= 0.4) {
       setClosing(true);
@@ -453,21 +435,14 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         onClick={closeSheet}
         aria-hidden="true"
       />
-      {/* Outer: keyboard-offset anchor — visualViewport counter-translate applied here */}
       <div
         ref={sheetElRef}
-        className="fixed left-0 right-0 bottom-0 z-[5501] pointer-events-none"
-        style={{ height: "92dvh" }}
+        className={`fixed left-0 right-0 bottom-0 z-[5501] pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+        }`}
+        style={{ height: "92dvh", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Inner: slide-in/out animation */}
-        <div
-          ref={dragElRef}
-          className={`pointer-events-auto w-full h-full bg-white rounded-t-3xl flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-          }`}
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
           {/* Drag handle — only this triggers swipe-to-close */}
           <div
             className="w-full flex justify-center pt-3 pb-1 shrink-0 touch-none"
@@ -668,7 +643,6 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
             </div>
           </div>
         </div>
-      </div>
     </>
   );
 
