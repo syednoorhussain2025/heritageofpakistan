@@ -444,7 +444,7 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
           visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
         }`}
         style={{
-          height: "92svh",
+          height: "92dvh",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
         onClick={(e) => e.stopPropagation()}

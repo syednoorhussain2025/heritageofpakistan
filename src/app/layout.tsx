@@ -71,10 +71,12 @@ export default async function RootLayout({
           href="https://opkndnjdeartooxhmfsr.supabase.co"
           crossOrigin="anonymous"
         />
-        {/* Capacitor: viewport-fit=cover exposes safe-area-inset-* on iOS */}
+        {/* Capacitor: viewport-fit=cover exposes safe-area-inset-* on iOS.
+            interactive-widget=resizes-content: keyboard resizes layout viewport
+            instead of panning/scrolling it, preventing modals from being pushed up. */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
         />
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
