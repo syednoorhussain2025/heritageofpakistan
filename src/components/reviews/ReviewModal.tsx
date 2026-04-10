@@ -117,7 +117,12 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
 
   // Mount/unmount for portal
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  // Capture viewport height before keyboard can resize it
+  const sheetHeightRef = useRef<number>(0);
+  useEffect(() => {
+    setMounted(true);
+    sheetHeightRef.current = Math.round(window.innerHeight * 0.92);
+  }, []);
   // NOTE: scroll lock intentionally omitted — SiteActionsSheet parent already
   // locks scroll. A second competing lock on iOS causes viewport jump on keyboard open.
 
@@ -427,15 +432,17 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
         onClick={closeSheet}
         aria-hidden="true"
       />
-      <div className="fixed inset-0 z-[5501] pointer-events-none flex items-end justify-center">
-        <div
-          ref={sheetElRef}
-          className={`pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col h-[92vh] max-h-[92vh] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-          }`}
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
+      <div
+        ref={sheetElRef}
+        className={`fixed left-0 right-0 bottom-0 z-[5501] pointer-events-auto w-full bg-white rounded-t-3xl flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+        }`}
+        style={{
+          height: sheetHeightRef.current ? `${sheetHeightRef.current}px` : "92svh",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
           {/* Drag handle — only this triggers swipe-to-close */}
           <div
             className="w-full flex justify-center pt-3 pb-1 shrink-0 touch-none"
@@ -636,7 +643,6 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
             </div>
           </div>
         </div>
-      </div>
     </>
   );
 
