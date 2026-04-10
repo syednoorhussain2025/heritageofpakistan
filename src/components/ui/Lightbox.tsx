@@ -1492,14 +1492,16 @@ export function Lightbox({
         {/* ---------- CONTROLS */}
         {/* Mobile: back arrow (hidden — gallery header handles it) */}
         <button
-          className={`md:hidden absolute left-3 p-1.5 rounded-full active:bg-white/20 text-white z-30 cursor-pointer transition-opacity duration-300 ${
+          className={`md:hidden absolute left-3 w-10 h-10 flex items-center justify-center rounded-full bg-black/30 text-white z-30 cursor-pointer transition-opacity duration-300 active:bg-black/50 ${
             isZoomed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           style={{ top: "calc(var(--sat, 44px) + 6px)" }}
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           aria-label="Back"
         >
-          <Icon name="circle-arrow-left" size={30} className="text-white" />
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+            <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+          </svg>
         </button>
         {/* Desktop: X close button (top-right) */}
         <button

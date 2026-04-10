@@ -374,9 +374,11 @@ export default function GalleryClient({
               }
             }}
             aria-label="Back"
-            className="w-10 h-10 flex items-center justify-center rounded-full active:bg-white/20 transition-colors shrink-0"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/30 text-white active:bg-black/50 transition-colors shrink-0"
           >
-            <Icon name="circle-arrow-left" size={30} className="text-white" />
+            <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+              <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+            </svg>
           </button>
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-[22px] font-bold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{site?.title ?? ""}</span>
