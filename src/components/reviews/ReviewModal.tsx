@@ -131,33 +131,46 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
     const prevBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = "#ffffff";
 
-    // Prevent iOS from scrolling window when keyboard opens.
-    // We block touchmove on document (stops iOS rubber-band scroll that
-    // causes the page-push), but allow touchmove inside the modal itself.
+    // iOS moves the visual viewport upward when any input is focused.
+    // Counter this by listening to visualViewport resize (fires when keyboard
+    // opens) and immediately applying inverse translateY to the sheet so it
+    // stays pinned. Using requestAnimationFrame(x2) to run after iOS finishes
+    // its own scroll-into-view pass, then snapping back without transition.
     const el = sheetElRef.current;
-    const blockTouchmove = (e: TouchEvent) => {
-      if (el && el.contains(e.target as Node)) return; // allow inside modal
-      e.preventDefault();
-    };
-    document.addEventListener("touchmove", blockTouchmove, { passive: false });
-
-    // Use visualViewport to counter any remaining visual viewport shift
     const vv = window.visualViewport;
+    let raf1 = 0, raf2 = 0;
+
     const onViewportChange = () => {
       if (!vv || !el) return;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      // Disable transition so snap-back is instant (no jerk animation)
+      const prevTransition = el.style.transition;
+      el.style.transition = "none";
       const offset = window.innerHeight - vv.offsetTop - vv.height;
-      el.style.transform = offset > 0
-        ? `translateY(${-Math.round(offset)}px)`
-        : "";
+      el.style.transform = offset > 0 ? `translateY(${-Math.round(offset)}px)` : "";
+      // Re-enable transition after paint
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          el.style.transition = prevTransition;
+        });
+      });
     };
+
+    // Also intercept focus on inputs — scroll window back to 0 immediately
+    const onFocus = () => { window.scrollTo(0, 0); };
+    el?.addEventListener("focusin", onFocus);
+
     vv?.addEventListener("resize", onViewportChange);
     vv?.addEventListener("scroll", onViewportChange);
 
     return () => {
       document.body.style.backgroundColor = prevBg;
-      document.removeEventListener("touchmove", blockTouchmove);
+      el?.removeEventListener("focusin", onFocus);
       vv?.removeEventListener("resize", onViewportChange);
       vv?.removeEventListener("scroll", onViewportChange);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       if (el) el.style.transform = "";
     };
   }, [open]);
