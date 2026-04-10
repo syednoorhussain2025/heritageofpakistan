@@ -119,15 +119,42 @@ export default function ReviewModal({ open, onClose, onSuccess, onBadgeEarned, s
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // While the review modal is open, force body background to white.
-  // useBottomSheetParallax sets body bg to #111 (dark) while any sheet is open.
-  // When iOS Safari shifts the viewport up for the keyboard, that dark bg is
-  // exposed behind the modal. Overriding it to white hides the artifact.
+  // iOS keyboard fix: when an input is focused inside a fixed modal, iOS
+  // scrolls window upward to bring the input above the keyboard.
+  // We counter this by: (1) forcing window.scrollY back to 0 on every
+  // visualViewport scroll event, and (2) keeping body bg white so any
+  // residual shift shows white instead of the dark parallax background.
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.backgroundColor;
+
+    // Force body bg white (parallax sets it to #111 when sheets open)
+    const prevBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = "#ffffff";
-    return () => { document.body.style.backgroundColor = prev; };
+
+    // Whenever iOS scrolls window for keyboard, immediately undo it
+    const preventScroll = () => { window.scrollTo(0, 0); };
+    window.addEventListener("scroll", preventScroll, { passive: false });
+
+    // Also use visualViewport to counter translate if viewport shifts
+    const vv = window.visualViewport;
+    const el = sheetElRef.current;
+    const onViewportChange = () => {
+      if (!vv || !el) return;
+      const offset = window.innerHeight - vv.offsetTop - vv.height;
+      el.style.transform = offset > 0
+        ? `translateY(${-Math.round(offset)}px)`
+        : "";
+    };
+    vv?.addEventListener("resize", onViewportChange);
+    vv?.addEventListener("scroll", onViewportChange);
+
+    return () => {
+      document.body.style.backgroundColor = prevBg;
+      window.removeEventListener("scroll", preventScroll);
+      vv?.removeEventListener("resize", onViewportChange);
+      vv?.removeEventListener("scroll", onViewportChange);
+      if (el) el.style.transform = "";
+    };
   }, [open]);
 
   // Sheet visibility for animation
