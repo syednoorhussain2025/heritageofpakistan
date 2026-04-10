@@ -10,6 +10,7 @@ type HeritageSectionProps = {
   /** Hides the section heading (useful when inner cards provide their own) */
   hideHeader?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 };
 
 export default function HeritageSection({
@@ -20,10 +21,12 @@ export default function HeritageSection({
   noFrame = false,
   hideHeader = false,
   className,
+  style,
 }: HeritageSectionProps) {
   return (
     <section
       className={className ?? (noFrame ? "w-full" : "px-4 py-12 md:bg-white md:rounded-2xl md:py-6 md:px-6")}
+      style={style}
     >
       {/* Keep an anchor for scroll targeting even when header is hidden */}
       {hideHeader ? (
