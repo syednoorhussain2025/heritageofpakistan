@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import SiteCarousel from "@/components/SiteCarousel";
 import SiteActionsSheet from "@/components/SiteActionsSheet";
@@ -50,7 +50,18 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+async function resolveProvinceSlug(provinceId: string): Promise<string | null> {
+  const { data } = await getPublicClient()
+    .from("regions")
+    .select("slug")
+    .eq("id", provinceId)
+    .is("parent_id", null)
+    .single();
+  return (data as { slug: string | null } | null)?.slug ?? null;
+}
+
 export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng, fromLat, fromLng, fromTitle }: Props) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -240,11 +251,21 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
   if (!mounted || (!isOpen && !closing) || !site) return null;
 
-  const detailHref = site.province_slug
-    ? `/heritage/${site.province_slug}/${site.slug}`
-    : `/heritage/${site.slug}`;
-
   const sheetVisible = visible && !closing;
+
+  async function handleOpenSite() {
+    if (!site) return;
+    void hapticMedium();
+    let provinceSlug = site.province_slug;
+    if (!provinceSlug && site.province_id) {
+      provinceSlug = await resolveProvinceSlug(site.province_id);
+    }
+    const href = provinceSlug
+      ? `/heritage/${provinceSlug}/${site.slug}`
+      : `/heritage/${site.slug}`;
+    closeWithAnimation();
+    router.push(href);
+  }
 
   const sheet = createPortal(
     <div
@@ -392,14 +413,14 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
           <div className="flex-1" />
 
           {/* Open Site */}
-          <Link
-            href={detailHref}
-            onClick={() => { void hapticMedium(); closeWithAnimation(); }}
+          <button
+            type="button"
+            onClick={() => { void handleOpenSite(); }}
             className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 active:scale-95 transition-all"
           >
             Open Site
             <Icon name="arrow-right" size={14} />
-          </Link>
+          </button>
         </div>
       </div>
     </div>,
