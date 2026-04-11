@@ -12,9 +12,6 @@ import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { listPortfolio } from "@/lib/db/portfolio";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
-import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
-import { useQueryClient } from "@tanstack/react-query";
-import { dashboardKeys } from "@/hooks/useDashboardQueries";
 
 function storagePublicUrl(bucket: string, path: string) {
   const supabase = createClient();
@@ -52,24 +49,9 @@ export default function DashboardHome() {
   const supabase = createClient();
   const router = useRouter();
   const { userId, authLoading, authError } = useAuthUserId();
-  const { startNavigation } = useLoaderEngine();
-  const queryClient = useQueryClient();
-
-  // Only show the white overlay if data isn't already cached for that page
   function navigateTo(href: string) {
     void hapticLight();
-    const cached = isCached(href);
-    startNavigation(href, { overlay: cached ? null : "white-silent" });
-  }
-
-  function isCached(href: string): boolean {
-    if (!userId) return false;
-    if (href === "/dashboard/mywishlists") return !!queryClient.getQueryData(dashboardKeys.wishlists("me"));
-    if (href === "/dashboard/mycollections") return !!queryClient.getQueryData(dashboardKeys.collections("me"));
-    if (href === "/dashboard/mytrips") return !!queryClient.getQueryData(dashboardKeys.trips("me"));
-    if (href === "/dashboard/myreviews") return !!queryClient.getQueryData(dashboardKeys.reviews(userId));
-    if (href === "/dashboard/placesvisited") return !!queryClient.getQueryData(dashboardKeys.placesVisited(userId));
-    return false;
+    router.push(href);
   }
 
   async function handleSignOut() {
