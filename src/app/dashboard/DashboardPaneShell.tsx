@@ -1,10 +1,7 @@
 // src/app/dashboard/DashboardPaneShell.tsx
-// Keeps the 5 prefetched dashboard pages always mounted.
-// Switching between them uses a CSS translateX slide — identical to the
-// heritage side-sheet animation — so content is instant, never re-fetches.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
 import DashboardMyTripsPage from "./mytrips/page";
@@ -33,83 +30,99 @@ const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
   "/dashboard/placesvisited": PlacesVisitedPage,
 };
 
-interface Props {
-  activeRoute: PaneRoute;
-}
+const CURVE = "cubic-bezier(0.16,1,0.3,1)";
+const DURATION = 480; // ms
 
-export default function DashboardPaneShell({ activeRoute }: Props) {
-  const prevRoute = useRef<PaneRoute | null>(null);
+export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneRoute }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
+  const prevRouteRef = useRef<PaneRoute | null>(null);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    const prev = prevRoute.current;
-    const next = activeRoute;
+    const refs = paneRefs.current;
 
+    // First paint — show active, hide rest, no animation
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      PANE_ROUTES.forEach((route) => {
+        const el = refs[route];
+        if (!el) return;
+        if (route === activeRoute) {
+          el.style.transform = "translateX(0)";
+          el.style.visibility = "visible";
+          el.style.position = "relative";
+        } else {
+          el.style.transform = "translateX(100%)";
+          el.style.visibility = "hidden";
+          el.style.position = "absolute";
+          el.style.top = "0";
+          el.style.left = "0";
+          el.style.right = "0";
+        }
+      });
+      prevRouteRef.current = activeRoute;
+      return;
+    }
+
+    const prev = prevRouteRef.current;
+    const next = activeRoute;
     if (prev === next) return;
 
-    const prevEl = prev ? paneRefs.current[prev] : null;
-    const nextEl = paneRefs.current[next];
+    const prevEl = prev ? refs[prev] : null;
+    const nextEl = refs[next];
 
+    // Prev becomes absolute so it doesn't affect layout during animation
     if (prevEl) {
-      // Slide old pane out to the left
-      prevEl.style.transition = "none";
-      prevEl.style.transform = "translateX(0)";
-      prevEl.style.display = "block";
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          prevEl.style.transition = "transform 0.52s cubic-bezier(0.16,1,0.3,1)";
-          prevEl.style.transform = "translateX(-30%)";
-          // Hide after animation
-          setTimeout(() => {
-            prevEl.style.display = "none";
-            prevEl.style.transform = "translateX(0)";
-            prevEl.style.transition = "none";
-          }, 540);
-        });
-      });
+      prevEl.style.position = "absolute";
+      prevEl.style.top = "0";
+      prevEl.style.left = "0";
+      prevEl.style.right = "0";
     }
-
+    // Next becomes relative (owns the layout height) and starts off-screen right
     if (nextEl) {
-      // Slide new pane in from the right
+      nextEl.style.position = "relative";
+      nextEl.style.visibility = "visible";
       nextEl.style.transition = "none";
       nextEl.style.transform = "translateX(100%)";
-      nextEl.style.display = "block";
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          nextEl.style.transition = "transform 0.52s cubic-bezier(0.16,1,0.3,1)";
-          nextEl.style.transform = "translateX(0)";
-        });
-      });
     }
 
-    prevRoute.current = next;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (nextEl) {
+          nextEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
+          nextEl.style.transform = "translateX(0)";
+        }
+        if (prevEl) {
+          prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
+          prevEl.style.transform = "translateX(-25%)";
+        }
+
+        setTimeout(() => {
+          if (prevEl) {
+            prevEl.style.transition = "none";
+            prevEl.style.transform = "translateX(100%)";
+            prevEl.style.visibility = "hidden";
+          }
+        }, DURATION + 20);
+      });
+    });
+
+    prevRouteRef.current = next;
   }, [activeRoute]);
 
-  // On first mount — show active pane instantly, hide others
-  useEffect(() => {
-    PANE_ROUTES.forEach((route) => {
-      const el = paneRefs.current[route];
-      if (!el) return;
-      if (route === activeRoute) {
-        el.style.display = "block";
-        el.style.transform = "translateX(0)";
-        prevRoute.current = activeRoute;
-      } else {
-        el.style.display = "none";
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-x-hidden">
       {PANE_ROUTES.map((route) => {
         const Page = PANE_COMPONENTS[route];
         return (
           <div
             key={route}
             ref={(el) => { paneRefs.current[route] = el; }}
-            style={{ display: "none", willChange: "transform" }}
+            style={{
+              willChange: "transform",
+              visibility: "hidden",
+              transform: "translateX(100%)",
+            }}
           >
             <Page />
           </div>

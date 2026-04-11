@@ -161,6 +161,9 @@ export default function DashboardShellClient({
       startNavigation("/dashboard/myreviews", { overlay: "white-silent-back" });
     } else if (pathname?.startsWith("/dashboard/notebook/")) {
       startNavigation("/dashboard/notebook", { overlay: "white-silent-back" });
+    } else if (isPaneRoute(pathname ?? "")) {
+      // Pane routes go back to dashboard home — no overlay, pane shell handles visuals
+      router.replace("/dashboard", { scroll: false });
     } else if (isHome) {
       startNavigation("/", { overlay: "white-silent-back" });
     } else {
