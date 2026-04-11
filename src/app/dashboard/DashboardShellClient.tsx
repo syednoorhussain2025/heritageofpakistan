@@ -437,7 +437,9 @@ export default function DashboardShellClient({
           />
         )}
         <SearchContext.Provider value={{ q: headerSearchQ }}>
-          {children}
+          <div key={pathname} className="lg:contents animate-side-sheet-in">
+            {children}
+          </div>
         </SearchContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />
