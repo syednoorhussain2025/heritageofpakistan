@@ -1,20 +1,20 @@
 // components/MyTripsGrid.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { NoTrips } from "@/components/illustrations/NoTrips";
 import {
-  listTripsByUsername,
   deleteTrip,
   countTripItems,
   createTrip,
   getTripUrlById,
 } from "@/lib/trips";
-import { withTimeout } from "@/lib/async/withTimeout";
 import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { useSearchQ } from "@/app/dashboard/SearchContext";
+import { useTrips, dashboardKeys } from "@/hooks/useDashboardQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 type TripRow = {
   id: string;
@@ -39,72 +39,17 @@ export default function MyTripsGrid({
   allowDelete?: boolean;
   containerClassName?: string;
 }) {
-  const TRIPS_TIMEOUT_MS = 12000;
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [trips, setTrips] = useState<TripRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const { data: tripsData, isLoading, error: tripsError } = useTrips(username);
+  const trips = (tripsData ?? []) as TripRow[];
+  const loading = isLoading;
+  const errMsg = tripsError ? (tripsError as any)?.message ?? "Failed to load trips." : null;
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [stats, setStats] = useState<
-    Record<string, { sites: number; travels: number }>
-  >({});
-
-  // Fetch trips for the provided username
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setErrMsg(null);
-        const data = await withTimeout(
-          listTripsByUsername(username),
-          TRIPS_TIMEOUT_MS,
-          "myTrips.listTripsByUsername"
-        );
-        if (!mounted) return;
-
-        // data is TripWithCover[] where slug may be null/undefined
-        setTrips((data ?? []) as TripRow[]);
-
-        // Fetch counts in a fail-safe way (no UI error spam)
-        Promise.allSettled(
-          (data ?? []).map(
-            async (t) => [t.id, await countTripItems(t.id)] as const
-          )
-        ).then((results) => {
-          if (!mounted) return;
-          const ok = results
-            .filter(
-              (
-                r
-              ): r is PromiseFulfilledResult<
-                readonly [string, { sites: number; travels: number }]
-              > => r.status === "fulfilled"
-            )
-            .map((r) => r.value);
-          setStats(Object.fromEntries(ok));
-        });
-      } catch (e: any) {
-        // Suppress auth/RLS noise in the UI; show empty state instead
-        console.error("[MyTripsGrid] load error:", e);
-        if (!mounted) return;
-        setTrips([]);
-        const msg = (e?.message || "").toLowerCase();
-        if (msg.includes("not authenticated") || msg.includes("permission")) {
-          setErrMsg(null);
-        } else {
-          setErrMsg(e?.message || "Failed to load trips.");
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [username]);
+  const [stats, setStats] = useState<Record<string, { sites: number; travels: number }>>({});
 
   const contextQ = useSearchQ();
   const [localQ, setLocalQ] = useState("");
@@ -137,14 +82,16 @@ export default function MyTripsGrid({
 
   const handleDelete = async (trip: TripRow) => {
     if (!allowDelete) return;
-    const ok = confirm(`Delete “${trip.name}”? This cannot be undone.`);
+    const ok = confirm(`Delete "${trip.name}"? This cannot be undone.`);
     if (!ok) return;
     try {
       setDeletingId(trip.id);
       await deleteTrip(trip.id);
-      setTrips((prev) => prev.filter((t) => t.id !== trip.id));
+      queryClient.setQueryData(dashboardKeys.trips("me"), (old: any[]) =>
+        (old ?? []).filter((t) => t.id !== trip.id)
+      );
     } catch (e: any) {
-      setErrMsg(e?.message || "Failed to delete trip.");
+      console.error("MyTripsGrid delete error:", e?.message || "Failed to delete trip.");
     } finally {
       setDeletingId(null);
     }
@@ -159,7 +106,7 @@ export default function MyTripsGrid({
       const href = pretty ?? `/${username}/trip/${trip.slug || "default-trip"}`;
       try { router.push(href); } catch { window.location.href = href; }
     } catch (e: any) {
-      setErrMsg(e?.message || "Failed to create trip.");
+      console.error("Failed to create trip:", e?.message);
     } finally {
       setCreating(false);
     }

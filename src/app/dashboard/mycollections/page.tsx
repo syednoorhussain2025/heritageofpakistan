@@ -1,82 +1,38 @@
 // src/app/dashboard/mycollections/page.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { NoCollections } from "@/components/illustrations/NoCollections";
-import { listPhotoCollections, deletePhotoCollection } from "@/lib/photoCollections";
-import { createClient } from "@/lib/supabase/browser";
-import { getVariantPublicUrl } from "@/lib/imagevariants";
+import { deletePhotoCollection } from "@/lib/photoCollections";
 import { hapticLight, hapticHeavy, hapticMedium } from "@/lib/haptics";
 import { useSearchQ } from "../SearchContext";
-
-type Album = {
-  id: string;
-  name: string;
-  is_public: boolean;
-  coverUrl?: string | null;
-  itemCount?: number;
-  // first item thumb fetched separately
-  firstPhotoUrl?: string | null;
-};
+import { useCollections, dashboardKeys } from "@/hooks/useDashboardQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function MyCollectionsPage() {
-  const supabase = createClient();
   const router = useRouter();
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: albums = [], isLoading } = useCollections();
+  const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const q = useSearchQ();
 
   const filtered = useMemo(() =>
-    q.trim() ? albums.filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase())) : albums,
+    q.trim() ? albums.filter((a: any) => a.name.toLowerCase().includes(q.trim().toLowerCase())) : albums,
     [albums, q]
   );
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const cols = await listPhotoCollections();
-        // For each album, fetch the first photo to use as preview
-        const withPreviews = await Promise.all(
-          cols.map(async (c) => {
-            // Try cover first
-            if (c.coverUrl) return { ...c, firstPhotoUrl: c.coverUrl };
-            // Otherwise fetch first item's storage_path
-            const { data } = await supabase
-              .from("photo_collection_items")
-              .select("collected_images(storage_path, image_url)")
-              .eq("collection_id", c.id)
-              .order("sort_order", { ascending: true, nullsFirst: false })
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            const ci = (data as any)?.collected_images;
-            if (!ci) return { ...c, firstPhotoUrl: null };
-            const url = ci.storage_path
-              ? (() => { try { return getVariantPublicUrl(ci.storage_path, "thumb"); } catch { return supabase.storage.from("site-images").getPublicUrl(ci.storage_path).data.publicUrl; } })()
-              : ci.image_url ?? null;
-            return { ...c, firstPhotoUrl: url };
-          })
-        );
-        setAlbums(withPreviews);
-      } finally {
-        setLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete collection "${name}"? This will not affect your library.`)) return;
     setDeletingId(id);
     try {
       await deletePhotoCollection(id);
-      setAlbums((prev) => prev.filter((a) => a.id !== id));
+      queryClient.setQueryData(dashboardKeys.collections("me"), (old: any[]) =>
+        (old ?? []).filter((a) => a.id !== id)
+      );
       setToast(`"${name}" deleted`);
       setTimeout(() => setToast(null), 2500);
     } finally {
@@ -86,15 +42,13 @@ export default function MyCollectionsPage() {
 
   return (
     <>
-      {/* Toast */}
       {toast && (
         <div className="pointer-events-none fixed left-1/2 bottom-28 -translate-x-1/2 z-[9999] rounded-xl bg-gray-900/90 text-white text-sm px-4 py-2.5 shadow-lg whitespace-nowrap">
           {toast}
         </div>
       )}
 
-      {/* Album list */}
-      {loading ? (
+      {isLoading ? (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-4 py-4 animate-pulse">
@@ -116,7 +70,7 @@ export default function MyCollectionsPage() {
         <p className="text-center text-sm text-gray-400 py-6">No collections match "{q}"</p>
       ) : (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-          {filtered.map((a, i) => (
+          {filtered.map((a: any, i: number) => (
             <div key={a.id} className="relative">
               {i > 0 && <span className="absolute top-0 right-0 left-[68px] h-px bg-gray-100" />}
               <Link
@@ -124,7 +78,6 @@ export default function MyCollectionsPage() {
                 onClick={() => void hapticLight()}
                 className="flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-colors"
               >
-                {/* Square rounded preview with camera badge */}
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-1 ring-black/5">
                   {a.firstPhotoUrl ? (
                     <img src={a.firstPhotoUrl} alt={a.name} className="w-full h-full object-cover" />
@@ -133,24 +86,17 @@ export default function MyCollectionsPage() {
                       <Icon name="images" size={20} />
                     </div>
                   )}
-                  {/* Camera badge top-right */}
                   <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
                     <Icon name="camera" size={9} className="text-white" />
                   </div>
                 </div>
-
-                {/* Name + meta */}
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-semibold text-[var(--brand-black)] truncate">{a.name}</div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {a.is_public ? "public" : "private"} · {a.itemCount ?? 0} {(a.itemCount ?? 0) === 1 ? "photo" : "photos"}
                   </div>
                 </div>
-
-                {/* Chevron */}
                 <Icon name="chevron-right" size={13} className="text-[var(--brand-light-grey)] shrink-0 mr-1" />
-
-                {/* Delete */}
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -173,7 +119,6 @@ export default function MyCollectionsPage() {
         </div>
       )}
 
-      {/* Fixed "See all Collected Photos" button */}
       <div className="lg:hidden fixed inset-x-0 bottom-0 z-[500] bg-white border-t border-gray-100 px-4 py-3"
         style={{ paddingBottom: "calc(52px + var(--safe-bottom, 0px) + 12px)" }}>
         <button
@@ -185,7 +130,6 @@ export default function MyCollectionsPage() {
           See all Collected Photos
         </button>
       </div>
-      {/* Desktop link */}
       <div className="hidden lg:block pt-4">
         <Link
           href="/dashboard/mycollections/photos"

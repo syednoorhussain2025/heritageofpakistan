@@ -1,11 +1,9 @@
 // src/app/dashboard/placesvisited/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
-import { countUserVisits } from "@/lib/db/visited";
 import { NoVisited } from "@/components/illustrations/NoVisited";
-import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { progressToNextBadge, BADGE_TIERS } from "@/lib/db/badges";
 import { createClient } from "@/lib/supabase/browser";
 import Image from "next/image";
@@ -14,6 +12,8 @@ import Icon from "@/components/Icon";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useProfile } from "@/components/ProfileProvider";
 import type { UserSite } from "@/components/UserVisitedMap";
+import { usePlacesVisited } from "@/hooks/useDashboardQueries";
+import type { ReviewRow } from "@/lib/db/reviews";
 
 /* ---------- Skeleton utilities ---------- */
 function Skeleton({ className = "" }: { className?: string }) {
@@ -164,69 +164,26 @@ function InfoBottomSheet({ onClose }: { onClose: () => void }) {
 
 /* ---------- Page ---------- */
 export default function PlacesVisitedPage() {
-  const supabase = createClient();
   const { userId, authLoading } = useAuthUserId();
   const { profile, loading: profileLoading } = useProfile();
 
-  const [visitedCount, setVisitedCount] = useState(0);
-  const [progress, setProgress] = useState({ current: "Beginner", next: null as string | null, remaining: 0 });
-  const [reviews, setReviews] = useState<ReviewWithSite[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
+  const { data, isLoading, error: placesError } = usePlacesVisited(userId);
+
+  const visitedCount = data?.count ?? 0;
+  const progress = progressToNextBadge(visitedCount);
+  const reviews = (data?.reviews ?? []) as ReviewWithSite[];
+  const loading = authLoading || isLoading;
+  const pageError = placesError ? (placesError as any)?.message ?? "Error loading visited places" : null;
+
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showInfoSheet, setShowInfoSheet] = useState(false);
-  const [infoShownOnce, setInfoShownOnce] = useState(false);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!userId) { setLoading(false); return; }
-    (async () => {
-      try {
-        setLoading(true);
-        setPageError(null);
-
-        const [count, userReviews] = await Promise.all([
-          countUserVisits(userId),
-          listUserReviews(userId),
-        ]);
-        setVisitedCount(count);
-        setProgress(progressToNextBadge(count));
-
-        const siteIds = Array.from(new Set(userReviews.map((r) => r.site_id)));
-        let sites: SiteRow[] = [];
-        if (siteIds.length) {
-          const { data, error } = await supabase
-            .from("sites")
-            .select("id, title, slug, cover_photo_url, latitude, longitude, location_free, heritage_type, site_categories!inner(categories(icon_key))")
-            .in("id", siteIds as string[]);
-          if (error) throw error;
-          sites = data ?? [];
-        }
-        setReviews(userReviews.map((r) => ({ ...r, site: sites.find((s) => s.id === r.site_id) })));
-      } catch (e: any) {
-        setPageError(e?.message ?? "Error loading visited places");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [authLoading, userId]);
-
-  // Show info sheet once on first load (only on mobile, once per session)
-  useEffect(() => {
-    if (!loading && !authLoading && !infoShownOnce && typeof window !== "undefined") {
-      setInfoShownOnce(true);
-      // Small delay so the page renders first
-      const t = setTimeout(() => setShowInfoSheet(true), 600);
-      return () => clearTimeout(t);
-    }
-  }, [loading, authLoading]);
 
   const sitesForMap: UserSite[] = reviews
     .map((r) => {
       const s = r.site;
       if (!s || !s.latitude || !s.longitude) return null;
-      const normalizedCategories = s.site_categories?.map((sc) => ({
+      const normalizedCategories = s.site_categories?.map((sc: any) => ({
         categories: Array.isArray(sc.categories) && sc.categories.length > 0 ? sc.categories[0] : null,
       })) ?? [];
       return {

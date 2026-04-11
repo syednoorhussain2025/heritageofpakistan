@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
@@ -10,8 +10,11 @@ import { hardDeleteReview } from "@/lib/db/hardDelete";
 import { NoReviews } from "@/components/illustrations/NoReviews";
 import DeleteSuccessPopup from "@/components/reviews/DeleteSuccessPopup";
 import { hapticLight, hapticHeavy } from "@/lib/haptics";
-import { Lightbox } from "@/components/ui/Lightbox"; // ✅ import universal lightbox
+import { Lightbox } from "@/components/ui/Lightbox";
 import type { LightboxPhoto } from "@/types/lightbox";
+import { useDashboardReviews, dashboardKeys } from "@/hooks/useDashboardQueries";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 /* ---------- types ---------- */
 
@@ -58,16 +61,6 @@ function getPublicUrl(bucket: string, path: string) {
   return data.publicUrl;
 }
 
-async function listUserReviews(userId: string): Promise<ReviewWithProfile[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("reviews_with_profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as ReviewWithProfile[];
-}
 
 async function listReviewPhotos(reviewId: string): Promise<ReviewPhoto[]> {
   const supabase = createClient();
@@ -235,20 +228,19 @@ function PageSkeleton() {
 export default function MyReviewsPage() {
   const { userId, authLoading, authError } = useAuthUserId();
   const { refreshProfile } = useProfile();
+  const queryClient = useQueryClient();
 
-  const [reviews, setReviews] = useState<ReviewWithProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
+  // Primary data via React Query — will be instant if prefetched
+  const { data: reviewsRaw = [], isLoading: reviewsLoading, error: reviewsError } = useDashboardReviews(userId);
+  const reviews = reviewsRaw as ReviewWithProfile[];
 
+  // Secondary data derived from reviews (site names, regions, categories)
   const [siteMap, setSiteMap] = useState<{ [key: string]: SiteRow }>({});
   const [regions, setRegions] = useState<RegionRow[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [siteToRegions, setSiteToRegions] = useState<{
-    [key: string]: string[];
-  }>({});
-  const [siteToCategories, setSiteToCategories] = useState<{
-    [key: string]: string[];
-  }>({});
+  const [siteToRegions, setSiteToRegions] = useState<{ [key: string]: string[] }>({});
+  const [siteToCategories, setSiteToCategories] = useState<{ [key: string]: string[] }>({});
+  const [secondaryLoading, setSecondaryLoading] = useState(false);
 
   const [query, setQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("");
@@ -257,27 +249,18 @@ export default function MyReviewsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
 
-  // Bulk delete state
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [bulkPassword, setBulkPassword] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
 
+  // Fetch secondary metadata once reviews are loaded
   useEffect(() => {
-    if (authLoading) return;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (!reviews.length) return;
+    const siteIds = Array.from(new Set(reviews.map((r) => r.site_id)));
+    setSecondaryLoading(true);
     (async () => {
       try {
-        setLoading(true);
-        setPageError(null);
-
-        const rows = await listUserReviews(userId);
-        setReviews(rows);
-        const siteIds = Array.from(new Set(rows.map((r) => r.site_id)));
-
         const sites = await fetchSitesByIds(siteIds);
         const siteById: { [key: string]: SiteRow } = {};
         for (const s of sites) siteById[s.id] = s;
@@ -286,10 +269,7 @@ export default function MyReviewsPage() {
         const [
           { siteToRegions, distinctRegionIds },
           { siteToCategories, distinctCategoryIds },
-        ] = await Promise.all([
-          fetchRegionLinks(siteIds),
-          fetchCategoryLinks(siteIds),
-        ]);
+        ] = await Promise.all([fetchRegionLinks(siteIds), fetchCategoryLinks(siteIds)]);
         setSiteToRegions(siteToRegions);
         setSiteToCategories(siteToCategories);
 
@@ -298,16 +278,15 @@ export default function MyReviewsPage() {
           fetchCategoriesByIds(distinctCategoryIds),
         ]);
         setRegions(regionRows.sort((a, b) => a.name.localeCompare(b.name)));
-        setCategories(
-          categoryRows.sort((a, b) => a.name.localeCompare(b.name))
-        );
-      } catch (e: any) {
-        setPageError(e?.message ?? "Error loading reviews");
+        setCategories(categoryRows.sort((a, b) => a.name.localeCompare(b.name)));
       } finally {
-        setLoading(false);
+        setSecondaryLoading(false);
       }
     })();
-  }, [authLoading, userId]);
+  }, [reviews.length > 0 ? reviews[0]?.id : null]);
+
+  const loading = authLoading || reviewsLoading;
+  const pageError = reviewsError ? (reviewsError as any)?.message ?? "Error loading reviews" : null;
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
@@ -338,9 +317,10 @@ export default function MyReviewsPage() {
     try {
       setDeleting(id);
       await hardDeleteReview(id);
-      setReviews((prev) => prev.filter((r) => r.id !== id));
+      queryClient.setQueryData(dashboardKeys.reviews(userId), (old: any[]) =>
+        (old ?? []).filter((r) => r.id !== id)
+      );
       setShowDeletePopup(true);
-      // Re-fetch profile so badge reflects new review count
       setTimeout(() => refreshProfile(), 500);
     } finally {
       setDeleting(null);
@@ -362,7 +342,7 @@ export default function MyReviewsPage() {
       const res = await fetch("/api/reviews/bulk-delete", { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "Failed to delete reviews.");
-      setReviews([]);
+      queryClient.setQueryData(dashboardKeys.reviews(userId), []);
       setShowBulkDeleteModal(false);
       setBulkPassword("");
     } catch (e: any) {

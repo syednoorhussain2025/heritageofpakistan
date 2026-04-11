@@ -15,6 +15,7 @@ import { progressToNextBadge } from "@/lib/db/badges";
 import { SearchContext } from "./SearchContext";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useProfile } from "@/components/ProfileProvider";
+import { usePrefetchDashboard } from "@/hooks/useDashboardQueries";
 
 // Module-level cache so visitedCount survives navigation without re-fetching
 let cachedVisitedCount: number | null = null;
@@ -51,6 +52,13 @@ export default function DashboardShellClient({
 
   // Profile from global provider — already fetched, never null after first load
   const { profile, loading: profileLoading } = useProfile();
+
+  // Prefetch all dashboard sub-page data as soon as userId is known
+  const prefetchDashboard = usePrefetchDashboard(userId);
+  useEffect(() => {
+    if (userId) prefetchDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // visitedCount — use module cache so it survives navigation without re-fetching
   const [visitedCount, setVisitedCount] = useState<number>(
