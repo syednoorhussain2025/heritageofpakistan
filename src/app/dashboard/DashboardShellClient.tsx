@@ -16,6 +16,7 @@ import { SearchContext } from "./SearchContext";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useProfile } from "@/components/ProfileProvider";
 import { usePrefetchDashboard } from "@/hooks/useDashboardQueries";
+import DashboardPaneShell, { isPaneRoute, type PaneRoute } from "./DashboardPaneShell";
 
 // Module-level cache so visitedCount survives navigation without re-fetching
 let cachedVisitedCount: number | null = null;
@@ -437,9 +438,13 @@ export default function DashboardShellClient({
           />
         )}
         <SearchContext.Provider value={{ q: headerSearchQ }}>
-          <div key={pathname} className="lg:contents animate-side-sheet-in">
-            {children}
-          </div>
+          {isPaneRoute(pathname ?? "") ? (
+            <DashboardPaneShell activeRoute={pathname as PaneRoute} />
+          ) : (
+            <div key={pathname} className="lg:contents animate-side-sheet-in">
+              {children}
+            </div>
+          )}
         </SearchContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />

@@ -12,6 +12,7 @@ import { progressToNextBadge } from "@/lib/db/badges";
 import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { listPortfolio } from "@/lib/db/portfolio";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { isPaneRoute } from "./DashboardPaneShell";
 
 function storagePublicUrl(bucket: string, path: string) {
   const supabase = createClient();
@@ -51,7 +52,12 @@ export default function DashboardHome() {
   const { userId, authLoading, authError } = useAuthUserId();
   function navigateTo(href: string) {
     void hapticLight();
-    router.push(href);
+    // Pane routes: just update URL without a full navigation — DashboardPaneShell handles the animation
+    if (isPaneRoute(href)) {
+      router.replace(href, { scroll: false });
+    } else {
+      router.push(href);
+    }
   }
 
   async function handleSignOut() {
