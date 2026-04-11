@@ -13,6 +13,8 @@ import { listUserReviews, ReviewRow } from "@/lib/db/reviews";
 import { listPortfolio } from "@/lib/db/portfolio";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/hooks/useDashboardQueries";
 
 function storagePublicUrl(bucket: string, path: string) {
   const supabase = createClient();
@@ -51,6 +53,24 @@ export default function DashboardHome() {
   const router = useRouter();
   const { userId, authLoading, authError } = useAuthUserId();
   const { startNavigation } = useLoaderEngine();
+  const queryClient = useQueryClient();
+
+  // Only show the white overlay if data isn't already cached for that page
+  function navigateTo(href: string) {
+    void hapticLight();
+    const cached = isCached(href);
+    startNavigation(href, { overlay: cached ? null : "white-silent" });
+  }
+
+  function isCached(href: string): boolean {
+    if (!userId) return false;
+    if (href === "/dashboard/mywishlists") return !!queryClient.getQueryData(dashboardKeys.wishlists("me"));
+    if (href === "/dashboard/mycollections") return !!queryClient.getQueryData(dashboardKeys.collections("me"));
+    if (href === "/dashboard/mytrips") return !!queryClient.getQueryData(dashboardKeys.trips("me"));
+    if (href === "/dashboard/myreviews") return !!queryClient.getQueryData(dashboardKeys.reviews(userId));
+    if (href === "/dashboard/placesvisited") return !!queryClient.getQueryData(dashboardKeys.placesVisited(userId));
+    return false;
+  }
 
   async function handleSignOut() {
     void hapticHeavy();
@@ -168,7 +188,7 @@ export default function DashboardHome() {
             <button
               key={item.href}
               type="button"
-              onClick={() => { void hapticLight(); startNavigation(item.href, { overlay: "white-silent" }); }}
+              onClick={() => navigateTo(item.href)}
               className="w-full flex items-center gap-3.5 px-4 py-[15px] active:bg-gray-50 transition-colors relative select-none text-left"
               style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
             >
