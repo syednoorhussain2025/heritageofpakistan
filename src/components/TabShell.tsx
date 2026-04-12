@@ -34,10 +34,7 @@ function TabPane({
 }) {
   const divRef = useRef<HTMLDivElement>(null);
   const prevActive = useRef(active);
-  // When this flips true→false→true, we want opacity:0 on the first paint
-  // so there's no visible flash of stale scroll state.
   const justActivated = active && !prevActive.current;
-  // Update prevActive synchronously during render (before effects)
   prevActive.current = active;
 
   useEffect(() => {
@@ -45,9 +42,6 @@ function TabPane({
     if (!el) return;
 
     if (!active) {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.paddingRight = "";
       el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
       return;
     }
@@ -57,20 +51,8 @@ function TabPane({
       el.querySelectorAll<HTMLElement>("*").forEach(child => {
         if (child.scrollTop > 0) child.scrollTop = 0;
       });
-      // Signal children (e.g. HomeClient) to reset inline transforms
       window.dispatchEvent(new CustomEvent("tab-shown"));
     }
-
-    // Fade in (el starts at opacity:0 from render when justActivated, else already 1)
-    el.style.transition = "none";
-    el.style.opacity = "0";
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.style.transition = "opacity 0.12s cubic-bezier(0.25,0.1,0.25,1)";
-        el.style.opacity = "1";
-      });
-    });
-    return () => cancelAnimationFrame(raf);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
@@ -78,7 +60,7 @@ function TabPane({
     <div
       ref={divRef}
       aria-hidden={!active}
-      style={{ display: active ? "block" : "none", opacity: justActivated ? 0 : 1 }}
+      style={{ display: active ? "block" : "none" }}
     >
       {children}
     </div>
