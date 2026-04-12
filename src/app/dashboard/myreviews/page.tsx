@@ -285,7 +285,7 @@ export default function MyReviewsPage() {
     })();
   }, [reviews.length > 0 ? reviews[0]?.id : null]);
 
-  const loading = authLoading || reviewsLoading;
+  const loading = reviewsLoading;
   const pageError = reviewsError ? (reviewsError as any)?.message ?? "Error loading reviews" : null;
 
   const filtered = useMemo(() => {
@@ -352,8 +352,7 @@ export default function MyReviewsPage() {
     }
   }
 
-  // ✅ Page-level skeletons while auth or page data loads
-  if (authLoading || loading) return <PageSkeleton />;
+  if (loading) return <PageSkeleton />;
 
   if (authError) return <div className="p-6">Auth error: {authError}</div>;
   if (!userId)

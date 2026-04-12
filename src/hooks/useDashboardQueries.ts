@@ -17,9 +17,10 @@ export const dashboardKeys = {
   wishlists: (userId: string) => ["dashboard", "wishlists", userId] as const,
   collections: (userId: string) => ["dashboard", "collections", userId] as const,
   trips: (key: string) => ["dashboard", "trips", key] as const,
-  reviews: (userId: string) => ["dashboard", "reviews", userId] as const,
-  placesVisited: (userId: string) => ["dashboard", "placesVisited", userId] as const,
+  reviews: (_userId: string) => ["dashboard", "reviews", "me"] as const,
+  placesVisited: (_userId: string) => ["dashboard", "placesVisited", "me"] as const,
   visitedCount: (userId: string) => ["dashboard", "visitedCount", userId] as const,
+  profilePane: () => ["dashboard", "profilePane"] as const,
 };
 
 // ─── Fetch functions ─────────────────────────────────────────────────────────
@@ -55,20 +56,26 @@ export async function fetchTrips(username: string) {
   return listTripsByUsername(username);
 }
 
-// Fetches from reviews_with_profiles view to include full_name, avatar_url, badge
-export async function fetchReviews(userId: string) {
+// Fetches from reviews_with_profiles view — RLS scopes to auth.uid() automatically
+export async function fetchReviews(_userId?: string) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const uid = user?.id;
+  if (!uid) return [] as any[];
   const { data, error } = await supabase
     .from("reviews_with_profiles")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as any[];
 }
 
-export async function fetchPlacesVisited(userId: string) {
+export async function fetchPlacesVisited(_userId?: string) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+  if (!userId) return { count: 0, reviews: [] };
   const [count, reviews] = await Promise.all([
     countUserVisits(userId),
     listUserReviews(userId),
@@ -85,6 +92,23 @@ export async function fetchPlacesVisited(userId: string) {
   return {
     count,
     reviews: reviews.map((r) => ({ ...r, site: sites.find((s) => s.id === r.site_id) })),
+  };
+}
+
+export async function fetchProfilePane() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+  if (!userId) return null;
+  const [accountRes, categoriesRes, interestsRes] = await Promise.all([
+    supabase.from("profiles").select("full_name, avatar_url, bio, city, country_code, travel_style, public_profile").eq("id", userId).single(),
+    supabase.from("categories").select("id, name, parent_id").is("parent_id", null).order("name"),
+    supabase.from("user_interests").select("category_id, weight").eq("user_id", userId),
+  ]);
+  return {
+    account: accountRes.data ?? null,
+    categories: categoriesRes.data ?? [],
+    interests: interestsRes.data ?? [],
   };
 }
 
@@ -113,19 +137,24 @@ export function useTrips(username: string) {
   });
 }
 
-export function useDashboardReviews(userId: string | null) {
+export function useDashboardReviews(_userId: string | null) {
   return useQuery({
-    queryKey: dashboardKeys.reviews(userId ?? ""),
-    queryFn: () => fetchReviews(userId!),
-    enabled: !!userId,
+    queryKey: dashboardKeys.reviews("me"),
+    queryFn: () => fetchReviews(""),
   });
 }
 
-export function usePlacesVisited(userId: string | null) {
+export function usePlacesVisited(_userId: string | null) {
   return useQuery({
-    queryKey: dashboardKeys.placesVisited(userId ?? ""),
-    queryFn: () => fetchPlacesVisited(userId!),
-    enabled: !!userId,
+    queryKey: dashboardKeys.placesVisited("me"),
+    queryFn: () => fetchPlacesVisited(""),
+  });
+}
+
+export function useProfilePane() {
+  return useQuery({
+    queryKey: dashboardKeys.profilePane(),
+    queryFn: fetchProfilePane,
   });
 }
 
@@ -139,8 +168,9 @@ export function usePrefetchDashboard(userId: string | null) {
     if (!userId) return;
     queryClient.prefetchQuery({ queryKey: dashboardKeys.wishlists("me"), queryFn: fetchWishlists });
     queryClient.prefetchQuery({ queryKey: dashboardKeys.collections("me"), queryFn: fetchCollections });
-    queryClient.prefetchQuery({ queryKey: dashboardKeys.reviews(userId), queryFn: () => fetchReviews(userId) });
-    queryClient.prefetchQuery({ queryKey: dashboardKeys.placesVisited(userId), queryFn: () => fetchPlacesVisited(userId) });
+    queryClient.prefetchQuery({ queryKey: dashboardKeys.reviews("me"), queryFn: fetchReviews });
+    queryClient.prefetchQuery({ queryKey: dashboardKeys.placesVisited("me"), queryFn: fetchPlacesVisited });
+    queryClient.prefetchQuery({ queryKey: dashboardKeys.profilePane(), queryFn: fetchProfilePane });
     queryClient.prefetchQuery({ queryKey: dashboardKeys.trips("me"), queryFn: () => fetchTrips("") });
   }
 

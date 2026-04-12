@@ -1,39 +1,14 @@
-// Client wrapper for the profile pane — fetches its own data so it can be
-// pre-mounted in DashboardPaneShell without a server round-trip.
+// Client wrapper for the profile pane — uses React Query so data is prefetched
+// before the user taps, eliminating the skeleton on open.
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
-import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { useProfilePane } from "@/hooks/useDashboardQueries";
 import ProfileForm from "./profile-form";
 
 export default function ProfilePaneClient() {
-  const supabase = createClient();
-  const { userId } = useAuthUserId();
+  const { data, isLoading } = useProfilePane();
 
-  const [data, setData] = useState<{
-    account: any;
-    categories: any[];
-    interests: any[];
-  } | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      const [accountRes, categoriesRes, interestsRes] = await Promise.all([
-        supabase.from("profiles").select("full_name, avatar_url, bio, city, country_code, travel_style, public_profile").eq("id", userId).single(),
-        supabase.from("categories").select("id, name, parent_id").is("parent_id", null).order("name"),
-        supabase.from("user_interests").select("category_id, weight").eq("user_id", userId),
-      ]);
-      setData({
-        account: accountRes.data ?? null,
-        categories: categoriesRes.data ?? [],
-        interests: interestsRes.data ?? [],
-      });
-    })();
-  }, [userId]);
-
-  if (!data) {
+  if (isLoading || !data) {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-20 w-20 rounded-full bg-gray-200 mx-auto" />

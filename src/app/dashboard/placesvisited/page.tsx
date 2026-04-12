@@ -172,7 +172,7 @@ export default function PlacesVisitedPage() {
   const visitedCount = data?.count ?? 0;
   const progress = progressToNextBadge(visitedCount);
   const reviews = (data?.reviews ?? []) as ReviewWithSite[];
-  const loading = authLoading || isLoading;
+  const loading = isLoading;
   const pageError = placesError ? (placesError as any)?.message ?? "Error loading visited places" : null;
 
   const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -203,7 +203,7 @@ export default function PlacesVisitedPage() {
     })
     .filter((x): x is UserSite => x !== null);
 
-  if (authLoading || loading || profileLoading) return <PageSkeleton />;
+  if (loading || profileLoading) return <PageSkeleton />;
   if (!userId) return <p className="p-6">Please sign in to view this page.</p>;
   if (pageError) return <p className="p-6 text-red-600">Error: {pageError}</p>;
 
