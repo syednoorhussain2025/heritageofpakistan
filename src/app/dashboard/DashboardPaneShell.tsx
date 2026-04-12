@@ -120,7 +120,7 @@ function DashboardPane({
                 aria-label="Back"
                 className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
               >
-                <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                <svg viewBox="0 0 20 20" width="24" height="24" fill="currentColor">
                   <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
                 </svg>
               </button>
