@@ -49,7 +49,6 @@ export default function DashboardShellClient({
   const [homeVisible, setHomeVisible] = useState<boolean>(() =>
     !isPaneRoute(pathname ?? "")
   );
-  const closingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isHome = !activePane;
 
@@ -164,11 +163,9 @@ export default function DashboardShellClient({
   function handleBack() {
     void hapticLight();
     if (activePane) {
-      // Start exit animation — keep home hidden until animation completes
+      // Keep home hidden — onClosed callback will reveal it after slide-out finishes
       setActivePane(null);
       window.history.replaceState(null, "", "/dashboard");
-      if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
-      closingTimerRef.current = setTimeout(() => setHomeVisible(true), 500);
       return;
     }
     // Deep sub-routes (e.g. /mytrips/[id]) — use overlay + router
@@ -459,7 +456,6 @@ export default function DashboardShellClient({
         <DashboardNavContext.Provider value={{
           activePane,
           openPane: (route) => {
-            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
             setHomeVisible(false);
             setActivePane(route);
             window.history.replaceState(null, "", route);
@@ -467,8 +463,6 @@ export default function DashboardShellClient({
           closePane: () => {
             setActivePane(null);
             window.history.replaceState(null, "", "/dashboard");
-            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
-            closingTimerRef.current = setTimeout(() => setHomeVisible(true), 500);
           },
         }}>
           <SearchContext.Provider value={{ q: headerSearchQ }}>
@@ -477,7 +471,7 @@ export default function DashboardShellClient({
               {children}
             </div>
             {/* Pane shell — always mounted, slides over home content */}
-            <DashboardPaneShell activeRoute={activePane} />
+            <DashboardPaneShell activeRoute={activePane} onClosed={() => setHomeVisible(true)} />
           </SearchContext.Provider>
         </DashboardNavContext.Provider>
         {/* Mobile bottom nav clearance */}

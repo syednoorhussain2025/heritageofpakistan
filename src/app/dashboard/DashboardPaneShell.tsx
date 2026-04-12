@@ -48,7 +48,13 @@ const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
 const CURVE = "cubic-bezier(0.16,1,0.3,1)";
 const DURATION = 480;
 
-export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneRoute | null }) {
+export default function DashboardPaneShell({
+  activeRoute,
+  onClosed,
+}: {
+  activeRoute: PaneRoute | null;
+  onClosed?: () => void;
+}) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
   const prevRouteRef = useRef<PaneRoute | null>(null);
 
@@ -61,16 +67,26 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
     if (next === null) {
       const prevEl = prev ? refs[prev] : null;
       if (prevEl) {
-        // Make absolute first so it floats over home content during exit animation
+        // Ensure no transition and lock at translateX(0) so browser sees the "from" state
+        prevEl.style.transition = "none";
+        prevEl.style.transform = "translateX(0)";
         prevEl.style.position = "absolute";
         prevEl.style.top = "0";
         prevEl.style.left = "0";
         prevEl.style.right = "0";
-        prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
-        prevEl.style.transform = "translateX(100%)";
-        setTimeout(() => {
-          if (prevEl) prevEl.style.visibility = "hidden";
-        }, DURATION + 20);
+        // Double-RAF so browser commits the from-state before we start animating
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
+            prevEl.style.transform = "translateX(100%)";
+            setTimeout(() => {
+              prevEl.style.visibility = "hidden";
+              onClosed?.();
+            }, DURATION + 20);
+          });
+        });
+      } else {
+        onClosed?.();
       }
       prevRouteRef.current = null;
       return;
