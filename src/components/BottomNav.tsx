@@ -36,7 +36,7 @@ function NavItem({
       href={href}
       aria-label={label}
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
-      onTouchStart={() => { void hapticLight(); onPress?.(); }}
+      onTouchStart={() => onPress?.()}
       onMouseDown={() => onPress?.()}
     >
       <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
@@ -375,7 +375,6 @@ export default function BottomNav() {
           {/* Profile / Sign-in tab */}
           <button
             type="button"
-            onTouchStart={() => void hapticLight()}
             onClick={openPanel}
             aria-label={userId ? "Open profile menu" : "Sign in"}
             className="flex flex-1 items-center justify-center py-3 nav-item-tap"
