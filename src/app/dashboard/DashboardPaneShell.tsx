@@ -147,7 +147,7 @@ export default function DashboardPaneShell({
         return (
           <div
             key={route}
-            ref={(el) => { paneRefs.current[route] = el; }}
+            ref={(el) => { if (el) paneRefs.current[route] = el; }}
             style={{
               willChange: "transform",
               visibility: "hidden",
