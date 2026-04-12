@@ -144,7 +144,8 @@ export default function DashboardShellClient({
       <div className="hidden lg:block w-64" />
 
       {/* ── Mobile header — always shows the home/dashboard header ── */}
-      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5">
+      {/* translateZ(0) isolates the header on its own compositor layer so pane animations don't repaint it */}
+      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5" style={{ transform: "translateZ(0)" }}>
         <div className="flex items-center pt-1 justify-center">
           <span className="flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide">
             <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />

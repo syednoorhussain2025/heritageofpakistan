@@ -103,7 +103,7 @@ function DashboardPane({
   return createPortal(
     <div
       className={`fixed inset-0 bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
-      style={{ zIndex: 1200 }}
+      style={{ zIndex: 1200, willChange: "transform" }}
       onAnimationEnd={(e) => {
         if (closing && e.target === e.currentTarget) onClose();
       }}
