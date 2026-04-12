@@ -1,7 +1,8 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
@@ -42,6 +43,46 @@ const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
   "/dashboard/account-details": AccountDetailsPaneClient,
 };
 
+const SEARCH_ROUTES = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
+const FULL_BLEED_ROUTES = ["/dashboard/notebook"];
+
+// A single pane — mirrors SlidePanel in TravelGuideSheet exactly.
+// Mounted when open, unmounted after slide-out completes.
+function DashboardPane({
+  route,
+  closing,
+  onClosed,
+}: {
+  route: PaneRoute;
+  closing: boolean;
+  onClosed: () => void;
+}) {
+  const Page = PANE_COMPONENTS[route];
+  const isFullBleed = FULL_BLEED_ROUTES.includes(route);
+  const isSearch = SEARCH_ROUTES.includes(route);
+
+  // Header spacer height mirrors DashboardShellClient's spacer logic
+  const spacerHeight = isSearch
+    ? "calc(var(--sat, 44px) + 100px)"
+    : "calc(var(--sat, 44px) + 48px)";
+
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[1000] bg-white overflow-y-auto ${
+        closing ? "animate-side-sheet-out" : "animate-side-sheet-in"
+      }`}
+      onAnimationEnd={(e) => {
+        if (closing && e.target === e.currentTarget) onClosed();
+      }}
+    >
+      {/* Spacer so content clears the fixed green header above */}
+      {!isFullBleed && <div style={{ height: spacerHeight }} />}
+      <Page />
+    </div>,
+    document.body
+  );
+}
+
 export default function DashboardPaneShell({
   activeRoute,
   closingRoute,
@@ -51,96 +92,23 @@ export default function DashboardPaneShell({
   closingRoute: PaneRoute | null;
   onClosed?: () => void;
 }) {
-  const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
-  const onClosedRef = useRef(onClosed);
-  useEffect(() => { onClosedRef.current = onClosed; });
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Slide-in
-  useEffect(() => {
-    if (!activeRoute) return;
-    const el = paneRefs.current[activeRoute];
-    if (!el) return;
-    // Restore in-flow positioning for slide-in
-    el.style.position = "relative";
-    el.style.top = "";
-    el.style.left = "";
-    el.style.right = "";
-    el.style.bottom = "";
-    el.style.width = "";
-    el.style.zIndex = "";
-    el.style.transform = "";
-    el.style.transition = "";
-    el.style.visibility = "visible";
-    el.style.animation = "none";
-    void el.offsetWidth;
-    el.style.animation = "";
-    el.className = "animate-side-sheet-in";
-  }, [activeRoute]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!mounted) return null;
 
-  // Slide-out
-  useEffect(() => {
-    if (!closingRoute) return;
-    const el = paneRefs.current[closingRoute];
-    if (!el) { onClosedRef.current?.(); return; }
-
-    // Snap to fixed full-screen so it floats above everything during slide-out.
-    // We capture the current scroll offset so it appears visually identical
-    // to where it was, then the keyframe slides it right off screen.
-    el.style.position = "fixed";
-    el.style.top = "0";
-    el.style.left = "0";
-    el.style.right = "0";
-    el.style.bottom = "0";
-    el.style.width = "";
-    el.style.zIndex = "9999";
-    el.style.transform = "";
-    el.style.transition = "";
-    el.style.visibility = "visible";
-    el.style.animation = "none";
-    void el.offsetWidth;
-    el.style.animation = "";
-    el.className = "animate-side-sheet-out";
-
-    const handleEnd = () => {
-      el.className = "";
-      el.style.visibility = "hidden";
-      el.style.transform = "translateX(100%)";
-      el.style.position = "absolute";
-      el.style.top = "0";
-      el.style.left = "0";
-      el.style.right = "0";
-      el.style.bottom = "";
-      el.style.zIndex = "";
-      onClosedRef.current?.();
-    };
-    el.addEventListener("animationend", handleEnd, { once: true });
-  }, [closingRoute]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The active pane is mounted and animating in (closing=false).
+  // When back is pressed, activeRoute becomes null and closingRoute is set —
+  // we keep rendering the pane with closing=true until animationend unmounts it.
+  const route = activeRoute ?? closingRoute;
+  if (!route) return null;
 
   return (
-    <div className="relative">
-      {PANE_ROUTES.map((route) => {
-        const Page = PANE_COMPONENTS[route];
-        return (
-          <div
-            key={route}
-            ref={(el) => {
-              if (!el) return;
-              if (!paneRefs.current[route]) {
-                el.style.willChange = "transform";
-                el.style.visibility = "hidden";
-                el.style.transform = "translateX(100%)";
-                el.style.position = "absolute";
-                el.style.top = "0";
-                el.style.left = "0";
-                el.style.right = "0";
-              }
-              paneRefs.current[route] = el;
-            }}
-          >
-            <Page />
-          </div>
-        );
-      })}
-    </div>
+    <DashboardPane
+      key={route}
+      route={route}
+      closing={!!closingRoute}
+      onClosed={() => onClosed?.()}
+    />
   );
 }
