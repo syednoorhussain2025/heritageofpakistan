@@ -1,7 +1,8 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
@@ -55,17 +56,18 @@ export default function DashboardPaneShell({
   const onClosedRef = useRef(onClosed);
   useEffect(() => { onClosedRef.current = onClosed; });
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // Slide-in
   useEffect(() => {
     if (!activeRoute) return;
     const el = paneRefs.current[activeRoute];
     if (!el) return;
-    // Clear inline transform/transition that would fight the keyframe
     el.style.transform = "";
     el.style.transition = "";
     el.style.visibility = "visible";
-    el.style.position = "relative";
-    // Force reflow so browser sees the cleared state before animation starts
+    el.style.zIndex = "100";
     el.style.animation = "none";
     void el.offsetWidth;
     el.style.animation = "";
@@ -77,20 +79,10 @@ export default function DashboardPaneShell({
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
     if (!el) { onClosedRef.current?.(); return; }
-    // Use fixed positioning so the element escapes overflow-x-hidden clipping
-    // and can slide fully off screen (same pattern as TravelGuideSheet)
-    const rect = el.getBoundingClientRect();
-    el.style.position = "fixed";
-    el.style.top = `${rect.top}px`;
-    el.style.left = `${rect.left}px`;
-    el.style.right = "0";
-    el.style.bottom = "0";
-    el.style.width = `${rect.width}px`;
-    // Clear inline transform/transition that would fight the keyframe
     el.style.transform = "";
     el.style.transition = "";
     el.style.visibility = "visible";
-    // Force reflow so browser sees translateX(0) as the from-state
+    el.style.zIndex = "100";
     el.style.animation = "none";
     void el.offsetWidth;
     el.style.animation = "";
@@ -100,20 +92,26 @@ export default function DashboardPaneShell({
       el.className = "";
       el.style.visibility = "hidden";
       el.style.transform = "translateX(100%)";
-      // Restore to absolute so it sits correctly inside the pane container
-      el.style.position = "absolute";
-      el.style.top = "0";
-      el.style.left = "0";
-      el.style.right = "0";
-      el.style.bottom = "";
-      el.style.width = "";
+      el.style.zIndex = "";
       onClosedRef.current?.();
     };
     el.addEventListener("animationend", handleEnd, { once: true });
   }, [closingRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
-    <div className="relative overflow-x-hidden">
+  // Portal target — all panes render into a fixed full-screen div on document.body
+  // so they are never clipped by any ancestor's overflow or stacking context
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="lg:hidden"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        pointerEvents: activeRoute || closingRoute ? "auto" : "none",
+      }}
+    >
       {PANE_ROUTES.map((route) => {
         const Page = PANE_COMPONENTS[route];
         return (
@@ -121,16 +119,14 @@ export default function DashboardPaneShell({
             key={route}
             ref={(el) => {
               if (!el) return;
-              // Set initial styles imperatively once — never via JSX style prop
-              // so React re-renders don't clobber what the animation effects write
               if (!paneRefs.current[route]) {
                 el.style.willChange = "transform";
                 el.style.visibility = "hidden";
                 el.style.transform = "translateX(100%)";
                 el.style.position = "absolute";
-                el.style.top = "0";
-                el.style.left = "0";
-                el.style.right = "0";
+                el.style.inset = "0";
+                el.style.overflowY = "auto";
+                el.style.background = "white";
               }
               paneRefs.current[route] = el;
             }}
@@ -139,6 +135,7 @@ export default function DashboardPaneShell({
           </div>
         );
       })}
-    </div>
+    </div>,
+    document.body
   );
 }
