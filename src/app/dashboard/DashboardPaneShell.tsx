@@ -57,6 +57,8 @@ export default function DashboardPaneShell({
 }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
   const prevRouteRef = useRef<PaneRoute | null>(null);
+  const onClosedRef = useRef(onClosed);
+  useEffect(() => { onClosedRef.current = onClosed; });
 
   useEffect(() => {
     const refs = paneRefs.current;
@@ -65,28 +67,32 @@ export default function DashboardPaneShell({
 
     // Navigating back to dashboard home — slide active pane out to the right
     if (next === null) {
-      const prevEl = prev ? refs[prev] : null;
-      if (prevEl) {
-        // Keep position:relative so the container doesn't collapse (which would clip the animation).
-        // Just animate translateX from 0 → 100%.
-        prevEl.style.transition = "none";
-        prevEl.style.transform = "translateX(0)";
+      const closingEl = prev ? refs[prev] : null;
+      prevRouteRef.current = null;
+
+      if (closingEl) {
+        // Force element to stay visible and in-flow during animation
+        closingEl.style.position = "relative";
+        closingEl.style.visibility = "visible";
+        closingEl.style.transition = "none";
+        closingEl.style.transform = "translateX(0)";
+
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
-            prevEl.style.transform = "translateX(100%)";
+            closingEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
+            closingEl.style.transform = "translateX(100%)";
+
             setTimeout(() => {
-              prevEl.style.visibility = "hidden";
-              prevEl.style.position = "absolute";
-              prevEl.style.transform = "translateX(100%)";
-              onClosed?.();
+              closingEl.style.transition = "none";
+              closingEl.style.visibility = "hidden";
+              closingEl.style.position = "absolute";
+              onClosedRef.current?.();
             }, DURATION + 20);
           });
         });
       } else {
-        onClosed?.();
+        onClosedRef.current?.();
       }
-      prevRouteRef.current = null;
       return;
     }
 
