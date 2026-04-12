@@ -27,6 +27,19 @@ export const PANE_ROUTES = [
   "/dashboard/account-details",
 ] as const;
 
+// Single source of truth for dashboard nav items used by both mobile and desktop
+export const DASHBOARD_NAV_ITEMS = [
+  { href: "/dashboard/profile",        label: "Profile",         icon: "user-round" },
+  { href: "/dashboard/mywishlists",    label: "Saved Lists",     icon: "layout-list" },
+  { href: "/dashboard/mycollections",  label: "Collections",     icon: "cards" },
+  { href: "/dashboard/mytrips",        label: "My Trips",        icon: "line-segments-light" },
+  { href: "/dashboard/myreviews",      label: "My Reviews",      icon: "star-light" },
+  { href: "/dashboard/placesvisited",  label: "Places Visited",  icon: "person-simple-hike-light" },
+  { href: "/dashboard/portfolio",      label: "My Portfolio",    icon: "layout-grid" },
+  { href: "/dashboard/notebook",       label: "My Notes",        icon: "book-open-text-light" },
+  { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
+] as const;
+
 export type PaneRoute = (typeof PANE_ROUTES)[number];
 
 export function isPaneRoute(pathname: string): pathname is PaneRoute {
@@ -101,7 +114,7 @@ function DashboardPane({
   return createPortal(
     <div
       className={`fixed inset-0 bg-white flex flex-col ${closing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
-      style={{ zIndex: 1200, willChange: "transform" }}
+      style={{ zIndex: 3100, willChange: "transform" }}
       onAnimationEnd={(e) => {
         if (closing && e.target === e.currentTarget) onClose();
       }}

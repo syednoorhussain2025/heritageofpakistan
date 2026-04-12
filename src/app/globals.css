@@ -512,6 +512,7 @@ code {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── Mobile heritage page: inset dividers between sections ── */
