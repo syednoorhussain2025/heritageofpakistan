@@ -140,14 +140,14 @@ export function useTrips(username: string) {
 export function useDashboardReviews(_userId: string | null) {
   return useQuery({
     queryKey: dashboardKeys.reviews("me"),
-    queryFn: () => fetchReviews(""),
+    queryFn: () => fetchReviews(),
   });
 }
 
 export function usePlacesVisited(_userId: string | null) {
   return useQuery({
     queryKey: dashboardKeys.placesVisited("me"),
-    queryFn: () => fetchPlacesVisited(""),
+    queryFn: () => fetchPlacesVisited(),
   });
 }
 
@@ -168,8 +168,8 @@ export function usePrefetchDashboard(userId: string | null) {
     if (!userId) return;
     queryClient.prefetchQuery({ queryKey: dashboardKeys.wishlists("me"), queryFn: fetchWishlists });
     queryClient.prefetchQuery({ queryKey: dashboardKeys.collections("me"), queryFn: fetchCollections });
-    queryClient.prefetchQuery({ queryKey: dashboardKeys.reviews("me"), queryFn: fetchReviews });
-    queryClient.prefetchQuery({ queryKey: dashboardKeys.placesVisited("me"), queryFn: fetchPlacesVisited });
+    queryClient.prefetchQuery({ queryKey: dashboardKeys.reviews("me"), queryFn: () => fetchReviews() });
+    queryClient.prefetchQuery({ queryKey: dashboardKeys.placesVisited("me"), queryFn: () => fetchPlacesVisited() });
     queryClient.prefetchQuery({ queryKey: dashboardKeys.profilePane(), queryFn: fetchProfilePane });
     queryClient.prefetchQuery({ queryKey: dashboardKeys.trips("me"), queryFn: () => fetchTrips("") });
   }

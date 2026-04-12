@@ -219,10 +219,12 @@ export default function PlacesVisitedPage() {
           <button
             type="button"
             onClick={() => setShowMap(false)}
-            className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/20"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
             aria-label="Back"
           >
-            <Icon name="circle-arrow-left" size={30} />
+            <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+              <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+            </svg>
           </button>
           <span className="flex-1 text-base font-bold">Places Visited Map</span>
           <span className="text-sm opacity-80">{sitesForMap.length} sites</span>
