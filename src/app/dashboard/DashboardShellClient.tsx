@@ -441,13 +441,12 @@ export default function DashboardShellClient({
           />
         )}
         <SearchContext.Provider value={{ q: headerSearchQ }}>
-          {isPaneRoute(pathname ?? "") ? (
-            <DashboardPaneShell activeRoute={pathname as PaneRoute} />
-          ) : (
-            <div key={pathname} className="lg:contents animate-side-sheet-in">
-              {children}
-            </div>
-          )}
+          {/* Home content — hidden when a pane is active */}
+          <div style={{ display: isPaneRoute(pathname ?? "") ? "none" : "block" }}>
+            {children}
+          </div>
+          {/* Pane shell — always mounted, slides over home content */}
+          <DashboardPaneShell activeRoute={isPaneRoute(pathname ?? "") ? pathname as PaneRoute : null} />
         </SearchContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />

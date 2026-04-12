@@ -48,44 +48,35 @@ const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
 const CURVE = "cubic-bezier(0.16,1,0.3,1)";
 const DURATION = 480;
 
-export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneRoute }) {
+export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneRoute | null }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
   const prevRouteRef = useRef<PaneRoute | null>(null);
-  const initializedRef = useRef(false);
 
   useEffect(() => {
     const refs = paneRefs.current;
+    const prev = prevRouteRef.current;
+    const next = activeRoute;
 
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      PANE_ROUTES.forEach((route) => {
-        const el = refs[route];
-        if (!el) return;
-        if (route === activeRoute) {
-          el.style.position = "relative";
-          el.style.transform = "translateX(0)";
-          el.style.visibility = "visible";
-        } else {
-          el.style.position = "absolute";
-          el.style.top = "0";
-          el.style.left = "0";
-          el.style.right = "0";
-          el.style.transform = "translateX(100%)";
-          el.style.visibility = "hidden";
-        }
-      });
-      prevRouteRef.current = activeRoute;
+    // Navigating back to dashboard home — slide active pane out to the right
+    if (next === null) {
+      const prevEl = prev ? refs[prev] : null;
+      if (prevEl) {
+        prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
+        prevEl.style.transform = "translateX(100%)";
+        setTimeout(() => {
+          if (prevEl) prevEl.style.visibility = "hidden";
+        }, DURATION + 20);
+      }
+      prevRouteRef.current = null;
       return;
     }
 
-    const prev = prevRouteRef.current;
-    const next = activeRoute;
     if (prev === next) return;
 
     const prevEl = prev ? refs[prev] : null;
     const nextEl = refs[next];
 
-    // Outgoing pane: switch to absolute so layout height is driven by incoming
+    // Outgoing pane becomes absolute (layout height driven by incoming)
     if (prevEl) {
       prevEl.style.position = "absolute";
       prevEl.style.top = "0";
@@ -93,7 +84,7 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
       prevEl.style.right = "0";
     }
 
-    // Incoming pane: make relative (owns height), start off-screen right
+    // Incoming pane: relative (owns height), starts off-screen right
     if (nextEl) {
       nextEl.style.position = "relative";
       nextEl.style.visibility = "visible";
