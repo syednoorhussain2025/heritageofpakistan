@@ -1,7 +1,7 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { SearchContext } from "./SearchContext";
@@ -101,6 +101,22 @@ function DashboardPane({
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+
+  // Parallax push — mirrors TravelGuideSheet exactly
+  useEffect(() => {
+    const el = document.getElementById("dashboard-root");
+    if (!el) return;
+    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+    const raf = requestAnimationFrame(() => {
+      el.style.transform = closing ? "translateX(0)" : "translateX(-60px)";
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      // Reset when pane unmounts (after slide-out completes)
+      el.style.transform = "translateX(0)";
+    };
+  }, [closing]);
+
   const Page = PANE_COMPONENTS[route];
   const isFullBleed = FULL_BLEED_ROUTES.includes(route);
   const isSearch = SEARCH_ROUTES.includes(route);
@@ -119,63 +135,45 @@ function DashboardPane({
         if (closing && e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Header — same structure as DashboardShellClient's mobile headers */}
+      {/* Compact header — same height for all panes */}
       <div
         className="shrink-0 bg-[var(--brand-green)] lg:hidden"
         style={{ paddingTop: "var(--sat, 44px)" }}
       >
-        {isSearch ? (
-          <div className="flex flex-col px-2 pb-3">
-            <div className="flex items-end pb-0.5">
-              <button
-                type="button"
-                onClick={handleClose}
-                aria-label="Back"
-                className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
-              >
-                <svg viewBox="0 0 20 20" width="24" height="24" fill="currentColor">
-                  <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-                </svg>
-              </button>
-              <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-                <Icon name={icon} size={22} className="text-white/90 shrink-0" />
-                {title}
-              </span>
-            </div>
-            <div className="px-5 pt-2">
+        <div className="flex items-center px-2 pb-2.5">
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Back"
+            className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
+            style={{ WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
+          >
+            <svg viewBox="0 0 20 20" width="24" height="24" fill="currentColor">
+              <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+            </svg>
+          </button>
+          <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
+            <Icon name={icon} size={22} className="text-white/90 shrink-0" />
+            {title}
+          </span>
+        </div>
+      </div>
+
+      {/* Content — search bar sits at top of scroll area for search panes */}
+      <SearchContext.Provider value={{ q: searchQ }}>
+        <div className={`flex-1 min-h-0 ${isFullBleed ? "" : "overflow-y-auto"}`}>
+          {isSearch && (
+            <div className="px-4 pt-3 pb-2 bg-white sticky top-0 z-10 border-b border-gray-100">
               <input
                 type="search"
                 value={searchQ}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={`Search ${title.toLowerCase()}…`}
-                className="w-full rounded-full bg-white px-4 py-2 text-[15px] text-gray-800 placeholder-gray-400 outline-none"
+                className="w-full rounded-full bg-gray-100 px-4 py-2.5 text-[15px] text-gray-800 placeholder-gray-400 outline-none"
                 style={{ fontSize: "16px" }}
               />
             </div>
-          </div>
-        ) : (
-          <div className="flex items-end px-2 pb-2.5">
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label="Back"
-              className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
-            >
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-                <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-              </svg>
-            </button>
-            <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
-              <Icon name={icon} size={22} className="text-white/90 shrink-0" />
-              {title}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Content — search panes get their q from local state via context */}
-      <SearchContext.Provider value={{ q: searchQ }}>
-        <div className={`flex-1 min-h-0 ${isFullBleed ? "" : "overflow-y-auto"}`}>
+          )}
           <Page />
         </div>
       </SearchContext.Provider>

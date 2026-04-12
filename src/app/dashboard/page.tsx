@@ -116,15 +116,41 @@ export default function DashboardHome() {
   if (!userId) return <p>Please sign in to view your dashboard.</p>;
   if (pageError) return <p className="text-red-600">Error: {pageError}</p>;
 
-  const avatarSrc = resolveAvatarSrc(profile?.avatar_url ?? null);
-
   return (
     <div className="space-y-5">
       {/* ── MOBILE: grey full-screen backdrop ── */}
       <div className="lg:hidden fixed inset-0 z-0" style={{ backgroundColor: "var(--brand-light-grey)" }} />
 
-      {/* ── MOBILE: nav list (profile info lives in the green shell header) ── */}
-      <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-5 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
+      {/* ── MOBILE: profile card + nav list ── */}
+      <div className="lg:hidden relative z-10 -mx-4 -mt-4 -mb-4 px-5 pt-4 pb-24" style={{ minHeight: "calc(100vh - 80px)" }}>
+
+        {/* Profile card */}
+        <div className="bg-white rounded-2xl border border-gray-200 px-4 py-4 mb-3 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full border-2 border-gray-100 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center relative">
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={resolveAvatarSrc(profile.avatar_url) ?? ""} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-400 text-xl font-bold">
+                {(profile?.full_name ?? "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[16px] font-bold text-gray-900 truncate">{profile?.full_name ?? ""}</p>
+            {profile?.badge && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Icon name="plus-solid-full" size={13} className="text-[var(--brand-green)] shrink-0" />
+                <span className="text-[11px] font-semibold text-[var(--brand-green)]">{profile.badge}</span>
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[22px] font-bold text-gray-900 leading-none">{visitedCount}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">visited</p>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl overflow-hidden border border-gray-200">
           {DASHBOARD_NAV_ITEMS.map((item, i) => (
             <button
@@ -156,8 +182,8 @@ export default function DashboardHome() {
       <div className="hidden lg:block space-y-5">
         {profile && (
           <div className="flex items-center gap-4">
-            {avatarSrc ? (
-              <NextImage src={avatarSrc} alt="avatar" width={64} height={64} className="rounded-full shrink-0 ring-2 ring-gray-100" unoptimized />
+            {resolveAvatarSrc(profile?.avatar_url) ? (
+              <NextImage src={resolveAvatarSrc(profile?.avatar_url)!} alt="avatar" width={64} height={64} className="rounded-full shrink-0 ring-2 ring-gray-100" unoptimized />
             ) : (
               <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0" />
             )}
