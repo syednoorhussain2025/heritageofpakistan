@@ -49,11 +49,15 @@ export default function DashboardShellClient({
   const [homeVisible, setHomeVisible] = useState<boolean>(() =>
     !isPaneRoute(pathname ?? "")
   );
+  // Track the last open pane during close animation so header doesn't snap immediately
+  const [closingPane, setClosingPane] = useState<PaneRoute | null>(null);
 
-  const isHome = !activePane;
+  // isHome for header: true only when no pane AND not mid-close-animation
+  const isHome = !activePane && !closingPane;
 
   const searchRoutes = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
-  const showSearch = activePane !== null && searchRoutes.includes(activePane);
+  const activeOrClosing = activePane ?? closingPane;
+  const showSearch = activeOrClosing !== null && searchRoutes.includes(activeOrClosing);
   const [headerSearchQ, setHeaderSearchQ] = useState("");
 
   // Reset search when navigating away from a search route
@@ -142,8 +146,8 @@ export default function DashboardShellClient({
     "/dashboard/account-details": "square-user-round",
   };
 
-  // Use activePane for title/icon when a pane is open, else fall back to pathname (deep sub-routes)
-  const effectivePath = activePane ?? pathname ?? "";
+  // Use activePane for title/icon when a pane is open, closingPane during exit animation, else fall back to pathname (deep sub-routes)
+  const effectivePath = activePane ?? closingPane ?? pathname ?? "";
   const pageTitle =
     pageTitleMap[effectivePath] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
@@ -164,6 +168,7 @@ export default function DashboardShellClient({
     void hapticLight();
     if (activePane) {
       // Keep home hidden — onClosed callback will reveal it after slide-out finishes
+      setClosingPane(activePane);
       setActivePane(null);
       window.history.replaceState(null, "", "/dashboard");
       return;
@@ -475,7 +480,7 @@ export default function DashboardShellClient({
               {children}
             </div>
             {/* Pane shell — always mounted, slides over home content */}
-            <DashboardPaneShell activeRoute={activePane} onClosed={() => setHomeVisible(true)} />
+            <DashboardPaneShell activeRoute={activePane} onClosed={() => { setHomeVisible(true); setClosingPane(null); }} />
           </SearchContext.Provider>
         </DashboardNavContext.Provider>
         {/* Mobile bottom nav clearance */}

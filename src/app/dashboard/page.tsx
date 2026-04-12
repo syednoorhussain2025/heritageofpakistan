@@ -21,6 +21,17 @@ function storagePublicUrl(bucket: string, path: string) {
   return data.publicUrl;
 }
 
+// Module-level cache so home data survives remounts without re-fetching or showing skeleton
+type HomeCache = {
+  userId: string;
+  profile: Profile | null;
+  visitedCount: number;
+  badgeInfo: { current: string; next: string | null; remaining: number };
+  recentReviews: ReviewRow[];
+  portfolioPhotos: { id: string; publicUrl: string }[];
+};
+let homeCache: HomeCache | null = null;
+
 function resolveAvatarSrc(avatar_url?: string | null) {
   if (!avatar_url) return null;
   if (/^https?:\/\//i.test(avatar_url)) return avatar_url;
@@ -68,21 +79,22 @@ export default function DashboardHome() {
     router.push("/");
   }
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [visitedCount, setVisitedCount] = useState(0);
-  const [badgeInfo, setBadgeInfo] = useState({
-    current: "Beginner",
-    next: null as string | null,
-    remaining: 0,
-  });
-  const [recentReviews, setRecentReviews] = useState<ReviewRow[]>([]);
-  const [portfolioPhotos, setPortfolioPhotos] = useState<{ id: string; publicUrl: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = homeCache?.userId === userId ? homeCache : null;
+  const [profile, setProfile] = useState<Profile | null>(cached?.profile ?? null);
+  const [visitedCount, setVisitedCount] = useState(cached?.visitedCount ?? 0);
+  const [badgeInfo, setBadgeInfo] = useState(
+    cached?.badgeInfo ?? { current: "Beginner", next: null as string | null, remaining: 0 }
+  );
+  const [recentReviews, setRecentReviews] = useState<ReviewRow[]>(cached?.recentReviews ?? []);
+  const [portfolioPhotos, setPortfolioPhotos] = useState<{ id: string; publicUrl: string }[]>(cached?.portfolioPhotos ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
     if (!userId) { setLoading(false); return; }
+    // Already cached for this user — skip fetch, no skeleton
+    if (homeCache?.userId === userId) return;
     (async () => {
       try {
         setLoading(true);
@@ -105,21 +117,21 @@ export default function DashboardHome() {
 
         const portfolio = await listPortfolio(userId);
         const publicItems = portfolio.filter((p) => p.is_public).slice(0, 3);
+        let photos: { id: string; publicUrl: string }[] = [];
         if (publicItems.length) {
           const { data: photoRows, error: photoErr } = await supabase
             .from("review_photos")
             .select("id, storage_path")
             .in("id", publicItems.map((p) => p.photo_id));
           if (photoErr) throw photoErr;
-          setPortfolioPhotos(
-            (photoRows ?? []).map((p) => ({
-              id: p.id,
-              publicUrl: storagePublicUrl("user-photos", p.storage_path),
-            }))
-          );
-        } else {
-          setPortfolioPhotos([]);
+          photos = (photoRows ?? []).map((p) => ({
+            id: p.id,
+            publicUrl: storagePublicUrl("user-photos", p.storage_path),
+          }));
         }
+        setPortfolioPhotos(photos);
+        // Save to module cache so remounts skip the fetch and skeleton
+        homeCache = { userId, profile: prof as Profile, visitedCount: count, badgeInfo: progressToNextBadge(count), recentReviews: reviews.slice(0, 3), portfolioPhotos: photos };
       } catch (e: any) {
         setPageError(e?.message ?? "Something went wrong");
       } finally {
