@@ -202,13 +202,22 @@ export default function DashboardShellClient({
         </div>
 
         <div className="flex items-center gap-4 mt-4">
-          <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
-            {!profileLoading && (thumb ? (
+          <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center relative">
+            {/* Initials fallback — always rendered, fades out when photo loads */}
+            <span
+              className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold"
+              style={{ opacity: (!profileLoading && !thumb) ? 1 : 0, transition: "opacity 0.3s ease" }}
+            >{initials}</span>
+            {/* Avatar photo — always in DOM once URL known, never remounts */}
+            {thumb && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-white text-2xl font-bold">{initials}</span>
-            ))}
+              <img
+                src={thumb}
+                alt="avatar"
+                className="w-full h-full object-cover"
+                style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.3s ease" }}
+              />
+            )}
           </div>
 
           <div className="flex-1 min-w-0 relative" style={{ minHeight: "46px" }}>
