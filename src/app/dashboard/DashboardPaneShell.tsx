@@ -66,30 +66,33 @@ export default function DashboardPaneShell({
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
 
-    console.log("[PaneShell] slide-out", closingRoute, "el=", el, "styles=", el ? { pos: el.style.position, vis: el.style.visibility, tf: el.style.transform } : null);
-
     if (!el) {
       onClosed?.();
       return;
     }
 
-    // Force into view, then animate out
+    // Force into view
     el.style.transition = "none";
     el.style.position = "relative";
     el.style.visibility = "visible";
     el.style.transform = "translateX(0)";
 
-    // Use a single rAF + a tiny delay to ensure the browser paints the from-state
-    requestAnimationFrame(() => {
-      el.style.transition = `transform ${DURATION}ms ${CURVE}`;
-      el.style.transform = "translateX(100%)";
+    // Force a style flush so Safari sees the "from" state before we set the transition.
+    // getComputedStyle is the most reliable cross-browser way to do this.
+    void el.getBoundingClientRect();
 
-      setTimeout(() => {
-        el.style.transition = "none";
-        el.style.visibility = "hidden";
-        el.style.position = "absolute";
-        onClosed?.();
-      }, DURATION + 20);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = `transform ${DURATION}ms ${CURVE}`;
+        el.style.transform = "translateX(100%)";
+
+        setTimeout(() => {
+          el.style.transition = "none";
+          el.style.visibility = "hidden";
+          el.style.position = "absolute";
+          onClosed?.();
+        }, DURATION + 20);
+      });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closingRoute]);
@@ -117,6 +120,9 @@ export default function DashboardPaneShell({
       nextEl.style.transition = "none";
       nextEl.style.transform = "translateX(100%)";
     }
+
+    // Force style flush before animating (required on Safari)
+    if (nextEl) void nextEl.getBoundingClientRect();
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
