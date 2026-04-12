@@ -1,7 +1,6 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
 import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
@@ -51,70 +50,27 @@ export default function DashboardPaneShell({
   closingRoute: PaneRoute | null;
   onClosed?: () => void;
 }) {
-  const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
-  const onClosedRef = useRef(onClosed);
-  useEffect(() => { onClosedRef.current = onClosed; });
-
-  // ── Slide-in ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!activeRoute) return;
-    const el = paneRefs.current[activeRoute];
-    if (!el) return;
-
-    el.style.visibility = "visible";
-    el.style.position = "relative";
-    el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
-    el.classList.add("animate-side-sheet-in");
-
-    el.addEventListener("animationend", () => {
-      el.classList.remove("animate-side-sheet-in");
-      el.style.transform = "translateX(0)";
-    }, { once: true });
-    // No cleanup — { once: true } self-removes; cancelling it would stop the animation
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRoute]);
-
-  // ── Slide-out ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!closingRoute) return;
-    const el = paneRefs.current[closingRoute];
-    if (!el) {
-      onClosedRef.current?.();
-      return;
-    }
-
-    el.style.visibility = "visible";
-    el.style.position = "relative";
-    el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
-    el.classList.add("animate-side-sheet-out");
-
-    el.addEventListener("animationend", () => {
-      el.classList.remove("animate-side-sheet-out");
-      el.style.visibility = "hidden";
-      el.style.position = "absolute";
-      el.style.transform = "translateX(100%)";
-      onClosedRef.current?.();
-    }, { once: true });
-    // No cleanup — { once: true } self-removes; cancelling it would stop the animation
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [closingRoute]);
-
   return (
     <div className="relative overflow-x-hidden">
       {PANE_ROUTES.map((route) => {
         const Page = PANE_COMPONENTS[route];
+        const isActive = activeRoute === route;
+        const isClosing = closingRoute === route;
+        const isVisible = isActive || isClosing;
+
         return (
           <div
             key={route}
-            ref={(el) => { if (el) paneRefs.current[route] = el; }}
+            className={isClosing ? "animate-side-sheet-out" : isActive ? "animate-side-sheet-in" : ""}
+            onAnimationEnd={isClosing ? onClosed : undefined}
             style={{
               willChange: "transform",
-              visibility: "hidden",
-              transform: "translateX(100%)",
-              position: "absolute",
+              visibility: isVisible ? "visible" : "hidden",
+              position: isActive ? "relative" : "absolute",
               top: 0,
               left: 0,
               right: 0,
+              transform: isVisible ? undefined : "translateX(100%)",
             }}
           >
             <Page />
