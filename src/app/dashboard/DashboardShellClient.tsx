@@ -4,7 +4,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -12,7 +11,6 @@ import { createClient } from "@/lib/supabase/browser";
 import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
-import { SearchContext } from "./SearchContext";
 import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useProfile } from "@/components/ProfileProvider";
 import { usePrefetchDashboard } from "@/hooks/useDashboardQueries";
@@ -41,29 +39,9 @@ export default function DashboardShellClient({
   const { userId } = useAuthUserId();
   const { startNavigation } = useLoaderEngine();
 
-  // Active pane is local state — updated instantly on tap, never waits for router
   const [activePane, setActivePane] = useState<PaneRoute | null>(() =>
     isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
   );
-  // Separate flag: home is visible only when no pane is active AND exit animation is done
-  const [homeVisible, setHomeVisible] = useState<boolean>(() =>
-    !isPaneRoute(pathname ?? "")
-  );
-  // Track the last open pane during close animation so header doesn't snap immediately
-  const [closingPane, setClosingPane] = useState<PaneRoute | null>(null);
-
-  // isHome for header: true only when no pane AND not mid-close-animation
-  const isHome = !activePane && !closingPane;
-
-  const searchRoutes = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
-  const activeOrClosing = activePane ?? closingPane;
-  const showSearch = activeOrClosing !== null && searchRoutes.includes(activeOrClosing);
-  const [headerSearchQ, setHeaderSearchQ] = useState("");
-
-  // Reset search when navigating away from a search route
-  useEffect(() => {
-    if (!showSearch) setHeaderSearchQ("");
-  }, [pathname, showSearch]);
 
   // Profile from global provider — already fetched, never null after first load
   const { profile, loading: profileLoading } = useProfile();
@@ -86,7 +64,6 @@ export default function DashboardShellClient({
 
   useEffect(() => {
     if (!userId) return;
-    // Already cached for this user — no fetch needed
     if (cachedVisitedUserId === userId && cachedVisitedCount !== null) {
       setVisitedCount(cachedVisitedCount);
       setBadgeInfo(progressToNextBadge(cachedVisitedCount));
@@ -116,64 +93,9 @@ export default function DashboardShellClient({
     { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
   ];
 
-  const fullBleed = activePane === "/dashboard/notebook" ||
-    (typeof pathname === "string" && pathname.startsWith("/dashboard/notebook/"));
-
-  const pageTitleMap: Record<string, string> = {
-    "/dashboard": "Dashboard",
-    "/dashboard/profile": "Profile",
-    "/dashboard/mywishlists": "Saved Lists",
-    "/dashboard/mycollections": "Collections",
-    "/dashboard/mycollections/photos": "Collected Photos",
-    "/dashboard/mytrips": "My Trips",
-    "/dashboard/notebook": "My Notes",
-    "/dashboard/placesvisited": "Places Visited",
-    "/dashboard/myreviews": "My Reviews",
-    "/dashboard/portfolio": "My Portfolio",
-    "/dashboard/account-details": "Account Details",
-  };
-
-  const pageIconMap: Record<string, string> = {
-    "/dashboard/profile": "user-round",
-    "/dashboard/mywishlists": "layout-list",
-    "/dashboard/mycollections": "cards",
-    "/dashboard/mycollections/photos": "cards",
-    "/dashboard/mytrips": "line-segments-light",
-    "/dashboard/notebook": "book-open-text-light",
-    "/dashboard/placesvisited": "person-simple-hike-light",
-    "/dashboard/myreviews": "star-light",
-    "/dashboard/portfolio": "layout-grid",
-    "/dashboard/account-details": "square-user-round",
-  };
-
-  // Use activePane for title/icon when a pane is open, closingPane during exit animation, else fall back to pathname (deep sub-routes)
-  const effectivePath = activePane ?? closingPane ?? pathname ?? "";
-  const pageTitle =
-    pageTitleMap[effectivePath] ??
-    (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
-    pathname?.startsWith("/dashboard/mycollections/") ? "Collection" :
-    pathname?.startsWith("/dashboard/mytrips/") ? "Trip Details" :
-    pathname?.startsWith("/dashboard/myreviews/") ? "Review" :
-    pathname?.startsWith("/dashboard/notebook/") ? "Note" : "Dashboard");
-
-  const pageIcon =
-    pageIconMap[effectivePath] ??
-    (pathname?.startsWith("/dashboard/mywishlists/") ? "layout-list" :
-    pathname?.startsWith("/dashboard/mycollections/") ? "cards" :
-    pathname?.startsWith("/dashboard/mytrips/") ? "line-segments-light" :
-    pathname?.startsWith("/dashboard/myreviews/") ? "star-light" :
-    pathname?.startsWith("/dashboard/notebook/") ? "book-open-text-light" : undefined);
-
   function handleBack() {
     void hapticLight();
-    if (activePane) {
-      // Keep home hidden — onClosed callback will reveal it after slide-out finishes
-      setClosingPane(activePane);
-      setActivePane(null);
-      window.history.replaceState(null, "", "/dashboard");
-      return;
-    }
-    // Deep sub-routes (e.g. /mytrips/[id]) — use overlay + router
+    // Deep sub-routes (e.g. /mytrips/[id]) — no activePane set, use overlay + router
     if (pathname?.startsWith("/dashboard/mywishlists/")) {
       startNavigation("/dashboard/mywishlists", { overlay: "white-silent-back" });
     } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
@@ -195,7 +117,7 @@ export default function DashboardShellClient({
     ? Math.min((visitedCount / (visitedCount + badgeInfo.remaining)) * 100, 100)
     : 100;
 
-  // Swipe left-to-right to go back
+  // Swipe left-to-right on the home screen to go back
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -241,7 +163,6 @@ export default function DashboardShellClient({
             );
           })}
         </nav>
-        {/* Sign out — bottom of sidebar */}
         <div className="px-4 py-4 border-t border-gray-100">
           <button
             type="button"
@@ -261,162 +182,9 @@ export default function DashboardShellClient({
       {/* Spacer — desktop only */}
       <div className="hidden lg:block w-64" />
 
-      {/* ── Mobile header ── */}
-      {isHome ? (
-        /* Tall profile header for /dashboard home */
-        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5">
-          {/* Top row: back + title */}
-          <div className="flex items-center pt-1">
-            <button
-              type="button"
-              onClick={handleBack}
-              aria-label="Back"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
-            >
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-                <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-              </svg>
-            </button>
-            <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
-              <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
-              My Dashboard
-            </span>
-          </div>
-
-          {/* Profile row — always same height whether loading or loaded */}
-          <div className="flex items-center gap-4 mt-4">
-            {/* Avatar */}
-            <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
-              {!profileLoading && (thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumb} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white text-2xl font-bold">{initials}</span>
-              ))}
-            </div>
-
-            {/* Name + badge — skeleton holds space, real content fades in */}
-            <div className="flex-1 min-w-0 relative" style={{ minHeight: "46px" }}>
-              {/* Skeleton — visible only while loading */}
-              <div
-                className="animate-pulse space-y-2 absolute inset-0"
-                style={{
-                  opacity: profileLoading ? 1 : 0,
-                  transition: "opacity 0.3s ease",
-                  pointerEvents: "none",
-                }}
-              >
-                <div className="h-5 bg-white/25 rounded-full w-36" />
-                <div className="h-4 bg-white/20 rounded-full w-20" />
-              </div>
-              {/* Real content — fades in on load */}
-              <div
-                style={{
-                  opacity: profileLoading ? 0 : 1,
-                  transition: "opacity 0.5s ease",
-                }}
-              >
-                <p className="text-white text-[18px] font-bold leading-tight truncate">
-                  {profile?.full_name ?? ""}
-                </p>
-                {profile?.badge ? (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
-                    <span className="text-[11px] font-semibold text-[var(--brand-green)] bg-white px-2 py-0.5 rounded-full">
-                      {profile.badge}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-1 h-[22px]" />
-                )}
-              </div>
-            </div>
-
-            {/* Places visited count — fades in when data arrives, placeholder holds space */}
-            <div className="shrink-0 text-right" style={{ minWidth: "56px" }}>
-              <div
-                style={{
-                  opacity: visitedLoaded ? 1 : 0,
-                  transition: "opacity 0.5s ease",
-                }}
-              >
-                <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
-                <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress bar — always rendered to lock height, fades in when data arrives */}
-          <div className="mt-4" style={{ minHeight: "28px" }}>
-            <div
-              style={{
-                opacity: visitedLoaded ? 1 : 0,
-                transition: "opacity 0.5s ease 0.1s",
-              }}
-            >
-              {badgeInfo.next ? (
-                <>
-                  <div className="flex justify-between text-[11px] text-white/70 mb-1.5">
-                    <span>{badgeInfo.current} Badge</span>
-                    <span>{badgeInfo.remaining} more to {badgeInfo.next}</span>
-                  </div>
-                  <div className="w-full bg-white/25 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-white h-1.5 rounded-full transition-all duration-700"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="h-[28px]" />
-              )}
-            </div>
-          </div>
-        </MobilePageHeader>
-      ) : showSearch ? (
-        /* Compact header with search bar for wishlists / collections / trips */
-        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-2 pb-3">
-          <div className="flex items-end pb-0.5">
-            <button
-              type="button"
-              onClick={handleBack}
-              aria-label="Back"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
-            >
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-                <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-              </svg>
-            </button>
-            <span className="flex-1 relative flex items-center justify-center pr-9" style={{ minHeight: "28px" }}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={pathname}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="flex items-center gap-1.5 text-white text-[17px] font-semibold tracking-wide"
-                >
-                  {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
-                  {pageTitle}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </div>
-          <div className="px-5 pt-2">
-            <input
-              type="search"
-              value={headerSearchQ}
-              onChange={(e) => setHeaderSearchQ(e.target.value)}
-              placeholder={`Search ${pageTitle.toLowerCase()}…`}
-              className="w-full rounded-full bg-white px-4 py-2 text-[15px] text-gray-800 placeholder-gray-400 outline-none"
-              style={{ fontSize: "16px" }}
-            />
-          </div>
-        </MobilePageHeader>
-      ) : (
-        /* Compact header for sub-pages */
-        <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex items-end px-2 pb-2.5">
+      {/* ── Mobile header — always shows the home/dashboard header ── */}
+      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5">
+        <div className="flex items-center pt-1">
           <button
             type="button"
             onClick={handleBack}
@@ -427,47 +195,89 @@ export default function DashboardShellClient({
               <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
             </svg>
           </button>
-          <span className="flex-1 relative flex items-center justify-center pr-9" style={{ minHeight: "28px" }}>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={pathname}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="flex items-center gap-1.5 text-white text-[17px] font-semibold tracking-wide"
-              >
-                {pageIcon && <Icon name={pageIcon} size={22} className="text-white/90 shrink-0" />}
-                {pageTitle}
-              </motion.span>
-            </AnimatePresence>
+          <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+            <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
+            My Dashboard
           </span>
-        </MobilePageHeader>
-      )}
+        </div>
+
+        <div className="flex items-center gap-4 mt-4">
+          <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
+            {!profileLoading && (thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumb} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white text-2xl font-bold">{initials}</span>
+            ))}
+          </div>
+
+          <div className="flex-1 min-w-0 relative" style={{ minHeight: "46px" }}>
+            <div
+              className="animate-pulse space-y-2 absolute inset-0"
+              style={{ opacity: profileLoading ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}
+            >
+              <div className="h-5 bg-white/25 rounded-full w-36" />
+              <div className="h-4 bg-white/20 rounded-full w-20" />
+            </div>
+            <div style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.5s ease" }}>
+              <p className="text-white text-[18px] font-bold leading-tight truncate">
+                {profile?.full_name ?? ""}
+              </p>
+              {profile?.badge ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
+                  <span className="text-[11px] font-semibold text-[var(--brand-green)] bg-white px-2 py-0.5 rounded-full">
+                    {profile.badge}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1 h-[22px]" />
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 text-right" style={{ minWidth: "56px" }}>
+            <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}>
+              <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
+              <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4" style={{ minHeight: "28px" }}>
+          <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease 0.1s" }}>
+            {badgeInfo.next ? (
+              <>
+                <div className="flex justify-between text-[11px] text-white/70 mb-1.5">
+                  <span>{badgeInfo.current} Badge</span>
+                  <span>{badgeInfo.remaining} more to {badgeInfo.next}</span>
+                </div>
+                <div className="w-full bg-white/25 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-white h-1.5 rounded-full transition-all duration-700"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="h-[28px]" />
+            )}
+          </div>
+        </div>
+      </MobilePageHeader>
 
       {/* Main Content */}
       <main
-        className={`flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress ${fullBleed ? "" : "p-4 lg:p-8"}`}
+        className="flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress p-4 lg:p-8"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Mobile spacer — tall for home, taller for search routes, compact for sub-pages */}
-        {!fullBleed && (
-          <div
-            className="lg:hidden"
-            style={{
-              height: isHome
-                ? "calc(var(--sat, 44px) + 196px)"
-                : showSearch
-                ? "calc(var(--sat, 44px) + 100px)"
-                : "calc(var(--sat, 44px) + 48px)",
-            }}
-          />
-        )}
+        {/* Mobile spacer for the tall home header */}
+        <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 196px)" }} />
+
         <DashboardNavContext.Provider value={{
           activePane,
           openPane: (route) => {
-            setHomeVisible(false);
             setActivePane(route);
             window.history.replaceState(null, "", route);
           },
@@ -476,15 +286,16 @@ export default function DashboardShellClient({
             window.history.replaceState(null, "", "/dashboard");
           },
         }}>
-          <SearchContext.Provider value={{ q: headerSearchQ }}>
-            {/* Home content — hidden while any pane is active or closing */}
-            <div style={{ display: homeVisible ? "block" : "none" }}>
-              {children}
-            </div>
-            {/* Pane shell — always mounted, slides over home content */}
-            <DashboardPaneShell activeRoute={activePane} closingRoute={closingPane} onClosed={() => { setHomeVisible(true); setClosingPane(null); }} />
-          </SearchContext.Provider>
+            {children}
+            <DashboardPaneShell
+              activeRoute={activePane}
+              onClosed={() => {
+                setActivePane(null);
+                window.history.replaceState(null, "", "/dashboard");
+              }}
+            />
         </DashboardNavContext.Provider>
+
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />
       </main>
