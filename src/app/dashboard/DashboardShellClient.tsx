@@ -17,6 +17,7 @@ import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider
 import { useProfile } from "@/components/ProfileProvider";
 import { usePrefetchDashboard } from "@/hooks/useDashboardQueries";
 import DashboardPaneShell, { isPaneRoute, type PaneRoute } from "./DashboardPaneShell";
+import { DashboardNavContext } from "./DashboardNavContext";
 
 // Module-level cache so visitedCount survives navigation without re-fetching
 let cachedVisitedCount: number | null = null;
@@ -40,10 +41,15 @@ export default function DashboardShellClient({
   const { userId } = useAuthUserId();
   const { startNavigation } = useLoaderEngine();
 
-  const isHome = pathname === "/dashboard";
+  // Active pane is local state — updated instantly on tap, never waits for router
+  const [activePane, setActivePane] = useState<PaneRoute | null>(() =>
+    isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
+  );
+
+  const isHome = !activePane;
 
   const searchRoutes = ["/dashboard/mywishlists", "/dashboard/mycollections", "/dashboard/mytrips"];
-  const showSearch = typeof pathname === "string" && searchRoutes.includes(pathname);
+  const showSearch = activePane !== null && searchRoutes.includes(activePane);
   const [headerSearchQ, setHeaderSearchQ] = useState("");
 
   // Reset search when navigating away from a search route
@@ -102,8 +108,8 @@ export default function DashboardShellClient({
     { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
   ];
 
-  const fullBleed =
-    typeof pathname === "string" && pathname.startsWith("/dashboard/notebook");
+  const fullBleed = activePane === "/dashboard/notebook" ||
+    (typeof pathname === "string" && pathname.startsWith("/dashboard/notebook/"));
 
   const pageTitleMap: Record<string, string> = {
     "/dashboard": "Dashboard",
@@ -132,8 +138,10 @@ export default function DashboardShellClient({
     "/dashboard/account-details": "square-user-round",
   };
 
+  // Use activePane for title/icon when a pane is open, else fall back to pathname (deep sub-routes)
+  const effectivePath = activePane ?? pathname ?? "";
   const pageTitle =
-    pageTitleMap[pathname ?? ""] ??
+    pageTitleMap[effectivePath] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "Saved List" :
     pathname?.startsWith("/dashboard/mycollections/") ? "Collection" :
     pathname?.startsWith("/dashboard/mytrips/") ? "Trip Details" :
@@ -141,16 +149,22 @@ export default function DashboardShellClient({
     pathname?.startsWith("/dashboard/notebook/") ? "Note" : "Dashboard");
 
   const pageIcon =
-    pageIconMap[pathname ?? ""] ??
+    pageIconMap[effectivePath] ??
     (pathname?.startsWith("/dashboard/mywishlists/") ? "layout-list" :
     pathname?.startsWith("/dashboard/mycollections/") ? "cards" :
     pathname?.startsWith("/dashboard/mytrips/") ? "line-segments-light" :
     pathname?.startsWith("/dashboard/myreviews/") ? "star-light" :
     pathname?.startsWith("/dashboard/notebook/") ? "book-open-text-light" : undefined);
 
-  // Smart back: nested routes go to their parent, not all the way to /dashboard
   function handleBack() {
     void hapticLight();
+    if (activePane) {
+      // Close pane instantly — no router, just local state
+      setActivePane(null);
+      window.history.replaceState(null, "", "/dashboard");
+      return;
+    }
+    // Deep sub-routes (e.g. /mytrips/[id]) — use overlay + router
     if (pathname?.startsWith("/dashboard/mywishlists/")) {
       startNavigation("/dashboard/mywishlists", { overlay: "white-silent-back" });
     } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
@@ -161,13 +175,8 @@ export default function DashboardShellClient({
       startNavigation("/dashboard/myreviews", { overlay: "white-silent-back" });
     } else if (pathname?.startsWith("/dashboard/notebook/")) {
       startNavigation("/dashboard/notebook", { overlay: "white-silent-back" });
-    } else if (isPaneRoute(pathname ?? "")) {
-      // Pane routes go back to dashboard home — no overlay, pane shell handles visuals
-      router.replace("/dashboard", { scroll: false });
-    } else if (isHome) {
-      startNavigation("/", { overlay: "white-silent-back" });
     } else {
-      startNavigation("/dashboard", { overlay: "white-silent-back" });
+      startNavigation("/", { overlay: "white-silent-back" });
     }
   }
 
@@ -440,14 +449,26 @@ export default function DashboardShellClient({
             }}
           />
         )}
-        <SearchContext.Provider value={{ q: headerSearchQ }}>
-          {/* Home content — hidden when a pane is active */}
-          <div style={{ display: isPaneRoute(pathname ?? "") ? "none" : "block" }}>
-            {children}
-          </div>
-          {/* Pane shell — always mounted, slides over home content */}
-          <DashboardPaneShell activeRoute={isPaneRoute(pathname ?? "") ? pathname as PaneRoute : null} />
-        </SearchContext.Provider>
+        <DashboardNavContext.Provider value={{
+          activePane,
+          openPane: (route) => {
+            setActivePane(route);
+            window.history.replaceState(null, "", route);
+          },
+          closePane: () => {
+            setActivePane(null);
+            window.history.replaceState(null, "", "/dashboard");
+          },
+        }}>
+          <SearchContext.Provider value={{ q: headerSearchQ }}>
+            {/* Home content — hidden when a pane is active */}
+            <div style={{ display: activePane ? "none" : "block" }}>
+              {children}
+            </div>
+            {/* Pane shell — always mounted, slides over home content */}
+            <DashboardPaneShell activeRoute={activePane} />
+          </SearchContext.Provider>
+        </DashboardNavContext.Provider>
         {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />
       </main>
