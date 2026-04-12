@@ -1,8 +1,7 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef } from "react";
 import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
@@ -56,18 +55,22 @@ export default function DashboardPaneShell({
   const onClosedRef = useRef(onClosed);
   useEffect(() => { onClosedRef.current = onClosed; });
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
   // Slide-in
   useEffect(() => {
     if (!activeRoute) return;
     const el = paneRefs.current[activeRoute];
     if (!el) return;
+    // Restore in-flow positioning for slide-in
+    el.style.position = "relative";
+    el.style.top = "";
+    el.style.left = "";
+    el.style.right = "";
+    el.style.bottom = "";
+    el.style.width = "";
+    el.style.zIndex = "";
     el.style.transform = "";
     el.style.transition = "";
     el.style.visibility = "visible";
-    el.style.zIndex = "100";
     el.style.animation = "none";
     void el.offsetWidth;
     el.style.animation = "";
@@ -79,10 +82,20 @@ export default function DashboardPaneShell({
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
     if (!el) { onClosedRef.current?.(); return; }
+
+    // Snap to fixed full-screen so it floats above everything during slide-out.
+    // We capture the current scroll offset so it appears visually identical
+    // to where it was, then the keyframe slides it right off screen.
+    el.style.position = "fixed";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.right = "0";
+    el.style.bottom = "0";
+    el.style.width = "";
+    el.style.zIndex = "9999";
     el.style.transform = "";
     el.style.transition = "";
     el.style.visibility = "visible";
-    el.style.zIndex = "100";
     el.style.animation = "none";
     void el.offsetWidth;
     el.style.animation = "";
@@ -92,26 +105,19 @@ export default function DashboardPaneShell({
       el.className = "";
       el.style.visibility = "hidden";
       el.style.transform = "translateX(100%)";
+      el.style.position = "absolute";
+      el.style.top = "0";
+      el.style.left = "0";
+      el.style.right = "0";
+      el.style.bottom = "";
       el.style.zIndex = "";
       onClosedRef.current?.();
     };
     el.addEventListener("animationend", handleEnd, { once: true });
   }, [closingRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Portal target — all panes render into a fixed full-screen div on document.body
-  // so they are never clipped by any ancestor's overflow or stacking context
-  if (!mounted) return null;
-
-  return createPortal(
-    <div
-      className="lg:hidden"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        pointerEvents: activeRoute || closingRoute ? "auto" : "none",
-      }}
-    >
+  return (
+    <div className="relative">
       {PANE_ROUTES.map((route) => {
         const Page = PANE_COMPONENTS[route];
         return (
@@ -124,9 +130,9 @@ export default function DashboardPaneShell({
                 el.style.visibility = "hidden";
                 el.style.transform = "translateX(100%)";
                 el.style.position = "absolute";
-                el.style.inset = "0";
-                el.style.overflowY = "auto";
-                el.style.background = "white";
+                el.style.top = "0";
+                el.style.left = "0";
+                el.style.right = "0";
               }
               paneRefs.current[route] = el;
             }}
@@ -135,7 +141,6 @@ export default function DashboardPaneShell({
           </div>
         );
       })}
-    </div>,
-    document.body
+    </div>
   );
 }
