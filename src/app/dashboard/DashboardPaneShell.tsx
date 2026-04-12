@@ -108,15 +108,20 @@ export default function DashboardPaneShell({
         return (
           <div
             key={route}
-            ref={(el) => { if (el) paneRefs.current[route] = el; }}
-            style={{
-              willChange: "transform",
-              visibility: "hidden",
-              transform: "translateX(100%)",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
+            ref={(el) => {
+              if (!el) return;
+              // Set initial styles imperatively once — never via JSX style prop
+              // so React re-renders don't clobber what the animation effects write
+              if (!paneRefs.current[route]) {
+                el.style.willChange = "transform";
+                el.style.visibility = "hidden";
+                el.style.transform = "translateX(100%)";
+                el.style.position = "absolute";
+                el.style.top = "0";
+                el.style.left = "0";
+                el.style.right = "0";
+              }
+              paneRefs.current[route] = el;
             }}
           >
             <Page />
