@@ -61,6 +61,11 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
     if (next === null) {
       const prevEl = prev ? refs[prev] : null;
       if (prevEl) {
+        // Make absolute first so it floats over home content during exit animation
+        prevEl.style.position = "absolute";
+        prevEl.style.top = "0";
+        prevEl.style.left = "0";
+        prevEl.style.right = "0";
         prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
         prevEl.style.transform = "translateX(100%)";
         setTimeout(() => {
@@ -123,7 +128,15 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
           <div
             key={route}
             ref={(el) => { paneRefs.current[route] = el; }}
-            style={{ willChange: "transform", visibility: "hidden", transform: "translateX(100%)" }}
+            style={{
+              willChange: "transform",
+              visibility: "hidden",
+              transform: "translateX(100%)",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+            }}
           >
             <Page />
           </div>
