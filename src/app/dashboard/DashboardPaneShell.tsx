@@ -1,7 +1,7 @@
 // src/app/dashboard/DashboardPaneShell.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
 import { SearchContext } from "./SearchContext";
@@ -101,6 +101,8 @@ function DashboardPane({
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   // Parallax push — mirrors TravelGuideSheet exactly
   useEffect(() => {
@@ -133,6 +135,17 @@ function DashboardPane({
       style={{ zIndex: 3100, willChange: "transform" }}
       onAnimationEnd={(e) => {
         if (closing && e.target === e.currentTarget) onClose();
+      }}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+      }}
+      onTouchEnd={(e) => {
+        if (closing) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        // Only trigger if horizontal swipe dominates and exceeds threshold
+        if (dx > 60 && Math.abs(dy) < Math.abs(dx)) handleClose();
       }}
     >
       {/* Compact header — same height for all panes */}
