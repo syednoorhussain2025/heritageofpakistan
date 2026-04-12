@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
@@ -27,6 +27,114 @@ function avatarUrl(input: string | null | undefined): string {
   return `${base}/storage/v1/object/public/avatars/${input.replace(/^\/+/, "")}`;
 }
 
+// ── Memoized header — never re-renders when activePane changes ──
+const DashboardHomeHeader = memo(function DashboardHomeHeader({
+  thumb,
+  initials,
+  profileLoading,
+  profile,
+  visitedCount,
+  visitedLoaded,
+  badgeInfo,
+  progressPct,
+}: {
+  thumb: string;
+  initials: string;
+  profileLoading: boolean;
+  profile: { full_name?: string | null; badge?: string | null } | null;
+  visitedCount: number;
+  visitedLoaded: boolean;
+  badgeInfo: { current: string; next: string | null; remaining: number };
+  progressPct: number;
+}) {
+  return (
+    <MobilePageHeader
+      backgroundColor="var(--brand-green)"
+      minHeight="0px"
+      className="flex flex-col px-5 pb-5"
+      style={{ transform: "translateZ(0)" }}
+    >
+      <div className="flex items-center pt-1 justify-center">
+        <span className="flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide">
+          <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
+          My Dashboard
+        </span>
+      </div>
+
+      <div className="flex items-center gap-4 mt-4">
+        <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center relative">
+          <span
+            className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold"
+            style={{ opacity: (!profileLoading && !thumb) ? 1 : 0, transition: "opacity 0.3s ease" }}
+          >{initials}</span>
+          {thumb && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumb}
+              alt="avatar"
+              className="w-full h-full object-cover"
+              style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.3s ease" }}
+            />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0 relative" style={{ minHeight: "46px" }}>
+          <div
+            className="animate-pulse space-y-2 absolute inset-0"
+            style={{ opacity: profileLoading ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}
+          >
+            <div className="h-5 bg-white/25 rounded-full w-36" />
+            <div className="h-4 bg-white/20 rounded-full w-20" />
+          </div>
+          <div style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.5s ease" }}>
+            <p className="text-white text-[18px] font-bold leading-tight truncate">
+              {profile?.full_name ?? ""}
+            </p>
+            {profile?.badge ? (
+              <div className="flex items-center gap-1.5 mt-1">
+                <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
+                <span className="text-[11px] font-semibold text-[var(--brand-green)] bg-white px-2 py-0.5 rounded-full">
+                  {profile.badge}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-1 h-[22px]" />
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right" style={{ minWidth: "56px" }}>
+          <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}>
+            <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
+            <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4" style={{ minHeight: "28px" }}>
+        <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease 0.1s" }}>
+          {badgeInfo.next ? (
+            <>
+              <div className="flex justify-between text-[11px] text-white/70 mb-1.5">
+                <span>{badgeInfo.current} Badge</span>
+                <span>{badgeInfo.remaining} more to {badgeInfo.next}</span>
+              </div>
+              <div className="w-full bg-white/25 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-white h-1.5 rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="h-[28px]" />
+          )}
+        </div>
+      </div>
+    </MobilePageHeader>
+  );
+});
+
 export default function DashboardShellClient({
   children,
 }: {
@@ -39,17 +147,14 @@ export default function DashboardShellClient({
     isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
   );
 
-  // Profile from global provider — already fetched, never null after first load
   const { profile, loading: profileLoading } = useProfile();
 
-  // Prefetch all dashboard sub-page data as soon as userId is known
   const prefetchDashboard = usePrefetchDashboard(userId);
   useEffect(() => {
     if (userId) prefetchDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // visitedCount — use module cache so it survives navigation without re-fetching
   const [visitedCount, setVisitedCount] = useState<number>(
     cachedVisitedUserId === userId && cachedVisitedCount !== null ? cachedVisitedCount : 0
   );
@@ -140,99 +245,22 @@ export default function DashboardShellClient({
         </div>
       </aside>
 
-      {/* Spacer — desktop only */}
       <div className="hidden lg:block w-64" />
 
-      {/* ── Mobile header — always shows the home/dashboard header ── */}
-      {/* translateZ(0) isolates the header on its own compositor layer so pane animations don't repaint it */}
-      <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5" style={{ transform: "translateZ(0)" }}>
-        <div className="flex items-center pt-1 justify-center">
-          <span className="flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide">
-            <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
-            My Dashboard
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4 mt-4">
-          <div className="w-16 h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/20 shrink-0 flex items-center justify-center relative">
-            {/* Initials fallback — always rendered, fades out when photo loads */}
-            <span
-              className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold"
-              style={{ opacity: (!profileLoading && !thumb) ? 1 : 0, transition: "opacity 0.3s ease" }}
-            >{initials}</span>
-            {/* Avatar photo — always in DOM once URL known, never remounts */}
-            {thumb && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={thumb}
-                alt="avatar"
-                className="w-full h-full object-cover"
-                style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.3s ease" }}
-              />
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0 relative" style={{ minHeight: "46px" }}>
-            <div
-              className="animate-pulse space-y-2 absolute inset-0"
-              style={{ opacity: profileLoading ? 1 : 0, transition: "opacity 0.3s ease", pointerEvents: "none" }}
-            >
-              <div className="h-5 bg-white/25 rounded-full w-36" />
-              <div className="h-4 bg-white/20 rounded-full w-20" />
-            </div>
-            <div style={{ opacity: profileLoading ? 0 : 1, transition: "opacity 0.5s ease" }}>
-              <p className="text-white text-[18px] font-bold leading-tight truncate">
-                {profile?.full_name ?? ""}
-              </p>
-              {profile?.badge ? (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Icon name="plus-solid-full" size={18} className="text-white shrink-0" />
-                  <span className="text-[11px] font-semibold text-[var(--brand-green)] bg-white px-2 py-0.5 rounded-full">
-                    {profile.badge}
-                  </span>
-                </div>
-              ) : (
-                <div className="mt-1 h-[22px]" />
-              )}
-            </div>
-          </div>
-
-          <div className="shrink-0 text-right" style={{ minWidth: "56px" }}>
-            <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}>
-              <p className="text-white text-[26px] font-bold leading-none">{visitedCount}</p>
-              <p className="text-white/70 text-[11px] mt-0.5">places visited</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4" style={{ minHeight: "28px" }}>
-          <div style={{ opacity: visitedLoaded ? 1 : 0, transition: "opacity 0.5s ease 0.1s" }}>
-            {badgeInfo.next ? (
-              <>
-                <div className="flex justify-between text-[11px] text-white/70 mb-1.5">
-                  <span>{badgeInfo.current} Badge</span>
-                  <span>{badgeInfo.remaining} more to {badgeInfo.next}</span>
-                </div>
-                <div className="w-full bg-white/25 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-white h-1.5 rounded-full transition-all duration-700"
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="h-[28px]" />
-            )}
-          </div>
-        </div>
-      </MobilePageHeader>
+      {/* Memoized header — isolated from activePane state changes */}
+      <DashboardHomeHeader
+        thumb={thumb}
+        initials={initials}
+        profileLoading={profileLoading}
+        profile={profile}
+        visitedCount={visitedCount}
+        visitedLoaded={visitedLoaded}
+        badgeInfo={badgeInfo}
+        progressPct={progressPct}
+      />
 
       {/* Main Content */}
-      <main
-        className="flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress p-4 lg:p-8"
-
-      >
-        {/* Mobile spacer for the tall home header */}
+      <main className="flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress p-4 lg:p-8">
         <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 196px)" }} />
 
         <DashboardNavContext.Provider value={{
@@ -246,17 +274,16 @@ export default function DashboardShellClient({
             window.history.replaceState(null, "", "/dashboard");
           },
         }}>
-            {children}
-            <DashboardPaneShell
-              activeRoute={activePane}
-              onClosed={() => {
-                setActivePane(null);
-                window.history.replaceState(null, "", "/dashboard");
-              }}
-            />
+          {children}
+          <DashboardPaneShell
+            activeRoute={activePane}
+            onClosed={() => {
+              setActivePane(null);
+              window.history.replaceState(null, "", "/dashboard");
+            }}
+          />
         </DashboardNavContext.Provider>
 
-        {/* Mobile bottom nav clearance */}
         <div className="lg:hidden" style={{ height: "calc(52px + var(--safe-bottom, 0px) + 8px)" }} />
       </main>
     </div>

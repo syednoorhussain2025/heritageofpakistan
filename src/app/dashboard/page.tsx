@@ -190,7 +190,7 @@ export default function DashboardHome() {
             <button
               key={item.href}
               type="button"
-              onPointerDown={() => navigateTo(item.href)}
+              onClick={() => navigateTo(item.href)}
               className="w-full flex items-center gap-3.5 px-4 py-[17px] active:bg-gray-50 transition-colors relative select-none text-left"
               style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "manipulation" } as React.CSSProperties}
             >
