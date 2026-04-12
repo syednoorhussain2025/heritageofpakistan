@@ -1,19 +1,30 @@
 // src/app/dashboard/DashboardPaneShell.tsx
+// All 9 dashboard sub-pages are permanently mounted here.
+// Switching is a pure CSS translateX — identical to the heritage side sheets.
+// No Next.js navigation, no remounting, no loading gap.
 "use client";
 
 import { useEffect, useRef } from "react";
+import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
 import MyCollectionsPage from "./mycollections/page";
 import DashboardMyTripsPage from "./mytrips/page";
 import MyReviewsPage from "./myreviews/page";
 import PlacesVisitedPage from "./placesvisited/page";
+import PortfolioPage from "./portfolio/page";
+import NotebookPage from "./notebook/page";
+import AccountDetailsPaneClient from "./account-details/AccountDetailsPaneClient";
 
 export const PANE_ROUTES = [
+  "/dashboard/profile",
   "/dashboard/mywishlists",
   "/dashboard/mycollections",
   "/dashboard/mytrips",
   "/dashboard/myreviews",
   "/dashboard/placesvisited",
+  "/dashboard/portfolio",
+  "/dashboard/notebook",
+  "/dashboard/account-details",
 ] as const;
 
 export type PaneRoute = (typeof PANE_ROUTES)[number];
@@ -23,15 +34,19 @@ export function isPaneRoute(pathname: string): pathname is PaneRoute {
 }
 
 const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
+  "/dashboard/profile": ProfilePaneClient,
   "/dashboard/mywishlists": MyWishlistsPage,
   "/dashboard/mycollections": MyCollectionsPage,
   "/dashboard/mytrips": DashboardMyTripsPage,
   "/dashboard/myreviews": MyReviewsPage,
   "/dashboard/placesvisited": PlacesVisitedPage,
+  "/dashboard/portfolio": PortfolioPage,
+  "/dashboard/notebook": NotebookPage,
+  "/dashboard/account-details": AccountDetailsPaneClient,
 };
 
 const CURVE = "cubic-bezier(0.16,1,0.3,1)";
-const DURATION = 480; // ms
+const DURATION = 480;
 
 export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneRoute }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
@@ -41,23 +56,22 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
   useEffect(() => {
     const refs = paneRefs.current;
 
-    // First paint — show active, hide rest, no animation
     if (!initializedRef.current) {
       initializedRef.current = true;
       PANE_ROUTES.forEach((route) => {
         const el = refs[route];
         if (!el) return;
         if (route === activeRoute) {
+          el.style.position = "relative";
           el.style.transform = "translateX(0)";
           el.style.visibility = "visible";
-          el.style.position = "relative";
         } else {
-          el.style.transform = "translateX(100%)";
-          el.style.visibility = "hidden";
           el.style.position = "absolute";
           el.style.top = "0";
           el.style.left = "0";
           el.style.right = "0";
+          el.style.transform = "translateX(100%)";
+          el.style.visibility = "hidden";
         }
       });
       prevRouteRef.current = activeRoute;
@@ -71,14 +85,15 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
     const prevEl = prev ? refs[prev] : null;
     const nextEl = refs[next];
 
-    // Prev becomes absolute so it doesn't affect layout during animation
+    // Outgoing pane: switch to absolute so layout height is driven by incoming
     if (prevEl) {
       prevEl.style.position = "absolute";
       prevEl.style.top = "0";
       prevEl.style.left = "0";
       prevEl.style.right = "0";
     }
-    // Next becomes relative (owns the layout height) and starts off-screen right
+
+    // Incoming pane: make relative (owns height), start off-screen right
     if (nextEl) {
       nextEl.style.position = "relative";
       nextEl.style.visibility = "visible";
@@ -96,7 +111,6 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
           prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
           prevEl.style.transform = "translateX(-25%)";
         }
-
         setTimeout(() => {
           if (prevEl) {
             prevEl.style.transition = "none";
@@ -118,11 +132,7 @@ export default function DashboardPaneShell({ activeRoute }: { activeRoute: PaneR
           <div
             key={route}
             ref={(el) => { paneRefs.current[route] = el; }}
-            style={{
-              willChange: "transform",
-              visibility: "hidden",
-              transform: "translateX(100%)",
-            }}
+            style={{ willChange: "transform", visibility: "hidden", transform: "translateX(100%)" }}
           >
             <Page />
           </div>
