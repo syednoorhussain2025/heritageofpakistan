@@ -80,11 +80,13 @@ function DashboardPane({
   route,
   searchQ,
   onSearchChange,
+  onClosing,
   onClose,
 }: {
   route: PaneRoute;
   searchQ: string;
   onSearchChange: (q: string) => void;
+  onClosing: () => void;
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
@@ -95,6 +97,7 @@ function DashboardPane({
   const icon = PAGE_ICONS[route];
 
   function handleClose() {
+    onClosing();
     setClosing(true);
   }
 
@@ -173,9 +176,11 @@ function DashboardPane({
 
 export default function DashboardPaneShell({
   activeRoute,
+  onClosing,
   onClosed,
 }: {
   activeRoute: PaneRoute | null;
+  onClosing?: () => void;
   onClosed?: () => void;
 }) {
   const [searchQ, setSearchQ] = useState("");
@@ -188,6 +193,7 @@ export default function DashboardPaneShell({
       route={activeRoute}
       searchQ={searchQ}
       onSearchChange={setSearchQ}
+      onClosing={() => onClosing?.()}
       onClose={() => {
         setSearchQ("");
         onClosed?.();

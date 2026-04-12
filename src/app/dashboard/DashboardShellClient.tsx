@@ -38,6 +38,9 @@ export default function DashboardShellClient({
   const [activePane, setActivePane] = useState<PaneRoute | null>(() =>
     isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
   );
+  // True only during the slide-in animation — covers home content to prevent bleed-through.
+  // Cleared as soon as the pane signals it has started closing.
+  const [paneOpening, setPaneOpening] = useState(false);
 
   // Profile from global provider — already fetched, never null after first load
   const { profile, loading: profileLoading } = useProfile();
@@ -238,6 +241,7 @@ export default function DashboardShellClient({
         <DashboardNavContext.Provider value={{
           activePane,
           openPane: (route) => {
+            setPaneOpening(true);
             setActivePane(route);
             window.history.replaceState(null, "", route);
           },
@@ -246,14 +250,14 @@ export default function DashboardShellClient({
             window.history.replaceState(null, "", "/dashboard");
           },
         }}>
-            {/* Instant white cover — blocks home content the moment a pane opens,
-                so nothing underneath bleeds through during the slide-in animation */}
-            {activePane && (
+            {/* White cover only during slide-IN — disappears the moment the pane starts closing */}
+            {paneOpening && (
               <div className="lg:hidden fixed inset-0 bg-white" style={{ zIndex: 1199 }} />
             )}
             {children}
             <DashboardPaneShell
               activeRoute={activePane}
+              onClosing={() => setPaneOpening(false)}
               onClosed={() => {
                 setActivePane(null);
                 window.history.replaceState(null, "", "/dashboard");
