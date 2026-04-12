@@ -67,20 +67,18 @@ export default function DashboardPaneShell({
     if (next === null) {
       const prevEl = prev ? refs[prev] : null;
       if (prevEl) {
-        // Ensure no transition and lock at translateX(0) so browser sees the "from" state
+        // Keep position:relative so the container doesn't collapse (which would clip the animation).
+        // Just animate translateX from 0 → 100%.
         prevEl.style.transition = "none";
         prevEl.style.transform = "translateX(0)";
-        prevEl.style.position = "absolute";
-        prevEl.style.top = "0";
-        prevEl.style.left = "0";
-        prevEl.style.right = "0";
-        // Double-RAF so browser commits the from-state before we start animating
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
             prevEl.style.transform = "translateX(100%)";
             setTimeout(() => {
               prevEl.style.visibility = "hidden";
+              prevEl.style.position = "absolute";
+              prevEl.style.transform = "translateX(100%)";
               onClosed?.();
             }, DURATION + 20);
           });
