@@ -45,6 +45,11 @@ export default function DashboardShellClient({
   const [activePane, setActivePane] = useState<PaneRoute | null>(() =>
     isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
   );
+  // Separate flag: home is visible only when no pane is active AND exit animation is done
+  const [homeVisible, setHomeVisible] = useState<boolean>(() =>
+    !isPaneRoute(pathname ?? "")
+  );
+  const closingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isHome = !activePane;
 
@@ -159,9 +164,11 @@ export default function DashboardShellClient({
   function handleBack() {
     void hapticLight();
     if (activePane) {
-      // Close pane instantly — no router, just local state
+      // Start exit animation — keep home hidden until animation completes
       setActivePane(null);
       window.history.replaceState(null, "", "/dashboard");
+      if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+      closingTimerRef.current = setTimeout(() => setHomeVisible(true), 500);
       return;
     }
     // Deep sub-routes (e.g. /mytrips/[id]) — use overlay + router
@@ -452,17 +459,21 @@ export default function DashboardShellClient({
         <DashboardNavContext.Provider value={{
           activePane,
           openPane: (route) => {
+            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+            setHomeVisible(false);
             setActivePane(route);
             window.history.replaceState(null, "", route);
           },
           closePane: () => {
             setActivePane(null);
             window.history.replaceState(null, "", "/dashboard");
+            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+            closingTimerRef.current = setTimeout(() => setHomeVisible(true), 500);
           },
         }}>
           <SearchContext.Provider value={{ q: headerSearchQ }}>
-            {/* Home content — hidden when a pane is active */}
-            <div style={{ display: activePane ? "none" : "block" }}>
+            {/* Home content — hidden while any pane is active or closing */}
+            <div style={{ display: homeVisible ? "block" : "none" }}>
               {children}
             </div>
             {/* Pane shell — always mounted, slides over home content */}
