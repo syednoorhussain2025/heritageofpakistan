@@ -6,7 +6,6 @@ import {
   useState,
   useCallback,
   useRef,
-  useLayoutEffect,
   Suspense,
 } from "react";
 import { createPortal } from "react-dom";
@@ -577,21 +576,6 @@ function StableBannerImage({
     }
   }, [computed.fallback, src]);
 
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  useLayoutEffect(() => {
-    const el = imgRef.current;
-    if (!el) return;
-    const done = () => el.classList.add("opacity-100");
-    el.classList.remove("opacity-100");
-    el.classList.add("opacity-0", "transition-opacity", "duration-500");
-    if (el.complete) {
-      requestAnimationFrame(done);
-    } else {
-      el.addEventListener("load", done, { once: true });
-      return () => el.removeEventListener("load", done);
-    }
-  }, [src]);
-
   if (!src) {
     return
       <div className="w-14 h-14 rounded-full bg-[var(--ivory-cream)] ring-1 ring-[var(--taupe-grey)]/40" />;
@@ -599,7 +583,6 @@ function StableBannerImage({
 
   return (
     <img
-      ref={imgRef}
       src={src}
       alt={alt}
       decoding="async"
@@ -1470,7 +1453,7 @@ function ExplorePageContent() {
                 )}
                 <div
                   className="grid grid-cols-2 gap-4"
-                  style={{ opacity: loading ? 0.3 : 1, transition: "opacity 0.2s ease" }}
+                  style={{ opacity: 1 }}
                 >
                   {error && results.sites.length === 0 && !loading ? (
                     <div className="p-6 col-span-2">{error}</div>
@@ -1478,9 +1461,7 @@ function ExplorePageContent() {
                     <div className="p-6 col-span-2 text-gray-500">No sites match your filters.</div>
                   ) : (
                     results.sites.map((s, index) => (
-                      <div key={s.id} style={{ animation: "cardIn 0.4s ease both", animationDelay: `${Math.min(index, 8) * 55}ms` }}>
-                        <SitePreviewCard site={s} index={index} onCardClick={() => setSelectedSite(s)} />
-                      </div>
+                      <SitePreviewCard key={s.id} site={s} index={index} onCardClick={() => setSelectedSite(s)} />
                     ))
                   )}
                 </div>
@@ -1525,7 +1506,7 @@ function ExplorePageContent() {
                 <div
                   ref={cardsRef}
                   className="grid grid-cols-2 xl:grid-cols-3 gap-5"
-                  style={{ opacity: loading && results.sites.length > 0 ? 0.4 : 1 }}
+                  style={{ opacity: 1 }}
                 >
                   {error && results.sites.length === 0 && !loading ? (
                     <div className="p-6 text:[var(--terracotta-red)] sm:col-span-3">{error}</div>
@@ -1533,9 +1514,7 @@ function ExplorePageContent() {
                     <div className="p-6 text-[var(--espresso-brown)]/80 sm:col-span-3">No sites match your filters.</div>
                   ) : (
                     results.sites.map((s, index) => (
-                      <div key={s.id} style={{ animation: "cardIn 0.4s ease both", animationDelay: `${Math.min(index, 8) * 55}ms` }}>
-                        <SitePreviewCard site={s} index={index} onCardClick={() => setSelectedSite(s)} />
-                      </div>
+                      <SitePreviewCard key={s.id} site={s} index={index} onCardClick={() => setSelectedSite(s)} />
                     ))
                   )}
                 </div>

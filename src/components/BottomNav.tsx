@@ -277,6 +277,13 @@ export default function BottomNav() {
   const { profile } = useProfile();
   const { startNavigation } = useLoaderEngine();
 
+  // Prefetch leaflet bundle in the background so /map loads near-instantly on tap
+  useEffect(() => {
+    const id = setTimeout(() => { void import("@/components/ClientOnlyMap"); }, 1500);
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   // Clear optimistic state once navigation completes
   useEffect(() => { setOptimisticHref(null); }, [pathname]);

@@ -1684,13 +1684,12 @@ export default function MapClient() {
       dynamic(() => import("@/components/ClientOnlyMap"), {
         ssr: false,
         loading: () => (
-          <div className="flex items-center justify-center h-full w-full bg-gray-100">
+          <div className="flex items-center justify-center h-full w-full bg-[#e8e0d5]">
             <Icon
               name="spinner"
               className="animate-spin text-[var(--brand-orange)]"
-              size={48}
+              size={36}
             />
-            <p className="ml-4 text-lg text-gray-600">Loading map…</p>
           </div>
         ),
       }),
