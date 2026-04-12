@@ -1,7 +1,4 @@
 // src/app/dashboard/DashboardPaneShell.tsx
-// All 9 dashboard sub-pages are permanently mounted here.
-// Switching is a pure CSS translateX — identical to the heritage side sheets.
-// No Next.js navigation, no remounting, no loading gap.
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -45,108 +42,66 @@ const PANE_COMPONENTS: Record<PaneRoute, React.ComponentType> = {
   "/dashboard/account-details": AccountDetailsPaneClient,
 };
 
-const CURVE = "cubic-bezier(0.16,1,0.3,1)";
-const DURATION = 480;
-
 export default function DashboardPaneShell({
   activeRoute,
   closingRoute,
   onClosed,
 }: {
   activeRoute: PaneRoute | null;
-  // The route that is currently sliding out (set by parent before clearing activeRoute)
   closingRoute: PaneRoute | null;
   onClosed?: () => void;
 }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
-  const prevRouteRef = useRef<PaneRoute | null>(null);
+  const onClosedRef = useRef(onClosed);
+  useEffect(() => { onClosedRef.current = onClosed; });
 
-  // ── Slide-out: triggered when closingRoute becomes non-null ──────────────
+  // ── Slide-in ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!activeRoute) return;
+    const el = paneRefs.current[activeRoute];
+    if (!el) return;
+
+    el.style.visibility = "visible";
+    el.style.position = "relative";
+    // Remove any leftover animation class, reset to off-screen
+    el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
+    // Apply slide-in — browser handles the keyframe natively
+    el.classList.add("animate-side-sheet-in");
+
+    const onEnd = () => {
+      el.classList.remove("animate-side-sheet-in");
+      el.style.transform = "translateX(0)";
+    };
+    el.addEventListener("animationend", onEnd, { once: true });
+    return () => el.removeEventListener("animationend", onEnd);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRoute]);
+
+  // ── Slide-out ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
-
     if (!el) {
-      onClosed?.();
+      onClosedRef.current?.();
       return;
     }
 
-    // Force into view
-    el.style.transition = "none";
-    el.style.position = "relative";
     el.style.visibility = "visible";
-    el.style.transform = "translateX(0)";
+    el.style.position = "relative";
+    el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
+    el.classList.add("animate-side-sheet-out");
 
-    // Force a style flush so Safari sees the "from" state before we set the transition.
-    // getComputedStyle is the most reliable cross-browser way to do this.
-    void el.getBoundingClientRect();
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.style.transition = `transform ${DURATION}ms ${CURVE}`;
-        el.style.transform = "translateX(100%)";
-
-        setTimeout(() => {
-          el.style.transition = "none";
-          el.style.visibility = "hidden";
-          el.style.position = "absolute";
-          onClosed?.();
-        }, DURATION + 20);
-      });
-    });
+    const onEnd = () => {
+      el.classList.remove("animate-side-sheet-out");
+      el.style.visibility = "hidden";
+      el.style.position = "absolute";
+      el.style.transform = "translateX(100%)";
+      onClosedRef.current?.();
+    };
+    el.addEventListener("animationend", onEnd, { once: true });
+    return () => el.removeEventListener("animationend", onEnd);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closingRoute]);
-
-  // ── Slide-in: triggered when activeRoute becomes non-null ────────────────
-  useEffect(() => {
-    if (!activeRoute) return;
-
-    const prev = prevRouteRef.current;
-    if (prev === activeRoute) return;
-
-    const prevEl = prev ? paneRefs.current[prev] : null;
-    const nextEl = paneRefs.current[activeRoute];
-
-    if (prevEl) {
-      prevEl.style.position = "absolute";
-      prevEl.style.top = "0";
-      prevEl.style.left = "0";
-      prevEl.style.right = "0";
-    }
-
-    if (nextEl) {
-      nextEl.style.position = "relative";
-      nextEl.style.visibility = "visible";
-      nextEl.style.transition = "none";
-      nextEl.style.transform = "translateX(100%)";
-    }
-
-    // Force style flush before animating (required on Safari)
-    if (nextEl) void nextEl.getBoundingClientRect();
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (nextEl) {
-          nextEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
-          nextEl.style.transform = "translateX(0)";
-        }
-        if (prevEl) {
-          prevEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
-          prevEl.style.transform = "translateX(-25%)";
-        }
-        setTimeout(() => {
-          if (prevEl) {
-            prevEl.style.transition = "none";
-            prevEl.style.transform = "translateX(100%)";
-            prevEl.style.visibility = "hidden";
-          }
-        }, DURATION + 20);
-      });
-    });
-
-    prevRouteRef.current = activeRoute;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRoute]);
 
   return (
     <div className="relative overflow-x-hidden">
