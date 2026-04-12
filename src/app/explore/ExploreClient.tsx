@@ -1628,7 +1628,7 @@ function ExplorePageContent() {
             </div>
 
             {/* Scrollable filter content */}
-            <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
+            <div data-scroll-reset className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}

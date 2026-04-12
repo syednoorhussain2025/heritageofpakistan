@@ -417,6 +417,7 @@ export default function DiscoverClient({
   return (
     <div
       ref={scrollRef}
+      data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
     >

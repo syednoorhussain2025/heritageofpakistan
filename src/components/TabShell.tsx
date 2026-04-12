@@ -47,9 +47,11 @@ function TabPane({
     }
 
     if (justActivated) {
-      // Reset scroll on all scrollable descendants before revealing
-      el.querySelectorAll<HTMLElement>("*").forEach(child => {
-        if (child.scrollTop > 0) child.scrollTop = 0;
+      // Reset scroll only on known scrollable containers — not every descendant
+      // (querySelectorAll("*") on a large tab is measurably slow)
+      el.scrollTop = 0;
+      el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach(child => {
+        child.scrollTop = 0;
       });
       window.dispatchEvent(new CustomEvent("tab-shown"));
     }
