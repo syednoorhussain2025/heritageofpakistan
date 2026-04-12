@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
-import { hapticLight } from "@/lib/haptics";
 import { SearchContext } from "./SearchContext";
 import ProfilePaneClient from "./profile/ProfilePaneClient";
 import MyWishlistsPage from "./mywishlists/page";
@@ -96,7 +95,6 @@ function DashboardPane({
   const icon = PAGE_ICONS[route];
 
   function handleClose() {
-    void hapticLight();
     setClosing(true);
   }
 
@@ -120,7 +118,7 @@ function DashboardPane({
                 type="button"
                 onClick={handleClose}
                 aria-label="Back"
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
+                className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
               >
                 <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
                   <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
@@ -148,7 +146,7 @@ function DashboardPane({
               type="button"
               onClick={handleClose}
               aria-label="Back"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
+              className="w-[46px] h-[46px] ml-2 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
             >
               <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
                 <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
