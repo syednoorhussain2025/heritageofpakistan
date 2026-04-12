@@ -63,17 +63,14 @@ export default function DashboardPaneShell({
 
     el.style.visibility = "visible";
     el.style.position = "relative";
-    // Remove any leftover animation class, reset to off-screen
     el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
-    // Apply slide-in — browser handles the keyframe natively
     el.classList.add("animate-side-sheet-in");
 
-    const onEnd = () => {
+    el.addEventListener("animationend", () => {
       el.classList.remove("animate-side-sheet-in");
       el.style.transform = "translateX(0)";
-    };
-    el.addEventListener("animationend", onEnd, { once: true });
-    return () => el.removeEventListener("animationend", onEnd);
+    }, { once: true });
+    // No cleanup — { once: true } self-removes; cancelling it would stop the animation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRoute]);
 
@@ -91,15 +88,14 @@ export default function DashboardPaneShell({
     el.classList.remove("animate-side-sheet-in", "animate-side-sheet-out");
     el.classList.add("animate-side-sheet-out");
 
-    const onEnd = () => {
+    el.addEventListener("animationend", () => {
       el.classList.remove("animate-side-sheet-out");
       el.style.visibility = "hidden";
       el.style.position = "absolute";
       el.style.transform = "translateX(100%)";
       onClosedRef.current?.();
-    };
-    el.addEventListener("animationend", onEnd, { once: true });
-    return () => el.removeEventListener("animationend", onEnd);
+    }, { once: true });
+    // No cleanup — { once: true } self-removes; cancelling it would stop the animation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closingRoute]);
 
