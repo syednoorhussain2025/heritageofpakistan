@@ -3,15 +3,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { createClient } from "@/lib/supabase/browser";
-import { hapticLight } from "@/lib/haptics";
 import { countUserVisits } from "@/lib/db/visited";
 import { progressToNextBadge } from "@/lib/db/badges";
-import { useLoaderEngine } from "@/components/loader-engine/LoaderEngineProvider";
 import { useProfile } from "@/components/ProfileProvider";
 import { usePrefetchDashboard } from "@/hooks/useDashboardQueries";
 import DashboardPaneShell, { isPaneRoute, type PaneRoute } from "./DashboardPaneShell";
@@ -37,8 +35,6 @@ export default function DashboardShellClient({
   const pathname = usePathname();
   const router = useRouter();
   const { userId } = useAuthUserId();
-  const { startNavigation } = useLoaderEngine();
-
   const [activePane, setActivePane] = useState<PaneRoute | null>(() =>
     isPaneRoute(pathname ?? "") ? (pathname as PaneRoute) : null
   );
@@ -93,46 +89,11 @@ export default function DashboardShellClient({
     { href: "/dashboard/account-details", label: "Account Details", icon: "square-user-round" },
   ];
 
-  function handleBack() {
-    void hapticLight();
-    // Deep sub-routes (e.g. /mytrips/[id]) — no activePane set, use overlay + router
-    if (pathname?.startsWith("/dashboard/mywishlists/")) {
-      startNavigation("/dashboard/mywishlists", { overlay: "white-silent-back" });
-    } else if (pathname === "/dashboard/mycollections/photos" || (pathname?.startsWith("/dashboard/mycollections/") && pathname !== "/dashboard/mycollections")) {
-      startNavigation("/dashboard/mycollections", { overlay: "white-silent-back" });
-    } else if (pathname?.startsWith("/dashboard/mytrips/")) {
-      startNavigation("/dashboard/mytrips", { overlay: "white-silent-back" });
-    } else if (pathname?.startsWith("/dashboard/myreviews/")) {
-      startNavigation("/dashboard/myreviews", { overlay: "white-silent-back" });
-    } else if (pathname?.startsWith("/dashboard/notebook/")) {
-      startNavigation("/dashboard/notebook", { overlay: "white-silent-back" });
-    } else {
-      startNavigation("/", { overlay: "white-silent-back" });
-    }
-  }
-
   const thumb = avatarUrl(profile?.avatar_url);
   const initials = (profile?.full_name ?? "?").charAt(0).toUpperCase();
   const progressPct = badgeInfo.next
     ? Math.min((visitedCount / (visitedCount + badgeInfo.remaining)) * 100, 100)
     : 100;
-
-  // Swipe left-to-right on the home screen to go back
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    if (dx > 60 && dy < 80) {
-      handleBack();
-    }
-  }
 
   return (
     <div className="min-h-screen bg-white lg:bg-gray-100 lg:flex lg:p-6 lg:gap-6 lg:items-start">
@@ -184,18 +145,8 @@ export default function DashboardShellClient({
 
       {/* ── Mobile header — always shows the home/dashboard header ── */}
       <MobilePageHeader backgroundColor="var(--brand-green)" minHeight="0px" className="flex flex-col px-5 pb-5">
-        <div className="flex items-center pt-1">
-          <button
-            type="button"
-            onClick={handleBack}
-            aria-label="Back"
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 transition-transform active:scale-90"
-          >
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-              <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-            </svg>
-          </button>
-          <span className="flex-1 flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide pr-9">
+        <div className="flex items-center pt-1 justify-center">
+          <span className="flex items-center justify-center gap-1.5 text-center text-white text-[17px] font-semibold tracking-wide">
             <Icon name="layout-board-split" size={24} className="text-white/90 shrink-0" />
             My Dashboard
           </span>
@@ -278,8 +229,7 @@ export default function DashboardShellClient({
       {/* Main Content */}
       <main
         className="flex-1 bg-white lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-sm dashboard-no-longpress p-4 lg:p-8"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+
       >
         {/* Mobile spacer for the tall home header */}
         <div className="lg:hidden" style={{ height: "calc(var(--sat, 44px) + 196px)" }} />
