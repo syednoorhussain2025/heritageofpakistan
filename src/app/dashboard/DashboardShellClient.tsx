@@ -246,6 +246,11 @@ export default function DashboardShellClient({
             window.history.replaceState(null, "", "/dashboard");
           },
         }}>
+            {/* Instant white cover — blocks home content the moment a pane opens,
+                so nothing underneath bleeds through during the slide-in animation */}
+            {activePane && (
+              <div className="lg:hidden fixed inset-0 bg-white" style={{ zIndex: 1199 }} />
+            )}
             {children}
             <DashboardPaneShell
               activeRoute={activePane}
