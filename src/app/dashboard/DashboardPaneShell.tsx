@@ -77,11 +77,15 @@ export default function DashboardPaneShell({
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
     if (!el) { onClosedRef.current?.(); return; }
-    // Float over home content while animating out
-    el.style.position = "absolute";
-    el.style.top = "0";
-    el.style.left = "0";
+    // Use fixed positioning so the element escapes overflow-x-hidden clipping
+    // and can slide fully off screen (same pattern as TravelGuideSheet)
+    const rect = el.getBoundingClientRect();
+    el.style.position = "fixed";
+    el.style.top = `${rect.top}px`;
+    el.style.left = `${rect.left}px`;
     el.style.right = "0";
+    el.style.bottom = "0";
+    el.style.width = `${rect.width}px`;
     // Clear inline transform/transition that would fight the keyframe
     el.style.transform = "";
     el.style.transition = "";
@@ -96,6 +100,13 @@ export default function DashboardPaneShell({
       el.className = "";
       el.style.visibility = "hidden";
       el.style.transform = "translateX(100%)";
+      // Restore to absolute so it sits correctly inside the pane container
+      el.style.position = "absolute";
+      el.style.top = "0";
+      el.style.left = "0";
+      el.style.right = "0";
+      el.style.bottom = "";
+      el.style.width = "";
       onClosedRef.current?.();
     };
     el.addEventListener("animationend", handleEnd, { once: true });
