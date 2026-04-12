@@ -50,58 +50,55 @@ const DURATION = 480;
 
 export default function DashboardPaneShell({
   activeRoute,
+  closingRoute,
   onClosed,
 }: {
   activeRoute: PaneRoute | null;
+  // The route that is currently sliding out (set by parent before clearing activeRoute)
+  closingRoute: PaneRoute | null;
   onClosed?: () => void;
 }) {
   const paneRefs = useRef<Partial<Record<PaneRoute, HTMLDivElement | null>>>({});
   const prevRouteRef = useRef<PaneRoute | null>(null);
-  const onClosedRef = useRef(onClosed);
-  useEffect(() => { onClosedRef.current = onClosed; });
 
+  // ── Slide-out: triggered when closingRoute becomes non-null ──────────────
   useEffect(() => {
-    const refs = paneRefs.current;
-    const prev = prevRouteRef.current;
-    const next = activeRoute;
-
-    // Navigating back to dashboard home — slide active pane out to the right
-    if (next === null) {
-      const closingEl = prev ? refs[prev] : null;
-      prevRouteRef.current = null;
-
-      if (closingEl) {
-        // Force element to stay visible and in-flow during animation
-        closingEl.style.position = "relative";
-        closingEl.style.visibility = "visible";
-        closingEl.style.transition = "none";
-        closingEl.style.transform = "translateX(0)";
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            closingEl.style.transition = `transform ${DURATION}ms ${CURVE}`;
-            closingEl.style.transform = "translateX(100%)";
-
-            setTimeout(() => {
-              closingEl.style.transition = "none";
-              closingEl.style.visibility = "hidden";
-              closingEl.style.position = "absolute";
-              onClosedRef.current?.();
-            }, DURATION + 20);
-          });
-        });
-      } else {
-        onClosedRef.current?.();
-      }
+    if (!closingRoute) return;
+    const el = paneRefs.current[closingRoute];
+    if (!el) {
+      onClosed?.();
       return;
     }
+    el.style.position = "relative";
+    el.style.visibility = "visible";
+    el.style.transition = "none";
+    el.style.transform = "translateX(0)";
 
-    if (prev === next) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = `transform ${DURATION}ms ${CURVE}`;
+        el.style.transform = "translateX(100%)";
+        setTimeout(() => {
+          el.style.transition = "none";
+          el.style.visibility = "hidden";
+          el.style.position = "absolute";
+          onClosed?.();
+        }, DURATION + 20);
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closingRoute]);
 
-    const prevEl = prev ? refs[prev] : null;
-    const nextEl = refs[next];
+  // ── Slide-in: triggered when activeRoute becomes non-null ────────────────
+  useEffect(() => {
+    if (!activeRoute) return;
 
-    // Outgoing pane becomes absolute (layout height driven by incoming)
+    const prev = prevRouteRef.current;
+    if (prev === activeRoute) return;
+
+    const prevEl = prev ? paneRefs.current[prev] : null;
+    const nextEl = paneRefs.current[activeRoute];
+
     if (prevEl) {
       prevEl.style.position = "absolute";
       prevEl.style.top = "0";
@@ -109,7 +106,6 @@ export default function DashboardPaneShell({
       prevEl.style.right = "0";
     }
 
-    // Incoming pane: relative (owns height), starts off-screen right
     if (nextEl) {
       nextEl.style.position = "relative";
       nextEl.style.visibility = "visible";
@@ -137,7 +133,8 @@ export default function DashboardPaneShell({
       });
     });
 
-    prevRouteRef.current = next;
+    prevRouteRef.current = activeRoute;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRoute]);
 
   return (

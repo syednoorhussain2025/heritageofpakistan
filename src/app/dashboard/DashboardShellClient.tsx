@@ -482,7 +482,7 @@ export default function DashboardShellClient({
               {children}
             </div>
             {/* Pane shell — always mounted, slides over home content */}
-            <DashboardPaneShell activeRoute={activePane} onClosed={() => { setHomeVisible(true); setClosingPane(null); }} />
+            <DashboardPaneShell activeRoute={activePane} closingRoute={closingPane} onClosed={() => { setHomeVisible(true); setClosingPane(null); }} />
           </SearchContext.Provider>
         </DashboardNavContext.Provider>
         {/* Mobile bottom nav clearance */}
