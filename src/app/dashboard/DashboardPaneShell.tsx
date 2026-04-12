@@ -60,11 +60,14 @@ export default function DashboardPaneShell({
     if (!activeRoute) return;
     const el = paneRefs.current[activeRoute];
     if (!el) return;
+    // Clear inline transform/transition that would fight the keyframe
+    el.style.transform = "";
+    el.style.transition = "";
     el.style.visibility = "visible";
     el.style.position = "relative";
-    // Reset any previous animation so Safari re-runs it fresh
+    // Force reflow so browser sees the cleared state before animation starts
     el.style.animation = "none";
-    void el.offsetWidth; // force reflow
+    void el.offsetWidth;
     el.style.animation = "";
     el.className = "animate-side-sheet-in";
   }, [activeRoute]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,22 +76,25 @@ export default function DashboardPaneShell({
   useEffect(() => {
     if (!closingRoute) return;
     const el = paneRefs.current[closingRoute];
-    if (!el) {
-      onClosedRef.current?.();
-      return;
-    }
+    if (!el) { onClosedRef.current?.(); return; }
+    // Float over home content while animating out
+    el.style.position = "absolute";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.right = "0";
+    // Clear inline transform/transition that would fight the keyframe
+    el.style.transform = "";
+    el.style.transition = "";
     el.style.visibility = "visible";
-    el.style.position = "relative";
-    // Reset any previous animation so Safari re-runs it fresh
+    // Force reflow so browser sees translateX(0) as the from-state
     el.style.animation = "none";
-    void el.offsetWidth; // force reflow
+    void el.offsetWidth;
     el.style.animation = "";
     el.className = "animate-side-sheet-out";
 
     const handleEnd = () => {
       el.className = "";
       el.style.visibility = "hidden";
-      el.style.position = "absolute";
       el.style.transform = "translateX(100%)";
       onClosedRef.current?.();
     };
