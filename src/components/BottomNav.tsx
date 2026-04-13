@@ -40,7 +40,7 @@ function TabNavItem({
       onTouchStart={() => setTab(tab)}
       onMouseDown={() => setTab(tab)}
     >
-      <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+      <span className="nav-item-icon" style={{ display: "flex" }}>
         <Icon
           name={icon}
           size={ICON_SIZE}
@@ -59,7 +59,7 @@ function MapNavItem({ isActive }: { isActive: boolean }) {
       aria-label="Map"
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
     >
-      <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+      <span className="nav-item-icon" style={{ display: "flex" }}>
         <Icon name="adminmap" size={ICON_SIZE} className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS} />
       </span>
     </Link>
@@ -399,7 +399,7 @@ export default function BottomNav() {
             aria-label={userId ? "Open profile menu" : "Sign in"}
             className="flex flex-1 items-center justify-center py-3 nav-item-tap"
           >
-            <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+            <span className="nav-item-icon" style={{ display: "flex" }}>
               {userId ? (
                 <ProfileTabIcon
                   avatarUrl={avatarUrl}
