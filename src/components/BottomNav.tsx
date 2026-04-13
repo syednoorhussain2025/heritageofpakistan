@@ -288,9 +288,16 @@ function ProfilePanel({
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { userId } = useAuthUserId();
   const { profile } = useProfile();
   const { startNavigation } = useLoaderEngine();
+
+  // Prefetch dashboard on mount so tapping the profile button feels instant
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Active tab state driven by tabStore (not router) — updates synchronously on tap
   const [activeTab, setActiveTabState] = useState<TabKey | null>(() => pathnameToTab(pathname));
