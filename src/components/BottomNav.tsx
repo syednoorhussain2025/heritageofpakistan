@@ -10,6 +10,7 @@ import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useProfile } from "@/components/ProfileProvider";
 import { createClient } from "@/lib/supabase/browser";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { type TabKey, setTab, subscribeTab, getActiveTab, pathnameToTab } from "@/lib/tabStore";
 
 const ACTIVE_COLOR_CLASS = "text-[var(--brand-orange)]";
 const INACTIVE_COLOR_CLASS = "text-[var(--brand-black)]";
@@ -18,26 +19,26 @@ const ICON_SIZE = 29;
 const PANEL_ANIM_MS = 320;
 
 
-function NavItem({
+// Tab items (Home / Discover / Explore) switch instantly via tabStore —
+// no router, no React re-render, just a direct DOM write.
+function TabNavItem({
   label,
   icon,
+  tab,
   isActive,
-  href,
-  onPress,
 }: {
   label: string;
   icon: string;
+  tab: TabKey;
   isActive: boolean;
-  href: string;
-  onPress?: () => void;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
       aria-label={label}
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
-      onTouchStart={() => onPress?.()}
-      onMouseDown={() => onPress?.()}
+      onTouchStart={() => setTab(tab)}
+      onMouseDown={() => setTab(tab)}
     >
       <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
         <Icon
@@ -45,6 +46,21 @@ function NavItem({
           size={ICON_SIZE}
           className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS}
         />
+      </span>
+    </button>
+  );
+}
+
+// Map is a real routed page — keep using Link
+function MapNavItem({ isActive }: { isActive: boolean }) {
+  return (
+    <Link
+      href="/map"
+      aria-label="Map"
+      className="flex flex-1 items-center justify-center py-3 nav-item-tap"
+    >
+      <span className="nav-item-icon" style={{ display: "flex", transformOrigin: "center center" }}>
+        <Icon name="adminmap" size={ICON_SIZE} className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS} />
       </span>
     </Link>
   );
@@ -284,9 +300,13 @@ export default function BottomNav() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
-  // Clear optimistic state once navigation completes
-  useEffect(() => { setOptimisticHref(null); }, [pathname]);
+  // Active tab state driven by tabStore (not router) — updates synchronously on tap
+  const [activeTab, setActiveTabState] = useState<TabKey | null>(() => pathnameToTab(pathname));
+  useEffect(() => {
+    // Sync on mount and on real route changes (back/forward, deep links)
+    setActiveTabState(pathnameToTab(pathname));
+    return subscribeTab((tab) => setActiveTabState(tab));
+  }, [pathname]);
 
   // Lock safe-area insets once after first paint — prevents them from
   // collapsing to 0 on pages where iOS dynamically adjusts the values.
@@ -349,10 +369,10 @@ export default function BottomNav() {
     closePanel();
   };
 
-  const isHomeActive     = optimisticHref === "/" || (!optimisticHref && pathname === "/");
-  const isDiscoverActive = optimisticHref?.startsWith("/discover") || (!optimisticHref && pathname.startsWith("/discover"));
-  const isExploreActive  = optimisticHref === "/explore" || (!optimisticHref && pathname.startsWith("/explore"));
-  const isMapActive      = optimisticHref === "/map" || (!optimisticHref && pathname.startsWith("/map"));
+  const isHomeActive      = activeTab === "home";
+  const isDiscoverActive  = activeTab === "discover";
+  const isExploreActive   = activeTab === "explore";
+  const isMapActive       = pathname.startsWith("/map");
   const isDashboardActive = pathname.startsWith("/dashboard");
 
   const displayName = profile?.full_name || "My Account";
@@ -367,10 +387,10 @@ export default function BottomNav() {
 
       <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
-          <NavItem label="Home" icon="house" isActive={isHomeActive} href="/" onPress={() => setOptimisticHref("/")} />
-          <NavItem label="Discover" icon="compass" isActive={isDiscoverActive} href="/discover" onPress={() => setOptimisticHref("/discover")} />
-          <NavItem label="Explore" icon="search" isActive={isExploreActive} href="/explore" onPress={() => setOptimisticHref("/explore")} />
-          <NavItem label="Map" icon="adminmap" isActive={isMapActive} href="/map" onPress={() => setOptimisticHref("/map")} />
+          <TabNavItem label="Home"     icon="house"    tab="home"     isActive={isHomeActive} />
+          <TabNavItem label="Discover" icon="compass"  tab="discover" isActive={isDiscoverActive} />
+          <TabNavItem label="Explore"  icon="search"   tab="explore"  isActive={isExploreActive} />
+          <MapNavItem isActive={isMapActive} />
 
           {/* Profile / Sign-in tab */}
           <button

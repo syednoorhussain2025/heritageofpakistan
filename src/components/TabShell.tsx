@@ -3,19 +3,22 @@
 /**
  * TabShell — persistent tab mount for mobile.
  *
- * Home and Explore are always mounted. Switching between them is a
- * CSS display toggle — zero re-mount cost.
+ * Home, Discover, and Explore are always mounted. Tab switching is
+ * fully imperative — we write display:block/none directly on DOM refs
+ * via tabStore subscribers, bypassing React and the Next.js router.
+ * Zero re-mount cost, zero scheduler overhead.
  *
  * Map is intentionally excluded — it has its own server bootstrap
  * pipeline (map/layout.tsx + MapBootstrapProvider) that requires it
- * to be a normal routed page. Map still loads fast via its own cache.
+ * to be a normal routed page.
  */
 
-import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import HomeClient from "@/app/HomeClient";
 import ExploreClient from "@/app/explore/ExploreClient";
 import DiscoverClient from "@/app/discover/DiscoverClient";
+import { type TabKey, subscribeTab, syncTabFromPathname, getActiveTab } from "@/lib/tabStore";
 
 export function isTabRoute(pathname: string) {
   return (
@@ -25,62 +28,69 @@ export function isTabRoute(pathname: string) {
   );
 }
 
-function TabPane({
-  active,
-  children,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  const divRef = useRef<HTMLDivElement>(null);
-  const prevActive = useRef(active);
-  const justActivated = active && !prevActive.current;
-  prevActive.current = active;
+// Each pane registers its DOM ref and tab key.
+// When the store fires, we write display directly — no React render.
+function usePaneRef(tab: TabKey) {
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = divRef.current;
+    const el = ref.current;
     if (!el) return;
 
-    if (!active) {
-      el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
-      return;
-    }
+    // Set initial display from current store state
+    const initial = getActiveTab() === tab;
+    el.style.display = initial ? "block" : "none";
+    el.setAttribute("aria-hidden", initial ? "false" : "true");
 
-    if (justActivated) {
-      // Reset scroll only on known scrollable containers — not every descendant
-      // (querySelectorAll("*") on a large tab is measurably slow)
-      el.scrollTop = 0;
-      el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach(child => {
-        child.scrollTop = 0;
-      });
-      window.dispatchEvent(new CustomEvent("tab-shown"));
-    }
+    const unsub = subscribeTab((active) => {
+      const isActive = active === tab;
+      el.style.display = isActive ? "block" : "none";
+      el.setAttribute("aria-hidden", isActive ? "false" : "true");
+
+      if (!isActive) {
+        el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
+      } else {
+        // Reset scroll on the pane root and tagged children
+        el.scrollTop = 0;
+        el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach((child) => {
+          child.scrollTop = 0;
+        });
+        window.dispatchEvent(new CustomEvent("tab-shown"));
+      }
+    });
+
+    return unsub;
+  // tab is a constant — safe to omit
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, []);
 
-  return (
-    <div
-      ref={divRef}
-      aria-hidden={!active}
-      style={{ display: active ? "block" : "none" }}
-    >
-      {children}
-    </div>
-  );
+  return ref;
 }
 
 export default function TabShell() {
   const pathname = usePathname() || "/";
 
-  const isHome     = pathname === "/";
-  const isExplore  = pathname.startsWith("/explore");
-  const isDiscover = pathname.startsWith("/discover");
+  // Sync store when Next.js performs a real navigation (e.g. deep link,
+  // browser back/forward, or navigating to/from a non-tab route).
+  useEffect(() => {
+    syncTabFromPathname(pathname);
+  }, [pathname]);
+
+  const homeRef     = usePaneRef("home");
+  const exploreRef  = usePaneRef("explore");
+  const discoverRef = usePaneRef("discover");
 
   return (
     <>
-      <TabPane active={isHome}><HomeClient /></TabPane>
-      <TabPane active={isExplore}><ExploreClient /></TabPane>
-      <TabPane active={isDiscover}><DiscoverClient initialPhotos={[]} /></TabPane>
+      <div ref={homeRef}>
+        <HomeClient />
+      </div>
+      <div ref={exploreRef}>
+        <ExploreClient />
+      </div>
+      <div ref={discoverRef}>
+        <DiscoverClient initialPhotos={[]} />
+      </div>
     </>
   );
 }

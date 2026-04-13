@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { QueryProvider } from "@/components/QueryProvider";
 import Header from "@/components/Header";
@@ -17,6 +17,7 @@ import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ConnectivityBanner from "@/components/ConnectivityBanner";
 import TabShell, { isTabRoute } from "@/components/TabShell";
+import { subscribeTab } from "@/lib/tabStore";
 
 
 export default function AppChrome({
@@ -89,17 +90,36 @@ export default function AppChrome({
   const isHomePage = pathname.startsWith("/auth") || pathname.endsWith("/gallery");
   const onTabRoute = isTabRoute(pathname);
 
+  // Ref on the <main> wrapper — hidden imperatively when on a tab route
+  // so the tabStore subscriber can toggle it without a React render.
+  const mainWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Prevent body scroll on tab routes — all content is in fixed divs
+  // Prevent body scroll on tab routes — all content is in fixed divs.
+  // Also keep the main wrapper hidden while on any tab route.
   useEffect(() => {
-    if (onTabRoute) {
-      document.documentElement.classList.add("tab-route");
-      document.body.classList.add("tab-route");
-    } else {
-      document.documentElement.classList.remove("tab-route");
-      document.body.classList.remove("tab-route");
-    }
+    const el = mainWrapperRef.current;
+
+    const apply = (isTab: boolean) => {
+      if (isTab) {
+        document.documentElement.classList.add("tab-route");
+        document.body.classList.add("tab-route");
+        if (el) { el.style.display = "none"; }
+      } else {
+        document.documentElement.classList.remove("tab-route");
+        document.body.classList.remove("tab-route");
+        if (el) { el.style.display = ""; }
+      }
+    };
+
+    apply(onTabRoute);
+
+    // When the user switches tabs, the URL changes via history.replaceState
+    // (not router.push), so usePathname won't fire. Keep the main wrapper
+    // hidden for the duration of tab navigation.
+    const unsub = subscribeTab(() => apply(true));
+
     return () => {
+      unsub();
       document.documentElement.classList.remove("tab-route");
       document.body.classList.remove("tab-route");
     };
@@ -149,7 +169,7 @@ export default function AppChrome({
                     <TabShell />
                   </div>
 
-                  <div className={onTabRoute ? "hidden lg:block" : "block"}>
+                  <div ref={mainWrapperRef} className="lg:block">
                     <main>{children}</main>
                   </div>
 
