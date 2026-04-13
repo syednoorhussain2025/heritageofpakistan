@@ -69,11 +69,22 @@ function usePaneRef(tab: TabKey) {
 
 export default function TabShell() {
   const pathname = usePathname() || "/";
+  const allPanesRef = useRef<HTMLDivElement>(null);
 
-  // Sync store when Next.js performs a real navigation (e.g. deep link,
-  // browser back/forward, or navigating to/from a non-tab route).
+  // Sync store on real Next.js navigations (deep link, back/forward, map, etc.)
+  // If the new pathname is not a tab route (e.g. /map), hide the entire shell
+  // so tab panes don't sit on top of the routed page.
   useEffect(() => {
-    syncTabFromPathname(pathname);
+    const wrapper = allPanesRef.current;
+    if (!wrapper) return;
+
+    if (isTabRoute(pathname)) {
+      wrapper.style.display = "block";
+      syncTabFromPathname(pathname);
+    } else {
+      // Non-tab route (e.g. /map) — hide all panes
+      wrapper.style.display = "none";
+    }
   }, [pathname]);
 
   const homeRef     = usePaneRef("home");
@@ -81,7 +92,7 @@ export default function TabShell() {
   const discoverRef = usePaneRef("discover");
 
   return (
-    <>
+    <div ref={allPanesRef}>
       <div ref={homeRef}>
         <HomeClient />
       </div>
@@ -91,6 +102,6 @@ export default function TabShell() {
       <div ref={discoverRef}>
         <DiscoverClient initialPhotos={[]} />
       </div>
-    </>
+    </div>
   );
 }
