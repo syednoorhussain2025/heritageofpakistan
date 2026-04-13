@@ -27,6 +27,7 @@ import { getThumbOrVariantUrlNoTransform, getVariantPublicUrl } from "@/lib/imag
 import SiteCarousel from "@/components/SiteCarousel";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
+import { subscribeTab } from "@/lib/tabStore";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -902,6 +903,17 @@ export default function MapClient() {
   }, [sitesQuery]);
 
   useEffect(() => setMounted(true), []);
+
+  // Ref on the portal wrapper div — hidden imperatively (no React setState)
+  // so it disappears on the same frame as the tab switch, not one render later.
+  const mapPortalsRef = useRef<HTMLDivElement>(null);
+
+  // When the user taps a tab while on /map, immediately hide all portals
+  // (bottom panel, map-type sheet, etc.) so they don't bleed onto other tabs.
+  useEffect(() => subscribeTab(() => {
+    if (mapPortalsRef.current) mapPortalsRef.current.style.display = "none";
+    setMounted(false);
+  }), []);
 
 
 
@@ -2405,6 +2417,7 @@ export default function MapClient() {
              expanded = 70vh sheet open with navigation stack inside
       ──────────────────────────────────────────────────────────────────────── */}
       {!loadError && mounted && createPortal(
+        <div ref={mapPortalsRef}>
         <div
           className="lg:hidden fixed inset-x-0 z-[2998]"
           style={{
@@ -3008,6 +3021,7 @@ export default function MapClient() {
               </div>
             )}
           </div>
+        </div>
         </div>,
         document.body
       )}
