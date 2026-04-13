@@ -908,11 +908,18 @@ export default function MapClient() {
   // so it disappears on the same frame as the tab switch, not one render later.
   const mapPortalsRef = useRef<HTMLDivElement>(null);
 
-  // When the user taps a tab while on /map, immediately hide all portals
-  // (bottom panel, map-type sheet, etc.) so they don't bleed onto other tabs.
-  useEffect(() => subscribeTab(() => {
-    if (mapPortalsRef.current) mapPortalsRef.current.style.display = "none";
-    setMounted(false);
+  // Hide portals synchronously when switching away from map;
+  // restore mounted state when switching back.
+  useEffect(() => subscribeTab((tab) => {
+    if (tab === "map") {
+      // Switching to map: restore portals
+      if (mapPortalsRef.current) mapPortalsRef.current.style.display = "";
+      setMounted(true);
+    } else {
+      // Switching away: hide portals on this frame, then unmount
+      if (mapPortalsRef.current) mapPortalsRef.current.style.display = "none";
+      setMounted(false);
+    }
   }), []);
 
 

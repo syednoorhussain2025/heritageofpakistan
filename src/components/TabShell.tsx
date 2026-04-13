@@ -3,14 +3,10 @@
 /**
  * TabShell — persistent tab mount for mobile.
  *
- * Home, Discover, and Explore are always mounted. Tab switching is
+ * Home, Discover, Explore, and Map are always mounted. Tab switching is
  * fully imperative — we write display:block/none directly on DOM refs
  * via tabStore subscribers, bypassing React and the Next.js router.
  * Zero re-mount cost, zero scheduler overhead.
- *
- * Map is intentionally excluded — it has its own server bootstrap
- * pipeline (map/layout.tsx + MapBootstrapProvider) that requires it
- * to be a normal routed page.
  */
 
 import { useEffect, useRef } from "react";
@@ -18,13 +14,16 @@ import { usePathname } from "next/navigation";
 import HomeClient from "@/app/HomeClient";
 import ExploreClient from "@/app/explore/ExploreClient";
 import DiscoverClient from "@/app/discover/DiscoverClient";
+import MapClient from "@/app/map/MapClient";
+import { MapBootstrapProvider } from "@/components/MapBootstrapProvider";
 import { type TabKey, subscribeTab, syncTabFromPathname, getActiveTab } from "@/lib/tabStore";
 
 export function isTabRoute(pathname: string) {
   return (
     pathname === "/" ||
     pathname.startsWith("/explore") ||
-    pathname.startsWith("/discover")
+    pathname.startsWith("/discover") ||
+    pathname.startsWith("/map")
   );
 }
 
@@ -82,14 +81,21 @@ export default function TabShell() {
       wrapper.style.display = "block";
       syncTabFromPathname(pathname);
     } else {
-      // Non-tab route (e.g. /map) — hide all panes
       wrapper.style.display = "none";
     }
+
+    // When setTab() fires while on a non-tab route (e.g. tapping Home while on
+    // /map), immediately show the wrapper before usePathname catches up.
+    const unsub = subscribeTab(() => {
+      wrapper.style.display = "block";
+    });
+    return unsub;
   }, [pathname]);
 
   const homeRef     = usePaneRef("home");
   const exploreRef  = usePaneRef("explore");
   const discoverRef = usePaneRef("discover");
+  const mapRef      = usePaneRef("map");
 
   return (
     <div ref={allPanesRef}>
@@ -101,6 +107,11 @@ export default function TabShell() {
       </div>
       <div ref={discoverRef}>
         <DiscoverClient initialPhotos={[]} />
+      </div>
+      <div ref={mapRef}>
+        <MapBootstrapProvider initialBootstrap={null}>
+          <MapClient />
+        </MapBootstrapProvider>
       </div>
     </div>
   );

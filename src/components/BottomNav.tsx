@@ -17,31 +17,25 @@ const ICON_SIZE = 29;
 const PANEL_ANIM_MS = 320;
 
 
-// Tab items (Home / Discover / Explore) switch instantly via tabStore —
-// no router, no React re-render, just a direct DOM write.
-// onTap is called in addition to setTab so the parent can do a router.push
-// when we're on a non-tab route (e.g. /map) and the TabShell is hidden.
+// All tab items switch instantly via tabStore — no router, no React re-render.
 function TabNavItem({
   label,
   icon,
   tab,
   isActive,
-  onTap,
 }: {
   label: string;
   icon: string;
   tab: TabKey;
   isActive: boolean;
-  onTap: () => void;
 }) {
-  const handleTap = () => { setTab(tab); onTap(); };
   return (
     <button
       type="button"
       aria-label={label}
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
-      onTouchStart={handleTap}
-      onMouseDown={handleTap}
+      onTouchStart={() => setTab(tab)}
+      onMouseDown={() => setTab(tab)}
     >
       <span className="nav-item-icon" style={{ display: "flex" }}>
         <Icon
@@ -54,15 +48,15 @@ function TabNavItem({
   );
 }
 
-// Map is a real routed page — button fires startNavigation so color flips on touch
-function MapNavItem({ isActive, onTap }: { isActive: boolean; onTap: () => void }) {
+// Map is now a TabShell pane — switches identically to Home/Discover/Explore
+function MapNavItem({ isActive }: { isActive: boolean }) {
   return (
     <button
       type="button"
       aria-label="Map"
       className="flex flex-1 items-center justify-center py-3 nav-item-tap"
-      onTouchStart={onTap}
-      onMouseDown={onTap}
+      onTouchStart={() => setTab("map")}
+      onMouseDown={() => setTab("map")}
     >
       <span className="nav-item-icon" style={{ display: "flex" }}>
         <Icon name="adminmap" size={ICON_SIZE} className={isActive ? ACTIVE_COLOR_CLASS : INACTIVE_COLOR_CLASS} />
@@ -292,29 +286,11 @@ function ProfilePanel({
   );
 }
 
-const TAB_PATHS: Record<TabKey, string> = { home: "/", discover: "/discover", explore: "/explore" };
-
 export default function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const { userId } = useAuthUserId();
   const { profile } = useProfile();
   const { startNavigation } = useLoaderEngine();
-
-  // When on a non-tab route (e.g. /map), tapping a tab must also do a real
-  // router push so Next.js changes the URL and TabShell becomes visible.
-  const makeTabTapHandler = (tab: TabKey) => () => {
-    if (!pathname || pathnameToTab(pathname) === null) {
-      router.push(TAB_PATHS[tab]);
-    }
-  };
-
-  // Prefetch leaflet bundle in the background so /map loads near-instantly on tap
-  useEffect(() => {
-    const id = setTimeout(() => { void import("@/components/ClientOnlyMap"); }, 1500);
-    return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Active tab state driven by tabStore (not router) — updates synchronously on tap
   const [activeTab, setActiveTabState] = useState<TabKey | null>(() => pathnameToTab(pathname));
@@ -388,7 +364,7 @@ export default function BottomNav() {
   const isHomeActive      = activeTab === "home";
   const isDiscoverActive  = activeTab === "discover";
   const isExploreActive   = activeTab === "explore";
-  const isMapActive       = pathname.startsWith("/map");
+  const isMapActive       = activeTab === "map";
   const isDashboardActive = pathname.startsWith("/dashboard");
 
   const displayName = profile?.full_name || "My Account";
@@ -403,10 +379,10 @@ export default function BottomNav() {
 
       <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
-          <TabNavItem label="Home"     icon="house"    tab="home"     isActive={isHomeActive}     onTap={makeTabTapHandler("home")} />
-          <TabNavItem label="Discover" icon="compass"  tab="discover" isActive={isDiscoverActive} onTap={makeTabTapHandler("discover")} />
-          <TabNavItem label="Explore"  icon="search"   tab="explore"  isActive={isExploreActive}  onTap={makeTabTapHandler("explore")} />
-          <MapNavItem isActive={isMapActive} onTap={() => startNavigation("/map", { overlay: "white" })} />
+          <TabNavItem label="Home"     icon="house"    tab="home"     isActive={isHomeActive} />
+          <TabNavItem label="Discover" icon="compass"  tab="discover" isActive={isDiscoverActive} />
+          <TabNavItem label="Explore"  icon="search"   tab="explore"  isActive={isExploreActive} />
+          <MapNavItem isActive={isMapActive} />
 
           {/* Profile / Sign-in tab */}
           <button

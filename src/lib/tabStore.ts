@@ -4,29 +4,29 @@
  * Tab switching must not go through React or the Next.js router.
  * This module owns the active tab as a plain JS variable and notifies
  * DOM-level subscribers synchronously on the same frame as the tap.
- *
- * Map is intentionally excluded — it is a real routed page with its
- * own server bootstrap pipeline.
  */
 
-export type TabKey = "home" | "discover" | "explore";
+export type TabKey = "home" | "discover" | "explore" | "map";
 
 const TAB_PATHS: Record<TabKey, string> = {
   home: "/",
   discover: "/discover",
   explore: "/explore",
+  map: "/map",
 };
 
 const PATH_TO_TAB: Record<string, TabKey> = {
   "/": "home",
   "/discover": "discover",
   "/explore": "explore",
+  "/map": "map",
 };
 
 function pathnameToTab(pathname: string): TabKey | null {
   if (pathname === "/") return "home";
   if (pathname.startsWith("/discover")) return "discover";
   if (pathname.startsWith("/explore")) return "explore";
+  if (pathname.startsWith("/map")) return "map";
   return null;
 }
 
