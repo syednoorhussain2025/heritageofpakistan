@@ -297,7 +297,12 @@ export default function MapClient() {
   const [trips, setTrips] = useState<{ id: string; name: string; slug?: string | null }[]>([]);
   const [tripsLoading, setTripsLoading] = useState(false);
 
+  // mounted = true once component has mounted on client (guards SSR portal render)
+  // mapVisible = true only while map tab is the active tab (guards portal bleed onto other tabs)
   const [mounted, setMounted] = useState(false);
+  const [mapVisible, setMapVisible] = useState(() =>
+    typeof window !== "undefined" && window.location.pathname.startsWith("/map")
+  );
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
@@ -908,18 +913,15 @@ export default function MapClient() {
   // so it disappears on the same frame as the tab switch, not one render later.
   const mapPortalsRef = useRef<HTMLDivElement>(null);
 
-  // Hide portals synchronously when switching away from map;
-  // restore mounted state when switching back.
+  // Sync mapVisible with the active tab.
+  // Also hide the portal wrapper imperatively on the same frame so there's
+  // no one-render-cycle bleed onto other tabs.
   useEffect(() => subscribeTab((tab) => {
-    if (tab === "map") {
-      // Switching to map: restore portals
-      if (mapPortalsRef.current) mapPortalsRef.current.style.display = "";
-      setMounted(true);
-    } else {
-      // Switching away: hide portals on this frame, then unmount
-      if (mapPortalsRef.current) mapPortalsRef.current.style.display = "none";
-      setMounted(false);
+    const isMap = tab === "map";
+    if (mapPortalsRef.current) {
+      mapPortalsRef.current.style.display = isMap ? "" : "none";
     }
+    setMapVisible(isMap);
   }), []);
 
 
@@ -2151,7 +2153,7 @@ export default function MapClient() {
 
 
       {/* Mobile: map type selection bottom sheet */}
-      {mounted && mobileMapTypeSheetOpen &&
+      {mounted && mapVisible && mobileMapTypeSheetOpen &&
         createPortal(
           <div className="lg:hidden fixed inset-0 z-[3600] touch-none" aria-modal="true" role="dialog" aria-label="Map type">
             <div
@@ -2423,7 +2425,7 @@ export default function MapClient() {
              peek     = collapsed bar at the bottom (always visible)
              expanded = 70vh sheet open with navigation stack inside
       ──────────────────────────────────────────────────────────────────────── */}
-      {!loadError && mounted && createPortal(
+      {!loadError && mounted && mapVisible && createPortal(
         <div ref={mapPortalsRef}>
         <div
           className="lg:hidden fixed inset-x-0 z-[2998]"
@@ -3034,7 +3036,7 @@ export default function MapClient() {
       )}
 
       {/* NearbyMeSheet — shows sites within 20 km of user */}
-      {mounted && (
+      {mounted && mapVisible && (
         <NearbyMeSheet
           isOpen={nearbyMeSheetOpen}
           lat={gpsCoords?.lat ?? null}

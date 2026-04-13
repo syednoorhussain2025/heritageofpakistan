@@ -685,6 +685,22 @@ function PopupTooltipHideEffect() {
   return null;
 }
 
+/* Leaflet initializes in a display:none TabShell pane and measures zero size.
+   When the map tab becomes visible, TabShell fires "tab-shown" on window.
+   We call invalidateSize() so Leaflet re-measures and renders correctly. */
+function InvalidateSizeOnShow() {
+  const map = useMap();
+  useEffect(() => {
+    const handler = () => {
+      // Small delay so the display:block paint has committed before measuring
+      requestAnimationFrame(() => map.invalidateSize());
+    };
+    window.addEventListener("tab-shown", handler);
+    return () => window.removeEventListener("tab-shown", handler);
+  }, [map]);
+  return null;
+}
+
 /* When lockHighlightPopup=true, prevent any map click from closing the highlight popup */
 function HighlightPopupLockEffect({ popupRef }: { popupRef: React.MutableRefObject<L.Popup | null> }) {
   const map = useMap();
@@ -1037,6 +1053,7 @@ const OSMLeafletView = memo(function OSMLeafletView({
         maxZoom={21}
         style={{ height: "100%", width: "100%" }}
       >
+        <InvalidateSizeOnShow />
         <TileLayer
           attribution={
             settings.tile_layer_attribution ||
