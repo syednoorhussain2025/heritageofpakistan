@@ -923,13 +923,19 @@ export default function MapClient() {
   // Sync mapVisible with the active tab.
   // Also hide the portal wrapper imperatively on the same frame so there's
   // no one-render-cycle bleed onto other tabs.
+  // When leaving map: collapse the panel and restore body overflow so
+  // dashboard and other routes aren't left with overflow:hidden.
   useEffect(() => subscribeTab((tab) => {
     const isMap = tab === "map";
     if (mapPortalsRef.current) {
       mapPortalsRef.current.style.display = isMap ? "" : "none";
     }
     setMapVisible(isMap);
-  }), []);
+    if (!isMap) {
+      collapsePanel();
+      document.body.style.overflow = "";
+    }
+  }), [collapsePanel]);
 
 
 
