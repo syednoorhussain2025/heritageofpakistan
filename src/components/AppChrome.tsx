@@ -17,7 +17,7 @@ import AuthPendingToast from "@/components/AuthPendingToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ConnectivityBanner from "@/components/ConnectivityBanner";
 import TabShell, { isTabRoute } from "@/components/TabShell";
-import { subscribeTab } from "@/lib/tabStore";
+import { subscribeTab, clearActiveTab } from "@/lib/tabStore";
 
 
 export default function AppChrome({
@@ -112,6 +112,11 @@ export default function AppChrome({
     };
 
     apply(onTabRoute);
+
+    // When navigating to a non-tab route (e.g. /dashboard), clear the active
+    // tab in the store so the next tap on any tab always fires setTab().
+    // Without this, tapping the same tab you came from is a no-op.
+    if (!onTabRoute) clearActiveTab();
 
     // When the user switches tabs, the URL changes via history.replaceState
     // (not router.push), so usePathname won't fire. Keep the main wrapper

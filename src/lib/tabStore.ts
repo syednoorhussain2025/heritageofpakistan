@@ -66,6 +66,11 @@ export function subscribeTab(fn: Subscriber): () => void {
   return () => _subscribers.delete(fn);
 }
 
+/** Call when navigating to a non-tab route so the next setTab() always fires. */
+export function clearActiveTab(): void {
+  _activeTab = null as unknown as TabKey;
+}
+
 /** Re-sync from current URL — call on Next.js route changes (real navigations). */
 export function syncTabFromPathname(pathname: string): void {
   const tab = pathnameToTab(pathname);
