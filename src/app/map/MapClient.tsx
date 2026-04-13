@@ -2,6 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
@@ -300,9 +301,15 @@ export default function MapClient() {
   // mounted = true once component has mounted on client (guards SSR portal render)
   // mapVisible = true only while map tab is the active tab (guards portal bleed onto other tabs)
   const [mounted, setMounted] = useState(false);
-  const [mapVisible, setMapVisible] = useState(() =>
-    typeof window !== "undefined" && window.location.pathname.startsWith("/map")
-  );
+  const pathname = usePathname();
+  const [mapVisible, setMapVisible] = useState(false);
+
+  // Keep mapVisible in sync with real Next.js navigations (e.g. tapping dashboard
+  // while map tab was previously active). subscribeTab handles tab switches;
+  // usePathname handles router navigations to non-tab routes.
+  useEffect(() => {
+    setMapVisible(pathname.startsWith("/map"));
+  }, [pathname]);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);

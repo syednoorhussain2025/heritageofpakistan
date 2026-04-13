@@ -133,7 +133,7 @@ function NavOverlay({ mode, slideIn }: { mode: NavOverlayMode; slideIn: boolean 
       }}
     >
       <div className="w-full h-full flex items-center justify-center">
-        <Spinner variant="dots" size={72} />
+        <Spinner variant="dots" size={144} />
       </div>
     </div>
   );
