@@ -1576,7 +1576,7 @@ function MobileHomepage() {
       {/* Content card — min-h ensures teal bg never flickers through */}
       <div className="bg-[#f2f2f2] rounded-t-[28px] min-h-screen">
         {configLoading ? <HomeSkeleton /> : (
-        <div className="pb-24 pt-7 animate-fadeIn">
+        <div className="pb-24 pt-7">
 
           {/* Featured hero carousel */}
           {featuredSites.length > 0 && (
