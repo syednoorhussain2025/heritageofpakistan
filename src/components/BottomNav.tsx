@@ -185,7 +185,7 @@ function ProfilePanel({
 
   return (
     <div
-      className={`fixed inset-0 z-[3200] bg-[var(--brand-light-grey)] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
+      className={`fixed inset-0 z-[3300] bg-[var(--brand-light-grey)] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-out ${
         closing ? "translate-y-full" : "translate-y-0"
       }`}
     >
@@ -382,9 +382,9 @@ export default function BottomNav() {
       {/* Spacer suppressed — pages handle their own bottom padding */}
 
       {/* White fill below nav to cover any background bleed under safe area */}
-      <div className="fixed inset-x-0 bottom-0 z-[2999] lg:hidden bg-white" style={{ height: safeBottom }} />
+      <div className="fixed inset-x-0 bottom-0 z-[3199] lg:hidden bg-white" style={{ height: safeBottom }} />
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3000] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3200] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <TabNavItem label="Home"     icon="house"    tab="home"     isActive={isHomeActive} />
           <TabNavItem label="Discover" icon="compass"  tab="discover" isActive={isDiscoverActive} />

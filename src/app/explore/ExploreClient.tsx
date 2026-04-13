@@ -1547,7 +1547,7 @@ function ExplorePageContent() {
 
       {/* ── Mobile Search Bottom Sheet ── */}
       {mounted && searchPanelOpen && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[3200] touch-none">
+        <div className="lg:hidden fixed inset-0 z-[3300] touch-none">
           {/* Backdrop */}
           <div
             className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
