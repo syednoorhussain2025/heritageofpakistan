@@ -109,7 +109,7 @@ const DiscoverTile = memo(function DiscoverTile({
   return (
     <div
       ref={tileRef}
-      className={`relative w-full overflow-hidden rounded-2xl cursor-pointer ${aspectClass}`}
+      className={`relative w-full overflow-hidden rounded-3xl cursor-pointer ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
       onPointerDown={handlePressStart}
       onPointerUp={handlePressEnd}
@@ -154,19 +154,22 @@ const DiscoverTile = memo(function DiscoverTile({
         size={20}
       />
 
-      {/* Bottom overlay: site name */}
+      {/* Bottom overlay: caption only */}
       <div
-        className="absolute inset-x-0 bottom-0 z-[3] px-2.5 pt-6 pb-2.5"
+        className="absolute inset-x-0 bottom-0 z-[3] px-3 pt-10 pb-3"
         style={{
-          background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+          background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)",
         }}
       >
-        <p className="text-white text-[11px] font-semibold leading-tight truncate drop-shadow-sm">
-          {photo.site.name}
-        </p>
-        {photo.site.location && (
-          <p className="text-white/70 text-[10px] leading-tight truncate mt-0.5">
-            {photo.site.location}
+        {photo.caption ? (
+          <p className="text-white text-[12px] font-medium leading-snug line-clamp-2"
+            style={{ textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
+            {photo.caption}
+          </p>
+        ) : (
+          <p className="text-white text-[12px] font-medium leading-tight truncate"
+            style={{ textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
+            {photo.site.name}
           </p>
         )}
       </div>
