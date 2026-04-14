@@ -427,27 +427,27 @@ export default function DiscoverClient({
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%)",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.38) 60%, transparent 100%)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
-            maskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            height: "110%",
+            maskImage: "linear-gradient(to bottom, black 65%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 65%, transparent 100%)",
+            height: "130%",
           }}
         />
-        <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 4px)", paddingBottom: searchOpen ? "10px" : "12px" }}>
+        <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: searchOpen ? "14px" : "16px" }}>
           {/* Title row */}
           <div className="flex items-center justify-between px-4 pb-1">
             {/* Left: spacer */}
-            <div className="w-8" />
+            <div className="w-10" />
 
             {/* Center: always show title, query as subtitle when active */}
             <div className="flex-1 text-center">
               <h1
                 className="text-white font-bold tracking-tight"
                 style={{
-                  fontSize: "clamp(20px, 5.5vw, 26px)",
-                  textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+                  fontSize: "clamp(22px, 5.5vw, 27px)",
+                  textShadow: "0 2px 16px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.5)",
                   letterSpacing: "-0.02em",
                 }}
               >
@@ -463,16 +463,16 @@ export default function DiscoverClient({
             </div>
 
             {/* Right: search icon or clear X when search active */}
-            <div className="w-8 pointer-events-auto flex justify-end">
+            <div className="w-10 pointer-events-auto flex justify-end pr-1">
               {searchActive ? (
-                <button onClick={clearSearch} className="text-white/90 active:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                <button onClick={clearSearch} className="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[18px] h-[18px]">
                     <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               ) : !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="text-white/90 active:text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                <button onClick={() => setSearchOpen(true)} className="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[18px] h-[18px]">
                     <circle cx="11" cy="11" r="7" />
                     <path strokeLinecap="round" d="M20 20l-3-3" />
                   </svg>
@@ -530,7 +530,7 @@ export default function DiscoverClient({
       {/* ── Feed ── */}
       <div
         className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
-        style={{ paddingTop: "calc(var(--sat, 44px) + 70px)" }}
+        style={{ paddingTop: "calc(var(--sat, 44px) + 80px)" }}
       >
         {/* Search empty state */}
         {searchActive && !searchLoading && searchPhotosArr.length === 0 && (
