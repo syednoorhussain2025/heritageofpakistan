@@ -463,16 +463,16 @@ export default function DiscoverClient({
             </div>
 
             {/* Right: search icon or clear X when search active */}
-            <div className="w-10 pointer-events-auto flex justify-end pr-1">
+            <div className="w-12 pointer-events-auto flex justify-end pr-3">
               {searchActive ? (
-                <button onClick={clearSearch} className="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[18px] h-[18px]">
+                <button onClick={clearSearch} className="w-[42px] h-[42px] rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
                     <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               ) : !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[18px] h-[18px]">
+                <button onClick={() => setSearchOpen(true)} className="w-[42px] h-[42px] rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
                     <circle cx="11" cy="11" r="7" />
                     <path strokeLinecap="round" d="M20 20l-3-3" />
                   </svg>
