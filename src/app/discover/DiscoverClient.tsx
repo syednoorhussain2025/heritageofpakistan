@@ -162,7 +162,7 @@ const DiscoverTile = memo(function DiscoverTile({
         }}
       >
         {photo.caption ? (
-          <p className="text-white text-[12px] font-medium leading-snug line-clamp-2"
+          <p className="text-white text-[12px] font-medium leading-snug line-clamp-3"
             style={{ textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
             {photo.caption}
           </p>
