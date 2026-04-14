@@ -428,6 +428,10 @@ export default function DiscoverClient({
           className="absolute inset-0"
           style={{
             background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.28) 55%, transparent 100%)",
+            backdropFilter: "blur(1px)",
+            WebkitBackdropFilter: "blur(1px)",
+            maskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
             height: "130%",
           }}
         />
@@ -459,15 +463,15 @@ export default function DiscoverClient({
             </div>
 
             {/* Right: search icon or clear X when search active */}
-            <div className="w-12 pointer-events-auto flex justify-end pr-3">
+            <div className="pointer-events-auto flex justify-end pr-3">
               {searchActive ? (
-                <button onClick={clearSearch} className="w-[42px] h-[42px] rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                <button onClick={clearSearch} style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
                     <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               ) : !searchOpen && (
-                <button onClick={() => setSearchOpen(true)} className="w-[42px] h-[42px] rounded-full bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50 backdrop-blur-sm">
+                <button onClick={() => setSearchOpen(true)} style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
                     <circle cx="11" cy="11" r="7" />
                     <path strokeLinecap="round" d="M20 20l-3-3" />
@@ -525,7 +529,7 @@ export default function DiscoverClient({
 
       {/* ── Feed ── */}
       <div
-        className="px-2 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
+        className="px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
         style={{ paddingTop: "calc(var(--sat, 44px) + 80px)" }}
       >
         {/* Search empty state */}
@@ -566,9 +570,9 @@ export default function DiscoverClient({
         ) : (
           <>
             {/* Mobile: 2-column grid */}
-            <div className="flex gap-2 items-start lg:hidden">
+            <div className="flex gap-3 items-start lg:hidden">
               {/* Left column */}
-              <div className="flex flex-col gap-2 flex-1">
+              <div className="flex flex-col gap-3 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
                   <DiscoverTile
                     key={`${photo.id}-${colIdx}`}
@@ -583,7 +587,7 @@ export default function DiscoverClient({
                 ))}
               </div>
               {/* Right column */}
-              <div className="flex flex-col gap-2 flex-1">
+              <div className="flex flex-col gap-3 flex-1">
                 {rightPhotos.map((photo, colIdx) => (
                   <DiscoverTile
                     key={`${photo.id}-${colIdx}`}
