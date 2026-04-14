@@ -708,17 +708,21 @@ export default function DiscoverClient({
             </div>
           </div>
 
-          {/* Search bar — animates in below title without shifting it */}
+          {/* Search bar — slides down from title, fades in with ease-out */}
           <div
             className="pointer-events-auto overflow-hidden"
-            style={{
-              maxHeight: searchOpen ? "60px" : "0px",
-              opacity: searchOpen ? 1 : 0,
-              transform: searchOpen ? "translateY(0)" : "translateY(-8px)",
-              transition: "max-height 0.32s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease, transform 0.32s cubic-bezier(0.16,1,0.3,1)",
-            }}
+            style={{ height: "52px" }}
           >
-            <div className="pt-1 pb-1">
+            <div
+              style={{
+                transform: searchOpen ? "translateY(0)" : "translateY(-52px)",
+                opacity: searchOpen ? 1 : 0,
+                transition: searchOpen
+                  ? "transform 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.28s ease-out"
+                  : "transform 0.28s cubic-bezier(0.4,0,1,1), opacity 0.2s ease-in",
+                pointerEvents: searchOpen ? "auto" : "none",
+              }}
+            >
               <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
             </div>
           </div>
