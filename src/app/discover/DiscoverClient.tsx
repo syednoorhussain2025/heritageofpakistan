@@ -92,7 +92,7 @@ const DiscoverTile = memo(function DiscoverTile({
 }: TileProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const setImgRef = useCallback((el: HTMLImageElement | null) => {
-    (imgRef as React.MutableRefObject<HTMLImageElement | null>).current = el;
+    (imgRef as React.RefObject<HTMLImageElement | null>).current = el;
     if (!el) return;
     if (el.complete && el.naturalWidth > 0) el.style.opacity = "1";
   }, []);
@@ -251,10 +251,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
   }, [submit, onClose]);
 
   return (
-    <div
-      className="flex items-center gap-2 bg-white rounded-full px-4 py-2.5 mx-4 shadow-lg"
-      style={{ animation: "dropIn 0.45s cubic-bezier(0.16,1,0.3,1)" }}
-    >
+    <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2.5 mx-4 shadow-lg">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 text-gray-400 flex-shrink-0">
         <circle cx="11" cy="11" r="7" />
         <path strokeLinecap="round" d="M20 20l-3-3" />
@@ -284,12 +281,6 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
           </svg>
         </button>
       )}
-      <style>{`
-        @keyframes dropIn {
-          from { opacity: 0; transform: translateY(-14px) scale(0.96); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </div>
   );
 }
