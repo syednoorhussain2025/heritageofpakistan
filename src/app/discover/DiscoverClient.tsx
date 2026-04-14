@@ -113,14 +113,12 @@ const DiscoverTile = memo(function DiscoverTile({
     try { return getVariantPublicUrl(photo.storagePath, "md"); } catch { return photo.url; }
   }, [photo.storagePath, photo.url]);
 
-  const [pressed, setPressed] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
   const [retried, setRetried] = useState(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleError = useCallback(() => {
     if (!retried) {
-      // One automatic retry after 2s — covers transient network errors
       retryTimerRef.current = setTimeout(() => {
         setRetried(true);
         const img = imgRef.current;
@@ -136,22 +134,16 @@ const DiscoverTile = memo(function DiscoverTile({
 
   useEffect(() => () => { if (retryTimerRef.current) clearTimeout(retryTimerRef.current); }, []);
 
-  const handlePressStart = useCallback(() => setPressed(true), []);
   const handlePressEnd = useCallback(() => {
-    setPressed(false);
     void hapticLight();
     onOpen();
   }, [onOpen]);
-  const handlePressCancel = useCallback(() => setPressed(false), []);
 
   return (
     <div
       className={`relative w-full overflow-hidden rounded-3xl cursor-pointer ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
-      onPointerDown={handlePressStart}
       onPointerUp={handlePressEnd}
-      onPointerLeave={handlePressCancel}
-      onPointerCancel={handlePressCancel}
     >
       {/* Blur placeholder */}
       {photo.blurDataURL && !imgFailed && (
@@ -184,8 +176,8 @@ const DiscoverTile = memo(function DiscoverTile({
         ref={setImgRef}
         src={thumbUrl}
         alt={photo.caption ?? photo.site.name}
-        className="absolute inset-0 w-full h-full object-cover z-[2] transition-transform duration-[1200ms] ease-in-out"
-        style={{ transform: pressed ? "scale(1.06)" : "scale(1)", opacity: 0 }}
+        className="absolute inset-0 w-full h-full object-cover z-[2]"
+        style={{ opacity: 0 }}
         loading={isPriority ? "eager" : "lazy"}
         fetchPriority={isPriority ? "high" : "auto"}
         onLoad={onImgLoad}
@@ -315,9 +307,9 @@ function PullIndicator({ pullPct }: { pullPct: number }) {
 
   return (
     <div
-      className="absolute left-1/2 z-[1200] flex items-center justify-center pointer-events-none"
+      className="fixed left-1/2 z-[1200] flex items-center justify-center pointer-events-none"
       style={{
-        top: `calc(var(--sat, 44px) + 8px)`,
+        top: `calc(var(--sat, 44px) + 68px)`,
         transform: `translateX(-50%) scale(${scale})`,
         opacity,
         transition: pullPct === 0 ? "opacity 0.2s, transform 0.2s" : "none",
@@ -640,14 +632,14 @@ export default function DiscoverClient({
       onTouchEnd={handleTouchEnd}
     >
 
-      {/* ── Pull-to-refresh indicator ── */}
+      {/* ── Pull-to-refresh indicator — sits below the Discover title ── */}
       {pullPct > 0.05 && <PullIndicator pullPct={pullPct} />}
 
-      {/* ── Refreshing spinner ── */}
+      {/* ── Refreshing spinner — below title ── */}
       {refreshing && (
         <div
           className="fixed left-1/2 z-[1200] pointer-events-none"
-          style={{ top: `calc(var(--sat, 44px) + 12px)`, transform: "translateX(-50%)" }}
+          style={{ top: `calc(var(--sat, 44px) + 68px)`, transform: "translateX(-50%)" }}
         >
           <div className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center">
             <svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
@@ -670,7 +662,8 @@ export default function DiscoverClient({
             height: "130%",
           }}
         />
-        <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: searchOpen ? "14px" : "16px" }}>
+        <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "16px" }}>
+          {/* Title row — always fixed height, never shifts */}
           <div className="flex items-center justify-between px-4 pb-1">
             <div className="w-10" />
             <div className="flex-1 text-center">
@@ -695,7 +688,7 @@ export default function DiscoverClient({
             <div className="pointer-events-auto flex justify-end pr-3">
               {searchActive ? (
                 <button
-                  onClick={clearSearch}
+                  onClick={() => { void hapticLight(); clearSearch(); }}
                   style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50"
                 >
@@ -703,26 +696,41 @@ export default function DiscoverClient({
                     <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
-              ) : !searchOpen && (
+              ) : (
                 <button
-                  onClick={() => setSearchOpen(true)}
+                  onClick={() => { void hapticLight(); setSearchOpen((v) => !v); }}
                   style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
-                    <circle cx="11" cy="11" r="7" />
-                    <path strokeLinecap="round" d="M20 20l-3-3" />
-                  </svg>
+                  {searchOpen ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
+                      <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
+                      <circle cx="11" cy="11" r="7" />
+                      <path strokeLinecap="round" d="M20 20l-3-3" />
+                    </svg>
+                  )}
                 </button>
               )}
             </div>
           </div>
 
-          {searchOpen && (
-            <div className="pointer-events-auto pb-1">
+          {/* Search bar — animates in below title without shifting it */}
+          <div
+            className="pointer-events-auto overflow-hidden"
+            style={{
+              maxHeight: searchOpen ? "60px" : "0px",
+              opacity: searchOpen ? 1 : 0,
+              transform: searchOpen ? "translateY(0)" : "translateY(-8px)",
+              transition: "max-height 0.32s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease, transform 0.32s cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            <div className="pt-1 pb-1">
               <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
             </div>
-          )}
+          </div>
         </div>
       </div>
 
