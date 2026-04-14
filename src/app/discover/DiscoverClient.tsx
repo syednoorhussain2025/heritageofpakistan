@@ -427,11 +427,7 @@ export default function DiscoverClient({
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.38) 60%, transparent 100%)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
-            maskImage: "linear-gradient(to bottom, black 65%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 65%, transparent 100%)",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.28) 55%, transparent 100%)",
             height: "130%",
           }}
         />
