@@ -1,0 +1,532 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Applied while review modal is open — overrides parallax dark body bg */
+html.review-modal-open,
+html.review-modal-open body {
+  background-color: #ffffff !important;
+}
+
+/* Force SVG icons to fill their container span */
+span[style*="width"] > svg,
+span[style*="font-size"] > svg {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--brand-very-light-grey);
+  overflow-y: auto;
+}
+
+/* Safe area insets for Capacitor iOS edge-to-edge */
+:root {
+  --sat: env(safe-area-inset-top, 44px);
+  --sab: env(safe-area-inset-bottom, 34px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --vaul-drawer-border-radius: 24px;
+}
+
+/* Tab routes: lock scroll on mobile — all content is in fixed divs.
+   Desktop keeps normal page scroll (explore sidebar+grid uses it). */
+@media (max-width: 1023px) {
+  html.tab-route,
+  body.tab-route {
+    overflow: hidden !important;
+    height: 100% !important;
+  }
+}
+
+/* Fullscreen pages override body padding-top */
+body[data-page="home"],
+body[data-page="sign-in"],
+body[data-page="sign-up"] {
+  padding-top: 0 !important;
+}
+
+
+/* Hide scrollbars */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--brand-very-light-grey);
+
+  /* Capacitor: left/right safe areas only — top is handled per-component */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@import "tailwindcss";
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* ── CANONICAL BRAND COLORS ── fallback defaults, overridden by BrandColorApplier on mount */
+  --brand-green:            #00b78b;
+  --brand-orange:           #F78300;
+  --brand-blue:             #1c1f4c;
+  --brand-black:            #111111;
+  --brand-dark-grey:        #2d2d2d;
+  --brand-light-grey:       #efefef;
+  --brand-very-light-grey:  #f5f5f5;
+  --brand-illustration:     #00b78b;
+
+  /* Aliases kept for backwards compat */
+  --brand-grey:        var(--brand-dark-grey);
+  --brand-lightgrey:   var(--brand-light-grey);
+  --brand-matteblack:  var(--brand-black);
+
+  /* --- HOMEPAGE PALETTE (all aliased to canonical vars) --- */
+  --navy-deep:         var(--brand-blue);
+  --sand-gold:         var(--brand-orange);
+  --espresso-brown: #4b2e05;
+  --ivory-cream: #ffffff;
+  --taupe-grey:        var(--brand-light-grey);
+  --terracotta-red:    var(--brand-orange);
+  --mustard-accent:    var(--brand-orange);
+  --olive-green: #7b6e3f;
+  --dark-grey:         var(--brand-dark-grey);
+
+  /* --- HEADER FONTS --- */
+  /* ---Header Menu Links --- */
+  --font-headermenu: "FuturaCyrillicMedium", sans-serif;
+  --font-headermenu-font-size: 15px;
+  --font-headermenu-font-color: #8f8f8f;
+  /* ---Header Logo --- */
+  --font-headerlogo-shorthand: 700 24px "FuturaCyrillicMedium", sans-serif;
+  --font-headerlogo-font-color: var(--brand-green);
+
+  /* --- General Font Definitions --- */
+  /* Plus Jakarta Sans is a variable font (wght 200–800) — body uses 400, headings 600–700 */
+  --font-jakarta: var(--font-jakarta);
+  --font-body: var(--font-jakarta), sans-serif;
+  --font-heading: var(--font-jakarta), sans-serif;
+  /* Buttons: use Jakarta at medium weight instead of missing HelveticaNeueMedium */
+  --font-ui: var(--font-jakarta), sans-serif;
+
+  /* Other design tokens */
+  --color-text: #545454;
+  --color-background: #f4f4f4;
+
+  /* --- Component Font Definitions --- */
+
+  /* Hero Section */
+  --font-hero-title: 700 5rem var(--font-heading); /* 48px */
+  --color-hero-title: #ffffff;
+  --font-hero-tagline: 1.125rem/1.5 var(--font-body); /* 18px */
+  --color-hero-tagline: rgba(255, 255, 255, 0.95);
+  --font-hero-cover-details: 1rem var(--font-body); /* 14px */
+  --color-hero-cover-details: #ffffff;
+
+  /* Buttons */
+  --font-button-photostory: 500 1rem var(--font-ui); /* 14px */
+  --color-button-photostory: var(--color-text);
+  --font-button-action: 500 0.875rem var(--font-ui); /* 14px */
+  --color-button-action: var(--color-text);
+
+  /* Section Content */
+  --font-section-header: 600 2rem var(--font-heading); /* 18px */
+  --color-section-header: var(--brand-blue);
+
+  /* Sidebar */
+  --font-sidebar-key: 600 0.875rem var(--font-body); /* 14px bold */
+  --color-sidebar-key: #6e6e6e; /* gray-600 */
+  --font-sidebar-value: 500 0.875rem var(--font-body); /* 14px */
+  --color-sidebar-value: var(--color-text);
+  --font-sidebar-text: 0.875rem var(--font-body); /* 14px */
+  --color-sidebar-text: #838383; /* gray-700 */
+  --color-sidebar-muted-text: #9b9b9b; /* gray-600 */
+
+  /* Main Content Articles */
+  --font-article-text: 1.15rem/1.6 var(--font-body); /* 16px */
+  --color-article-text: #3e3e3e;
+  --font-article-heading: 600 1rem var(--font-heading);
+  --color-article-heading: var(--color-text);
+
+  /* Captions */
+  --font-caption: 0.75rem var(--font-body); /* 12px */
+  --color-caption: #4b5563; /* gray-600 */
+
+  /* NEW: Font class for category/region chips */
+  --font-category-chip: 500 0.9rem var(--font-body);
+}
+
+@layer components {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Trip panel: thin, light grey scrollbar */
+  .trip-panel-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c5c5c5 transparent;
+  }
+  .trip-panel-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .trip-panel-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .trip-panel-scroll::-webkit-scrollbar-thumb {
+    background-color: #c5c5c5;
+    border-radius: 3px;
+  }
+  .trip-panel-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #b0b0b0;
+  }
+
+  .font-sidebar-menu {
+    font-family: var(--font-heading);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* NEW: Font class for the panel headings */
+  .font-panel-heading {
+    font-family: var(--font-heading);
+    font-size: 20px; /* Corresponds to text-xl */
+    font-weight: 700; /* Corresponds to font-bold */
+  }
+
+  .font-hero-title {
+    font: var(--font-hero-title);
+    color: var(--color-hero-title);
+  }
+  .font-hero-tagline {
+    font: var(--font-hero-tagline);
+    color: var(--color-hero-tagline);
+  }
+  .font-hero-cover-details {
+    font: var(--font-hero-cover-details);
+    color: var(--color-hero-cover-details);
+  }
+  .font-button-photostory {
+    font: var(--font-button-photostory);
+    color: var(--color-button-photostory);
+  }
+  .font-button-action {
+    font: var(--font-button-action);
+    color: var(--color-button-action);
+  }
+  .font-section-header {
+    font: var(--font-section-header);
+    color: var(--color-section-header);
+  }
+  .font-sidebar-key {
+    font: var(--font-sidebar-key);
+    color: var(--color-sidebar-key);
+  }
+  .font-sidebar-value {
+    font: var(--font-sidebar-value);
+    color: var(--color-sidebar-value);
+  }
+  .font-sidebar-text {
+    font: var(--font-sidebar-text);
+    color: var(--color-sidebar-text);
+  }
+  .font-sidebar-muted-text {
+    font: var(--font-sidebar-text);
+    color: var(--color-sidebar-muted-text);
+  }
+  .font-caption {
+    font: var(--font-caption);
+    color: var(--color-caption);
+  }
+  .font-category-chip {
+    font: var(--font-category-chip);
+    color: var(--brand-blue);
+  }
+  .prose {
+    font: var(--font-article-text);
+    color: var(--color-article-text);
+    display: flow-root;
+  }
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    font: var(--font-article-heading);
+    color: var(--color-article-heading);
+  }
+  .prose figcaption {
+    font: var(--font-caption);
+    color: var(--color-caption);
+  }
+  .prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+  }
+  .prose figure {
+    max-width: 100%;
+  }
+  .prose figure[style*="float"] {
+    width: auto;
+    max-width: 50%;
+  }
+  .prose figure > img {
+    width: 100%;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: var(--color-background);
+}
+
+pre,
+code {
+  font-family: var(--font-geist-mono);
+}
+
+/* --- Prevent iOS zoom on input focus --- */
+@media screen and (max-width: 1024px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* --- Leaflet Map Customizations --- */
+.leaflet-popup-content-wrapper {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 12px;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-tip-container {
+  display: none;
+}
+.custom-map-icon {
+  background: none;
+  border: none;
+}
+.leaflet-marker-pane .leaflet-marker-icon {
+  z-index: 500;
+}
+.leaflet-marker-pane .leaflet-marker-icon:hover {
+  z-index: 1000 !important;
+}
+.marker-hover-target {
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: center;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.leaflet-marker-icon:hover .marker-hover-target {
+  transform: scale(1.2);
+}
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(247, 131, 0, 0.2) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--brand-orange) !important;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Header animation keyframes ---- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideLeft {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeInImage {
+  from { opacity: 0; transform: scale(1.04); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes underlineGrow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-100%); }
+}
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeOutBackdrop {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes sideSheetBackdropIn {
+  from { background-color: rgba(0,0,0,0); }
+  to   { background-color: rgba(0,0,0,0.15); }
+}
+@keyframes sideSheetBackdropOut {
+  from { background-color: rgba(0,0,0,0.15); }
+  to   { background-color: rgba(0,0,0,0); }
+}
+@keyframes sideSheetPushIn {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-173px); }
+}
+@keyframes sideSheetPushOut {
+  from { transform: translateX(-173px); }
+  to   { transform: translateX(0); }
+}
+
+.animate-fadeIn        { animation: fadeIn       0.25s ease-out forwards; }
+.animate-fadeSlideUp   { animation: fadeSlideUp  0.35s ease-out forwards; }
+.animate-fadeSlideLeft { animation: fadeSlideLeft 0.28s ease-out forwards; }
+.animate-fadeInImage   { animation: fadeInImage  0.5s  ease-out forwards; }
+.animate-underlineGrow { animation: underlineGrow 0.25s ease-out forwards; }
+.animate-slideInLeft   { animation: slideInLeft  0.3s  cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-slide-in-right  { animation: slideInRight  0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-slide-out-right { animation: slideOutRight 0.28s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-side-sheet-in  { animation: slideInRight  0.72s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-out { animation: slideOutRight 0.72s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-backdrop-in  { animation: sideSheetBackdropIn  0.5s ease-out forwards; }
+.animate-side-sheet-backdrop-out { animation: sideSheetBackdropOut 0.45s ease-out forwards; }
+.animate-side-sheet-push-in  { animation: sideSheetPushIn  0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-side-sheet-push-out { animation: sideSheetPushOut 0.45s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-slideOutLeft  { animation: slideOutLeft 0.25s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-fadeInBackdrop  { animation: fadeInBackdrop  0.2s ease-out forwards; }
+.animate-fadeOutBackdrop { animation: fadeOutBackdrop 0.25s ease-out forwards; }
+
+/* ---- Mobile bottom sheet (map / panels) ---- */
+@keyframes bottomSheetIn {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bottomSheetOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(100%); }
+}
+.animate-bottom-sheet-in {
+  animation: bottomSheetIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.animate-bottom-sheet-out {
+  animation: bottomSheetOut 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+
+/* ---- Bottom nav tap animation ---- */
+/* Color change on active state is the only feedback — no scale animation */
+
+/* Base: always respect safe area */
+.pwa-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* PWA standalone: extra bottom padding on nav + spacer */
+@media (display-mode: standalone) {
+  .pwa-bottom-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
+  #bottom-nav-spacer {
+    height: calc(52px + env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+}
+
+/* ── Disable long-press callout / context menu on mobile ── */
+.dashboard-no-longpress,
+.dashboard-no-longpress * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Mobile heritage page: inset dividers between sections ── */
+@media (max-width: 1023px) {
+  .mobile-divider {
+    background-image: linear-gradient(to right, transparent 3rem, #e2e8f0 3rem, #e2e8f0 calc(100% - 3rem), transparent calc(100% - 3rem));
+    background-position: bottom;
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
+  }
+  .mobile-divider-top {
+    background-image:
+      linear-gradient(to right, transparent 3rem, #e2e8f0 3rem, #e2e8f0 calc(100% - 3rem), transparent calc(100% - 3rem)),
+      linear-gradient(to right, transparent 3rem, #e2e8f0 3rem, #e2e8f0 calc(100% - 3rem), transparent calc(100% - 3rem));
+    background-position: bottom, top;
+    background-size: 100% 1px, 100% 1px;
+    background-repeat: no-repeat;
+  }
+}
+
+/* ── Travel Guide slide panel: halve section vertical spacing ── */
+.travel-sheet-content section.mobile-divider {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
