@@ -530,3 +530,26 @@ code {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
 }
+
+/* ── Shimmer skeleton loader ── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #e5e2de;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255,255,255,0.55) 50%,
+    transparent 65%
+  );
+  animation: shimmer 1.6s ease-in-out infinite;
+}
