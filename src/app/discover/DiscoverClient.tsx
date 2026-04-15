@@ -730,6 +730,20 @@ export default function DiscoverClient({
         </div>
       </div>
 
+      {/* ── Search overlay — darkens grid when search bar is open ── */}
+      <div
+        className="fixed inset-0 z-[1050] lg:hidden"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.55)",
+          opacity: searchOpen ? 1 : 0,
+          pointerEvents: searchOpen ? "auto" : "none",
+          transition: searchOpen
+            ? "opacity 0.3s ease-out"
+            : "opacity 0.22s ease-in",
+        }}
+        onPointerDown={() => setSearchOpen(false)}
+      />
+
       {/* ── Desktop header ── */}
       <div className="hidden lg:flex items-center justify-between px-10 xl:px-16 pt-8 pb-5">
         <div>
