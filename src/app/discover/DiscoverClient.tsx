@@ -243,6 +243,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
     const q = value.trim();
     if (!q) return;
     void hapticMedium();
+    inputRef.current?.blur();
     onSearch(q);
   }, [value, onSearch]);
 
@@ -467,7 +468,7 @@ export default function DiscoverClient({
     setSearchOffset(0);
     setSearchHasMore(true);
     void runSearch(query, 0, true);
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; });
   }, [runSearch]);
 
   const clearSearch = useCallback(() => {
@@ -476,7 +477,7 @@ export default function DiscoverClient({
     setSearchPhotosArr([]);
     setSearchOffset(0);
     activeQueryRef.current = "";
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; });
   }, []);
 
   // ── Init ──────────────────────────────────────────────────────────────────
