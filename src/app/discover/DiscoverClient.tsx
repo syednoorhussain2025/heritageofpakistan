@@ -466,6 +466,7 @@ export default function DiscoverClient({
     setSearchOffset(0);
     setSearchHasMore(true);
     void runSearch(query, 0, true);
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [runSearch]);
 
   const clearSearch = useCallback(() => {
@@ -645,12 +646,12 @@ export default function DiscoverClient({
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.28) 55%, transparent 100%)",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 65%, transparent 100%)",
             backdropFilter: "blur(1px)",
             WebkitBackdropFilter: "blur(1px)",
-            maskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent 100%)",
-            height: "130%",
+            maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+            height: "100%",
           }}
         />
         <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "16px" }}>
