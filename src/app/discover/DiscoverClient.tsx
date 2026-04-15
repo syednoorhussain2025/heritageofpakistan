@@ -12,6 +12,7 @@ import dynamicImport from "next/dynamic";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { hideKeyboard } from "@/lib/keyboard";
 import CollectHeart from "@/components/CollectHeart";
 import { subscribeTab } from "@/lib/tabStore";
 
@@ -243,8 +244,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
     const q = value.trim();
     if (!q) return;
     void hapticMedium();
-    // iOS keyboard dismiss — blur active element directly
-    (document.activeElement as HTMLElement)?.blur();
+    void hideKeyboard();
     onSearch(q);
   }, [value, onSearch]);
 
