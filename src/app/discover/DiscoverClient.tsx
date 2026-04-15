@@ -11,7 +11,7 @@ import {
 import dynamicImport from "next/dynamic";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
-import { hapticLight } from "@/lib/haptics";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
 import { subscribeTab } from "@/lib/tabStore";
 
@@ -242,6 +242,7 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
   const submit = useCallback(() => {
     const q = value.trim();
     if (!q) return;
+    void hapticMedium();
     onSearch(q);
   }, [value, onSearch]);
 
@@ -475,6 +476,7 @@ export default function DiscoverClient({
     setSearchPhotosArr([]);
     setSearchOffset(0);
     activeQueryRef.current = "";
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -724,7 +726,7 @@ export default function DiscoverClient({
                 pointerEvents: searchOpen ? "auto" : "none",
               }}
             >
-              <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+              <SearchBar key={searchOpen ? "open" : "closed"} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
             </div>
           </div>
         </div>
