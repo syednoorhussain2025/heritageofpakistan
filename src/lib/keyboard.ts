@@ -21,3 +21,12 @@ export async function hideKeyboard(): Promise<void> {
     await Keyboard.hide();
   } catch { /* no-op */ }
 }
+
+/** Hide the iOS "Done" accessory bar above the keyboard — call once on app init */
+export async function initKeyboard(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { Keyboard } = await import("@capacitor/keyboard");
+    await Keyboard.setAccessoryBarVisible({ isVisible: false });
+  } catch { /* no-op */ }
+}

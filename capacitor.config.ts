@@ -22,6 +22,11 @@ const config: CapacitorConfig = {
   },
 
   plugins: {
+    Keyboard: {
+      resize: "none",
+      style: "dark",
+      resizeOnFullScreen: true,
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
