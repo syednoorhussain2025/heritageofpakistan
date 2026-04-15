@@ -467,7 +467,7 @@ export default function DiscoverClient({
     setSearchOffset(0);
     setSearchHasMore(true);
     void runSearch(query, 0, true);
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }, [runSearch]);
 
   const clearSearch = useCallback(() => {
@@ -476,7 +476,7 @@ export default function DiscoverClient({
     setSearchPhotosArr([]);
     setSearchOffset(0);
     activeQueryRef.current = "";
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }, []);
 
   // ── Init ──────────────────────────────────────────────────────────────────
