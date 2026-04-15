@@ -243,7 +243,8 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
     const q = value.trim();
     if (!q) return;
     void hapticMedium();
-    inputRef.current?.blur();
+    // iOS keyboard dismiss — blur active element directly
+    (document.activeElement as HTMLElement)?.blur();
     onSearch(q);
   }, [value, onSearch]);
 
@@ -269,6 +270,8 @@ function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClo
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
+        inputMode="search"
+        enterKeyHint="search"
       />
       {value ? (
         <button onClick={() => setValue("")} className="text-gray-400 active:text-gray-600 flex-shrink-0 p-0.5">
