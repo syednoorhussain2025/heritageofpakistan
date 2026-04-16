@@ -231,14 +231,15 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
 
 // ─── Inline search bar ────────────────────────────────────────────────────────
 
-function SearchBar({ onSearch, onClose }: { onSearch: (q: string) => void; onClose: () => void }) {
+function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => void; onClose: () => void; isOpen: boolean }) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
     const t = setTimeout(() => inputRef.current?.focus(), 40);
     return () => clearTimeout(t);
-  }, []);
+  }, [isOpen]);
 
   const submit = useCallback(() => {
     const q = value.trim();
@@ -730,7 +731,7 @@ export default function DiscoverClient({
                 pointerEvents: searchOpen ? "auto" : "none",
               }}
             >
-              <SearchBar key={searchOpen ? "open" : "closed"} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+              <SearchBar key={searchOpen ? "open" : "closed"} isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
             </div>
           </div>
         </div>
@@ -769,7 +770,7 @@ export default function DiscoverClient({
         </div>
         {searchOpen ? (
           <div className="w-80">
-            <SearchBar onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+            <SearchBar isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
           </div>
         ) : (
           <button
