@@ -104,10 +104,13 @@ export default function AppChrome({
     const el = mainWrapperRef.current;
 
     const apply = (isTab: boolean) => {
+      const isMobile = window.innerWidth < 1024;
       if (isTab) {
         document.documentElement.classList.add("tab-route");
         document.body.classList.add("tab-route");
-        if (el) { el.style.display = "none"; }
+        // Only hide the main wrapper on mobile — on desktop the TabShell is
+        // already hidden (lg:hidden) and the main wrapper must stay visible.
+        if (el) { el.style.display = isMobile ? "none" : ""; }
       } else {
         document.documentElement.classList.remove("tab-route");
         document.body.classList.remove("tab-route");
