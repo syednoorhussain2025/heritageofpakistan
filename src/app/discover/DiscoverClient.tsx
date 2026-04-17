@@ -676,13 +676,11 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              {searchActive && (
-                <div className="flex justify-center mt-1 pointer-events-auto">
-                  <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
-                    {searchQuery}
-                  </span>
-                </div>
-              )}
+              <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
+                <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
+                  {searchQuery || " "}
+                </span>
+              </div>
             </div>
             <div className="pointer-events-auto flex justify-end pr-3">
               {searchActive ? (
