@@ -318,8 +318,15 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
       </div>
 
       {/* Inspiration chips — only when input is empty */}
-      {!value && chips.length > 0 && (
-        <div className="flex gap-1.5 mt-2.5 px-1">
+      {!value && (
+        <div
+          className="flex gap-1.5 mt-2.5 px-1"
+          style={{
+            opacity: chips.length > 0 ? 1 : 0,
+            transition: "opacity 0.35s ease-out",
+            pointerEvents: chips.length > 0 ? "auto" : "none",
+          }}
+        >
           {chips.slice(0, 3).map((phrase) => (
             <button
               key={phrase}
