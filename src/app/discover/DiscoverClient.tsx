@@ -319,12 +319,12 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
 
       {/* Inspiration chips — only when input is empty */}
       {!value && chips.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2.5 px-1">
+        <div className="flex gap-2 mt-2.5 px-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {chips.map((phrase) => (
             <button
               key={phrase}
               onPointerDown={() => handleChip(phrase)}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[12px] font-medium px-3 py-1 rounded-full active:bg-white/30"
+              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[12px] font-medium px-3 py-1 rounded-full active:bg-white/30 flex-shrink-0"
             >
               {phrase}
             </button>
@@ -761,11 +761,11 @@ export default function DiscoverClient({
           {/* Search bar — slides down from title, fades in with ease-out */}
           <div
             className="pointer-events-auto overflow-hidden"
-            style={{ height: searchOpen ? "96px" : "52px", transition: "height 0.38s cubic-bezier(0.22,1,0.36,1)" }}
+            style={{ height: searchOpen ? "88px" : "52px", transition: "height 0.38s cubic-bezier(0.22,1,0.36,1)" }}
           >
             <div
               style={{
-                transform: searchOpen ? "translateY(0)" : "translateY(-96px)",
+                transform: searchOpen ? "translateY(0)" : "translateY(-88px)",
                 opacity: searchOpen ? 1 : 0,
                 transition: searchOpen
                   ? "transform 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.28s ease-out"
