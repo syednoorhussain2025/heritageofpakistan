@@ -72,6 +72,7 @@ export interface DiscoverPhotoSheetProps {
   photo: DiscoverPhoto | null;
   originRect: DOMRect | null;
   thumbUrl?: string | null;
+  onCloseStart?: () => void;
   onClose: () => void;
 }
 
@@ -81,6 +82,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   photo,
   originRect,
   thumbUrl,
+  onCloseStart,
   onClose,
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
@@ -112,11 +114,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
     setIsVisible(false);
+    onCloseStart?.();
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
+      lastPhotoRef.current = null;
       onClose();
     }, 400);
-  }, [onClose]);
+  }, [onClose, onCloseStart]);
 
   const handleClosePress = useCallback(() => {
     closeWithAnimation();
