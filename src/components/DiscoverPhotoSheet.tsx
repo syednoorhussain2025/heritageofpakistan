@@ -99,11 +99,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Compute transform-origin from the tile's center relative to the viewport,
-  // so the card scales out from the tap location
-  const transformOrigin = originRect
-    ? `${originRect.left + originRect.width / 2}px ${originRect.top + originRect.height / 2}px`
-    : "center center";
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
@@ -199,7 +194,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
-            transformOrigin,
           }}
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: isOpen ? 1 : 0.95, opacity: isOpen ? 1 : 0 }}
