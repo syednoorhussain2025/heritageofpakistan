@@ -186,20 +186,21 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
       onPointerDown={handleBackdropPointerDown}
       style={{ touchAction: "none" }}
     >
-      {/* Blurred backdrop */}
+      {/* Backdrop — light blur, tap closes */}
       <div
         className="absolute inset-0"
         style={{
-          backgroundColor: "rgba(0,0,0,0.6)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
+          backgroundColor: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(3px)",
+          WebkitBackdropFilter: "blur(3px)",
           opacity: cardVisible ? 1 : 0,
           transition: "opacity 0.22s ease",
         }}
+        onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
 
-      {/* Card */}
+      {/* Card — fixed width, height grows with image aspect ratio */}
       <div
         className="relative w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl"
         style={{
@@ -209,11 +210,21 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
             ? "transform 0.34s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease-out"
             : "transform 0.18s cubic-bezier(0.4,0,1,1), opacity 0.16s ease-in",
           willChange: "transform, opacity",
+          maxHeight: "90dvh",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {/* ── Photo (3:2 ratio) ── */}
-        <div className="relative w-full" style={{ paddingBottom: "66.66%" }}>
-          <div className="absolute inset-0 bg-stone-200">
+        {/* ── Photo — true aspect ratio, max 58dvh so panel always stays on screen ── */}
+        <div className="relative w-full bg-stone-200 shrink-0 overflow-hidden" style={{ maxHeight: "58dvh" }}>
+          <div
+            style={{
+              paddingBottom: photo.width && photo.height
+                ? `${(photo.height / photo.width) * 100}%`
+                : "66.66%",
+            }}
+          />
+          <div className="absolute inset-0">
             {photo.blurDataURL && (
               <div
                 className="absolute inset-0"
@@ -232,18 +243,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
               className="absolute inset-0 w-full h-full object-cover"
               loading="eager"
             />
-            {/* Caption overlay */}
-            {photo.caption && (
-              <div
-                className="absolute inset-x-0 bottom-0 px-3.5 pt-10 pb-3"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)" }}
-              >
-                <p className="text-white text-[11.5px] font-medium leading-snug line-clamp-2"
-                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
-                  {photo.caption}
-                </p>
-              </div>
-            )}
             {/* Close button — top left */}
             <button
               onClick={closeWithAnimation}
@@ -267,8 +266,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
           </div>
         </div>
 
-        {/* ── Site info ── */}
-        <div className="px-4 pt-3 pb-1.5">
+        {/* ── Info panel — always same height/layout ── */}
+        <div className="px-4 pt-3 pb-1.5 shrink-0">
+          {/* Caption */}
+          {photo.caption && (
+            <p className="text-stone-500 text-[12px] leading-snug mb-2 line-clamp-2">
+              {photo.caption}
+            </p>
+          )}
           <h2 className="text-[17px] font-bold text-[var(--brand-blue)] leading-tight truncate">
             {site.name}
           </h2>
@@ -299,7 +304,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
         </div>
 
         {/* ── Actions ── */}
-        <div className="px-3 pt-2 pb-4 flex flex-col gap-2">
+        <div className="px-3 pt-2 pb-4 flex flex-col gap-2 shrink-0">
           {/* Primary: Open Site */}
           <button
             type="button"
