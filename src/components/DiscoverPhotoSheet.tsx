@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
@@ -9,7 +9,7 @@ import { hapticLight, hapticMedium } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
 import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
-import { motion } from "framer-motion";
+import { motion, useAnimate } from "framer-motion";
 import { hapticSuccess } from "@/lib/haptics";
 import Icon from "@/components/Icon";
 
@@ -83,146 +83,93 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  // "visible" = card is in DOM and positioned; we control opacity separately
   const [visible, setVisible] = useState(false);
-  const [backdropVisible, setBackdropVisible] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const isClosingRef = useRef(false);
 
-  const imgRef = useRef<HTMLDivElement>(null);
-  // Separate timers — never share between open and close
-  const openCleanupRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Framer Motion imperative animation — same pattern as Lightbox.tsx
+  const [overlayScope, animateOverlay] = useAnimate();
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+
+  // Three-way gate — real image only shown when BOTH animation done AND image loaded
+  const expandDoneRef  = useRef(!originRect); // if no originRect, skip animation
+  const imageLoadedRef = useRef(false);
+  const overlayHiddenRef = useRef(false);
+
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Keep originRect in a ref so useLayoutEffect can read it synchronously
-  const originRectRef = useRef<DOMRect | null>(null);
-  originRectRef.current = originRect;
-
-  // ── Show/hide card ─────────────────────────────────────────────────────────
+  // Reset gates when photo changes
   useEffect(() => {
     if (!photo) {
       setVisible(false);
-      setBackdropVisible(false);
-      isClosingRef.current = false;
       return;
     }
+    expandDoneRef.current  = !originRect;
+    imageLoadedRef.current  = false;
+    overlayHiddenRef.current = false;
+    if (imgContainerRef.current) imgContainerRef.current.style.visibility = "hidden";
     void hapticMedium();
-    setBackdropVisible(false);
     setVisible(true);
-  }, [photo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photo?.id]);
 
-  // ── FLIP open ─────────────────────────────────────────────────────────────
-  // useLayoutEffect runs synchronously after DOM mutation but BEFORE the browser paints.
-  // This lets us measure the destination rect and apply the "First" transform
-  // in the same frame as the card appearing — the user never sees the final position.
-  useLayoutEffect(() => {
-    if (!photo || !visible) return;
-    const originRect = originRectRef.current;
-    if (!originRect) return;
+  // Hide overlay + reveal image once both gates pass — same as Lightbox
+  const tryHideOverlay = useCallback(() => {
+    if (overlayHiddenRef.current) return;
+    if (!expandDoneRef.current || !imageLoadedRef.current) return;
+    overlayHiddenRef.current = true;
+    if (imgContainerRef.current) imgContainerRef.current.style.visibility = "visible";
+    if (overlayScope.current)    overlayScope.current.style.display = "none";
+  }, [overlayScope]);
 
-    if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
-    isClosingRef.current = false;
+  // Run the overlay animation once on open
+  useEffect(() => {
+    if (!photo || !originRect || !visible) return;
 
-    const el = imgRef.current;
-    if (!el) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const px = 20; // px-5 = 20px each side
 
-    const dest = el.getBoundingClientRect();
-    if (dest.width === 0 || dest.height === 0) return;
+    // Compute destination: card is max-w-sm (384px) centered, image slot height from aspect ratio
+    const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
+    const cardW = Math.min(vw - px * 2, 384);
+    const imgH  = isPortrait ? cardW * 1.25 : cardW * 0.75;
 
-    // Compute transform that maps final position → origin tile
-    const scaleX = originRect.width  / dest.width;
-    const scaleY = originRect.height / dest.height;
-    const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
-    const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
+    // Card is vertically centered — estimate top accounting for card height
+    const infoH  = 160; // approx info panel + buttons height
+    const cardH  = imgH + infoH;
+    const cardTop = Math.max(px, (vh - cardH) / 2);
 
-    // Apply "First" state — no transition, card starts looking like the tile
-    el.style.transition = "none";
-    el.style.transformOrigin = "center center";
-    el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
-    el.style.borderRadius = "24px";
-    el.style.overflow = "hidden";
+    const destLeft = (vw - cardW) / 2;
+    const destTop  = cardTop;
 
-    // Now kick off the animation in the next frame (after the browser has painted
-    // the starting state once), so the transition actually runs
-    const raf = requestAnimationFrame(() => {
-      const SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
-      el.style.transition = `transform 0.42s ${SPRING}, border-radius 0.42s ${SPRING}`;
-      el.style.transform = "";
-      el.style.borderRadius = "";
-
-      setBackdropVisible(true);
-
-      openCleanupRef.current = setTimeout(() => {
-        if (isClosingRef.current) return;
-        el.style.transition = "";
-        el.style.transformOrigin = "";
-        el.style.overflow = "";
-      }, 450);
+    void animateOverlay(overlayScope.current, {
+      left:         destLeft,
+      top:          destTop,
+      width:        cardW,
+      height:       imgH,
+      borderRadius: "24px 24px 0 0",
+    }, {
+      duration: 0.46,
+      ease: [0.32, 0.72, 0, 1],
+    }).then(() => {
+      expandDoneRef.current = true;
+      tryHideOverlay();
     });
-
-    return () => {
-      cancelAnimationFrame(raf);
-      if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, photo?.id]);
 
-  // ── FLIP close ────────────────────────────────────────────────────────────
+  // ── Close ─────────────────────────────────────────────────────────────────
   const closeWithAnimation = useCallback(() => {
-    if (isClosingRef.current || closeTimerRef.current) return;
-    isClosingRef.current = true;
+    if (closeTimerRef.current) return;
     void hapticLight();
-
-    // Fade backdrop immediately
-    setBackdropVisible(false);
-
-    const el = imgRef.current;
-    if (!el || !originRect) {
-      setVisible(false);
-      closeTimerRef.current = setTimeout(() => {
-        closeTimerRef.current = null;
-        onClose();
-      }, 50);
-      return;
-    }
-
-    // Clear open's cleanup timer — we're taking over the element
-    if (openCleanupRef.current) {
-      clearTimeout(openCleanupRef.current);
-      openCleanupRef.current = null;
-    }
-
-    const dest = el.getBoundingClientRect();
-    const scaleX = originRect.width  / dest.width;
-    const scaleY = originRect.height / dest.height;
-    const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
-    const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
-
-    el.style.transition = "none";
-    el.style.transformOrigin = "center center";
-    el.style.overflow = "hidden";
-    // Force reflow so "none" is committed before we set the transition
-    void el.getBoundingClientRect();
-
-    const EASE = "cubic-bezier(0.4, 0, 0.6, 1)";
-    el.style.transition = `transform 0.30s ${EASE}, border-radius 0.30s ${EASE}`;
-    el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
-    el.style.borderRadius = "24px";
-
+    setVisible(false);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
-      // Reset before unmounting
-      el.style.transition = "";
-      el.style.transform = "";
-      el.style.transformOrigin = "";
-      el.style.borderRadius = "";
-      el.style.overflow = "";
-      setVisible(false);
       onClose();
-    }, 320);
-  }, [originRect, onClose]);
+    }, 260);
+  }, [onClose]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -269,7 +216,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }
   }
 
-  if (!mounted || !photo || !visible) return null;
+  if (!mounted || !photo) return null;
 
   const site = photo.site;
   const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
@@ -282,41 +229,49 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     return photo.url;
   })();
 
+  // Thumb URL — same as what's visible in the tile
+  const thumbUrl = (() => {
+    if (photo.storagePath) {
+      try { return getVariantPublicUrl(photo.storagePath, "md"); } catch {}
+    }
+    return photo.url;
+  })();
+
   const modal = createPortal(
     <>
-      {/* Backdrop */}
-      <div
+      {/* ── Backdrop ── */}
+      <motion.div
         className="fixed inset-0 z-[3500]"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(3px)",
-          WebkitBackdropFilter: "blur(3px)",
-          opacity: backdropVisible ? 1 : 0,
-          transition: "opacity 0.38s ease",
-          pointerEvents: backdropVisible ? "auto" : "none",
-        }}
+        style={{ backgroundColor: "rgba(0,0,0,0.45)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: visible ? 1 : 0 }}
+        transition={{ duration: 0.38, ease: "easeOut" }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
 
-      {/* Card */}
-      <div
+      {/* ── Card ── */}
+      <motion.div
         className="fixed inset-0 z-[3510] flex items-center justify-center px-5 pointer-events-none"
         aria-modal="true"
         role="dialog"
         aria-label="Photo details"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: visible ? 1 : 0 }}
+        transition={{ duration: 0.28, ease: "easeOut" }}
       >
         <div
           className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto overflow-hidden"
           style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column" }}
         >
-          {/* Image — this div is FLIP'd via imgRef */}
-          <div
-            ref={imgRef}
-            className="relative w-full shrink-0"
-            style={{ paddingBottom: imgAspectPb }}
-          >
-            <div className="absolute inset-0">
+          {/* Image slot */}
+          <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
+            {/* Real image — hidden until overlay animation done + image loaded */}
+            <div
+              ref={imgContainerRef}
+              className="absolute inset-0"
+              style={{ visibility: originRect ? "hidden" : "visible" }}
+            >
               {photo.blurDataURL && (
                 <div
                   className="absolute inset-0"
@@ -334,6 +289,10 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                 alt={photo.caption ?? site.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
+                onLoad={() => {
+                  imageLoadedRef.current = true;
+                  tryHideOverlay();
+                }}
               />
               <button
                 onClick={closeWithAnimation}
@@ -442,7 +401,31 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
+
+      {/* ── Overlay image — flies from tile to card, same pattern as Lightbox.tsx ── */}
+      {originRect && (
+        <div
+          ref={overlayScope}
+          className="fixed overflow-hidden pointer-events-none"
+          style={{
+            zIndex: 3600,
+            left:   originRect.left,
+            top:    originRect.top,
+            width:  originRect.width,
+            height: originRect.height,
+            borderRadius: "24px",
+            opacity: visible ? 1 : 0,
+          }}
+        >
+          <img
+            src={thumbUrl}
+            alt=""
+            aria-hidden="true"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </div>
+      )}
     </>,
     document.body
   );
