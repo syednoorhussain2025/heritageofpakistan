@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
@@ -96,7 +96,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ── Reset when photo changes ───────────────────────────────────────────────
+  // Keep originRect in a ref so useLayoutEffect can read it synchronously
+  const originRectRef = useRef<DOMRect | null>(null);
+  originRectRef.current = originRect;
+
+  // ── Show/hide card ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!photo) {
       setVisible(false);
@@ -104,61 +108,52 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       isClosingRef.current = false;
       return;
     }
-  }, [photo]);
+    void hapticMedium();
+    setBackdropVisible(false);
+    setVisible(true);
+  }, [photo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── FLIP open ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!photo || !originRect) return;
+  // useLayoutEffect runs synchronously after DOM mutation but BEFORE the browser paints.
+  // This lets us measure the destination rect and apply the "First" transform
+  // in the same frame as the card appearing — the user never sees the final position.
+  useLayoutEffect(() => {
+    if (!photo || !visible) return;
+    const originRect = originRectRef.current;
+    if (!originRect) return;
 
-    // Clear any in-progress open cleanup
     if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
     isClosingRef.current = false;
 
-    void hapticMedium();
+    const el = imgRef.current;
+    if (!el) return;
 
-    // Step 1: make card visible (opacity 1, no pointer events yet)
-    // so getBoundingClientRect() returns real values
-    setVisible(true);
-    setBackdropVisible(false);
+    const dest = el.getBoundingClientRect();
+    if (dest.width === 0 || dest.height === 0) return;
 
-    // Step 2: after one rAF the card is painted — read destination rect
-    const raf1 = requestAnimationFrame(() => {
-      const el = imgRef.current;
-      if (!el) { setBackdropVisible(true); return; }
+    // Compute transform that maps final position → origin tile
+    const scaleX = originRect.width  / dest.width;
+    const scaleY = originRect.height / dest.height;
+    const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
+    const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
 
-      const dest = el.getBoundingClientRect();
-      if (dest.width === 0 || dest.height === 0) {
-        // Measurement failed — just show without animation
-        setBackdropVisible(true);
-        return;
-      }
+    // Apply "First" state — no transition, card starts looking like the tile
+    el.style.transition = "none";
+    el.style.transformOrigin = "center center";
+    el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
+    el.style.borderRadius = "24px";
+    el.style.overflow = "hidden";
 
-      // Compute FLIP transform: where does dest need to start to look like origin?
-      const scaleX = originRect.width  / dest.width;
-      const scaleY = originRect.height / dest.height;
-      const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
-      const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
-
-      // Apply "First" position instantly
-      el.style.transition = "none";
-      el.style.transformOrigin = "center center";
-      el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
-      el.style.borderRadius = "24px";
-      el.style.overflow = "hidden";
-
-      // Force browser to commit that style before we start the transition
-      void el.getBoundingClientRect();
-
-      // Step 3: animate to "Last" (identity)
+    // Now kick off the animation in the next frame (after the browser has painted
+    // the starting state once), so the transition actually runs
+    const raf = requestAnimationFrame(() => {
       const SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
       el.style.transition = `transform 0.42s ${SPRING}, border-radius 0.42s ${SPRING}`;
       el.style.transform = "";
       el.style.borderRadius = "";
 
-      // Backdrop fades in simultaneously
       setBackdropVisible(true);
 
-      // Step 4: clean up inline styles after transition ends
       openCleanupRef.current = setTimeout(() => {
         if (isClosingRef.current) return;
         el.style.transition = "";
@@ -168,11 +163,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     });
 
     return () => {
-      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf);
       if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, originRect]);
+  }, [visible, photo?.id]);
 
   // ── FLIP close ────────────────────────────────────────────────────────────
   const closeWithAnimation = useCallback(() => {
