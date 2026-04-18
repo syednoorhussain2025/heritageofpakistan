@@ -86,26 +86,36 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isOpen = photo !== null;
+  const lastPhotoRef = useRef<typeof photo>(null);
+
+  // Keep last known photo alive during close animation
+  if (photo) lastPhotoRef.current = photo;
+  const activePhoto = photo ?? lastPhotoRef.current;
 
   const lgUrl = (() => {
-    if (!photo) return "";
-    if (photo.storagePath) {
-      try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch {}
+    if (!activePhoto) return "";
+    if (activePhoto.storagePath) {
+      try { return getVariantPublicUrl(activePhoto.storagePath, "lg"); } catch {}
     }
-    return photo.url;
+    return activePhoto.url;
   })();
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Drive visibility from photo prop
+  useEffect(() => {
+    if (photo) setIsVisible(true);
+  }, [photo]);
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
+    setIsVisible(false);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       onClose();
-    }, 380);
+    }, 400);
   }, [onClose]);
 
   const handleClosePress = useCallback(() => {
@@ -113,11 +123,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   }, [closeWithAnimation]);
 
   async function handleOpenSite() {
-    if (!photo) return;
+    if (!activePhoto) return;
     void hapticMedium();
-    const href = photo.regionSlug
-      ? `/heritage/${photo.regionSlug}/${photo.siteSlug}`
-      : `/heritage/${photo.siteSlug}`;
+    const href = activePhoto.regionSlug
+      ? `/heritage/${activePhoto.regionSlug}/${activePhoto.siteSlug}`
+      : `/heritage/${activePhoto.siteSlug}`;
     closeWithAnimation();
     router.push(href);
   }
@@ -133,7 +143,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `${photo.site.name.replace(/\s+/g, "-").toLowerCase()}.${blob.type.includes("png") ? "png" : "jpg"}`;
+      a.download = `${activePhoto?.site.name.replace(/\s+/g, "-").toLowerCase() ?? "photo"}.${blob.type.includes("png") ? "png" : "jpg"}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -143,20 +153,20 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   }
 
   async function handleShare() {
-    if (!photo) return;
+    if (!activePhoto) return;
     void hapticLight();
-    const url = `${window.location.origin}/heritage/${photo.regionSlug}/${photo.siteSlug}`;
+    const url = `${window.location.origin}/heritage/${activePhoto.regionSlug}/${activePhoto.siteSlug}`;
     if (navigator.share) {
-      try { await navigator.share({ title: photo.site.name, url }); } catch {}
+      try { await navigator.share({ title: activePhoto.site.name, url }); } catch {}
     } else {
       try { await navigator.clipboard.writeText(url); } catch {}
     }
   }
 
-  if (!mounted || !photo) return null;
+  if (!mounted || !activePhoto) return null;
 
-  const site = photo.site;
-  const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
+  const site = activePhoto.site;
+  const isPortrait = !!(activePhoto.width && activePhoto.height && activePhoto.height > activePhoto.width);
   const imgAspectPb = isPortrait ? "125%" : "80%";
 
   const displayThumb = thumbUrl ?? lgUrl;
@@ -175,8 +185,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           WebkitBackdropFilter: "blur(3px)",
         }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: isOpen ? 1 : 0 }}
-        transition={isOpen ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.38, ease: [0.64, 0, 0.78, 0] }}
+        animate={{ opacity: isVisible ? 1 : 0 }}
+        transition={isVisible ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.38, ease: [0.64, 0, 0.78, 0] }}
         onPointerDown={handleClosePress}
         aria-hidden="true"
       />
@@ -196,8 +206,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             flexDirection: "column",
           }}
           initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: isOpen ? 1 : 0.95, opacity: isOpen ? 1 : 0 }}
-          transition={isOpen ? OPEN_TRANSITION : CLOSE_TRANSITION}
+          animate={{ scale: isVisible ? 1 : 0.5, opacity: isVisible ? 1 : 0 }}
+          transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
         >
           {/* Image */}
           <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
@@ -205,7 +215,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               {/* Thumb shown instantly (already in browser cache from tile) */}
               <img
                 src={displayThumb}
-                alt={photo.caption ?? site.name}
+                alt={activePhoto.caption ?? site.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
@@ -230,11 +240,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                 </svg>
               </button>
               <CollectHeart
-                siteImageId={photo.id}
-                storagePath={photo.storagePath}
-                imageUrl={photo.url}
+                siteImageId={activePhoto.id}
+                storagePath={activePhoto.storagePath}
+                imageUrl={activePhoto.url}
                 siteId={site.id}
-                altText={photo.caption}
+                altText={activePhoto.caption}
                 variant="overlay"
                 size={20}
               />
@@ -243,9 +253,9 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
           {/* Info */}
           <div className="px-4 pt-3 pb-1.5 shrink-0">
-            {photo.caption && (
+            {activePhoto.caption && (
               <p className="text-stone-500 text-[12px] leading-snug mb-2 line-clamp-2">
-                {photo.caption}
+                {activePhoto.caption}
               </p>
             )}
             <h2 className="text-[17px] font-bold text-[var(--brand-blue)] leading-tight truncate">
@@ -291,11 +301,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
             {/* Save */}
             <SavePhotoButton
-              siteImageId={photo.id}
-              storagePath={photo.storagePath}
-              imageUrl={photo.url}
+              siteImageId={activePhoto.id}
+              storagePath={activePhoto.storagePath}
+              imageUrl={activePhoto.url}
               siteId={site.id}
-              altText={photo.caption}
+              altText={activePhoto.caption}
             />
 
             {/* Download */}
