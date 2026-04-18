@@ -260,7 +260,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           backgroundColor: "rgba(0,0,0,0.45)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
-          opacity: phase === "idle" ? 0 : phase === "flying-out" ? 0 : 1,
+          opacity: phase === "flying-out" ? 0 : 1,
           transition: phase === "flying-in"
             ? "opacity 0.38s ease"
             : phase === "flying-out"
