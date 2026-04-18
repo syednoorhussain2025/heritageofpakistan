@@ -320,7 +320,7 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
       {/* Inspiration chips — only when input is empty */}
       {!value && chips.length > 0 && (
         <div className="flex gap-1.5 mt-2.5 px-1">
-          {chips.slice(0, 4).map((phrase) => (
+          {chips.slice(0, 3).map((phrase) => (
             <button
               key={phrase}
               onPointerDown={() => handleChip(phrase)}
