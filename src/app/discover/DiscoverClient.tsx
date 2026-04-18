@@ -65,8 +65,8 @@ async function loadPhotos(page: number, cycle: number, seed: number, requestNum:
   return res.json();
 }
 
-const SiteBottomSheet = dynamicImport(
-  () => import("@/components/SiteBottomSheet"),
+const DiscoverPhotoSheet = dynamicImport(
+  () => import("@/components/DiscoverPhotoSheet"),
   { ssr: false }
 );
 
@@ -650,26 +650,6 @@ export default function DiscoverClient({
   const showSkeleton = !searchActive && photos.length === 0 && !loadError;
   const showSearchSkeleton = searchActive && searchLoading && searchPhotosArr.length === 0;
 
-  const sheetSite = useMemo(() => {
-    if (!sheetPhoto) return null;
-    const s = sheetPhoto.site;
-    const coverUrl = s.coverPhotoUrl ?? sheetPhoto.url ?? null;
-    return {
-      id: s.id,
-      slug: sheetPhoto.siteSlug,
-      province_slug: sheetPhoto.regionSlug,
-      title: s.name,
-      cover_photo_url: coverUrl,
-      cover_slideshow_image_ids: s.coverSlideshowImageIds ?? null,
-      avg_rating: s.avgRating ?? null,
-      review_count: s.reviewCount ?? null,
-      heritage_type: s.heritageType ?? null,
-      location_free: s.location ?? null,
-      tagline: s.tagline ?? null,
-      latitude: s.latitude ?? null,
-      longitude: s.longitude ?? null,
-    };
-  }, [sheetPhoto]);
 
   return (
     <div
@@ -965,9 +945,8 @@ export default function DiscoverClient({
         <div className="h-[calc(env(safe-area-inset-bottom,0px)+72px)]" />
       </div>
 
-      <SiteBottomSheet
-        site={sheetSite}
-        isOpen={sheetSite !== null}
+      <DiscoverPhotoSheet
+        photo={sheetPhoto}
         onClose={() => setSheetPhoto(null)}
       />
 
