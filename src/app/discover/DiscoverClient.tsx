@@ -81,7 +81,7 @@ const COL3_ASPECTS  = ["aspect-[2/3]", "aspect-[3/4]", "aspect-square", "aspect-
 type TileProps = {
   photo: DiscoverPhoto;
   aspectClass: string;
-  onOpen: () => void;
+  onOpen: (rect: DOMRect) => void;
   isPriority: boolean;
 };
 
@@ -135,13 +135,17 @@ const DiscoverTile = memo(function DiscoverTile({
 
   useEffect(() => () => { if (retryTimerRef.current) clearTimeout(retryTimerRef.current); }, []);
 
+  const tileRef = useRef<HTMLDivElement>(null);
+
   const handlePressEnd = useCallback(() => {
     void hapticLight();
-    onOpen();
+    const rect = tileRef.current?.getBoundingClientRect();
+    if (rect) onOpen(rect);
   }, [onOpen]);
 
   return (
     <div
+      ref={tileRef}
       className={`relative w-full overflow-hidden rounded-3xl cursor-pointer ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
       onPointerUp={handlePressEnd}
@@ -431,8 +435,9 @@ export default function DiscoverClient({
   const pullStartY  = useRef<number | null>(null);
   const isPulling   = useRef(false);
 
-  // Bottom sheet state
+  // Photo popup state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
+  const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -888,7 +893,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -902,7 +907,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
-                    onOpen={() => setSheetPhoto(photo)}
+                    onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }}
                   />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
@@ -915,25 +920,25 @@ export default function DiscoverClient({
             <div className="hidden lg:flex gap-3 items-start">
               <div className="flex flex-col gap-3 flex-1">
                 {col0.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={() => setSheetPhoto(photo)} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d0-sk-${i}`} aspectClass={LEFT_ASPECTS[(col0.length + i) % LEFT_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col1.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={() => setSheetPhoto(photo)} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d1-sk-${i}`} aspectClass={RIGHT_ASPECTS[(col1.length + i) % RIGHT_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col2.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]} isPriority={colIdx < 4} onOpen={() => setSheetPhoto(photo)} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d2-sk-${i}`} aspectClass={COL2_ASPECTS[(col2.length + i) % COL2_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col3.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]} isPriority={colIdx < 4} onOpen={() => setSheetPhoto(photo)} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect) => { setSheetPhoto(photo); setSheetOriginRect(rect); }} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d3-sk-${i}`} aspectClass={COL3_ASPECTS[(col3.length + i) % COL3_ASPECTS.length]} />)}
               </div>
@@ -947,7 +952,8 @@ export default function DiscoverClient({
 
       <DiscoverPhotoSheet
         photo={sheetPhoto}
-        onClose={() => setSheetPhoto(null)}
+        originRect={sheetOriginRect}
+        onClose={() => { setSheetPhoto(null); setSheetOriginRect(null); }}
       />
 
     </div>
