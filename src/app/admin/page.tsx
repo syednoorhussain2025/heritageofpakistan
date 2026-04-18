@@ -193,6 +193,12 @@ export default function AdminHome() {
       desc: "Manage photo tag dimensions and vocabulary.",
       icon: "categorytax",
     },
+    {
+      href: "/admin/search-inspirations",
+      title: "Search Inspirations",
+      desc: "Manage visual search hint phrases shown in Discover.",
+      icon: "search",
+    },
     // Layouts & Templates hub
     {
       href: "/admin/layouts",

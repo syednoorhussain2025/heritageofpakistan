@@ -231,13 +231,34 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
 
 // ─── Inline search bar ────────────────────────────────────────────────────────
 
+// Cached inspirations — fetched once per session
+let cachedInspirations: string[] = [];
+
+function pickRandom(arr: string[], n: number): string[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
 function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => void; onClose: () => void; isOpen: boolean }) {
   const [value, setValue] = useState("");
+  const [chips, setChips] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const t = setTimeout(() => inputRef.current?.focus(), 40);
+    // Pick 4 random chips each time search opens
+    if (cachedInspirations.length > 0) {
+      setChips(pickRandom(cachedInspirations, 4));
+    } else {
+      fetch("/api/search/inspirations")
+        .then((r) => r.json())
+        .then((data: { phrase: string }[]) => {
+          cachedInspirations = data.map((d) => d.phrase);
+          setChips(pickRandom(cachedInspirations, 4));
+        })
+        .catch(() => {});
+    }
     return () => clearTimeout(t);
   }, [isOpen]);
 
@@ -254,38 +275,61 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
     if (e.key === "Escape") onClose();
   }, [submit, onClose]);
 
+  const handleChip = useCallback((phrase: string) => {
+    void hapticLight();
+    void hideKeyboard();
+    onSearch(phrase);
+  }, [onSearch]);
+
   return (
-    <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2.5 mx-4 shadow-lg">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 text-gray-400 flex-shrink-0">
-        <circle cx="11" cy="11" r="7" />
-        <path strokeLinecap="round" d="M20 20l-3-3" />
-      </svg>
-      <input
-        ref={inputRef}
-        type="search"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKey}
-        placeholder="Search photos, places, styles…"
-        className="flex-1 bg-transparent text-[14px] text-gray-800 placeholder-gray-400 outline-none min-w-0"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        inputMode="search"
-        enterKeyHint="search"
-      />
-      {value ? (
-        <button onClick={() => setValue("")} className="text-gray-400 active:text-gray-600 flex-shrink-0 p-0.5">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-            <path d="M12 10.586l4.95-4.95 1.414 1.414L13.414 12l4.95 4.95-1.414 1.414L12 13.414l-4.95 4.95-1.414-1.414L10.586 12 5.636 7.05 7.05 5.636z" />
-          </svg>
-        </button>
-      ) : (
-        <button onClick={onClose} className="text-gray-400 active:text-gray-600 flex-shrink-0 p-0.5">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5">
-            <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+    <div className="mx-4">
+      <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-lg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4 text-gray-400 flex-shrink-0">
+          <circle cx="11" cy="11" r="7" />
+          <path strokeLinecap="round" d="M20 20l-3-3" />
+        </svg>
+        <input
+          ref={inputRef}
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Search photos, places, styles…"
+          className="flex-1 bg-transparent text-[14px] text-gray-800 placeholder-gray-400 outline-none min-w-0"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="search"
+          enterKeyHint="search"
+        />
+        {value ? (
+          <button onClick={() => setValue("")} className="text-gray-400 active:text-gray-600 flex-shrink-0 p-0.5">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M12 10.586l4.95-4.95 1.414 1.414L13.414 12l4.95 4.95-1.414 1.414L12 13.414l-4.95 4.95-1.414-1.414L10.586 12 5.636 7.05 7.05 5.636z" />
+            </svg>
+          </button>
+        ) : (
+          <button onClick={onClose} className="text-gray-400 active:text-gray-600 flex-shrink-0 p-0.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5">
+              <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Inspiration chips — only when input is empty */}
+      {!value && chips.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2.5 px-1">
+          {chips.map((phrase) => (
+            <button
+              key={phrase}
+              onPointerDown={() => handleChip(phrase)}
+              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[12px] font-medium px-3 py-1 rounded-full active:bg-white/30"
+            >
+              {phrase}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -717,11 +761,11 @@ export default function DiscoverClient({
           {/* Search bar — slides down from title, fades in with ease-out */}
           <div
             className="pointer-events-auto overflow-hidden"
-            style={{ height: "52px" }}
+            style={{ height: searchOpen ? "96px" : "52px", transition: "height 0.38s cubic-bezier(0.22,1,0.36,1)" }}
           >
             <div
               style={{
-                transform: searchOpen ? "translateY(0)" : "translateY(-52px)",
+                transform: searchOpen ? "translateY(0)" : "translateY(-96px)",
                 opacity: searchOpen ? 1 : 0,
                 transition: searchOpen
                   ? "transform 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.28s ease-out"
