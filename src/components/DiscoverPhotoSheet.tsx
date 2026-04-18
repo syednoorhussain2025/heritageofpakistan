@@ -123,40 +123,36 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     if (overlayScope.current)    overlayScope.current.style.display = "none";
   }, [overlayScope]);
 
+  // Ref to the image slot in the card — we measure it for the destination rect
+  const imgSlotRef = useRef<HTMLDivElement>(null);
+
   // Run the overlay animation once on open
   useEffect(() => {
     if (!photo || !originRect || !visible) return;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const px = 20; // px-5 = 20px each side
+    // One rAF ensures the card is fully painted and slot has a real rect
+    const raf = requestAnimationFrame(() => {
+      const slot = imgSlotRef.current;
+      if (!slot) return;
+      const dest = slot.getBoundingClientRect();
+      if (dest.width === 0) return;
 
-    // Compute destination: card is max-w-sm (384px) centered, image slot height from aspect ratio
-    const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
-    const cardW = Math.min(vw - px * 2, 384);
-    const imgH  = isPortrait ? cardW * 1.25 : cardW * 0.75;
-
-    // Card is vertically centered — estimate top accounting for card height
-    const infoH  = 160; // approx info panel + buttons height
-    const cardH  = imgH + infoH;
-    const cardTop = Math.max(px, (vh - cardH) / 2);
-
-    const destLeft = (vw - cardW) / 2;
-    const destTop  = cardTop;
-
-    void animateOverlay(overlayScope.current, {
-      left:         destLeft,
-      top:          destTop,
-      width:        cardW,
-      height:       imgH,
-      borderRadius: "24px 24px 0 0",
-    }, {
-      duration: 0.46,
-      ease: [0.32, 0.72, 0, 1],
-    }).then(() => {
-      expandDoneRef.current = true;
-      tryHideOverlay();
+      void animateOverlay(overlayScope.current, {
+        left:         dest.left,
+        top:          dest.top,
+        width:        dest.width,
+        height:       dest.height,
+        borderRadius: "24px 24px 0 0",
+      }, {
+        duration: 0.46,
+        ease: [0.32, 0.72, 0, 1],
+      }).then(() => {
+        expandDoneRef.current = true;
+        tryHideOverlay();
+      });
     });
+
+    return () => cancelAnimationFrame(raf);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, photo?.id]);
 
@@ -264,8 +260,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto overflow-hidden"
           style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column" }}
         >
-          {/* Image slot */}
-          <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
+          {/* Image slot — measured for overlay destination */}
+          <div ref={imgSlotRef} className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
             {/* Real image — hidden until overlay animation done + image loaded */}
             <div
               ref={imgContainerRef}
