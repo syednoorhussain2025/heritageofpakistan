@@ -83,126 +83,123 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  // "settling" = flight done, fading flying image out over the now-visible card image
-  const [phase, setPhase] = useState<"idle" | "flying-in" | "settling" | "open" | "flying-out">("idle");
-  const [flyerOpacity, setFlyerOpacity] = useState(1);
+  const [open, setOpen] = useState(false);       // controls backdrop + card panel visibility
+  const [animating, setAnimating] = useState(false); // true while FLIP is running
   const [downloading, setDownloading] = useState(false);
-  const isOpen = photo !== null;
 
-  const imgSlotRef = useRef<HTMLDivElement>(null);
-  const targetRectRef = useRef<DOMRect | null>(null);
-  const [flyStyle, setFlyStyle] = useState<React.CSSProperties>({});
-
+  // The image element inside the card that we FLIP
+  const imgRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ── Open sequence ──────────────────────────────────────────────────────────
+  // ── FLIP open ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isOpen || !originRect) {
-      if (!isOpen) setPhase("idle");
+    if (!photo || !originRect) {
+      setOpen(false);
+      setAnimating(false);
       return;
     }
 
     void hapticMedium();
+    setOpen(false);
+    setAnimating(true);
 
-    // Phase 1: render with flying image at origin rect (no transition yet)
-    setFlyStyle({
-      position: "fixed",
-      left: originRect.left,
-      top: originRect.top,
-      width: originRect.width,
-      height: originRect.height,
-      borderRadius: "24px",
-      overflow: "hidden",
-      zIndex: 3600,
-      transition: "none",
-      willChange: "left, top, width, height, border-radius",
-    });
-    setPhase("flying-in");
+    // Wait one rAF so the card renders at its final position, then read its rect
+    const raf1 = requestAnimationFrame(() => {
+      const el = imgRef.current;
+      if (!el) {
+        setOpen(true);
+        setAnimating(false);
+        return;
+      }
 
-    // Phase 2: one rAF later, read the target rect and start the transition
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const slot = imgSlotRef.current;
-        if (!slot) {
-          setPhase("open");
-          return;
-        }
-        const rect = slot.getBoundingClientRect();
-        targetRectRef.current = rect;
-        setFlyStyle({
-          position: "fixed",
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-          borderRadius: "24px 24px 0 0",
-          overflow: "hidden",
-          zIndex: 3600,
-          transition: "left 0.38s cubic-bezier(0.22,1,0.36,1), top 0.38s cubic-bezier(0.22,1,0.36,1), width 0.38s cubic-bezier(0.22,1,0.36,1), height 0.38s cubic-bezier(0.22,1,0.36,1), border-radius 0.38s cubic-bezier(0.22,1,0.36,1)",
-          willChange: "left, top, width, height, border-radius",
-        });
-        // Phase 3: flight done — enter "settling": card becomes visible, flyer fades out
-        phaseTimerRef.current = setTimeout(() => {
-          setPhase("settling");
-          setFlyerOpacity(1);
-          // Give card image one rAF to paint, then fade the flyer out
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setFlyerOpacity(0);
-              settleTimerRef.current = setTimeout(() => {
-                setPhase("open");
-              }, 100);
-            });
-          });
-        }, 400);
+      const dest = el.getBoundingClientRect();
+
+      // FLIP: compute the transform that maps dest → origin
+      const scaleX = originRect.width  / dest.width;
+      const scaleY = originRect.height / dest.height;
+      const tx     = originRect.left + originRect.width  / 2 - (dest.left + dest.width  / 2);
+      const ty     = originRect.top  + originRect.height / 2 - (dest.top  + dest.height / 2);
+
+      // Apply "First" state — no transition yet
+      el.style.transition = "none";
+      el.style.transformOrigin = "center center";
+      el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
+      el.style.borderRadius = "24px";
+
+      // Force a reflow so the browser registers the starting state
+      void el.offsetWidth;
+
+      // "Last" state — animate to identity with spring easing
+      const SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
+      const DUR = "0.42s";
+      el.style.transition = `transform ${DUR} ${SPRING}, border-radius ${DUR} ${SPRING}`;
+      el.style.transform = "translate(0, 0) scale(1, 1)";
+      el.style.borderRadius = "";
+
+      // Show backdrop + panel while image is flying
+      setOpen(true);
+
+      // Clean up inline styles after animation
+      const raf2 = requestAnimationFrame(() => {
+        closeTimerRef.current = setTimeout(() => {
+          el.style.transition = "";
+          el.style.transform = "";
+          el.style.transformOrigin = "";
+          el.style.borderRadius = "";
+          setAnimating(false);
+        }, 440);
       });
+
+      return () => cancelAnimationFrame(raf2);
     });
 
     return () => {
-      cancelAnimationFrame(raf);
-      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
-      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      cancelAnimationFrame(raf1);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, originRect?.left, originRect?.top, originRect?.width, originRect?.height]);
+  }, [photo?.id, originRect]);
 
-  // ── Close sequence ─────────────────────────────────────────────────────────
+  // ── FLIP close ────────────────────────────────────────────────────────────
   const closeWithAnimation = useCallback(() => {
-    if (closeTimerRef.current || phase === "flying-out") return;
+    if (closeTimerRef.current) return;
     void hapticLight();
 
-    if (!originRect) {
+    const el = imgRef.current;
+    if (!el || !originRect) {
+      setOpen(false);
       onClose();
       return;
     }
 
-    // Fly image back to origin
-    setPhase("flying-out");
-    setFlyStyle({
-      position: "fixed",
-      left: originRect.left,
-      top: originRect.top,
-      width: originRect.width,
-      height: originRect.height,
-      borderRadius: "24px",
-      overflow: "hidden",
-      zIndex: 3600,
-      transition: "left 0.32s cubic-bezier(0.4,0,0.6,1), top 0.32s cubic-bezier(0.4,0,0.6,1), width 0.32s cubic-bezier(0.4,0,0.6,1), height 0.32s cubic-bezier(0.4,0,0.6,1), border-radius 0.32s cubic-bezier(0.4,0,0.6,1)",
-      willChange: "left, top, width, height, border-radius",
-    });
+    const dest = el.getBoundingClientRect();
+    const scaleX = originRect.width  / dest.width;
+    const scaleY = originRect.height / dest.height;
+    const tx     = originRect.left + originRect.width  / 2 - (dest.left + dest.width  / 2);
+    const ty     = originRect.top  + originRect.height / 2 - (dest.top  + dest.height / 2);
+
+    const EASE = "cubic-bezier(0.4, 0, 0.6, 1)";
+    const DUR  = "0.30s";
+    el.style.transition = `transform ${DUR} ${EASE}, border-radius ${DUR} ${EASE}`;
+    el.style.transformOrigin = "center center";
+    el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
+    el.style.borderRadius = "24px";
+
+    setOpen(false);
 
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
-      setPhase("idle");
+      el.style.transition = "";
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+      el.style.borderRadius = "";
       onClose();
-    }, 340);
-  }, [phase, originRect, onClose]);
+    }, 320);
+  }, [originRect, onClose]);
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   async function handleOpenSite() {
     if (!photo) return;
@@ -247,7 +244,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }
   }
 
-  if (!mounted || phase === "idle" || !photo) return null;
+  if (!mounted || !photo) return null;
 
   const site = photo.site;
   const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
@@ -260,30 +257,24 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     return photo.url;
   })();
 
-  const inFlight = phase === "flying-in" || phase === "flying-out" || phase === "settling";
-
   const modal = createPortal(
     <>
-      {/* ── Backdrop — fades in sync with image flight ── */}
+      {/* ── Backdrop ── */}
       <div
         className="fixed inset-0 z-[3500]"
         style={{
           backgroundColor: "rgba(0,0,0,0.45)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
-          opacity: phase === "flying-out" ? 0 : 1,
-          transition: phase === "flying-in"
-            ? "opacity 0.38s ease"
-            : phase === "flying-out"
-            ? "opacity 0.32s ease"
-            : "none",
-          pointerEvents: phase === "open" || phase === "settling" ? "auto" : "none",
+          opacity: open ? 1 : 0,
+          transition: "opacity 0.38s ease",
+          pointerEvents: open && !animating ? "auto" : "none",
         }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
 
-      {/* ── Card — only visible once image has landed ── */}
+      {/* ── Card ── */}
       <div
         className="fixed inset-0 z-[3510] flex items-center justify-center px-5 pointer-events-none"
         aria-modal="true"
@@ -293,21 +284,20 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         <div
           className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto"
           style={{
-            opacity: phase === "open" || phase === "settling" ? 1 : 0,
-            transition: phase === "settling" || phase === "open"
-              ? "opacity 0.18s ease-out"
-              : "opacity 0.18s ease-in",
+            // Panel (below image) fades in; image itself is handled by FLIP
+            opacity: open ? 1 : 0,
+            transition: open ? "opacity 0.22s ease 0.18s" : "opacity 0.18s ease",
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
           }}
         >
-          {/* Image slot — measures target position for the flying image */}
+          {/* ── Image — this element is FLIP'd ── */}
           <div
-            ref={imgSlotRef}
+            ref={imgRef}
             className="relative w-full shrink-0 overflow-hidden"
-            style={{ paddingBottom: imgAspectPb, backgroundColor: "transparent" }}
+            style={{ paddingBottom: imgAspectPb }}
           >
             <div className="absolute inset-0">
               {photo.blurDataURL && (
@@ -348,7 +338,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </div>
           </div>
 
-          {/* Info panel */}
+          {/* ── Info panel ── */}
           <div className="px-4 pt-3 pb-1.5 shrink-0">
             {photo.caption && (
               <p className="text-stone-500 text-[12px] leading-snug mb-2 line-clamp-2">
@@ -382,7 +372,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </div>
           </div>
 
-          {/* Actions */}
+          {/* ── Actions ── */}
           <div className="px-3 pt-2 pb-4 flex flex-col gap-2 shrink-0">
             <button
               type="button"
@@ -436,37 +426,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           </div>
         </div>
       </div>
-
-      {/* ── Flying image — lives outside the card, animates between positions ── */}
-      {inFlight && (
-        <div style={{
-          ...flyStyle,
-          opacity: flyerOpacity,
-          transition: flyStyle.transition
-            ? `${flyStyle.transition}, opacity 0.1s ease`
-            : "opacity 0.1s ease",
-        }}>
-          {photo.blurDataURL && (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${photo.blurDataURL})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                filter: "blur(14px)",
-                transform: "scale(1.1)",
-              }}
-            />
-          )}
-          <img
-            src={photoUrl}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ zIndex: 1 }}
-          />
-        </div>
-      )}
     </>,
     document.body
   );
