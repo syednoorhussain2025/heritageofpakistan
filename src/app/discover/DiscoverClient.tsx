@@ -829,9 +829,8 @@ export default function DiscoverClient({
           paddingTop: "calc(var(--sat, 44px) + 80px)",
           transform: sheetPhoto ? "scale(0.92) translateY(16px)" : "scale(1) translateY(0px)",
           transformOrigin: "top center",
-          borderRadius: sheetPhoto ? "20px" : "0px",
-          transition: "transform 0.46s cubic-bezier(0.22,1,0.36,1), border-radius 0.46s cubic-bezier(0.22,1,0.36,1)",
-          overflow: "hidden",
+          transition: "transform 0.42s cubic-bezier(0.22,1,0.36,1)",
+          willChange: "transform",
         }}
       >
         {/* Error state */}
