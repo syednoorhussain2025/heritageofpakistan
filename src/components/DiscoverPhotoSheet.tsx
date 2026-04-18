@@ -106,6 +106,22 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Compute transformOrigin relative to the card's final centered position.
+  // The card is centered in the viewport, so card center = viewport center.
+  // We express the tile's center as an offset from the card's center.
+  const transformOrigin = (() => {
+    if (!originRect) return "center center";
+    const vpCx = window.innerWidth / 2;
+    const vpCy = window.innerHeight / 2;
+    const tileCx = originRect.left + originRect.width / 2;
+    const tileCy = originRect.top + originRect.height / 2;
+    // offset from card center, expressed as px relative to card top-left
+    // card is ~384px wide, ~auto height — use 50%+offset form
+    const dx = tileCx - vpCx;
+    const dy = tileCy - vpCy;
+    return `calc(50% + ${dx}px) calc(50% + ${dy}px)`;
+  })();
+
   // Drive visibility from photo prop
   useEffect(() => {
     if (photo) setIsVisible(true);
@@ -208,6 +224,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
+            transformOrigin,
           }}
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: isVisible ? 1 : 0.5, opacity: isVisible ? 1 : 0 }}
