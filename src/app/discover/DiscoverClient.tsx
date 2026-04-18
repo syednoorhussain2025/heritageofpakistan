@@ -319,12 +319,12 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
 
       {/* Inspiration chips — only when input is empty */}
       {!value && chips.length > 0 && (
-        <div className="flex gap-2 mt-2.5 px-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {chips.map((phrase) => (
+        <div className="flex gap-1.5 mt-2.5 px-1">
+          {chips.slice(0, 4).map((phrase) => (
             <button
               key={phrase}
               onPointerDown={() => handleChip(phrase)}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[12px] font-medium px-3 py-1 rounded-full active:bg-white/30 flex-shrink-0"
+              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium px-2.5 py-1 rounded-full active:bg-white/30 flex-1 truncate"
             >
               {phrase}
             </button>
