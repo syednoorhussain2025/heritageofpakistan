@@ -157,7 +157,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const site = photo.site;
   const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
-  const imgAspectPb = isPortrait ? "125%" : "75%";
+  const imgAspectPb = isPortrait ? "125%" : "80%";
 
   const displayThumb = thumbUrl ?? lgUrl;
 
