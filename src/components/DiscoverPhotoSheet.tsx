@@ -12,7 +12,6 @@ import { computeDedupeKey } from "@/lib/collections";
 import { motion } from "framer-motion";
 import { hapticSuccess } from "@/lib/haptics";
 import Icon from "@/components/Icon";
-import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 
 // ─── Save button ──────────────────────────────────────────────────────────────
 
@@ -89,7 +88,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const [downloading, setDownloading] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOpen = photo !== null;
-  useBottomSheetParallax(isOpen);
 
   const lgUrl = (() => {
     if (!photo) return "";

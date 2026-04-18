@@ -825,7 +825,14 @@ export default function DiscoverClient({
       {/* ── Feed ── */}
       <div
         className="px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
-        style={{ paddingTop: "calc(var(--sat, 44px) + 80px)" }}
+        style={{
+          paddingTop: "calc(var(--sat, 44px) + 80px)",
+          transform: sheetPhoto ? "scale(0.92) translateY(16px)" : "scale(1) translateY(0px)",
+          transformOrigin: "top center",
+          borderRadius: sheetPhoto ? "20px" : "0px",
+          transition: "transform 0.46s cubic-bezier(0.22,1,0.36,1), border-radius 0.46s cubic-bezier(0.22,1,0.36,1)",
+          overflow: "hidden",
+        }}
       >
         {/* Error state */}
         {loadError && photos.length === 0 && (

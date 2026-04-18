@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-const SCALE = 0.88;
-const TRANSLATE_Y = "38px";
+const SCALE = 0.92;
+const TRANSLATE_Y = "24px";
 const BORDER_RADIUS = "24px";
 const DURATION_MS = 460;
 const TRANSITION = `transform ${DURATION_MS}ms cubic-bezier(0.4,0,0.2,1), border-radius ${DURATION_MS}ms cubic-bezier(0.4,0,0.2,1), filter ${DURATION_MS}ms cubic-bezier(0.4,0,0.2,1)`;
@@ -19,7 +19,7 @@ let openCount = 0;
 let bgTimer: ReturnType<typeof setTimeout> | null = null;
 
 function applyOpen() {
-  const page = document.getElementById("heritage-page-root") ?? document.getElementById("discover-page-root");
+  const page = document.getElementById("heritage-page-root");
   const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
@@ -48,7 +48,7 @@ function applyOpen() {
 }
 
 function applyClose() {
-  const page = document.getElementById("heritage-page-root") ?? document.getElementById("discover-page-root");
+  const page = document.getElementById("heritage-page-root");
   const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
