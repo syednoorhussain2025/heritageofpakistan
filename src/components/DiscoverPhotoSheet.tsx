@@ -215,15 +215,15 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
           flexDirection: "column",
         }}
       >
-        {/* ── Photo — true aspect ratio, max 58dvh so panel always stays on screen ── */}
-        <div className="relative w-full bg-stone-200 shrink-0 overflow-hidden" style={{ maxHeight: "58dvh" }}>
-          <div
-            style={{
-              paddingBottom: photo.width && photo.height
-                ? `${(photo.height / photo.width) * 100}%`
-                : "66.66%",
-            }}
-          />
+        {/* ── Photo — 4:3 landscape, 4:5 portrait ── */}
+        <div
+          className="relative w-full bg-stone-200 shrink-0 overflow-hidden"
+          style={{
+            paddingBottom: photo.width && photo.height && photo.height > photo.width
+              ? "125%"   // 4:5 portrait
+              : "75%",   // 4:3 landscape
+          }}
+        >
           <div className="absolute inset-0">
             {photo.blurDataURL && (
               <div
