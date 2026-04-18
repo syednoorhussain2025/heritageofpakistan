@@ -19,7 +19,7 @@ let openCount = 0;
 let bgTimer: ReturnType<typeof setTimeout> | null = null;
 
 function applyOpen() {
-  const page = document.getElementById("heritage-page-root");
+  const page = document.getElementById("heritage-page-root") ?? document.getElementById("discover-page-root");
   const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
@@ -48,7 +48,7 @@ function applyOpen() {
 }
 
 function applyClose() {
-  const page = document.getElementById("heritage-page-root");
+  const page = document.getElementById("heritage-page-root") ?? document.getElementById("discover-page-root");
   const header = document.getElementById("heritage-mobile-header");
   const body = document.body;
   if (!page) return;
