@@ -249,31 +249,30 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     return photo.url;
   })();
 
-  // Card is visible once flying-in starts; hidden again when flying-out
-  const cardVisible = phase === "open" || phase === "flying-in";
-  // During flight phases the flying image covers the card's image slot
   const inFlight = phase === "flying-in" || phase === "flying-out";
 
   const modal = createPortal(
     <>
-      {/* ── Backdrop ── */}
+      {/* ── Backdrop — fades in sync with image flight ── */}
       <div
         className="fixed inset-0 z-[3500]"
         style={{
           backgroundColor: "rgba(0,0,0,0.45)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
-          opacity: phase === "open" ? 1 : 0,
-          transition: phase === "open"
-            ? "opacity 0.22s ease 0.15s"
-            : "opacity 0.22s ease",
+          opacity: phase === "idle" ? 0 : phase === "flying-out" ? 0 : 1,
+          transition: phase === "flying-in"
+            ? "opacity 0.38s ease"
+            : phase === "flying-out"
+            ? "opacity 0.32s ease"
+            : "none",
           pointerEvents: phase === "open" ? "auto" : "none",
         }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
 
-      {/* ── Card ── */}
+      {/* ── Card — only visible once image has landed ── */}
       <div
         className="fixed inset-0 z-[3510] flex items-center justify-center px-5 pointer-events-none"
         aria-modal="true"
@@ -283,29 +282,23 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         <div
           className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto"
           style={{
-            transform: cardVisible
-              ? "scale(1) translateY(0)"
-              : phase === "flying-out" ? "scale(0.94) translateY(12px)" : "scale(0.88) translateY(20px)",
-            opacity: cardVisible ? 1 : 0,
+            opacity: phase === "open" ? 1 : 0,
             transition: phase === "open"
-              ? "transform 0.32s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease-out"
-              : "transform 0.22s cubic-bezier(0.4,0,1,1), opacity 0.18s ease-in",
+              ? "opacity 0.18s ease-out"
+              : "opacity 0.18s ease-in",
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
           }}
         >
-          {/* Image slot — invisible during flight, becomes real once open */}
+          {/* Image slot — measures target position for the flying image */}
           <div
             ref={imgSlotRef}
-            className="relative w-full bg-stone-200 shrink-0 overflow-hidden"
-            style={{ paddingBottom: imgAspectPb }}
+            className="relative w-full shrink-0 overflow-hidden"
+            style={{ paddingBottom: imgAspectPb, backgroundColor: "transparent" }}
           >
-            <div
-              className="absolute inset-0"
-              style={{ opacity: inFlight ? 0 : 1, transition: "opacity 0.1s ease" }}
-            >
+            <div className="absolute inset-0">
               {photo.blurDataURL && (
                 <div
                   className="absolute inset-0"
