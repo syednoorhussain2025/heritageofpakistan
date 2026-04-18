@@ -114,7 +114,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   }, [onClose]);
 
   const handleClosePress = useCallback(() => {
-    void hapticLight();
     closeWithAnimation();
   }, [closeWithAnimation]);
 
@@ -287,8 +286,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             <button
               type="button"
               onClick={() => { void handleOpenSite(); }}
-              className="flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-white active:opacity-75 transition-opacity"
-              style={{ backgroundColor: "var(--brand-orange)" }}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M13 6l6 6-6 6" />
