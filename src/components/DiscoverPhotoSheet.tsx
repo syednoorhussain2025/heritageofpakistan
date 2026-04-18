@@ -83,118 +83,148 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState(false);       // controls backdrop + card panel visibility
-  const [animating, setAnimating] = useState(false); // true while FLIP is running
+  // "visible" = card is in DOM and positioned; we control opacity separately
+  const [visible, setVisible] = useState(false);
+  const [backdropVisible, setBackdropVisible] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const isClosingRef = useRef(false);
 
-  // The image element inside the card that we FLIP
   const imgRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Separate timers — never share between open and close
+  const openCleanupRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ── FLIP open ─────────────────────────────────────────────────────────────
+  // ── Reset when photo changes ───────────────────────────────────────────────
   useEffect(() => {
-    if (!photo || !originRect) {
-      setOpen(false);
-      setAnimating(false);
+    if (!photo) {
+      setVisible(false);
+      setBackdropVisible(false);
+      isClosingRef.current = false;
       return;
     }
+  }, [photo]);
+
+  // ── FLIP open ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!photo || !originRect) return;
+
+    // Clear any in-progress open cleanup
+    if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
+    isClosingRef.current = false;
 
     void hapticMedium();
-    setOpen(false);
-    setAnimating(true);
 
-    // Wait one rAF so the card renders at its final position, then read its rect
+    // Step 1: make card visible (opacity 1, no pointer events yet)
+    // so getBoundingClientRect() returns real values
+    setVisible(true);
+    setBackdropVisible(false);
+
+    // Step 2: after one rAF the card is painted — read destination rect
     const raf1 = requestAnimationFrame(() => {
       const el = imgRef.current;
-      if (!el) {
-        setOpen(true);
-        setAnimating(false);
+      if (!el) { setBackdropVisible(true); return; }
+
+      const dest = el.getBoundingClientRect();
+      if (dest.width === 0 || dest.height === 0) {
+        // Measurement failed — just show without animation
+        setBackdropVisible(true);
         return;
       }
 
-      const dest = el.getBoundingClientRect();
-
-      // FLIP: compute the transform that maps dest → origin
+      // Compute FLIP transform: where does dest need to start to look like origin?
       const scaleX = originRect.width  / dest.width;
       const scaleY = originRect.height / dest.height;
-      const tx     = originRect.left + originRect.width  / 2 - (dest.left + dest.width  / 2);
-      const ty     = originRect.top  + originRect.height / 2 - (dest.top  + dest.height / 2);
+      const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
+      const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
 
-      // Apply "First" state — no transition yet
+      // Apply "First" position instantly
       el.style.transition = "none";
       el.style.transformOrigin = "center center";
       el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
       el.style.borderRadius = "24px";
+      el.style.overflow = "hidden";
 
-      // Force a reflow so the browser registers the starting state
-      void el.offsetWidth;
+      // Force browser to commit that style before we start the transition
+      void el.getBoundingClientRect();
 
-      // "Last" state — animate to identity with spring easing
+      // Step 3: animate to "Last" (identity)
       const SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
-      const DUR = "0.42s";
-      el.style.transition = `transform ${DUR} ${SPRING}, border-radius ${DUR} ${SPRING}`;
-      el.style.transform = "translate(0, 0) scale(1, 1)";
+      el.style.transition = `transform 0.42s ${SPRING}, border-radius 0.42s ${SPRING}`;
+      el.style.transform = "";
       el.style.borderRadius = "";
 
-      // Show backdrop + panel while image is flying
-      setOpen(true);
+      // Backdrop fades in simultaneously
+      setBackdropVisible(true);
 
-      // Clean up inline styles after animation
-      const raf2 = requestAnimationFrame(() => {
-        closeTimerRef.current = setTimeout(() => {
-          el.style.transition = "";
-          el.style.transform = "";
-          el.style.transformOrigin = "";
-          el.style.borderRadius = "";
-          setAnimating(false);
-        }, 440);
-      });
-
-      return () => cancelAnimationFrame(raf2);
+      // Step 4: clean up inline styles after transition ends
+      openCleanupRef.current = setTimeout(() => {
+        if (isClosingRef.current) return;
+        el.style.transition = "";
+        el.style.transformOrigin = "";
+        el.style.overflow = "";
+      }, 450);
     });
 
     return () => {
       cancelAnimationFrame(raf1);
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (openCleanupRef.current) clearTimeout(openCleanupRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo?.id, originRect]);
 
   // ── FLIP close ────────────────────────────────────────────────────────────
   const closeWithAnimation = useCallback(() => {
-    if (closeTimerRef.current) return;
+    if (isClosingRef.current || closeTimerRef.current) return;
+    isClosingRef.current = true;
     void hapticLight();
+
+    // Fade backdrop immediately
+    setBackdropVisible(false);
 
     const el = imgRef.current;
     if (!el || !originRect) {
-      setOpen(false);
-      onClose();
+      setVisible(false);
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
+        onClose();
+      }, 50);
       return;
+    }
+
+    // Clear open's cleanup timer — we're taking over the element
+    if (openCleanupRef.current) {
+      clearTimeout(openCleanupRef.current);
+      openCleanupRef.current = null;
     }
 
     const dest = el.getBoundingClientRect();
     const scaleX = originRect.width  / dest.width;
     const scaleY = originRect.height / dest.height;
-    const tx     = originRect.left + originRect.width  / 2 - (dest.left + dest.width  / 2);
-    const ty     = originRect.top  + originRect.height / 2 - (dest.top  + dest.height / 2);
+    const tx = (originRect.left + originRect.width  / 2) - (dest.left + dest.width  / 2);
+    const ty = (originRect.top  + originRect.height / 2) - (dest.top  + dest.height / 2);
+
+    el.style.transition = "none";
+    el.style.transformOrigin = "center center";
+    el.style.overflow = "hidden";
+    // Force reflow so "none" is committed before we set the transition
+    void el.getBoundingClientRect();
 
     const EASE = "cubic-bezier(0.4, 0, 0.6, 1)";
-    const DUR  = "0.30s";
-    el.style.transition = `transform ${DUR} ${EASE}, border-radius ${DUR} ${EASE}`;
-    el.style.transformOrigin = "center center";
+    el.style.transition = `transform 0.30s ${EASE}, border-radius 0.30s ${EASE}`;
     el.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
     el.style.borderRadius = "24px";
 
-    setOpen(false);
-
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
+      // Reset before unmounting
       el.style.transition = "";
       el.style.transform = "";
       el.style.transformOrigin = "";
       el.style.borderRadius = "";
+      el.style.overflow = "";
+      setVisible(false);
       onClose();
     }, 320);
   }, [originRect, onClose]);
@@ -244,7 +274,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }
   }
 
-  if (!mounted || !photo) return null;
+  if (!mounted || !photo || !visible) return null;
 
   const site = photo.site;
   const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
@@ -259,22 +289,22 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const modal = createPortal(
     <>
-      {/* ── Backdrop ── */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 z-[3500]"
         style={{
           backgroundColor: "rgba(0,0,0,0.45)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
-          opacity: open ? 1 : 0,
+          opacity: backdropVisible ? 1 : 0,
           transition: "opacity 0.38s ease",
-          pointerEvents: open && !animating ? "auto" : "none",
+          pointerEvents: backdropVisible ? "auto" : "none",
         }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
 
-      {/* ── Card ── */}
+      {/* Card */}
       <div
         className="fixed inset-0 z-[3510] flex items-center justify-center px-5 pointer-events-none"
         aria-modal="true"
@@ -282,21 +312,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         aria-label="Photo details"
       >
         <div
-          className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto"
-          style={{
-            // Panel (below image) fades in; image itself is handled by FLIP
-            opacity: open ? 1 : 0,
-            transition: open ? "opacity 0.22s ease 0.18s" : "opacity 0.18s ease",
-            maxHeight: "90dvh",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
+          className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto overflow-hidden"
+          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column" }}
         >
-          {/* ── Image — this element is FLIP'd ── */}
+          {/* Image — this div is FLIP'd via imgRef */}
           <div
             ref={imgRef}
-            className="relative w-full shrink-0 overflow-hidden"
+            className="relative w-full shrink-0"
             style={{ paddingBottom: imgAspectPb }}
           >
             <div className="absolute inset-0">
@@ -338,7 +360,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </div>
           </div>
 
-          {/* ── Info panel ── */}
+          {/* Info panel */}
           <div className="px-4 pt-3 pb-1.5 shrink-0">
             {photo.caption && (
               <p className="text-stone-500 text-[12px] leading-snug mb-2 line-clamp-2">
@@ -372,7 +394,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </div>
           </div>
 
-          {/* ── Actions ── */}
+          {/* Actions */}
           <div className="px-3 pt-2 pb-4 flex flex-col gap-2 shrink-0">
             <button
               type="button"
