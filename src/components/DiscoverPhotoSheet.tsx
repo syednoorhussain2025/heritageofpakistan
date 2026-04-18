@@ -7,7 +7,66 @@ import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import CollectHeart from "@/components/CollectHeart";
+import { useCollections } from "@/components/CollectionsProvider";
+import { computeDedupeKey } from "@/lib/collections";
+import { motion } from "framer-motion";
+import { hapticSuccess } from "@/lib/haptics";
 import Icon from "@/components/Icon";
+
+// Styled "Save" button that mirrors CollectHeart logic but looks like a pill button
+function SavePhotoButton({
+  siteImageId, storagePath, imageUrl, siteId, altText,
+}: {
+  siteImageId?: string | null;
+  storagePath?: string | null;
+  imageUrl?: string | null;
+  siteId?: string | null;
+  altText?: string | null;
+}) {
+  const { collected, toggleCollect, isLoaded } = useCollections();
+  const [popping, setPopping] = useState(false);
+  const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const key = (() => {
+    try { return computeDedupeKey({ siteImageId: siteImageId ?? undefined, storagePath: storagePath ?? undefined, imageUrl: imageUrl ?? undefined }); }
+    catch { return null; }
+  })();
+
+  const saved = key ? isLoaded && collected.has(key) : false;
+
+  useEffect(() => () => { if (popTimerRef.current) clearTimeout(popTimerRef.current); }, []);
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!key) return;
+    void hapticSuccess();
+    setPopping(true);
+    if (popTimerRef.current) clearTimeout(popTimerRef.current);
+    popTimerRef.current = setTimeout(() => setPopping(false), 150);
+    await toggleCollect({ siteImageId: siteImageId ?? undefined, storagePath: storagePath ?? undefined, imageUrl: imageUrl ?? undefined, siteId: siteId ?? undefined, altText: altText ?? null, caption: null, credit: null });
+  }
+
+  return (
+    <motion.button
+      type="button"
+      onClick={handleClick}
+      animate={popping ? { scale: 1.08 } : { scale: 1 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12.5px] font-semibold transition-colors ${
+        saved
+          ? "text-white active:opacity-80"
+          : "bg-stone-100 text-stone-600 active:bg-stone-200"
+      }`}
+      style={saved ? { backgroundColor: "var(--brand-orange)" } : undefined}
+    >
+      <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+      </svg>
+      {saved ? "Saved" : "Save"}
+    </motion.button>
+  );
+}
 
 interface Props {
   photo: DiscoverPhoto | null;
@@ -19,18 +78,12 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const isOpen = photo !== null;
 
-  const sheetRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const raf1Ref = useRef<number | null>(null);
   const raf2Ref = useRef<number | null>(null);
-
-  // Swipe-to-close
-  const dragStartY = useRef<number | null>(null);
-  const dragStartTime = useRef<number>(0);
-  const dragCurrentY = useRef<number>(0);
-  const isDragging = useRef(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -61,80 +114,62 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
       closeTimerRef.current = null;
       setClosing(false);
       onClose();
-    }, 300);
+    }, 220);
   }, [onClose]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (closeTimerRef.current) return;
-    dragStartY.current = e.touches[0].clientY;
-    dragStartTime.current = Date.now();
-    dragCurrentY.current = 0;
-    isDragging.current = true;
-    const el = sheetRef.current;
-    if (el) el.style.transition = "none";
-  }, []);
+  const handleBackdropPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.target === e.currentTarget) closeWithAnimation();
+  }, [closeWithAnimation]);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current || dragStartY.current === null) return;
-    const dy = e.touches[0].clientY - dragStartY.current;
-    if (dy < 0) {
-      dragCurrentY.current = 0;
-      const el = sheetRef.current;
-      if (el) el.style.transform = "translateY(0)";
-      return;
-    }
-    dragCurrentY.current = dy;
-    const el = sheetRef.current;
-    if (el) el.style.transform = `translateY(${dy}px)`;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    const dy = dragCurrentY.current;
-    const elapsed = Date.now() - dragStartTime.current;
-    const velocity = dy / elapsed;
-
-    const el = sheetRef.current;
-    if (el) el.style.transition = "";
-
-    if (dy >= 80 || velocity >= 0.4) {
-      void hapticLight();
-      setClosing(true);
-      if (el) el.style.transform = "translateY(100%)";
-      closeTimerRef.current = setTimeout(() => {
-        closeTimerRef.current = null;
-        setClosing(false);
-        onClose();
-        if (el) el.style.transform = "";
-      }, 300);
-    } else {
-      if (el) el.style.transform = "translateY(0)";
-    }
-
-    dragStartY.current = null;
-    dragCurrentY.current = 0;
-  }, [onClose]);
-
-  async function handleViewSite() {
+  async function handleOpenSite() {
     if (!photo) return;
     void hapticMedium();
-    const regionSlug = photo.regionSlug;
-    const siteSlug = photo.siteSlug;
-    const href = regionSlug
-      ? `/heritage/${regionSlug}/${siteSlug}`
-      : `/heritage/${siteSlug}`;
+    const href = photo.regionSlug
+      ? `/heritage/${photo.regionSlug}/${photo.siteSlug}`
+      : `/heritage/${photo.siteSlug}`;
     closeWithAnimation();
     router.push(href);
   }
 
+  async function handleDownload() {
+    if (!photo || downloading) return;
+    void hapticLight();
+    setDownloading(true);
+    try {
+      const url = photo.storagePath
+        ? (() => { try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch { return photo.url; } })()
+        : photo.url;
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      const ext = blob.type.includes("png") ? "png" : "jpg";
+      a.download = `${photo.site.name.replace(/\s+/g, "-").toLowerCase()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {}
+    setDownloading(false);
+  }
+
+  async function handleShare() {
+    if (!photo) return;
+    void hapticLight();
+    const url = `${window.location.origin}/heritage/${photo.regionSlug}/${photo.siteSlug}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: photo.site.name, url }); } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(url); } catch {}
+    }
+  }
+
   if (!mounted || (!isOpen && !closing) || !photo) return null;
 
-  const sheetVisible = visible && !closing;
+  const cardVisible = visible && !closing;
   const site = photo.site;
 
-  // Best quality URL for the tapped photo
   const photoUrl = (() => {
     if (photo.storagePath) {
       try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch {}
@@ -142,39 +177,43 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
     return photo.url;
   })();
 
-  const sheet = createPortal(
+  const modal = createPortal(
     <div
-      className="lg:hidden fixed inset-x-0 bottom-0 z-[3500] touch-none"
-      style={{ top: 0, height: "100dvh" }}
+      className="fixed inset-0 z-[3500] flex items-center justify-center px-5"
       aria-modal="true"
       role="dialog"
       aria-label="Photo details"
+      onPointerDown={handleBackdropPointerDown}
+      style={{ touchAction: "none" }}
     >
-      {/* Backdrop */}
+      {/* Blurred backdrop */}
       <div
-        className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ease-out ${sheetVisible ? "opacity-100" : "opacity-0"}`}
-        onClick={closeWithAnimation}
+        className="absolute inset-0"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          opacity: cardVisible ? 1 : 0,
+          transition: "opacity 0.22s ease",
+        }}
         aria-hidden="true"
       />
 
-      {/* Sheet */}
+      {/* Card */}
       <div
-        ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="relative w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl"
+        style={{
+          transform: cardVisible ? "scale(1) translateY(0)" : "scale(0.86) translateY(28px)",
+          opacity: cardVisible ? 1 : 0,
+          transition: cardVisible
+            ? "transform 0.34s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease-out"
+            : "transform 0.18s cubic-bezier(0.4,0,1,1), opacity 0.16s ease-in",
+          willChange: "transform, opacity",
+        }}
       >
-        {/* Drag handle */}
-        <div className="w-full flex justify-center pt-3 pb-0 shrink-0" aria-hidden="true">
-          <div className="w-10 h-1 rounded-full bg-gray-300/80" />
-        </div>
-
-        {/* Photo — 4:3 aspect, rounded, with close button */}
-        <div className="relative mx-3 mt-3 rounded-2xl overflow-hidden shrink-0" style={{ paddingBottom: "75%" }}>
-          <div className="absolute inset-0">
-            {/* Blur placeholder */}
+        {/* ── Photo (3:2 ratio) ── */}
+        <div className="relative w-full" style={{ paddingBottom: "66.66%" }}>
+          <div className="absolute inset-0 bg-stone-200">
             {photo.blurDataURL && (
               <div
                 className="absolute inset-0"
@@ -182,8 +221,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
                   backgroundImage: `url(${photo.blurDataURL})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
-                  filter: "blur(12px)",
-                  transform: "scale(1.08)",
+                  filter: "blur(14px)",
+                  transform: "scale(1.1)",
                 }}
               />
             )}
@@ -193,27 +232,29 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
               className="absolute inset-0 w-full h-full object-cover"
               loading="eager"
             />
-            {/* Bottom gradient for caption legibility */}
+            {/* Caption overlay */}
             {photo.caption && (
               <div
-                className="absolute inset-x-0 bottom-0 px-3 pt-10 pb-3"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)" }}
+                className="absolute inset-x-0 bottom-0 px-3.5 pt-10 pb-3"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)" }}
               >
-                <p className="text-white text-[12px] font-medium leading-snug line-clamp-2"
-                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
+                <p className="text-white text-[11.5px] font-medium leading-snug line-clamp-2"
+                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
                   {photo.caption}
                 </p>
               </div>
             )}
-            {/* Close button */}
+            {/* Close button — top left */}
             <button
               onClick={closeWithAnimation}
-              className="absolute top-2.5 right-2.5 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full"
+              className="absolute top-2.5 left-2.5 z-40 w-8 h-8 flex items-center justify-center bg-black/45 text-white rounded-full active:bg-black/70 transition-colors"
               title="Close"
             >
-              <Icon name="times" size={15} />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+                <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
+              </svg>
             </button>
-            {/* Collect heart */}
+            {/* Collect heart — top right (overlay variant) */}
             <CollectHeart
               siteImageId={photo.id}
               storagePath={photo.storagePath}
@@ -226,53 +267,105 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({ photo, onClose }: 
           </div>
         </div>
 
-        {/* Site info */}
-        <div className="px-4 pt-3 pb-2 flex flex-col gap-2">
-          {/* Site name */}
-          <h2 className="text-[18px] font-bold text-[var(--brand-blue)] leading-tight">
+        {/* ── Site info ── */}
+        <div className="px-4 pt-3 pb-1.5">
+          <h2 className="text-[17px] font-bold text-[var(--brand-blue)] leading-tight truncate">
             {site.name}
           </h2>
-
-          {/* Badges: rating + heritage type + location */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {site.avgRating != null && (
-              <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-[11px] font-semibold inline-flex items-center gap-1">
-                <Icon name="star" size={10} />
+              <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-[10.5px] font-semibold inline-flex items-center gap-1">
+                <Icon name="star" size={9} />
                 {site.avgRating.toFixed(1)}
-                {site.reviewCount != null && site.reviewCount > 0 && (
+                {(site.reviewCount ?? 0) > 0 && (
                   <span className="opacity-80">· {site.reviewCount}</span>
                 )}
               </span>
             )}
             {site.heritageType && (
-              <span className="px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[10.5px]">
                 {site.heritageType}
               </span>
             )}
             {site.location && (
-              <span className="flex items-center gap-1 text-gray-500 text-[11px]">
-                <Icon name="map-marker-alt" size={10} />
+              <span className="flex items-center gap-0.5 text-gray-400 text-[10.5px]">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 shrink-0">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
                 {site.location}
               </span>
             )}
           </div>
+        </div>
 
-          {/* CTA */}
+        {/* ── Actions ── */}
+        <div className="px-3 pt-2 pb-4 flex flex-col gap-2">
+          {/* Primary: Open Site */}
           <button
             type="button"
-            onClick={() => { void handleViewSite(); }}
-            className="mt-1 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-[14px] active:scale-95 transition-transform"
+            onClick={() => { void handleOpenSite(); }}
+            className="flex w-full items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-[14px] text-white active:scale-[0.97] transition-transform"
+            style={{ backgroundColor: "var(--brand-orange)" }}
           >
-            View Full Site
-            <Icon name="arrow-right" size={13} />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M13 6l6 6-6 6" />
+            </svg>
+            Open Site
           </button>
+
+          {/* Secondary row */}
+          <div className="flex gap-2">
+            {/* Save Photo */}
+            <SavePhotoButton
+              siteImageId={photo.id}
+              storagePath={photo.storagePath}
+              imageUrl={photo.url}
+              siteId={site.id}
+              altText={photo.caption}
+            />
+
+            {/* Download */}
+            <button
+              type="button"
+              onClick={() => { void handleDownload(); }}
+              disabled={downloading}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-stone-100 text-stone-600 text-[12.5px] font-semibold active:bg-stone-200 transition-colors disabled:opacity-50"
+            >
+              {downloading ? (
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 3v12" />
+                </svg>
+              )}
+              Download
+            </button>
+
+            {/* Share */}
+            <button
+              type="button"
+              onClick={() => { void handleShare(); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-stone-100 text-stone-600 text-[12.5px] font-semibold active:bg-stone-200 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              Share
+            </button>
+          </div>
         </div>
       </div>
     </div>,
     document.body
   );
 
-  return sheet;
+  return modal;
 });
 
 export default DiscoverPhotoSheet;
