@@ -83,19 +83,19 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [phase, setPhase] = useState<"idle" | "flying-in" | "open" | "flying-out">("idle");
+  // "settling" = flight done, fading flying image out over the now-visible card image
+  const [phase, setPhase] = useState<"idle" | "flying-in" | "settling" | "open" | "flying-out">("idle");
+  const [flyerOpacity, setFlyerOpacity] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const isOpen = photo !== null;
 
-  // Ref to the image slot inside the card — we read its rect to know where to fly to
   const imgSlotRef = useRef<HTMLDivElement>(null);
-  // Stored target rect (where the flying image should land)
   const targetRectRef = useRef<DOMRect | null>(null);
-  // Current flying image style
   const [flyStyle, setFlyStyle] = useState<React.CSSProperties>({});
 
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -145,9 +145,19 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           transition: "left 0.38s cubic-bezier(0.22,1,0.36,1), top 0.38s cubic-bezier(0.22,1,0.36,1), width 0.38s cubic-bezier(0.22,1,0.36,1), height 0.38s cubic-bezier(0.22,1,0.36,1), border-radius 0.38s cubic-bezier(0.22,1,0.36,1)",
           willChange: "left, top, width, height, border-radius",
         });
-        // Phase 3: after transition completes, settle into open
+        // Phase 3: flight done — enter "settling": card becomes visible, flyer fades out
         phaseTimerRef.current = setTimeout(() => {
-          setPhase("open");
+          setPhase("settling");
+          setFlyerOpacity(1);
+          // Give card image one rAF to paint, then fade the flyer out
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setFlyerOpacity(0);
+              settleTimerRef.current = setTimeout(() => {
+                setPhase("open");
+              }, 100);
+            });
+          });
         }, 400);
       });
     });
@@ -155,6 +165,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     return () => {
       cancelAnimationFrame(raf);
       if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, originRect?.left, originRect?.top, originRect?.width, originRect?.height]);
@@ -249,7 +260,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     return photo.url;
   })();
 
-  const inFlight = phase === "flying-in" || phase === "flying-out";
+  const inFlight = phase === "flying-in" || phase === "flying-out" || phase === "settling";
 
   const modal = createPortal(
     <>
@@ -266,7 +277,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             : phase === "flying-out"
             ? "opacity 0.32s ease"
             : "none",
-          pointerEvents: phase === "open" ? "auto" : "none",
+          pointerEvents: phase === "open" || phase === "settling" ? "auto" : "none",
         }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
@@ -282,8 +293,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         <div
           className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto"
           style={{
-            opacity: phase === "open" ? 1 : 0,
-            transition: phase === "open"
+            opacity: phase === "open" || phase === "settling" ? 1 : 0,
+            transition: phase === "settling" || phase === "open"
               ? "opacity 0.18s ease-out"
               : "opacity 0.18s ease-in",
             maxHeight: "90dvh",
@@ -428,7 +439,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
       {/* ── Flying image — lives outside the card, animates between positions ── */}
       {inFlight && (
-        <div style={flyStyle}>
+        <div style={{
+          ...flyStyle,
+          opacity: flyerOpacity,
+          transition: flyStyle.transition
+            ? `${flyStyle.transition}, opacity 0.1s ease`
+            : "opacity 0.1s ease",
+        }}>
           {photo.blurDataURL && (
             <div
               className="absolute inset-0"
