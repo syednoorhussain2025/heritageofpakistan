@@ -110,7 +110,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       onClose();
-    }, 260);
+    }, 320);
   }, [onClose]);
 
   const handleClosePress = useCallback(() => {
@@ -166,7 +166,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const displayThumb = thumbUrl ?? lgUrl;
 
-  const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.9 } as const;
+  const OPEN_TRANSITION  = { type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] } as const;
+  const CLOSE_TRANSITION = { type: "tween", duration: 0.30, ease: [0.4, 0, 0.6, 1] } as const;
 
   const modal = createPortal(
     <>
@@ -180,7 +181,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: isOpen ? 1 : 0 }}
-        transition={{ duration: 0.26, ease: "easeOut" }}
+        transition={isOpen ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.28, ease: [0.4, 0, 1, 1] }}
         onPointerDown={handleClosePress}
         aria-hidden="true"
       />
@@ -200,9 +201,9 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             flexDirection: "column",
             transformOrigin,
           }}
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: isOpen ? 1 : 0.4, opacity: isOpen ? 1 : 0 }}
-          transition={SPRING}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: isOpen ? 1 : 0.95, opacity: isOpen ? 1 : 0 }}
+          transition={isOpen ? OPEN_TRANSITION : CLOSE_TRANSITION}
         >
           {/* Image */}
           <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
