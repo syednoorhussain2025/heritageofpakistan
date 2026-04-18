@@ -832,7 +832,7 @@ export default function DiscoverClient({
           WebkitBackdropFilter: "blur(4px)",
           opacity: sheetVisible ? 1 : 0,
           transition: sheetVisible
-            ? "opacity 420ms cubic-bezier(0.22,1,0.36,1)"
+            ? "opacity 420ms cubic-bezier(0.4,0,0.2,1)"
             : "opacity 380ms cubic-bezier(0.64,0,0.78,0)",
           willChange: "opacity",
         }}
