@@ -708,7 +708,7 @@ export default function DiscoverClient({
         <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "16px" }}>
           {/* Title row — always fixed height, never shifts */}
           <div className="flex items-center justify-between px-4 pb-1">
-            <div className="w-10" />
+            <div className="w-[58px]" />
             <div className="flex-1 text-center">
               <h1
                 className="text-white font-bold tracking-tight"
