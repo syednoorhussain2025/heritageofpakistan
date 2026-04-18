@@ -823,15 +823,25 @@ export default function DiscoverClient({
         )}
       </div>
 
+      {/* ── Popup dim overlay — opacity-only for GPU compositing ── */}
+      <div
+        className="fixed inset-0 z-[3400] pointer-events-none lg:hidden"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.3)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+          opacity: sheetVisible ? 1 : 0,
+          transition: sheetVisible
+            ? "opacity 420ms cubic-bezier(0.22,1,0.36,1)"
+            : "opacity 380ms cubic-bezier(0.64,0,0.78,0)",
+          willChange: "opacity",
+        }}
+      />
+
       {/* ── Feed ── */}
       <div
         className="px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
-        style={{
-          paddingTop: "calc(var(--sat, 44px) + 80px)",
-          filter: sheetVisible ? "brightness(0.75) blur(0.6px)" : "brightness(1) blur(0px)",
-          transition: sheetVisible ? "filter 420ms cubic-bezier(0.22,1,0.36,1)" : "filter 380ms cubic-bezier(0.64,0,0.78,0)",
-          willChange: "filter",
-        }}
+        style={{ paddingTop: "calc(var(--sat, 44px) + 80px)" }}
       >
         {/* Error state */}
         {loadError && photos.length === 0 && (
