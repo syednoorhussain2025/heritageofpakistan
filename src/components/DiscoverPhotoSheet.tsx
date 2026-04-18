@@ -105,7 +105,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       onClose();
-    }, 280);
+    }, 380);
   }, [onClose]);
 
   const handleClosePress = useCallback(() => {
@@ -162,7 +162,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const displayThumb = thumbUrl ?? lgUrl;
 
   const OPEN_TRANSITION  = { type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] } as const;
-  const CLOSE_TRANSITION = { type: "tween", duration: 0.28, ease: [0.4, 0, 0.6, 1] } as const;
+  const CLOSE_TRANSITION = { type: "tween", duration: 0.38, ease: [0.64, 0, 0.78, 0] } as const;
 
   const modal = createPortal(
     <>
@@ -176,7 +176,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: isOpen ? 1 : 0 }}
-        transition={isOpen ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.28, ease: [0.4, 0, 1, 1] }}
+        transition={isOpen ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.38, ease: [0.64, 0, 0.78, 0] }}
         onPointerDown={handleClosePress}
         aria-hidden="true"
       />

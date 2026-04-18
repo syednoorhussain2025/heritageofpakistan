@@ -828,7 +828,7 @@ export default function DiscoverClient({
         style={{
           paddingTop: "calc(var(--sat, 44px) + 80px)",
           filter: sheetPhoto ? "brightness(0.75) blur(0.6px)" : "brightness(1) blur(0px)",
-          transition: "filter 460ms cubic-bezier(0.4,0,0.2,1)",
+          transition: sheetPhoto ? "filter 420ms cubic-bezier(0.22,1,0.36,1)" : "filter 380ms cubic-bezier(0.64,0,0.78,0)",
           willChange: "filter",
         }}
       >
