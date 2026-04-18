@@ -71,6 +71,7 @@ function SavePhotoButton({
 export interface DiscoverPhotoSheetProps {
   photo: DiscoverPhoto | null;
   originRect: DOMRect | null;
+  thumbUrl?: string | null;
   onClose: () => void;
 }
 
@@ -79,6 +80,7 @@ export interface DiscoverPhotoSheetProps {
 const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   photo,
   originRect,
+  thumbUrl,
   onClose,
 }: DiscoverPhotoSheetProps) {
   const router = useRouter();
@@ -86,6 +88,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const [downloading, setDownloading] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOpen = photo !== null;
+
+  const lgUrl = (() => {
+    if (!photo) return "";
+    if (photo.storagePath) {
+      try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch {}
+    }
+    return photo.url;
+  })();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -119,9 +129,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     void hapticLight();
     setDownloading(true);
     try {
-      const url = photo.storagePath
-        ? (() => { try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch { return photo.url; } })()
-        : photo.url;
+      const url = lgUrl;
       const res = await fetch(url);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -153,12 +161,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const isPortrait = !!(photo.width && photo.height && photo.height > photo.width);
   const imgAspectPb = isPortrait ? "125%" : "75%";
 
-  const photoUrl = (() => {
-    if (photo.storagePath) {
-      try { return getVariantPublicUrl(photo.storagePath, "lg"); } catch {}
-    }
-    return photo.url;
-  })();
+  const displayThumb = thumbUrl ?? lgUrl;
 
   const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.9 } as const;
 
@@ -201,24 +204,25 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           {/* Image */}
           <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
             <div className="absolute inset-0">
-              {photo.blurDataURL && (
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage: `url(${photo.blurDataURL})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    filter: "blur(14px)",
-                    transform: "scale(1.1)",
-                  }}
-                />
-              )}
+              {/* Thumb shown instantly (already in browser cache from tile) */}
               <img
-                src={photoUrl}
+                src={displayThumb}
                 alt={photo.caption ?? site.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
+              {/* lg variant fades in on top once loaded */}
+              {lgUrl !== displayThumb && (
+                <img
+                  src={lgUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ opacity: 0, transition: "opacity 0.35s ease" }}
+                  loading="eager"
+                  onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+                />
+              )}
               <button
                 onClick={closeWithAnimation}
                 className="absolute top-2.5 left-2.5 z-40 w-8 h-8 flex items-center justify-center bg-black/45 text-white rounded-full active:bg-black/70 transition-colors"
