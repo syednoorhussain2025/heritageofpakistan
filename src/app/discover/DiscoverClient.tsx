@@ -827,10 +827,11 @@ export default function DiscoverClient({
         className="px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
         style={{
           paddingTop: "calc(var(--sat, 44px) + 80px)",
-          transform: sheetPhoto ? "scale(0.92) translateY(16px)" : "scale(1) translateY(0px)",
+          transform: sheetPhoto ? "scale(0.88) translateY(38px)" : "scale(1) translateY(0px)",
           transformOrigin: "top center",
-          transition: "transform 0.42s cubic-bezier(0.22,1,0.36,1)",
-          willChange: "transform",
+          filter: sheetPhoto ? "brightness(0.75) blur(0.6px)" : "brightness(1) blur(0px)",
+          transition: "transform 460ms cubic-bezier(0.4,0,0.2,1), filter 460ms cubic-bezier(0.4,0,0.2,1)",
+          willChange: "transform, filter",
         }}
       >
         {/* Error state */}
