@@ -105,7 +105,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       onClose();
-    }, 320);
+    }, 280);
   }, [onClose]);
 
   const handleClosePress = useCallback(() => {
@@ -162,7 +162,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const displayThumb = thumbUrl ?? lgUrl;
 
   const OPEN_TRANSITION  = { type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] } as const;
-  const CLOSE_TRANSITION = { type: "tween", duration: 0.30, ease: [0.4, 0, 0.6, 1] } as const;
+  const CLOSE_TRANSITION = { type: "tween", duration: 0.28, ease: [0.4, 0, 0.6, 1] } as const;
 
   const modal = createPortal(
     <>
