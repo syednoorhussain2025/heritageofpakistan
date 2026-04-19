@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import NextImage from "next/image";
-import { motion, AnimatePresence, PanInfo, useAnimate } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   TransformWrapper,
   TransformComponent,
@@ -290,53 +290,9 @@ export function Lightbox({
     preload(safeCurrentIndex - 1);
   }, [safeCurrentIndex, photos, markSlideLoaded]);
 
-  // Shared-element expand: imperatively animated overlay
-  const [overlayScope, animateOverlay] = useAnimate();
   const imgContainerRef = useRef<HTMLDivElement>(null);
-  const expandDoneRef = useRef(!originRect);
-  const imageLoadedRef = useRef(false);
-  const overlayHiddenRef = useRef(false);
-
-  const tryHideOverlay = useCallback(() => {
-    if (!overlayHiddenRef.current && expandDoneRef.current && imageLoadedRef.current) {
-      overlayHiddenRef.current = true;
-      // Reveal image container and hide overlay in the same frame — no gap
-      if (imgContainerRef.current) imgContainerRef.current.style.visibility = "visible";
-      if (overlayScope.current) overlayScope.current.style.display = "none";
-    }
-  }, [overlayScope]);
-
-  useEffect(() => {
-    if (!originRect || !originThumb) return;
-
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const isMd = vw >= 768;
-    const isLg = vw >= 1024;
-    const nw = (photo?.width && photo.width > 0) ? photo.width : 4;
-    const nh = (photo?.height && photo.height > 0) ? photo.height : 3;
-    const pad = isMd ? PADDING : 16;
-    const maxH = vh * ((isLg ? MAX_VH.lg : isMd ? MAX_VH.md : MAX_VH.base) / 100);
-    const usableW = isMd ? vw - pad * 2 - (PANEL_W + GAP) : vw - pad * 2;
-    const scale = Math.min(usableW / nw, maxH / nh);
-    const imgW = nw * scale;
-    const imgH = nh * scale;
-    const totalW = isMd ? imgW + GAP + PANEL_W : imgW;
-    const imgLeft = Math.round((vw - totalW) / 2);
-    const imgTop = Math.round((vh - imgH) / 2);
-
-    void animateOverlay(overlayScope.current, {
-      left: imgLeft,
-      top: imgTop,
-      width: imgW,
-      height: imgH,
-      borderRadius: 0,
-    }, { duration: 0.52, ease: [0.32, 0.72, 0, 1] }).then(() => {
-      expandDoneRef.current = true;
-      tryHideOverlay();
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const overlayHiddenRef = useRef(true);
+  const tryHideOverlay = useCallback(() => {}, []);
   // Tracks if the hi-res image has finished decoding to fade it in
   const [isHighResReady, setIsHighResReady] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -810,52 +766,28 @@ export function Lightbox({
   ======================================================= */
   if (!photos.length) return null;
 
+  const lightboxTransformOrigin = (() => {
+    if (!originRect) return "center center";
+    const vpCx = window.innerWidth / 2;
+    const vpCy = window.innerHeight / 2;
+    const tileCx = originRect.left + originRect.width / 2;
+    const tileCy = originRect.top + originRect.height / 2;
+    return `${tileCx}px ${tileCy}px`;
+  })();
+
   return (
     <AnimatePresence>
       <motion.div
         ref={rootOverlayRef}
         className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
-        initial={{ opacity: 1 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        style={{ backgroundColor: "transparent" }}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.5 }}
+        transition={{ type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        style={{ backgroundColor: "rgb(5,5,5)", transformOrigin: lightboxTransformOrigin }}
         onClick={onClose}
         onPanEnd={isMdUp ? onSwipe : undefined}
       >
-        {/* ── Black background fades in independently ── */}
-        <motion.div
-          className="absolute inset-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          style={{ backgroundColor: "rgb(5,5,5)", zIndex: 0 }}
-        />
-
-        {/* ── Shared-element thumbnail overlay — imperatively animated ── */}
-        {originRect && originThumb && (
-          <div
-            ref={overlayScope}
-            className="fixed overflow-hidden pointer-events-none"
-            style={{
-              zIndex: 50,
-              left: originRect.left,
-              top: originRect.top,
-              width: originRect.width,
-              height: originRect.height,
-              borderRadius: 0,
-              opacity: 1,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={originThumb}
-              alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          </div>
-        )}
 
         {/* ── Real lightbox content ── */}
 
@@ -904,7 +836,7 @@ export function Lightbox({
                       className={`absolute overflow-hidden shadow-2xl pointer-events-auto ${isZoomed ? "z-50" : "z-10"}`}
                       style={{
                         backgroundColor: "transparent",
-                        visibility: isActive && originRect && !overlayHiddenRef.current ? "hidden" : "visible",
+                        visibility: "visible",
                         left: isZoomed && isActive ? 0 : slideLeft,
                         top: isZoomed && isActive ? 0 : slideTop,
                         width: isZoomed && isActive ? "100%" : slideW,
@@ -980,14 +912,10 @@ export function Lightbox({
                                 priority
                                 onLoadingComplete={() => {
                                   setIsImageLoaded(true);
-                                  imageLoadedRef.current = true;
-                                  tryHideOverlay();
                                   markSlideLoaded(idx);
                                 }}
                                 onError={() => {
                                   setIsImageLoaded(true);
-                                  imageLoadedRef.current = true;
-                                  tryHideOverlay();
                                   markSlideLoaded(idx);
                                 }}
                               />
@@ -1304,16 +1232,8 @@ export function Lightbox({
                       className="object-contain select-none"
                       draggable={false}
                       priority
-                      onLoadingComplete={() => {
-                        setIsImageLoaded(true);
-                        imageLoadedRef.current = true;
-                        tryHideOverlay();
-                      }}
-                      onError={() => {
-                        setIsImageLoaded(true);
-                        imageLoadedRef.current = true;
-                        tryHideOverlay();
-                      }}
+                      onLoadingComplete={() => { setIsImageLoaded(true); }}
+                      onError={() => { setIsImageLoaded(true); }}
                     />
 
                     {showHighRes && (
