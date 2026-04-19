@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     backgroundColor: '#f5f2ef',
     allowsLinkPreview: false,
   },
@@ -24,7 +24,6 @@ const config: CapacitorConfig = {
   plugins: {
     Keyboard: {
       resize: "None" as any,
-      style: "dark" as any,
     },
     SplashScreen: {
       launchShowDuration: 2000,
