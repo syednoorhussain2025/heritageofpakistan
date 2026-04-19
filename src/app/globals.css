@@ -22,11 +22,6 @@ html {
   padding: 0;
   background: var(--brand-very-light-grey);
   overflow-y: auto;
-  overscroll-behavior: none;
-}
-
-body {
-  overscroll-behavior: none;
 }
 
 /* Safe area insets for Capacitor iOS edge-to-edge */

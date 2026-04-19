@@ -76,7 +76,7 @@ export default async function RootLayout({
             instead of panning/scrolling it, preventing modals from being pushed up. */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
         />
         {/* iOS PWA: launch without browser chrome (enables display-mode: standalone) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
