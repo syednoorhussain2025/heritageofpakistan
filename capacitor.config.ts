@@ -23,9 +23,8 @@ const config: CapacitorConfig = {
 
   plugins: {
     Keyboard: {
-      resize: "None" as any,
+      resize: "Body" as any,
       style: "dark" as any,
-      scrollPadding: false,
       accessoryBarVisible: false,
     },
     SplashScreen: {

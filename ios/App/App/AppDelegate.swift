@@ -8,39 +8,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
-        setupKeyboardTransparency()
         return true
-    }
-
-    private func setupKeyboardTransparency() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(fixKeyboardBackground),
-            name: UIResponder.keyboardWillShowNotification,
-            object: nil
-        )
-    }
-
-    @objc private func fixKeyboardBackground() {
-        // The keyboard lives in its own UIRemoteKeyboardWindow — walk every window
-        for window in UIApplication.shared.windows {
-            clearInputBackground(view: window)
-        }
-    }
-
-    private func clearInputBackground(view: UIView) {
-        let name = String(describing: type(of: view))
-        if name.contains("InputSet") || name.contains("UIKBInputBackdrop") {
-            view.backgroundColor = .clear
-            view.subviews.forEach { $0.backgroundColor = .clear }
-        }
-        for sub in view.subviews {
-            clearInputBackground(view: sub)
-        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -62,9 +33,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func disableWebViewBounce() {
         guard let bridge = (window?.rootViewController as? CAPBridgeViewController)?.bridge else { return }
-        let appBg = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
-        bridge.webView?.backgroundColor = appBg
-        bridge.webView?.scrollView.backgroundColor = appBg
         bridge.webView?.scrollView.bounces = false
         bridge.webView?.scrollView.alwaysBounceVertical = false
         bridge.webView?.scrollView.alwaysBounceHorizontal = false
