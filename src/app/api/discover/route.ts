@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
     .from("site_images")
     .select("id, storage_path, alt_text, caption, credit, width, height, blur_hash, blur_data_url, site_id")
     .in("site_id", pageSiteIds)
-    .not("storage_path", "is", null);
+    .not("storage_path", "is", null)
+    .or("discover_eligible.is.null,discover_eligible.eq.true");
 
   // images may be empty if all page sites only have cover_photo_url — that's fine, fallback handles it
   if (imgError) return NextResponse.json([]);

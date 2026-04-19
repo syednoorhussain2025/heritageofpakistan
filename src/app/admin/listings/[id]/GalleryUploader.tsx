@@ -11,6 +11,7 @@ import {
   FaSearchPlus,
 } from "react-icons/fa";
 import { Lightbox } from "@/components/ui/Lightbox";
+import { DiscoverySelectionModal } from "./DiscoverySelectionModal";
 import {
   generateAltAndCaptionsAction,
   generateTagsAction,
@@ -139,6 +140,7 @@ type Row = {
   height?: number | null;
   blur_hash?: string | null;
   blur_data_url?: string | null;
+  discover_eligible?: boolean | null;
   publicUrl?: string | null;
 };
 
@@ -386,6 +388,9 @@ export default function GalleryUploader({
   // Lightbox
   const [lbOpen, setLbOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
+
+  // Discovery Selection modal
+  const [discoveryModalOpen, setDiscoveryModalOpen] = useState(false);
 
   const [siteTitle, setSiteTitle] = useState<string>("");
 
@@ -1185,15 +1190,40 @@ export default function GalleryUploader({
           className="text-sm text-gray-700 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500"
         />
         {rows.length > 0 && (
-          <button
-            type="button"
-            onClick={openDeleteAllModal}
-            className="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-sm font-medium"
-          >
-            Delete All
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setDiscoveryModalOpen(true)}
+              className="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-sm font-medium"
+            >
+              Discovery Selection
+            </button>
+            <button
+              type="button"
+              onClick={openDeleteAllModal}
+              className="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-sm font-medium"
+            >
+              Delete All
+            </button>
+          </>
         )}
       </div>
+
+      {/* Discovery Selection modal */}
+      {discoveryModalOpen && (
+        <DiscoverySelectionModal
+          rows={rows}
+          siteId={siteId}
+          onClose={(updated) => {
+            // Apply updated eligible state back to rows
+            setRows((prev) => prev.map((r) => ({
+              ...r,
+              discover_eligible: updated[r.id] !== undefined ? updated[r.id] : r.discover_eligible,
+            })));
+            setDiscoveryModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Page load popup */}
       {loadPopupOpen && (
