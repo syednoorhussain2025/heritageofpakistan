@@ -223,34 +223,33 @@ function SkeletonTile({ aspectClass }: { aspectClass: string }) {
 
 // ─── Inline search bar ────────────────────────────────────────────────────────
 
-// Cached inspirations — fetched once per session
+// Cached inspirations — fetched once per session, eagerly on mount
 let cachedInspirations: string[] = [];
+let inspirationsFetchStarted = false;
+
+function prefetchInspirations() {
+  if (inspirationsFetchStarted) return;
+  inspirationsFetchStarted = true;
+  fetch("/api/search/inspirations")
+    .then((r) => r.json())
+    .then((data: { phrase: string }[]) => {
+      cachedInspirations = data.map((d) => d.phrase);
+    })
+    .catch(() => {});
+}
 
 function pickRandom(arr: string[], n: number): string[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, n);
 }
 
-function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => void; onClose: () => void; isOpen: boolean }) {
+function SearchBar({ onSearch, onClose, isOpen, chips }: { onSearch: (q: string) => void; onClose: () => void; isOpen: boolean; chips: string[] }) {
   const [value, setValue] = useState("");
-  const [chips, setChips] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const t = setTimeout(() => inputRef.current?.focus(), 40);
-    // Pick 4 random chips each time search opens
-    if (cachedInspirations.length > 0) {
-      setChips(pickRandom(cachedInspirations, 4));
-    } else {
-      fetch("/api/search/inspirations")
-        .then((r) => r.json())
-        .then((data: { phrase: string }[]) => {
-          cachedInspirations = data.map((d) => d.phrase);
-          setChips(pickRandom(cachedInspirations, 4));
-        })
-        .catch(() => {});
-    }
     return () => clearTimeout(t);
   }, [isOpen]);
 
@@ -310,27 +309,33 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
         )}
       </div>
 
-      {/* Inspiration chips — only when input is empty */}
-      {!value && (
-        <div
-          className="flex gap-1.5 mt-2.5 px-1"
-          style={{
-            opacity: chips.length > 0 ? 1 : 0,
-            transition: "opacity 0.35s ease-out",
-            pointerEvents: chips.length > 0 ? "auto" : "none",
-          }}
-        >
-          {chips.slice(0, 3).map((phrase) => (
-            <button
-              key={phrase}
-              onPointerDown={() => handleChip(phrase)}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium px-2.5 py-1 rounded-full active:bg-white/30 flex-1 truncate"
-            >
-              {phrase}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Inspiration chips — always in DOM to avoid layout shift; opacity controls visibility */}
+      <div
+        className="flex gap-1.5 mt-2.5 px-1"
+        style={{
+          opacity: !value && chips.length > 0 ? 1 : 0,
+          transition: "opacity 0.25s ease-out",
+          pointerEvents: !value && chips.length > 0 ? "auto" : "none",
+        }}
+      >
+        {chips.slice(0, 3).map((phrase) => (
+          <button
+            key={phrase}
+            onPointerDown={() => handleChip(phrase)}
+            className="border border-white/30 text-white text-[11px] font-medium px-2.5 py-1 rounded-full active:bg-white/30 flex-1 truncate"
+            style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+          >
+            {phrase}
+          </button>
+        ))}
+        {chips.length === 0 && (
+          <>
+            <div className="flex-1 h-[26px] rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
+            <div className="flex-1 h-[26px] rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
+            <div className="flex-1 h-[26px] rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -412,6 +417,7 @@ export default function DiscoverClient({
   const [searchOpen, setSearchOpen]     = useState(false);
   const [searchQuery, setSearchQuery]   = useState("");
   const [searchActive, setSearchActive] = useState(false);
+  const [searchChips, setSearchChips]   = useState<string[]>(() => pickRandom(cachedInspirations, 3));
   const [searchPhotosArr, setSearchPhotosArr] = useState<DiscoverPhoto[]>([]);
   const [searchLoading, setSearchLoading]     = useState(false);
   const [searchOffset, setSearchOffset]       = useState(0);
@@ -536,6 +542,18 @@ export default function DiscoverClient({
   useEffect(() => {
     seedRef.current = getOrCreateSeed();
     if (initialPhotos.length === 0) void loadMore();
+    // Eagerly prefetch inspirations so chips are instant on first search open
+    if (cachedInspirations.length === 0) {
+      prefetchInspirations();
+      // Poll briefly until data arrives, then set chips
+      const interval = setInterval(() => {
+        if (cachedInspirations.length > 0) {
+          setSearchChips(pickRandom(cachedInspirations, 3));
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => clearInterval(interval);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -723,7 +741,7 @@ export default function DiscoverClient({
                 </button>
               ) : (
                 <button
-                  onClick={() => { void hapticLight(); setSearchOpen((v) => !v); }}
+                  onClick={() => { void hapticLight(); if (cachedInspirations.length > 0) setSearchChips(pickRandom(cachedInspirations, 3)); setSearchOpen((v) => !v); }}
                   style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50"
                 >
@@ -757,7 +775,7 @@ export default function DiscoverClient({
                 pointerEvents: searchOpen ? "auto" : "none",
               }}
             >
-              <SearchBar key={searchOpen ? "open" : "closed"} isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+              <SearchBar key={searchOpen ? "open" : "closed"} isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} chips={searchChips} />
             </div>
           </div>
         </div>
@@ -796,7 +814,7 @@ export default function DiscoverClient({
         </div>
         {searchOpen ? (
           <div className="w-80">
-            <SearchBar isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} />
+            <SearchBar isOpen={searchOpen} onSearch={handleSearch} onClose={() => setSearchOpen(false)} chips={searchChips} />
           </div>
         ) : (
           <button
