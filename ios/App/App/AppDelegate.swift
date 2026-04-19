@@ -11,45 +11,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         return true
     }
 
-    private var keyboardCoverView: UIView?
-
-    @objc private func keyboardWillShow(notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
-              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-              let window = self.window else { return }
-
-        keyboardCoverView?.removeFromSuperview()
-        let cover = UIView(frame: keyboardFrame)
-        cover.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
-        cover.isUserInteractionEnabled = false
-        cover.alpha = 0
-        window.addSubview(cover)
-        keyboardCoverView = cover
-
-        UIView.animate(withDuration: duration) {
-            cover.alpha = 1
-        }
-    }
-
-    @objc private func keyboardWillHide(notification: Notification) {
-        guard let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else {
-            keyboardCoverView?.removeFromSuperview()
-            keyboardCoverView = nil
-            return
-        }
-        UIView.animate(withDuration: duration, animations: {
-            self.keyboardCoverView?.alpha = 0
-        }, completion: { _ in
-            self.keyboardCoverView?.removeFromSuperview()
-            self.keyboardCoverView = nil
-        })
-    }
 
     func applicationWillResignActive(_ application: UIApplication) {
         // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
