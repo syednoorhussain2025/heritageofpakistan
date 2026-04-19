@@ -89,6 +89,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const [mounted, setMounted] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPhotoRef = useRef<typeof photo>(null);
 
@@ -105,6 +107,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   })();
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+  }, []);
 
   // Compute transformOrigin relative to the card's final centered position.
   // The card is centered in the viewport, so card center = viewport center.
@@ -173,6 +182,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         const { Share } = await import("@capacitor/share");
         const written = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
         await Share.share({ title: activePhoto.site.name, files: [written.uri] });
+        showToast("Saved to Photos");
       } else {
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -389,6 +399,21 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           </div>
         </motion.div>
       </div>
+
+      {/* Toast */}
+      <motion.div
+        className="fixed bottom-8 inset-x-0 z-[3600] flex justify-center pointer-events-none"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: toast ? 1 : 0, y: toast ? 0 : 24 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      >
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-stone-900/90 text-white text-[13px] font-semibold shadow-xl">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 text-green-400 shrink-0">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          {toast}
+        </div>
+      </motion.div>
     </>,
     document.body
   );
