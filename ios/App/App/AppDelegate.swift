@@ -34,9 +34,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func disableWebViewBounce() {
         guard let bridge = (window?.rootViewController as? CAPBridgeViewController)?.bridge else { return }
-        bridge.webView?.scrollView.bounces = false
-        bridge.webView?.scrollView.alwaysBounceVertical = false
-        bridge.webView?.scrollView.alwaysBounceHorizontal = false
+        let sv = bridge.webView?.scrollView
+        sv?.bounces = false
+        sv?.alwaysBounceVertical = false
+        sv?.alwaysBounceHorizontal = false
+        // Prevent iOS from shrinking the webview or adjusting insets when the keyboard appears
+        sv?.contentInsetAdjustmentBehavior = .never
+        if #available(iOS 16.0, *) {
+            bridge.webView?.findInteraction?.isEnabled = false
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
