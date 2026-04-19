@@ -8,7 +8,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Match window background to app bg — prevents white flash behind webview when keyboard appears
+        window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
@@ -37,6 +38,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         bridge.webView?.scrollView.bounces = false
         bridge.webView?.scrollView.alwaysBounceVertical = false
         bridge.webView?.scrollView.alwaysBounceHorizontal = false
+        // Lock window background so the gap behind the webview is invisible
+        window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
