@@ -153,21 +153,36 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   }
 
   async function handleDownload() {
-    if (!photo || downloading) return;
+    if (!activePhoto || downloading) return;
     void hapticLight();
     setDownloading(true);
     try {
-      const url = lgUrl;
-      const res = await fetch(url);
+      const res = await fetch(lgUrl);
       const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `${activePhoto?.site.name.replace(/\s+/g, "-").toLowerCase() ?? "photo"}.${blob.type.includes("png") ? "png" : "jpg"}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
+      const ext = blob.type.includes("png") ? "png" : "jpg";
+      const fileName = `${activePhoto.site.name.replace(/\s+/g, "-").toLowerCase()}.${ext}`;
+      const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+      if (isNative) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const { Filesystem, Directory } = await import("@capacitor/filesystem");
+        const { Share } = await import("@capacitor/share");
+        const written = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+        await Share.share({ title: activePhoto.site.name, files: [written.uri] });
+      } else {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }
     } catch {}
     setDownloading(false);
   }
@@ -175,11 +190,21 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   async function handleShare() {
     if (!activePhoto) return;
     void hapticLight();
-    const url = `${window.location.origin}/heritage/${activePhoto.regionSlug}/${activePhoto.siteSlug}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: activePhoto.site.name, url }); } catch {}
-    } else {
-      try { await navigator.clipboard.writeText(url); } catch {}
+    const siteUrl = `${window.location.origin}/heritage/${activePhoto.regionSlug ? `${activePhoto.regionSlug}/` : ""}${activePhoto.siteSlug}`;
+    const shareData = {
+      title: activePhoto.site.name,
+      text: activePhoto.caption ? `${activePhoto.caption} — ${activePhoto.site.name}` : activePhoto.site.name,
+      url: siteUrl,
+    };
+    try {
+      const { Share } = await import("@capacitor/share");
+      await Share.share(shareData);
+    } catch {
+      if (navigator.share) {
+        try { await navigator.share(shareData); } catch {}
+      } else {
+        try { await navigator.clipboard.writeText(siteUrl); } catch {}
+      }
     }
   }
 
