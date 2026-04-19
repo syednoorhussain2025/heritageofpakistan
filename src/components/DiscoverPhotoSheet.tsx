@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
-import CollectHeart from "@/components/CollectHeart";
 import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import { motion } from "framer-motion";
@@ -286,15 +285,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                   onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
                 />
               )}
-              <CollectHeart
-                siteImageId={activePhoto.id}
-                storagePath={activePhoto.storagePath}
-                imageUrl={activePhoto.url}
-                siteId={site.id}
-                altText={activePhoto.caption}
-                variant="overlay"
-                size={20}
-              />
             </div>
           </div>
 
@@ -305,24 +295,24 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                 {activePhoto.caption}
               </p>
             )}
-            <h2 className="text-[16px] font-bold text-[var(--brand-blue)] leading-tight truncate">
-              {site.name}
-            </h2>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-2 mt-0.5">
+              <h2 className="text-[16px] font-bold text-[var(--brand-blue)] leading-tight truncate">
+                {site.name}
+              </h2>
               {site.heritageType && (
-                <span className="px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[10.5px]">
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[10.5px]">
                   {site.heritageType}
                 </span>
               )}
-              {site.location && (
-                <span className="flex items-center gap-0.5 text-gray-400 text-[10.5px]">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 shrink-0">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                  </svg>
-                  {site.location}
-                </span>
-              )}
             </div>
+            {site.location && (
+              <span className="flex items-center gap-0.5 text-gray-400 text-[10.5px] mt-0.5">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 shrink-0">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
+                {site.location}
+              </span>
+            )}
           </div>
 
           {/* Actions */}
