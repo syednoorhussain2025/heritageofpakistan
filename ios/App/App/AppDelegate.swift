@@ -8,12 +8,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Match window background to app bg — prevents white flash behind webview when keyboard appears
         window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
+            self.makeKeyboardBackgroundTransparent()
         }
         return true
+    }
+
+    // iOS renders a UIInputSetContainerView behind the keyboard — make it clear
+    private func makeKeyboardBackgroundTransparent() {
+        for window in UIApplication.shared.windows {
+            for subview in window.subviews {
+                let className = String(describing: type(of: subview))
+                if className.contains("InputSet") || className.contains("Keyboard") {
+                    subview.backgroundColor = .clear
+                    for sub in subview.subviews {
+                        sub.backgroundColor = .clear
+                    }
+                }
+            }
+        }
+        // Re-run when keyboard actually appears
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+    }
+
+    @objc private func keyboardWillShow() {
+        for window in UIApplication.shared.windows {
+            for subview in window.subviews {
+                let className = String(describing: type(of: subview))
+                if className.contains("InputSet") || className.contains("RemoteKey") || className.contains("Keyboard") {
+                    subview.backgroundColor = .clear
+                    for sub in subview.subviews {
+                        sub.backgroundColor = .clear
+                    }
+                }
+            }
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -35,11 +71,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func disableWebViewBounce() {
         guard let bridge = (window?.rootViewController as? CAPBridgeViewController)?.bridge else { return }
+        let appBg = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
+        bridge.webView?.backgroundColor = appBg
+        bridge.webView?.scrollView.backgroundColor = appBg
         bridge.webView?.scrollView.bounces = false
         bridge.webView?.scrollView.alwaysBounceVertical = false
         bridge.webView?.scrollView.alwaysBounceHorizontal = false
-        // Lock window background so the gap behind the webview is invisible
-        window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
