@@ -21,11 +21,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 .compactMap { $0 as? UIWindowScene }
                 .flatMap { $0.windows }
             for window in allWindows {
-                if String(describing: type(of: window)) == "UIRemoteKeyboardWindow" {
-                    window.backgroundColor = .clear
-                    window.isOpaque = false
-                    self.clearAllBackgrounds(view: window)
-                }
+                // Skip our own app window
+                if window == self.window { continue }
+                let name = String(describing: type(of: window))
+                // Log so we can see what the keyboard window is called on iOS 26
+                NSLog("HOP window: \(name)")
+                window.backgroundColor = .clear
+                window.isOpaque = false
+                self.clearAllBackgrounds(view: window)
             }
         }
     }
