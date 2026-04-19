@@ -782,7 +782,7 @@ export function Lightbox({
         className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.5 }}
+        exit={{ opacity: 0, scale: 0.5, transition: { type: "tween", duration: 0.32, ease: [0.64, 0, 0.78, 0] } }}
         transition={{ type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         style={{ backgroundColor: "rgb(5,5,5)", transformOrigin: lightboxTransformOrigin }}
         onClick={onClose}
@@ -846,13 +846,23 @@ export function Lightbox({
                       onClick={(e) => e.stopPropagation()}
                     >
 
-                      {/* BlurHash + spinner — only for active slide without shared-element */}
-                      {isActive && !originRect && (p as any)?.blurHash && (
+                      {/* Cached thumb — shown instantly while md loads (same URL as grid tile) */}
+                      {isActive && originThumb && !isImageLoaded && (
+                        <img
+                          src={originThumb}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        />
+                      )}
+
+                      {/* BlurHash + spinner — only for active slide without cached thumb */}
+                      {isActive && !originThumb && (p as any)?.blurHash && (
                         <div className={`absolute inset-0 bg-black/20 pointer-events-none transition-opacity duration-500 ${isImageLoaded ? "opacity-0" : "opacity-100"}`}>
                           <BlurhashPlaceholder hash={(p as any).blurHash} aspectRatio={pw / ph} />
                         </div>
                       )}
-                      {isActive && !originRect && !isImageLoaded && (
+                      {isActive && !originThumb && !isImageLoaded && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
                           <span className="h-5 w-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin" aria-hidden="true" />
                         </div>
