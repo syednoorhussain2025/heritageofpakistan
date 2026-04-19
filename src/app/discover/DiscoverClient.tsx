@@ -245,12 +245,20 @@ function pickRandom(arr: string[], n: number): string[] {
 
 function SearchBar({ onSearch, onClose, isOpen, chips }: { onSearch: (q: string) => void; onClose: () => void; isOpen: boolean; chips: string[] }) {
   const [value, setValue] = useState("");
+  const [chipsVisible, setChipsVisible] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    const t = setTimeout(() => inputRef.current?.focus(), 40);
-    return () => clearTimeout(t);
+    const focusT = setTimeout(() => inputRef.current?.focus(), 40);
+    // Fade chips in after the slide-down animation completes (~320ms)
+    const chipsT = setTimeout(() => setChipsVisible(true), 320);
+    return () => { clearTimeout(focusT); clearTimeout(chipsT); };
+  }, [isOpen]);
+
+  // Reset chips visibility when search closes
+  useEffect(() => {
+    if (!isOpen) setChipsVisible(false);
   }, [isOpen]);
 
   const submit = useCallback(() => {
@@ -309,13 +317,13 @@ function SearchBar({ onSearch, onClose, isOpen, chips }: { onSearch: (q: string)
         )}
       </div>
 
-      {/* Inspiration chips — always in DOM to avoid layout shift; opacity controls visibility */}
+      {/* Inspiration chips — always in DOM; fade in after slide, fade out on typing */}
       <div
         className="flex gap-1.5 mt-2.5 px-1"
         style={{
-          opacity: !value && chips.length > 0 ? 1 : 0,
-          transition: "opacity 0.25s ease-out",
-          pointerEvents: !value && chips.length > 0 ? "auto" : "none",
+          opacity: chipsVisible && !value && chips.length > 0 ? 1 : 0,
+          transition: value ? "opacity 0.12s ease-in" : "opacity 0.2s ease-out",
+          pointerEvents: chipsVisible && !value && chips.length > 0 ? "auto" : "none",
         }}
       >
         {chips.slice(0, 3).map((phrase) => (
