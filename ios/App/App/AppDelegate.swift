@@ -11,7 +11,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
         return true
+    }
+
+    @objc private func keyboardWillShow() {
+        DispatchQueue.main.async {
+            for window in UIApplication.shared.windows {
+                if String(describing: type(of: window)) == "UIRemoteKeyboardWindow" {
+                    window.backgroundColor = .clear
+                    window.isOpaque = false
+                    for sub in window.subviews {
+                        if String(describing: type(of: sub)).contains("InputSet") {
+                            sub.backgroundColor = .clear
+                            sub.isOpaque = false
+                        }
+                    }
+                }
+            }
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
