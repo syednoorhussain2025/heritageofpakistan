@@ -11,7 +11,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
         return true
+    }
+
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        hideKeyboardBackdrop()
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        hideKeyboardBackdrop()
+    }
+
+    private func hideKeyboardBackdrop() {
+        DispatchQueue.main.async {
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene else { continue }
+                for window in windowScene.windows {
+                    let windowName = NSStringFromClass(type(of: window))
+                    if windowName.contains("Keyboard") || windowName.contains("Remote") {
+                        self.makeBackdropTransparent(in: window)
+                    }
+                }
+            }
+        }
+    }
+
+    private func makeBackdropTransparent(in view: UIView) {
+        let viewName = NSStringFromClass(type(of: view))
+        if viewName.contains("InputSetHost") || viewName.contains("InputSetContainer") {
+            view.backgroundColor = .clear
+            view.isOpaque = false
+        }
+        for subview in view.subviews {
+            makeBackdropTransparent(in: subview)
+        }
     }
 
 
