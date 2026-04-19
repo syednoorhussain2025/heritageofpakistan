@@ -13,7 +13,6 @@ import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { hideKeyboard } from "@/lib/keyboard";
-import CollectHeart from "@/components/CollectHeart";
 import { subscribeTab } from "@/lib/tabStore";
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
@@ -187,17 +186,6 @@ const DiscoverTile = memo(function DiscoverTile({
         fetchPriority={isPriority ? "high" : "auto"}
         onLoad={onImgLoad}
         onError={handleError}
-      />
-
-      {/* Collect heart — top right */}
-      <CollectHeart
-        siteImageId={photo.id}
-        storagePath={photo.storagePath}
-        imageUrl={photo.url}
-        siteId={photo.site.id}
-        altText={photo.caption}
-        variant="overlay"
-        size={20}
       />
 
       {/* Bottom overlay: caption only */}
