@@ -17,23 +17,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     @objc private func keyboardWillShow(_ notification: Notification) {
-        hideKeyboardBackdrop()
+        // Poll briefly after keyboard appears to catch the backdrop after it renders
+        for delay in [0.0, 0.05, 0.1, 0.15, 0.2] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                self.clearAllBackdrops()
+            }
+        }
     }
 
     @objc private func keyboardWillHide(_ notification: Notification) {
-        hideKeyboardBackdrop()
+        for delay in [0.0, 0.05, 0.1, 0.2] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                self.clearAllBackdrops()
+            }
+        }
     }
 
-    private func hideKeyboardBackdrop() {
-        DispatchQueue.main.async {
-            for scene in UIApplication.shared.connectedScenes {
-                guard let windowScene = scene as? UIWindowScene else { continue }
-                for window in windowScene.windows {
-                    let windowName = NSStringFromClass(type(of: window))
-                    if windowName.contains("Keyboard") || windowName.contains("Remote") {
-                        self.makeBackdropTransparent(in: window)
-                    }
-                }
+    private func clearAllBackdrops() {
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                makeBackdropTransparent(in: window)
             }
         }
     }
