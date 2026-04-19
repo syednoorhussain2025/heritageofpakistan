@@ -11,44 +11,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window?.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
-            self.makeKeyboardBackgroundTransparent()
         }
+        setupKeyboardTransparency()
         return true
     }
 
-    // iOS renders a UIInputSetContainerView behind the keyboard — make it clear
-    private func makeKeyboardBackgroundTransparent() {
-        for window in UIApplication.shared.windows {
-            for subview in window.subviews {
-                let className = String(describing: type(of: subview))
-                if className.contains("InputSet") || className.contains("Keyboard") {
-                    subview.backgroundColor = .clear
-                    for sub in subview.subviews {
-                        sub.backgroundColor = .clear
-                    }
-                }
-            }
-        }
-        // Re-run when keyboard actually appears
+    private func setupKeyboardTransparency() {
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(keyboardWillShow),
+            selector: #selector(fixKeyboardBackground),
             name: UIResponder.keyboardWillShowNotification,
             object: nil
         )
     }
 
-    @objc private func keyboardWillShow() {
+    @objc private func fixKeyboardBackground() {
+        // The keyboard lives in its own UIRemoteKeyboardWindow — walk every window
         for window in UIApplication.shared.windows {
-            for subview in window.subviews {
-                let className = String(describing: type(of: subview))
-                if className.contains("InputSet") || className.contains("RemoteKey") || className.contains("Keyboard") {
-                    subview.backgroundColor = .clear
-                    for sub in subview.subviews {
-                        sub.backgroundColor = .clear
-                    }
-                }
-            }
+            clearInputBackground(view: window)
+        }
+    }
+
+    private func clearInputBackground(view: UIView) {
+        let name = String(describing: type(of: view))
+        if name.contains("InputSet") || name.contains("UIKBInputBackdrop") {
+            view.backgroundColor = .clear
+            view.subviews.forEach { $0.backgroundColor = .clear }
+        }
+        for sub in view.subviews {
+            clearInputBackground(view: sub)
         }
     }
 
