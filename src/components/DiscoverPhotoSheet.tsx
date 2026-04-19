@@ -262,6 +262,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: isVisible ? 1 : 0.5, opacity: isVisible ? 1 : 0 }}
           transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.2}
+          onDragEnd={(_, info) => {
+            if (Math.abs(info.offset.y) > 80 || Math.abs(info.velocity.y) > 500) {
+              handleClosePress();
+            }
+          }}
         >
           {/* Image */}
           <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
