@@ -40,9 +40,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         sv?.alwaysBounceHorizontal = false
         // Prevent iOS from shrinking the webview or adjusting insets when the keyboard appears
         sv?.contentInsetAdjustmentBehavior = .never
-        if #available(iOS 16.0, *) {
-            bridge.webView?.findInteraction?.isEnabled = false
-        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
