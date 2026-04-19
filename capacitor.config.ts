@@ -25,6 +25,8 @@ const config: CapacitorConfig = {
     Keyboard: {
       resize: "None" as any,
       style: "dark" as any,
+      scrollPadding: false,
+      accessoryBarVisible: false,
     },
     SplashScreen: {
       launchShowDuration: 2000,
