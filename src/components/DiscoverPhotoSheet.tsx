@@ -11,7 +11,6 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { computeDedupeKey } from "@/lib/collections";
 import { motion } from "framer-motion";
 import { hapticSuccess } from "@/lib/haptics";
-import Icon from "@/components/Icon";
 
 // ─── Save button ──────────────────────────────────────────────────────────────
 
@@ -287,14 +286,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                   onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
                 />
               )}
-              <button
-                onClick={handleClosePress}
-                className="absolute top-2.5 left-2.5 z-40 w-8 h-8 flex items-center justify-center bg-black/45 text-white rounded-full active:bg-black/70 transition-colors"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
-                  <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
               <CollectHeart
                 siteImageId={activePhoto.id}
                 storagePath={activePhoto.storagePath}
@@ -310,21 +301,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           {/* Info */}
           <div className="px-4 pt-3 pb-1.5 shrink-0">
             {activePhoto.caption && (
-              <p className="text-stone-500 text-[12px] leading-snug mb-2 line-clamp-2">
+              <p className="text-stone-600 text-[13.5px] leading-snug mb-2 line-clamp-2">
                 {activePhoto.caption}
               </p>
             )}
-            <h2 className="text-[17px] font-bold text-[var(--brand-blue)] leading-tight truncate">
+            <h2 className="text-[16px] font-bold text-[var(--brand-blue)] leading-tight truncate">
               {site.name}
             </h2>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-              {site.avgRating != null && (
-                <span className="px-2 py-0.5 rounded-full bg-[var(--brand-green)] text-white text-[10.5px] font-semibold inline-flex items-center gap-1">
-                  <Icon name="star" size={9} />
-                  {site.avgRating.toFixed(1)}
-                  {(site.reviewCount ?? 0) > 0 && <span className="opacity-80">· {site.reviewCount}</span>}
-                </span>
-              )}
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {site.heritageType && (
                 <span className="px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[10.5px]">
                   {site.heritageType}
