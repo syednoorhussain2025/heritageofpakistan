@@ -299,7 +299,8 @@ function SearchBar({ onSearch, onClose, isOpen }: { onSearch: (q: string) => voi
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
           placeholder="Search photos, places, styles…"
-          className="flex-1 bg-transparent text-[14px] text-gray-800 placeholder-gray-400 outline-none min-w-0"
+          className="flex-1 bg-transparent text-gray-800 placeholder-gray-400 outline-none min-w-0"
+          style={{ fontSize: "16px" }}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
