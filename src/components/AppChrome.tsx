@@ -18,9 +18,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ConnectivityBanner from "@/components/ConnectivityBanner";
 import TabShell, { isTabRoute } from "@/components/TabShell";
 import { subscribeTab, clearActiveTab } from "@/lib/tabStore";
-import { initKeyboard } from "@/lib/keyboard";
-
-
 export default function AppChrome({
   children,
   initialHeaderItems,
@@ -29,9 +26,6 @@ export default function AppChrome({
   initialHeaderItems?: HeaderMainItem[];
 }) {
   const pathname = usePathname() || "";
-
-  // Hide iOS keyboard accessory bar — runs once on mount
-  useEffect(() => { void initKeyboard(); }, []);
 
   // Lock orientation to portrait on mobile — runs once on mount
   useEffect(() => {

@@ -11,46 +11,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
         return true
-    }
-
-    @objc private func keyboardWillShow(_ notification: Notification) {
-        // Poll briefly after keyboard appears to catch the backdrop after it renders
-        for delay in [0.0, 0.05, 0.1, 0.15, 0.2] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                self.clearAllBackdrops()
-            }
-        }
-    }
-
-    @objc private func keyboardWillHide(_ notification: Notification) {
-        for delay in [0.0, 0.05, 0.1, 0.2] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                self.clearAllBackdrops()
-            }
-        }
-    }
-
-    private func clearAllBackdrops() {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                makeBackdropTransparent(in: window)
-            }
-        }
-    }
-
-    private func makeBackdropTransparent(in view: UIView) {
-        let viewName = NSStringFromClass(type(of: view))
-        if viewName.contains("InputSetHost") || viewName.contains("InputSetContainer") {
-            view.backgroundColor = .clear
-            view.isOpaque = false
-        }
-        for subview in view.subviews {
-            makeBackdropTransparent(in: subview)
-        }
     }
 
 

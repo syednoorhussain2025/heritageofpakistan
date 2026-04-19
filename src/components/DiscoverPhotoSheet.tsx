@@ -264,9 +264,10 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.2}
-          onDragEnd={(_, info) => {
-            if (Math.abs(info.offset.y) > 80 || Math.abs(info.velocity.y) > 500) {
+          dragElastic={0}
+          dragMomentum={false}
+          onDrag={(_, info) => {
+            if (Math.abs(info.offset.y) > 40 || Math.abs(info.velocity.y) > 300) {
               handleClosePress();
             }
           }}

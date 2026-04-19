@@ -339,22 +339,6 @@ export default function BottomNav() {
     });
   }, []);
 
-  // Hide nav when keyboard is open
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-  useEffect(() => {
-    let showUnsub: (() => void) | null = null;
-    let hideUnsub: (() => void) | null = null;
-    (async () => {
-      try {
-        const { Keyboard } = await import("@capacitor/keyboard");
-        const s = await Keyboard.addListener("keyboardWillShow", () => setKeyboardOpen(true));
-        const h = await Keyboard.addListener("keyboardDidHide", () => setKeyboardOpen(false));
-        showUnsub = () => s.remove();
-        hideUnsub = () => h.remove();
-      } catch { /* web — no-op */ }
-    })();
-    return () => { showUnsub?.(); hideUnsub?.(); };
-  }, []);
 
   // Profile panel state
   const [panelOpen, setPanelOpen] = useState(false);
@@ -399,9 +383,9 @@ export default function BottomNav() {
       {/* Spacer suppressed — pages handle their own bottom padding */}
 
       {/* White fill below nav to cover any background bleed under safe area */}
-      <div className="fixed inset-x-0 bottom-0 z-[3199] lg:hidden bg-white" style={{ height: safeBottom, opacity: keyboardOpen ? 0 : 1, pointerEvents: keyboardOpen ? "none" : "auto", transition: keyboardOpen ? "none" : "opacity 0.18s ease" }} />
+      <div className="fixed inset-x-0 bottom-0 z-[3199] lg:hidden bg-white" style={{ height: safeBottom }} />
 
-      <div id="bottom-nav" className="fixed inset-x-0 z-[3200] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom, opacity: keyboardOpen ? 0 : 1, pointerEvents: keyboardOpen ? "none" : "auto", transition: keyboardOpen ? "none" : "opacity 0.18s ease" }}>
+      <div id="bottom-nav" className="fixed inset-x-0 z-[3200] border-t border-gray-200 bg-white lg:hidden" style={{ bottom: safeBottom }}>
         <nav className="mx-auto flex max-w-[640px] items-stretch justify-between px-2 h-[52px]">
           <TabNavItem label="Home"     icon="house"    tab="home"     isActive={isHomeActive} />
           <TabNavItem label="Discover" icon="compass"  tab="discover" isActive={isDiscoverActive} />

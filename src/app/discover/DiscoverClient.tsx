@@ -265,7 +265,7 @@ function SearchBar({ onSearch, onClose, isOpen, chips }: { onSearch: (q: string)
     const q = value.trim();
     if (!q) return;
     void hapticMedium();
-    void hideKeyboard();
+    hideKeyboard();
     onSearch(q);
   }, [value, onSearch]);
 
@@ -276,7 +276,7 @@ function SearchBar({ onSearch, onClose, isOpen, chips }: { onSearch: (q: string)
 
   const handleChip = useCallback((phrase: string) => {
     void hapticLight();
-    void hideKeyboard();
+    hideKeyboard();
     onSearch(phrase);
   }, [onSearch]);
 
