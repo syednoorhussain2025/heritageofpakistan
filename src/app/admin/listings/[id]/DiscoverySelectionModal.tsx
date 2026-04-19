@@ -154,7 +154,7 @@ export function DiscoverySelectionModal({
       {/* Panel */}
       <div className="relative flex flex-col w-full h-full bg-white overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white z-10 flex-shrink-0" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
+        <div className="flex items-center gap-3 px-4 pr-6 py-3 border-b border-gray-100 bg-white z-10 flex-shrink-0" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
           {/* Back button */}
           <button
             onClick={() => onClose(eligible)}
@@ -211,7 +211,7 @@ export function DiscoverySelectionModal({
 
         {/* Grid */}
         <div className="flex-1 overflow-y-auto">
-          <div className={`grid gap-2 p-3 items-start`} style={{ gridTemplateColumns: `repeat(${numCols}, 1fr)` }}>
+          <div className={`grid gap-2 px-4 py-3 items-start`} style={{ gridTemplateColumns: `repeat(${numCols}, 1fr)` }}>
             {cols.map((col, colIdx) => (
               <div key={colIdx} className="flex flex-col gap-2">
                 {col.map((row, rowIdx) => {
