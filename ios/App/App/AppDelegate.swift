@@ -17,18 +17,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     @objc private func keyboardWillShow() {
         DispatchQueue.main.async {
-            for window in UIApplication.shared.windows {
+            let allWindows: [UIWindow] = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+            for window in allWindows {
                 if String(describing: type(of: window)) == "UIRemoteKeyboardWindow" {
                     window.backgroundColor = .clear
                     window.isOpaque = false
-                    for sub in window.subviews {
-                        if String(describing: type(of: sub)).contains("InputSet") {
-                            sub.backgroundColor = .clear
-                            sub.isOpaque = false
-                        }
-                    }
+                    self.clearAllBackgrounds(view: window)
                 }
             }
+        }
+    }
+
+    private func clearAllBackgrounds(view: UIView) {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        for sub in view.subviews {
+            clearAllBackgrounds(view: sub)
         }
     }
 
