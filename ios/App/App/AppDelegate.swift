@@ -11,34 +11,44 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.disableWebViewBounce()
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         return true
     }
 
-    @objc private func keyboardWillShow() {
-        DispatchQueue.main.async {
-            let allWindows: [UIWindow] = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-            for window in allWindows {
-                // Skip our own app window
-                if window == self.window { continue }
-                let name = String(describing: type(of: window))
-                // Log so we can see what the keyboard window is called on iOS 26
-                NSLog("HOP window: \(name)")
-                window.backgroundColor = .clear
-                window.isOpaque = false
-                self.clearAllBackgrounds(view: window)
-            }
+    private var keyboardCoverView: UIView?
+
+    @objc private func keyboardWillShow(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+              let window = self.window else { return }
+
+        keyboardCoverView?.removeFromSuperview()
+        let cover = UIView(frame: keyboardFrame)
+        cover.backgroundColor = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
+        cover.isUserInteractionEnabled = false
+        cover.alpha = 0
+        window.addSubview(cover)
+        keyboardCoverView = cover
+
+        UIView.animate(withDuration: duration) {
+            cover.alpha = 1
         }
     }
 
-    private func clearAllBackgrounds(view: UIView) {
-        view.backgroundColor = .clear
-        view.isOpaque = false
-        for sub in view.subviews {
-            clearAllBackgrounds(view: sub)
+    @objc private func keyboardWillHide(notification: Notification) {
+        guard let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else {
+            keyboardCoverView?.removeFromSuperview()
+            keyboardCoverView = nil
+            return
         }
+        UIView.animate(withDuration: duration, animations: {
+            self.keyboardCoverView?.alpha = 0
+        }, completion: { _ in
+            self.keyboardCoverView?.removeFromSuperview()
+            self.keyboardCoverView = nil
+        })
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
