@@ -150,44 +150,43 @@ export function DiscoverySelectionModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 flex items-stretch justify-stretch">
+    <div className="fixed inset-0 z-[9999] bg-white flex items-stretch justify-stretch">
       {/* Panel */}
       <div className="relative flex flex-col w-full h-full bg-white overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white z-10 flex-shrink-0">
-          <div>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white z-10 flex-shrink-0" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
+          {/* Back button */}
+          <button
+            onClick={() => onClose(eligible)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors flex-shrink-0"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-gray-900">Discovery Selection</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500">
               {totalEnabled} of {rows.length} photos enabled
             </p>
           </div>
 
           {/* View switcher */}
-          <div className="flex items-center gap-2 flex-1 justify-center">
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs font-medium">
-              <button
-                onClick={() => setView("mobile")}
-                className={`px-3 py-1.5 transition-colors ${view === "mobile" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-              >
-                Mobile
-              </button>
-              <button
-                onClick={() => setView("desktop")}
-                className={`px-3 py-1.5 transition-colors ${view === "desktop" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-              >
-                Desktop
-              </button>
-            </div>
+          <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs font-medium flex-shrink-0">
+            <button
+              onClick={() => setView("mobile")}
+              className={`px-3 py-1.5 transition-colors ${view === "mobile" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              Mobile
+            </button>
+            <button
+              onClick={() => setView("desktop")}
+              className={`px-3 py-1.5 transition-colors ${view === "desktop" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              Desktop
+            </button>
           </div>
-
-          <button
-            onClick={() => onClose(eligible)}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors flex-shrink-0"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
         {/* Legend */}
