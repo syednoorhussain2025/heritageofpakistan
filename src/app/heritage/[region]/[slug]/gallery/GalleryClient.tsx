@@ -11,6 +11,7 @@ import {
   memo,
 } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -620,17 +621,20 @@ export default function GalleryClient({
       )}
 
       {/* Universal Lightbox */}
-      {lightboxIndex !== null && (
-        <Lightbox
-          photos={photos}
-          startIndex={lightboxIndex}
-          originRect={lightboxOrigin?.rect ?? null}
-          originThumb={lightboxOrigin?.thumb ?? null}
-          onClose={() => { setLightboxIndex(null); setLightboxOrigin(null); }}
-          onBookmarkToggle={handleBookmarkToggle}
-          onAddToCollection={handleOpenCollectionModal}
-        />
-      )}
+      <AnimatePresence>
+        {lightboxIndex !== null && (
+          <Lightbox
+            key="lightbox"
+            photos={photos}
+            startIndex={lightboxIndex}
+            originRect={lightboxOrigin?.rect ?? null}
+            originThumb={lightboxOrigin?.thumb ?? null}
+            onClose={() => { setLightboxIndex(null); setLightboxOrigin(null); }}
+            onBookmarkToggle={handleBookmarkToggle}
+            onAddToCollection={handleOpenCollectionModal}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Save to Wishlist Modal */}
       {showWishlistModal && site && (

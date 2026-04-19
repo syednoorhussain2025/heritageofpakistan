@@ -776,7 +776,6 @@ export function Lightbox({
   })();
 
   return (
-    <AnimatePresence>
       <motion.div
         ref={rootOverlayRef}
         className={`fixed inset-0 z-[2147483647] ${isMdUp ? "touch-none" : ""}`}
@@ -1461,6 +1460,5 @@ export function Lightbox({
           <Icon name="chevron-right" />
         </button>
       </motion.div>
-    </AnimatePresence>
   );
 }
