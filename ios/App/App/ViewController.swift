@@ -5,9 +5,8 @@ class ViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Set webview background before content loads — prevents white flash
-        webView?.isOpaque = false
-        webView?.backgroundColor = .clear
-        webView?.scrollView.backgroundColor = .clear
+        let appBg = UIColor(red: 0.961, green: 0.949, blue: 0.937, alpha: 1.0)
+        webView?.backgroundColor = appBg
+        webView?.scrollView.backgroundColor = appBg
     }
 }
