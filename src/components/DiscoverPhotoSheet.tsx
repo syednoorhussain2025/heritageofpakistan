@@ -163,8 +163,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     if (!activePhoto || downloading) return;
     void hapticLight();
     setDownloading(true);
+    const downloadUrl = activePhoto.storagePath
+      ? getVariantPublicUrl(activePhoto.storagePath, "hero")
+      : lgUrl;
     try {
-      const res = await fetch(lgUrl);
+      const res = await fetch(downloadUrl);
       const blob = await res.blob();
       const ext = blob.type.includes("png") ? "png" : "jpg";
       const fileName = `${activePhoto.site.name.replace(/\s+/g, "-").toLowerCase()}.${ext}`;
@@ -220,7 +223,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const site = activePhoto.site;
   const isPortrait = !!(activePhoto.width && activePhoto.height && activePhoto.height > activePhoto.width);
-  const imgAspectPb = isPortrait ? "125%" : "80%";
+  const imgAspectPb = isPortrait ? "125%" : undefined;
+  const imgHeight = isPortrait ? undefined : "280px";
 
   const displayThumb = thumbUrl ?? lgUrl;
 
@@ -273,13 +277,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           }}
         >
           {/* Image */}
-          <div className="relative w-full shrink-0" style={{ paddingBottom: imgAspectPb }}>
-            <div className="absolute inset-0">
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb }}>
+            <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               {/* Thumb shown instantly (already in browser cache from tile) */}
               <img
                 src={displayThumb}
                 alt={activePhoto.caption ?? site.name}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover object-top"
                 loading="eager"
               />
               {/* lg variant fades in on top once loaded */}
@@ -288,7 +292,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
                   src={lgUrl}
                   alt=""
                   aria-hidden="true"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                   style={{ opacity: 0, transition: "opacity 0.35s ease" }}
                   loading="eager"
                   onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
