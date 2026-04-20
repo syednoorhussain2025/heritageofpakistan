@@ -459,6 +459,18 @@ export default function MapClient() {
     setSitePanelMenuPosition(null);
   }, [selectedMapSite?.id]);
 
+  // Close all map portals when switching away from Map tab
+  useEffect(() => {
+    const handler = () => {
+      setMobileMapTypeSheetOpen(false);
+      setShowSitePanelActionsMenu(false);
+      setShowSitePanelWishlistModal(false);
+      setShowSitePanelTripModal(false);
+    };
+    document.addEventListener("tab-hidden", handler);
+    return () => document.removeEventListener("tab-hidden", handler);
+  }, []);
+
   // Position site panel actions menu in portal (open downwards below trigger)
   useEffect(() => {
     if (!showSitePanelActionsMenu) {

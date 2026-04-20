@@ -1501,6 +1501,13 @@ function MobileHomepage() {
     };
   }, []);
 
+  // Close search overlay when switching away from Home tab
+  useEffect(() => {
+    const handler = () => setSearchOpen(false);
+    document.addEventListener("tab-hidden", handler);
+    return () => document.removeEventListener("tab-hidden", handler);
+  }, []);
+
   return (
     <>
     {/* Teal status bar cover — always visible behind the notch/status area */}
