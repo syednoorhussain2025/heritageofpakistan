@@ -87,6 +87,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const [mounted, setMounted] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [interactive, setInteractive] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,13 +131,21 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   })();
 
   // Drive visibility from photo prop
+  const interactiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (photo) setIsVisible(true);
+    if (photo) {
+      setIsVisible(true);
+      setInteractive(false);
+      if (interactiveTimerRef.current) clearTimeout(interactiveTimerRef.current);
+      interactiveTimerRef.current = setTimeout(() => setInteractive(true), 420);
+    }
+    return () => { if (interactiveTimerRef.current) clearTimeout(interactiveTimerRef.current); };
   }, [photo]);
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
     setIsVisible(false);
+    setInteractive(false);
     onCloseStart?.();
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
@@ -329,7 +338,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           </div>
 
           {/* Actions */}
-          <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0">
+          <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none" }}>
             {/* Open Site */}
             <button
               type="button"
