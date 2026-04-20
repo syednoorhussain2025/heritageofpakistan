@@ -237,9 +237,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       <motion.div
         className="fixed inset-0 z-[3500]"
         style={{
-          backgroundColor: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(3px)",
-          WebkitBackdropFilter: "blur(3px)",
+          backgroundColor: "rgba(0,0,0,0.55)",
+          willChange: "opacity",
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: isVisible ? 1 : 0 }}
@@ -262,15 +261,16 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             display: "flex",
             flexDirection: "column",
             transformOrigin,
+            willChange: "transform, opacity",
           }}
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: isVisible ? 1 : 0.5, opacity: isVisible ? 1 : 0 }}
           transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0}
+          dragElastic={0.08}
           dragMomentum={false}
-          onDrag={(_, info) => {
+          onDragEnd={(_, info) => {
             if (Math.abs(info.offset.y) > 40 || Math.abs(info.velocity.y) > 300) {
               handleClosePress();
             }
