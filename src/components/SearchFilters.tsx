@@ -2188,6 +2188,244 @@ export async function fetchSitesByFilters(filters: Filters) {
   return data ?? [];
 }
 
+/* ───────────────────────────── Inline Accordion: Heritage Type ───────────────────────────── */
+function InlineHeritageTypeAccordion({
+  options,
+  unescoOptions,
+  selectedIds,
+  draftIds,
+  onToggleDraft,
+  onApply,
+  onClear,
+}: {
+  options: Option[];
+  unescoOptions: Option[];
+  selectedIds: string[];
+  draftIds: string[];
+  onToggleDraft: (id: string) => void;
+  onApply: () => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const hasSelection = selectedIds.length > 0;
+
+  const filtered = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    return q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+  }, [term, options]);
+
+  const filteredUnesco = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    return q ? unescoOptions.filter((o) => o.name.toLowerCase().includes(q)) : unescoOptions;
+  }, [term, unescoOptions]);
+
+  const summary = buildHeritageTypeSummary(selectedIds, options, unescoOptions);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      {/* Accordion header */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors active:bg-gray-50"
+      >
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${hasSelection ? "bg-[var(--brand-orange)]/10" : "bg-gray-100"}`}>
+          <Icon name="landmark" size={13} className={hasSelection ? "text-[var(--brand-orange)]" : "text-gray-400"} />
+        </div>
+        {summary ? (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="font-medium text-gray-900 truncate text-xs leading-tight">{summary.title}</div>
+            <div className="text-[0.65rem] text-gray-500 truncate leading-tight">Tap to edit</div>
+          </div>
+        ) : (
+          <span className="font-medium text-sm text-gray-600 flex-1 text-left">Heritage Type</span>
+        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {hasSelection && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); onClear(); setOpen(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClear(); setOpen(false); } }}
+              className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"
+            >
+              <Icon name="times" size={8} />
+            </span>
+          )}
+          <svg viewBox="0 0 20 20" width="11" height="11" fill="currentColor" className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {open && (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-2">
+          {/* Search input */}
+          <input
+            type="text"
+            placeholder="Search heritage type…"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-xl bg-gray-50 border border-gray-200 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+          />
+          {/* Heritage Type list */}
+          <ul className="max-h-[220px] overflow-y-auto divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50/50">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-xs text-gray-500">No heritage type found</li>
+            ) : filtered.map((opt) => {
+              const active = draftIds.includes(opt.id);
+              return (
+                <li
+                  key={opt.id}
+                  onClick={() => onToggleDraft(opt.id)}
+                  className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-sm transition-colors ${active ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]" : "text-[var(--dark-grey)] hover:bg-[var(--brand-orange)]/5"}`}
+                >
+                  <span>{opt.name}</span>
+                  {active && <Icon name="check" size={12} />}
+                </li>
+              );
+            })}
+          </ul>
+          {/* UNESCO Status */}
+          {filteredUnesco.length > 0 && (
+            <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50/50">
+              <li className="px-3 py-1 text-[0.6rem] font-bold uppercase tracking-widest text-[var(--brand-blue)] bg-[var(--brand-blue)]/5">UNESCO Status</li>
+              {filteredUnesco.map((opt) => {
+                const active = draftIds.includes(opt.id);
+                return (
+                  <li
+                    key={opt.id}
+                    onClick={() => onToggleDraft(opt.id)}
+                    className={`px-3 py-2.5 cursor-pointer flex items-center justify-between text-sm transition-colors ${active ? "bg-[var(--brand-orange)]/10 text-[var(--brand-orange)]" : "text-[var(--dark-grey)] hover:bg-[var(--brand-orange)]/5"}`}
+                  >
+                    <span>{opt.name}</span>
+                    {active && <Icon name="check" size={12} />}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {/* Apply button */}
+          <button
+            type="button"
+            onClick={() => { onApply(); setOpen(false); }}
+            className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] text-white font-semibold text-sm flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
+          >
+            <Icon name="check" size={13} />
+            Apply
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────────── Inline Accordion: Location ───────────────────────────── */
+function InlineLocationAccordion({
+  topRegions,
+  selectedIds,
+  committedIds,
+  activeParentId,
+  setActiveParentId,
+  onClearAll,
+  onToggleWithRule,
+  onApply,
+  onClear,
+  regionNames,
+  regionParents,
+}: {
+  topRegions: Option[];
+  selectedIds: string[];
+  committedIds: string[];
+  activeParentId: string | null;
+  setActiveParentId: (id: string | null) => void;
+  onClearAll: () => void;
+  onToggleWithRule: (id: string) => void | Promise<void>;
+  onApply: () => void;
+  onClear: () => void;
+  regionNames: Record<string, string>;
+  regionParents: Record<string, string | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasSelection = committedIds.length > 0;
+  const summary = buildLocationSummary(committedIds, regionNames, regionParents);
+  const activeParent = topRegions.find((r) => r.id === activeParentId) ?? null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      {/* Accordion header */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors active:bg-gray-50"
+      >
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${hasSelection ? "bg-[var(--brand-orange)]/10" : "bg-gray-100"}`}>
+          <Icon name="map-marker-alt" size={13} className={hasSelection ? "text-[var(--brand-orange)]" : "text-gray-400"} />
+        </div>
+        {summary ? (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="font-medium text-gray-900 truncate text-xs leading-tight">{summary.title}</div>
+            <div className="text-[0.65rem] text-gray-500 truncate leading-tight">Tap to edit</div>
+          </div>
+        ) : (
+          <span className="font-medium text-sm text-gray-600 flex-1 text-left">Search Location</span>
+        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {hasSelection && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); onClear(); setOpen(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClear(); setOpen(false); } }}
+              className="w-5 h-5 rounded-full bg-white ring-1 ring-gray-300 flex items-center justify-center text-gray-400 hover:text-[var(--brand-orange)] hover:ring-[var(--brand-orange)]/40 transition-colors"
+            >
+              <Icon name="times" size={8} />
+            </span>
+          )}
+          <svg viewBox="0 0 20 20" width="11" height="11" fill="currentColor" className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+        </div>
+      </button>
+
+      {/* Expanded content — two columns: regions | subregions */}
+      {open && (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+          <div className="grid grid-cols-2 gap-2 mb-2" style={{ height: "220px" }}>
+            <div className="flex flex-col min-h-0">
+              <span className="block mb-1 text-[0.6rem] font-bold uppercase tracking-widest text-[var(--brand-blue)]">Region</span>
+              <MainRegionsColumn
+                topRegions={topRegions}
+                activeParentId={activeParentId}
+                setActiveParentId={setActiveParentId}
+                selectedIds={selectedIds}
+                onClearAll={onClearAll}
+                onToggleWithRule={onToggleWithRule}
+                regionNames={regionNames}
+                regionParents={regionParents}
+              />
+            </div>
+            <div className="flex flex-col min-h-0">
+              <span className="block mb-1 text-[0.6rem] font-bold uppercase tracking-widest text-[var(--brand-blue)]">Subregion</span>
+              <SubRegionsColumn
+                parent={activeParent}
+                selectedIds={selectedIds}
+                onToggleWithRule={onToggleWithRule}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onApply(); setOpen(false); }}
+            className="w-full py-2.5 rounded-xl bg-[var(--brand-blue)] text-white font-semibold text-sm flex items-center justify-center gap-2 active:opacity-80 transition-opacity"
+          >
+            <Icon name="search" size={13} />
+            Apply Location
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────────── Main Component ───────────────────────────── */
 interface SearchFiltersProps {
   filters: Filters;
@@ -3066,34 +3304,78 @@ export default function SearchFilters({
             />
           </div>
         </Tooltip>
-        <div className={`rounded-xl bg-[var(--ivory-cream)] p-2 space-y-2 ${hideHeading ? "border-0" : "border border-gray-200"}`}>
-          <HeritageTypeTrigger
-            options={
-              domainTab === "architecture" ? architectureTypeOptions
-              : domainTab === "nature" ? naturalTypeOptions
-              : domainTab === "cultural" ? culturalTypeOptions
-              : domainTab === "archaeology" ? archaeologyTypeOptions
-              : heritageTypeOptions
-            }
-            unescoOptions={unescoOptions}
-            selectedIds={
-              domainTab === "architecture" ? selectedArchitectureTypeIds
-              : domainTab === "nature" ? selectedNatureTypeIds
-              : domainTab === "cultural" ? selectedCulturalTypeIds
-              : domainTab === "archaeology" ? selectedArchaeologyTypeIds
-              : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id) || unescoIdSet.has(id))
-            }
-            onOpen={openHeritageTypeModal}
-            onClear={clearHeritageTypeSelection}
-          />
-          <LocationSearchTrigger
-            selectedIds={filters.regionIds}
-            regionNames={regionNames}
-            regionParents={regionParents}
-            onOpen={openLocationModal}
-            onClear={clearRegionSelection}
-          />
-        </div>
+        {/* ── Filter rows: inline accordion on mobile panel, trigger+modal on desktop ── */}
+        {hideHeading ? (
+          /* ── Inline accordions (full-screen panel) ── */
+          <div className="space-y-2">
+            {/* Heritage Type accordion */}
+            <InlineHeritageTypeAccordion
+              options={
+                domainTab === "architecture" ? architectureTypeOptions
+                : domainTab === "nature" ? naturalTypeOptions
+                : domainTab === "cultural" ? culturalTypeOptions
+                : domainTab === "archaeology" ? archaeologyTypeOptions
+                : heritageTypeOptions
+              }
+              unescoOptions={unescoOptions}
+              selectedIds={
+                domainTab === "architecture" ? selectedArchitectureTypeIds
+                : domainTab === "nature" ? selectedNatureTypeIds
+                : domainTab === "cultural" ? selectedCulturalTypeIds
+                : domainTab === "archaeology" ? selectedArchaeologyTypeIds
+                : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id) || unescoIdSet.has(id))
+              }
+              draftIds={draftHeritageTypeIds}
+              onToggleDraft={toggleDraftHeritageType}
+              onApply={applyDraftHeritageType}
+              onClear={clearHeritageTypeSelection}
+            />
+            {/* Location accordion */}
+            <InlineLocationAccordion
+              topRegions={topRegions}
+              selectedIds={draftRegionIds}
+              activeParentId={draftActiveParentId}
+              setActiveParentId={setDraftActiveParentId}
+              onClearAll={clearAllDraftRegions}
+              onToggleWithRule={toggleDraftRegionWithRule}
+              onApply={applyDraftRegions}
+              onClear={() => { clearAllDraftRegions(); clearRegionSelection(); }}
+              regionNames={regionNames}
+              regionParents={regionParents}
+              committedIds={filters.regionIds}
+            />
+          </div>
+        ) : (
+          /* ── Trigger buttons → portal modals (desktop sidebar) ── */
+          <div className="rounded-xl bg-[var(--ivory-cream)] p-2 space-y-2 border border-gray-200">
+            <HeritageTypeTrigger
+              options={
+                domainTab === "architecture" ? architectureTypeOptions
+                : domainTab === "nature" ? naturalTypeOptions
+                : domainTab === "cultural" ? culturalTypeOptions
+                : domainTab === "archaeology" ? archaeologyTypeOptions
+                : heritageTypeOptions
+              }
+              unescoOptions={unescoOptions}
+              selectedIds={
+                domainTab === "architecture" ? selectedArchitectureTypeIds
+                : domainTab === "nature" ? selectedNatureTypeIds
+                : domainTab === "cultural" ? selectedCulturalTypeIds
+                : domainTab === "archaeology" ? selectedArchaeologyTypeIds
+                : filters.categoryIds.filter((id) => heritageTypeIdSet.has(id) || unescoIdSet.has(id))
+              }
+              onOpen={openHeritageTypeModal}
+              onClear={clearHeritageTypeSelection}
+            />
+            <LocationSearchTrigger
+              selectedIds={filters.regionIds}
+              regionNames={regionNames}
+              regionParents={regionParents}
+              onOpen={openLocationModal}
+              onClear={clearRegionSelection}
+            />
+          </div>
+        )}
       </div>
 
       {/* ══ Section 2: Explore by Domain ══ */}
