@@ -7,7 +7,11 @@
       "Bash(find:*)",
       "Bash(npx tsc:*)",
       "Bash(xargs wc -l)",
-      "Bash(grep -n \"MapBootstrapProvider\\\\|mapCache\" /d/Projects/heritageofpakistan/src/components/*.tsx)"
+      "Bash(grep -n \"MapBootstrapProvider\\\\|mapCache\" /d/Projects/heritageofpakistan/src/components/*.tsx)",
+      "Bash(xargs grep *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

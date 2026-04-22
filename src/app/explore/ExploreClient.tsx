@@ -1347,14 +1347,21 @@ function ExplorePageContent() {
   }, []);
 
 
-  const setPushTransform = useCallback((value: string, animate: boolean) => {
-    const ids = ["explore-page-root", "explore-mobile-header", "explore-mobile-content"];
+  const setPushTransform = useCallback((value: string | null, animate: boolean) => {
+    // Only push the two fixed mobile elements. Do NOT transform explore-page-root —
+    // any transform on an ancestor (even translateX(0)) creates a containing block
+    // that breaks position:fixed for its descendants.
+    const ids = ["explore-mobile-header", "explore-mobile-content"];
     const transition = animate ? "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)" : "none";
     ids.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.style.transition = transition;
-      el.style.transform = value;
+      if (value === null) {
+        el.style.transform = "";
+      } else {
+        el.style.transform = value;
+      }
     });
   }, []);
 
@@ -1380,7 +1387,7 @@ function ExplorePageContent() {
   useEffect(() => {
     const handler = () => {
       document.body.style.overflow = "";
-      setPushTransform("translateX(0)", false);
+      setPushTransform(null, false);
       setSearchPanelOpen(false);
       setSearchPanelClosing(false);
       setShowNearbyModal(false);
@@ -1578,7 +1585,14 @@ function ExplorePageContent() {
           {/* Full-screen panel */}
           <div
             className={`lg:hidden fixed inset-0 z-[5000] bg-[var(--ivory-cream)] flex flex-col ${searchPanelClosing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
-            onAnimationEnd={() => { if (searchPanelClosing) { setSearchPanelOpen(false); setSearchPanelClosing(false); } }}
+            onAnimationEnd={() => {
+              if (searchPanelClosing) {
+                setSearchPanelOpen(false);
+                setSearchPanelClosing(false);
+                // Fully clear the transform so nothing lingers on the fixed elements
+                setPushTransform(null, false);
+              }
+            }}
           >
             {/* Header — back button left, title center */}
             <div
