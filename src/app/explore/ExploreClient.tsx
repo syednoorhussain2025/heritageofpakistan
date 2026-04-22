@@ -1347,38 +1347,28 @@ function ExplorePageContent() {
   }, []);
 
 
-  const closeSearchPanel = useCallback(() => {
-    // Reverse the parallax push
-    const page = document.getElementById("explore-page-root");
-    const header = document.getElementById("explore-mobile-header");
-    if (page) {
-      page.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
-      page.style.transform = "translateX(0)";
-    }
-    if (header) {
-      header.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
-      header.style.transform = "translateX(0)";
-    }
-    setSearchPanelClosing(true);
+  const setPushTransform = useCallback((value: string, animate: boolean) => {
+    const ids = ["explore-page-root", "explore-mobile-header", "explore-mobile-content"];
+    const transition = animate ? "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)" : "none";
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.transition = transition;
+      el.style.transform = value;
+    });
   }, []);
+
+  const closeSearchPanel = useCallback(() => {
+    setPushTransform("translateX(0)", true);
+    setSearchPanelClosing(true);
+  }, [setPushTransform]);
 
   // Push parallax when panel opens
   useEffect(() => {
     if (!searchPanelOpen) return;
-    const page = document.getElementById("explore-page-root");
-    const header = document.getElementById("explore-mobile-header");
-    const raf = requestAnimationFrame(() => {
-      if (page) {
-        page.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
-        page.style.transform = "translateX(-173px)";
-      }
-      if (header) {
-        header.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
-        header.style.transform = "translateX(-173px)";
-      }
-    });
+    const raf = requestAnimationFrame(() => setPushTransform("translateX(-173px)", true));
     return () => cancelAnimationFrame(raf);
-  }, [searchPanelOpen]);
+  }, [searchPanelOpen, setPushTransform]);
 
   // Lock body scroll while panel is open
   useEffect(() => {
@@ -1390,17 +1380,14 @@ function ExplorePageContent() {
   useEffect(() => {
     const handler = () => {
       document.body.style.overflow = "";
-      const page = document.getElementById("explore-page-root");
-      const header = document.getElementById("explore-mobile-header");
-      if (page) { page.style.transition = "none"; page.style.transform = "translateX(0)"; }
-      if (header) { header.style.transition = "none"; header.style.transform = "translateX(0)"; }
+      setPushTransform("translateX(0)", false);
       setSearchPanelOpen(false);
       setSearchPanelClosing(false);
       setShowNearbyModal(false);
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
-  }, []);
+  }, [setPushTransform]);
 
   return (
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
@@ -1471,6 +1458,7 @@ function ExplorePageContent() {
           <main className="lg:ml-[380px] w-full">
             {/* ── Mobile fixed content card ── */}
             <div
+              id="explore-mobile-content"
               className="lg:hidden fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10 px-4 pt-4 pb-8"
               style={{ top: `calc(${safeTop} + 108px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
             >
