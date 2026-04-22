@@ -9,6 +9,7 @@
  * Zero re-mount cost, zero scheduler overhead.
  */
 
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import HomeClient from "@/app/HomeClient";
@@ -16,7 +17,7 @@ import ExploreClient from "@/app/explore/ExploreClient";
 import DiscoverClient from "@/app/discover/DiscoverClient";
 import MapClient from "@/app/map/MapClient";
 import { MapBootstrapProvider } from "@/components/MapBootstrapProvider";
-import { type TabKey, subscribeTab, syncTabFromPathname, getActiveTab } from "@/lib/tabStore";
+import { type TabKey, subscribeTab, syncTabFromPathname, getActiveTab, pathnameToTab } from "@/lib/tabStore";
 
 export function isTabRoute(pathname: string) {
   return (
@@ -97,18 +98,26 @@ export default function TabShell() {
   const discoverRef = usePaneRef("discover");
   const mapRef      = usePaneRef("map");
 
+  // Compute initial active tab so non-active panes are hidden on first paint.
+  // Without this, all 4 panes render with display:block and fixed elements
+  // from inactive tabs (e.g. Map) flash briefly before usePaneRef's effect runs.
+  const initialTab = pathnameToTab(pathname) ?? "home";
+  const paneStyle = (tab: TabKey): CSSProperties => ({
+    display: initialTab === tab ? "block" : "none",
+  });
+
   return (
     <div ref={allPanesRef}>
-      <div ref={homeRef}>
+      <div ref={homeRef} style={paneStyle("home")} aria-hidden={initialTab !== "home"}>
         <HomeClient />
       </div>
-      <div ref={exploreRef}>
+      <div ref={exploreRef} style={paneStyle("explore")} aria-hidden={initialTab !== "explore"}>
         <ExploreClient />
       </div>
-      <div ref={discoverRef}>
+      <div ref={discoverRef} style={paneStyle("discover")} aria-hidden={initialTab !== "discover"}>
         <DiscoverClient initialPhotos={[]} />
       </div>
-      <div ref={mapRef}>
+      <div ref={mapRef} style={paneStyle("map")} aria-hidden={initialTab !== "map"}>
         <MapBootstrapProvider initialBootstrap={null}>
           <MapClient />
         </MapBootstrapProvider>
