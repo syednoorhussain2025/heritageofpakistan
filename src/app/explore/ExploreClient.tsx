@@ -820,7 +820,7 @@ function ExplorePageContent() {
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
-  const [searchPanelVisible, setSearchPanelVisible] = useState(false);
+  const [searchPanelClosing, setSearchPanelClosing] = useState(false);
   const [mounted, setMounted] = useState(false);
   const safeTop = "var(--sat, 44px)";
 
@@ -1007,6 +1007,16 @@ function ExplorePageContent() {
     }
     return params;
   }, []);
+
+  const handleReset = useCallback(() => {
+    const reset: Filters = { name: "", categoryIds: [], regionIds: [], orderBy: "latest", centerSiteId: null, centerLat: null, centerLng: null, radiusKm: null };
+    setFilters(reset);
+    filtersRef.current = reset;
+    const params = buildParamsFrom(reset);
+    if (searchParams.toString() !== params.toString()) {
+      router.push(`/explore?${params.toString()}`);
+    }
+  }, [buildParamsFrom, router, searchParams]);
 
   /* Debounced auto search when filters change, not during URL hydration */
   const debounceIdRef = useRef<number | null>(null);
@@ -1337,47 +1347,66 @@ function ExplorePageContent() {
   }, []);
 
 
-  // Bottom sheet animation
-  useEffect(() => {
-    if (!searchPanelOpen) { setSearchPanelVisible(false); return; }
-    let id2: number;
-    const id = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setSearchPanelVisible(true)); });
-    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
-  }, [searchPanelOpen]);
-
   const closeSearchPanel = useCallback(() => {
-    setSearchPanelVisible(false);
-    setTimeout(() => setSearchPanelOpen(false), 320);
+    // Reverse the parallax push
+    const page = document.getElementById("explore-page-root");
+    const header = document.getElementById("explore-mobile-header");
+    if (page) {
+      page.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+      page.style.transform = "translateX(0)";
+    }
+    if (header) {
+      header.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+      header.style.transform = "translateX(0)";
+    }
+    setSearchPanelClosing(true);
   }, []);
 
-  // Lock body scroll while sheet is open
+  // Push parallax when panel opens
+  useEffect(() => {
+    if (!searchPanelOpen) return;
+    const page = document.getElementById("explore-page-root");
+    const header = document.getElementById("explore-mobile-header");
+    const raf = requestAnimationFrame(() => {
+      if (page) {
+        page.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+        page.style.transform = "translateX(-173px)";
+      }
+      if (header) {
+        header.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+        header.style.transform = "translateX(-173px)";
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [searchPanelOpen]);
+
+  // Lock body scroll while panel is open
   useEffect(() => {
     if (searchPanelOpen) document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, [searchPanelOpen]);
 
-  // When TabShell hides this pane, force-close all open panels so
-  // body scroll lock is released before switching to another tab
+  // When TabShell hides this pane, force-close the panel immediately
   useEffect(() => {
     const handler = () => {
       document.body.style.overflow = "";
+      const page = document.getElementById("explore-page-root");
+      const header = document.getElementById("explore-mobile-header");
+      if (page) { page.style.transition = "none"; page.style.transform = "translateX(0)"; }
+      if (header) { header.style.transition = "none"; header.style.transform = "translateX(0)"; }
       setSearchPanelOpen(false);
-      setSearchPanelVisible(false);
+      setSearchPanelClosing(false);
       setShowNearbyModal(false);
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
   }, []);
 
-  // Drag-to-dismiss state
-  const panelSwipeRef = useRef<{ x: number; y: number } | null>(null);
-  const [sheetDragY, setSheetDragY] = useState(0);
-  const isDraggingRef = useRef(false);
-
   return (
-    <div className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
+    <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
       {/* ── Mobile: fixed teal header (matches Home) ── */}
       <div
+        id="explore-mobile-header"
         className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)]"
         style={{ paddingTop: safeTop }}
       >
@@ -1545,74 +1574,61 @@ function ExplorePageContent() {
         }}
       />
 
-      {/* ── Mobile Search Bottom Sheet ── */}
+      {/* ── Mobile Search Panel — full-screen slide-in from right ── */}
       {mounted && searchPanelOpen && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[3300] touch-none">
-          {/* Backdrop */}
+        <>
+          {/* Backdrop (light, same as TravelGuideSheet) */}
           <div
-            className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${searchPanelVisible ? "opacity-100" : "opacity-0"}`}
-            onClick={closeSearchPanel}
-          />
-          {/* Bottom sheet — slides up from bottom */}
-          <div
-            className="absolute inset-x-0 bottom-0 bg-[var(--ivory-cream)] flex flex-col overflow-hidden rounded-t-2xl shadow-2xl"
+            className="lg:hidden fixed inset-0 z-[4999]"
             style={{
-              maxHeight: "92dvh",
-              transform: searchPanelVisible
-                ? `translateY(${sheetDragY}px)`
-                : "translateY(100%)",
-              transition: isDraggingRef.current ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+              backgroundColor: "rgba(0,0,0,0)",
+              animation: searchPanelClosing
+                ? "sideSheetBackdropOut 0.35s ease-in forwards"
+                : "sideSheetBackdropIn 0.72s ease-out forwards",
             }}
+          />
+          {/* Full-screen panel */}
+          <div
+            className={`lg:hidden fixed inset-0 z-[5000] bg-[var(--ivory-cream)] flex flex-col ${searchPanelClosing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+            onAnimationEnd={() => { if (searchPanelClosing) { setSearchPanelOpen(false); setSearchPanelClosing(false); } }}
           >
-            {/* Drag handle + header */}
+            {/* Header — back button left, title center */}
             <div
-              className="shrink-0 bg-white border-b border-gray-100 select-none cursor-grab active:cursor-grabbing"
-              onTouchStart={(e) => {
-                panelSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                isDraggingRef.current = false;
-              }}
-              onTouchMove={(e) => {
-                if (!panelSwipeRef.current) return;
-                const dy = e.touches[0].clientY - panelSwipeRef.current.y;
-                if (dy > 0) {
-                  isDraggingRef.current = true;
-                  setSheetDragY(dy);
-                }
-              }}
-              onTouchEnd={(e) => {
-                if (!panelSwipeRef.current) return;
-                const dy = e.changedTouches[0].clientY - panelSwipeRef.current.y;
-                panelSwipeRef.current = null;
-                isDraggingRef.current = false;
-                setSheetDragY(0);
-                if (dy > 80) closeSearchPanel();
-              }}
+              className="shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-3"
+              style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}
             >
-              {/* Pill */}
-              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1" />
-              <div className="flex items-center gap-2 px-4 py-2.5">
-                <div className="w-7 h-7 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
-                  <Icon name="search" size={13} className="text-[var(--brand-orange)]" />
-                </div>
-                <span className="text-base font-bold text-[var(--dark-grey)] flex-1">Search & Filters</span>
-                <button
-                  type="button"
-                  onClick={closeSearchPanel}
-                  aria-label="Close"
-                  className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
-                >
-                  <Icon name="times" size={13} />
-                </button>
+              <button
+                type="button"
+                onClick={closeSearchPanel}
+                aria-label="Back"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 shrink-0"
+              >
+                <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                  <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+                </svg>
+              </button>
+              <div className="flex-1 flex flex-col">
+                <span className="text-base font-extrabold text-[var(--dark-grey)] leading-tight">Search & Filters</span>
+                <span className="text-[0.7rem] text-gray-400 leading-tight">Heritage sites of Pakistan</span>
               </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-xs text-[var(--brand-orange)] font-semibold shrink-0 px-2 py-1 rounded-lg hover:bg-[var(--brand-orange)]/10 transition-colors"
+              >
+                Reset
+              </button>
             </div>
 
             {/* Scrollable filter content */}
-            <div data-scroll-reset className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onSearch={() => { setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
-                onOpenNearbyModal={() => { closeSearchPanel(); setShowNearbyModal(true); }}
+                onOpenNearbyModal={() => { closeSearchPanel(); setTimeout(() => setShowNearbyModal(true), 340); }}
+                hideFooter
+                hideHeading
               />
               {hasRadius(filters) && centerSitePreview?.subtitle ? (
                 <div className="px-4 pb-3 text-xs text-[var(--espresso-brown)]/80">
@@ -1620,8 +1636,23 @@ function ExplorePageContent() {
                 </div>
               ) : null}
             </div>
+
+            {/* Fixed Search button at bottom */}
+            <div
+              className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3"
+              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 12px)" }}
+            >
+              <button
+                type="button"
+                onClick={() => { setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[var(--brand-orange)] py-3.5 text-[15px] font-bold text-white shadow-md active:opacity-80 transition-opacity"
+              >
+                <Icon name="search" size={15} />
+                Search Results
+              </button>
+            </div>
           </div>
-        </div>,
+        </>,
         document.body
       )}
 

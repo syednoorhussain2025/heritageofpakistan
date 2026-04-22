@@ -3281,8 +3281,8 @@ export default function SearchFilters({
         </Tooltip>
       </div>
 
-      {/* Footer actions */}
-      <div className="flex gap-2.5 pt-4 mt-3 border-t border-gray-100 flex-shrink-0">
+      {/* Footer actions — hidden when the parent provides its own Search button */}
+      {!hideFooter && <div className="flex gap-2.5 pt-4 mt-3 border-t border-gray-100 flex-shrink-0">
         <Tooltip text="Run search with current filters" wrapperClassName="flex-1">
           <button
             onClick={onSearch}
@@ -3306,7 +3306,7 @@ export default function SearchFilters({
             Reset
           </button>
         </Tooltip>
-      </div>
+      </div>}
     </div>
   );
 }
