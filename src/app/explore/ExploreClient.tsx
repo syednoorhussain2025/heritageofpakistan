@@ -1405,13 +1405,10 @@ function ExplorePageContent() {
         aria-label="Search & Filters"
         onClick={() => setSearchPanelOpen(true)}
         className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)] text-left active:bg-[var(--brand-green)]/90 transition-colors"
-        style={{ paddingTop: safeTop }}
       >
-        <div className="px-4 pb-3 pt-2">
+        <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
           <div className="flex items-center justify-center mb-1.5">
-            <span className="text-white font-extrabold text-[20px] tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
-              Explore
-            </span>
+            <span className="tab-header-title">Explore</span>
           </div>
           <div className="flex items-center gap-2">
             <Icon name="search" size={14} className="text-white/80 shrink-0" />

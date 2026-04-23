@@ -1762,9 +1762,10 @@ export default function MapClient() {
       <MobilePageHeader
         backgroundColor="var(--brand-green)"
         minHeight="0px"
-        className="flex items-end justify-center pb-2.5"
+        className="flex items-start justify-center pb-2.5"
+        style={{ paddingTop: "var(--tab-title-top)" }}
       >
-        <span className="text-white text-[20px] font-extrabold tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>Map</span>
+        <span className="tab-header-title">Map</span>
       </MobilePageHeader>
 
     <div className="fixed inset-0 w-full z-0">

@@ -70,14 +70,10 @@ const DashboardHomeHeader = memo(function DashboardHomeHeader() {
       backgroundColor="var(--brand-green)"
       minHeight="0px"
       className="flex flex-col"
-      style={{ transform: "translateZ(0)", willChange: "transform" }}
+      style={{ transform: "translateZ(0)", willChange: "transform", paddingTop: "var(--tab-title-top)" }}
     >
-      <div className="flex items-center px-2 pb-2.5">
-        <div className="w-[46px] h-[46px] ml-2 shrink-0" />
-        <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[20px] font-extrabold tracking-tight pr-9" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
-          <Icon name="layout-board-split" size={22} className="text-white/90 shrink-0" />
-          Dashboard
-        </span>
+      <div className="flex items-center justify-center px-2 pb-2.5">
+        <span className="tab-header-title">Dashboard</span>
       </div>
     </MobilePageHeader>
   );

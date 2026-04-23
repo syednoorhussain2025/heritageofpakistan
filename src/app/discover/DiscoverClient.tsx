@@ -715,19 +715,14 @@ export default function DiscoverClient({
             height: "100%",
           }}
         />
-        <div className="relative" style={{ paddingTop: "calc(var(--sat, 44px) + 8px)", paddingBottom: "16px" }}>
+        <div className="relative" style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "16px" }}>
           {/* Title row — always fixed height, never shifts */}
           <div className="flex items-center justify-between px-4 pb-1">
             <div className="w-[58px]" />
             <div className="flex-1 text-center">
               <h1
-                className="text-white font-extrabold tracking-tight"
-                style={{
-                  fontSize: "20px",
-                  fontFamily: "var(--font-futura, sans-serif)",
-                  textShadow: "0 2px 16px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.5)",
-                  letterSpacing: "-0.02em",
-                }}
+                className="tab-header-title"
+                style={{ textShadow: "0 2px 16px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.5)" }}
               >
                 Discover
               </h1>

@@ -31,6 +31,22 @@ html {
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --vaul-drawer-border-radius: 24px;
+
+  /* Mobile tab header title tokens — shared by Discover, Explore, Map, Dashboard.
+     Home is the brand tier and uses its own treatment. */
+  --tab-title-top: calc(var(--sat, 44px) + 10px);
+  --tab-title-size: 20px;
+  --tab-title-weight: 800;
+  --tab-title-font: var(--font-futura, sans-serif);
+}
+
+.tab-header-title {
+  font-family: var(--tab-title-font);
+  font-size: var(--tab-title-size);
+  font-weight: var(--tab-title-weight);
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  line-height: 1;
 }
 
 /* Tab routes: lock scroll on mobile — all content is in fixed divs.
