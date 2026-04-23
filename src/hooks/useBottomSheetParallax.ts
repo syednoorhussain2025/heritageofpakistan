@@ -18,11 +18,23 @@ const FILTER_CLOSED = "brightness(1) blur(0px)";
 let openCount = 0;
 let bgTimer: ReturnType<typeof setTimeout> | null = null;
 
-function applyOpen() {
-  const page = document.getElementById("heritage-page-root");
-  const header = document.getElementById("heritage-mobile-header");
+const DEFAULT_TARGETS = {
+  pageIds: ["heritage-page-root"],
+  headerIds: ["heritage-mobile-header"],
+};
+
+type Targets = {
+  pageIds?: string[];
+  headerIds?: string[];
+};
+
+function applyOpen(targets: Targets) {
+  const pageIds = targets.pageIds ?? DEFAULT_TARGETS.pageIds;
+  const headerIds = targets.headerIds ?? DEFAULT_TARGETS.headerIds;
+  const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+  const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
   const body = document.body;
-  if (!page) return;
+  if (!pages.length && !headers.length) return;
 
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
@@ -32,40 +44,46 @@ function applyOpen() {
   body.offsetHeight; // force reflow
   body.style.transition = BODY_TRANSITION;
 
-  page.style.transition = TRANSITION;
-  page.style.transformOrigin = "top center";
-  page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
-  page.style.borderRadius = BORDER_RADIUS;
-  page.style.filter = FILTER_OPEN;
+  pages.forEach((page) => {
+    page.style.transition = TRANSITION;
+    page.style.transformOrigin = "top center";
+    page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+    page.style.borderRadius = BORDER_RADIUS;
+    page.style.filter = FILTER_OPEN;
+  });
 
-  if (header) {
+  headers.forEach((header) => {
     header.style.transition = TRANSITION;
     header.style.transformOrigin = "top center";
     header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
     header.style.opacity = "1";
     header.style.filter = FILTER_OPEN;
-  }
+  });
 }
 
-function applyClose() {
-  const page = document.getElementById("heritage-page-root");
-  const header = document.getElementById("heritage-mobile-header");
+function applyClose(targets: Targets) {
+  const pageIds = targets.pageIds ?? DEFAULT_TARGETS.pageIds;
+  const headerIds = targets.headerIds ?? DEFAULT_TARGETS.headerIds;
+  const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+  const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
   const body = document.body;
-  if (!page) return;
+  if (!pages.length && !headers.length) return;
 
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
-  page.style.transition = TRANSITION;
-  page.style.transform = "scale(1) translateY(0px)";
-  page.style.borderRadius = "0px";
-  page.style.filter = FILTER_CLOSED;
+  pages.forEach((page) => {
+    page.style.transition = TRANSITION;
+    page.style.transform = "scale(1) translateY(0px)";
+    page.style.borderRadius = "0px";
+    page.style.filter = FILTER_CLOSED;
+  });
 
-  if (header) {
+  headers.forEach((header) => {
     header.style.transition = TRANSITION;
     header.style.transform = "scale(1) translateY(0px)";
     header.style.opacity = "1";
     header.style.filter = FILTER_CLOSED;
-  }
+  });
 
   // Delay body bg restore until page has scaled back up
   bgTimer = setTimeout(() => {
@@ -75,8 +93,10 @@ function applyClose() {
   }, DURATION_MS);
 }
 
-export function useBottomSheetParallax(active: boolean) {
+export function useBottomSheetParallax(active: boolean, targets?: Targets) {
   const wasActive = useRef(false);
+  const targetsRef = useRef<Targets>(targets ?? {});
+  targetsRef.current = targets ?? {};
 
   useEffect(() => {
     const isNowActive = active;
@@ -86,13 +106,13 @@ export function useBottomSheetParallax(active: boolean) {
     if (isNowActive && !wasActiveVal) {
       // Opening
       openCount++;
-      applyOpen();
+      applyOpen(targetsRef.current);
     } else if (!isNowActive && wasActiveVal) {
       // Closing
       openCount = Math.max(0, openCount - 1);
       // Only restore page if no other sheet is still open
       if (openCount === 0) {
-        applyClose();
+        applyClose(targetsRef.current);
       }
     }
   }, [active]);
@@ -103,7 +123,7 @@ export function useBottomSheetParallax(active: boolean) {
       if (wasActive.current) {
         openCount = Math.max(0, openCount - 1);
         if (openCount === 0) {
-          applyClose();
+          applyClose(targetsRef.current);
         }
       }
     };

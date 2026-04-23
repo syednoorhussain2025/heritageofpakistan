@@ -1370,9 +1370,20 @@ function ExplorePageContent() {
     setSearchPanelClosing(true);
   }, [setPushTransform]);
 
-  // Push parallax when panel opens
+  // Push parallax when panel opens.
+  // Two-step: (1) synchronously plant translateX(0) with transition:none so the
+  // element is at a known starting position regardless of any prior interrupted
+  // animation, (2) in the next frame switch to translateX(-173px) with the
+  // animated transition. Forces the browser to register a style change and run
+  // the transition instead of coalescing both writes into one recalc.
   useEffect(() => {
     if (!searchPanelOpen) return;
+    setPushTransform("translateX(0)", false);
+    const ids = ["explore-mobile-header", "explore-mobile-content"];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) void el.offsetWidth; // force reflow so step 1 is committed
+    });
     const raf = requestAnimationFrame(() => setPushTransform("translateX(-173px)", true));
     return () => cancelAnimationFrame(raf);
   }, [searchPanelOpen, setPushTransform]);
@@ -1403,7 +1414,7 @@ function ExplorePageContent() {
         id="explore-mobile-header"
         type="button"
         aria-label="Search & Filters"
-        onClick={() => setSearchPanelOpen(true)}
+        onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)] text-left active:brightness-95"
         style={{ willChange: "transform" }}
       >

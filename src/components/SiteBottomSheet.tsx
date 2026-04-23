@@ -9,6 +9,7 @@ import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 
 export type BottomSheetSite = {
   id: string;
@@ -91,6 +92,15 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   });
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Push/shrink parallax — scale Explore's fixed header + content card while
+  // the sheet is visible. Targets are mobile-only Explore IDs; when the sheet
+  // is opened from pages that don't have them (e.g. Map), the hook is a no-op.
+  const parallaxActive = isOpen && !closing;
+  useBottomSheetParallax(parallaxActive, {
+    pageIds: [],
+    headerIds: ["explore-mobile-header", "explore-mobile-content"],
+  });
 
   // Sync slides when site changes, then fetch remaining slideshow images in background
   useEffect(() => {
