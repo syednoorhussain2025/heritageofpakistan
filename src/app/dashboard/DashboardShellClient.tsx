@@ -74,9 +74,9 @@ const DashboardHomeHeader = memo(function DashboardHomeHeader() {
     >
       <div className="flex items-center px-2 pb-2.5">
         <div className="w-[46px] h-[46px] ml-2 shrink-0" />
-        <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[17px] font-semibold tracking-wide pr-9">
+        <span className="flex-1 flex items-center justify-center gap-1.5 text-white text-[20px] font-extrabold tracking-tight pr-9" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
           <Icon name="layout-board-split" size={22} className="text-white/90 shrink-0" />
-          My Dashboard
+          Dashboard
         </span>
       </div>
     </MobilePageHeader>

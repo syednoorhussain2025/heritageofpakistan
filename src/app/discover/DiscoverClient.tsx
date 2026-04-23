@@ -721,9 +721,10 @@ export default function DiscoverClient({
             <div className="w-[58px]" />
             <div className="flex-1 text-center">
               <h1
-                className="text-white font-bold tracking-tight"
+                className="text-white font-extrabold tracking-tight"
                 style={{
-                  fontSize: "clamp(22px, 5.5vw, 27px)",
+                  fontSize: "20px",
+                  fontFamily: "var(--font-futura, sans-serif)",
                   textShadow: "0 2px 16px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.5)",
                   letterSpacing: "-0.02em",
                 }}

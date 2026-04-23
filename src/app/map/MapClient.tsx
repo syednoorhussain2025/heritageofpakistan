@@ -1764,7 +1764,7 @@ export default function MapClient() {
         minHeight="0px"
         className="flex items-end justify-center pb-2.5"
       >
-        <span className="text-white text-[17px] font-semibold tracking-wide">Map</span>
+        <span className="text-white text-[20px] font-extrabold tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>Map</span>
       </MobilePageHeader>
 
     <div className="fixed inset-0 w-full z-0">

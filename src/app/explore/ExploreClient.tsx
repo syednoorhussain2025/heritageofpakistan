@@ -1409,7 +1409,7 @@ function ExplorePageContent() {
       >
         <div className="px-4 pb-3 pt-2">
           <div className="flex items-center justify-center mb-1.5">
-            <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
+            <span className="text-white font-extrabold text-[20px] tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
               Explore
             </span>
           </div>
