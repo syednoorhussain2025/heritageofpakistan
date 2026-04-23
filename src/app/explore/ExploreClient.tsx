@@ -1399,29 +1399,32 @@ function ExplorePageContent() {
   return (
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
       {/* ── Mobile: fixed teal header (matches Home) ── */}
-      <div
+      <button
         id="explore-mobile-header"
-        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)]"
+        type="button"
+        aria-label="Search & Filters"
+        onClick={() => setSearchPanelOpen(true)}
+        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)] text-left active:bg-[var(--brand-green)]/90 transition-colors"
         style={{ paddingTop: safeTop }}
       >
-        <div className="px-4 pb-2 pt-2">
-          <div className="flex items-center justify-between mb-2">
+        <div className="px-4 pb-3 pt-2">
+          <div className="flex items-center justify-center mb-1.5">
             <span className="text-white font-extrabold text-lg tracking-tight" style={{ fontFamily: "var(--font-futura, sans-serif)" }}>
               Explore
             </span>
-            <span className="text-white/70 text-xs">{loading && results.sites.length === 0 ? "…" : results.sites.length} of {results.total}</span>
           </div>
-          <button
-            type="button"
-            aria-label="Search & Filters"
-            onClick={() => setSearchPanelOpen(true)}
-            className="w-full flex items-center gap-2 bg-white rounded-full px-4 py-2.5 shadow-sm"
-          >
-            <Icon name="search" size={16} className="text-gray-400 shrink-0" />
-            <span className="text-sm text-gray-400 flex-1 text-left">{headline !== "All Heritage Sites" ? headline : "Search heritage sites…"}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <Icon name="search" size={14} className="text-white/80 shrink-0" />
+            <span className="flex-1 min-w-0 text-[15px] font-semibold text-white truncate">
+              {headline}
+            </span>
+            <span className="text-white/70 text-[11px] tabular-nums shrink-0">
+              {loading && results.sites.length === 0 ? "…" : results.sites.length}/{results.total}
+            </span>
+            <Icon name="chevron-right" size={11} className="text-white/70 shrink-0" />
+          </div>
         </div>
-      </div>
+      </button>
       <style jsx global>{`
         :root {
           --navy-deep: #1c1f4c;
@@ -1467,7 +1470,7 @@ function ExplorePageContent() {
             <div
               id="explore-mobile-content"
               className="lg:hidden fixed inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto z-10 px-4 pt-4 pb-8"
-              style={{ top: `calc(${safeTop} + 108px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+              style={{ top: `calc(${safeTop} + 72px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
             >
               <div className="relative">
                 {isFiltering && (

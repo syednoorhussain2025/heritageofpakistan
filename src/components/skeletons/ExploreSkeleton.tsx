@@ -21,17 +21,16 @@ function Card() {
 export default function ExploreSkeleton() {
   return (
     <div className="lg:hidden min-h-screen bg-[#f4f4f4]">
-      {/* Teal header — matches MobilePageHeader backgroundColor="var(--brand-green)" minHeight="180px" */}
-      <div className="bg-[var(--brand-green)]" style={{ minHeight: "180px", paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
-        <div className="px-4 pt-3 pb-5 space-y-3">
-          <Bar className="h-6 w-40" />
-          {/* Search bar */}
-          <div className="bg-white/20 rounded-full h-11 w-full animate-pulse" />
-          {/* Filter chips row */}
-          <div className="flex gap-2">
-            <div className="bg-white/20 rounded-full h-8 w-20 animate-pulse" />
-            <div className="bg-white/20 rounded-full h-8 w-24 animate-pulse" />
-            <div className="bg-white/20 rounded-full h-8 w-16 animate-pulse" />
+      {/* Teal header — matches centered title + inline status row */}
+      <div className="bg-[var(--brand-green)]" style={{ paddingTop: "calc(44px + env(safe-area-inset-top, 0px))" }}>
+        <div className="px-4 pt-2 pb-3">
+          <div className="flex items-center justify-center mb-1.5">
+            <Bar className="h-5 w-24" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Bar className="h-3.5 w-3.5 rounded-sm" />
+            <Bar className="h-4 flex-1" />
+            <Bar className="h-3 w-10" />
           </div>
         </div>
       </div>
