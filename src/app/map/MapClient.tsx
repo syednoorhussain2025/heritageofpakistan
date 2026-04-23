@@ -2,7 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "@/components/Icon";
@@ -302,6 +302,7 @@ export default function MapClient() {
   // mapVisible = true only while map tab is the active tab (guards portal bleed onto other tabs)
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const [mapVisible, setMapVisible] = useState(false);
 
   // Keep mapVisible in sync with real Next.js navigations (e.g. tapping dashboard
@@ -314,6 +315,7 @@ export default function MapClient() {
   const [centerSiteTitle, setCenterSiteTitle] = useState<string | null>(null);
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
   const [mobileMapTypeSheetVisible, setMobileMapTypeSheetVisible] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   // ── Unified slideable bottom panel ──
   // "peek" = collapsed bar at bottom, "expanded" = 70vh sheet open
@@ -1758,15 +1760,24 @@ export default function MapClient() {
 
   return (
     <>
-      {/* ── Mobile: teal header with "Map" title — bleeds behind status bar ── */}
-      <MobilePageHeader
-        backgroundColor="var(--brand-green)"
-        minHeight="0px"
-        className="flex items-start justify-center pb-2.5"
+      {/* ── Mobile: teal header — matches Explore, with + button for quick actions ── */}
+      <div
+        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)]"
         style={{ paddingTop: "var(--tab-title-top)" }}
       >
-        <span className="tab-header-title">Map</span>
-      </MobilePageHeader>
+        <div className="relative flex items-center justify-center px-4 pb-2.5">
+          <span className="tab-header-title">Map</span>
+          {/* + button — opens My Lists / My Trips quick-action sheet */}
+          <button
+            type="button"
+            aria-label="Quick actions"
+            onClick={() => { void hapticLight(); setQuickActionsOpen(true); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
+          >
+            <Icon name="plus" size={18} className="text-white" />
+          </button>
+        </div>
+      </div>
 
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
@@ -2454,7 +2465,7 @@ export default function MapClient() {
       {!loadError && mounted && mapVisible && createPortal(
         <div ref={mapPortalsRef}>
         <div
-          className="lg:hidden fixed inset-x-0 z-[2998]"
+          className="hidden fixed inset-x-0 z-[2998]"
           style={{
             bottom: "calc(52px + var(--safe-bottom, 0px))",
             // When expanded, the sheet sits at top: 30vh from top (70vh height)
@@ -3057,6 +3068,67 @@ export default function MapClient() {
             )}
           </div>
         </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Mobile quick-actions sheet — My Lists + My Trips ── */}
+      {mounted && quickActionsOpen && createPortal(
+        <div
+          className="lg:hidden fixed inset-0 z-[3600]"
+          onClick={() => setQuickActionsOpen(false)}
+          aria-modal="true"
+          role="dialog"
+          aria-label="Quick actions"
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+
+          {/* Sheet */}
+          <div
+            className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2" aria-hidden="true">
+              <div className="w-10 h-1 rounded-full bg-gray-300/80" />
+            </div>
+
+            <div className="px-4 pb-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick Access</p>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-4 px-3 py-3.5 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => { setQuickActionsOpen(false); void hapticLight(); router.push("/dashboard/lists"); }}
+              >
+                <span className="w-10 h-10 rounded-full bg-[var(--brand-orange)]/10 flex items-center justify-center shrink-0">
+                  <Icon name="heart" size={20} className="text-[var(--brand-orange)]" />
+                </span>
+                <div className="text-left">
+                  <p className="text-[15px] font-semibold text-gray-800">My Lists</p>
+                  <p className="text-xs text-gray-500">Your saved heritage sites</p>
+                </div>
+                <Icon name="chevron-right" size={16} className="text-gray-400 ml-auto shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-4 px-3 py-3.5 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => { setQuickActionsOpen(false); void hapticLight(); router.push("/dashboard/trips"); }}
+              >
+                <span className="w-10 h-10 rounded-full bg-[var(--brand-green)]/10 flex items-center justify-center shrink-0">
+                  <Icon name="route" size={20} className="text-[var(--brand-green)]" />
+                </span>
+                <div className="text-left">
+                  <p className="text-[15px] font-semibold text-gray-800">My Trips</p>
+                  <p className="text-xs text-gray-500">Your planned trips</p>
+                </div>
+                <Icon name="chevron-right" size={16} className="text-gray-400 ml-auto shrink-0" />
+              </button>
+            </div>
+          </div>
         </div>,
         document.body
       )}
