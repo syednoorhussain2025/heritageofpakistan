@@ -717,7 +717,7 @@ export default function DiscoverClient({
         />
         <div className="relative" style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "16px" }}>
           {/* Title row — always fixed height, never shifts */}
-          <div className="flex items-center justify-between px-4 pb-1">
+          <div className="flex items-start justify-between px-4 pb-1">
             <div className="w-[58px]" />
             <div className="flex-1 text-center">
               <h1
