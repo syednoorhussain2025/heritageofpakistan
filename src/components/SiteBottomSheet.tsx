@@ -93,13 +93,13 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Push/shrink parallax — scale Explore's fixed header + content card while
-  // the sheet is visible. Targets are mobile-only Explore IDs; when the sheet
-  // is opened from pages that don't have them (e.g. Map), the hook is a no-op.
+  // Push/shrink parallax — scale Explore's mobile shell (which groups the
+  // header and content card) as a single surface while the sheet is visible.
+  // On pages that don't have the shell (e.g. Map), the hook is a no-op.
   const parallaxActive = isOpen && !closing;
   useBottomSheetParallax(parallaxActive, {
-    pageIds: [],
-    headerIds: ["explore-mobile-header", "explore-mobile-content"],
+    pageIds: ["explore-mobile-shell"],
+    headerIds: [],
   });
 
   // Sync slides when site changes, then fetch remaining slideshow images in background
