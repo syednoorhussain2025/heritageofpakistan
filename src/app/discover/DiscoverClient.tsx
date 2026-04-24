@@ -447,7 +447,6 @@ export default function DiscoverClient({
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const subtitleSentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef  = useRef(false);
 
   // ── Core load ──────────────────────────────────────────────────────────────
@@ -598,19 +597,50 @@ export default function DiscoverClient({
   }, []);
 
   // ── Subtitle fade on scroll ───────────────────────────────────────────────
-  // IntersectionObserver on a top sentinel — fires reliably on iOS Capacitor
-  // where onScroll/touchmove can miss during momentum scrolling.
+  // Belt-and-braces on iOS Capacitor: attach scroll listener to scroll
+  // container AND window AND document, plus a rAF loop that polls scrollTop
+  // while the page is interactive. Any one of these firing updates the state.
   useEffect(() => {
-    const sentinel = subtitleSentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        setSubtitleVisible(entries[0].isIntersecting);
-      },
-      { threshold: 0 }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
+    let lastVisible = true;
+    let rafId = 0;
+    let stopPolling = false;
+
+    const check = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      // Try every possible scroll source — whichever is actually scrolling wins
+      const top = Math.max(
+        el.scrollTop || 0,
+        window.scrollY || 0,
+        document.documentElement.scrollTop || 0,
+        document.body.scrollTop || 0
+      );
+      const nowVisible = top < 30;
+      if (nowVisible !== lastVisible) {
+        lastVisible = nowVisible;
+        setSubtitleVisible(nowVisible);
+      }
+    };
+
+    const loop = () => {
+      if (stopPolling) return;
+      check();
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+
+    const el = scrollRef.current;
+    el?.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("scroll", check, { passive: true });
+    document.addEventListener("scroll", check, { passive: true, capture: true });
+
+    return () => {
+      stopPolling = true;
+      cancelAnimationFrame(rafId);
+      el?.removeEventListener("scroll", check);
+      window.removeEventListener("scroll", check);
+      document.removeEventListener("scroll", check, { capture: true } as any);
+    };
   }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
@@ -703,16 +733,6 @@ export default function DiscoverClient({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Subtitle fade sentinel — sits at top of scroll flow. When it scrolls
-          off-screen, IntersectionObserver fires and subtitle fades out. Works
-          on iOS Capacitor where onScroll/touchmove miss during momentum. */}
-      <div
-        ref={subtitleSentinelRef}
-        aria-hidden="true"
-        className="lg:hidden pointer-events-none"
-        style={{ height: "30px", width: "1px" }}
-      />
-
       {/* ── Pull-to-refresh indicator — sits below the Discover title ── */}
       {pullPct > 0.05 && <PullIndicator pullPct={pullPct} />}
 
