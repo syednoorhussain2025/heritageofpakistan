@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { hapticLight } from "@/lib/haptics";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -344,7 +345,7 @@ export default function SitePreviewCard({
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
         onTouchStart={prefetchDetail}
-        onClick={onCardClick ? (e) => { e.preventDefault(); e.stopPropagation(); onCardClick(); } : undefined}
+        onClick={onCardClick ? (e) => { e.preventDefault(); e.stopPropagation(); void hapticLight(); onCardClick(); } : undefined}
       >
         <div className="relative">
           {/* Image container — bg-neutral-300 ensures any transparent frame
