@@ -1815,7 +1815,8 @@ export default function MapClient() {
           </div>
         </div>
         <div
-          className="absolute right-5 bottom-2 flex items-center"
+          className="absolute right-5 flex items-center"
+          style={{ bottom: "10px" }}
           onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
         >
           <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
