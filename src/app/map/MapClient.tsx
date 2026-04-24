@@ -1817,7 +1817,7 @@ export default function MapClient() {
         {/* Location button — left side, aligned with Map title row */}
         <div
           className="absolute left-5 flex items-center"
-          style={{ top: "calc(var(--tab-title-top) + 6px)" }}
+          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
           onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
         >
           <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
@@ -1839,7 +1839,7 @@ export default function MapClient() {
         {/* + button — right side, aligned with Map title row */}
         <div
           className="absolute right-5 flex items-center"
-          style={{ top: "calc(var(--tab-title-top) + 6px)" }}
+          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
           onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
         >
           <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
