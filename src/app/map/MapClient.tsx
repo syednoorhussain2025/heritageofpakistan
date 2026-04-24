@@ -1798,42 +1798,41 @@ export default function MapClient() {
         id="map-mobile-header"
         className="lg:hidden fixed inset-x-0 top-0 z-[1101] bg-[var(--brand-green)] text-left active:brightness-95"
       >
-        <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
-          {/* Title row: buttons flank the centered title — matches Explore/Discover layout */}
-          <div className="flex items-center justify-between mb-3">
-            {/* Location button */}
-            <div
-              className="shrink-0"
-              onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
-            >
-              <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
-                {gpsStatus === "loading" ? (
-                  <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
-                ) : (
-                  <>
-                    {gpsStatus === "granted" && gpsCoords && (
-                      <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
-                    )}
-                    <svg className="w-5 h-5 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                    </svg>
-                  </>
-                )}
-              </span>
-            </div>
-
-            {/* Centered title */}
+        <div className="relative px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
+          {/* Title — identical structure to Explore */}
+          <div className="flex items-center justify-center mb-3">
             <span className="tab-header-title">Map</span>
+          </div>
 
-            {/* + button */}
-            <div
-              className="shrink-0"
-              onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
-            >
-              <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
-                <Icon name="plus" size={22} className="text-white" />
-              </span>
-            </div>
+          {/* Buttons absolutely positioned over the title row */}
+          <div
+            className="absolute left-4 flex items-center"
+            style={{ top: "var(--tab-title-top)", height: "32px" }}
+            onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
+          >
+            <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
+              {gpsStatus === "loading" ? (
+                <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+              ) : (
+                <>
+                  {gpsStatus === "granted" && gpsCoords && (
+                    <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
+                  )}
+                  <svg className="w-5 h-5 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </>
+              )}
+            </span>
+          </div>
+          <div
+            className="absolute right-4 flex items-center"
+            style={{ top: "var(--tab-title-top)", height: "32px" }}
+            onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
+          >
+            <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
+              <Icon name="plus" size={22} className="text-white" />
+            </span>
           </div>
 
           {/* Search indicator row */}
