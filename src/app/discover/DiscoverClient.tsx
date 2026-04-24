@@ -597,15 +597,9 @@ export default function DiscoverClient({
   }, []);
 
   // ── Subtitle fade on scroll ───────────────────────────────────────────────
-  // useEffect so the listener is attached after the DOM node exists (fixes iOS Safari)
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const check = () => setSubtitleVisible(el.scrollTop < 30);
-    el.addEventListener("scroll", check, { passive: true });
-    return () => el.removeEventListener("scroll", check);
-  // scrollRef.current is stable after mount — empty deps is correct here
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const checkSubtitle = useCallback(() => {
+    setSubtitleVisible((scrollRef.current?.scrollTop ?? 0) < 30);
+  }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
 
@@ -639,6 +633,7 @@ export default function DiscoverClient({
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    checkSubtitle();
     if (pullStartY.current === null) return;
     const el = scrollRef.current;
     if (!el || el.scrollTop > 0) {
@@ -652,7 +647,7 @@ export default function DiscoverClient({
     // Rubber-band: resistance increases as you pull further
     const pct = Math.min(dy / PULL_THRESHOLD, 1.2);
     setPullPct(pct);
-  }, []);
+  }, [checkSubtitle]);
 
   const handleTouchEnd = useCallback(() => {
     if (pullPct >= 1 && !refreshing) {
@@ -693,6 +688,7 @@ export default function DiscoverClient({
       data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{} as React.CSSProperties}
+      onScroll={checkSubtitle}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
