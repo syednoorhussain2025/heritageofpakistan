@@ -316,6 +316,8 @@ export default function MapClient() {
   const [mobileMapTypeSheetOpen, setMobileMapTypeSheetOpen] = useState(false);
   const [mobileMapTypeSheetVisible, setMobileMapTypeSheetVisible] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [mapSearchPanelOpen, setMapSearchPanelOpen] = useState(false);
+  const [mapSearchPanelClosing, setMapSearchPanelClosing] = useState(false);
 
   // ── Unified slideable bottom panel ──
   // "peek" = collapsed bar at bottom, "expanded" = 70vh sheet open
@@ -1760,24 +1762,43 @@ export default function MapClient() {
 
   return (
     <>
-      {/* ── Mobile: teal header — matches Explore, with + button for quick actions ── */}
-      <div
-        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)]"
+      {/* ── Mobile: teal header — matches Explore layout exactly ── */}
+      <button
+        type="button"
+        aria-label="Search & Filters"
+        onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
+        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)] text-left active:brightness-95"
         style={{ paddingTop: "var(--tab-title-top)" }}
       >
-        <div className="relative flex items-center justify-center px-4 pb-2.5">
-          <span className="tab-header-title">Map</span>
-          {/* + button — opens My Lists / My Trips quick-action sheet */}
-          <button
-            type="button"
-            aria-label="Quick actions"
-            onClick={() => { void hapticLight(); setQuickActionsOpen(true); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
-          >
-            <Icon name="plus" size={18} className="text-white" />
-          </button>
+        <div className="px-4 pb-3">
+          {/* Row 1: title */}
+          <div className="flex items-center justify-center mb-3">
+            <span className="tab-header-title">Map</span>
+          </div>
+          {/* Row 2: search indicator */}
+          <div className="flex items-center justify-center gap-2.5">
+            <Icon name="search" size={18} className="text-white/90 shrink-0" />
+            <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
+              {mapTitleText}
+            </span>
+            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+          </div>
+          {/* Row 3: site count */}
+          <div className="flex items-center justify-center mt-1">
+            <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
+          </div>
         </div>
-      </div>
+        {/* + button — opens My Lists / My Trips quick-action sheet */}
+        <div
+          className="absolute right-3 top-0 flex items-center"
+          style={{ height: "calc(var(--tab-title-top) + 58px)" }}
+          onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
+        >
+          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
+            <Icon name="plus" size={18} className="text-white" />
+          </span>
+        </div>
+      </button>
 
     <div className="fixed inset-0 w-full z-0">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
@@ -3069,6 +3090,88 @@ export default function MapClient() {
           </div>
         </div>
         </div>,
+        document.body
+      )}
+
+      {/* ── Mobile: full-screen search & filters panel (same pattern as Explore) ── */}
+      {mounted && mapSearchPanelOpen && createPortal(
+        <>
+          <div
+            className="lg:hidden fixed inset-0 z-[4999]"
+            style={{
+              backgroundColor: "rgba(0,0,0,0)",
+              animation: mapSearchPanelClosing
+                ? "sideSheetBackdropOut 0.35s ease-in forwards"
+                : "sideSheetBackdropIn 0.72s ease-out forwards",
+            }}
+          />
+          <div
+            className={`lg:hidden fixed inset-0 z-[5000] bg-[var(--ivory-cream,#f8f8f8)] flex flex-col ${mapSearchPanelClosing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
+            onAnimationEnd={() => {
+              if (mapSearchPanelClosing) {
+                setMapSearchPanelOpen(false);
+                setMapSearchPanelClosing(false);
+              }
+            }}
+          >
+            {/* Header */}
+            <div
+              className="shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-3"
+              style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}
+            >
+              <button
+                type="button"
+                onClick={() => setMapSearchPanelClosing(true)}
+                aria-label="Back"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 shrink-0"
+              >
+                <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                  <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
+                </svg>
+              </button>
+              <div className="flex-1 flex flex-col">
+                <span className="text-base font-extrabold text-gray-800 leading-tight">Search & Filters</span>
+                <span className="text-[0.7rem] text-gray-400 leading-tight">Heritage sites of Pakistan</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearAllFilters}
+                className="text-xs text-[var(--brand-orange)] font-semibold shrink-0 px-2 py-1 rounded-lg hover:bg-[var(--brand-orange)]/10 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+
+            {/* Scrollable filters */}
+            <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
+              <SearchFilters
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onSearch={() => { setMapSearchPanelClosing(true); triggerFitFiltered(); }}
+                onOpenNearbyModal={() => { setMapSearchPanelClosing(true); setTimeout(() => setShowNearbyModal(true), 340); }}
+                onClearNearby={() => showMapToast("Proximity filter cleared")}
+                onReset={() => showMapToast("Filters reset")}
+                hideFooter
+                hideHeading
+              />
+            </div>
+
+            {/* Search button */}
+            <div
+              className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3"
+              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 12px)" }}
+            >
+              <button
+                type="button"
+                onClick={() => { setMapSearchPanelClosing(true); triggerFitFiltered(); }}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[var(--brand-orange)] py-3.5 text-[15px] font-bold text-white shadow-md active:opacity-80 transition-opacity"
+              >
+                <Icon name="search" size={15} />
+                Search on Map
+              </button>
+            </div>
+          </div>
+        </>,
         document.body
       )}
 
