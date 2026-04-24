@@ -599,11 +599,17 @@ export default function DiscoverClient({
   // ── Subtitle fade on scroll ───────────────────────────────────────────────
 
   useEffect(() => {
+    const check = () => {
+      const scrollTop = scrollRef.current?.scrollTop ?? window.scrollY;
+      setSubtitleVisible(scrollTop < 30);
+    };
     const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => setSubtitleVisible(el.scrollTop < 30);
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    if (el) el.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("scroll", check, { passive: true });
+    return () => {
+      if (el) el.removeEventListener("scroll", check);
+      window.removeEventListener("scroll", check);
+    };
   }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
