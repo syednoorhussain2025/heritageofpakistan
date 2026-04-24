@@ -8,7 +8,7 @@ import SiteCarousel from "@/components/SiteCarousel";
 import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
-import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { hapticMedium } from "@/lib/haptics";
 import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 
 export type BottomSheetSite = {
@@ -150,7 +150,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       setClosing(false);
       return;
     }
-    void hapticMedium();
     raf1Ref.current = requestAnimationFrame(() => {
       raf2Ref.current = requestAnimationFrame(() => {
         raf2Ref.current = null;
@@ -165,7 +164,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
-    void hapticLight();
     setClosing(true);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
@@ -240,7 +238,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     const DISMISS_VELOCITY = 0.4; // px/ms
 
     if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
-      void hapticLight();
       // Animate out then close — set closing so backdrop fades in sync
       setClosing(true);
       if (el) el.style.transform = "translateY(100%)";
