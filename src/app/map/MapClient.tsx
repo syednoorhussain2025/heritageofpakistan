@@ -1797,54 +1797,55 @@ export default function MapClient() {
         onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
         id="map-mobile-header"
         className="lg:hidden fixed inset-x-0 top-0 z-[1101] bg-[var(--brand-green)] text-left active:brightness-95"
-        style={{ paddingTop: "var(--tab-title-top)" }}
+        style={{ paddingTop: "calc(var(--tab-title-top) - 4px)" }}
       >
-        <div className="px-4 pb-3">
-          <div className="flex items-center justify-center mb-3">
-            <span className="tab-header-title">Map</span>
-          </div>
-          <div className="flex items-center justify-center gap-2.5">
-            <Icon name="search" size={18} className="text-white/90 shrink-0" />
-            <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
-              {mapTitleText}
+        {/* Title row: buttons flank the centered title */}
+        <div className="flex items-center justify-between px-3 pb-1">
+          {/* Location button */}
+          <div
+            className="shrink-0"
+            onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
+          >
+            <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
+              {gpsStatus === "loading" ? (
+                <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+              ) : (
+                <>
+                  {gpsStatus === "granted" && gpsCoords && (
+                    <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
+                  )}
+                  <svg className="w-5 h-5 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </>
+              )}
             </span>
-            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
           </div>
-          <div className="flex items-center justify-center mt-1">
-            <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
+
+          {/* Centered title */}
+          <span className="tab-header-title">Map</span>
+
+          {/* + button */}
+          <div
+            className="shrink-0"
+            onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
+          >
+            <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
+              <Icon name="plus" size={22} className="text-white" />
+            </span>
           </div>
-        </div>
-        {/* Location button — left side, aligned with Map title row */}
-        <div
-          className="absolute left-5 flex items-center"
-          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
-          onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
-        >
-          <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
-            {gpsStatus === "loading" ? (
-              <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
-            ) : (
-              <>
-                {gpsStatus === "granted" && gpsCoords && (
-                  <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
-                )}
-                <svg className="w-5 h-5 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-              </>
-            )}
-          </span>
         </div>
 
-        {/* + button — right side, aligned with Map title row */}
-        <div
-          className="absolute right-5 flex items-center"
-          style={{ top: "calc(var(--sat, 44px) + 8px)" }}
-          onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
-        >
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
-            <Icon name="plus" size={22} className="text-white" />
+        {/* Search indicator row */}
+        <div className="flex items-center justify-center gap-2.5 pb-1">
+          <Icon name="search" size={18} className="text-white/90 shrink-0" />
+          <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
+            {mapTitleText}
           </span>
+          <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+        </div>
+        <div className="flex items-center justify-center pb-3">
+          <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
         </div>
       </button>
 
