@@ -320,11 +320,38 @@ export default function MapClient() {
   const [mapSearchPanelOpen, setMapSearchPanelOpen] = useState(false);
   const [mapSearchPanelClosing, setMapSearchPanelClosing] = useState(false);
 
-  // Push/shrink the map shell when the search panel or site sheet opens
+  // Push/shrink the map shell when a site bottom sheet opens
   useBottomSheetParallax(mapSearchPanelOpen && !mapSearchPanelClosing, {
     pageIds: ["map-mobile-shell"],
     headerIds: ["map-mobile-header"],
   });
+
+  // translateX push when the search panel slides in — same pattern as Explore
+  const setMapPushTransform = useCallback((value: string | null, animate: boolean) => {
+    const ids = ["map-mobile-shell", "map-mobile-header"];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.transition = animate ? "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)" : "none";
+      el.style.transform = value === null ? "" : value;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!mapSearchPanelOpen) return;
+    setMapPushTransform("translateX(0)", false);
+    ["map-mobile-shell", "map-mobile-header"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) void el.offsetWidth;
+    });
+    const raf = requestAnimationFrame(() => setMapPushTransform("translateX(-173px)", true));
+    return () => cancelAnimationFrame(raf);
+  }, [mapSearchPanelOpen, setMapPushTransform]);
+
+  useEffect(() => {
+    if (!mapSearchPanelClosing) return;
+    setMapPushTransform("translateX(0)", true);
+  }, [mapSearchPanelClosing, setMapPushTransform]);
 
   // ── Unified slideable bottom panel ──
   // "peek" = collapsed bar at bottom, "expanded" = 70vh sheet open
@@ -3123,6 +3150,7 @@ export default function MapClient() {
               if (mapSearchPanelClosing) {
                 setMapSearchPanelOpen(false);
                 setMapSearchPanelClosing(false);
+                setMapPushTransform(null, false);
               }
             }}
           >
