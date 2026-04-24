@@ -591,13 +591,12 @@ export default function DiscoverClient({
         if (el && el.scrollTop > 0) {
           el.scrollTo({ top: 0, behavior: "smooth" });
         }
-        for (const ref of [subtitleRef, searchBtnRef]) {
-          const el = ref.current;
+        for (const el of [subtitleRef.current, searchBtnRef.current]) {
           if (!el) continue;
           el.style.transition = "none";
           el.style.opacity = "1";
           el.style.transform = "translate3d(0, 0, 0)";
-          el.style.pointerEvents = "auto";
+          (el as HTMLElement).style.pointerEvents = "auto";
         }
       }
     });
@@ -618,40 +617,47 @@ export default function DiscoverClient({
     let lastScrollTop = container.scrollTop;
     let hidden = false;
 
-    const setHidden = (hide: boolean) => {
+    const SUBTITLE_FADE_END = 60;
+
+    const setSearchBtnHidden = (hide: boolean) => {
       if (hide === hidden) return;
       hidden = hide;
-      const subtitle = subtitleRef.current;
       const searchBtn = searchBtnRef.current;
-      const style = hide
-        ? { opacity: "0", transform: "translate3d(0, -20px, 0)", pointerEvents: "none" }
-        : { opacity: "1", transform: "translate3d(0, 0px, 0)", pointerEvents: "auto" };
-      if (subtitle) {
-        subtitle.style.transition = TRANSITION;
-        subtitle.style.opacity = style.opacity;
-        subtitle.style.transform = style.transform;
-      }
-      if (searchBtn) {
-        searchBtn.style.transition = TRANSITION;
-        searchBtn.style.opacity = style.opacity;
-        searchBtn.style.transform = style.transform;
-        searchBtn.style.pointerEvents = style.pointerEvents;
-      }
+      if (!searchBtn) return;
+      searchBtn.style.transition = TRANSITION;
+      searchBtn.style.opacity = hide ? "0" : "1";
+      searchBtn.style.transform = hide ? "translate3d(0, -20px, 0)" : "translate3d(0, 0, 0)";
+      searchBtn.style.pointerEvents = hide ? "none" : "auto";
     };
 
     const onScroll = () => {
       const cur = container.scrollTop;
       const delta = cur - lastScrollTop;
+
+      // Subtitle: position-based, only visible near top
+      const subtitle = subtitleRef.current;
+      if (subtitle) {
+        const p = Math.min(1, Math.max(0, cur / SUBTITLE_FADE_END));
+        subtitle.style.opacity = `${1 - p}`;
+        subtitle.style.transform = `translate3d(0, -${p * 20}px, 0)`;
+      }
+
+      // Search button: direction-aware
       if (Math.abs(delta) < THRESHOLD) return;
       lastScrollTop = cur;
-      // Always show when near the very top
-      if (cur <= 10) { setHidden(false); return; }
-      setHidden(delta > 0);
+      if (cur <= 10) { setSearchBtnHidden(false); return; }
+      setSearchBtnHidden(delta > 0);
     };
 
     const show = () => {
       lastScrollTop = container.scrollTop;
-      setHidden(false);
+      setSearchBtnHidden(false);
+      const subtitle = subtitleRef.current;
+      if (subtitle) {
+        subtitle.style.transition = "none";
+        subtitle.style.opacity = "1";
+        subtitle.style.transform = "translate3d(0, 0, 0)";
+      }
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
