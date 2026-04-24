@@ -29,6 +29,7 @@ import SiteCarousel from "@/components/SiteCarousel";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
 import { useQuery } from "@tanstack/react-query";
 import { subscribeTab } from "@/lib/tabStore";
+import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 type MapSite = ClientMapSite & {
@@ -318,6 +319,12 @@ export default function MapClient() {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [mapSearchPanelOpen, setMapSearchPanelOpen] = useState(false);
   const [mapSearchPanelClosing, setMapSearchPanelClosing] = useState(false);
+
+  // Push/shrink the map shell when the search panel or site sheet opens
+  useBottomSheetParallax(mapSearchPanelOpen && !mapSearchPanelClosing, {
+    pageIds: ["map-mobile-shell"],
+    headerIds: [],
+  });
 
   // ── Unified slideable bottom panel ──
   // "peek" = collapsed bar at bottom, "expanded" = 70vh sheet open
@@ -1762,12 +1769,19 @@ export default function MapClient() {
 
   return (
     <>
+      {/* ── Mobile shell: single transform surface for push/shrink parallax ── */}
+      <div
+        id="map-mobile-shell"
+        className="lg:hidden fixed inset-0 z-[1100] pointer-events-none overflow-hidden"
+        style={{ willChange: "transform" }}
+      >
+
       {/* ── Mobile: teal header — matches Explore layout exactly ── */}
       <button
         type="button"
         aria-label="Search & Filters"
         onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
-        className="lg:hidden fixed inset-x-0 top-0 z-[1100] bg-[var(--brand-green)] text-left active:brightness-95"
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
         style={{ paddingTop: "var(--tab-title-top)" }}
       >
         <div className="px-4 pb-3">
@@ -1800,7 +1814,7 @@ export default function MapClient() {
         </div>
       </button>
 
-    <div className="fixed inset-0 w-full z-0">
+      <div className="absolute inset-0 w-full pointer-events-auto">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
       {/* Map: full size from top; header overlays transparently */}
@@ -2208,7 +2222,8 @@ export default function MapClient() {
             );
           })()}
       </div>
-
+      </div>
+      {/* ── /Map mobile shell ── */}
 
       {/* Mobile: map type selection bottom sheet */}
       {mounted && mapVisible && mobileMapTypeSheetOpen &&

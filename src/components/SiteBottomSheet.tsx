@@ -98,7 +98,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   // On pages that don't have the shell (e.g. Map), the hook is a no-op.
   const parallaxActive = isOpen && !closing;
   useBottomSheetParallax(parallaxActive, {
-    pageIds: ["explore-mobile-shell"],
+    pageIds: ["explore-mobile-shell", "map-mobile-shell"],
     headerIds: [],
   });
 
