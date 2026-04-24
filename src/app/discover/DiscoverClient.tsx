@@ -443,6 +443,7 @@ export default function DiscoverClient({
   const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
   const [sheetThumbUrl, setSheetThumbUrl] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [subtitleVisible, setSubtitleVisible] = useState(true);
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -589,9 +590,20 @@ export default function DiscoverClient({
         if (el && el.scrollTop > 0) {
           el.scrollTo({ top: 0, behavior: "smooth" });
         }
+        setSubtitleVisible(true);
       }
     });
     return unsub;
+  }, []);
+
+  // ── Subtitle fade on scroll ───────────────────────────────────────────────
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setSubtitleVisible(el.scrollTop < 30);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
@@ -726,7 +738,7 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center" style={{ opacity: subtitleVisible ? 1 : 0, transition: "opacity 0.25s ease" }}>
                 <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
