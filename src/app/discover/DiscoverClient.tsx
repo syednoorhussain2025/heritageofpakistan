@@ -803,7 +803,7 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1 }}>
+              <div ref={subtitleRef} className="flex items-center justify-center">
                 <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
@@ -812,7 +812,7 @@ export default function DiscoverClient({
                 </span>
               </div>
             </div>
-            <div ref={searchBtnRef} className="pointer-events-auto flex justify-end pr-3" style={{ opacity: 1, willChange: "transform, opacity" }}>
+            <div ref={searchBtnRef} className="pointer-events-auto flex justify-end pr-3">
               {searchActive ? (
                 <button
                   onClick={() => { void hapticLight(); clearSearch(); }}
