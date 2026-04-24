@@ -1814,10 +1814,10 @@ export default function MapClient() {
             <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
           </div>
         </div>
-        {/* Location button — left side, mirrors + button */}
+        {/* Location button — left side, aligned with Map title row */}
         <div
           className="absolute left-5 flex items-center"
-          style={{ bottom: "22px" }}
+          style={{ top: "calc(var(--tab-title-top) + 6px)" }}
           onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
         >
           <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
@@ -1836,10 +1836,10 @@ export default function MapClient() {
           </span>
         </div>
 
-        {/* + button — right side */}
+        {/* + button — right side, aligned with Map title row */}
         <div
           className="absolute right-5 flex items-center"
-          style={{ bottom: "22px" }}
+          style={{ top: "calc(var(--tab-title-top) + 6px)" }}
           onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
         >
           <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
