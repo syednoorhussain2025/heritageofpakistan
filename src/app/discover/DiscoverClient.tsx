@@ -447,6 +447,7 @@ export default function DiscoverClient({
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const subtitleSentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef  = useRef(false);
 
   // ── Core load ──────────────────────────────────────────────────────────────
@@ -597,8 +598,19 @@ export default function DiscoverClient({
   }, []);
 
   // ── Subtitle fade on scroll ───────────────────────────────────────────────
-  const checkSubtitle = useCallback(() => {
-    setSubtitleVisible((scrollRef.current?.scrollTop ?? 0) < 30);
+  // IntersectionObserver on a top sentinel — fires reliably on iOS Capacitor
+  // where onScroll/touchmove can miss during momentum scrolling.
+  useEffect(() => {
+    const sentinel = subtitleSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setSubtitleVisible(entries[0].isIntersecting);
+      },
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
   }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
@@ -633,7 +645,6 @@ export default function DiscoverClient({
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    checkSubtitle();
     if (pullStartY.current === null) return;
     const el = scrollRef.current;
     if (!el || el.scrollTop > 0) {
@@ -647,7 +658,7 @@ export default function DiscoverClient({
     // Rubber-band: resistance increases as you pull further
     const pct = Math.min(dy / PULL_THRESHOLD, 1.2);
     setPullPct(pct);
-  }, [checkSubtitle]);
+  }, []);
 
   const handleTouchEnd = useCallback(() => {
     if (pullPct >= 1 && !refreshing) {
@@ -688,11 +699,19 @@ export default function DiscoverClient({
       data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{} as React.CSSProperties}
-      onScroll={checkSubtitle}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Subtitle fade sentinel — sits at top of scroll flow. When it scrolls
+          off-screen, IntersectionObserver fires and subtitle fades out. Works
+          on iOS Capacitor where onScroll/touchmove miss during momentum. */}
+      <div
+        ref={subtitleSentinelRef}
+        aria-hidden="true"
+        className="lg:hidden pointer-events-none"
+        style={{ height: "30px", width: "1px" }}
+      />
 
       {/* ── Pull-to-refresh indicator — sits below the Discover title ── */}
       {pullPct > 0.05 && <PullIndicator pullPct={pullPct} />}
