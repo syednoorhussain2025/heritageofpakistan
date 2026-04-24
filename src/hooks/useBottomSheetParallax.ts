@@ -63,26 +63,28 @@ function applyOpen(targets: Targets) {
     header.style.filter = FILTER_CLOSED;
   });
 
-  // One RAF: browser has promoted layers and painted the starting state.
-  // Now flip to the target state — transition runs cleanly from the first frame.
+  // Two nested RAFs — matches the double-RAF the sheet uses before setting
+  // visible=true, so both animations start on the exact same frame.
   openRaf = requestAnimationFrame(() => {
-    openRaf = null;
-    body.style.transition = BODY_TRANSITION;
+    openRaf = requestAnimationFrame(() => {
+      openRaf = null;
+      body.style.transition = BODY_TRANSITION;
 
-    pages.forEach((page) => {
-      page.style.transition = TRANSITION;
-      page.style.transformOrigin = "top center";
-      page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
-      page.style.borderRadius = BORDER_RADIUS;
-      page.style.filter = FILTER_OPEN;
-    });
+      pages.forEach((page) => {
+        page.style.transition = TRANSITION;
+        page.style.transformOrigin = "top center";
+        page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+        page.style.borderRadius = BORDER_RADIUS;
+        page.style.filter = FILTER_OPEN;
+      });
 
-    headers.forEach((header) => {
-      header.style.transition = TRANSITION;
-      header.style.transformOrigin = "top center";
-      header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
-      header.style.opacity = "1";
-      header.style.filter = FILTER_OPEN;
+      headers.forEach((header) => {
+        header.style.transition = TRANSITION;
+        header.style.transformOrigin = "top center";
+        header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+        header.style.opacity = "1";
+        header.style.filter = FILTER_OPEN;
+      });
     });
   });
 }
