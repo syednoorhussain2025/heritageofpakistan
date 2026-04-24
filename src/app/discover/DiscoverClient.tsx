@@ -591,88 +591,77 @@ export default function DiscoverClient({
         if (el && el.scrollTop > 0) {
           el.scrollTo({ top: 0, behavior: "smooth" });
         }
-        const subtitle = subtitleRef.current;
-        if (subtitle) {
-          subtitle.style.opacity = "1";
-          subtitle.style.transform = "translate3d(0, 0, 0)";
-        }
-        const searchBtn = searchBtnRef.current;
-        if (searchBtn) {
-          searchBtn.style.opacity = "1";
-          searchBtn.style.transform = "translate3d(0, 0, 0)";
+        for (const ref of [subtitleRef, searchBtnRef]) {
+          const el = ref.current;
+          if (!el) continue;
+          el.style.transition = "none";
+          el.style.opacity = "1";
+          el.style.transform = "translate3d(0, 0, 0)";
+          el.style.pointerEvents = "auto";
         }
       }
     });
     return unsub;
   }, []);
 
-  // ── Subtitle fade on scroll ───────────────────────────────────────────────
-  // Mirror HomeClient's pattern exactly: direct DOM mutation from a scroll
-  // listener on the actual scroll container. No React state, no IO.
+  // ── Subtitle + search button: hide on scroll-down, show on scroll-up ────────
+  // Direction-aware: any downward scroll hides them, any upward scroll reveals.
+  // CSS transition does the animation — JS only flips the hidden state once per
+  // direction change, so there's zero per-frame stutter.
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
 
-    const FADE_END = 60;
-    const TRANSLATE_MAX = 30;
+    const THRESHOLD = 6; // px of scroll before direction is committed
+    const TRANSITION = "opacity 0.25s ease, transform 0.25s ease";
 
-    let rafId = 0;
-    let pending = false;
+    let lastScrollTop = container.scrollTop;
+    let hidden = false;
 
-    const apply = () => {
-      pending = false;
-      const p = Math.min(1, Math.max(0, container.scrollTop / FADE_END));
-      const opacity = `${1 - p}`;
-      const transform = `translate3d(0, -${p * TRANSLATE_MAX}px, 0)`;
+    const setHidden = (hide: boolean) => {
+      if (hide === hidden) return;
+      hidden = hide;
       const subtitle = subtitleRef.current;
-      if (subtitle) {
-        subtitle.style.opacity = opacity;
-        subtitle.style.transform = transform;
-      }
       const searchBtn = searchBtnRef.current;
+      const style = hide
+        ? { opacity: "0", transform: "translate3d(0, -20px, 0)", pointerEvents: "none" }
+        : { opacity: "1", transform: "translate3d(0, 0px, 0)", pointerEvents: "auto" };
+      if (subtitle) {
+        subtitle.style.transition = TRANSITION;
+        subtitle.style.opacity = style.opacity;
+        subtitle.style.transform = style.transform;
+      }
       if (searchBtn) {
-        searchBtn.style.opacity = opacity;
-        searchBtn.style.transform = transform;
-        searchBtn.style.pointerEvents = p >= 0.95 ? "none" : "auto";
+        searchBtn.style.transition = TRANSITION;
+        searchBtn.style.opacity = style.opacity;
+        searchBtn.style.transform = style.transform;
+        searchBtn.style.pointerEvents = style.pointerEvents;
       }
     };
 
     const onScroll = () => {
-      if (pending) return;
-      pending = true;
-      rafId = requestAnimationFrame(apply);
+      const cur = container.scrollTop;
+      const delta = cur - lastScrollTop;
+      if (Math.abs(delta) < THRESHOLD) return;
+      lastScrollTop = cur;
+      // Always show when near the very top
+      if (cur <= 10) { setHidden(false); return; }
+      setHidden(delta > 0);
     };
 
-    const reset = () => {
-      if (pending) {
-        cancelAnimationFrame(rafId);
-        pending = false;
-      }
-      const subtitle = subtitleRef.current;
-      if (subtitle) {
-        subtitle.style.opacity = "1";
-        subtitle.style.transform = "translate3d(0, 0, 0)";
-      }
-      const searchBtn = searchBtnRef.current;
-      if (searchBtn) {
-        searchBtn.style.opacity = "1";
-        searchBtn.style.transform = "translate3d(0, 0, 0)";
-        searchBtn.style.pointerEvents = "auto";
-      }
+    const show = () => {
+      lastScrollTop = container.scrollTop;
+      setHidden(false);
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("tab-shown", reset);
-    window.addEventListener("pageshow", reset);
-
-    // Run once on mount to sync with any initial scrollTop
-    apply();
+    window.addEventListener("tab-shown", show);
+    window.addEventListener("pageshow", show);
 
     return () => {
-      if (pending) cancelAnimationFrame(rafId);
       container.removeEventListener("scroll", onScroll);
-      window.removeEventListener("tab-shown", reset);
-      window.removeEventListener("pageshow", reset);
+      window.removeEventListener("tab-shown", show);
+      window.removeEventListener("pageshow", show);
     };
   }, []);
 
@@ -807,7 +796,7 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1, willChange: "transform, opacity" }}>
+              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1 }}>
                 <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
