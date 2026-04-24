@@ -591,7 +591,10 @@ export default function DiscoverClient({
           el.scrollTo({ top: 0, behavior: "smooth" });
         }
         const subtitle = subtitleRef.current;
-        if (subtitle) subtitle.style.opacity = "1";
+        if (subtitle) {
+          subtitle.style.opacity = "1";
+          subtitle.style.transform = "translateY(0)";
+        }
       }
     });
     return unsub;
@@ -611,11 +614,15 @@ export default function DiscoverClient({
       if (!subtitle) return;
       const p = Math.min(1, container.scrollTop / FADE_END);
       subtitle.style.opacity = `${1 - p}`;
+      subtitle.style.transform = `translateY(-${p * 10}px)`;
     };
 
     const reset = () => {
       const subtitle = subtitleRef.current;
-      if (subtitle) subtitle.style.opacity = "1";
+      if (subtitle) {
+        subtitle.style.opacity = "1";
+        subtitle.style.transform = "translateY(0)";
+      }
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
@@ -760,7 +767,7 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1, willChange: "opacity" }}>
+              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1, willChange: "transform, opacity" }}>
                 <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
