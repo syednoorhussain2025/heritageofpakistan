@@ -612,7 +612,8 @@ export default function DiscoverClient({
     if (!container) return;
 
     const THRESHOLD = 6; // px of scroll before direction is committed
-    const TRANSITION = "opacity 0.25s ease, transform 0.25s ease";
+    const TRANSITION_HIDE = "opacity 0.18s ease-in, transform 0.18s ease-in";
+    const TRANSITION_SHOW = "opacity 0.32s ease-out, transform 0.32s ease-out";
 
     let lastScrollTop = container.scrollTop;
     let hidden = false;
@@ -624,7 +625,7 @@ export default function DiscoverClient({
       hidden = hide;
       const searchBtn = searchBtnRef.current;
       if (!searchBtn) return;
-      searchBtn.style.transition = TRANSITION;
+      searchBtn.style.transition = hide ? TRANSITION_HIDE : TRANSITION_SHOW;
       searchBtn.style.opacity = hide ? "0" : "1";
       searchBtn.style.transform = hide ? "translate3d(0, -20px, 0)" : "translate3d(0, 0, 0)";
       searchBtn.style.pointerEvents = hide ? "none" : "auto";
