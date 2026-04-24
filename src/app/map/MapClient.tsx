@@ -1814,6 +1814,27 @@ export default function MapClient() {
             <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
           </div>
         </div>
+        {/* Location button — left side, mirrors + button */}
+        <div
+          className="absolute left-5 flex items-center"
+          style={{ bottom: "22px" }}
+          onClick={(e) => { e.stopPropagation(); void handleNearMe(); }}
+        >
+          <span className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-colors ${gpsStatus === "granted" && gpsCoords ? "bg-white/30" : "bg-white/20 active:bg-white/30"}`}>
+            {gpsStatus === "loading" ? (
+              <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+            ) : (
+              <>
+                {gpsStatus === "granted" && gpsCoords && (
+                  <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
+                )}
+                <Icon name="location-arrow" size={20} className="text-white relative z-10" />
+              </>
+            )}
+          </span>
+        </div>
+
+        {/* + button — right side */}
         <div
           className="absolute right-5 flex items-center"
           style={{ bottom: "22px" }}
