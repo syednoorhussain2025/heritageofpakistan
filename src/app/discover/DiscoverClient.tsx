@@ -726,6 +726,9 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
+              <div className="flex items-center justify-center gap-2.5 mb-1">
+                <span className="text-[14px] font-semibold text-white/90" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
+              </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
                 <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
                   {searchQuery || " "}
