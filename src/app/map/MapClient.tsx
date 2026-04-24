@@ -320,12 +320,6 @@ export default function MapClient() {
   const [mapSearchPanelOpen, setMapSearchPanelOpen] = useState(false);
   const [mapSearchPanelClosing, setMapSearchPanelClosing] = useState(false);
 
-  // Push/shrink the map shell when a site bottom sheet opens
-  useBottomSheetParallax(mapSearchPanelOpen && !mapSearchPanelClosing, {
-    pageIds: ["map-mobile-shell"],
-    headerIds: ["map-mobile-header"],
-  });
-
   // translateX push when the search panel slides in — same pattern as Explore
   const setMapPushTransform = useCallback((value: string | null, animate: boolean) => {
     const ids = ["map-mobile-shell", "map-mobile-header"];
