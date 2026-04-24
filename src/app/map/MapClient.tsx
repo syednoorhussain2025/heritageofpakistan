@@ -1781,7 +1781,7 @@ export default function MapClient() {
         type="button"
         aria-label="Search & Filters"
         onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
+        className="absolute inset-x-0 top-0 z-10 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
         style={{ paddingTop: "var(--tab-title-top)" }}
       >
         <div className="px-4 pb-3">
