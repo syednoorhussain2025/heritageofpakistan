@@ -12,7 +12,6 @@ import dynamicImport from "next/dynamic";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
-import Icon from "@/components/Icon";
 import { hideKeyboard } from "@/lib/keyboard";
 import { subscribeTab } from "@/lib/tabStore";
 
@@ -727,10 +726,8 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div className="flex items-center justify-center gap-2.5">
-                <Icon name="search" size={18} className="text-white/90 shrink-0" />
-                <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
-                <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+              <div className="flex items-center justify-center">
+                <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
                 <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
