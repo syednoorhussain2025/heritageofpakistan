@@ -17,6 +17,7 @@ const FILTER_CLOSED = "brightness(1) blur(0px)";
 let openCount = 0;
 let bgTimer: ReturnType<typeof setTimeout> | null = null;
 let openRaf: number | null = null;
+let closeDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
 const DEFAULT_TARGETS = {
   pageIds: ["heritage-page-root"],
@@ -34,6 +35,7 @@ function applyOpen(targets: Targets) {
   const body = document.body;
 
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
+  if (closeDelayTimer != null) { clearTimeout(closeDelayTimer); closeDelayTimer = null; }
   // Cancel any pending open RAF (e.g. rapid open/close)
   if (openRaf != null) { cancelAnimationFrame(openRaf); openRaf = null; }
 
@@ -86,38 +88,44 @@ function applyOpen(targets: Targets) {
 }
 
 function applyClose(targets: Targets) {
-  const pageIds = targets.pageIds ?? DEFAULT_TARGETS.pageIds;
-  const headerIds = targets.headerIds ?? DEFAULT_TARGETS.headerIds;
-  const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
-  const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
-  const body = document.body;
-
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
+  if (closeDelayTimer != null) { clearTimeout(closeDelayTimer); closeDelayTimer = null; }
   // If open RAF hasn't fired yet, cancel it — open was superseded by close
   if (openRaf != null) { cancelAnimationFrame(openRaf); openRaf = null; }
 
-  pages.forEach((page) => {
-    page.style.transition = TRANSITION;
-    page.style.transform = "scale(1) translateY(0px)";
-    page.style.borderRadius = "0px";
-    page.style.filter = FILTER_CLOSED;
-  });
+  // Wait for the sheet to finish sliding away before restoring the background.
+  // Without this delay, applyClose fires the moment closing=true and the
+  // background starts expanding while the sheet is still on screen.
+  closeDelayTimer = setTimeout(() => {
+    closeDelayTimer = null;
 
-  headers.forEach((header) => {
-    header.style.transition = TRANSITION;
-    header.style.transform = "scale(1) translateY(0px)";
-    header.style.opacity = "1";
-    header.style.filter = FILTER_CLOSED;
-  });
+    const pageIds = targets.pageIds ?? DEFAULT_TARGETS.pageIds;
+    const headerIds = targets.headerIds ?? DEFAULT_TARGETS.headerIds;
+    const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+    const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+    const body = document.body;
 
-  // Delay body bg restore until page has scaled back up, then clear will-change
-  bgTimer = setTimeout(() => {
-    bgTimer = null;
-    body.style.transition = BODY_TRANSITION;
-    body.style.backgroundColor = BODY_COLOR_CLOSED;
+    pages.forEach((page) => {
+      page.style.transition = TRANSITION;
+      page.style.transform = "scale(1) translateY(0px)";
+      page.style.borderRadius = "0px";
+      page.style.filter = FILTER_CLOSED;
+    });
 
-    // Release GPU layers once animation is done
-    [...pages, ...headers].forEach((el) => { el.style.willChange = ""; });
+    headers.forEach((header) => {
+      header.style.transition = TRANSITION;
+      header.style.transform = "scale(1) translateY(0px)";
+      header.style.opacity = "1";
+      header.style.filter = FILTER_CLOSED;
+    });
+
+    // Delay body bg restore until page has scaled back up, then clear will-change
+    bgTimer = setTimeout(() => {
+      bgTimer = null;
+      body.style.transition = BODY_TRANSITION;
+      body.style.backgroundColor = BODY_COLOR_CLOSED;
+      [...pages, ...headers].forEach((el) => { el.style.willChange = ""; });
+    }, DURATION_MS);
   }, DURATION_MS);
 }
 
