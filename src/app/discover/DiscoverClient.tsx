@@ -447,6 +447,7 @@ export default function DiscoverClient({
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
+  const searchBtnRef = useRef<HTMLDivElement>(null);
   const loadingRef  = useRef(false);
 
   // ── Core load ──────────────────────────────────────────────────────────────
@@ -595,6 +596,11 @@ export default function DiscoverClient({
           subtitle.style.opacity = "1";
           subtitle.style.transform = "translate3d(0, 0, 0)";
         }
+        const searchBtn = searchBtnRef.current;
+        if (searchBtn) {
+          searchBtn.style.opacity = "1";
+          searchBtn.style.transform = "translate3d(0, 0, 0)";
+        }
       }
     });
     return unsub;
@@ -615,11 +621,20 @@ export default function DiscoverClient({
 
     const apply = () => {
       pending = false;
-      const subtitle = subtitleRef.current;
-      if (!subtitle) return;
       const p = Math.min(1, Math.max(0, container.scrollTop / FADE_END));
-      subtitle.style.opacity = `${1 - p}`;
-      subtitle.style.transform = `translate3d(0, -${p * TRANSLATE_MAX}px, 0)`;
+      const opacity = `${1 - p}`;
+      const transform = `translate3d(0, -${p * TRANSLATE_MAX}px, 0)`;
+      const subtitle = subtitleRef.current;
+      if (subtitle) {
+        subtitle.style.opacity = opacity;
+        subtitle.style.transform = transform;
+      }
+      const searchBtn = searchBtnRef.current;
+      if (searchBtn) {
+        searchBtn.style.opacity = opacity;
+        searchBtn.style.transform = transform;
+        searchBtn.style.pointerEvents = p >= 0.95 ? "none" : "auto";
+      }
     };
 
     const onScroll = () => {
@@ -637,6 +652,12 @@ export default function DiscoverClient({
       if (subtitle) {
         subtitle.style.opacity = "1";
         subtitle.style.transform = "translate3d(0, 0, 0)";
+      }
+      const searchBtn = searchBtnRef.current;
+      if (searchBtn) {
+        searchBtn.style.opacity = "1";
+        searchBtn.style.transform = "translate3d(0, 0, 0)";
+        searchBtn.style.pointerEvents = "auto";
       }
     };
 
@@ -795,7 +816,7 @@ export default function DiscoverClient({
                 </span>
               </div>
             </div>
-            <div className="pointer-events-auto flex justify-end pr-3">
+            <div ref={searchBtnRef} className="pointer-events-auto flex justify-end pr-3" style={{ opacity: 1, willChange: "transform, opacity" }}>
               {searchActive ? (
                 <button
                   onClick={() => { void hapticLight(); clearSearch(); }}
