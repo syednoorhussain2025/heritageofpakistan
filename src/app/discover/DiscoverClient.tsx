@@ -596,20 +596,8 @@ export default function DiscoverClient({
     return unsub;
   }, []);
 
-  // ── Subtitle fade on scroll ───────────────────────────────────────────────
-
-  useEffect(() => {
-    const check = () => {
-      const scrollTop = scrollRef.current?.scrollTop ?? window.scrollY;
-      setSubtitleVisible(scrollTop < 30);
-    };
-    const el = scrollRef.current;
-    if (el) el.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("scroll", check, { passive: true });
-    return () => {
-      if (el) el.removeEventListener("scroll", check);
-      window.removeEventListener("scroll", check);
-    };
+  const handleDiscoverScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setSubtitleVisible((e.currentTarget as HTMLDivElement).scrollTop < 30);
   }, []);
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
@@ -698,6 +686,7 @@ export default function DiscoverClient({
       data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+      onScroll={handleDiscoverScroll}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
