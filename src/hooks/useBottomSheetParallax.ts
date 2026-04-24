@@ -14,9 +14,9 @@ const FILTER_OPEN = "brightness(0.75) blur(0.6px)";
 const FILTER_CLOSED = "brightness(1) blur(0px)";
 
 // Singleton ref-count: tracks how many sheets are currently open.
-// This prevents sequential/nested sheets from fighting over the page state.
 let openCount = 0;
 let bgTimer: ReturnType<typeof setTimeout> | null = null;
+let openRaf: number | null = null;
 
 const DEFAULT_TARGETS = {
   pageIds: ["heritage-page-root"],
@@ -31,33 +31,57 @@ type Targets = {
 function applyOpen(targets: Targets) {
   const pageIds = targets.pageIds ?? DEFAULT_TARGETS.pageIds;
   const headerIds = targets.headerIds ?? DEFAULT_TARGETS.headerIds;
-  const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
-  const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
   const body = document.body;
-  if (!pages.length && !headers.length) return;
 
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
+  // Cancel any pending open RAF (e.g. rapid open/close)
+  if (openRaf != null) { cancelAnimationFrame(openRaf); openRaf = null; }
 
   // Snap body bg to black instantly — no gap flash
   body.style.transition = "none";
   body.style.backgroundColor = BODY_COLOR_OPEN;
-  body.offsetHeight; // force reflow
-  body.style.transition = BODY_TRANSITION;
+  body.offsetHeight; // force reflow so the color is committed before transition re-enables
+
+  // Set will-change on pages before the animation frame so the GPU promotes
+  // the layer *before* we apply the transform, eliminating the first-frame stutter.
+  const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+  const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
 
   pages.forEach((page) => {
-    page.style.transition = TRANSITION;
-    page.style.transformOrigin = "top center";
-    page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
-    page.style.borderRadius = BORDER_RADIUS;
-    page.style.filter = FILTER_OPEN;
+    page.style.willChange = "transform, filter, border-radius";
+    page.style.transition = "none";
+    page.style.transform = "scale(1) translateY(0px)";
+    page.style.borderRadius = "0px";
+    page.style.filter = FILTER_CLOSED;
+  });
+  headers.forEach((header) => {
+    header.style.willChange = "transform, filter";
+    header.style.transition = "none";
+    header.style.transform = "scale(1) translateY(0px)";
+    header.style.filter = FILTER_CLOSED;
   });
 
-  headers.forEach((header) => {
-    header.style.transition = TRANSITION;
-    header.style.transformOrigin = "top center";
-    header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
-    header.style.opacity = "1";
-    header.style.filter = FILTER_OPEN;
+  // One RAF: browser has promoted layers and painted the starting state.
+  // Now flip to the target state — transition runs cleanly from the first frame.
+  openRaf = requestAnimationFrame(() => {
+    openRaf = null;
+    body.style.transition = BODY_TRANSITION;
+
+    pages.forEach((page) => {
+      page.style.transition = TRANSITION;
+      page.style.transformOrigin = "top center";
+      page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+      page.style.borderRadius = BORDER_RADIUS;
+      page.style.filter = FILTER_OPEN;
+    });
+
+    headers.forEach((header) => {
+      header.style.transition = TRANSITION;
+      header.style.transformOrigin = "top center";
+      header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+      header.style.opacity = "1";
+      header.style.filter = FILTER_OPEN;
+    });
   });
 }
 
@@ -67,9 +91,10 @@ function applyClose(targets: Targets) {
   const pages = pageIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
   const headers = headerIds.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
   const body = document.body;
-  if (!pages.length && !headers.length) return;
 
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
+  // If open RAF hasn't fired yet, cancel it — open was superseded by close
+  if (openRaf != null) { cancelAnimationFrame(openRaf); openRaf = null; }
 
   pages.forEach((page) => {
     page.style.transition = TRANSITION;
@@ -85,11 +110,14 @@ function applyClose(targets: Targets) {
     header.style.filter = FILTER_CLOSED;
   });
 
-  // Delay body bg restore until page has scaled back up
+  // Delay body bg restore until page has scaled back up, then clear will-change
   bgTimer = setTimeout(() => {
     bgTimer = null;
     body.style.transition = BODY_TRANSITION;
     body.style.backgroundColor = BODY_COLOR_CLOSED;
+
+    // Release GPU layers once animation is done
+    [...pages, ...headers].forEach((el) => { el.style.willChange = ""; });
   }, DURATION_MS);
 }
 
@@ -104,13 +132,10 @@ export function useBottomSheetParallax(active: boolean, targets?: Targets) {
     wasActive.current = isNowActive;
 
     if (isNowActive && !wasActiveVal) {
-      // Opening
       openCount++;
       applyOpen(targetsRef.current);
     } else if (!isNowActive && wasActiveVal) {
-      // Closing
       openCount = Math.max(0, openCount - 1);
-      // Only restore page if no other sheet is still open
       if (openCount === 0) {
         applyClose(targetsRef.current);
       }
