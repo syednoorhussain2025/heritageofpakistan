@@ -105,10 +105,19 @@ export default function AppChrome({
         // Only hide the main wrapper on mobile — on desktop the TabShell is
         // already hidden (lg:hidden) and the main wrapper must stay visible.
         if (el) { el.style.display = isMobile ? "none" : ""; }
+        // Hide any portalled page headers (e.g. heritage back/search buttons)
+        // that live in document.body and aren't children of the main wrapper.
+        if (isMobile) {
+          const portalledHeader = document.getElementById("heritage-mobile-header");
+          if (portalledHeader) portalledHeader.style.display = "none";
+        }
       } else {
         document.documentElement.classList.remove("tab-route");
         document.body.classList.remove("tab-route");
         if (el) { el.style.display = ""; }
+        // Restore portalled header when returning to a heritage page
+        const portalledHeader = document.getElementById("heritage-mobile-header");
+        if (portalledHeader) portalledHeader.style.display = "";
       }
     };
 
