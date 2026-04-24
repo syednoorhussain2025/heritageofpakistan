@@ -99,7 +99,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const parallaxActive = isOpen && !closing;
   useBottomSheetParallax(parallaxActive, {
     pageIds: ["explore-mobile-shell", "map-mobile-shell"],
-    headerIds: [],
+    headerIds: ["map-mobile-header"],
   });
 
   // Sync slides when site changes, then fetch remaining slideshow images in background

@@ -323,7 +323,7 @@ export default function MapClient() {
   // Push/shrink the map shell when the search panel or site sheet opens
   useBottomSheetParallax(mapSearchPanelOpen && !mapSearchPanelClosing, {
     pageIds: ["map-mobile-shell"],
-    headerIds: [],
+    headerIds: ["map-mobile-header"],
   });
 
   // ── Unified slideable bottom panel ──
@@ -1769,15 +1769,49 @@ export default function MapClient() {
 
   return (
     <>
-      {/* ── Mobile shell: single transform surface for push/shrink parallax ── */}
+      {/* ── Mobile header: fixed above the shell so the map library can't bury it ── */}
+      <button
+        type="button"
+        aria-label="Search & Filters"
+        onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
+        id="map-mobile-header"
+        className="lg:hidden fixed inset-x-0 top-0 z-[1101] bg-[var(--brand-green)] text-left active:brightness-95"
+        style={{ paddingTop: "var(--tab-title-top)" }}
+      >
+        <div className="px-4 pb-3">
+          <div className="flex items-center justify-center mb-3">
+            <span className="tab-header-title">Map</span>
+          </div>
+          <div className="flex items-center justify-center gap-2.5">
+            <Icon name="search" size={18} className="text-white/90 shrink-0" />
+            <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
+              {mapTitleText}
+            </span>
+            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+          </div>
+          <div className="flex items-center justify-center mt-1">
+            <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
+          </div>
+        </div>
+        <div
+          className="absolute right-3 top-0 flex items-center"
+          style={{ height: "calc(var(--tab-title-top) + 58px)" }}
+          onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
+        >
+          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
+            <Icon name="plus" size={18} className="text-white" />
+          </span>
+        </div>
+      </button>
+
+      {/* ── Mobile shell: wraps ONLY the map canvas for push/shrink parallax.
+          Header lives outside at z-[1101] so the map library can never bury it. ── */}
       <div
         id="map-mobile-shell"
-        className="lg:hidden fixed inset-0 z-[1100] pointer-events-none overflow-hidden"
+        className="lg:hidden fixed inset-0 z-[1099] pointer-events-none overflow-hidden"
         style={{ willChange: "transform" }}
       >
-
-      {/* Map canvas — z-0 so the header renders above it */}
-      <div className="absolute inset-0 w-full z-0 pointer-events-auto">
+      <div className="absolute inset-0 w-full pointer-events-auto">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
 
       {/* Map: full size from top; header overlays transparently */}
@@ -2185,41 +2219,6 @@ export default function MapClient() {
             );
           })()}
       </div>
-
-      {/* ── Mobile: teal header — sits after map canvas in DOM so it paints on top ── */}
-      <button
-        type="button"
-        aria-label="Search & Filters"
-        onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 z-10 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
-        style={{ paddingTop: "var(--tab-title-top)" }}
-      >
-        <div className="px-4 pb-3">
-          <div className="flex items-center justify-center mb-3">
-            <span className="tab-header-title">Map</span>
-          </div>
-          <div className="flex items-center justify-center gap-2.5">
-            <Icon name="search" size={18} className="text-white/90 shrink-0" />
-            <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
-              {mapTitleText}
-            </span>
-            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
-          </div>
-          <div className="flex items-center justify-center mt-1">
-            <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
-          </div>
-        </div>
-        <div
-          className="absolute right-3 top-0 flex items-center"
-          style={{ height: "calc(var(--tab-title-top) + 58px)" }}
-          onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
-        >
-          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
-            <Icon name="plus" size={18} className="text-white" />
-          </span>
-        </div>
-      </button>
-
       </div>
       {/* ── /Map mobile shell ── */}
 
