@@ -443,10 +443,10 @@ export default function DiscoverClient({
   const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
   const [sheetThumbUrl, setSheetThumbUrl] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [subtitleVisible, setSubtitleVisible] = useState(true);
 
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const subtitleRef = useRef<HTMLDivElement>(null);
   const loadingRef  = useRef(false);
 
   // ── Core load ──────────────────────────────────────────────────────────────
@@ -590,56 +590,42 @@ export default function DiscoverClient({
         if (el && el.scrollTop > 0) {
           el.scrollTo({ top: 0, behavior: "smooth" });
         }
-        setSubtitleVisible(true);
+        const subtitle = subtitleRef.current;
+        if (subtitle) subtitle.style.opacity = "1";
       }
     });
     return unsub;
   }, []);
 
   // ── Subtitle fade on scroll ───────────────────────────────────────────────
-  // Belt-and-braces on iOS Capacitor: attach scroll listener to scroll
-  // container AND window AND document, plus a rAF loop that polls scrollTop
-  // while the page is interactive. Any one of these firing updates the state.
+  // Mirror HomeClient's pattern exactly: direct DOM mutation from a scroll
+  // listener on the actual scroll container. No React state, no IO.
   useEffect(() => {
-    let lastVisible = true;
-    let rafId = 0;
-    let stopPolling = false;
+    const container = scrollRef.current;
+    if (!container) return;
 
-    const check = () => {
-      const el = scrollRef.current;
-      if (!el) return;
-      // Try every possible scroll source — whichever is actually scrolling wins
-      const top = Math.max(
-        el.scrollTop || 0,
-        window.scrollY || 0,
-        document.documentElement.scrollTop || 0,
-        document.body.scrollTop || 0
-      );
-      const nowVisible = top < 30;
-      if (nowVisible !== lastVisible) {
-        lastVisible = nowVisible;
-        setSubtitleVisible(nowVisible);
-      }
+    const FADE_END = 30;
+
+    const onScroll = () => {
+      const subtitle = subtitleRef.current;
+      if (!subtitle) return;
+      const p = Math.min(1, container.scrollTop / FADE_END);
+      subtitle.style.opacity = `${1 - p}`;
     };
 
-    const loop = () => {
-      if (stopPolling) return;
-      check();
-      rafId = requestAnimationFrame(loop);
+    const reset = () => {
+      const subtitle = subtitleRef.current;
+      if (subtitle) subtitle.style.opacity = "1";
     };
-    rafId = requestAnimationFrame(loop);
 
-    const el = scrollRef.current;
-    el?.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("scroll", check, { passive: true });
-    document.addEventListener("scroll", check, { passive: true, capture: true });
+    container.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("tab-shown", reset);
+    window.addEventListener("pageshow", reset);
 
     return () => {
-      stopPolling = true;
-      cancelAnimationFrame(rafId);
-      el?.removeEventListener("scroll", check);
-      window.removeEventListener("scroll", check);
-      document.removeEventListener("scroll", check, { capture: true } as any);
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("tab-shown", reset);
+      window.removeEventListener("pageshow", reset);
     };
   }, []);
 
@@ -774,7 +760,7 @@ export default function DiscoverClient({
               >
                 Discover
               </h1>
-              <div className="flex items-center justify-center" style={{ opacity: subtitleVisible ? 1 : 0, transition: "opacity 0.25s ease" }}>
+              <div ref={subtitleRef} className="flex items-center justify-center" style={{ opacity: 1, willChange: "opacity" }}>
                 <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
               </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
