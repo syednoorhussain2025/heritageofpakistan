@@ -596,9 +596,16 @@ export default function DiscoverClient({
     return unsub;
   }, []);
 
-  const handleDiscoverScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setSubtitleVisible((e.currentTarget as HTMLDivElement).scrollTop < 30);
-  }, []);
+  // ── Subtitle fade on scroll ───────────────────────────────────────────────
+  // useEffect so the listener is attached after the DOM node exists (fixes iOS Safari)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setSubtitleVisible(el.scrollTop < 30);
+    el.addEventListener("scroll", check, { passive: true });
+    return () => el.removeEventListener("scroll", check);
+  // scrollRef.current is stable after mount — empty deps is correct here
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Infinite scroll sentinel ──────────────────────────────────────────────
 
@@ -685,8 +692,7 @@ export default function DiscoverClient({
       ref={scrollRef}
       data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
-      style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-      onScroll={handleDiscoverScroll}
+      style={{} as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
