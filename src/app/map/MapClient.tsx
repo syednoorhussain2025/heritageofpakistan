@@ -1815,12 +1815,11 @@ export default function MapClient() {
           </div>
         </div>
         <div
-          className="absolute right-3 top-0 flex items-center"
-          style={{ height: "calc(var(--tab-title-top) + 58px)" }}
+          className="absolute right-5 bottom-2 flex items-center"
           onClick={(e) => { e.stopPropagation(); void hapticLight(); setQuickActionsOpen(true); }}
         >
-          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
-            <Icon name="plus" size={18} className="text-white" />
+          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors">
+            <Icon name="plus" size={22} className="text-white" />
           </span>
         </div>
       </button>
