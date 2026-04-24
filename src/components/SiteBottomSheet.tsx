@@ -8,7 +8,7 @@ import SiteCarousel from "@/components/SiteCarousel";
 import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
-import { hapticMedium } from "@/lib/haptics";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
 
 export type BottomSheetSite = {
@@ -169,7 +169,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       closeTimerRef.current = null;
       setClosing(false);
       onClose();
-    }, 300);
+    }, 680);
   }, [onClose]);
 
   const dragStartX = useRef<number>(0);
@@ -246,7 +246,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         setClosing(false);
         onClose();
         if (el) el.style.transform = "";
-      }, 300);
+      }, 680);
     } else {
       // Spring back
       if (el) el.style.transform = "translateY(0)";
@@ -292,7 +292,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
+        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-[680ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
         style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
