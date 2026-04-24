@@ -1797,10 +1797,10 @@ export default function MapClient() {
         onClick={() => { void hapticMedium(); setMapSearchPanelClosing(false); setMapSearchPanelOpen(true); }}
         id="map-mobile-header"
         className="lg:hidden fixed inset-x-0 top-0 z-[1101] bg-[var(--brand-green)] text-left active:brightness-95"
-        style={{ paddingTop: "calc(var(--tab-title-top) - 4px)" }}
+        style={{ paddingTop: "var(--tab-title-top)" }}
       >
         {/* Title row: buttons flank the centered title */}
-        <div className="flex items-center justify-between px-3 pb-1">
+        <div className="flex items-center justify-between px-3 pb-2">
           {/* Location button */}
           <div
             className="shrink-0"
