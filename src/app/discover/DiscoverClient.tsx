@@ -593,7 +593,7 @@ export default function DiscoverClient({
         const subtitle = subtitleRef.current;
         if (subtitle) {
           subtitle.style.opacity = "1";
-          subtitle.style.transform = "translateY(0)";
+          subtitle.style.transform = "translate3d(0, 0, 0)";
         }
       }
     });
@@ -607,21 +607,36 @@ export default function DiscoverClient({
     const container = scrollRef.current;
     if (!container) return;
 
-    const FADE_END = 30;
+    const FADE_END = 60;
+    const TRANSLATE_MAX = 30;
 
-    const onScroll = () => {
+    let rafId = 0;
+    let pending = false;
+
+    const apply = () => {
+      pending = false;
       const subtitle = subtitleRef.current;
       if (!subtitle) return;
-      const p = Math.min(1, container.scrollTop / FADE_END);
+      const p = Math.min(1, Math.max(0, container.scrollTop / FADE_END));
       subtitle.style.opacity = `${1 - p}`;
-      subtitle.style.transform = `translateY(-${p * 10}px)`;
+      subtitle.style.transform = `translate3d(0, -${p * TRANSLATE_MAX}px, 0)`;
+    };
+
+    const onScroll = () => {
+      if (pending) return;
+      pending = true;
+      rafId = requestAnimationFrame(apply);
     };
 
     const reset = () => {
+      if (pending) {
+        cancelAnimationFrame(rafId);
+        pending = false;
+      }
       const subtitle = subtitleRef.current;
       if (subtitle) {
         subtitle.style.opacity = "1";
-        subtitle.style.transform = "translateY(0)";
+        subtitle.style.transform = "translate3d(0, 0, 0)";
       }
     };
 
@@ -629,7 +644,11 @@ export default function DiscoverClient({
     window.addEventListener("tab-shown", reset);
     window.addEventListener("pageshow", reset);
 
+    // Run once on mount to sync with any initial scrollTop
+    apply();
+
     return () => {
+      if (pending) cancelAnimationFrame(rafId);
       container.removeEventListener("scroll", onScroll);
       window.removeEventListener("tab-shown", reset);
       window.removeEventListener("pageshow", reset);
