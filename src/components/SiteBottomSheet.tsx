@@ -8,7 +8,7 @@ import SiteCarousel from "@/components/SiteCarousel";
 import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
-import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { hapticMedium } from "@/lib/haptics";
 import { applyOpen, applyClose } from "@/hooks/useBottomSheetParallax";
 
 export type BottomSheetSite = {
@@ -66,26 +66,36 @@ const PARALLAX_TARGETS = {
   headerIds: ["map-mobile-header"],
 };
 
+const SHEET_DURATION = 680;
+const SHEET_EASE = "cubic-bezier(0.32,0.72,0,1)";
+const SHEET_TRANSITION = `transform ${SHEET_DURATION}ms ${SHEET_EASE}`;
+const BACKDROP_TRANSITION = `opacity 300ms ease-out`;
+
 export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng, fromLat, fromLng, fromTitle }: Props) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const raf1Ref = useRef<number | null>(null);
-  const raf2Ref = useRef<number | null>(null);
+  // mounted controls portal existence; isRendered keeps it in DOM during close animation
+  const [isRendered, setIsRendered] = useState(false);
 
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
 
-  // Swipe-to-close state
   const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Animation state — all imperative, no React state involved
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const isAnimatingClose = useRef(false);
+
+  // Swipe state
   const dragStartY = useRef<number | null>(null);
+  const dragStartX = useRef<number>(0);
   const dragStartTime = useRef<number>(0);
   const dragCurrentY = useRef<number>(0);
   const isDragging = useRef(false);
+  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
 
-  // Use the md-variant cover URL as slide 0 — good quality, available immediately.
   const getCover = (s: BottomSheetSite | null): string | null => {
     if (!s) return null;
     return getThumbOrVariantUrlNoTransform(s.cover_photo_url, "md") || s.cover_photo_url || null;
@@ -98,27 +108,21 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Sync slides when site changes, then fetch remaining slideshow images in background
+  // Sync slides when site changes
   useEffect(() => {
     if (!site) { setSlides([]); return; }
-
     const coverUrl = getCover(site);
-
-    // Seed with full-res cover immediately — no low-quality thumb, no later swap
     setSlides(coverUrl ? [coverUrl] : []);
     setCarouselIdx(0);
-
     const ids = site.cover_slideshow_image_ids;
     if (!ids?.length) return;
-
     let cancelled = false;
     getPublicClient()
       .from("site_images")
       .select("id, storage_path")
       .in("id", ids)
       .then(({ data }) => {
-        if (cancelled) return;
-        if (!data?.length) return;
+        if (cancelled || !data?.length) return;
         const byId = new Map<string, string>(
           data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path])
         );
@@ -129,66 +133,106 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
             try { return getVariantPublicUrl(path, "md"); } catch { return null; }
           })
           .filter((u): u is string => !!u);
-
-        if (!rest.length) return;
-
-        // Append additional slides — cover stays as slide 0, no geometry snap
-        if (!cancelled) setSlides(coverUrl ? [coverUrl, ...rest] : rest);
+        if (!cancelled && rest.length) setSlides(coverUrl ? [coverUrl, ...rest] : rest);
       });
-
     return () => { cancelled = true; };
   }, [site?.id]);
 
-  // Open/close animation — imperative parallax so it fires in the same tick
-  // as the sheet transition, not after React's render cycle.
-  useEffect(() => {
-    if (!isOpen) {
-      // Cancel any pending open RAFs
-      if (raf1Ref.current) { cancelAnimationFrame(raf1Ref.current); raf1Ref.current = null; }
-      if (raf2Ref.current) { cancelAnimationFrame(raf2Ref.current); raf2Ref.current = null; }
-      setVisible(false);
-      setClosing(false);
-      return;
-    }
-    // Cancel any in-flight close timer so rapid re-open works cleanly
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-      setClosing(false);
-    }
-    // Fire parallax immediately — same tick as isOpen becoming true
+  // Imperative open — no React state for animation, no render-cycle latency
+  const animateOpen = useCallback(() => {
+    const sheet = sheetRef.current;
+    const backdrop = backdropRef.current;
+    if (!sheet || !backdrop) return;
+
+    // Cancel any in-flight close
+    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    isAnimatingClose.current = false;
+
+    // Fire parallax immediately
     applyOpen(PARALLAX_TARGETS);
-    // Sheet needs two RAFs to start its CSS transition from translate-y-full → 0
-    raf1Ref.current = requestAnimationFrame(() => {
-      raf2Ref.current = requestAnimationFrame(() => {
-        raf2Ref.current = null;
-        setVisible(true);
-      });
+
+    // Pin sheet to off-screen start with no transition
+    sheet.style.transition = "none";
+    sheet.style.transform = "translateY(100%)";
+    backdrop.style.transition = "none";
+    backdrop.style.opacity = "0";
+
+    // Force reflow so browser registers the start state
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    sheet.offsetHeight;
+
+    // Animate to visible in next frame
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      sheet.style.transition = SHEET_TRANSITION;
+      sheet.style.transform = "translateY(0)";
+      backdrop.style.transition = BACKDROP_TRANSITION;
+      backdrop.style.opacity = "1";
     });
-    return () => {
-      if (raf1Ref.current) { cancelAnimationFrame(raf1Ref.current); raf1Ref.current = null; }
-      if (raf2Ref.current) { cancelAnimationFrame(raf2Ref.current); raf2Ref.current = null; }
-    };
+  }, []);
+
+  // Imperative close
+  const animateClose = useCallback((then: () => void) => {
+    const sheet = sheetRef.current;
+    const backdrop = backdropRef.current;
+    if (!sheet || !backdrop) { then(); return; }
+
+    // If already closing, don't restart — just wait for existing timer
+    if (isAnimatingClose.current) return;
+    isAnimatingClose.current = true;
+
+    // Cancel any pending open RAF
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+
+    // Fire parallax immediately
+    applyClose(PARALLAX_TARGETS);
+
+    sheet.style.transition = SHEET_TRANSITION;
+    sheet.style.transform = "translateY(100%)";
+    backdrop.style.transition = BACKDROP_TRANSITION;
+    backdrop.style.opacity = "0";
+
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      isAnimatingClose.current = false;
+      then();
+    }, SHEET_DURATION);
+  }, []);
+
+  // React to isOpen changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsRendered(true);
+    }
+  }, [isOpen]);
+
+  // Once rendered, kick off open animation
+  useEffect(() => {
+    if (!isRendered || !isOpen) return;
+    // Wait one tick for the portal to be in the DOM
+    const raf = requestAnimationFrame(() => animateOpen());
+    return () => cancelAnimationFrame(raf);
+  }, [isRendered, isOpen, animateOpen]);
+
+  // When isOpen goes false externally (e.g. navigating away), animate close
+  useEffect(() => {
+    if (!isOpen && isRendered) {
+      animateClose(() => setIsRendered(false));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const closeWithAnimation = useCallback(() => {
-    if (closeTimerRef.current) return;
-    // Fire parallax immediately — same tick as sheet starts sliding down
-    applyClose(PARALLAX_TARGETS);
-    setClosing(true);
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null;
-      setClosing(false);
+    animateClose(() => {
+      setIsRendered(false);
       onClose();
-    }, 680);
-  }, [onClose]);
+    });
+  }, [animateClose, onClose]);
 
-  const dragStartX = useRef<number>(0);
-  const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
-
+  // Swipe handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (closeTimerRef.current) return;
+    if (isAnimatingClose.current) return;
     dragStartY.current = e.touches[0].clientY;
     dragStartX.current = e.touches[0].clientX;
     dragStartTime.current = Date.now();
@@ -204,7 +248,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     const dy = e.touches[0].clientY - dragStartY.current;
     const dx = e.touches[0].clientX - dragStartX.current;
 
-    // Lock direction on first significant movement
     if (!dragDirectionLocked.current) {
       if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
         dragDirectionLocked.current = "horizontal";
@@ -213,7 +256,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       }
     }
 
-    // If horizontal (carousel swipe) — don't interfere
     if (dragDirectionLocked.current === "horizontal") {
       isDragging.current = false;
       const el = sheetRef.current;
@@ -240,38 +282,29 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
     const dy = dragCurrentY.current;
     const elapsed = Date.now() - dragStartTime.current;
-    const velocity = dy / elapsed; // px/ms
-
+    const velocity = dy / elapsed;
     const el = sheetRef.current;
-    // Re-enable transition
     if (el) el.style.transition = "";
-
-    const DISMISS_DISTANCE = 80;
-    const DISMISS_VELOCITY = 0.4; // px/ms
-
-    if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
-      // Fire parallax immediately — same tick as sheet starts sliding down
-      applyClose(PARALLAX_TARGETS);
-      setClosing(true);
-      if (el) el.style.transform = "translateY(100%)";
-      closeTimerRef.current = setTimeout(() => {
-        closeTimerRef.current = null;
-        setClosing(false);
-        onClose();
-        if (el) el.style.transform = "";
-      }, 680);
-    } else {
-      // Spring back
-      if (el) el.style.transform = "translateY(0)";
-    }
 
     dragStartY.current = null;
     dragCurrentY.current = 0;
-  }, [onClose]);
 
-  if (!mounted || (!isOpen && !closing) || !site) return null;
+    if (dy >= 80 || velocity >= 0.4) {
+      closeWithAnimation();
+    } else {
+      if (el) el.style.transform = "translateY(0)";
+    }
+  }, [closeWithAnimation]);
 
-  const sheetVisible = visible && !closing;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  if (!mounted || !isRendered || !site) return null;
 
   async function handleOpenSite() {
     if (!site) return;
@@ -297,7 +330,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out ${sheetVisible ? "opacity-100" : "opacity-0"}`}
+        ref={backdropRef}
+        className="absolute inset-0 bg-black/40"
+        style={{ opacity: 0 }}
         onClick={closeWithAnimation}
         aria-hidden="true"
       />
@@ -305,18 +340,18 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden transition-transform duration-[680ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${sheetVisible ? "translate-y-0" : "translate-y-full"}`}
-        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
+        className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
+        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translateY(100%)" }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Drag handle (visual only) */}
+        {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
           <div className="w-10 h-1 rounded-full bg-gray-300/80" />
         </div>
 
-        {/* Carousel — padding-bottom trick locks 4:3 regardless of flex context */}
+        {/* Carousel */}
         <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
           <div className="absolute inset-0">
             <SiteCarousel
@@ -326,7 +361,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
               hideDots
               onIndexChange={setCarouselIdx}
             />
-            {/* Close button — above carousel z layers */}
             <button
               onClick={closeWithAnimation}
               className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
@@ -339,7 +373,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
         {/* Details */}
         <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Dot indicators — row always reserves height to prevent layout shift */}
+          {/* Dot indicators */}
           <div className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
             {slides.length > 1 && slides.map((_, i) => (
               <div
@@ -429,7 +463,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
             );
           })()}
 
-          {/* Spacer */}
           <div className="flex-1" />
 
           {/* Open Site */}
