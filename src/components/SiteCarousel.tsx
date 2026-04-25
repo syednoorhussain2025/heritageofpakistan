@@ -126,10 +126,7 @@ export default function SiteCarousel({
     return (
       <div className="w-full h-full relative bg-neutral-200">
         <div className="absolute inset-0 flex items-center justify-center">
-          <div style={{ position: "relative" }}>
-            <Spinner variant="dots" color="white" size={160} />
-            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 100, height: 38, background: "rgba(0,0,0,0.55)", borderRadius: 999, zIndex: -1 }} />
-          </div>
+          <Spinner variant="dots" color="white" size={160} />
         </div>
       </div>
     );
@@ -140,10 +137,7 @@ export default function SiteCarousel({
       {/* Spinner — shown while first image hasn't decoded */}
       {!firstLoaded && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div style={{ position: "relative" }}>
-            <Spinner variant="dots" color="white" size={160} />
-            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 100, height: 38, background: "rgba(0,0,0,0.55)", borderRadius: 999, zIndex: -1 }} />
-          </div>
+          <Spinner variant="dots" color="white" size={160} />
         </div>
       )}
 
