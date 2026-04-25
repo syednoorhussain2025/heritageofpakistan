@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 const SCALE = 0.88;
 const TRANSLATE_Y = "38px";
 const BORDER_RADIUS = "24px";
-const DURATION_MS = 800;
+const DURATION_MS = 900;
 const TRANSITION_OPEN  = `transform ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), border-radius ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), filter ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
 const TRANSITION_CLOSE = `transform ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), border-radius ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), filter ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
 const BODY_TRANSITION_OPEN  = `background-color ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
