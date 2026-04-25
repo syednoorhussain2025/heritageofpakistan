@@ -211,11 +211,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     isAnimatingClose.current = false;
 
-    // Full reset first — clears any stale styles from a previous cycle.
-    sheet.style.cssText = "";
-    backdrop.style.cssText = "";
-
-    // Promote GPU layers, pin to start state.
+    // Reset only animation properties (not layout styles set by JSX).
     sheet.style.willChange = "transform";
     sheet.style.backfaceVisibility = "hidden";
     sheet.style.transition = "none";
@@ -281,9 +277,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       isAnimatingClose.current = false;
-      // Full reset — no stale inline styles left for next cycle.
-      if (sheet) sheet.style.cssText = "";
-      if (backdrop) backdrop.style.cssText = "";
+      // Release animation properties only — leave JSX layout styles intact.
+      if (sheet) { sheet.style.willChange = ""; sheet.style.backfaceVisibility = ""; sheet.style.transition = ""; }
+      if (backdrop) { backdrop.style.willChange = ""; backdrop.style.transition = ""; }
       then();
     }, SHEET_DURATION);
   }, []);
