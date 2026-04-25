@@ -88,7 +88,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const rafRef = useRef<number | null>(null);
   const isAnimatingClose = useRef(false);
 
-  // Swipe state
+  // Swipe state — all managed via native listeners (not React synthetic events)
   const dragStartY = useRef<number | null>(null);
   const dragStartX = useRef<number>(0);
   const dragStartTime = useRef<number>(0);
@@ -264,71 +264,93 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     });
   }, [animateClose, onClose]);
 
-  // Swipe handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (isAnimatingClose.current) return;
-    dragStartY.current = e.touches[0].clientY;
-    dragStartX.current = e.touches[0].clientX;
-    dragStartTime.current = Date.now();
-    dragCurrentY.current = 0;
-    isDragging.current = true;
-    dragDirectionLocked.current = null;
+  // Native swipe-to-dismiss — attached directly to the sheet DOM node so we
+  // can call preventDefault on touchmove without passive-listener restrictions.
+  const closeWithAnimationRef = useRef(closeWithAnimation);
+  closeWithAnimationRef.current = closeWithAnimation;
+
+  useEffect(() => {
     const el = sheetRef.current;
-    if (el) el.style.transition = "none";
-  }, []);
+    if (!el) return;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current || dragStartY.current === null) return;
-    const dy = e.touches[0].clientY - dragStartY.current;
-    const dx = e.touches[0].clientX - dragStartX.current;
-
-    if (!dragDirectionLocked.current) {
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 4) {
-        dragDirectionLocked.current = "horizontal";
-      } else if (Math.abs(dy) > 4) {
-        dragDirectionLocked.current = "vertical";
-      }
-    }
-
-    if (dragDirectionLocked.current === "horizontal") {
-      isDragging.current = false;
-      const el = sheetRef.current;
-      if (el) { el.style.transition = ""; el.style.transform = ""; }
-      return;
-    }
-
-    if (dragDirectionLocked.current !== "vertical") return;
-
-    if (dy < 0) {
+    const onStart = (e: TouchEvent) => {
+      if (isAnimatingClose.current) return;
+      const t = e.touches[0];
+      dragStartY.current = t.clientY;
+      dragStartX.current = t.clientX;
+      dragStartTime.current = Date.now();
       dragCurrentY.current = 0;
-      const el = sheetRef.current;
-      if (el) el.style.transform = "translateY(0)";
-      return;
-    }
-    dragCurrentY.current = dy;
-    const el = sheetRef.current;
-    if (el) el.style.transform = `translateY(${dy}px)`;
-  }, []);
+      isDragging.current = true;
+      dragDirectionLocked.current = null;
+      el.style.transition = "none";
+    };
 
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
+    const onMove = (e: TouchEvent) => {
+      if (!isDragging.current || dragStartY.current === null) return;
+      const dy = e.touches[0].clientY - dragStartY.current;
+      const dx = e.touches[0].clientX - dragStartX.current;
 
-    const dy = dragCurrentY.current;
-    const elapsed = Date.now() - dragStartTime.current;
-    const velocity = dy / elapsed;
-    const el = sheetRef.current;
-    if (el) el.style.transition = "";
+      if (!dragDirectionLocked.current) {
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+          dragDirectionLocked.current = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+        }
+      }
 
-    dragStartY.current = null;
-    dragCurrentY.current = 0;
+      if (dragDirectionLocked.current === "horizontal") {
+        isDragging.current = false;
+        el.style.transition = SHEET_TRANSITION;
+        el.style.transform = "translateY(0)";
+        return;
+      }
 
-    if (dy >= 80 || velocity >= 0.4) {
-      closeWithAnimation();
-    } else {
-      if (el) el.style.transform = "translateY(0)";
-    }
-  }, [closeWithAnimation]);
+      if (dragDirectionLocked.current !== "vertical") return;
+
+      e.preventDefault();
+
+      const clamped = Math.max(0, dy);
+      dragCurrentY.current = clamped;
+      el.style.transform = `translateY(${clamped}px)`;
+    };
+
+    const onEnd = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+
+      const dy = dragCurrentY.current;
+      const elapsed = Math.max(1, Date.now() - dragStartTime.current);
+      const velocity = dy / elapsed; // px/ms
+
+      dragStartY.current = null;
+      dragCurrentY.current = 0;
+
+      if (dy >= 80 || velocity >= 0.3) {
+        // Continue from current drag position — animate the remaining distance
+        const sheetH = el.offsetHeight;
+        const remaining = Math.max(sheetH - dy, 0);
+        const dur = Math.max(150, Math.min(remaining / Math.max(velocity, 0.5), SHEET_DURATION));
+        el.style.transition = `transform ${dur}ms ${SHEET_EASE}`;
+        el.style.transform = "translateY(100%)";
+        closeWithAnimationRef.current();
+      } else {
+        el.style.transition = SHEET_TRANSITION;
+        el.style.transform = "translateY(0)";
+      }
+    };
+
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    el.addEventListener("touchcancel", onEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  // Re-attach when the sheet mounts (isRendered) — sheetRef.current changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRendered]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -376,9 +398,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         ref={sheetRef}
         className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
         style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translateY(100%)" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
