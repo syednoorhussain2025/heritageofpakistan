@@ -361,13 +361,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
               hideDots
               onIndexChange={setCarouselIdx}
             />
-            <button
-              onClick={closeWithAnimation}
-              className="absolute top-2 right-2 z-40 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
-              title="Close"
-            >
-              <Icon name="times" size={16} />
-            </button>
           </div>
         </div>
 
