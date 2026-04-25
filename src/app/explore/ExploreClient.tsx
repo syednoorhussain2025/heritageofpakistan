@@ -1348,8 +1348,6 @@ function ExplorePageContent() {
 
 
   const setPushTransform = useCallback((value: string | null, animate: boolean) => {
-    // Push the mobile shell — a single transform surface that groups header +
-    // content card. Transforming one element keeps them visually coherent.
     const el = document.getElementById("explore-mobile-shell");
     if (!el) return;
     el.style.transition = animate ? "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)" : "none";
@@ -1397,15 +1395,10 @@ function ExplorePageContent() {
 
   return (
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
-      {/* ── Mobile shell: single transform surface that groups header + content
-          card so bottom-sheet parallax can scale them as a coherent unit (one
-          border-radius, one filter, one transform). The shell itself is
-          fixed to the viewport; header + card inside are absolutely
-          positioned relative to it, so scaling the shell scales the group.
-      ── */}
       <div
         id="explore-mobile-shell"
         className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[#f2f2f2] overflow-hidden"
+        style={{ contain: "layout style" }}
       >
       {/* ── Mobile: teal header (matches Home) ── */}
       <button

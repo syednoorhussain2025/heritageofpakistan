@@ -361,9 +361,6 @@ export default function SitePreviewCard({
                   opacity: showBlur ? 1 : 0,
                   transition: isSharpLoaded ? "opacity 220ms ease" : "none",
                   zIndex: 1,
-                  willChange: "opacity",
-                  backfaceVisibility: "hidden",
-                  transform: "translateZ(0)",
                 }}
               >
                 <div
@@ -406,9 +403,6 @@ export default function SitePreviewCard({
                   imageRendering: "auto",
                   opacity: hasBlur ? 1 : isSharpLoaded ? 1 : 0,
                   transition: hasBlur ? "none" : "opacity 220ms ease",
-                  willChange: "opacity",
-                  backfaceVisibility: "hidden",
-                  transform: "translateZ(0)",
                 }}
               />
             </div>

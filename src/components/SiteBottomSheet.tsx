@@ -62,8 +62,8 @@ async function resolveProvinceSlug(provinceId: string | number): Promise<string 
 }
 
 const PARALLAX_TARGETS = {
-  pageIds: ["explore-mobile-shell", "map-mobile-shell"],
-  headerIds: ["map-mobile-header"],
+  pageIds: ["explore-mobile-shell"],
+  headerIds: [],
 };
 
 const SHEET_DURATION = 680;
