@@ -161,23 +161,31 @@ export default function SiteCarousel({
         className="flex h-full"
         style={{ width: slides.length > 1 ? `${slides.length * 100}%` : "100%" }}
       >
-        {slides.map((url, i) => (
-          <div
-            key={url}
-            className="h-full flex-shrink-0 overflow-hidden"
-            style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
-          >
-            <img
-              src={url}
-              alt={i === 0 ? alt : ""}
-              className="w-full h-full object-cover object-top"
-              style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
-              draggable={false}
-              decoding="async"
-              onLoad={() => { if (i === 0) showSpinner(false); }}
-            />
-          </div>
-        ))}
+        {slides.map((url, i) => {
+          // Virtual carousel: only render current slide ± 1 neighbour.
+          // Off-screen slides stay as lightweight placeholder divs — no img,
+          // no decoded GPU texture. Caps compositing cost regardless of slide count.
+          const isVisible = Math.abs(i - idx) <= 1;
+          return (
+            <div
+              key={url}
+              className="h-full flex-shrink-0 overflow-hidden"
+              style={{ width: slides.length > 1 ? `${100 / slides.length}%` : "100%" }}
+            >
+              {isVisible && (
+                <img
+                  src={url}
+                  alt={i === 0 ? alt : ""}
+                  className="w-full h-full object-cover object-top"
+                  style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
+                  draggable={false}
+                  decoding="async"
+                  onLoad={() => { if (i === 0) showSpinner(false); }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {hasMultiple && !hideDots && (

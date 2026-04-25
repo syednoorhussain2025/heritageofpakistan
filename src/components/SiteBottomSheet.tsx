@@ -129,10 +129,13 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     return c ? [c] : [];
   });
 
-  // True once the open animation has finished. Heavy work (md upgrade,
-  // slideshow image fetch + setSlides) is deferred until then so React
-  // commits never land inside the animation window.
-  const [openAnimationDone, setOpenAnimationDone] = useState(false);
+  // Ref instead of state — avoids React re-render when toggled during animation.
+  // Heavy work (md upgrade, slideshow image fetch + setSlides) is deferred
+  // until this is true so React commits never land inside the animation window.
+  const openAnimationDoneRef = useRef(false);
+  // Tick counter: incremented when openAnimationDone flips true, used as
+  // useEffect dep so the upgrade effect re-runs without a state variable.
+  const [openAnimationTick, setOpenAnimationTick] = useState(0);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -150,7 +153,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   // image off the main thread via img.decode(), then do ONE setSlides call.
   // One React commit, one track-width recalc, zero decoding jank.
   useEffect(() => {
-    if (!site || !openAnimationDone) return;
+    if (!site || !openAnimationDoneRef.current) return;
 
     const thumbUrl = getThumbCover(site);
     const mdUrl = getMdCover(site);
@@ -194,7 +197,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
     void upgrade();
     return () => { cancelled = true; };
-  }, [site?.id, openAnimationDone]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [site?.id, openAnimationTick]);
 
   const openDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -238,7 +242,13 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     // until after the animation has fully settled.
     openDoneTimerRef.current = setTimeout(() => {
       openDoneTimerRef.current = null;
-      setOpenAnimationDone(true);
+      // Release GPU layers — animation is done, no longer needed until next animation.
+      if (sheetRef.current) { sheetRef.current.style.willChange = ""; sheetRef.current.style.backfaceVisibility = ""; }
+      if (backdropRef.current) backdropRef.current.style.willChange = "";
+      openAnimationDoneRef.current = true;
+      // Increment tick to trigger the upgrade effect — one tiny state update,
+      // well after the animation window, not during it.
+      setOpenAnimationTick((n) => n + 1);
     }, SHEET_DURATION + 50);
   }, []);
 
@@ -257,7 +267,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     // Cancel pending open RAF / open-done timer
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     if (openDoneTimerRef.current) { clearTimeout(openDoneTimerRef.current); openDoneTimerRef.current = null; }
-    setOpenAnimationDone(false);
+    // Clear ref synchronously — no React re-render triggered here.
+    openAnimationDoneRef.current = false;
 
     // Make sure GPU layer is still promoted during close
     sheet.style.willChange = "transform";
@@ -480,12 +491,17 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         aria-hidden="true"
       />
 
-      {/* Sheet */}
+      {/* Sheet — NO overflow:hidden, NO border-radius on the compositor layer.
+           Both force per-frame clip masks which stutter on low-end GPUs.
+           The visual shape lives on a separate non-composited decoration layer. */}
       <div
         ref={sheetRef}
-        className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
+        className="absolute left-0 right-0 bottom-0 flex flex-col"
         style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translate3d(0, 100%, 0)" }}
       >
+        {/* Decoration layer: rounded corners + shadow + background.
+            Not composited — paint cost is paid once, not every frame. */}
+        <div className="absolute inset-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] pointer-events-none" aria-hidden="true" />
         {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
           <div className="w-10 h-1 rounded-full bg-gray-300/80" />
