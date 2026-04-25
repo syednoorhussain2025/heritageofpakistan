@@ -34,10 +34,18 @@ export default function SiteCarousel({
   const trackRef = React.useRef<HTMLDivElement>(null);
   const idxRef = React.useRef(idx);
 
-  // Reset idx + spinner only when the site itself changes, not when more slides are appended
+  // Reset idx + spinner only when the site itself changes, not when more slides are appended.
+  // If the first slide URL is already in the browser cache, skip the loader entirely.
   React.useEffect(() => {
     setIdx(0);
-    setFirstLoaded(false);
+    const firstUrl = slides[0];
+    if (firstUrl) {
+      const img = new Image();
+      img.src = firstUrl;
+      setFirstLoaded(img.complete && img.naturalWidth > 0);
+    } else {
+      setFirstLoaded(false);
+    }
   }, [siteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-advance (desktop only)
