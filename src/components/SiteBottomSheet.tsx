@@ -175,7 +175,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       }
       if (cancelled) return;
 
-      const allUrls = [mdUrl || thumbUrl, ...rest].filter((u): u is string => !!u);
+      // Cap at 5 slides — off-screen decoded images occupy GPU texture memory
+      // and make the carousel track wider, increasing compositing cost on close.
+      const allUrls = [mdUrl || thumbUrl, ...rest].filter((u): u is string => !!u).slice(0, 5);
 
       // Decode all images off the main thread before touching React state.
       // img.decode() resolves when the image is fully decoded and GPU-ready,
@@ -490,7 +492,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         </div>
 
         {/* Carousel */}
-        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
+        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%", contain: "strict" }}>
           <div className="absolute inset-0">
             <SiteCarousel
               slides={slides}
