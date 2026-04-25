@@ -63,7 +63,7 @@ export default function SiteCarousel({
     if (!el) return;
     const pct = slides.length > 1 ? -atIdx * (100 / slides.length) : 0;
     el.style.transition = animated ? "transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)" : "none";
-    el.style.transform = `translateX(calc(${pct}% + ${dx}px))`;
+    el.style.transform = `translate3d(${pct === 0 && dx === 0 ? "0" : `calc(${pct}% + ${dx}px)`}, 0, 0)`;
   }, [slides.length]);
 
   // Keep track in sync when idx changes from dot clicks / auto-advance.
@@ -88,6 +88,12 @@ export default function SiteCarousel({
     };
     let g: GestureState | null = null;
 
+    let willChangeTimer: ReturnType<typeof setTimeout> | null = null;
+    const releaseLayer = () => {
+      const track = trackRef.current;
+      if (track) track.style.willChange = "";
+    };
+
     const onStart = (e: TouchEvent) => {
       const t = e.touches[0];
       g = { startX: t.clientX, startY: t.clientY, dx: 0, locked: "none", currentIdx: idxRef.current };
@@ -103,6 +109,15 @@ export default function SiteCarousel({
       }
       if (g.locked === "vertical") return;
       e.preventDefault();
+      // Promote the GPU layer only during active horizontal swipe.
+      // Permanent will-change on the track was keeping a multi-screen-wide
+      // composited layer alive, which slowed every other animation while
+      // the sheet was open.
+      const track = trackRef.current;
+      if (track && track.style.willChange !== "transform") {
+        track.style.willChange = "transform";
+      }
+      if (willChangeTimer != null) { clearTimeout(willChangeTimer); willChangeTimer = null; }
       g.dx = dx;
       const atStart = g.currentIdx === 0 && dx > 0;
       const atEnd = g.currentIdx === slides.length - 1 && dx < 0;
@@ -110,7 +125,13 @@ export default function SiteCarousel({
     };
 
     const onEnd = () => {
-      if (!g || g.locked !== "horizontal") { g = null; return; }
+      if (!g || g.locked !== "horizontal") {
+        g = null;
+        // Release layer if it was promoted but never moved
+        if (willChangeTimer != null) clearTimeout(willChangeTimer);
+        willChangeTimer = setTimeout(releaseLayer, 450);
+        return;
+      }
       const dx = g.dx;
       let next = g.currentIdx;
       if (dx < -50 && g.currentIdx < slides.length - 1) next = g.currentIdx + 1;
@@ -118,15 +139,22 @@ export default function SiteCarousel({
       g = null;
       applyTransform(0, next, true);
       setIdx(next);
+      // Release layer slightly after the slide-snap transition (400ms) ends
+      if (willChangeTimer != null) clearTimeout(willChangeTimer);
+      willChangeTimer = setTimeout(releaseLayer, 450);
     };
 
     container.addEventListener("touchstart", onStart, { passive: true });
     container.addEventListener("touchmove", onMove, { passive: false });
     container.addEventListener("touchend", onEnd, { passive: true });
+    container.addEventListener("touchcancel", onEnd, { passive: true });
     return () => {
+      if (willChangeTimer != null) clearTimeout(willChangeTimer);
+      releaseLayer();
       container.removeEventListener("touchstart", onStart);
       container.removeEventListener("touchmove", onMove);
       container.removeEventListener("touchend", onEnd);
+      container.removeEventListener("touchcancel", onEnd);
     };
   }, [hasMultiple, slides.length, applyTransform]);
 
@@ -155,7 +183,6 @@ export default function SiteCarousel({
         className="flex h-full"
         style={{
           width: slides.length > 1 ? `${slides.length * 100}%` : "100%",
-          willChange: "transform",
         }}
       >
         {slides.map((url, i) => (
