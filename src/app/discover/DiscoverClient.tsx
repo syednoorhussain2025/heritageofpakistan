@@ -137,7 +137,6 @@ const DiscoverTile = memo(function DiscoverTile({
   const tileRef = useRef<HTMLDivElement>(null);
 
   const handlePressEnd = useCallback(() => {
-    void hapticLight();
     const rect = tileRef.current?.getBoundingClientRect();
     if (rect) onOpen(rect, thumbUrl);
   }, [onOpen, thumbUrl]);
