@@ -111,26 +111,35 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     return c ? [c] : [];
   });
 
+  // True once the open animation has finished. Heavy work (md upgrade,
+  // slideshow image fetch + setSlides) is deferred until then so React
+  // commits never land inside the animation window.
+  const [openAnimationDone, setOpenAnimationDone] = useState(false);
+
   useEffect(() => { setMounted(true); }, []);
 
-  // Sync slides when site changes.
-  // Slide 0 = thumb (cached from preview card, instant).
-  // Then swap slide 0 to md in background, and append slideshow images.
+  // When site changes, IMMEDIATELY snap slides to the thumb (cached)
+  // — this is synchronous so it lands before the first paint of the sheet.
+  // No async work runs here; the upgrade effect below waits for the animation.
   useEffect(() => {
     if (!site) { setSlides([]); return; }
+    const thumbUrl = getThumbCover(site);
+    setSlides(thumbUrl ? [thumbUrl] : []);
+    setCarouselIdx(0);
+  }, [site?.id]);
+
+  // After the open animation has settled, upgrade slide 0 to md and append
+  // the rest of the slideshow images. Running this during the animation
+  // would cause a React commit + image network/decode = dropped frames on
+  // low-end devices.
+  useEffect(() => {
+    if (!site || !openAnimationDone) return;
 
     const thumbUrl = getThumbCover(site);
     const mdUrl = getMdCover(site);
-
-    // Start with thumb — no loader flash since it's already cached
-    setSlides(thumbUrl ? [thumbUrl] : []);
-    setCarouselIdx(0);
-
     let cancelled = false;
 
-    // Upgrade slide 0 to md once loaded, then append slideshow images
     const upgrade = async () => {
-      // Preload md in background
       if (mdUrl && mdUrl !== thumbUrl) {
         await new Promise<void>((resolve) => {
           const img = new window.Image();
@@ -143,7 +152,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
       const ids = site.cover_slideshow_image_ids;
       if (!ids?.length) {
-        if (mdUrl) setSlides([mdUrl]);
+        if (mdUrl && mdUrl !== thumbUrl) setSlides([mdUrl]);
         return;
       }
 
@@ -170,7 +179,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
     void upgrade();
     return () => { cancelled = true; };
-  }, [site?.id]);
+  }, [site?.id, openAnimationDone]);
+
+  const openDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Imperative open — both sheet and parallax start in the SAME paint frame.
   // No render-cycle latency, no double-RAF, GPU layer pre-promoted.
@@ -181,6 +192,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
     // Cancel any in-flight close
     if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+    if (openDoneTimerRef.current) { clearTimeout(openDoneTimerRef.current); openDoneTimerRef.current = null; }
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     isAnimatingClose.current = false;
 
@@ -208,6 +220,13 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     sheet.style.transform = "translate3d(0, 0, 0)";
     backdrop.style.transition = BACKDROP_TRANSITION;
     backdrop.style.opacity = "1";
+
+    // Defer all heavy work (slide upgrade, image fetch, React commits)
+    // until after the animation has fully settled.
+    openDoneTimerRef.current = setTimeout(() => {
+      openDoneTimerRef.current = null;
+      setOpenAnimationDone(true);
+    }, SHEET_DURATION + 50);
   }, []);
 
   // Imperative close
@@ -220,8 +239,10 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (isAnimatingClose.current) return;
     isAnimatingClose.current = true;
 
-    // Cancel any pending open RAF
+    // Cancel pending open RAF / open-done timer
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (openDoneTimerRef.current) { clearTimeout(openDoneTimerRef.current); openDoneTimerRef.current = null; }
+    setOpenAnimationDone(false);
 
     // Make sure GPU layer is still promoted during close
     sheet.style.willChange = "transform";
@@ -374,6 +395,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (openDoneTimerRef.current) clearTimeout(openDoneTimerRef.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
