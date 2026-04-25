@@ -248,6 +248,16 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     sheet.style.willChange = "transform";
     backdrop.style.willChange = "opacity";
 
+    // Lock in current transform as the transition's from-value. This matters
+    // when close is triggered mid-drag — the sheet was being moved with
+    // transition:none, and we need the browser to register the current
+    // position before swapping to a transitioned move.
+    const currentTransform = getComputedStyle(sheet).transform;
+    sheet.style.transition = "none";
+    sheet.style.transform = currentTransform === "none" ? "translate3d(0, 0, 0)" : currentTransform;
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    sheet.offsetHeight; // force reflow to commit the from-value
+
     // Fire parallax + sheet in the same tick
     applyClose(PARALLAX_TARGETS);
     sheet.style.transition = SHEET_TRANSITION;
@@ -363,12 +373,11 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       dragCurrentY.current = 0;
 
       if (dy >= 80 || velocity >= 0.3) {
-        // Continue from current drag position — animate the remaining distance
-        const sheetH = el.offsetHeight;
-        const remaining = Math.max(sheetH - dy, 0);
-        const dur = Math.max(150, Math.min(remaining / Math.max(velocity, 0.5), SHEET_DURATION));
-        el.style.transition = `transform ${dur}ms ${SHEET_EASE}`;
-        el.style.transform = "translate3d(0, 100%, 0)";
+        // Hand off to the same close path used everywhere else.
+        // animateClose will set the transition + transform itself, in the
+        // SAME tick as the parallax — no fighting transitions, no late
+        // parallax. The sheet animates from its current drag position to
+        // translateY(100%) using SHEET_TRANSITION.
         closeWithAnimationRef.current();
       } else {
         el.style.transition = SHEET_TRANSITION;
