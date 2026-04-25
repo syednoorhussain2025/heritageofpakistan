@@ -96,45 +96,79 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const isDragging = useRef(false);
   const dragDirectionLocked = useRef<"vertical" | "horizontal" | null>(null);
 
-  const getCover = (s: BottomSheetSite | null): string | null => {
+  // thumb variant = same URL the preview card uses → already cached by browser
+  const getThumbCover = (s: BottomSheetSite | null): string | null => {
+    if (!s) return null;
+    return s.cover_photo_thumb_url || getThumbOrVariantUrlNoTransform(s.cover_photo_url, "thumb") || s.cover_photo_url || null;
+  };
+  const getMdCover = (s: BottomSheetSite | null): string | null => {
     if (!s) return null;
     return getThumbOrVariantUrlNoTransform(s.cover_photo_url, "md") || s.cover_photo_url || null;
   };
 
   const [slides, setSlides] = useState<string[]>(() => {
-    const c = getCover(site);
+    const c = getThumbCover(site);
     return c ? [c] : [];
   });
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Sync slides when site changes
+  // Sync slides when site changes.
+  // Slide 0 = thumb (cached from preview card, instant).
+  // Then swap slide 0 to md in background, and append slideshow images.
   useEffect(() => {
     if (!site) { setSlides([]); return; }
-    const coverUrl = getCover(site);
-    setSlides(coverUrl ? [coverUrl] : []);
+
+    const thumbUrl = getThumbCover(site);
+    const mdUrl = getMdCover(site);
+
+    // Start with thumb — no loader flash since it's already cached
+    setSlides(thumbUrl ? [thumbUrl] : []);
     setCarouselIdx(0);
-    const ids = site.cover_slideshow_image_ids;
-    if (!ids?.length) return;
+
     let cancelled = false;
-    getPublicClient()
-      .from("site_images")
-      .select("id, storage_path")
-      .in("id", ids)
-      .then(({ data }) => {
-        if (cancelled || !data?.length) return;
-        const byId = new Map<string, string>(
-          data.map((r: { id: string; storage_path: string }) => [r.id, r.storage_path])
-        );
-        const rest = ids
-          .map((id) => {
-            const path = byId.get(id);
-            if (!path) return null;
-            try { return getVariantPublicUrl(path, "md"); } catch { return null; }
-          })
-          .filter((u): u is string => !!u);
-        if (!cancelled && rest.length) setSlides(coverUrl ? [coverUrl, ...rest] : rest);
-      });
+
+    // Upgrade slide 0 to md once loaded, then append slideshow images
+    const upgrade = async () => {
+      // Preload md in background
+      if (mdUrl && mdUrl !== thumbUrl) {
+        await new Promise<void>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = mdUrl;
+        });
+      }
+      if (cancelled) return;
+
+      const ids = site.cover_slideshow_image_ids;
+      if (!ids?.length) {
+        if (mdUrl) setSlides([mdUrl]);
+        return;
+      }
+
+      const { data } = await getPublicClient()
+        .from("site_images")
+        .select("id, storage_path")
+        .in("id", ids);
+
+      if (cancelled) return;
+      const byId = new Map<string, string>(
+        ((data ?? []) as { id: string; storage_path: string }[]).map((r) => [r.id, r.storage_path])
+      );
+      const rest = ids
+        .map((id) => {
+          const path = byId.get(id);
+          if (!path) return null;
+          try { return getVariantPublicUrl(path, "md"); } catch { return null; }
+        })
+        .filter((u): u is string => !!u);
+
+      const base = mdUrl || thumbUrl;
+      setSlides(base ? [base, ...rest] : rest);
+    };
+
+    void upgrade();
     return () => { cancelled = true; };
   }, [site?.id]);
 
