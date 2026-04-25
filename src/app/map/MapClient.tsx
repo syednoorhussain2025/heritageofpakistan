@@ -1854,7 +1854,6 @@ export default function MapClient() {
       <div
         id="map-mobile-shell"
         className="lg:hidden fixed inset-0 z-[1099] pointer-events-none overflow-hidden"
-        style={{ willChange: "transform" }}
       >
       <div className="absolute inset-0 w-full pointer-events-auto">
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } } .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }`}</style>
