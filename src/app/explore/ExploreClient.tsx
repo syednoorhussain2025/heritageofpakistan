@@ -1398,7 +1398,7 @@ function ExplorePageContent() {
       <div
         id="explore-mobile-shell"
         className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[#f2f2f2] overflow-hidden"
-        style={{ contain: "layout style" }}
+        style={{ contain: "style" }}
       >
       {/* ── Mobile: teal header (matches Home) ── */}
       <button
