@@ -248,21 +248,18 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     sheet.style.willChange = "transform";
     backdrop.style.willChange = "opacity";
 
-    // Lock in current transform as the transition's from-value. This matters
-    // when close is triggered mid-drag — the sheet was being moved with
-    // transition:none, and we need the browser to register the current
-    // position before swapping to a transitioned move.
-    const currentTransform = getComputedStyle(sheet).transform;
-    sheet.style.transition = "none";
-    sheet.style.transform = currentTransform === "none" ? "translate3d(0, 0, 0)" : currentTransform;
+    // The sheet is already at its current visual position (drag or open).
+    // Setting transition + transform in the same tick is reliable as long
+    // as the browser sees them in separate "style change" events — we
+    // ensure that with a single forced reflow before writing the target.
+    sheet.style.transition = SHEET_TRANSITION;
+    backdrop.style.transition = BACKDROP_TRANSITION;
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    sheet.offsetHeight; // force reflow to commit the from-value
+    sheet.offsetHeight; // commit the new transition value before changing transform
 
     // Fire parallax + sheet in the same tick
     applyClose(PARALLAX_TARGETS);
-    sheet.style.transition = SHEET_TRANSITION;
     sheet.style.transform = "translate3d(0, 100%, 0)";
-    backdrop.style.transition = BACKDROP_TRANSITION;
     backdrop.style.opacity = "0";
 
     closeTimerRef.current = setTimeout(() => {
@@ -322,6 +319,19 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     const el = sheetRef.current;
     if (!el) return;
 
+    // RAF-throttle drag transform writes — at most one write per paint frame.
+    // Without this, 120Hz touch events on a 60Hz display produce 2× the
+    // necessary transform writes, backing up the compositor.
+    let pendingDy: number | null = null;
+    let dragRaf: number | null = null;
+    const flushDrag = () => {
+      dragRaf = null;
+      if (pendingDy === null) return;
+      const v = pendingDy;
+      pendingDy = null;
+      el.style.transform = `translate3d(0, ${v}px, 0)`;
+    };
+
     const onStart = (e: TouchEvent) => {
       if (isAnimatingClose.current) return;
       const t = e.touches[0];
@@ -358,12 +368,24 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
       const clamped = Math.max(0, dy);
       dragCurrentY.current = clamped;
-      el.style.transform = `translate3d(0, ${clamped}px, 0)`;
+      pendingDy = clamped;
+      if (dragRaf == null) dragRaf = requestAnimationFrame(flushDrag);
     };
 
     const onEnd = () => {
       if (!isDragging.current) return;
       isDragging.current = false;
+
+      // Flush any pending drag write so the close transition starts from
+      // the exact final visual position the user saw.
+      if (dragRaf != null) {
+        cancelAnimationFrame(dragRaf);
+        dragRaf = null;
+        if (pendingDy !== null) {
+          el.style.transform = `translate3d(0, ${pendingDy}px, 0)`;
+          pendingDy = null;
+        }
+      }
 
       const dy = dragCurrentY.current;
       const elapsed = Math.max(1, Date.now() - dragStartTime.current);
@@ -391,6 +413,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     el.addEventListener("touchcancel", onEnd, { passive: true });
 
     return () => {
+      if (dragRaf != null) cancelAnimationFrame(dragRaf);
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
