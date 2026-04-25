@@ -491,17 +491,12 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         aria-hidden="true"
       />
 
-      {/* Sheet — NO overflow:hidden, NO border-radius on the compositor layer.
-           Both force per-frame clip masks which stutter on low-end GPUs.
-           The visual shape lives on a separate non-composited decoration layer. */}
+      {/* Sheet */}
       <div
         ref={sheetRef}
-        className="absolute left-0 right-0 bottom-0 flex flex-col"
+        className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
         style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translate3d(0, 100%, 0)" }}
       >
-        {/* Decoration layer: rounded corners + shadow + background.
-            Not composited — paint cost is paid once, not every frame. */}
-        <div className="absolute inset-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] pointer-events-none" aria-hidden="true" />
         {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
           <div className="w-10 h-1 rounded-full bg-gray-300/80" />
