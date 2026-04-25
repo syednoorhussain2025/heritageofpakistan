@@ -147,7 +147,7 @@ export default function SiteCarousel({
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-neutral-200" style={{ contain: "strict" }}>
+    <div className="relative w-full h-full overflow-hidden bg-neutral-200" style={{ contain: "layout paint" }}>
       <div
         ref={spinnerRef}
         className="absolute inset-0 z-20 items-center justify-center pointer-events-none"

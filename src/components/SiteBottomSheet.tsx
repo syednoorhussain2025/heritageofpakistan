@@ -492,7 +492,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         </div>
 
         {/* Carousel */}
-        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%", contain: "strict" }}>
+        <div className="relative w-full flex-shrink-0 overflow-hidden" style={{ paddingBottom: "75%" }}>
           <div className="absolute inset-0">
             <SiteCarousel
               slides={slides}
