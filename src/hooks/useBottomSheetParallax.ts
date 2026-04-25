@@ -34,90 +34,70 @@ function getEls(targets: Targets) {
 
 function fullyReset(els: HTMLElement[]) {
   els.forEach((el) => {
-    el.style.willChange = "";
-    el.style.backfaceVisibility = "";
     el.style.transition = "";
     el.style.transform = "";
     el.style.transformOrigin = "";
     el.style.borderRadius = "";
-    el.style.filter = "";
-    el.style.opacity = "";
   });
 }
 
 export function applyOpen(targets: Targets) {
-  // Cancel any pending close cleanup and do it NOW — every cycle starts clean.
-  if (bgTimer != null) {
-    clearTimeout(bgTimer);
-    bgTimer = null;
-  }
+  if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
   const { pages, headers } = getEls(targets);
   const body = document.body;
 
-  // Full reset first — clears any stale inline styles from previous cycles.
+  // Full reset first — every cycle starts from clean elements.
   fullyReset([...pages, ...headers]);
 
-  // Snap body bg instantly.
   body.style.transition = "none";
   body.style.backgroundColor = BODY_COLOR_OPEN;
 
-  // Promote GPU layers, pin to identity (start state).
+  // Pin to identity (start state). NO willChange — the shells contain
+  // child elements with filter:blur which force their own layers. Setting
+  // willChange on the parent causes layer tree invalidation every cycle
+  // and gets progressively worse as more cards mount.
   pages.forEach((page) => {
     page.style.transformOrigin = "top center";
     page.style.borderRadius = BORDER_RADIUS;
-    page.style.willChange = "transform";
-    page.style.backfaceVisibility = "hidden";
     page.style.transition = "none";
-    page.style.transform = "translate3d(0, 0, 0) scale(1)";
+    page.style.transform = "scale(1)";
   });
   headers.forEach((header) => {
     header.style.transformOrigin = "top center";
-    header.style.willChange = "transform";
-    header.style.backfaceVisibility = "hidden";
     header.style.transition = "none";
-    header.style.transform = "translate3d(0, 0, 0) scale(1)";
+    header.style.transform = "scale(1)";
   });
 
   // Force reflow — commits the start state.
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   pages[0]?.offsetHeight ?? body.offsetHeight;
 
-  // Animate to open target — only transform, GPU-only.
   pages.forEach((page) => {
     page.style.transition = TRANSITION;
-    page.style.transform = `translate3d(0, ${TRANSLATE_Y}, 0) scale(${SCALE})`;
+    page.style.transform = `translateY(${TRANSLATE_Y}) scale(${SCALE})`;
   });
   headers.forEach((header) => {
     header.style.transition = TRANSITION;
-    header.style.transform = `translate3d(0, ${TRANSLATE_Y}, 0) scale(${SCALE})`;
+    header.style.transform = `translateY(${TRANSLATE_Y}) scale(${SCALE})`;
   });
 }
 
 export function applyClose(targets: Targets) {
-  if (bgTimer != null) {
-    clearTimeout(bgTimer);
-    bgTimer = null;
-  }
+  if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
   const { pages, headers } = getEls(targets);
   const body = document.body;
 
-  // Animate transform back to identity — GPU-only.
   pages.forEach((page) => {
-    page.style.willChange = "transform";
-    page.style.backfaceVisibility = "hidden";
     page.style.transition = TRANSITION;
-    page.style.transform = "translate3d(0, 0, 0) scale(1)";
+    page.style.transform = "scale(1)";
   });
   headers.forEach((header) => {
-    header.style.willChange = "transform";
-    header.style.backfaceVisibility = "hidden";
     header.style.transition = TRANSITION;
-    header.style.transform = "translate3d(0, 0, 0) scale(1)";
+    header.style.transform = "scale(1)";
   });
 
-  // After animation completes: full reset — no stale styles left on elements.
   bgTimer = setTimeout(() => {
     bgTimer = null;
     body.style.transition = "none";
