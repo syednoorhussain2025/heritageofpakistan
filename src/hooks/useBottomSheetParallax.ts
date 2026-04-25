@@ -23,7 +23,7 @@ const DEFAULT_TARGETS = {
   headerIds: ["heritage-mobile-header"],
 };
 
-type Targets = {
+export type Targets = {
   pageIds?: string[];
   headerIds?: string[];
 };
@@ -36,7 +36,7 @@ function getEls(targets: Targets) {
   return { pages, headers };
 }
 
-function applyOpen(targets: Targets) {
+export function applyOpen(targets: Targets) {
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
   const { pages, headers } = getEls(targets);
@@ -84,7 +84,7 @@ function applyOpen(targets: Targets) {
   });
 }
 
-function applyClose(targets: Targets) {
+export function applyClose(targets: Targets) {
   if (bgTimer != null) { clearTimeout(bgTimer); bgTimer = null; }
 
   const { pages, headers } = getEls(targets);

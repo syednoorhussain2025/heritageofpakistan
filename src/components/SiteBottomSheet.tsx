@@ -9,7 +9,7 @@ import SiteActionsSheet from "@/components/SiteActionsSheet";
 import { getPublicClient } from "@/lib/supabase/browser";
 import { getVariantPublicUrl, getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
-import { useBottomSheetParallax } from "@/hooks/useBottomSheetParallax";
+import { applyOpen, applyClose } from "@/hooks/useBottomSheetParallax";
 
 export type BottomSheetSite = {
   id: string;
@@ -61,6 +61,11 @@ async function resolveProvinceSlug(provinceId: string | number): Promise<string 
   return (data as { slug: string | null } | null)?.slug ?? null;
 }
 
+const PARALLAX_TARGETS = {
+  pageIds: ["explore-mobile-shell", "map-mobile-shell"],
+  headerIds: ["map-mobile-header"],
+};
+
 export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby, userLat, userLng, fromLat, fromLng, fromTitle }: Props) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -92,15 +97,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   });
 
   useEffect(() => { setMounted(true); }, []);
-
-  // Push/shrink parallax — scale Explore's mobile shell (which groups the
-  // header and content card) as a single surface while the sheet is visible.
-  // On pages that don't have the shell (e.g. Map), the hook is a no-op.
-  const parallaxActive = isOpen && !closing;
-  useBottomSheetParallax(parallaxActive, {
-    pageIds: ["explore-mobile-shell", "map-mobile-shell"],
-    headerIds: ["map-mobile-header"],
-  });
 
   // Sync slides when site changes, then fetch remaining slideshow images in background
   useEffect(() => {
@@ -143,13 +139,26 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     return () => { cancelled = true; };
   }, [site?.id]);
 
-  // Open/close animation
+  // Open/close animation — imperative parallax so it fires in the same tick
+  // as the sheet transition, not after React's render cycle.
   useEffect(() => {
     if (!isOpen) {
+      // Cancel any pending open RAFs
+      if (raf1Ref.current) { cancelAnimationFrame(raf1Ref.current); raf1Ref.current = null; }
+      if (raf2Ref.current) { cancelAnimationFrame(raf2Ref.current); raf2Ref.current = null; }
       setVisible(false);
       setClosing(false);
       return;
     }
+    // Cancel any in-flight close timer so rapid re-open works cleanly
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+      setClosing(false);
+    }
+    // Fire parallax immediately — same tick as isOpen becoming true
+    applyOpen(PARALLAX_TARGETS);
+    // Sheet needs two RAFs to start its CSS transition from translate-y-full → 0
     raf1Ref.current = requestAnimationFrame(() => {
       raf2Ref.current = requestAnimationFrame(() => {
         raf2Ref.current = null;
@@ -157,13 +166,16 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       });
     });
     return () => {
-      if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
-      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+      if (raf1Ref.current) { cancelAnimationFrame(raf1Ref.current); raf1Ref.current = null; }
+      if (raf2Ref.current) { cancelAnimationFrame(raf2Ref.current); raf2Ref.current = null; }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const closeWithAnimation = useCallback(() => {
     if (closeTimerRef.current) return;
+    // Fire parallax immediately — same tick as sheet starts sliding down
+    applyClose(PARALLAX_TARGETS);
     setClosing(true);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
@@ -238,7 +250,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     const DISMISS_VELOCITY = 0.4; // px/ms
 
     if (dy >= DISMISS_DISTANCE || velocity >= DISMISS_VELOCITY) {
-      // Animate out then close — set closing so backdrop fades in sync
+      // Fire parallax immediately — same tick as sheet starts sliding down
+      applyClose(PARALLAX_TARGETS);
       setClosing(true);
       if (el) el.style.transform = "translateY(100%)";
       closeTimerRef.current = setTimeout(() => {
