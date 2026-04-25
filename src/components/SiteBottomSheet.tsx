@@ -102,6 +102,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
   const isAnimatingClose = useRef(false);
+  // Set synchronously when close starts — upgrade async loop checks this
+  // so setSlides never fires during a close animation.
+  const upgradeBlockedRef = useRef(false);
 
   // Swipe state — all managed via native listeners (not React synthetic events)
   const dragStartY = useRef<number | null>(null);
@@ -181,7 +184,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       await Promise.allSettled(
         allUrls.map((url) => { const img = new window.Image(); img.src = url; return img.decode().catch(() => {}); })
       );
-      if (cancelled) return;
+      if (cancelled || upgradeBlockedRef.current) return;
 
       // Single setSlides — one React commit, one layout pass.
       setSlides(allUrls);
@@ -205,6 +208,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (openDoneTimerRef.current) { clearTimeout(openDoneTimerRef.current); openDoneTimerRef.current = null; }
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     isAnimatingClose.current = false;
+    upgradeBlockedRef.current = false;
 
     // Reset only animation properties (not layout styles set by JSX).
     sheet.style.willChange = "transform";
@@ -245,6 +249,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     // If already closing, don't restart — just wait for existing timer
     if (isAnimatingClose.current) return;
     isAnimatingClose.current = true;
+    // Block upgrade synchronously — setSlides must not fire during close animation
+    upgradeBlockedRef.current = true;
 
     // Cancel pending open RAF / open-done timer
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }

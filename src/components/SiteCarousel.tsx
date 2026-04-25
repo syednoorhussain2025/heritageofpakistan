@@ -20,11 +20,17 @@ export default function SiteCarousel({
 }) {
   const hasMultiple = slides.length > 1;
   const [idx, setIdx] = React.useState(0);
-  const [firstLoaded, setFirstLoaded] = React.useState(false);
   const trackRef = React.useRef<HTMLDivElement>(null);
+  const spinnerRef = React.useRef<HTMLDivElement>(null);
   const idxRef = React.useRef(idx);
   const slidesRef = React.useRef(slides);
   slidesRef.current = slides;
+
+  // Hide/show spinner imperatively — no React state, no re-render on load.
+  const showSpinner = React.useCallback((show: boolean) => {
+    const el = spinnerRef.current;
+    if (el) el.style.display = show ? "flex" : "none";
+  }, []);
 
   // Reset only when the site changes, not when slides are appended.
   React.useEffect(() => {
@@ -33,9 +39,10 @@ export default function SiteCarousel({
     if (firstUrl) {
       const img = new Image();
       img.src = firstUrl;
-      setFirstLoaded(img.complete && img.naturalWidth > 0);
+      const cached = img.complete && img.naturalWidth > 0;
+      showSpinner(!cached);
     } else {
-      setFirstLoaded(false);
+      showSpinner(true);
     }
   }, [siteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -132,7 +139,7 @@ export default function SiteCarousel({
   if (slides.length === 0) {
     return (
       <div className="w-full h-full relative bg-neutral-200">
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Spinner variant="dots" color="white" size={160} />
         </div>
       </div>
@@ -141,11 +148,13 @@ export default function SiteCarousel({
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-neutral-200">
-      {!firstLoaded && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <Spinner variant="dots" color="white" size={160} />
-        </div>
-      )}
+      <div
+        ref={spinnerRef}
+        className="absolute inset-0 z-20 items-center justify-center pointer-events-none"
+        style={{ display: "flex" }}
+      >
+        <Spinner variant="dots" color="white" size={160} />
+      </div>
 
       <div
         ref={trackRef}
@@ -165,7 +174,7 @@ export default function SiteCarousel({
               style={{ transform: "scale(1.078)", transformOrigin: "top center" }}
               draggable={false}
               decoding="async"
-              onLoad={() => { if (i === 0 && !firstLoaded) setFirstLoaded(true); }}
+              onLoad={() => { if (i === 0) showSpinner(false); }}
             />
           </div>
         ))}
