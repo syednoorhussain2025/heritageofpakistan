@@ -172,7 +172,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     return () => { cancelled = true; };
   }, [site?.id]);
 
-  // Imperative open — no React state for animation, no render-cycle latency
+  // Imperative open — both sheet and parallax start in the SAME paint frame.
+  // No render-cycle latency, no double-RAF, GPU layer pre-promoted.
   const animateOpen = useCallback(() => {
     const sheet = sheetRef.current;
     const backdrop = backdropRef.current;
@@ -183,27 +184,30 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     isAnimatingClose.current = false;
 
-    // Fire parallax immediately
-    applyOpen(PARALLAX_TARGETS);
+    // Promote sheet + backdrop to their own GPU layers BEFORE the animation starts.
+    // Without this, the browser may compose the layer mid-animation = first-frame jank.
+    sheet.style.willChange = "transform";
+    sheet.style.backfaceVisibility = "hidden";
+    backdrop.style.willChange = "opacity";
 
-    // Pin sheet to off-screen start with no transition
+    // Pin to start state with no transition
     sheet.style.transition = "none";
-    sheet.style.transform = "translateY(100%)";
+    sheet.style.transform = "translate3d(0, 100%, 0)";
     backdrop.style.transition = "none";
     backdrop.style.opacity = "0";
 
-    // Force reflow so browser registers the start state
+    // Force reflow — commits the start state so the transition has a known from-value
+    // and parallax + sheet both start in the same paint cycle.
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     sheet.offsetHeight;
 
-    // Animate to visible in next frame
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      sheet.style.transition = SHEET_TRANSITION;
-      sheet.style.transform = "translateY(0)";
-      backdrop.style.transition = BACKDROP_TRANSITION;
-      backdrop.style.opacity = "1";
-    });
+    // Fire parallax + sheet in the SAME tick. Both transitions are now registered
+    // by the browser in a single style recomputation = perfectly synchronised start.
+    applyOpen(PARALLAX_TARGETS);
+    sheet.style.transition = SHEET_TRANSITION;
+    sheet.style.transform = "translate3d(0, 0, 0)";
+    backdrop.style.transition = BACKDROP_TRANSITION;
+    backdrop.style.opacity = "1";
   }, []);
 
   // Imperative close
@@ -219,17 +223,23 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     // Cancel any pending open RAF
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
 
-    // Fire parallax immediately
-    applyClose(PARALLAX_TARGETS);
+    // Make sure GPU layer is still promoted during close
+    sheet.style.willChange = "transform";
+    backdrop.style.willChange = "opacity";
 
+    // Fire parallax + sheet in the same tick
+    applyClose(PARALLAX_TARGETS);
     sheet.style.transition = SHEET_TRANSITION;
-    sheet.style.transform = "translateY(100%)";
+    sheet.style.transform = "translate3d(0, 100%, 0)";
     backdrop.style.transition = BACKDROP_TRANSITION;
     backdrop.style.opacity = "0";
 
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       isAnimatingClose.current = false;
+      // Release GPU layers after animation completes
+      if (sheet) sheet.style.willChange = "";
+      if (backdrop) backdrop.style.willChange = "";
       then();
     }, SHEET_DURATION);
   }, []);
@@ -241,12 +251,20 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     }
   }, [isOpen]);
 
-  // Once rendered, kick off open animation
+  // Once rendered, kick off open animation.
+  // We use TWO RAFs: first to let React's commit + portal paint settle
+  // (carousel image, layout), second to actually start the animation. This
+  // guarantees the heavy first paint never lands inside the animation window.
   useEffect(() => {
     if (!isRendered || !isOpen) return;
-    // Wait one tick for the portal to be in the DOM
-    const raf = requestAnimationFrame(() => animateOpen());
-    return () => cancelAnimationFrame(raf);
+    let raf2: number | null = null;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => animateOpen());
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2 != null) cancelAnimationFrame(raf2);
+    };
   }, [isRendered, isOpen, animateOpen]);
 
   // When isOpen goes false externally (e.g. navigating away), animate close
@@ -299,7 +317,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       if (dragDirectionLocked.current === "horizontal") {
         isDragging.current = false;
         el.style.transition = SHEET_TRANSITION;
-        el.style.transform = "translateY(0)";
+        el.style.transform = "translate3d(0, 0, 0)";
         return;
       }
 
@@ -309,7 +327,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
       const clamped = Math.max(0, dy);
       dragCurrentY.current = clamped;
-      el.style.transform = `translateY(${clamped}px)`;
+      el.style.transform = `translate3d(0, ${clamped}px, 0)`;
     };
 
     const onEnd = () => {
@@ -329,11 +347,11 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
         const remaining = Math.max(sheetH - dy, 0);
         const dur = Math.max(150, Math.min(remaining / Math.max(velocity, 0.5), SHEET_DURATION));
         el.style.transition = `transform ${dur}ms ${SHEET_EASE}`;
-        el.style.transform = "translateY(100%)";
+        el.style.transform = "translate3d(0, 100%, 0)";
         closeWithAnimationRef.current();
       } else {
         el.style.transition = SHEET_TRANSITION;
-        el.style.transform = "translateY(0)";
+        el.style.transform = "translate3d(0, 0, 0)";
       }
     };
 
@@ -397,7 +415,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       <div
         ref={sheetRef}
         className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
-        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translateY(100%)" }}
+        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translate3d(0, 100%, 0)", willChange: "transform", backfaceVisibility: "hidden" }}
       >
         {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">

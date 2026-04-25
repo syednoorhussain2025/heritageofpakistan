@@ -42,20 +42,23 @@ export function applyOpen(targets: Targets) {
   const { pages, headers } = getEls(targets);
   const body = document.body;
 
-  // Promote GPU layers first, pin to start state
+  // Promote GPU layers first, pin to start state. translate3d guarantees
+  // a composited layer; backface-visibility:hidden prevents subpixel jitter.
   pages.forEach((page) => {
     page.style.willChange = "transform, filter, border-radius";
+    page.style.backfaceVisibility = "hidden";
     page.style.transition = "none";
     page.style.transformOrigin = "top center";
-    page.style.transform = "scale(1) translateY(0px)";
+    page.style.transform = "scale(1) translate3d(0, 0, 0)";
     page.style.borderRadius = "0px";
     page.style.filter = FILTER_CLOSED;
   });
   headers.forEach((header) => {
     header.style.willChange = "transform, filter";
+    header.style.backfaceVisibility = "hidden";
     header.style.transition = "none";
     header.style.transformOrigin = "top center";
-    header.style.transform = "scale(1) translateY(0px)";
+    header.style.transform = "scale(1) translate3d(0, 0, 0)";
     header.style.filter = FILTER_CLOSED;
   });
 
@@ -72,13 +75,13 @@ export function applyOpen(targets: Targets) {
   body.style.transition = BODY_TRANSITION_OPEN;
   pages.forEach((page) => {
     page.style.transition = TRANSITION_OPEN;
-    page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+    page.style.transform = `scale(${SCALE}) translate3d(0, ${TRANSLATE_Y}, 0)`;
     page.style.borderRadius = BORDER_RADIUS;
     page.style.filter = FILTER_OPEN;
   });
   headers.forEach((header) => {
     header.style.transition = TRANSITION_OPEN;
-    header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
+    header.style.transform = `scale(${SCALE}) translate3d(0, ${TRANSLATE_Y}, 0)`;
     header.style.opacity = "1";
     header.style.filter = FILTER_OPEN;
   });
@@ -90,17 +93,27 @@ export function applyClose(targets: Targets) {
   const { pages, headers } = getEls(targets);
   const body = document.body;
 
+  // Re-promote GPU layers in case they were released by a previous close cycle
+  pages.forEach((page) => {
+    page.style.willChange = "transform, filter, border-radius";
+    page.style.backfaceVisibility = "hidden";
+  });
+  headers.forEach((header) => {
+    header.style.willChange = "transform, filter";
+    header.style.backfaceVisibility = "hidden";
+  });
+
   // Start restore immediately — closing=true fires at the same moment the
   // sheet begins sliding down, so both animations start in the same tick.
   pages.forEach((page) => {
     page.style.transition = TRANSITION_CLOSE;
-    page.style.transform = "scale(1) translateY(0px)";
+    page.style.transform = "scale(1) translate3d(0, 0, 0)";
     page.style.borderRadius = "0px";
     page.style.filter = FILTER_CLOSED;
   });
   headers.forEach((header) => {
     header.style.transition = TRANSITION_CLOSE;
-    header.style.transform = "scale(1) translateY(0px)";
+    header.style.transform = "scale(1) translate3d(0, 0, 0)";
     header.style.opacity = "1";
     header.style.filter = FILTER_CLOSED;
   });
