@@ -78,7 +78,22 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const [isRendered, setIsRendered] = useState(false);
 
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
-  const [carouselIdx, setCarouselIdx] = useState(0);
+  // Dot indicators are driven imperatively — no React state, no re-render on swipe
+  const dotsRef = useRef<HTMLDivElement>(null);
+  const carouselIdxRef = useRef(0);
+  const updateDots = useCallback((idx: number) => {
+    carouselIdxRef.current = idx;
+    const container = dotsRef.current;
+    if (!container) return;
+    Array.from(container.children).forEach((dot, i) => {
+      const el = dot as HTMLElement;
+      if (i === idx) {
+        el.className = "rounded-full w-2 h-2 bg-[var(--brand-orange)]";
+      } else {
+        el.className = "rounded-full w-1.5 h-1.5 bg-gray-300 self-center";
+      }
+    });
+  }, []);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -125,7 +140,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (!site) { setSlides([]); return; }
     const thumbUrl = getThumbCover(site);
     setSlides(thumbUrl ? [thumbUrl] : []);
-    setCarouselIdx(0);
+    updateDots(0);
   }, [site?.id]);
 
   // After the open animation has settled, upgrade slide 0 to md and append
@@ -484,23 +499,19 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
               siteId={site.id}
               alt={site.title}
               hideDots
-              onIndexChange={setCarouselIdx}
+              onIndexChange={updateDots}
             />
           </div>
         </div>
 
         {/* Details */}
         <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Dot indicators */}
-          <div className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
+          {/* Dot indicators — driven imperatively, no React state on swipe */}
+          <div ref={dotsRef} className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2">
             {slides.length > 1 && slides.map((_, i) => (
               <div
                 key={i}
-                className={`rounded-full transition-all duration-200 ${
-                  i === carouselIdx
-                    ? "w-2 h-2 bg-[var(--brand-orange)]"
-                    : "w-1.5 h-1.5 bg-gray-300 self-center"
-                }`}
+                className={`rounded-full ${i === 0 ? "w-2 h-2 bg-[var(--brand-orange)]" : "w-1.5 h-1.5 bg-gray-300 self-center"}`}
               />
             ))}
           </div>
