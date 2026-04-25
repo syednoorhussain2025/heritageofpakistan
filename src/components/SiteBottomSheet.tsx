@@ -80,7 +80,6 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   // Dot indicators are driven imperatively — no React state, no re-render on swipe
   const dotsRef = useRef<HTMLDivElement>(null);
-  const loaderDotsRef = useRef<HTMLDivElement>(null);
   const carouselIdxRef = useRef(0);
   const updateDots = useCallback((idx: number) => {
     carouselIdxRef.current = idx;
@@ -148,19 +147,17 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     const thumbUrl = getThumbCover(site);
     setSlides(thumbUrl ? [thumbUrl] : []);
     updateDots(0);
-    // Reset to loader state for new site
-    if (loaderDotsRef.current) loaderDotsRef.current.style.display = "flex";
-    if (dotsRef.current) dotsRef.current.style.display = "none";
+    // Reset dots to invisible for new site
+    if (dotsRef.current) { dotsRef.current.style.transition = "none"; dotsRef.current.style.opacity = "0"; }
   }, [site?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Swap loader→carousel dots once the upgrade completes (openAnimationTick fired).
-  // Works for both single and multi-image sites.
+  // Fade in carousel dots once upgrade completes.
   useEffect(() => {
-    if (openAnimationTick === 0) return;
-    if (loaderDotsRef.current) loaderDotsRef.current.style.display = "none";
-    // Only show carousel dots if there are multiple slides
-    if (slides.length > 1 && dotsRef.current) dotsRef.current.style.display = "flex";
-  }, [openAnimationTick, slides.length]);
+    if (slides.length > 1 && dotsRef.current) {
+      dotsRef.current.style.transition = "opacity 0.4s ease";
+      dotsRef.current.style.opacity = "1";
+    }
+  }, [slides.length]);
 
   // After the open animation settles: fetch all slide URLs, decode every
   // image off the main thread via img.decode(), then do ONE setSlides call.
@@ -530,14 +527,8 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
 
         {/* Details */}
         <div className="flex flex-col px-4 pt-3 pb-2 gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Loading indicator — shown while images are being fetched/decoded */}
-          <div ref={loaderDotsRef} className="flex justify-center items-center gap-1 shrink-0 -mt-1 h-2" aria-hidden="true">
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-[dotPulse_1.2s_ease-in-out_0s_infinite]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-[dotPulse_1.2s_ease-in-out_0.2s_infinite]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-[dotPulse_1.2s_ease-in-out_0.4s_infinite]" />
-          </div>
-          {/* Dot indicators — driven imperatively, no React state on swipe */}
-          <div ref={dotsRef} className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2" style={{ display: "none" }}>
+          {/* Dot indicators — space always reserved, fade in once slides are loaded */}
+          <div ref={dotsRef} className="flex justify-center gap-1.5 shrink-0 -mt-1 h-2" style={{ opacity: 0, transition: "opacity 0.4s ease" }}>
             {slides.map((_, i) => (
               <div
                 key={i}
