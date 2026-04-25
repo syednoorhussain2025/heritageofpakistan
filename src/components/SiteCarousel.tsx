@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Spinner } from "@/components/ui/Spinner";
 
 /**
  * Instagram-style swipe carousel for site images.
@@ -125,7 +126,7 @@ export default function SiteCarousel({
     return (
       <div className="w-full h-full relative bg-neutral-200">
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+          <Spinner variant="dots" color="white" size={80} />
         </div>
       </div>
     );
@@ -136,7 +137,7 @@ export default function SiteCarousel({
       {/* Spinner — shown while first image hasn't decoded */}
       {!firstLoaded && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <span className="w-6 h-6 rounded-full border-2 border-white/80 border-t-transparent animate-spin shadow-md" />
+          <Spinner variant="dots" color="white" size={80} />
         </div>
       )}
 
