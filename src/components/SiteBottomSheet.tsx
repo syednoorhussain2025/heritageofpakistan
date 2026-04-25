@@ -143,10 +143,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     updateDots(0);
   }, [site?.id]);
 
-  // After the open animation has settled, upgrade slide 0 to md and append
-  // the rest of the slideshow images. Running this during the animation
-  // would cause a React commit + image network/decode = dropped frames on
-  // low-end devices.
+  // After the open animation settles: fetch all slide URLs, decode every
+  // image off the main thread via img.decode(), then do ONE setSlides call.
+  // One React commit, one track-width recalc, zero decoding jank.
   useEffect(() => {
     if (!site || !openAnimationDone) return;
 
@@ -155,41 +154,37 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     let cancelled = false;
 
     const upgrade = async () => {
-      if (mdUrl && mdUrl !== thumbUrl) {
-        await new Promise<void>((resolve) => {
-          const img = new window.Image();
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = mdUrl;
-        });
-      }
-      if (cancelled) return;
-
+      // Fetch slideshow image URLs (network, off animation window).
       const ids = site.cover_slideshow_image_ids;
-      if (!ids?.length) {
-        if (mdUrl && mdUrl !== thumbUrl) setSlides([mdUrl]);
-        return;
+      let rest: string[] = [];
+      if (ids?.length) {
+        const { data } = await getPublicClient()
+          .from("site_images")
+          .select("id, storage_path")
+          .in("id", ids);
+        if (cancelled) return;
+        const byId = new Map<string, string>(
+          ((data ?? []) as { id: string; storage_path: string }[]).map((r) => [r.id, r.storage_path])
+        );
+        rest = ids
+          .map((id) => { const p = byId.get(id); if (!p) return null; try { return getVariantPublicUrl(p, "md"); } catch { return null; } })
+          .filter((u): u is string => !!u);
       }
-
-      const { data } = await getPublicClient()
-        .from("site_images")
-        .select("id, storage_path")
-        .in("id", ids);
-
       if (cancelled) return;
-      const byId = new Map<string, string>(
-        ((data ?? []) as { id: string; storage_path: string }[]).map((r) => [r.id, r.storage_path])
-      );
-      const rest = ids
-        .map((id) => {
-          const path = byId.get(id);
-          if (!path) return null;
-          try { return getVariantPublicUrl(path, "md"); } catch { return null; }
-        })
-        .filter((u): u is string => !!u);
 
-      const base = mdUrl || thumbUrl;
-      setSlides(base ? [base, ...rest] : rest);
+      const allUrls = [mdUrl || thumbUrl, ...rest].filter((u): u is string => !!u);
+
+      // Decode all images off the main thread before touching React state.
+      // img.decode() resolves when the image is fully decoded and GPU-ready,
+      // meaning the browser won't need to decode on the main thread when
+      // the img element is painted — no jank when slides appear.
+      await Promise.allSettled(
+        allUrls.map((url) => { const img = new window.Image(); img.src = url; return img.decode().catch(() => {}); })
+      );
+      if (cancelled) return;
+
+      // Single setSlides — one React commit, one layout pass.
+      setSlides(allUrls);
     };
 
     void upgrade();
