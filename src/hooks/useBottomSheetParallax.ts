@@ -6,8 +6,10 @@ const SCALE = 0.88;
 const TRANSLATE_Y = "38px";
 const BORDER_RADIUS = "24px";
 const DURATION_MS = 680;
-const TRANSITION = `transform ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), border-radius ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), filter ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
-const BODY_TRANSITION = `background-color ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
+const TRANSITION_OPEN  = `transform ${DURATION_MS}ms cubic-bezier(0.22,1,0.36,1), border-radius ${DURATION_MS}ms cubic-bezier(0.22,1,0.36,1), filter ${DURATION_MS}ms cubic-bezier(0.22,1,0.36,1)`;
+const TRANSITION_CLOSE = `transform ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), border-radius ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1), filter ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
+const BODY_TRANSITION_OPEN  = `background-color ${DURATION_MS}ms cubic-bezier(0.22,1,0.36,1)`;
+const BODY_TRANSITION_CLOSE = `background-color ${DURATION_MS}ms cubic-bezier(0.32,0.72,0,1)`;
 const BODY_COLOR_OPEN = "#111111";
 const BODY_COLOR_CLOSED = "#f4f4f4";
 const FILTER_OPEN = "brightness(0.75) blur(0.6px)";
@@ -67,15 +69,15 @@ function applyOpen(targets: Targets) {
   pages[0]?.offsetHeight ?? body.offsetHeight;
 
   // Flip to target — CSS engine starts both transitions in this same paint cycle
-  body.style.transition = BODY_TRANSITION;
+  body.style.transition = BODY_TRANSITION_OPEN;
   pages.forEach((page) => {
-    page.style.transition = TRANSITION;
+    page.style.transition = TRANSITION_OPEN;
     page.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
     page.style.borderRadius = BORDER_RADIUS;
     page.style.filter = FILTER_OPEN;
   });
   headers.forEach((header) => {
-    header.style.transition = TRANSITION;
+    header.style.transition = TRANSITION_OPEN;
     header.style.transform = `scale(${SCALE}) translateY(${TRANSLATE_Y})`;
     header.style.opacity = "1";
     header.style.filter = FILTER_OPEN;
@@ -91,13 +93,13 @@ function applyClose(targets: Targets) {
   // Start restore immediately — closing=true fires at the same moment the
   // sheet begins sliding down, so both animations start in the same tick.
   pages.forEach((page) => {
-    page.style.transition = TRANSITION;
+    page.style.transition = TRANSITION_CLOSE;
     page.style.transform = "scale(1) translateY(0px)";
     page.style.borderRadius = "0px";
     page.style.filter = FILTER_CLOSED;
   });
   headers.forEach((header) => {
-    header.style.transition = TRANSITION;
+    header.style.transition = TRANSITION_CLOSE;
     header.style.transform = "scale(1) translateY(0px)";
     header.style.opacity = "1";
     header.style.filter = FILTER_CLOSED;
@@ -106,7 +108,7 @@ function applyClose(targets: Targets) {
   // Restore body bg and release GPU layers after animation completes
   bgTimer = setTimeout(() => {
     bgTimer = null;
-    body.style.transition = BODY_TRANSITION;
+    body.style.transition = BODY_TRANSITION_CLOSE;
     body.style.backgroundColor = BODY_COLOR_CLOSED;
     [...pages, ...headers].forEach((el) => { el.style.willChange = ""; });
   }, DURATION_MS);
