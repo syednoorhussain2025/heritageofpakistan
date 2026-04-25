@@ -211,15 +211,16 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     isAnimatingClose.current = false;
 
-    // Promote sheet + backdrop to their own GPU layers BEFORE the animation starts.
-    // Without this, the browser may compose the layer mid-animation = first-frame jank.
+    // Full reset first — clears any stale styles from a previous cycle.
+    sheet.style.cssText = "";
+    backdrop.style.cssText = "";
+
+    // Promote GPU layers, pin to start state.
     sheet.style.willChange = "transform";
     sheet.style.backfaceVisibility = "hidden";
-    backdrop.style.willChange = "opacity";
-
-    // Pin to start state with no transition
     sheet.style.transition = "none";
     sheet.style.transform = "translate3d(0, 100%, 0)";
+    backdrop.style.willChange = "opacity";
     backdrop.style.transition = "none";
     backdrop.style.opacity = "0";
 
@@ -280,9 +281,9 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       isAnimatingClose.current = false;
-      // Release GPU layers after animation completes
-      if (sheet) sheet.style.willChange = "";
-      if (backdrop) backdrop.style.willChange = "";
+      // Full reset — no stale inline styles left for next cycle.
+      if (sheet) sheet.style.cssText = "";
+      if (backdrop) backdrop.style.cssText = "";
       then();
     }, SHEET_DURATION);
   }, []);
@@ -484,7 +485,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
       <div
         ref={sheetRef}
         className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
-        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translate3d(0, 100%, 0)", willChange: "transform", backfaceVisibility: "hidden" }}
+        style={{ top: "12dvh", paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)", transform: "translate3d(0, 100%, 0)" }}
       >
         {/* Drag handle */}
         <div className="w-full flex justify-center pt-3 pb-4 shrink-0" aria-hidden="true">
