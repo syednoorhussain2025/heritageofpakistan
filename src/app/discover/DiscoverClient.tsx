@@ -9,6 +9,7 @@ import {
   memo,
 } from "react";
 import dynamicImport from "next/dynamic";
+import Icon from "@/components/Icon";
 import type { DiscoverPhoto } from "@/app/api/discover/route";
 import { getVariantPublicUrl } from "@/lib/imagevariants";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
@@ -826,16 +827,7 @@ export default function DiscoverClient({
                   onClick={() => { void hapticLight(); if (cachedInspirations.length > 0) setSearchChips(pickRandom(cachedInspirations, 3)); setSearchOpen((v) => !v); }}
                   className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white active:bg-white/30 shrink-0"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[20px] h-[20px]">
-                    {searchOpen ? (
-                      <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-                    ) : (
-                      <>
-                        <circle cx="11" cy="11" r="7" />
-                        <path strokeLinecap="round" d="M20 20l-3-3" />
-                      </>
-                    )}
-                  </svg>
+                  <Icon name="search" size={20} className="text-white" />
                 </button>
               )}
             </div>
