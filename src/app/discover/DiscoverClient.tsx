@@ -1021,7 +1021,7 @@ export default function DiscoverClient({
                 {leftPhotos.map((photo, colIdx) => (
                   <div
                     key={`${gridAnimKey}-${photo.id}`}
-                    style={{ animation: "cardIn 0.28s ease-out both", animationDelay: `${Math.min(colIdx * 2 * 0.04, 0.32)}s` }}
+                    style={{ animation: "cardIn 0.45s ease both", animationDelay: `${Math.min(colIdx * 2 * 0.06, 0.36)}s` }}
                   >
                     <DiscoverTile
                       photo={photo}
@@ -1039,7 +1039,7 @@ export default function DiscoverClient({
                 {rightPhotos.map((photo, colIdx) => (
                   <div
                     key={`${gridAnimKey}-${photo.id}`}
-                    style={{ animation: "cardIn 0.28s ease-out both", animationDelay: `${Math.min((colIdx * 2 + 1) * 0.04, 0.32)}s` }}
+                    style={{ animation: "cardIn 0.45s ease both", animationDelay: `${Math.min((colIdx * 2 + 1) * 0.06, 0.36)}s` }}
                   >
                     <DiscoverTile
                       photo={photo}
