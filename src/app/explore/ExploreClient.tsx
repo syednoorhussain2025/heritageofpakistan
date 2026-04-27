@@ -1411,11 +1411,11 @@ function ExplorePageContent() {
         type="button"
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
-        style={{ paddingTop: "var(--tab-title-top)" }}
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto overflow-hidden"
+        style={{ height: "calc(var(--tab-title-top) + 36px)" }}
       >
-        {/* Fixed-height row — explicit height so neither state can change it */}
-        <div className="px-4 flex items-center justify-center relative" style={{ height: "36px" }}>
+        {/* Row pinned to bottom of button — always 36px tall */}
+        <div className="absolute inset-x-4 bottom-0 flex items-center justify-center" style={{ height: "36px" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
             <span className="tab-header-title">Explore</span>
           ) : (
@@ -1435,7 +1435,7 @@ function ExplorePageContent() {
       <div
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(${safeTop} + 52px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(var(--tab-title-top) + 36px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
