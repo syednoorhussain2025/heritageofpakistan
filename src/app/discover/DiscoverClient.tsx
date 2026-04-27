@@ -598,6 +598,18 @@ export default function DiscoverClient({
           el.style.transform = "translate3d(0, 0, 0)";
           (el as HTMLElement).style.pointerEvents = "auto";
         }
+        // Fade+slide in the scroll container
+        const scrollEl = scrollRef.current;
+        if (scrollEl) {
+          scrollEl.style.transition = "none";
+          scrollEl.style.opacity = "0";
+          scrollEl.style.transform = "translateY(12px)";
+          requestAnimationFrame(() => {
+            scrollEl.style.transition = "opacity 0.22s ease-out, transform 0.22s ease-out";
+            scrollEl.style.opacity = "1";
+            scrollEl.style.transform = "translateY(0)";
+          });
+        }
       }
     });
     return unsub;

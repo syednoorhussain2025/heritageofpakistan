@@ -23,6 +23,7 @@ import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { subscribeTab } from "@/lib/tabStore";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner as LottieSpinner } from "@/components/ui/Spinner";
 
@@ -1404,6 +1405,23 @@ function ExplorePageContent() {
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
   }, [setPushTransform]);
+
+  // Fade+slide in mobile shell when Explore tab becomes active
+  useEffect(() => {
+    return subscribeTab((tab) => {
+      if (tab !== "explore") return;
+      const el = document.getElementById("explore-mobile-shell");
+      if (!el) return;
+      el.style.transition = "none";
+      el.style.opacity = "0";
+      el.style.transform = "translateY(12px)";
+      requestAnimationFrame(() => {
+        el.style.transition = "opacity 0.22s ease-out, transform 0.22s ease-out";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+      });
+    });
+  }, []);
 
   return (
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
