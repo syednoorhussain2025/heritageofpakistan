@@ -438,6 +438,10 @@ export default function DiscoverClient({
   const pullStartY  = useRef<number | null>(null);
   const isPulling   = useRef(false);
 
+  // Grid stagger animation key — incremented on tab switch once photos are loaded
+  const [gridAnimKey, setGridAnimKey] = useState(0);
+  const hasPhotosRef = useRef(false);
+
   // Photo popup state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
   const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
@@ -462,6 +466,7 @@ export default function DiscoverClient({
       requestNumRef.current += 1;
       if (next.length > 0) {
         setPhotos((prev) => [...prev, ...next]);
+        hasPhotosRef.current = true;
         pageRef.current += 1;
       }
       if (next.length < 30) {
@@ -492,6 +497,7 @@ export default function DiscoverClient({
       const next = await loadPhotos(0, 0, newSeed, 0);
       requestNumRef.current = 1;
       setPhotos(next);
+      if (next.length > 0) hasPhotosRef.current = true;
       pageRef.current = 1;
       // Scroll to top
       scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -597,6 +603,9 @@ export default function DiscoverClient({
           el.style.opacity = "1";
           el.style.transform = "translate3d(0, 0, 0)";
           (el as HTMLElement).style.pointerEvents = "auto";
+        }
+        if (hasPhotosRef.current) {
+          setGridAnimKey((k) => k + 1);
         }
       }
     });
@@ -980,7 +989,11 @@ export default function DiscoverClient({
         ) : (
           <>
             {/* Mobile: 2-column grid */}
-            <div className="flex gap-3 items-start lg:hidden">
+            <div
+              key={gridAnimKey}
+              className="flex gap-3 items-start lg:hidden"
+              style={gridAnimKey > 0 ? { animation: "cardIn 0.35s ease-out both" } : undefined}
+            >
               <div className="flex flex-col gap-3 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
                   <DiscoverTile
