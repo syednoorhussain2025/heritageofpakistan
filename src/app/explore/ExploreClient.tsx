@@ -1346,6 +1346,36 @@ function ExplorePageContent() {
     setMounted(true);
   }, []);
 
+  const headerTitleRowRef = useRef<HTMLDivElement>(null);
+  const contentDivRef = useRef<HTMLDivElement>(null);
+
+  // Fade+slide title row out as user scrolls — mirrors home screen pattern.
+  // Content top never moves — shell bg is teal so gap looks natural.
+  useEffect(() => {
+    const TITLE_END = 50;
+    const container = contentDivRef.current;
+    const titleRow = headerTitleRowRef.current;
+    if (!container || !titleRow) return;
+
+    const onScroll = () => {
+      const p = Math.min(1, container.scrollTop / TITLE_END);
+      titleRow.style.opacity = `${1 - p}`;
+      titleRow.style.transform = `translateY(-${p * 10}px)`;
+    };
+
+    const resetScroll = () => {
+      container.scrollTop = 0;
+      titleRow.style.opacity = "1";
+      titleRow.style.transform = "translateY(0)";
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("tab-shown", resetScroll);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("tab-shown", resetScroll);
+    };
+  }, []);
 
   const setPushTransform = useCallback((value: string | null, animate: boolean) => {
     const el = document.getElementById("explore-mobile-shell");
@@ -1388,6 +1418,8 @@ function ExplorePageContent() {
       setSearchPanelOpen(false);
       setSearchPanelClosing(false);
       setShowNearbyModal(false);
+      if (contentDivRef.current) contentDivRef.current.scrollTop = 0;
+      if (headerTitleRowRef.current) { headerTitleRowRef.current.style.opacity = "1"; headerTitleRowRef.current.style.transform = "translateY(0)"; }
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
@@ -1397,10 +1429,10 @@ function ExplorePageContent() {
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
       <div
         id="explore-mobile-shell"
-        className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[#f2f2f2] overflow-hidden"
+        className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[var(--brand-green)] overflow-hidden"
         style={{ contain: "style" }}
       >
-      {/* ── Mobile: teal header (matches Home) ── */}
+      {/* ── Mobile: teal header ── */}
       <button
         id="explore-mobile-header"
         type="button"
@@ -1409,8 +1441,12 @@ function ExplorePageContent() {
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
         <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
-          <div className="flex items-center justify-center mb-3">
+          {/* Title + count — animated out on scroll */}
+          <div ref={headerTitleRowRef} className="flex flex-col items-center justify-center mb-3" style={{ willChange: "opacity, transform" }}>
             <span className="tab-header-title">Explore</span>
+            <span className="text-[11px] text-white/60 tabular-nums mt-0.5">
+              {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
+            </span>
           </div>
           <div className="flex items-center justify-center gap-2.5">
             <Icon name="search" size={18} className="text-white/90 shrink-0" />
@@ -1419,20 +1455,16 @@ function ExplorePageContent() {
             </span>
             <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
           </div>
-          <div className="flex items-center justify-center mt-1">
-            <span className="text-[11px] text-white/60 tabular-nums">
-              {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
-            </span>
-          </div>
         </div>
       </button>
 
-      {/* ── Mobile content card (inside shell, absolutely positioned so scaling
-          the shell scales card + header together as one coherent surface) ── */}
+      {/* ── Mobile content card — top fixed at collapsed header height.
+          Shell bg is teal so the gap above shows green when header is expanded. ── */}
       <div
+        ref={contentDivRef}
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(${safeTop} + 96px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(${safeTop} + 44px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
