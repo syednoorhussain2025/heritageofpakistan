@@ -83,7 +83,6 @@ type TileProps = {
   aspectClass: string;
   onOpen: (rect: DOMRect, thumbUrl: string) => void;
   isPriority: boolean;
-  staggerIndex?: number;
 };
 
 const DiscoverTile = memo(function DiscoverTile({
@@ -91,7 +90,6 @@ const DiscoverTile = memo(function DiscoverTile({
   aspectClass,
   onOpen,
   isPriority,
-  staggerIndex = 0,
 }: TileProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const setImgRef = useCallback((el: HTMLImageElement | null) => {
@@ -138,26 +136,6 @@ const DiscoverTile = memo(function DiscoverTile({
   useEffect(() => () => { if (retryTimerRef.current) clearTimeout(retryTimerRef.current); }, []);
 
   const tileRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = tileRef.current;
-    if (!el) return;
-    el.style.opacity = "0";
-    el.style.transform = "translateY(18px)";
-    const delay = `${Math.min(staggerIndex * 0.05, 0.4)}s`;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        el.style.transition = `opacity 0.35s ease-out ${delay}, transform 0.35s ease-out ${delay}`;
-        el.style.opacity = "1";
-        el.style.transform = "translateY(0)";
-        observer.disconnect();
-      },
-      { rootMargin: "0px 0px -40px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [staggerIndex]);
 
   const handlePressEnd = useCallback(() => {
     const rect = tileRef.current?.getBoundingClientRect();
@@ -1014,14 +992,17 @@ export default function DiscoverClient({
             <div className="flex gap-3 items-start lg:hidden">
               <div className="flex flex-col gap-3 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
-                  <DiscoverTile
-                    key={photo.id}
-                    photo={photo}
-                    aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
-                    isPriority={colIdx < 4}
-                    staggerIndex={colIdx * 2}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
-                  />
+                  <div
+                    key={`${gridAnimKey}-${photo.id}`}
+                    style={{ animation: "cardIn 0.35s ease-out both", animationDelay: `${Math.min(colIdx * 2 * 0.05, 0.4)}s` }}
+                  >
+                    <DiscoverTile
+                      photo={photo}
+                      aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
+                      isPriority={colIdx < 4}
+                      onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
+                    />
+                  </div>
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
                   <SkeletonTile key={`l-sk-${i}`} aspectClass={LEFT_ASPECTS[(leftPhotos.length + i) % LEFT_ASPECTS.length]} />
@@ -1029,14 +1010,17 @@ export default function DiscoverClient({
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {rightPhotos.map((photo, colIdx) => (
-                  <DiscoverTile
-                    key={photo.id}
-                    photo={photo}
-                    aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
-                    isPriority={colIdx < 4}
-                    staggerIndex={colIdx * 2 + 1}
-                    onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
-                  />
+                  <div
+                    key={`${gridAnimKey}-${photo.id}`}
+                    style={{ animation: "cardIn 0.35s ease-out both", animationDelay: `${Math.min((colIdx * 2 + 1) * 0.05, 0.4)}s` }}
+                  >
+                    <DiscoverTile
+                      photo={photo}
+                      aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
+                      isPriority={colIdx < 4}
+                      onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
+                    />
+                  </div>
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => (
                   <SkeletonTile key={`r-sk-${i}`} aspectClass={RIGHT_ASPECTS[(rightPhotos.length + i) % RIGHT_ASPECTS.length]} />
