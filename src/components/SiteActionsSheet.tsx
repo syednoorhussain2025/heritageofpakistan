@@ -214,9 +214,9 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
         </div>
       )}
       <div className="fixed inset-0 z-[4000] touch-none pointer-events-none">
-        {/* Tap-to-close backdrop — only covers gap above sheet */}
+        {/* Tap-to-close backdrop — full screen, sheet sits on top */}
         <div
-          className="absolute inset-0 bottom-[82vh] touch-none pointer-events-auto"
+          className="absolute inset-0 touch-none pointer-events-auto"
           onClick={closeSheet}
           aria-hidden="true"
         />
@@ -225,11 +225,14 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
           ref={sheetElRef}
           className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[82vh] flex flex-col pointer-events-auto transition-all duration-[680ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"}`}
         >
+          {/* Drag zone — handle + header, no scroll conflict */}
           <div
-            className="w-full flex justify-center pt-3 pb-2 shrink-0 touch-none"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+          >
+          <div
+            className="w-full flex justify-center pt-3 pb-2 shrink-0 touch-none"
             aria-hidden="true"
           >
             <div className="w-10 h-1 bg-gray-400/40 rounded-full" />
@@ -258,6 +261,7 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
               </div>
             </div>
           </div>
+          </div>{/* end drag zone */}
 
           <div className="overflow-y-auto">
             <div className="mx-4 mt-3 mb-3 bg-white rounded-2xl overflow-hidden">
