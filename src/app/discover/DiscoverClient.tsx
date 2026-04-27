@@ -83,6 +83,7 @@ type TileProps = {
   aspectClass: string;
   onOpen: (rect: DOMRect, thumbUrl: string) => void;
   isPriority: boolean;
+  staggerIndex?: number;
 };
 
 const DiscoverTile = memo(function DiscoverTile({
@@ -90,6 +91,7 @@ const DiscoverTile = memo(function DiscoverTile({
   aspectClass,
   onOpen,
   isPriority,
+  staggerIndex = 0,
 }: TileProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const setImgRef = useCallback((el: HTMLImageElement | null) => {
@@ -141,11 +143,12 @@ const DiscoverTile = memo(function DiscoverTile({
     const el = tileRef.current;
     if (!el) return;
     el.style.opacity = "0";
-    el.style.transform = "translateY(16px)";
+    el.style.transform = "translateY(18px)";
+    const delay = `${Math.min(staggerIndex * 0.05, 0.4)}s`;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
-        el.style.transition = "opacity 0.35s ease-out, transform 0.35s ease-out";
+        el.style.transition = `opacity 0.35s ease-out ${delay}, transform 0.35s ease-out ${delay}`;
         el.style.opacity = "1";
         el.style.transform = "translateY(0)";
         observer.disconnect();
@@ -154,7 +157,7 @@ const DiscoverTile = memo(function DiscoverTile({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [staggerIndex]);
 
   const handlePressEnd = useCallback(() => {
     const rect = tileRef.current?.getBoundingClientRect();
@@ -1008,11 +1011,7 @@ export default function DiscoverClient({
         ) : (
           <>
             {/* Mobile: 2-column grid */}
-            <div
-              key={gridAnimKey}
-              className="flex gap-3 items-start lg:hidden"
-              style={gridAnimKey > 0 ? { animation: "cardIn 0.35s ease-out both" } : undefined}
-            >
+            <div className="flex gap-3 items-start lg:hidden">
               <div className="flex flex-col gap-3 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
                   <DiscoverTile
@@ -1020,6 +1019,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                     isPriority={colIdx < 4}
+                    staggerIndex={colIdx * 2}
                     onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
                   />
                 ))}
@@ -1034,6 +1034,7 @@ export default function DiscoverClient({
                     photo={photo}
                     aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                     isPriority={colIdx < 4}
+                    staggerIndex={colIdx * 2 + 1}
                     onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
                   />
                 ))}
