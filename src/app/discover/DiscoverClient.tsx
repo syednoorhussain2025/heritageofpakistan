@@ -137,6 +137,25 @@ const DiscoverTile = memo(function DiscoverTile({
 
   const tileRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const el = tileRef.current;
+    if (!el) return;
+    el.style.opacity = "0";
+    el.style.transform = "translateY(16px)";
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        el.style.transition = "opacity 0.35s ease-out, transform 0.35s ease-out";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -40px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handlePressEnd = useCallback(() => {
     const rect = tileRef.current?.getBoundingClientRect();
     if (rect) onOpen(rect, thumbUrl);
