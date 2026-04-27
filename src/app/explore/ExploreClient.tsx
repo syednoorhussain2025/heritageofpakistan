@@ -1346,10 +1346,70 @@ function ExplorePageContent() {
     setMounted(true);
   }, []);
 
-  // Refs for title/count rows (used for tab-reset) and scroll container
+  // Collapsible header refs
   const headerTitleRowRef = useRef<HTMLDivElement>(null);
   const headerCountRowRef = useRef<HTMLDivElement>(null);
   const contentDivRef = useRef<HTMLDivElement>(null);
+  const headerCollapsedRef = useRef(false);
+
+  // Snap-collapse the header on scroll — purely imperative, zero React state.
+  // Collapsed: title + count fade+slide out, content top shrinks.
+  // Expanded: reverse. Snaps at 40px scroll threshold.
+  useEffect(() => {
+    const SCROLL_THRESHOLD = 40;
+    // Heights: full header = sat+96px, collapsed = sat+44px. Delta = 52px.
+    const TRANSITION = "all 0.32s cubic-bezier(0.25,0.1,0.25,1)";
+
+    const applyCollapsed = (collapsed: boolean, animate: boolean) => {
+      const titleRow = headerTitleRowRef.current;
+      const countRow = headerCountRowRef.current;
+      if (!titleRow || !countRow) return;
+
+      if (animate) {
+        titleRow.style.transition = TRANSITION;
+        countRow.style.transition = TRANSITION;
+      } else {
+        titleRow.style.transition = "none";
+        countRow.style.transition = "none";
+      }
+      // Content top never moves — header shrinks over it, content slides under.
+
+      if (collapsed) {
+        titleRow.style.opacity = "0";
+        titleRow.style.transform = "translateY(-8px)";
+        titleRow.style.marginBottom = "0";
+        titleRow.style.maxHeight = "0";
+        titleRow.style.overflow = "hidden";
+        countRow.style.opacity = "0";
+        countRow.style.maxHeight = "0";
+        countRow.style.overflow = "hidden";
+        countRow.style.marginTop = "0";
+      } else {
+        titleRow.style.opacity = "1";
+        titleRow.style.transform = "translateY(0)";
+        titleRow.style.marginBottom = "";
+        titleRow.style.maxHeight = "";
+        titleRow.style.overflow = "";
+        countRow.style.opacity = "1";
+        countRow.style.maxHeight = "";
+        countRow.style.overflow = "";
+        countRow.style.marginTop = "";
+      }
+    };
+
+    const el = contentDivRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const collapsed = el.scrollTop > SCROLL_THRESHOLD;
+      if (collapsed === headerCollapsedRef.current) return;
+      headerCollapsedRef.current = collapsed;
+      applyCollapsed(collapsed, true);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
 
   const setPushTransform = useCallback((value: string | null, animate: boolean) => {
@@ -1393,8 +1453,15 @@ function ExplorePageContent() {
       setSearchPanelOpen(false);
       setSearchPanelClosing(false);
       setShowNearbyModal(false);
-      // Scroll back to top so title row is visible again
-      if (contentDivRef.current) contentDivRef.current.scrollTop = 0;
+      // Reset header to expanded when tab is hidden/shown
+      if (headerCollapsedRef.current) {
+        headerCollapsedRef.current = false;
+        const titleRow = headerTitleRowRef.current;
+        const countRow = headerCountRowRef.current;
+        const content = contentDivRef.current;
+        if (titleRow) { titleRow.style.transition = "none"; titleRow.style.opacity = "1"; titleRow.style.transform = "translateY(0)"; titleRow.style.marginBottom = ""; titleRow.style.maxHeight = ""; titleRow.style.overflow = ""; }
+        if (countRow) { countRow.style.transition = "none"; countRow.style.opacity = "1"; countRow.style.maxHeight = ""; countRow.style.overflow = ""; countRow.style.marginTop = ""; }
+      }
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
@@ -1407,77 +1474,66 @@ function ExplorePageContent() {
         className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[#f2f2f2] overflow-hidden"
         style={{ contain: "style" }}
       >
-      {/* ── Sticky search bar — always visible, sits at top of shell ── */}
+      {/* ── Mobile: teal header (matches Home) ── */}
       <button
         id="explore-mobile-header"
         type="button"
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 z-10 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
-        style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "12px" }}
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
-        <div className="flex items-center justify-center gap-2.5 px-4">
-          <Icon name="search" size={18} className="text-white/90 shrink-0" />
-          <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate">
-            {headline}
-          </span>
-          <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
-        </div>
-      </button>
-
-      {/* ── Scroll container — teal bg so title row matches header colour ── */}
-      <div
-        ref={contentDivRef}
-        id="explore-mobile-content"
-        className="absolute inset-x-0 overflow-y-auto pointer-events-auto bg-[var(--brand-green)]"
-        style={{ top: `var(--sat, 44px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
-      >
-        {/* Title + count — in scroll flow, disappears naturally like home screen */}
-        <button
-          type="button"
-          aria-label="Search & Filters"
-          onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-          className="w-full text-center active:brightness-95"
-          style={{ paddingTop: "calc(var(--tab-title-top) + 44px)", paddingBottom: "12px" }}
-        >
-          <div ref={headerTitleRowRef} className="flex items-center justify-center mb-1" style={{ willChange: "opacity, transform" }}>
+        <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
+          <div ref={headerTitleRowRef} className="flex items-center justify-center mb-3" style={{ willChange: "opacity, transform" }}>
             <span className="tab-header-title">Explore</span>
           </div>
-          <div ref={headerCountRowRef} className="flex items-center justify-center">
+          <div className="flex items-center justify-center gap-2.5">
+            <Icon name="search" size={18} className="text-white/90 shrink-0" />
+            <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate">
+              {headline}
+            </span>
+            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+          </div>
+          <div ref={headerCountRowRef} className="flex items-center justify-center mt-1" style={{ willChange: "opacity" }}>
             <span className="text-[11px] text-white/60 tabular-nums">
               {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
             </span>
           </div>
-        </button>
+        </div>
+      </button>
 
-        {/* Card grid — rounded white surface that slides under the sticky header */}
-        <div className="rounded-t-[32px] bg-[#f2f2f2] px-4 pt-4 pb-8 min-h-full">
-          <div className="relative">
-            {isFiltering && (
-              <div className="pointer-events-none fixed inset-0 flex items-center justify-center z-[4000]">
-                <LottieSpinner size={80} />
-              </div>
-            )}
-            <div
-              className="grid grid-cols-2 gap-4"
-              style={{ opacity: 1 }}
-            >
-              {error && results.sites.length === 0 && !loading ? (
-                <div className="p-6 col-span-2">{error}</div>
-              ) : results.sites.length === 0 && !loading ? (
-                <div className="p-6 col-span-2 text-gray-500">No sites match your filters.</div>
-              ) : (
-                results.sites.map((s, index) => (
-                  <SitePreviewCard key={s.id} site={s} index={index} onCardClick={() => setSelectedSite(s)} />
-                ))
-              )}
+      {/* ── Mobile content card (inside shell, absolutely positioned so scaling
+          the shell scales card + header together as one coherent surface) ── */}
+      <div
+        ref={contentDivRef}
+        id="explore-mobile-content"
+        className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
+        style={{ top: `calc(${safeTop} + 96px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+      >
+        <div className="relative">
+          {isFiltering && (
+            <div className="pointer-events-none fixed inset-0 flex items-center justify-center z-[4000]">
+              <LottieSpinner size={80} />
             </div>
-            {results.sites.length > 0 && (
-              <div ref={mobileLoadMoreRef} className="flex items-center justify-center py-6">
-                {hasMore && isLoadingMore && <LottieSpinner size={32} />}
-              </div>
+          )}
+          <div
+            className="grid grid-cols-2 gap-4"
+            style={{ opacity: 1 }}
+          >
+            {error && results.sites.length === 0 && !loading ? (
+              <div className="p-6 col-span-2">{error}</div>
+            ) : results.sites.length === 0 && !loading ? (
+              <div className="p-6 col-span-2 text-gray-500">No sites match your filters.</div>
+            ) : (
+              results.sites.map((s, index) => (
+                <SitePreviewCard key={s.id} site={s} index={index} onCardClick={() => setSelectedSite(s)} />
+              ))
             )}
           </div>
+          {results.sites.length > 0 && (
+            <div ref={mobileLoadMoreRef} className="flex items-center justify-center py-6">
+              {hasMore && isLoadingMore && <LottieSpinner size={32} />}
+            </div>
+          )}
         </div>
       </div>
       </div>
