@@ -619,7 +619,7 @@ export default function SiteBottomSheet({ site, isOpen, onClose, onPlacesNearby,
           <button
             type="button"
             onClick={() => { void handleOpenSite(); }}
-            className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-xl bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 active:scale-95 transition-all"
+            className="shrink-0 flex w-full items-center justify-center gap-2 py-3 rounded-full bg-[var(--brand-orange)] text-white font-semibold text-sm hover:opacity-90 active:scale-95 transition-all"
           >
             Open Site
             <Icon name="arrow-right" size={14} />
