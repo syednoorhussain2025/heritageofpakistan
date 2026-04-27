@@ -1414,7 +1414,7 @@ function ExplorePageContent() {
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
         style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "16px" }}
       >
-        <div className="flex items-start justify-between px-4">
+        <div className="flex items-center justify-between px-4">
           <div className="w-[58px]" />
           <div className="flex-1 text-center">
             {headline === "All Heritage Sites in Pakistan" ? (
