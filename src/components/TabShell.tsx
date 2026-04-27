@@ -37,6 +37,7 @@ function usePaneRef(tab: TabKey) {
     const el = ref.current;
     if (!el) return;
 
+    // Set initial display from current store state
     const initial = getActiveTab() === tab;
     el.style.display = initial ? "block" : "none";
     el.setAttribute("aria-hidden", initial ? "false" : "true");
@@ -49,6 +50,7 @@ function usePaneRef(tab: TabKey) {
       if (!isActive) {
         el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
       } else {
+        // Reset scroll on the pane root and tagged children
         el.scrollTop = 0;
         el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach((child) => {
           child.scrollTop = 0;
@@ -96,6 +98,9 @@ export default function TabShell() {
   const discoverRef = usePaneRef("discover");
   const mapRef      = usePaneRef("map");
 
+  // Compute initial active tab so non-active panes are hidden on first paint.
+  // Without this, all 4 panes render with display:block and fixed elements
+  // from inactive tabs (e.g. Map) flash briefly before usePaneRef's effect runs.
   const initialTab = pathnameToTab(pathname) ?? "home";
   const paneStyle = (tab: TabKey): CSSProperties => ({
     display: initialTab === tab ? "block" : "none",

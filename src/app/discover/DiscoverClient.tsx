@@ -438,9 +438,6 @@ export default function DiscoverClient({
   const pullStartY  = useRef<number | null>(null);
   const isPulling   = useRef(false);
 
-  // Stagger animation key — incremented on tab switch to discover
-  const [tileAnimKey, setTileAnimKey] = useState(0);
-
   // Photo popup state
   const [sheetPhoto, setSheetPhoto] = useState<DiscoverPhoto | null>(null);
   const [sheetOriginRect, setSheetOriginRect] = useState<DOMRect | null>(null);
@@ -580,8 +577,6 @@ export default function DiscoverClient({
         if (loadingRef.current && !loading) {
           loadingRef.current = false;
         }
-        // Trigger stagger fade-in on tiles
-        setTileAnimKey((k) => k + 1);
       }
     });
     return unsub;
@@ -985,11 +980,7 @@ export default function DiscoverClient({
         ) : (
           <>
             {/* Mobile: 2-column grid */}
-            <div
-              key={tileAnimKey}
-              className="flex gap-3 items-start lg:hidden"
-              style={{ animation: tileAnimKey > 0 ? "cardIn 0.35s ease-out both" : undefined }}
-            >
+            <div className="flex gap-3 items-start lg:hidden">
               <div className="flex flex-col gap-3 flex-1">
                 {leftPhotos.map((photo, colIdx) => (
                   <DiscoverTile

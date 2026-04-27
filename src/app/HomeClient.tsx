@@ -15,7 +15,6 @@ import { useNativeLocation } from "@/hooks/useNativeLocation";
 import { hapticLight, hapticMedium, hapticSelection } from "@/lib/haptics";
 import Icon from "@/components/Icon";
 import QuickSearchOverlay from "@/components/QuickSearchOverlay";
-import { subscribeTab } from "@/lib/tabStore";
 
 /* ─── Search bar typewriter animation ────────────────────────────────────── */
 
@@ -1507,21 +1506,6 @@ function MobileHomepage() {
     const handler = () => setSearchOpen(false);
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
-  }, []);
-
-  // Fade in scroll container when Home tab becomes active
-  useEffect(() => {
-    return subscribeTab((tab) => {
-      if (tab !== "home") return;
-      const el = scrollContainerRef.current;
-      if (!el) return;
-      el.style.transition = "none";
-      el.style.opacity = "0";
-      requestAnimationFrame(() => {
-        el.style.transition = "opacity 0.18s ease-out";
-        el.style.opacity = "1";
-      });
-    });
   }, []);
 
   return (
