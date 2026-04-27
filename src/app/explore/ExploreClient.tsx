@@ -1424,7 +1424,7 @@ function ExplorePageContent() {
             )}
           </div>
           <div className="w-[58px] flex justify-end">
-            <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+            <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20" style={{ marginTop: "-6px", marginRight: "8px" }}>
               <Icon name="search" size={20} className="text-white" />
             </div>
           </div>
