@@ -904,9 +904,9 @@ export default function DiscoverClient({
       <div
         className="fixed inset-0 z-[3400] pointer-events-none lg:hidden"
         style={{
-          backgroundColor: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
+          backgroundColor: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(2px)",
+          WebkitBackdropFilter: "blur(2px)",
           opacity: sheetVisible ? 1 : 0,
           transition: sheetVisible
             ? "opacity 420ms cubic-bezier(0.4,0,0.2,1)"
