@@ -984,11 +984,9 @@ export default function MapClient() {
       if (el) {
         el.style.transition = "none";
         el.style.opacity = "0";
-        el.style.transform = "translateY(12px)";
         requestAnimationFrame(() => {
-          el.style.transition = "opacity 0.22s ease-out, transform 0.22s ease-out";
+          el.style.transition = "opacity 0.22s ease-out";
           el.style.opacity = "1";
-          el.style.transform = "translateY(0)";
         });
       }
     }

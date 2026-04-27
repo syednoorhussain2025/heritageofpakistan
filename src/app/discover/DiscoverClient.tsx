@@ -603,11 +603,9 @@ export default function DiscoverClient({
         if (scrollEl) {
           scrollEl.style.transition = "none";
           scrollEl.style.opacity = "0";
-          scrollEl.style.transform = "translateY(12px)";
           requestAnimationFrame(() => {
-            scrollEl.style.transition = "opacity 0.22s ease-out, transform 0.22s ease-out";
+            scrollEl.style.transition = "opacity 0.22s ease-out";
             scrollEl.style.opacity = "1";
-            scrollEl.style.transform = "translateY(0)";
           });
         }
       }
