@@ -1358,21 +1358,24 @@ function ExplorePageContent() {
   useEffect(() => {
     const SCROLL_THRESHOLD = 40;
     // Heights: full header = sat+96px, collapsed = sat+44px. Delta = 52px.
+    const DELTA = 52;
     const TRANSITION = "all 0.32s cubic-bezier(0.25,0.1,0.25,1)";
 
     const applyCollapsed = (collapsed: boolean, animate: boolean) => {
       const titleRow = headerTitleRowRef.current;
       const countRow = headerCountRowRef.current;
-      if (!titleRow || !countRow) return;
+      const content = contentDivRef.current;
+      if (!titleRow || !countRow || !content) return;
 
       if (animate) {
         titleRow.style.transition = TRANSITION;
         countRow.style.transition = TRANSITION;
+        content.style.transition = `top 0.32s cubic-bezier(0.25,0.1,0.25,1)`;
       } else {
         titleRow.style.transition = "none";
         countRow.style.transition = "none";
+        content.style.transition = "none";
       }
-      // Content top never moves — header shrinks over it, content slides under.
 
       if (collapsed) {
         titleRow.style.opacity = "0";
@@ -1384,6 +1387,7 @@ function ExplorePageContent() {
         countRow.style.maxHeight = "0";
         countRow.style.overflow = "hidden";
         countRow.style.marginTop = "0";
+        content.style.top = `calc(var(--sat, 44px) + ${96 - DELTA}px)`;
       } else {
         titleRow.style.opacity = "1";
         titleRow.style.transform = "translateY(0)";
@@ -1394,6 +1398,7 @@ function ExplorePageContent() {
         countRow.style.maxHeight = "";
         countRow.style.overflow = "";
         countRow.style.marginTop = "";
+        content.style.top = `calc(var(--sat, 44px) + 96px)`;
       }
     };
 
@@ -1461,6 +1466,7 @@ function ExplorePageContent() {
         const content = contentDivRef.current;
         if (titleRow) { titleRow.style.transition = "none"; titleRow.style.opacity = "1"; titleRow.style.transform = "translateY(0)"; titleRow.style.marginBottom = ""; titleRow.style.maxHeight = ""; titleRow.style.overflow = ""; }
         if (countRow) { countRow.style.transition = "none"; countRow.style.opacity = "1"; countRow.style.maxHeight = ""; countRow.style.overflow = ""; countRow.style.marginTop = ""; }
+        if (content) { content.style.transition = "none"; content.style.top = `calc(var(--sat, 44px) + 96px)`; }
       }
     };
     document.addEventListener("tab-hidden", handler);
