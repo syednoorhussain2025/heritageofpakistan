@@ -1419,7 +1419,7 @@ function ExplorePageContent() {
           {headline === "All Heritage Sites in Pakistan" ? (
             <span className="tab-header-title">Explore</span>
           ) : (
-            <span className="min-w-0 max-w-[75%] tab-header-title truncate text-center">
+            <span className="min-w-0 max-w-[75%] truncate text-center text-[15px] font-semibold text-white">
               {headline}
             </span>
           )}
