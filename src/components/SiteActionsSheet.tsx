@@ -198,12 +198,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
   const detailHref = provinceSlug ? `/heritage/${provinceSlug}/${site.slug}` : `/heritage/${site.slug}`;
   const galleryHref = provinceSlug ? `/heritage/${provinceSlug}/${site.slug}/gallery` : `/heritage/${site.slug}/gallery`;
   const photoStoryHref = provinceSlug ? `/heritage/${provinceSlug}/${site.slug}/photo-story` : `/heritage/${site.slug}/photo-story`;
-  const googleMapsHref =
-    site.latitude != null && site.longitude != null &&
-    !Number.isNaN(site.latitude) && !Number.isNaN(site.longitude)
-      ? `https://www.google.com/maps/search/?api=1&query=${site.latitude},${site.longitude}`
-      : null;
-
   const visible = sheetVisible && !closing;
 
   const sheet = (!mounted || (!isOpen && !closing)) ? null : createPortal(
@@ -303,13 +297,6 @@ export default function SiteActionsSheet({ site, isOpen, onClose, onPlacesNearby
                 <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0"><Icon name="play-circle-light" size={22} className="text-gray-700" /></div>
                 <span className="text-[15px] font-medium text-gray-900">Photo Story</span>
               </a>
-              {googleMapsHref && (<>
-                <div className="mx-4 h-[0.5px] bg-gray-100" />
-                <a href={googleMapsHref} target="_blank" rel="noopener noreferrer" onClick={() => { void hapticLight(); closeSheet(); }} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
-                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0"><Icon name="map-pin-light" size={22} className="text-gray-700" /></div>
-                  <span className="text-[15px] font-medium text-gray-900">Open in Google Maps</span>
-                </a>
-              </>)}
             </div>
 
             <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden">
