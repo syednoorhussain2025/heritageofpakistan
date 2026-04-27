@@ -1495,16 +1495,6 @@ function ExplorePageContent() {
           --olive-green: #7b6e3f;
           --dark-grey: #2b2b2b;
         }
-        @keyframes cardIn {
-          from {
-            opacity: 0;
-            transform: translateY(18px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
       `}</style>
 
       <div className="lg:relative lg:z-10">
