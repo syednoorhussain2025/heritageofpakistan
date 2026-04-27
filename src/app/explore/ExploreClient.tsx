@@ -1367,12 +1367,17 @@ function ExplorePageContent() {
   // the transition instead of coalescing both writes into one recalc.
   useEffect(() => {
     if (!searchPanelOpen) return;
-    setPushTransform("translateX(0)", false);
     const el = document.getElementById("explore-mobile-shell");
-    if (el) void el.offsetWidth; // force reflow so step 1 is committed
-    const raf = requestAnimationFrame(() => setPushTransform("translateX(-173px)", true));
-    return () => cancelAnimationFrame(raf);
-  }, [searchPanelOpen, setPushTransform]);
+    if (!el) return;
+    // Step 1: plant start position with no transition
+    el.style.transition = "none";
+    el.style.transform = "translateX(0)";
+    // Force reflow so the browser commits step 1 before step 2
+    void el.offsetWidth;
+    // Step 2: animate to pushed position
+    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
+    el.style.transform = "translateX(-173px)";
+  }, [searchPanelOpen]);
 
   // Lock body scroll while panel is open
   useEffect(() => {
