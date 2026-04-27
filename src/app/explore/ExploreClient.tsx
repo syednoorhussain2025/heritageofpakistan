@@ -1408,7 +1408,7 @@ function ExplorePageContent() {
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
-        <div className="px-4 pb-2" style={{ paddingTop: "var(--tab-title-top)" }}>
+        <div className="px-4 pb-0" style={{ paddingTop: "var(--tab-title-top)" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
             /* Default state — title + search icon in same row */
             <div className="flex items-center justify-center relative">
@@ -1442,7 +1442,7 @@ function ExplorePageContent() {
       <div
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(${safeTop} + 96px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(${safeTop} + 52px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
