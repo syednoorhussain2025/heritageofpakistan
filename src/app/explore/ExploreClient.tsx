@@ -1414,17 +1414,17 @@ function ExplorePageContent() {
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto overflow-hidden"
         style={{ height: "calc(var(--tab-title-top) + 36px)" }}
       >
-        {/* Row pinned to bottom of button — always 36px tall */}
-        <div className="absolute inset-x-4 bottom-0 flex items-center justify-center" style={{ height: "36px" }}>
-          {headline === "All Heritage Sites in Pakistan" ? (
-            <span className="tab-header-title">Explore</span>
-          ) : (
-            <span className="min-w-0 max-w-[75%] truncate text-center text-[15px] font-semibold text-white">
-              {headline}
-            </span>
-          )}
-          {/* Search icon — always visible */}
-          <div className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+        {/* Row pinned to bottom — matches Discover layout exactly */}
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-4" style={{ height: "36px" }}>
+          <div className="w-9" />
+          <div className="flex-1 text-center">
+            {headline === "All Heritage Sites in Pakistan" ? (
+              <span className="tab-header-title">Explore</span>
+            ) : (
+              <span className="text-[15px] font-semibold text-white truncate">{headline}</span>
+            )}
+          </div>
+          <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
             <Icon name="search" size={20} className="text-white" />
           </div>
         </div>
