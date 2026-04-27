@@ -832,6 +832,9 @@ function ExplorePageContent() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Incremented only when search panel triggers new results — drives card stagger animation
+  const [cardAnimKey, setCardAnimKey] = useState(0);
+  const pendingCardAnimRef = useRef(false);
 
   /* When tab becomes visible, unstick load-more if it was in progress (browser may throttle/cancel in background) */
   const loadingMoreRef = useRef(false);
@@ -888,6 +891,10 @@ function ExplorePageContent() {
       setRadiusAllRows(query.data.radiusAllRows);
       isHydratingRef.current = false;
       setIsFiltering(false);
+      if (pendingCardAnimRef.current) {
+        pendingCardAnimRef.current = false;
+        setCardAnimKey((k) => k + 1);
+      }
     }
   }, [query.data, query.error]);
 
@@ -1454,7 +1461,15 @@ function ExplorePageContent() {
               <div className="p-6 col-span-2 text-gray-500">No sites match your filters.</div>
             ) : (
               results.sites.map((s, index) => (
-                <SitePreviewCard key={s.id} site={s} index={index} onCardClick={() => setSelectedSite(s)} />
+                <div
+                  key={`${cardAnimKey}-${s.id}`}
+                  style={cardAnimKey > 0 ? {
+                    animation: `cardIn 0.35s ease-out both`,
+                    animationDelay: `${Math.min(index * 0.05, 0.4)}s`,
+                  } : undefined}
+                >
+                  <SitePreviewCard site={s} index={index} onCardClick={() => setSelectedSite(s)} />
+                </div>
               ))
             )}
           </div>
@@ -1482,9 +1497,11 @@ function ExplorePageContent() {
         }
         @keyframes cardIn {
           from {
+            opacity: 0;
             transform: translateY(18px);
           }
           to {
+            opacity: 1;
             transform: translateY(0);
           }
         }
@@ -1639,7 +1656,7 @@ function ExplorePageContent() {
               <SearchFilters
                 filters={filters}
                 onFilterChange={handleFilterChange}
-                onSearch={() => { setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
+                onSearch={() => { pendingCardAnimRef.current = true; setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
                 onOpenNearbyModal={() => { closeSearchPanel(); setTimeout(() => setShowNearbyModal(true), 340); }}
                 hideFooter
                 hideHeading
@@ -1658,7 +1675,7 @@ function ExplorePageContent() {
             >
               <button
                 type="button"
-                onClick={() => { setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
+                onClick={() => { pendingCardAnimRef.current = true; setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
                 className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[var(--brand-orange)] py-3.5 text-[15px] font-bold text-white shadow-md active:opacity-80 transition-opacity"
               >
                 <Icon name="search" size={15} />
