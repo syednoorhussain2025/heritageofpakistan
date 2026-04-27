@@ -65,6 +65,22 @@ async function loadPhotos(page: number, cycle: number, seed: number, requestNum:
   return res.json();
 }
 
+// ── Preload singleton — fetches first batch once on module load ───────────────
+// TabShell mounts all panes at app start, so this runs immediately in the
+// background while the user is on the Home tab.
+let _preloadSeed = 0;
+let _preloadPromise: Promise<DiscoverPhoto[]> | null = null;
+
+function preloadFirstBatch(): Promise<DiscoverPhoto[]> {
+  if (_preloadPromise) return _preloadPromise;
+  _preloadSeed = getOrCreateSeed();
+  _preloadPromise = loadPhotos(0, 0, _preloadSeed, 0).catch(() => []);
+  return _preloadPromise;
+}
+
+// Kick off preload immediately when module is imported (app start)
+if (typeof window !== "undefined") preloadFirstBatch();
+
 const DiscoverPhotoSheet = dynamicImport(
   () => import("@/components/DiscoverPhotoSheet"),
   { ssr: false }
@@ -556,8 +572,19 @@ export default function DiscoverClient({
   // ── Init ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    seedRef.current = getOrCreateSeed();
-    if (initialPhotos.length === 0) void loadMore();
+    seedRef.current = _preloadSeed || getOrCreateSeed();
+    if (initialPhotos.length === 0) {
+      // Use preloaded data if ready, otherwise await it
+      preloadFirstBatch().then((photos) => {
+        if (photos.length > 0) {
+          setPhotos(photos);
+          hasPhotosRef.current = true;
+          pageRef.current = 1;
+        } else {
+          void loadMore();
+        }
+      });
+    }
     // Eagerly prefetch inspirations so chips are instant on first search open
     if (cachedInspirations.length === 0) {
       prefetchInspirations();
