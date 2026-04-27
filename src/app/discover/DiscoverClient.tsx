@@ -798,14 +798,11 @@ export default function DiscoverClient({
             <div className="w-[58px]" />
             <div className="flex-1 text-center">
               <h1
-                className="tab-header-title mb-3"
+                className="tab-header-title"
                 style={{ textShadow: "0 2px 16px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.5)" }}
               >
                 Discover
               </h1>
-              <div ref={subtitleRef} className="flex items-center justify-center">
-                <span className="text-[14px] font-semibold text-white truncate" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>Photos &amp; Visual Stories</span>
-              </div>
               <div className="flex justify-center mt-1 pointer-events-auto" style={{ opacity: searchActive ? 1 : 0, transition: "opacity 0.2s ease" }}>
                 <span className="bg-white/90 text-stone-800 text-[11px] font-semibold px-3 py-1 rounded-full truncate max-w-[200px]">
                   {searchQuery || " "}
