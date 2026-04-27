@@ -1346,6 +1346,76 @@ function ExplorePageContent() {
     setMounted(true);
   }, []);
 
+  // Collapsible header refs
+  const headerTitleRowRef = useRef<HTMLDivElement>(null);
+  const headerCountRowRef = useRef<HTMLDivElement>(null);
+  const contentDivRef = useRef<HTMLDivElement>(null);
+  const headerCollapsedRef = useRef(false);
+
+  // Snap-collapse the header on scroll — purely imperative, zero React state.
+  // Collapsed: title + count fade+slide out, content top shrinks.
+  // Expanded: reverse. Snaps at 40px scroll threshold.
+  useEffect(() => {
+    const SCROLL_THRESHOLD = 40;
+    // Heights: full header = sat+96px, collapsed = sat+44px. Delta = 52px.
+    const DELTA = 52;
+    const TRANSITION = "all 0.32s cubic-bezier(0.25,0.1,0.25,1)";
+
+    const applyCollapsed = (collapsed: boolean, animate: boolean) => {
+      const titleRow = headerTitleRowRef.current;
+      const countRow = headerCountRowRef.current;
+      const content = contentDivRef.current;
+      if (!titleRow || !countRow || !content) return;
+
+      if (animate) {
+        titleRow.style.transition = TRANSITION;
+        countRow.style.transition = TRANSITION;
+        content.style.transition = `top 0.32s cubic-bezier(0.25,0.1,0.25,1)`;
+      } else {
+        titleRow.style.transition = "none";
+        countRow.style.transition = "none";
+        content.style.transition = "none";
+      }
+
+      if (collapsed) {
+        titleRow.style.opacity = "0";
+        titleRow.style.transform = "translateY(-8px)";
+        titleRow.style.marginBottom = "0";
+        titleRow.style.maxHeight = "0";
+        titleRow.style.overflow = "hidden";
+        countRow.style.opacity = "0";
+        countRow.style.maxHeight = "0";
+        countRow.style.overflow = "hidden";
+        countRow.style.marginTop = "0";
+        content.style.top = `calc(var(--sat, 44px) + ${96 - DELTA}px)`;
+      } else {
+        titleRow.style.opacity = "1";
+        titleRow.style.transform = "translateY(0)";
+        titleRow.style.marginBottom = "";
+        titleRow.style.maxHeight = "";
+        titleRow.style.overflow = "";
+        countRow.style.opacity = "1";
+        countRow.style.maxHeight = "";
+        countRow.style.overflow = "";
+        countRow.style.marginTop = "";
+        content.style.top = `calc(var(--sat, 44px) + 96px)`;
+      }
+    };
+
+    const el = contentDivRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const collapsed = el.scrollTop > SCROLL_THRESHOLD;
+      if (collapsed === headerCollapsedRef.current) return;
+      headerCollapsedRef.current = collapsed;
+      applyCollapsed(collapsed, true);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
 
   const setPushTransform = useCallback((value: string | null, animate: boolean) => {
     const el = document.getElementById("explore-mobile-shell");
@@ -1388,6 +1458,16 @@ function ExplorePageContent() {
       setSearchPanelOpen(false);
       setSearchPanelClosing(false);
       setShowNearbyModal(false);
+      // Reset header to expanded when tab is hidden/shown
+      if (headerCollapsedRef.current) {
+        headerCollapsedRef.current = false;
+        const titleRow = headerTitleRowRef.current;
+        const countRow = headerCountRowRef.current;
+        const content = contentDivRef.current;
+        if (titleRow) { titleRow.style.transition = "none"; titleRow.style.opacity = "1"; titleRow.style.transform = "translateY(0)"; titleRow.style.marginBottom = ""; titleRow.style.maxHeight = ""; titleRow.style.overflow = ""; }
+        if (countRow) { countRow.style.transition = "none"; countRow.style.opacity = "1"; countRow.style.maxHeight = ""; countRow.style.overflow = ""; countRow.style.marginTop = ""; }
+        if (content) { content.style.transition = "none"; content.style.top = `calc(var(--sat, 44px) + 96px)`; }
+      }
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
@@ -1409,7 +1489,7 @@ function ExplorePageContent() {
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
         <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
-          <div className="flex items-center justify-center mb-3">
+          <div ref={headerTitleRowRef} className="flex items-center justify-center mb-3" style={{ willChange: "opacity, transform" }}>
             <span className="tab-header-title">Explore</span>
           </div>
           <div className="flex items-center justify-center gap-2.5">
@@ -1419,7 +1499,7 @@ function ExplorePageContent() {
             </span>
             <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
           </div>
-          <div className="flex items-center justify-center mt-1">
+          <div ref={headerCountRowRef} className="flex items-center justify-center mt-1" style={{ willChange: "opacity" }}>
             <span className="text-[11px] text-white/60 tabular-nums">
               {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
             </span>
@@ -1430,6 +1510,7 @@ function ExplorePageContent() {
       {/* ── Mobile content card (inside shell, absolutely positioned so scaling
           the shell scales card + header together as one coherent surface) ── */}
       <div
+        ref={contentDivRef}
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
         style={{ top: `calc(${safeTop} + 96px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
