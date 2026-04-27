@@ -1409,21 +1409,28 @@ function ExplorePageContent() {
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
         <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
-          <div className="flex items-center justify-center mb-3">
-            <span className="tab-header-title">Explore</span>
-          </div>
-          <div className="flex items-center justify-center gap-2.5">
-            <Icon name="search" size={18} className="text-white/90 shrink-0" />
-            <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate">
-              {headline}
-            </span>
-            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
-          </div>
-          <div className="flex items-center justify-center mt-1">
-            <span className="text-[11px] text-white/60 tabular-nums">
-              {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
-            </span>
-          </div>
+          {headline === "All Heritage Sites in Pakistan" ? (
+            /* Default state — just the title, no clutter */
+            <div className="flex items-center justify-center">
+              <span className="tab-header-title">Explore</span>
+            </div>
+          ) : (
+            /* Filtered state — title replaced by active filter text */
+            <>
+              <div className="flex items-center justify-center gap-2.5">
+                <Icon name="search" size={18} className="text-white/90 shrink-0" />
+                <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate">
+                  {headline}
+                </span>
+                <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
+              </div>
+              <div className="flex items-center justify-center mt-1">
+                <span className="text-[11px] text-white/60 tabular-nums">
+                  {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </button>
 
