@@ -1406,7 +1406,7 @@ function ExplorePageContent() {
         type="button"
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
       >
         <div className="px-4 pb-0" style={{ paddingTop: "var(--tab-title-top)" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
