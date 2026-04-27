@@ -1412,17 +1412,18 @@ function ExplorePageContent() {
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
+        style={{ paddingTop: "var(--tab-title-top)" }}
       >
-        {/* Fixed-height row — same height in both states, no layout shift */}
-        <div className="px-4 pb-0 flex items-center justify-center relative" style={{ paddingTop: "var(--tab-title-top)" }}>
+        {/* Fixed-height row — explicit height so neither state can change it */}
+        <div className="px-4 flex items-center justify-center relative" style={{ height: "36px" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
             <span className="tab-header-title">Explore</span>
           ) : (
-            <span className="min-w-0 max-w-[75%] text-[16px] font-semibold text-white truncate text-center leading-tight">
+            <span className="min-w-0 max-w-[75%] tab-header-title truncate text-center">
               {headline}
             </span>
           )}
-          {/* Search icon — always visible, consistent in both states */}
+          {/* Search icon — always visible */}
           <div className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
             <Icon name="search" size={20} className="text-white" />
           </div>
