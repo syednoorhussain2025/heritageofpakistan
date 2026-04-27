@@ -23,6 +23,7 @@ import { getThumbOrVariantUrlNoTransform } from "@/lib/imagevariants";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import Icon from "@/components/Icon";
 import { useAuthUserId } from "@/hooks/useAuthUserId";
+import { subscribeTab } from "@/lib/tabStore";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner as LottieSpinner } from "@/components/ui/Spinner";
 
@@ -832,9 +833,10 @@ function ExplorePageContent() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Incremented only when search panel triggers new results — drives card stagger animation
+  // Incremented to trigger card stagger animation (search panel results OR tab switch)
   const [cardAnimKey, setCardAnimKey] = useState(0);
   const pendingCardAnimRef = useRef(false);
+  const hasResultsRef = useRef(false);
 
   /* When tab becomes visible, unstick load-more if it was in progress (browser may throttle/cancel in background) */
   const loadingMoreRef = useRef(false);
@@ -891,6 +893,7 @@ function ExplorePageContent() {
       setRadiusAllRows(query.data.radiusAllRows);
       isHydratingRef.current = false;
       setIsFiltering(false);
+      hasResultsRef.current = true;
       if (pendingCardAnimRef.current) {
         pendingCardAnimRef.current = false;
         setCardAnimKey((k) => k + 1);
@@ -1404,6 +1407,15 @@ function ExplorePageContent() {
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
   }, [setPushTransform]);
+
+  // Trigger stagger on tab switch to explore (only if cards are loaded)
+  useEffect(() => {
+    return subscribeTab((tab) => {
+      if (tab !== "explore") return;
+      if (!hasResultsRef.current) return;
+      setCardAnimKey((k) => k + 1);
+    });
+  }, []);
 
   return (
     <div id="explore-page-root" className="relative lg:min-h-screen bg-[#f2f2f2] lg:bg-[var(--ivory-cream)] lg:pt-0">
