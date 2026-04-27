@@ -1411,21 +1411,22 @@ function ExplorePageContent() {
         type="button"
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto overflow-hidden"
-        style={{ height: "calc(var(--tab-title-top) + 36px)" }}
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
+        style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "16px" }}
       >
-        {/* Row pinned to bottom — matches Discover layout exactly */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-4" style={{ height: "36px" }}>
-          <div className="w-9" />
+        <div className="flex items-start justify-between px-4">
+          <div className="w-[58px]" />
           <div className="flex-1 text-center">
             {headline === "All Heritage Sites in Pakistan" ? (
               <span className="tab-header-title">Explore</span>
             ) : (
-              <span className="text-[15px] font-semibold text-white truncate">{headline}</span>
+              <span className="tab-header-title" style={{ fontSize: "15px", fontWeight: 600 }}>{headline}</span>
             )}
           </div>
-          <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
-            <Icon name="search" size={20} className="text-white" />
+          <div className="w-[58px] flex justify-end">
+            <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+              <Icon name="search" size={20} className="text-white" />
+            </div>
           </div>
         </div>
       </button>
@@ -1435,7 +1436,7 @@ function ExplorePageContent() {
       <div
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(var(--tab-title-top) + 36px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(var(--tab-title-top) + 56px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
