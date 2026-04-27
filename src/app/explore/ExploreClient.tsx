@@ -1454,6 +1454,7 @@ function ExplorePageContent() {
           the shell scales card + header together as one coherent surface) ── */}
       <div
         id="explore-mobile-content"
+        data-scroll-reset
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
         style={{ top: `calc(var(--tab-title-top) + 48px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
