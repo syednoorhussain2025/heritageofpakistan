@@ -1412,7 +1412,7 @@ function ExplorePageContent() {
         aria-label="Search & Filters"
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
-        style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "16px" }}
+        style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "8px" }}
       >
         <div className="flex items-start justify-between px-4">
           <div className="w-[58px]" />
@@ -1436,7 +1436,7 @@ function ExplorePageContent() {
       <div
         id="explore-mobile-content"
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(var(--tab-title-top) + 56px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(var(--tab-title-top) + 48px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
