@@ -29,7 +29,8 @@ export function isTabRoute(pathname: string) {
 }
 
 // Each pane registers its DOM ref and tab key.
-// When the store fires, we write display directly — no React render.
+// Inactive panes stay in the DOM at opacity:0 + pointer-events:none so the
+// incoming tab can fade over the outgoing one with no white flash.
 function usePaneRef(tab: TabKey) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -37,10 +38,9 @@ function usePaneRef(tab: TabKey) {
     const el = ref.current;
     if (!el) return;
 
-    // Set initial display from current store state — no fade on first paint
     const initial = getActiveTab() === tab;
-    el.style.display = initial ? "block" : "none";
-    el.style.opacity = "1";
+    el.style.opacity = initial ? "1" : "0";
+    el.style.pointerEvents = initial ? "" : "none";
     el.setAttribute("aria-hidden", initial ? "false" : "true");
 
     const unsub = subscribeTab((active) => {
@@ -48,7 +48,9 @@ function usePaneRef(tab: TabKey) {
       el.setAttribute("aria-hidden", isActive ? "false" : "true");
 
       if (!isActive) {
-        el.style.display = "none";
+        el.style.transition = "none";
+        el.style.opacity = "0";
+        el.style.pointerEvents = "none";
         el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
       } else {
         // Reset scroll on the pane root and tagged children
@@ -56,10 +58,10 @@ function usePaneRef(tab: TabKey) {
         el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach((child) => {
           child.scrollTop = 0;
         });
-        // Micro fade-in: set display:block at opacity 0, then transition to 1
+        // Fade in over the outgoing pane (which stays rendered beneath)
         el.style.transition = "none";
         el.style.opacity = "0";
-        el.style.display = "block";
+        el.style.pointerEvents = "";
         requestAnimationFrame(() => {
           el.style.transition = "opacity 0.18s ease-out";
           el.style.opacity = "1";
@@ -88,16 +90,16 @@ export default function TabShell() {
     if (!wrapper) return;
 
     if (isTabRoute(pathname)) {
-      wrapper.style.display = "block";
+      wrapper.style.visibility = "visible";
       syncTabFromPathname(pathname);
     } else {
-      wrapper.style.display = "none";
+      wrapper.style.visibility = "hidden";
     }
 
     // When setTab() fires while on a non-tab route (e.g. tapping Home while on
     // /map), immediately show the wrapper before usePathname catches up.
     const unsub = subscribeTab(() => {
-      wrapper.style.display = "block";
+      wrapper.style.visibility = "visible";
     });
     return unsub;
   }, [pathname]);
@@ -107,16 +109,16 @@ export default function TabShell() {
   const discoverRef = usePaneRef("discover");
   const mapRef      = usePaneRef("map");
 
-  // Compute initial active tab so non-active panes are hidden on first paint.
-  // Without this, all 4 panes render with display:block and fixed elements
-  // from inactive tabs (e.g. Map) flash briefly before usePaneRef's effect runs.
   const initialTab = pathnameToTab(pathname) ?? "home";
   const paneStyle = (tab: TabKey): CSSProperties => ({
-    display: initialTab === tab ? "block" : "none",
+    position: "absolute",
+    inset: 0,
+    opacity: initialTab === tab ? 1 : 0,
+    pointerEvents: initialTab === tab ? "auto" : "none",
   });
 
   return (
-    <div ref={allPanesRef}>
+    <div ref={allPanesRef} style={{ position: "relative" }}>
       <div ref={homeRef} style={paneStyle("home")} aria-hidden={initialTab !== "home"}>
         <HomeClient />
       </div>
