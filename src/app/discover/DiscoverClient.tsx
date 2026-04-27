@@ -811,33 +811,31 @@ export default function DiscoverClient({
                 </span>
               </div>
             </div>
-            <div ref={searchBtnRef} className="pointer-events-auto flex justify-end pr-3">
+            <div ref={searchBtnRef} className="pointer-events-auto flex justify-end" style={{ width: "58px", marginTop: "-6px", paddingRight: "8px" }}>
               {searchActive ? (
                 <button
                   onClick={() => { void hapticLight(); clearSearch(); }}
-                  style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-                  className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50"
+                  className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white active:bg-white/30 shrink-0"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[20px] h-[20px]">
                     <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               ) : (
                 <button
                   onClick={() => { void hapticLight(); if (cachedInspirations.length > 0) setSearchChips(pickRandom(cachedInspirations, 3)); setSearchOpen((v) => !v); }}
-                  style={{ width: 46, height: 46, borderRadius: "50%", flexShrink: 0, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-                  className="bg-black/30 flex items-center justify-center text-white/90 active:bg-black/50"
+                  className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white active:bg-white/30 shrink-0"
                 >
-                  {searchOpen ? (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[20px] h-[20px]">
+                    {searchOpen ? (
                       <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[21px] h-[21px]">
-                      <circle cx="11" cy="11" r="7" />
-                      <path strokeLinecap="round" d="M20 20l-3-3" />
-                    </svg>
-                  )}
+                    ) : (
+                      <>
+                        <circle cx="11" cy="11" r="7" />
+                        <path strokeLinecap="round" d="M20 20l-3-3" />
+                      </>
+                    )}
+                  </svg>
                 </button>
               )}
             </div>
