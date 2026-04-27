@@ -1418,7 +1418,7 @@ function ExplorePageContent() {
             /* Default state — title + search icon in same row */
             <div className="flex items-center justify-center relative">
               <span className="tab-header-title">Explore</span>
-              <div className="absolute right-0 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+              <div className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
                 <Icon name="search" size={20} className="text-white" />
               </div>
             </div>
