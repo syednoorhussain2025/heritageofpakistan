@@ -153,6 +153,29 @@ const DiscoverTile = memo(function DiscoverTile({
 
   const tileRef = useRef<HTMLDivElement>(null);
 
+  // Scroll-into-view fade for tiles below the fold
+  const setTileRef = useCallback((el: HTMLDivElement | null) => {
+    (tileRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (!el) return;
+    // If already in viewport (first batch), leave animation to the stagger wrapper
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight) return;
+    // Below the fold — hide and reveal on scroll
+    el.style.opacity = "0";
+    el.style.transform = "translateY(18px)";
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        el.style.transition = "opacity 0.7s ease, transform 0.7s ease";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -30px 0px" }
+    );
+    observer.observe(el);
+  }, []);
+
   const handlePressEnd = useCallback(() => {
     const rect = tileRef.current?.getBoundingClientRect();
     if (rect) onOpen(rect, thumbUrl);
@@ -160,7 +183,7 @@ const DiscoverTile = memo(function DiscoverTile({
 
   return (
     <div
-      ref={tileRef}
+      ref={setTileRef}
       className={`relative w-full overflow-hidden rounded-3xl cursor-pointer ${aspectClass}`}
       style={{ backgroundColor: "#e0dcd8" }}
       onPointerUp={handlePressEnd}
