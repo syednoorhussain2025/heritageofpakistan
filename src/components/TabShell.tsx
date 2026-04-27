@@ -37,23 +37,32 @@ function usePaneRef(tab: TabKey) {
     const el = ref.current;
     if (!el) return;
 
-    // Set initial display from current store state
+    // Set initial display from current store state — no fade on first paint
     const initial = getActiveTab() === tab;
     el.style.display = initial ? "block" : "none";
+    el.style.opacity = "1";
     el.setAttribute("aria-hidden", initial ? "false" : "true");
 
     const unsub = subscribeTab((active) => {
       const isActive = active === tab;
-      el.style.display = isActive ? "block" : "none";
       el.setAttribute("aria-hidden", isActive ? "false" : "true");
 
       if (!isActive) {
+        el.style.display = "none";
         el.dispatchEvent(new CustomEvent("tab-hidden", { bubbles: true }));
       } else {
         // Reset scroll on the pane root and tagged children
         el.scrollTop = 0;
         el.querySelectorAll<HTMLElement>("[data-scroll-reset]").forEach((child) => {
           child.scrollTop = 0;
+        });
+        // Micro fade-in: set display:block at opacity 0, then transition to 1
+        el.style.transition = "none";
+        el.style.opacity = "0";
+        el.style.display = "block";
+        requestAnimationFrame(() => {
+          el.style.transition = "opacity 0.18s ease-out";
+          el.style.opacity = "1";
         });
         window.dispatchEvent(new CustomEvent("tab-shown"));
       }
