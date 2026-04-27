@@ -1413,32 +1413,19 @@ function ExplorePageContent() {
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
       >
-        <div className="px-4 pb-0" style={{ paddingTop: "var(--tab-title-top)" }}>
+        {/* Fixed-height row — same height in both states, no layout shift */}
+        <div className="px-4 pb-0 flex items-center justify-center relative" style={{ paddingTop: "var(--tab-title-top)" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
-            /* Default state — title + search icon in same row */
-            <div className="flex items-center justify-center relative">
-              <span className="tab-header-title">Explore</span>
-              <div className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
-                <Icon name="search" size={20} className="text-white" />
-              </div>
-            </div>
+            <span className="tab-header-title">Explore</span>
           ) : (
-            /* Filtered state — title replaced by active filter text */
-            <>
-              <div className="flex items-center justify-center gap-2.5">
-                <Icon name="search" size={18} className="text-white/90 shrink-0" />
-                <span className="min-w-0 max-w-full text-[14px] font-semibold text-white truncate">
-                  {headline}
-                </span>
-                <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
-              </div>
-              <div className="flex items-center justify-center mt-1">
-                <span className="text-[11px] text-white/60 tabular-nums">
-                  {loading && results.sites.length === 0 ? "…" : `${results.total} ${results.total === 1 ? "site" : "sites"}`}
-                </span>
-              </div>
-            </>
+            <span className="min-w-0 max-w-[75%] text-[16px] font-semibold text-white truncate text-center leading-tight">
+              {headline}
+            </span>
           )}
+          {/* Search icon — always visible, consistent in both states */}
+          <div className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+            <Icon name="search" size={20} className="text-white" />
+          </div>
         </div>
       </button>
 
