@@ -1408,11 +1408,14 @@ function ExplorePageContent() {
         onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
         className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left active:brightness-95 pointer-events-auto"
       >
-        <div className="px-4 pb-3" style={{ paddingTop: "var(--tab-title-top)" }}>
+        <div className="px-4 pb-2" style={{ paddingTop: "var(--tab-title-top)" }}>
           {headline === "All Heritage Sites in Pakistan" ? (
-            /* Default state — just the title, no clutter */
-            <div className="flex items-center justify-center">
+            /* Default state — title + search icon in same row */
+            <div className="flex items-center justify-center relative">
               <span className="tab-header-title">Explore</span>
+              <div className="absolute right-0 w-9 h-9 flex items-center justify-center rounded-full bg-white/20">
+                <Icon name="search" size={20} className="text-white" />
+              </div>
             </div>
           ) : (
             /* Filtered state — title replaced by active filter text */
