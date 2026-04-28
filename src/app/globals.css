@@ -560,20 +560,20 @@ code {
   transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Static wrapper — holds radius+overflow so they never animate */
+/* Static wrapper — pointer-events only, no clip */
 .dps-card-wrap {
-  border-radius: 1.5rem;
-  overflow: hidden;
   pointer-events: none;
 }
 .dps-card-wrap.dps-open {
   pointer-events: auto;
 }
 
-/* Inner animated div — opacity+nudge only, no radius involved */
+/* Animated card — radius on the element itself so WebKit never clips externally */
 .dps-card {
   opacity: 0;
-  transform: translateY(22px);
+  transform: translateY(36px);
+  border-radius: 1.5rem;
+  overflow: hidden;
   transition:
     opacity 0.35s cubic-bezier(0.64, 0, 0.78, 0),
     transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
