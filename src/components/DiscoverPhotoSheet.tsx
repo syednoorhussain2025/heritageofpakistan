@@ -147,14 +147,13 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   // Native drag-to-dismiss — pointer events so it runs off main thread scroll
   const handleDragStart = useCallback((e: React.PointerEvent) => {
     const card = cardRef.current;
-    if (!card) return;
+    if (!card || !interactive) return;
     isDragging.current = true;
     dragStartY.current = e.clientY;
     dragCurrentY.current = 0;
     card.setPointerCapture(e.pointerId);
-    // Disable CSS transition while dragging for immediate response
     card.style.transition = "none";
-  }, []);
+  }, [interactive]);
 
   const handleDragMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current) return;
@@ -162,7 +161,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     dragCurrentY.current = dy;
     const card = cardRef.current;
     if (!card) return;
-    // Only allow downward drag
     const clamped = Math.max(0, dy);
     card.style.transform = `translateY(${clamped}px)`;
   }, []);
@@ -173,13 +171,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     const card = cardRef.current;
     if (!card) return;
     const dy = dragCurrentY.current;
-    // Re-enable transition
     card.style.transition = "";
     if (dy > 80) {
       closeWithAnimation();
     } else {
-      // Snap back
-      card.style.transform = "translateY(0)";
+      card.style.transform = "";
     }
   }, [closeWithAnimation]);
 
@@ -262,40 +258,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const displayThumb = thumbUrl ?? lgUrl;
 
-  // CSS-only transitions — run on compositor thread, immune to JS/scroll jank
-  const OPEN_EASING  = "cubic-bezier(0.22, 1, 0.36, 1)";
-  const CLOSE_EASING = "cubic-bezier(0.64, 0, 0.78, 0)";
-
-  const backdropStyle: React.CSSProperties = {
-    backgroundColor: "rgba(0,0,0,0.72)",
-    opacity: isVisible ? 1 : 0,
-    pointerEvents: isVisible ? "auto" : "none",
-    transition: isVisible
-      ? `opacity 0.42s ${OPEN_EASING}`
-      : `opacity 0.38s ${CLOSE_EASING}`,
-    willChange: "opacity",
-  };
-
-  const cardStyle: React.CSSProperties = {
-    maxHeight: "90dvh",
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "1.5rem",
-    overflow: "hidden",
-    opacity: isVisible ? 1 : 0,
-    transform: isVisible ? "translateY(0)" : "translateY(40px)",
-    transition: isVisible
-      ? `opacity 0.42s ${OPEN_EASING}, transform 0.42s ${OPEN_EASING}`
-      : `opacity 0.38s ${CLOSE_EASING}, transform 0.38s ${CLOSE_EASING}`,
-    willChange: "transform, opacity",
-  };
+  const openClass = isVisible ? "dps-open" : "";
 
   const modal = createPortal(
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[3500]"
-        style={backdropStyle}
+        className={`fixed inset-0 z-[3500] dps-backdrop ${openClass}`}
+        style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
@@ -308,11 +278,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         aria-label="Photo details"
       >
         <div
-          className="relative w-full max-w-sm shadow-2xl bg-white"
-          style={{
-            ...cardStyle,
-            pointerEvents: isVisible ? "auto" : "none",
-          }}
+          className={`relative w-full max-w-sm shadow-2xl bg-white dps-card ${openClass}`}
+          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column" }}
           ref={cardRef}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
