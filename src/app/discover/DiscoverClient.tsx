@@ -825,7 +825,7 @@ export default function DiscoverClient({
       id="discover-page-root"
       ref={scrollRef}
       data-scroll-reset
-      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
+      className={`h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen${sheetVisible ? " discover-blurred" : ""}`}
       style={{} as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

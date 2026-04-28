@@ -560,6 +560,14 @@ code {
   transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Discover page blur when photo popup is open — filter on static element, not backdrop-filter */
+#discover-page-root {
+  transition: filter 0.4s ease;
+}
+.discover-blurred {
+  filter: blur(3px);
+}
+
 /* Static wrapper — radius+clip so corners are stable from first paint */
 .dps-card-wrap {
   pointer-events: none;
