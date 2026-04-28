@@ -179,9 +179,14 @@ const DiscoverTile = memo(function DiscoverTile({
   const handlePressEnd = useCallback(() => {
     const el = tileRef.current;
     if (!el) return;
-    // Stop scroll momentum before opening sheet to prevent compositor conflict
+    // Kill scroll momentum by briefly toggling overflow — WebKit drops inertia immediately
     const scroller = el.closest<HTMLElement>("[data-scroll-reset]");
-    if (scroller) scroller.scrollTo({ top: scroller.scrollTop, behavior: "instant" as ScrollBehavior });
+    if (scroller) {
+      const top = scroller.scrollTop;
+      scroller.style.overflowY = "hidden";
+      scroller.scrollTop = top;
+      requestAnimationFrame(() => { scroller.style.overflowY = ""; });
+    }
     const rect = el.getBoundingClientRect();
     onOpen(rect, thumbUrl);
   }, [onOpen, thumbUrl]);

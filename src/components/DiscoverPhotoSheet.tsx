@@ -228,10 +228,10 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }
   }
 
-  if (!mounted || !activePhoto) return null;
+  if (!mounted) return null;
 
-  const site = activePhoto.site;
-  const isPortrait = !!(activePhoto.width && activePhoto.height && activePhoto.height > activePhoto.width);
+  const site = activePhoto?.site;
+  const isPortrait = !!(activePhoto?.width && activePhoto?.height && activePhoto.height > activePhoto.width);
   const imgAspectPb = isPortrait ? "125%" : undefined;
   const imgHeight = isPortrait ? undefined : "280px";
 
@@ -254,6 +254,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         transition={isVisible ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.38, ease: [0.64, 0, 0.78, 0] }}
         onPointerDown={handleClosePress}
         aria-hidden="true"
+        style={{ pointerEvents: isVisible ? "auto" : "none" } as React.CSSProperties}
       />
 
       {/* Card — scales from tap origin */}
@@ -263,7 +264,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         role="dialog"
         aria-label="Photo details"
       >
-        <div className="relative w-full max-w-sm shadow-2xl pointer-events-auto">
+        <div className="relative w-full max-w-sm shadow-2xl" style={{ pointerEvents: isVisible ? "auto" : "none" }}>
         <motion.div
           className="relative w-full bg-white overflow-hidden"
           style={{
@@ -292,7 +293,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               {/* Thumb shown instantly (already in browser cache from tile) */}
               <img
                 src={displayThumb}
-                alt={activePhoto.caption ?? site.name}
+                alt={activePhoto?.caption ?? site?.name ?? ""}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 loading="eager"
               />
@@ -313,22 +314,22 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
           {/* Info */}
           <div className="px-4 pt-3 pb-1.5 shrink-0">
-            {activePhoto.caption && (
+            {activePhoto?.caption && (
               <p className="text-stone-600 text-[13.5px] leading-snug mb-2 line-clamp-2">
                 {activePhoto.caption}
               </p>
             )}
             <div className="flex items-center gap-2 mt-0.5">
               <h2 className="text-[16px] font-bold text-[var(--brand-blue)] leading-tight truncate">
-                {site.name}
+                {site?.name}
               </h2>
-              {site.heritageType && (
+              {site?.heritageType && (
                 <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--brand-orange)]/10 text-[var(--brand-orange)] font-medium text-[10.5px]">
                   {site.heritageType}
                 </span>
               )}
             </div>
-            {site.location && (
+            {site?.location && (
               <span className="flex items-center gap-0.5 text-gray-400 text-[10.5px] mt-0.5">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 shrink-0">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
@@ -354,11 +355,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
             {/* Save */}
             <SavePhotoButton
-              siteImageId={activePhoto.id}
-              storagePath={activePhoto.storagePath}
-              imageUrl={activePhoto.url}
-              siteId={site.id}
-              altText={activePhoto.caption}
+              siteImageId={activePhoto?.id}
+              storagePath={activePhoto?.storagePath}
+              imageUrl={activePhoto?.url}
+              siteId={site?.id}
+              altText={activePhoto?.caption}
             />
 
             {/* Download */}
