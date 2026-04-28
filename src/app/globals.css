@@ -561,18 +561,18 @@ code {
 }
 
 .dps-card {
-  /* translateY only — no opacity animation, avoids compositing layer flicker */
   transform: translateY(110vh);
   pointer-events: none;
   border-radius: 1.5rem;
   overflow: hidden;
-  transition: transform 0.38s cubic-bezier(0.64, 0, 0.78, 0);
+  transition: transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
   will-change: transform;
 }
 .dps-card.dps-open {
   transform: translateY(0);
   pointer-events: auto;
-  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Small delay so backdrop renders first — eliminates white flash */
+  transition: transform 0.42s 0.04s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes shimmer {
