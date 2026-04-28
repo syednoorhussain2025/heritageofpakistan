@@ -560,19 +560,31 @@ code {
   transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.dps-card {
-  transform: translateY(110vh);
-  pointer-events: none;
+/* Static wrapper — holds radius+overflow so they never animate */
+.dps-card-wrap {
   border-radius: 1.5rem;
   overflow: hidden;
-  transition: transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
-  will-change: transform;
+  pointer-events: none;
+}
+.dps-card-wrap.dps-open {
+  pointer-events: auto;
+}
+
+/* Inner animated div — opacity+nudge only, no radius involved */
+.dps-card {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.35s cubic-bezier(0.64, 0, 0.78, 0),
+    transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
+  will-change: transform, opacity;
 }
 .dps-card.dps-open {
+  opacity: 1;
   transform: translateY(0);
-  pointer-events: auto;
-  /* Small delay so backdrop renders first — eliminates white flash */
-  transition: transform 0.42s 0.04s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 0.42s 0.04s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s 0.04s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes shimmer {
