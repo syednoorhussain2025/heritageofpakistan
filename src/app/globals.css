@@ -560,9 +560,11 @@ code {
   transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Static wrapper — pointer-events only, no clip */
+/* Static wrapper — radius+clip so corners are stable from first paint */
 .dps-card-wrap {
   pointer-events: none;
+  border-radius: 1.5rem;
+  overflow: hidden;
 }
 .dps-card-wrap.dps-open {
   pointer-events: auto;
