@@ -497,6 +497,11 @@ export default function DiscoverClient({
   const [sheetThumbUrl, setSheetThumbUrl] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
 
+  useEffect(() => {
+    document.body.classList.toggle("discover-sheet-open", sheetVisible);
+    return () => { document.body.classList.remove("discover-sheet-open"); };
+  }, [sheetVisible]);
+
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
@@ -825,7 +830,7 @@ export default function DiscoverClient({
       id="discover-page-root"
       ref={scrollRef}
       data-scroll-reset
-      className={`h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen${sheetVisible ? " discover-blurred" : ""}`}
+      className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
       style={{} as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -984,7 +989,7 @@ export default function DiscoverClient({
 
       {/* ── Feed ── */}
       <div
-        className="px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0"
+        className={`px-3 pb-8 lg:px-10 xl:px-16 lg:!pt-0${sheetVisible ? " discover-blurred" : ""}`}
         style={{ paddingTop: "calc(var(--sat, 44px) + 80px)" }}
       >
         {/* Error state */}

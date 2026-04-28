@@ -560,12 +560,20 @@ code {
   transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Discover page blur when photo popup is open — filter on static element, not backdrop-filter */
-#discover-page-root {
-  transition: filter 0.4s ease;
-}
+/* Discover photo popup blur — filter on static elements, not backdrop-filter */
 .discover-blurred {
   filter: blur(3px);
+  transition: filter 0.4s ease;
+}
+body:not(.discover-sheet-open) .discover-blurred {
+  filter: blur(0);
+}
+body.discover-sheet-open #bottom-nav {
+  filter: blur(3px);
+  transition: filter 0.4s ease;
+}
+#bottom-nav {
+  transition: filter 0.4s ease;
 }
 
 /* Static wrapper — radius+clip so corners are stable from first paint */
