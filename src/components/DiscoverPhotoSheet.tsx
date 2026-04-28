@@ -263,15 +263,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         role="dialog"
         aria-label="Photo details"
       >
+        <div className="relative w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden pointer-events-auto">
         <motion.div
-          className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pointer-events-auto overflow-hidden"
+          className="relative w-full bg-white"
           style={{
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
             willChange: "transform, opacity",
-            transform: "translateZ(0)",
-            backfaceVisibility: "hidden",
           }}
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: isVisible ? 0 : 40, opacity: isVisible ? 1 : 0 }}
@@ -395,6 +394,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             </button>
           </div>
         </motion.div>
+        </div>
       </div>
 
       {/* Toast */}
