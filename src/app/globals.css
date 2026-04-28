@@ -562,7 +562,7 @@ code {
 
 .dps-card {
   /* translateY only — no opacity animation, avoids compositing layer flicker */
-  transform: translateY(100%);
+  transform: translateY(110vh);
   pointer-events: none;
   border-radius: 1.5rem;
   overflow: hidden;
