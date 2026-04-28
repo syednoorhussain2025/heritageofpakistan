@@ -188,19 +188,6 @@ const DiscoverTile = memo(function DiscoverTile({
       style={{ backgroundColor: "#e0dcd8" }}
       onPointerUp={handlePressEnd}
     >
-      {/* Blur placeholder */}
-      {photo.blurDataURL && !imgFailed && (
-        <div
-          className="absolute inset-0 z-[1]"
-          style={{
-            backgroundImage: `url(${photo.blurDataURL})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            filter: "blur(10px)",
-            transform: "scale(1.1)",
-          }}
-        />
-      )}
 
       {/* Failed state */}
       {imgFailed && (
