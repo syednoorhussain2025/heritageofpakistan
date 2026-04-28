@@ -246,7 +246,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       <motion.div
         className="fixed inset-0 z-[3500]"
         style={{
-          backgroundColor: "rgba(0,0,0,0.55)",
+          backgroundColor: "rgba(0,0,0,0.72)",
           willChange: "opacity",
         }}
         initial={{ opacity: 0 }}
@@ -263,13 +263,14 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         role="dialog"
         aria-label="Photo details"
       >
-        <div className="relative w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden pointer-events-auto">
+        <div className="relative w-full max-w-sm shadow-2xl pointer-events-auto">
         <motion.div
-          className="relative w-full bg-white"
+          className="relative w-full bg-white overflow-hidden"
           style={{
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
+            borderRadius: "1.5rem",
             willChange: "transform, opacity",
           }}
           initial={{ y: 40, opacity: 0 }}
