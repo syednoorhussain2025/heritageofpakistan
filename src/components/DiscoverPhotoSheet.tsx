@@ -269,11 +269,10 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             maxHeight: "90dvh",
             display: "flex",
             flexDirection: "column",
-            transformOrigin,
             willChange: "transform, opacity",
           }}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: isVisible ? 1 : 0.5, opacity: isVisible ? 1 : 0 }}
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: isVisible ? 0 : 40, opacity: isVisible ? 1 : 0 }}
           transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
