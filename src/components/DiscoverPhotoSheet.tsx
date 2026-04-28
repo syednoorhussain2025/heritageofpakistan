@@ -254,12 +254,28 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           {/* Image */}
           <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
+              {/* Thumb renders instantly from browser cache (same URL as tile) */}
               <img
-                src={lgUrl}
+                src={displayThumb}
                 alt={activePhoto?.caption ?? site?.name ?? ""}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 loading="eager"
               />
+              {/* lg variant fades in on top once loaded */}
+              {lgUrl !== displayThumb && (
+                <img
+                  src={lgUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
+                  style={{ opacity: 0 }}
+                  loading="eager"
+                  onLoad={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.transition = "opacity 0.3s ease";
+                    (e.currentTarget as HTMLImageElement).style.opacity = "1";
+                  }}
+                />
+              )}
             </div>
           </div>
 
