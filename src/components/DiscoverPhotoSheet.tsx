@@ -255,22 +255,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               <img
-                src={displayThumb}
+                src={lgUrl}
                 alt={activePhoto?.caption ?? site?.name ?? ""}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 loading="eager"
               />
-              {lgUrl !== displayThumb && (
-                <img
-                  src={lgUrl}
-                  alt=""
-                  aria-hidden="true"
-                  className="absolute inset-0 w-full h-full object-cover object-top"
-                  style={{ opacity: 0, transition: "opacity 0.35s ease" }}
-                  loading="eager"
-                  onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
-                />
-              )}
             </div>
           </div>
 
