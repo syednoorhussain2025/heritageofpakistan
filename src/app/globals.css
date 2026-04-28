@@ -553,7 +553,6 @@ code {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.38s cubic-bezier(0.64, 0, 0.78, 0);
-  will-change: opacity;
 }
 .dps-backdrop.dps-open {
   opacity: 1;
@@ -562,23 +561,18 @@ code {
 }
 
 .dps-card {
-  opacity: 0;
-  transform: translateY(40px);
+  /* translateY only — no opacity animation, avoids compositing layer flicker */
+  transform: translateY(100%);
   pointer-events: none;
   border-radius: 1.5rem;
   overflow: hidden;
-  transition:
-    opacity 0.38s cubic-bezier(0.64, 0, 0.78, 0),
-    transform 0.38s cubic-bezier(0.64, 0, 0.78, 0);
-  will-change: transform, opacity;
+  transition: transform 0.38s cubic-bezier(0.64, 0, 0.78, 0);
+  will-change: transform;
 }
 .dps-card.dps-open {
-  opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  transition:
-    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes shimmer {
