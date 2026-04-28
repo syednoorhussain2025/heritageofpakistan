@@ -270,6 +270,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
             display: "flex",
             flexDirection: "column",
             willChange: "transform, opacity",
+            transform: "translateZ(0)",
+            backfaceVisibility: "hidden",
           }}
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: isVisible ? 0 : 40, opacity: isVisible ? 1 : 0 }}
