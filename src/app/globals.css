@@ -552,7 +552,7 @@ code {
 .dps-backdrop {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.38s cubic-bezier(0.64, 0, 0.78, 0);
+  transition: opacity 0.45s ease-out;
 }
 .dps-backdrop.dps-open {
   opacity: 1;

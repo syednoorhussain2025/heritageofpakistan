@@ -94,11 +94,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const lastPhotoRef = useRef<typeof photo>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Drag state
-  const dragStartY = useRef(0);
-  const dragCurrentY = useRef(0);
-  const isDragging = useRef(false);
-
   // Keep last known photo alive during close animation
   if (photo) lastPhotoRef.current = photo;
   const activePhoto = photo ?? lastPhotoRef.current;
@@ -144,40 +139,9 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }, 400);
   }, [onClose, onCloseStart]);
 
-  // Native drag-to-dismiss — pointer events so it runs off main thread scroll
-  const handleDragStart = useCallback((e: React.PointerEvent) => {
-    const card = cardRef.current;
-    if (!card || !interactive) return;
-    isDragging.current = true;
-    dragStartY.current = e.clientY;
-    dragCurrentY.current = 0;
-    card.setPointerCapture(e.pointerId);
-    card.style.transition = "none";
-  }, [interactive]);
-
-  const handleDragMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    const dy = e.clientY - dragStartY.current;
-    dragCurrentY.current = dy;
-    const card = cardRef.current;
-    if (!card) return;
-    const clamped = Math.max(0, dy);
-    card.style.transform = `translateY(${clamped}px)`;
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    const card = cardRef.current;
-    if (!card) return;
-    const dy = dragCurrentY.current;
-    card.style.transition = "";
-    if (dy > 80) {
-      closeWithAnimation();
-    } else {
-      card.style.transform = "";
-    }
-  }, [closeWithAnimation]);
+  const handleDragStart = useCallback((_e: React.PointerEvent) => {}, []);
+  const handleDragMove = useCallback((_e: React.PointerEvent) => {}, []);
+  const handleDragEnd = useCallback(() => {}, []);
 
   async function handleOpenSite() {
     if (!activePhoto) return;
