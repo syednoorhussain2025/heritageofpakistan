@@ -229,7 +229,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-[3500] dps-backdrop ${openClass}`}
-        style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
+        style={{ backgroundColor: "rgba(0,0,0,0.36)" }}
         onPointerDown={closeWithAnimation}
         aria-hidden="true"
       />
