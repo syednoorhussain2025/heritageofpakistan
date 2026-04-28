@@ -177,8 +177,13 @@ const DiscoverTile = memo(function DiscoverTile({
   }, []);
 
   const handlePressEnd = useCallback(() => {
-    const rect = tileRef.current?.getBoundingClientRect();
-    if (rect) onOpen(rect, thumbUrl);
+    const el = tileRef.current;
+    if (!el) return;
+    // Stop scroll momentum before opening sheet to prevent compositor conflict
+    const scroller = el.closest<HTMLElement>("[data-scroll-reset]");
+    if (scroller) scroller.scrollTo({ top: scroller.scrollTop, behavior: "instant" as ScrollBehavior });
+    const rect = el.getBoundingClientRect();
+    onOpen(rect, thumbUrl);
   }, [onOpen, thumbUrl]);
 
   return (
