@@ -487,6 +487,14 @@ export default function DiscoverClient({
   const [sheetThumbUrl, setSheetThumbUrl] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
 
+  // Defer sheet open by one rAF so scroll momentum settles before animation starts
+  const openSheet = useCallback((photo: DiscoverPhoto, rect: DOMRect, thumb: string) => {
+    setSheetPhoto(photo);
+    setSheetOriginRect(rect);
+    setSheetThumbUrl(thumb);
+    requestAnimationFrame(() => setSheetVisible(true));
+  }, []);
+
   const scrollRef   = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
@@ -1050,7 +1058,7 @@ export default function DiscoverClient({
                       photo={photo}
                       aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]}
                       isPriority={colIdx < 4}
-                      onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
+                      onOpen={(rect, thumb) => openSheet(photo, rect, thumb)}
                     />
                   </div>
                 ))}
@@ -1068,7 +1076,7 @@ export default function DiscoverClient({
                       photo={photo}
                       aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]}
                       isPriority={colIdx < 4}
-                      onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }}
+                      onOpen={(rect, thumb) => openSheet(photo, rect, thumb)}
                     />
                   </div>
                 ))}
@@ -1082,25 +1090,25 @@ export default function DiscoverClient({
             <div className="hidden lg:flex gap-3 items-start">
               <div className="flex flex-col gap-3 flex-1">
                 {col0.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={LEFT_ASPECTS[colIdx % LEFT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => openSheet(photo, rect, thumb)} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d0-sk-${i}`} aspectClass={LEFT_ASPECTS[(col0.length + i) % LEFT_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col1.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={RIGHT_ASPECTS[colIdx % RIGHT_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => openSheet(photo, rect, thumb)} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d1-sk-${i}`} aspectClass={RIGHT_ASPECTS[(col1.length + i) % RIGHT_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col2.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL2_ASPECTS[colIdx % COL2_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => openSheet(photo, rect, thumb)} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d2-sk-${i}`} aspectClass={COL2_ASPECTS[(col2.length + i) % COL2_ASPECTS.length]} />)}
               </div>
               <div className="flex flex-col gap-3 flex-1">
                 {col3.map((photo, colIdx) => (
-                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => { setSheetPhoto(photo); setSheetOriginRect(rect); setSheetThumbUrl(thumb); setSheetVisible(true); }} />
+                  <DiscoverTile key={photo.id} photo={photo} aspectClass={COL3_ASPECTS[colIdx % COL3_ASPECTS.length]} isPriority={colIdx < 4} onOpen={(rect, thumb) => openSheet(photo, rect, thumb)} />
                 ))}
                 {(loading || searchLoading) && [0, 1, 2].map((i) => <SkeletonTile key={`d3-sk-${i}`} aspectClass={COL3_ASPECTS[(col3.length + i) % COL3_ASPECTS.length]} />)}
               </div>
