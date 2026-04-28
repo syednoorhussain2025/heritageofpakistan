@@ -92,6 +92,12 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPhotoRef = useRef<typeof photo>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Drag state
+  const dragStartY = useRef(0);
+  const dragCurrentY = useRef(0);
+  const isDragging = useRef(false);
 
   // Keep last known photo alive during close animation
   if (photo) lastPhotoRef.current = photo;
@@ -113,22 +119,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2500);
   }, []);
-
-  // Compute transformOrigin relative to the card's final centered position.
-  // The card is centered in the viewport, so card center = viewport center.
-  // We express the tile's center as an offset from the card's center.
-  const transformOrigin = (() => {
-    if (!originRect) return "center center";
-    const vpCx = window.innerWidth / 2;
-    const vpCy = window.innerHeight / 2;
-    const tileCx = originRect.left + originRect.width / 2;
-    const tileCy = originRect.top + originRect.height / 2;
-    // offset from card center, expressed as px relative to card top-left
-    // card is ~384px wide, ~auto height — use 50%+offset form
-    const dx = tileCx - vpCx;
-    const dy = tileCy - vpCy;
-    return `calc(50% + ${dx}px) calc(50% + ${dy}px)`;
-  })();
 
   // Drive visibility from photo prop
   const interactiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,8 +144,43 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
     }, 400);
   }, [onClose, onCloseStart]);
 
-  const handleClosePress = useCallback(() => {
-    closeWithAnimation();
+  // Native drag-to-dismiss — pointer events so it runs off main thread scroll
+  const handleDragStart = useCallback((e: React.PointerEvent) => {
+    const card = cardRef.current;
+    if (!card) return;
+    isDragging.current = true;
+    dragStartY.current = e.clientY;
+    dragCurrentY.current = 0;
+    card.setPointerCapture(e.pointerId);
+    // Disable CSS transition while dragging for immediate response
+    card.style.transition = "none";
+  }, []);
+
+  const handleDragMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const dy = e.clientY - dragStartY.current;
+    dragCurrentY.current = dy;
+    const card = cardRef.current;
+    if (!card) return;
+    // Only allow downward drag
+    const clamped = Math.max(0, dy);
+    card.style.transform = `translateY(${clamped}px)`;
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const card = cardRef.current;
+    if (!card) return;
+    const dy = dragCurrentY.current;
+    // Re-enable transition
+    card.style.transition = "";
+    if (dy > 80) {
+      closeWithAnimation();
+    } else {
+      // Snap back
+      card.style.transform = "translateY(0)";
+    }
   }, [closeWithAnimation]);
 
   async function handleOpenSite() {
@@ -237,67 +262,72 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const displayThumb = thumbUrl ?? lgUrl;
 
-  const OPEN_TRANSITION  = { type: "tween", duration: 0.42, ease: [0.22, 1, 0.36, 1] } as const;
-  const CLOSE_TRANSITION = { type: "tween", duration: 0.38, ease: [0.64, 0, 0.78, 0] } as const;
+  // CSS-only transitions — run on compositor thread, immune to JS/scroll jank
+  const OPEN_EASING  = "cubic-bezier(0.22, 1, 0.36, 1)";
+  const CLOSE_EASING = "cubic-bezier(0.64, 0, 0.78, 0)";
+
+  const backdropStyle: React.CSSProperties = {
+    backgroundColor: "rgba(0,0,0,0.72)",
+    opacity: isVisible ? 1 : 0,
+    pointerEvents: isVisible ? "auto" : "none",
+    transition: isVisible
+      ? `opacity 0.42s ${OPEN_EASING}`
+      : `opacity 0.38s ${CLOSE_EASING}`,
+    willChange: "opacity",
+  };
+
+  const cardStyle: React.CSSProperties = {
+    maxHeight: "90dvh",
+    display: "flex",
+    flexDirection: "column",
+    borderRadius: "1.5rem",
+    overflow: "hidden",
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? "translateY(0)" : "translateY(40px)",
+    transition: isVisible
+      ? `opacity 0.42s ${OPEN_EASING}, transform 0.42s ${OPEN_EASING}`
+      : `opacity 0.38s ${CLOSE_EASING}, transform 0.38s ${CLOSE_EASING}`,
+    willChange: "transform, opacity",
+  };
 
   const modal = createPortal(
     <>
       {/* Backdrop */}
-      <motion.div
+      <div
         className="fixed inset-0 z-[3500]"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.72)",
-          willChange: "opacity",
-        }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isVisible ? 1 : 0 }}
-        transition={isVisible ? { duration: 0.42, ease: [0.22, 1, 0.36, 1] } : { duration: 0.38, ease: [0.64, 0, 0.78, 0] }}
-        onPointerDown={handleClosePress}
+        style={backdropStyle}
+        onPointerDown={closeWithAnimation}
         aria-hidden="true"
-        style={{ pointerEvents: isVisible ? "auto" : "none" } as React.CSSProperties}
       />
 
-      {/* Card — scales from tap origin */}
+      {/* Card */}
       <div
         className="fixed inset-0 z-[3510] flex items-center justify-center px-5 pointer-events-none"
         aria-modal="true"
         role="dialog"
         aria-label="Photo details"
       >
-        <div className="relative w-full max-w-sm shadow-2xl" style={{ pointerEvents: isVisible ? "auto" : "none" }}>
-        <motion.div
-          className="relative w-full bg-white overflow-hidden"
+        <div
+          className="relative w-full max-w-sm shadow-2xl bg-white"
           style={{
-            maxHeight: "90dvh",
-            display: "flex",
-            flexDirection: "column",
-            borderRadius: "1.5rem",
-            willChange: "transform, opacity",
+            ...cardStyle,
+            pointerEvents: isVisible ? "auto" : "none",
           }}
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: isVisible ? 0 : 40, opacity: isVisible ? 1 : 0 }}
-          transition={isVisible ? OPEN_TRANSITION : CLOSE_TRANSITION}
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.08}
-          dragMomentum={false}
-          onDragEnd={(_, info) => {
-            if (Math.abs(info.offset.y) > 40 || Math.abs(info.velocity.y) > 300) {
-              handleClosePress();
-            }
-          }}
+          ref={cardRef}
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
         >
           {/* Image */}
           <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
-              {/* Thumb shown instantly (already in browser cache from tile) */}
               <img
                 src={displayThumb}
                 alt={activePhoto?.caption ?? site?.name ?? ""}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 loading="eager"
               />
-              {/* lg variant fades in on top once loaded */}
               {lgUrl !== displayThumb && (
                 <img
                   src={lgUrl}
@@ -341,7 +371,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
           {/* Actions */}
           <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none" }}>
-            {/* Open Site */}
             <button
               type="button"
               onClick={() => { void handleOpenSite(); }}
@@ -353,7 +382,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               <span className="text-[11px] font-semibold">Open</span>
             </button>
 
-            {/* Save */}
             <SavePhotoButton
               siteImageId={activePhoto?.id}
               storagePath={activePhoto?.storagePath}
@@ -362,7 +390,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               altText={activePhoto?.caption}
             />
 
-            {/* Download */}
             <button
               type="button"
               onClick={() => { void handleDownload(); }}
@@ -381,7 +408,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               <span className="text-[11px] font-semibold">Download</span>
             </button>
 
-            {/* Share */}
             <button
               type="button"
               onClick={() => { void handleShare(); }}
@@ -395,7 +421,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               <span className="text-[11px] font-semibold">Share</span>
             </button>
           </div>
-        </motion.div>
         </div>
       </div>
 
