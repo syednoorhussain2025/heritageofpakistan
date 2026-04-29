@@ -298,7 +298,7 @@ function HomeCardCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const rafRef = useRef<number | null>(null);
-  const lastHapticIndex = useRef(-1);
+  const lastHapticIndex = useRef(0);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -783,7 +783,7 @@ const PROVINCE_IMAGES: Record<string, string> = {
 function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: Record<string, string> }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastHapticIndex = useRef<number>(-1);
+  const lastHapticIndex = useRef<number>(0);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
