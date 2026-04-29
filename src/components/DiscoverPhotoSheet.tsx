@@ -51,15 +51,15 @@ function SavePhotoButton({
       onClick={handleClick}
       animate={popping ? { scale: 1.08 } : { scale: 1 }}
       transition={{ duration: 0.15, ease: "easeOut" }}
-      className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-colors ${
+      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-colors ${
         saved ? "text-white active:opacity-80" : "bg-stone-100 text-stone-600 active:bg-stone-200"
       }`}
       style={saved ? { backgroundColor: "var(--brand-orange)" } : undefined}
     >
-      <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+      <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
       </svg>
-      <span className="text-[11px] font-semibold">{saved ? "Saved" : "Save"}</span>
+      <span className="text-[10px] font-semibold">{saved ? "Saved" : "Save"}</span>
     </motion.button>
   );
 }
@@ -247,8 +247,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           onPointerUp={handleDragEnd}
           onPointerCancel={handleDragEnd}
         >
-          {/* Image — 4:5 ratio for all orientations */}
-          <div className="relative w-full shrink-0 overflow-hidden" style={{ paddingBottom: "125%", borderRadius: "1.5rem 1.5rem 0 0" }}>
+          {/* Image — fixed 260px height, covers all orientations consistently */}
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: "260px", borderRadius: "1.5rem 1.5rem 0 0" }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               {/* Thumb renders instantly from browser cache (same URL as tile) */}
               <img
@@ -303,16 +303,16 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           </div>
 
           {/* Actions */}
-          <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none", borderRadius: "0 0 1.5rem 1.5rem", overflow: "hidden" }}>
+          <div className="px-3 pt-1.5 pb-3 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none", borderRadius: "0 0 1.5rem 1.5rem", overflow: "hidden" }}>
             <button
               type="button"
               onClick={() => { void handleOpenSite(); }}
-              className="flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M13 6l6 6-6 6" />
               </svg>
-              <span className="text-[11px] font-semibold">Open</span>
+              <span className="text-[10px] font-semibold">Open</span>
             </button>
 
             <SavePhotoButton
@@ -327,31 +327,31 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               type="button"
               onClick={() => { void handleDownload(); }}
               disabled={downloading}
-              className="flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors disabled:opacity-50"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors disabled:opacity-50"
             >
               {downloading ? (
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 3v12" />
                 </svg>
               )}
-              <span className="text-[11px] font-semibold">Download</span>
+              <span className="text-[10px] font-semibold">Download</span>
             </button>
 
             <button
               type="button"
               onClick={() => { void handleShare(); }}
-              className="flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl bg-stone-100 text-stone-600 active:bg-stone-200 transition-colors"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                 <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
-              <span className="text-[11px] font-semibold">Share</span>
+              <span className="text-[10px] font-semibold">Share</span>
             </button>
           </div>
         </div>
