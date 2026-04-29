@@ -162,6 +162,94 @@ const FALLBACK_GRADIENT = "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="var(--brand-green)"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
 );
 
+/* ─── Skeleton components ─────────────────────────────────────────────────── */
+
+
+const SK = "animate-pulse bg-gray-200 rounded-2xl";
+
+// Section header placeholder — matches `px-4 mb-3` + text-xl height (~28px)
+function SkHeader({ width }: { width: string }) {
+  return (
+    <div className="flex items-center px-4 mb-3" style={{ height: 28 }}>
+      <div className={`animate-pulse bg-gray-200 rounded-full h-5`} style={{ width }} />
+    </div>
+  );
+}
+
+function HomeSkeleton() {
+  return (
+    <div className="pb-24 pt-7">
+
+      {/* ── Featured hero ── mx-4 rounded-2xl aspect-[16/9] */}
+      <SkHeader width="72px" />
+      <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
+
+      {/* ── Popular Tourist Sites ── gap-3 px-4, cards 52vw/200 4:3 + ~40px footer */}
+      <div className="mt-9">
+        <SkHeader width="160px" />
+        <div className="flex gap-3 px-4 pb-1 overflow-hidden">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="shrink-0 animate-pulse bg-gray-200 rounded-2xl overflow-hidden shadow-sm" style={{ width: "52vw", maxWidth: 200 }}>
+              <div className="bg-gray-300" style={{ aspectRatio: "4/3" }} />
+              <div className="px-2.5 py-2 space-y-1.5">
+                <div className="h-3 bg-gray-300 rounded-full w-3/4" />
+                <div className="h-2.5 bg-gray-300 rounded-full w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Nearby You ── static prompt card height ~88px */}
+      <div className="mt-9">
+        <SkHeader width="80px" />
+        <div className={`${SK} mx-4`} style={{ height: 88 }} />
+      </div>
+
+      {/* ── Architectural Wonders ── StoryCarousel: height calc(72vw * 5/4) */}
+      <div className="mt-9">
+        <SkHeader width="176px" />
+        <div className="relative overflow-hidden pb-4" style={{ height: "calc(72vw * 5 / 4)" }}>
+          <div className="flex items-center gap-3 absolute inset-0" style={{ paddingLeft: "calc(50vw - 36vw)" }}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="shrink-0 animate-pulse bg-gray-200 rounded-3xl"
+                style={{
+                  width: "72vw",
+                  height: "calc(72vw * 5 / 4)",
+                  transform: `scale(${i === 0 ? 1 : 0.88})`,
+                  transformOrigin: "center center",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Explore by Region ── horizontal scroll, cards 70vw/280 × 44vw/176 */}
+      <div className="mt-9">
+        <SkHeader width="140px" />
+        <div className="flex gap-3 px-4 pb-2 overflow-hidden">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={`shrink-0 ${SK}`}
+              style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Beyond the Tourist Trail ── same as Featured: mx-4 aspect-[16/9] */}
+      <div className="mt-9">
+        <SkHeader width="192px" />
+        <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
+      </div>
+
+    </div>
+  );
+}
 
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
@@ -298,7 +386,7 @@ function HomeCardCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const rafRef = useRef<number | null>(null);
-  const lastHapticIndex = useRef(0);
+  const lastHapticIndex = useRef(-1);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -783,7 +871,7 @@ const PROVINCE_IMAGES: Record<string, string> = {
 function ProvinceTiles({ provinces, covers }: { provinces: Province[]; covers: Record<string, string> }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastHapticIndex = useRef<number>(0);
+  const lastHapticIndex = useRef<number>(-1);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -1206,7 +1294,11 @@ function MobileHomepage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Config from admin
+  const [configLoading, setConfigLoading] = useState(true);
   const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
+
+  // Site data
   const [featuredSites, setFeaturedSites] = useState<SiteCard[]>([]);
   const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
   const [architectureSites, setArchitectureSites] = useState<SiteCard[]>([]);
@@ -1262,73 +1354,100 @@ function MobileHomepage() {
 
   const sb = getPublicClient();
 
+  // ── Load config + categories + provinces on mount ──
   useEffect(() => {
-    const siteSelect = "id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, province_slug, tagline, cover_slideshow_image_ids, latitude, longitude";
+    (async () => {
+      const [cfgRes, catRes, provRes] = await Promise.all([
+        supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
+        sb.from("categories").select("id, name, slug").order("name"),
+        sb.from("regions").select("id, name, slug, parent_id").is("parent_id", null).order("name"),
+      ]);
 
-    warmProvinceSlugCache();
-
-    // Fetch config, categories, and provinces all at once
-    Promise.all([
-      supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
-      sb.from("categories").select("id, name, slug").order("name"),
-      sb.from("regions").select("id, name, slug, parent_id").is("parent_id", null).order("name"),
-      sb.from("sites").select("province_id").eq("is_published", true).not("province_id", "is", null),
-    ]).then(([cfgRes, catRes, provRes, countRes]) => {
       const cfg = (cfgRes.data?.value || {}) as MobileConfig;
       setConfig(cfg);
       setCategories((catRes.data as Option[]) || []);
 
+      // Count sites per province using group-by
+      const provRows = (provRes.data || []) as Province[];
+      const { data: countData } = await sb
+        .from("sites")
+        .select("province_id, count:id")
+        .eq("is_published", true)
+        .not("province_id", "is", null);
       const counts: Record<string, number> = {};
-      for (const row of (countRes.data || []) as { province_id: string }[]) {
-        if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
+      if (countData) {
+        for (const row of countData as { province_id: string; count: number }[]) {
+          if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
+        }
       }
-      setProvinces(((provRes.data || []) as Province[]).map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
-
-      // Fire all site fetches immediately once we have the IDs — no second await
-      const archIds = cfg.architecture?.length > 0 ? cfg.architecture : (cfg.unknown_pakistan || []);
-
-      if (cfg.featured?.length > 0) {
-        sb.from("sites").select(siteSelect).in("id", cfg.featured).eq("is_published", true)
-          .then(async ({ data }) => {
-            if (data) {
-              await ensureProvinceSlugOnSites(data as SiteCard[]);
-              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-              setFeaturedSites(cfg.featured!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-            }
-          });
-      }
-      if (cfg.popular?.length > 0) {
-        sb.from("sites").select(siteSelect).in("id", cfg.popular).eq("is_published", true)
-          .then(async ({ data }) => {
-            if (data) {
-              await ensureProvinceSlugOnSites(data as SiteCard[]);
-              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-              setPopularSites(cfg.popular!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-            }
-          });
-      }
-      if (archIds.length > 0) {
-        sb.from("sites").select(siteSelect).in("id", archIds).eq("is_published", true)
-          .then(async ({ data }) => {
-            if (data) {
-              await ensureProvinceSlugOnSites(data as SiteCard[]);
-              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-              setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-            }
-          });
-      }
-      if (cfg.beyond_tourist_trail?.length > 0) {
-        sb.from("sites").select(siteSelect).in("id", cfg.beyond_tourist_trail).eq("is_published", true)
-          .then(async ({ data }) => {
-            if (data) {
-              await ensureProvinceSlugOnSites(data as SiteCard[]);
-              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-              setBeyondTrailSites(cfg.beyond_tourist_trail!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-            }
-          });
-      }
-    });
+      setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
+      setConfigLoading(false);
+    })();
   }, []);
+
+  // ── Load featured + unknown once config is ready ──
+  useEffect(() => {
+    // Pre-warm the province slug cache so lookups are instant when sites load
+    warmProvinceSlugCache();
+
+    if (config.featured.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
+        .in("id", config.featured)
+        .eq("is_published", true)
+        .then(async ({ data }) => {
+          if (data) {
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+            setFeaturedSites(config.featured.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+
+    if (config.popular.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
+        .in("id", config.popular)
+        .eq("is_published", true)
+        .then(async ({ data }) => {
+          if (data) {
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+            setPopularSites(config.popular.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+
+    // architecture — falls back to legacy unknown_pakistan key
+    const archIds = config.architecture?.length > 0 ? config.architecture : (config.unknown_pakistan || []);
+    if (archIds.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
+        .in("id", archIds)
+        .eq("is_published", true)
+        .then(async ({ data }) => {
+          if (data) {
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+            setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+
+    if (config.beyond_tourist_trail?.length > 0) {
+      sb.from("sites")
+        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
+        .in("id", config.beyond_tourist_trail)
+        .eq("is_published", true)
+        .then(async ({ data }) => {
+          if (data) {
+            await ensureProvinceSlugOnSites(data as SiteCard[]);
+            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+            setBeyondTrailSites(config.beyond_tourist_trail.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+          }
+        });
+    }
+  }, [config.featured.join(","), config.popular.join(","), (config.architecture || config.unknown_pakistan || []).join(","), (config.beyond_tourist_trail || []).join(",")]);
 
   // ── GPS / Nearby ──
   async function requestNearby() {
@@ -1463,50 +1582,33 @@ function MobileHomepage() {
 
       {/* Content card — min-h ensures teal bg never flickers through */}
       <div className="bg-[#f2f2f2] rounded-t-[28px] min-h-screen">
+        {configLoading ? <HomeSkeleton /> : (
         <div className="pb-24 pt-7">
 
-          {/* ── Featured hero carousel ── */}
-          <div>
-            <SectionHeader label="Featured" />
-            {featuredSites.length > 0 ? (
-              <div className="animate-fadeInSection">
-                <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
-              </div>
-            ) : (
-              <div className="animate-pulse bg-gray-200 rounded-2xl mx-4" style={{ aspectRatio: "16/9" }} />
-            )}
-          </div>
+          {/* Featured hero carousel */}
+          {featuredSites.length > 0 && (
+            <div>
+              <SectionHeader label="Featured" />
+              <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
+            </div>
+          )}
 
-          {/* ── Popular Tourist Sites ── */}
-          <div className="mt-9">
-            <SectionHeader label="Popular Tourist Sites" onSeeAll={popularSites.length > 0 ? () => router.push("/explore") : undefined} />
-            {popularSites.length > 0 ? (
-              <div className="animate-fadeInSection">
-                <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
-              </div>
-            ) : (
-              <div className="flex gap-3 px-4 pb-1 overflow-hidden">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="shrink-0 animate-pulse bg-gray-200 rounded-2xl overflow-hidden shadow-sm" style={{ width: "52vw", maxWidth: 200 }}>
-                    <div className="bg-gray-300" style={{ aspectRatio: "4/3" }} />
-                    <div className="px-2.5 py-2 space-y-1.5">
-                      <div className="h-3 bg-gray-300 rounded-full w-3/4" />
-                      <div className="h-2.5 bg-gray-300 rounded-full w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Popular Tourist Sites */}
+          {popularSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
+              <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
+            </div>
+          )}
 
-          {/* ── Nearby You ── always stable height */}
+          {/* Nearby You */}
           <div className="mt-9">
             <SectionHeader
               label="Nearby You"
               onSeeAll={gpsStatus === "granted" ? () => setNearbySheetOpen(true) : undefined}
             />
             {(gpsStatus === "idle" || gpsStatus === "denied") && (
-              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4 animate-fadeInSection">
+              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-[var(--brand-green)]/15 flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-[var(--brand-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -1542,7 +1644,7 @@ function MobileHomepage() {
             {gpsStatus === "granted" && (
               <button
                 onClick={() => { void hapticMedium(); setNearbySheetOpen(true); }}
-                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50 animate-fadeInSection"
+                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50"
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--brand-green)] flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -1565,68 +1667,34 @@ function MobileHomepage() {
             )}
           </div>
 
-          {/* ── Architectural Wonders ── */}
-          <div className="mt-9">
-            <SectionHeader label="Architectural Wonders" onSeeAll={architectureSites.length > 0 ? () => router.push("/explore") : undefined} />
-            {architectureSites.length > 0 ? (
-              <div className="animate-fadeInSection">
-                <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
-              </div>
-            ) : (
-              <div className="relative overflow-hidden pb-4" style={{ height: "calc(72vw * 5 / 4)" }}>
-                <div className="flex items-center gap-3 absolute inset-0" style={{ paddingLeft: "calc(50vw - 36vw)" }}>
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="shrink-0 animate-pulse bg-gray-200 rounded-3xl"
-                      style={{
-                        width: "72vw",
-                        height: "calc(72vw * 5 / 4)",
-                        transform: `scale(${i === 0 ? 1 : 0.88})`,
-                        transformOrigin: "center center",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Architectural Wonders */}
+          {architectureSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Architectural Wonders" onSeeAll={() => router.push("/explore")} />
+              <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
+            </div>
+          )}
 
-          {/* ── Explore by Region ── */}
-          <div className="mt-9">
-            <SectionHeader label="Explore by Region" onSeeAll={provinces.length > 0 ? () => router.push("/explore") : undefined} />
-            {provinces.length > 0 ? (
-              <div className="animate-fadeInSection">
-                <ProvinceTiles provinces={provinces} covers={config.province_covers} />
-              </div>
-            ) : (
-              <div className="flex gap-3 px-4 pb-2 overflow-hidden">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="shrink-0 animate-pulse bg-gray-200 rounded-2xl"
-                    style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Explore by Region */}
+          {provinces.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Explore by Region" onSeeAll={() => router.push("/explore")} />
+              <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+            </div>
+          )}
 
-          {/* ── Beyond the Tourist Trail ── */}
-          <div className="mt-9">
-            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={beyondTrailSites.length > 0 ? () => router.push("/explore") : undefined} />
-            {beyondTrailSites.length > 0 ? (
-              <div className="animate-fadeInSection">
-                <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
-              </div>
-            ) : (
-              <div className="animate-pulse bg-gray-200 rounded-2xl mx-4" style={{ aspectRatio: "16/9" }} />
-            )}
-          </div>
+          {/* Beyond the Tourist Trail */}
+          {beyondTrailSites.length > 0 && (
+            <div className="mt-9">
+              <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
+              <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
+            </div>
+          )}
 
           {/* Bottom spacer */}
           <div className="h-6" />
         </div>
+        )}
       </div>
 
       {/* Search overlay */}
