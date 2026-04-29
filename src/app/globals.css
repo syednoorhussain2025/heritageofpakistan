@@ -568,30 +568,28 @@ code {
 body:not(.discover-sheet-open) .discover-blurred {
   filter: blur(0);
 }
-body.discover-sheet-open #bottom-nav {
+body.discover-sheet-open #bottom-nav,
+body.discover-sheet-open #bottom-nav-fill {
   filter: blur(3px);
-  transition: filter 0.4s ease;
 }
-#bottom-nav {
+#bottom-nav,
+#bottom-nav-fill {
   transition: filter 0.4s ease;
 }
 
-/* Static wrapper — radius+clip so corners are stable from first paint */
+/* Static wrapper — clip-path rounds corners without a compositing boundary */
 .dps-card-wrap {
   pointer-events: none;
-  border-radius: 1.5rem;
-  overflow: hidden;
+  clip-path: inset(0 round 1.5rem);
 }
 .dps-card-wrap.dps-open {
   pointer-events: auto;
 }
 
-/* Animated card — radius on the element itself so WebKit never clips externally */
+/* Animated card — no radius/overflow here, wrapper handles clipping */
 .dps-card {
   opacity: 0;
   transform: translateY(52px);
-  border-radius: 1.5rem;
-  overflow: hidden;
   transition:
     opacity 0.35s cubic-bezier(0.64, 0, 0.78, 0),
     transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
