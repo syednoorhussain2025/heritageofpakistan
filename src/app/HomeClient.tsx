@@ -1202,20 +1202,22 @@ function SearchBarWithAnimation({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function MobileHomepage() {
+function MobileHomepage({ initialData }: { initialData?: HomeInitialData | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Config from admin
-  const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
+  const EMPTY_CONFIG: MobileConfig = { featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} };
 
-  // Site data
-  const [featuredSites, setFeaturedSites] = useState<SiteCard[]>([]);
-  const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
-  const [architectureSites, setArchitectureSites] = useState<SiteCard[]>([]);
-  const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>([]);
-  const [categories, setCategories] = useState<Option[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  // Config from admin — seeded from server, falls back to client fetch
+  const [config, setConfig] = useState<MobileConfig>(initialData?.config ?? EMPTY_CONFIG);
+
+  // Site data — seeded from server
+  const [featuredSites, setFeaturedSites] = useState<SiteCard[]>(initialData?.featuredSites ?? []);
+  const [popularSites, setPopularSites] = useState<SiteCard[]>(initialData?.popularSites ?? []);
+  const [architectureSites, setArchitectureSites] = useState<SiteCard[]>(initialData?.architectureSites ?? []);
+  const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>(initialData?.beyondTrailSites ?? []);
+  const [categories, setCategories] = useState<Option[]>(initialData?.categories ?? []);
+  const [provinces, setProvinces] = useState<Province[]>(initialData?.provinces ?? []);
 
   // GPS — native-aware location hook
   const { status: gpsStatus, coords: gpsCoords, cityName: gpsCityName, requestLocation } = useNativeLocation();
@@ -1265,8 +1267,10 @@ function MobileHomepage() {
 
   const sb = getPublicClient();
 
-  // ── Load config + categories + provinces on mount ──
+  // ── Client-side fallback — only runs if server data was unavailable ──
   useEffect(() => {
+    if (initialData) return; // server already provided everything
+
     (async () => {
       const [cfgRes, catRes, provRes] = await Promise.all([
         supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
@@ -1278,86 +1282,59 @@ function MobileHomepage() {
       setConfig(cfg);
       setCategories((catRes.data as Option[]) || []);
 
-      // Count sites per province using group-by
       const provRows = (provRes.data || []) as Province[];
       const { data: countData } = await sb
         .from("sites")
-        .select("province_id, count:id")
+        .select("province_id")
         .eq("is_published", true)
         .not("province_id", "is", null);
       const counts: Record<string, number> = {};
-      if (countData) {
-        for (const row of countData as { province_id: string; count: number }[]) {
-          if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
-        }
+      for (const row of (countData || []) as { province_id: string }[]) {
+        if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
       }
       setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
+
+      warmProvinceSlugCache();
+
+      const archIds = cfg.architecture?.length > 0 ? cfg.architecture : (cfg.unknown_pakistan || []);
+      const siteSelect = "id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, province_slug, tagline, cover_slideshow_image_ids, latitude, longitude";
+
+      await Promise.all([
+        cfg.featured?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.featured).eq("is_published", true)
+          .then(async ({ data }) => {
+            if (data) {
+              await ensureProvinceSlugOnSites(data as SiteCard[]);
+              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+              setFeaturedSites(cfg.featured!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+            }
+          }),
+        cfg.popular?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.popular).eq("is_published", true)
+          .then(async ({ data }) => {
+            if (data) {
+              await ensureProvinceSlugOnSites(data as SiteCard[]);
+              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+              setPopularSites(cfg.popular!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+            }
+          }),
+        archIds.length > 0 && sb.from("sites").select(siteSelect).in("id", archIds).eq("is_published", true)
+          .then(async ({ data }) => {
+            if (data) {
+              await ensureProvinceSlugOnSites(data as SiteCard[]);
+              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+              setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+            }
+          }),
+        cfg.beyond_tourist_trail?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.beyond_tourist_trail).eq("is_published", true)
+          .then(async ({ data }) => {
+            if (data) {
+              await ensureProvinceSlugOnSites(data as SiteCard[]);
+              const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
+              setBeyondTrailSites(cfg.beyond_tourist_trail!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
+            }
+          }),
+      ]);
     })();
   }, []);
-
-  // ── Load featured + unknown once config is ready ──
-  useEffect(() => {
-    // Pre-warm the province slug cache so lookups are instant when sites load
-    warmProvinceSlugCache();
-
-    if (config.featured.length > 0) {
-      sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
-        .in("id", config.featured)
-        .eq("is_published", true)
-        .then(async ({ data }) => {
-          if (data) {
-            await ensureProvinceSlugOnSites(data as SiteCard[]);
-            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-            setFeaturedSites(config.featured.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-          }
-        });
-    }
-
-    if (config.popular.length > 0) {
-      sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
-        .in("id", config.popular)
-        .eq("is_published", true)
-        .then(async ({ data }) => {
-          if (data) {
-            await ensureProvinceSlugOnSites(data as SiteCard[]);
-            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-            setPopularSites(config.popular.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-          }
-        });
-    }
-
-    // architecture — falls back to legacy unknown_pakistan key
-    const archIds = config.architecture?.length > 0 ? config.architecture : (config.unknown_pakistan || []);
-    if (archIds.length > 0) {
-      sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
-        .in("id", archIds)
-        .eq("is_published", true)
-        .then(async ({ data }) => {
-          if (data) {
-            await ensureProvinceSlugOnSites(data as SiteCard[]);
-            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-            setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-          }
-        });
-    }
-
-    if (config.beyond_tourist_trail?.length > 0) {
-      sb.from("sites")
-        .select("id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, tagline, cover_slideshow_image_ids, latitude, longitude")
-        .in("id", config.beyond_tourist_trail)
-        .eq("is_published", true)
-        .then(async ({ data }) => {
-          if (data) {
-            await ensureProvinceSlugOnSites(data as SiteCard[]);
-            const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
-            setBeyondTrailSites(config.beyond_tourist_trail.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
-          }
-        });
-    }
-  }, [config.featured.join(","), config.popular.join(","), (config.architecture || config.unknown_pakistan || []).join(","), (config.beyond_tourist_trail || []).join(",")]);
 
   // ── GPS / Nearby ──
   async function requestNearby() {
@@ -1739,7 +1716,17 @@ function MobileHomepage() {
 
 /* ─── Main Export ────────────────────────────────────────────────────────── */
 
-export default function HomeClient() {
+export type HomeInitialData = {
+  config: MobileConfig;
+  featuredSites: SiteCard[];
+  popularSites: SiteCard[];
+  architectureSites: SiteCard[];
+  beyondTrailSites: SiteCard[];
+  categories: Option[];
+  provinces: Province[];
+};
+
+export default function HomeClient({ initialData }: { initialData?: HomeInitialData | null }) {
   const router = useRouter();
 
   // Desktop-only state
@@ -1806,7 +1793,7 @@ export default function HomeClient() {
     <main className="w-full">
       {/* ── MOBILE ── */}
       <div className="md:hidden h-[100dvh] overflow-y-auto">
-        <Suspense fallback={null}><MobileHomepage /></Suspense>
+        <Suspense fallback={null}><MobileHomepage initialData={initialData} /></Suspense>
       </div>
 
       {/* ── DESKTOP ── */}
