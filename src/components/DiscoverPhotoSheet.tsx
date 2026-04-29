@@ -223,6 +223,11 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
 
   const modal = createPortal(
     <>
+      {/* Interaction blocker — covers nav and page, always mounted, no animation */}
+      {isVisible && (
+        <div className="fixed inset-0 z-[3499]" aria-hidden="true" />
+      )}
+
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-[3500] dps-backdrop ${openClass}`}
