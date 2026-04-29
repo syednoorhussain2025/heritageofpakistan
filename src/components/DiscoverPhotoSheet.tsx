@@ -216,9 +216,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
   if (!mounted) return null;
 
   const site = activePhoto?.site;
-  const isPortrait = !!(activePhoto?.width && activePhoto?.height && activePhoto.height > activePhoto.width);
-  const imgAspectPb = isPortrait ? "125%" : undefined;
-  const imgHeight = isPortrait ? undefined : "280px";
 
   const displayThumb = thumbUrl ?? lgUrl;
 
@@ -250,8 +247,8 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           onPointerUp={handleDragEnd}
           onPointerCancel={handleDragEnd}
         >
-          {/* Image — top corners match card radius */}
-          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb, borderRadius: "1.5rem 1.5rem 0 0" }}>
+          {/* Image — 4:5 ratio for all orientations */}
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ paddingBottom: "125%", borderRadius: "1.5rem 1.5rem 0 0" }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               {/* Thumb renders instantly from browser cache (same URL as tile) */}
               <img
