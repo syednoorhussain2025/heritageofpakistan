@@ -162,94 +162,6 @@ const FALLBACK_GRADIENT = "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F78300"/><stop offset="100%" stop-color="var(--brand-green)"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/></svg>`
 );
 
-/* ─── Skeleton components ─────────────────────────────────────────────────── */
-
-
-const SK = "animate-pulse bg-gray-200 rounded-2xl";
-
-// Section header placeholder — matches `px-4 mb-3` + text-xl height (~28px)
-function SkHeader({ width }: { width: string }) {
-  return (
-    <div className="flex items-center px-4 mb-3" style={{ height: 28 }}>
-      <div className={`animate-pulse bg-gray-200 rounded-full h-5`} style={{ width }} />
-    </div>
-  );
-}
-
-function HomeSkeleton() {
-  return (
-    <div className="pb-24 pt-7">
-
-      {/* ── Featured hero ── mx-4 rounded-2xl aspect-[16/9] */}
-      <SkHeader width="72px" />
-      <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
-
-      {/* ── Popular Tourist Sites ── gap-3 px-4, cards 52vw/200 4:3 + ~40px footer */}
-      <div className="mt-9">
-        <SkHeader width="160px" />
-        <div className="flex gap-3 px-4 pb-1 overflow-hidden">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="shrink-0 animate-pulse bg-gray-200 rounded-2xl overflow-hidden shadow-sm" style={{ width: "52vw", maxWidth: 200 }}>
-              <div className="bg-gray-300" style={{ aspectRatio: "4/3" }} />
-              <div className="px-2.5 py-2 space-y-1.5">
-                <div className="h-3 bg-gray-300 rounded-full w-3/4" />
-                <div className="h-2.5 bg-gray-300 rounded-full w-1/2" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Nearby You ── static prompt card height ~88px */}
-      <div className="mt-9">
-        <SkHeader width="80px" />
-        <div className={`${SK} mx-4`} style={{ height: 88 }} />
-      </div>
-
-      {/* ── Architectural Wonders ── StoryCarousel: height calc(72vw * 5/4) */}
-      <div className="mt-9">
-        <SkHeader width="176px" />
-        <div className="relative overflow-hidden pb-4" style={{ height: "calc(72vw * 5 / 4)" }}>
-          <div className="flex items-center gap-3 absolute inset-0" style={{ paddingLeft: "calc(50vw - 36vw)" }}>
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="shrink-0 animate-pulse bg-gray-200 rounded-3xl"
-                style={{
-                  width: "72vw",
-                  height: "calc(72vw * 5 / 4)",
-                  transform: `scale(${i === 0 ? 1 : 0.88})`,
-                  transformOrigin: "center center",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Explore by Region ── horizontal scroll, cards 70vw/280 × 44vw/176 */}
-      <div className="mt-9">
-        <SkHeader width="140px" />
-        <div className="flex gap-3 px-4 pb-2 overflow-hidden">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className={`shrink-0 ${SK}`}
-              style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Beyond the Tourist Trail ── same as Featured: mx-4 aspect-[16/9] */}
-      <div className="mt-9">
-        <SkHeader width="192px" />
-        <div className={`${SK} mx-4`} style={{ aspectRatio: "16/9" }} />
-      </div>
-
-    </div>
-  );
-}
 
 const useClickOutside = (ref: any, handler: () => void) => {
   useEffect(() => {
@@ -1295,7 +1207,6 @@ function MobileHomepage() {
   const searchParams = useSearchParams();
 
   // Config from admin
-  const [configLoading, setConfigLoading] = useState(true);
   const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
 
   // Site data
@@ -1381,7 +1292,6 @@ function MobileHomepage() {
         }
       }
       setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
-      setConfigLoading(false);
     })();
   }, []);
 
@@ -1582,33 +1492,50 @@ function MobileHomepage() {
 
       {/* Content card — min-h ensures teal bg never flickers through */}
       <div className="bg-[#f2f2f2] rounded-t-[28px] min-h-screen">
-        {configLoading ? <HomeSkeleton /> : (
         <div className="pb-24 pt-7">
 
-          {/* Featured hero carousel */}
-          {featuredSites.length > 0 && (
-            <div>
-              <SectionHeader label="Featured" />
-              <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
-            </div>
-          )}
+          {/* ── Featured hero carousel ── */}
+          <div>
+            <SectionHeader label="Featured" />
+            {featuredSites.length > 0 ? (
+              <div className="animate-fadeInSection">
+                <FeaturedHeroCarousel sites={featuredSites} onCardClick={setSelectedSite} />
+              </div>
+            ) : (
+              <div className="animate-pulse bg-gray-200 rounded-2xl mx-4" style={{ aspectRatio: "16/9" }} />
+            )}
+          </div>
 
-          {/* Popular Tourist Sites */}
-          {popularSites.length > 0 && (
-            <div className="mt-9">
-              <SectionHeader label="Popular Tourist Sites" onSeeAll={() => router.push("/explore")} />
-              <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
-            </div>
-          )}
+          {/* ── Popular Tourist Sites ── */}
+          <div className="mt-9">
+            <SectionHeader label="Popular Tourist Sites" onSeeAll={popularSites.length > 0 ? () => router.push("/explore") : undefined} />
+            {popularSites.length > 0 ? (
+              <div className="animate-fadeInSection">
+                <HomeCardCarousel sites={popularSites} onCardClick={setSelectedSite} />
+              </div>
+            ) : (
+              <div className="flex gap-3 px-4 pb-1 overflow-hidden">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="shrink-0 animate-pulse bg-gray-200 rounded-2xl overflow-hidden shadow-sm" style={{ width: "52vw", maxWidth: 200 }}>
+                    <div className="bg-gray-300" style={{ aspectRatio: "4/3" }} />
+                    <div className="px-2.5 py-2 space-y-1.5">
+                      <div className="h-3 bg-gray-300 rounded-full w-3/4" />
+                      <div className="h-2.5 bg-gray-300 rounded-full w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* Nearby You */}
+          {/* ── Nearby You ── always stable height */}
           <div className="mt-9">
             <SectionHeader
               label="Nearby You"
               onSeeAll={gpsStatus === "granted" ? () => setNearbySheetOpen(true) : undefined}
             />
             {(gpsStatus === "idle" || gpsStatus === "denied") && (
-              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4">
+              <div className="mx-4 rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-5 flex items-center gap-4 animate-fadeInSection">
                 <div className="w-10 h-10 rounded-full bg-[var(--brand-green)]/15 flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-[var(--brand-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -1644,7 +1571,7 @@ function MobileHomepage() {
             {gpsStatus === "granted" && (
               <button
                 onClick={() => { void hapticMedium(); setNearbySheetOpen(true); }}
-                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50"
+                className="mx-4 w-[calc(100%-2rem)] rounded-2xl bg-white border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4 text-left active:bg-gray-50 animate-fadeInSection"
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--brand-green)] flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -1667,34 +1594,68 @@ function MobileHomepage() {
             )}
           </div>
 
-          {/* Architectural Wonders */}
-          {architectureSites.length > 0 && (
-            <div className="mt-9">
-              <SectionHeader label="Architectural Wonders" onSeeAll={() => router.push("/explore")} />
-              <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
-            </div>
-          )}
+          {/* ── Architectural Wonders ── */}
+          <div className="mt-9">
+            <SectionHeader label="Architectural Wonders" onSeeAll={architectureSites.length > 0 ? () => router.push("/explore") : undefined} />
+            {architectureSites.length > 0 ? (
+              <div className="animate-fadeInSection">
+                <StoryCarousel sites={architectureSites} onCardClick={setSelectedSite} />
+              </div>
+            ) : (
+              <div className="relative overflow-hidden pb-4" style={{ height: "calc(72vw * 5 / 4)" }}>
+                <div className="flex items-center gap-3 absolute inset-0" style={{ paddingLeft: "calc(50vw - 36vw)" }}>
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="shrink-0 animate-pulse bg-gray-200 rounded-3xl"
+                      style={{
+                        width: "72vw",
+                        height: "calc(72vw * 5 / 4)",
+                        transform: `scale(${i === 0 ? 1 : 0.88})`,
+                        transformOrigin: "center center",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          {/* Explore by Region */}
-          {provinces.length > 0 && (
-            <div className="mt-9">
-              <SectionHeader label="Explore by Region" onSeeAll={() => router.push("/explore")} />
-              <ProvinceTiles provinces={provinces} covers={config.province_covers} />
-            </div>
-          )}
+          {/* ── Explore by Region ── */}
+          <div className="mt-9">
+            <SectionHeader label="Explore by Region" onSeeAll={provinces.length > 0 ? () => router.push("/explore") : undefined} />
+            {provinces.length > 0 ? (
+              <div className="animate-fadeInSection">
+                <ProvinceTiles provinces={provinces} covers={config.province_covers} />
+              </div>
+            ) : (
+              <div className="flex gap-3 px-4 pb-2 overflow-hidden">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="shrink-0 animate-pulse bg-gray-200 rounded-2xl"
+                    style={{ width: "70vw", maxWidth: 280, height: "44vw", maxHeight: 176 }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* Beyond the Tourist Trail */}
-          {beyondTrailSites.length > 0 && (
-            <div className="mt-9">
-              <SectionHeader label="Beyond the Tourist Trail" onSeeAll={() => router.push("/explore")} />
-              <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
-            </div>
-          )}
+          {/* ── Beyond the Tourist Trail ── */}
+          <div className="mt-9">
+            <SectionHeader label="Beyond the Tourist Trail" onSeeAll={beyondTrailSites.length > 0 ? () => router.push("/explore") : undefined} />
+            {beyondTrailSites.length > 0 ? (
+              <div className="animate-fadeInSection">
+                <FeaturedHeroCarousel sites={beyondTrailSites} onCardClick={setSelectedSite} />
+              </div>
+            ) : (
+              <div className="animate-pulse bg-gray-200 rounded-2xl mx-4" style={{ aspectRatio: "16/9" }} />
+            )}
+          </div>
 
           {/* Bottom spacer */}
           <div className="h-6" />
         </div>
-        )}
       </div>
 
       {/* Search overlay */}

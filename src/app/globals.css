@@ -462,6 +462,7 @@ code {
 }
 
 .animate-fadeIn        { animation: fadeIn       0.25s ease-out forwards; }
+.animate-fadeInSection { animation: fadeIn       0.4s  ease-out forwards; }
 .animate-fadeSlideUp   { animation: fadeSlideUp  0.35s ease-out forwards; }
 .animate-fadeSlideLeft { animation: fadeSlideLeft 0.28s ease-out forwards; }
 .animate-fadeInImage   { animation: fadeInImage  0.5s  ease-out forwards; }
