@@ -241,10 +241,9 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
         role="dialog"
         aria-label="Photo details"
       >
-        <div className={`relative w-full max-w-sm dps-card-wrap ${openClass}`}>
         <div
-          className={`relative w-full bg-white shadow-2xl dps-card ${openClass}`}
-          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column" }}
+          className={`relative w-full max-w-sm bg-white shadow-2xl dps-card ${openClass}`}
+          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column", borderRadius: "1.5rem", overflow: "hidden" }}
           ref={cardRef}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
@@ -358,7 +357,6 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
               <span className="text-[11px] font-semibold">Share</span>
             </button>
           </div>
-        </div>
         </div>
       </div>
 

@@ -570,23 +570,14 @@ body:not(.discover-sheet-open) .discover-blurred {
 }
 body.discover-sheet-open #bottom-nav,
 body.discover-sheet-open #bottom-nav-fill {
-  filter: blur(3px);
+  filter: blur(6px);
 }
 #bottom-nav,
 #bottom-nav-fill {
   transition: filter 0.4s ease;
 }
 
-/* Static wrapper — clip-path rounds corners without a compositing boundary */
-.dps-card-wrap {
-  pointer-events: none;
-  clip-path: inset(0 round 1.5rem);
-}
-.dps-card-wrap.dps-open {
-  pointer-events: auto;
-}
-
-/* Animated card — no radius/overflow here, wrapper handles clipping */
+/* Animated card */
 .dps-card {
   opacity: 0;
   transform: translateY(52px);
