@@ -1139,8 +1139,8 @@ export default function DiscoverClient({
         photo={sheetPhoto}
         originRect={sheetOriginRect}
         thumbUrl={sheetThumbUrl}
-        onCloseStart={() => {}}
-        onClose={() => { setSheetVisible(false); setSheetPhoto(null); setSheetOriginRect(null); setSheetThumbUrl(null); }}
+        onCloseStart={() => setSheetVisible(false)}
+        onClose={() => { setSheetBlocking(false); setSheetPhoto(null); setSheetOriginRect(null); setSheetThumbUrl(null); }}
       />
 
     </div>
