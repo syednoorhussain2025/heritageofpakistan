@@ -568,14 +568,6 @@ code {
 body:not(.discover-sheet-open) .discover-blurred {
   filter: blur(0);
 }
-body.discover-sheet-open #bottom-nav,
-body.discover-sheet-open #bottom-nav-fill {
-  filter: blur(6px);
-}
-#bottom-nav,
-#bottom-nav-fill {
-  transition: filter 0.4s ease;
-}
 
 /* Animated card */
 .dps-card {
