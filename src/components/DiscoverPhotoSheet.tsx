@@ -253,7 +253,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           onPointerCancel={handleDragEnd}
         >
           {/* Image — fixed 360px height, portrait feel on all orientations */}
-          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: "410px", borderRadius: "1.5rem 1.5rem 0 0" }}>
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: "420px", borderRadius: "1.5rem 1.5rem 0 0" }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               {/* Thumb renders instantly from browser cache (same URL as tile) */}
               <img
