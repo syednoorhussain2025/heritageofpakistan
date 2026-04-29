@@ -243,15 +243,15 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
       >
         <div
           className={`relative w-full max-w-sm bg-white shadow-2xl dps-card ${openClass}`}
-          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column", borderRadius: "1.5rem", overflow: "hidden" }}
+          style={{ maxHeight: "90dvh", display: "flex", flexDirection: "column", borderRadius: "1.5rem" }}
           ref={cardRef}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
           onPointerUp={handleDragEnd}
           onPointerCancel={handleDragEnd}
         >
-          {/* Image */}
-          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb }}>
+          {/* Image — top corners match card radius */}
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ height: imgHeight, paddingBottom: imgAspectPb, borderRadius: "1.5rem 1.5rem 0 0" }}>
             <div className="absolute inset-0" style={{ bottom: "-8%" }}>
               {/* Thumb renders instantly from browser cache (same URL as tile) */}
               <img
@@ -306,7 +306,7 @@ const DiscoverPhotoSheet = memo(function DiscoverPhotoSheet({
           </div>
 
           {/* Actions */}
-          <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none" }}>
+          <div className="px-3 pt-2 pb-4 flex gap-2 shrink-0" style={{ pointerEvents: interactive ? "auto" : "none", borderRadius: "0 0 1.5rem 1.5rem", overflow: "hidden" }}>
             <button
               type="button"
               onClick={() => { void handleOpenSite(); }}
