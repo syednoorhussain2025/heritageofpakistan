@@ -580,7 +580,7 @@ body.discover-sheet-open #bottom-nav-fill {
 /* Animated card */
 .dps-card {
   opacity: 0;
-  transform: translateY(52px);
+  transform: translateY(52px) translateZ(0);
   transition:
     opacity 0.35s cubic-bezier(0.64, 0, 0.78, 0),
     transform 0.35s cubic-bezier(0.64, 0, 0.78, 0);
@@ -588,7 +588,7 @@ body.discover-sheet-open #bottom-nav-fill {
 }
 .dps-card.dps-open {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) translateZ(0);
   transition:
     opacity 0.5s ease,
     transform 0.5s ease;
