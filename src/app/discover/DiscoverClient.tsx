@@ -620,6 +620,8 @@ export default function DiscoverClient({
   // ── Init ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
+    // Clear stored seed so next app launch gets a fresh shuffle
+    try { sessionStorage.removeItem(SESSION_SEED_KEY); } catch {}
     seedRef.current = _preloadSeed || getOrCreateSeed();
     if (initialPhotos.length === 0) {
       // Use preloaded data if ready, otherwise await it
