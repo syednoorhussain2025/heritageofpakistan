@@ -831,7 +831,7 @@ export default function DiscoverClient({
       ref={scrollRef}
       data-scroll-reset
       className="h-[100dvh] overflow-y-auto bg-[#f5f2ef] lg:h-auto lg:overflow-visible lg:min-h-screen"
-      style={{} as React.CSSProperties}
+      style={{ pointerEvents: sheetVisible ? "none" : "auto" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
