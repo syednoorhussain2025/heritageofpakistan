@@ -1202,22 +1202,17 @@ function SearchBarWithAnimation({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function MobileHomepage({ initialData }: { initialData?: HomeInitialData | null }) {
+function MobileHomepage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const EMPTY_CONFIG: MobileConfig = { featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} };
-
-  // Config from admin — seeded from server, falls back to client fetch
-  const [config, setConfig] = useState<MobileConfig>(initialData?.config ?? EMPTY_CONFIG);
-
-  // Site data — seeded from server
-  const [featuredSites, setFeaturedSites] = useState<SiteCard[]>(initialData?.featuredSites ?? []);
-  const [popularSites, setPopularSites] = useState<SiteCard[]>(initialData?.popularSites ?? []);
-  const [architectureSites, setArchitectureSites] = useState<SiteCard[]>(initialData?.architectureSites ?? []);
-  const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>(initialData?.beyondTrailSites ?? []);
-  const [categories, setCategories] = useState<Option[]>(initialData?.categories ?? []);
-  const [provinces, setProvinces] = useState<Province[]>(initialData?.provinces ?? []);
+  const [config, setConfig] = useState<MobileConfig>({ featured: [], popular: [], unknown_pakistan: [], architecture: [], beyond_tourist_trail: [], category_pills: [], province_covers: {} });
+  const [featuredSites, setFeaturedSites] = useState<SiteCard[]>([]);
+  const [popularSites, setPopularSites] = useState<SiteCard[]>([]);
+  const [architectureSites, setArchitectureSites] = useState<SiteCard[]>([]);
+  const [beyondTrailSites, setBeyondTrailSites] = useState<SiteCard[]>([]);
+  const [categories, setCategories] = useState<Option[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
 
   // GPS — native-aware location hook
   const { status: gpsStatus, coords: gpsCoords, cityName: gpsCityName, requestLocation } = useNativeLocation();
@@ -1267,73 +1262,72 @@ function MobileHomepage({ initialData }: { initialData?: HomeInitialData | null 
 
   const sb = getPublicClient();
 
-  // ── Client-side fallback — only runs if server data was unavailable ──
   useEffect(() => {
-    if (initialData) return; // server already provided everything
+    const siteSelect = "id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, province_slug, tagline, cover_slideshow_image_ids, latitude, longitude";
 
-    (async () => {
-      const [cfgRes, catRes, provRes] = await Promise.all([
-        supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
-        sb.from("categories").select("id, name, slug").order("name"),
-        sb.from("regions").select("id, name, slug, parent_id").is("parent_id", null).order("name"),
-      ]);
+    warmProvinceSlugCache();
 
+    // Fetch config, categories, and provinces all at once
+    Promise.all([
+      supabase.from("global_settings").select("value").eq("key", "mobile_homepage").maybeSingle(),
+      sb.from("categories").select("id, name, slug").order("name"),
+      sb.from("regions").select("id, name, slug, parent_id").is("parent_id", null).order("name"),
+      sb.from("sites").select("province_id").eq("is_published", true).not("province_id", "is", null),
+    ]).then(([cfgRes, catRes, provRes, countRes]) => {
       const cfg = (cfgRes.data?.value || {}) as MobileConfig;
       setConfig(cfg);
       setCategories((catRes.data as Option[]) || []);
 
-      const provRows = (provRes.data || []) as Province[];
-      const { data: countData } = await sb
-        .from("sites")
-        .select("province_id")
-        .eq("is_published", true)
-        .not("province_id", "is", null);
       const counts: Record<string, number> = {};
-      for (const row of (countData || []) as { province_id: string }[]) {
+      for (const row of (countRes.data || []) as { province_id: string }[]) {
         if (row.province_id) counts[row.province_id] = (counts[row.province_id] || 0) + 1;
       }
-      setProvinces(provRows.map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
+      setProvinces(((provRes.data || []) as Province[]).map((p) => ({ ...p, site_count: counts[p.id] || 0 })));
 
-      warmProvinceSlugCache();
-
+      // Fire all site fetches immediately once we have the IDs — no second await
       const archIds = cfg.architecture?.length > 0 ? cfg.architecture : (cfg.unknown_pakistan || []);
-      const siteSelect = "id, slug, title, location_free, cover_photo_thumb_url, cover_photo_url, heritage_type, avg_rating, review_count, province_id, province_slug, tagline, cover_slideshow_image_ids, latitude, longitude";
 
-      await Promise.all([
-        cfg.featured?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.featured).eq("is_published", true)
+      if (cfg.featured?.length > 0) {
+        sb.from("sites").select(siteSelect).in("id", cfg.featured).eq("is_published", true)
           .then(async ({ data }) => {
             if (data) {
               await ensureProvinceSlugOnSites(data as SiteCard[]);
               const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
               setFeaturedSites(cfg.featured!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
             }
-          }),
-        cfg.popular?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.popular).eq("is_published", true)
+          });
+      }
+      if (cfg.popular?.length > 0) {
+        sb.from("sites").select(siteSelect).in("id", cfg.popular).eq("is_published", true)
           .then(async ({ data }) => {
             if (data) {
               await ensureProvinceSlugOnSites(data as SiteCard[]);
               const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
               setPopularSites(cfg.popular!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
             }
-          }),
-        archIds.length > 0 && sb.from("sites").select(siteSelect).in("id", archIds).eq("is_published", true)
+          });
+      }
+      if (archIds.length > 0) {
+        sb.from("sites").select(siteSelect).in("id", archIds).eq("is_published", true)
           .then(async ({ data }) => {
             if (data) {
               await ensureProvinceSlugOnSites(data as SiteCard[]);
               const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
               setArchitectureSites(archIds.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
             }
-          }),
-        cfg.beyond_tourist_trail?.length > 0 && sb.from("sites").select(siteSelect).in("id", cfg.beyond_tourist_trail).eq("is_published", true)
+          });
+      }
+      if (cfg.beyond_tourist_trail?.length > 0) {
+        sb.from("sites").select(siteSelect).in("id", cfg.beyond_tourist_trail).eq("is_published", true)
           .then(async ({ data }) => {
             if (data) {
               await ensureProvinceSlugOnSites(data as SiteCard[]);
               const map = new Map((data as SiteCard[]).map((s) => [s.id, s]));
               setBeyondTrailSites(cfg.beyond_tourist_trail!.map((id) => map.get(id)).filter(Boolean) as SiteCard[]);
             }
-          }),
-      ]);
-    })();
+          });
+      }
+    });
   }, []);
 
   // ── GPS / Nearby ──
@@ -1716,17 +1710,7 @@ function MobileHomepage({ initialData }: { initialData?: HomeInitialData | null 
 
 /* ─── Main Export ────────────────────────────────────────────────────────── */
 
-export type HomeInitialData = {
-  config: MobileConfig;
-  featuredSites: SiteCard[];
-  popularSites: SiteCard[];
-  architectureSites: SiteCard[];
-  beyondTrailSites: SiteCard[];
-  categories: Option[];
-  provinces: Province[];
-};
-
-export default function HomeClient({ initialData }: { initialData?: HomeInitialData | null }) {
+export default function HomeClient() {
   const router = useRouter();
 
   // Desktop-only state
@@ -1793,7 +1777,7 @@ export default function HomeClient({ initialData }: { initialData?: HomeInitialD
     <main className="w-full">
       {/* ── MOBILE ── */}
       <div className="md:hidden h-[100dvh] overflow-y-auto">
-        <Suspense fallback={null}><MobileHomepage initialData={initialData} /></Suspense>
+        <Suspense fallback={null}><MobileHomepage /></Suspense>
       </div>
 
       {/* ── DESKTOP ── */}
