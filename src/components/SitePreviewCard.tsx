@@ -450,20 +450,23 @@ export default function SitePreviewCard({
             </div>
           )}
 
-          {/* Title and location gradient desktop / tablet only + mobile stars overlay */}
-          <div className="absolute inset-x-0 bottom-0 p-3">
+          {/* Title and location gradient desktop / tablet only */}
+          <div className="hidden md:block absolute inset-x-0 bottom-0 p-3">
             <div className="bg-gradient-to-t from-black/60 to-transparent rounded-b-xl -m-3 p-3 pt-10">
-              <h3 className="hidden md:block text-white text-lg sm:text-xl font-extrabold transition-transform duration-300 group-hover:translate-x-1">
+              <h3 className="text-white text-lg sm:text-xl font-extrabold transition-transform duration-300 group-hover:translate-x-1">
                 {site.title}
               </h3>
               {site.location_free && (
-                <div className="hidden md:flex mt-1 items-center gap-1 text-white/90 text-xs sm:text-sm">
+                <div className="flex mt-1 items-center gap-1 text-white/90 text-xs sm:text-sm">
                   <Icon name="map-marker-alt" size={12} /> {site.location_free}
                 </div>
               )}
-              {/* Mobile: stars overlaid on image bottom */}
+            </div>
+          </div>
+          {/* Mobile: stars overlaid on image bottom — no dark gradient */}
+          <div className="md:hidden absolute inset-x-0 bottom-0 p-3">
               {site.avg_rating != null && (
-                <div className="md:hidden flex items-center gap-0.5 mt-1">
+                <div className="flex items-center gap-0.5">
                   {[1,2,3,4,5].map((s) => {
                     const filled = site.avg_rating! >= s;
                     const half = !filled && site.avg_rating! >= s - 0.5;
@@ -487,7 +490,6 @@ export default function SitePreviewCard({
                   )}
                 </div>
               )}
-            </div>
           </div>
 
         </div>
