@@ -1388,6 +1388,9 @@ function ExplorePageContent() {
             ) : (
               <span className="tab-header-title" style={{ fontSize: "15px", fontWeight: 600 }}>{headline}</span>
             )}
+            <div style={{ height: "20px" }} className="flex items-center justify-center">
+              {loading && <LottieSpinner variant="dots" color="white" size={48} />}
+            </div>
           </div>
           <div className="w-[58px]" />
         </div>
@@ -1396,7 +1399,7 @@ function ExplorePageContent() {
       {/* ── Chip filter bar ── */}
       <div
         className="absolute inset-x-0 pointer-events-auto bg-[var(--brand-green)]"
-        style={{ top: `calc(var(--tab-title-top) + 48px)`, height: "48px" }}
+        style={{ top: `calc(var(--tab-title-top) + 68px)`, height: "48px" }}
       >
         <MobileFilterBar
           filters={filters}
