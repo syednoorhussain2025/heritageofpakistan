@@ -1259,7 +1259,7 @@ export default function MobileFilterBar({ filters, onFilterChange, onSearch }: M
         <Chip
           label={locationLabel}
           active={!!selectedRegionId}
-          dimmed={nearbyActive}
+          dimmed={!!nearbyActive || undefined}
           onTap={() => open("location")}
           onClear={handleLocationClear}
         />
@@ -1268,7 +1268,7 @@ export default function MobileFilterBar({ filters, onFilterChange, onSearch }: M
         <Chip
           label={typeLabel}
           active={!!selectedBucket}
-          dimmed={nearbyActive}
+          dimmed={!!nearbyActive || undefined}
           onTap={() => open("type")}
           onClear={handleTypeClear}
         />
@@ -1284,7 +1284,7 @@ export default function MobileFilterBar({ filters, onFilterChange, onSearch }: M
         {/* Nearby */}
         <Chip
           label={nearbyLabel}
-          active={nearbyActive}
+          active={!!nearbyActive}
           onTap={() => setOpenSheet("nearby")}
           onClear={handleNearbyClear}
         />
