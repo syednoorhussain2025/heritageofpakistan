@@ -1857,17 +1857,6 @@ export default function MapClient() {
             </span>
           </div>
 
-          {/* Search indicator row */}
-          <div className="flex items-center justify-center gap-2.5">
-            <Icon name="search" size={18} className="text-white/90 shrink-0" />
-            <span className="min-w-0 max-w-[70%] text-[14px] font-semibold text-white truncate">
-              {mapTitleText}
-            </span>
-            <Icon name="chevron-right" size={14} className="text-white/80 shrink-0" />
-          </div>
-          <div className="flex items-center justify-center mt-1">
-            <span className="text-[11px] text-white/60 tabular-nums">{mapDisplayText}</span>
-          </div>
         </div>
       </button>
 
