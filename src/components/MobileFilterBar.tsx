@@ -63,32 +63,54 @@ function thumbUrl(raw?: string | null) {
 }
 
 /* ─────────────────────────── Bottom sheet wrapper ─────────────────────────── */
+const SHEET_EASE = "cubic-bezier(0.32,0.72,0,1)";
+const SHEET_DURATION = 420;
+
 function BottomSheet({
   isOpen,
   onClose,
   title,
+  minHeight = "55dvh",
   children,
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  minHeight?: string;
   children: React.ReactNode;
 }) {
-  const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const dragStartRef = useRef<number | null>(null);
-  const isDraggingRef = useRef(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragCurrentY = useRef(0);
+  const isDragging = useRef(false);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Open / close imperatively — same pattern as SiteBottomSheet
   useEffect(() => {
-    if (!isOpen) { setVisible(false); return; }
-    let id2: number;
-    const id = requestAnimationFrame(() => {
-      id2 = requestAnimationFrame(() => setVisible(true));
-    });
-    return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
+    const sheet = sheetRef.current;
+    const backdrop = backdropRef.current;
+    if (!sheet || !backdrop) return;
+
+    if (isOpen) {
+      sheet.style.transition = "none";
+      sheet.style.transform = "translate3d(0,100%,0)";
+      backdrop.style.transition = "none";
+      backdrop.style.opacity = "0";
+      sheet.offsetHeight; // reflow
+      sheet.style.transition = `transform ${SHEET_DURATION}ms ${SHEET_EASE}`;
+      sheet.style.transform = "translate3d(0,0,0)";
+      backdrop.style.transition = "opacity 280ms ease-out";
+      backdrop.style.opacity = "1";
+    } else {
+      sheet.style.transition = `transform ${SHEET_DURATION}ms ${SHEET_EASE}`;
+      sheet.style.transform = "translate3d(0,100%,0)";
+      backdrop.style.transition = "opacity 280ms ease-out";
+      backdrop.style.opacity = "0";
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -104,43 +126,75 @@ function BottomSheet({
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  if (!mounted || !isOpen) return null;
+  if (!mounted) return null;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragCurrentY.current = 0;
+    isDragging.current = false;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy <= 0) return;
+    isDragging.current = true;
+    dragCurrentY.current = dy;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = "none";
+        sheetRef.current.style.transform = `translate3d(0,${dy}px,0)`;
+      }
+    });
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const dy = e.changedTouches[0].clientY - (dragStartY.current ?? 0);
+    dragStartY.current = null;
+    isDragging.current = false;
+    if (dy > 80) {
+      onClose();
+    } else {
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = `transform ${SHEET_DURATION}ms ${SHEET_EASE}`;
+        sheetRef.current.style.transform = "translate3d(0,0,0)";
+      }
+    }
+  };
 
   return createPortal(
-    <div className="fixed inset-0 z-[6000] flex items-end justify-center touch-none">
+    <div
+      className="fixed inset-0 z-[6000] flex items-end justify-center touch-none"
+      style={{ pointerEvents: isOpen ? "auto" : "none" }}
+    >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${visible ? "opacity-100" : "opacity-0"}`}
+        ref={backdropRef}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        style={{ opacity: 0 }}
         onClick={onClose}
       />
       {/* Sheet */}
       <div
-        className="relative w-full bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
+        ref={sheetRef}
+        className="relative w-full bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
         style={{
+          minHeight,
           maxHeight: "88dvh",
-          transform: visible ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDraggingRef.current ? "none" : "transform 0.3s cubic-bezier(0.32,0.72,0,1)",
+          transform: "translate3d(0,100%,0)",
+          paddingBottom: "max(env(safe-area-inset-bottom,0px),0.75rem)",
         }}
       >
         {/* Drag handle */}
         <div
-          className="shrink-0 pt-2.5 pb-1 cursor-grab active:cursor-grabbing select-none"
-          onTouchStart={(e) => { dragStartRef.current = e.touches[0].clientY; isDraggingRef.current = false; }}
-          onTouchMove={(e) => {
-            if (dragStartRef.current === null) return;
-            const dy = e.touches[0].clientY - dragStartRef.current;
-            if (dy > 0) { isDraggingRef.current = true; setDragY(dy); }
-          }}
-          onTouchEnd={(e) => {
-            if (dragStartRef.current === null) return;
-            const dy = e.changedTouches[0].clientY - dragStartRef.current;
-            dragStartRef.current = null;
-            isDraggingRef.current = false;
-            setDragY(0);
-            if (dy > 80) onClose();
-          }}
+          className="shrink-0 pt-3 pb-1 cursor-grab active:cursor-grabbing select-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
         >
-          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+          <div className="w-10 h-1 bg-gray-300/80 rounded-full mx-auto" />
         </div>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
@@ -261,7 +315,7 @@ function SearchSheet({
   const showSuggestions = query.trim().length > 0;
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Sites">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Sites" minHeight="62dvh">
       <div className="px-4 pt-3 pb-4 space-y-4">
         {/* Input */}
         <div className="relative">
@@ -435,134 +489,132 @@ function LocationSheet({
     return q ? subregions.filter((s) => s.name.toLowerCase().includes(q)) : subregions;
   }, [subregions, subSearch]);
 
-  return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Where?">
-      <div className="flex flex-col" style={{ minHeight: "60dvh" }}>
-        {/* Two-column layout */}
-        <div className="flex flex-1 min-h-0 gap-0 divide-x divide-gray-100">
+  // Reset to region list when sheet closes
+  useEffect(() => {
+    if (!isOpen) {
+      setTimeout(() => { setActiveRegion(null); setRegionSearch(""); setSubSearch(""); }, 350);
+    }
+  }, [isOpen]);
 
-          {/* Left: Regions */}
-          <div className="flex-1 flex flex-col min-h-0 px-3 py-3">
-            <p className="text-[0.6rem] font-bold uppercase tracking-widest text-[var(--brand-blue)] mb-2">Region</p>
-            <div className="mb-2">
+  const title = activeRegion ? activeRegion.name : "Where?";
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={title} minHeight="65dvh">
+      <div className="flex flex-col flex-1 min-h-0 px-4 py-3">
+
+        {/* ── Level 1: Region list ── */}
+        {!activeRegion && (
+          <>
+            <div className="mb-3">
               <input
                 type="text"
                 value={regionSearch}
                 onChange={(e) => setRegionSearch(e.target.value)}
-                placeholder="Search…"
-                className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+                placeholder="Search regions…"
+                className="w-full px-3 py-2.5 text-sm rounded-xl bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
               />
             </div>
-            <div className="flex-1 overflow-y-auto rounded-xl border border-gray-100">
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
               {/* All Pakistan */}
               <button
                 type="button"
                 onClick={() => { onClear(); onClose(); }}
-                className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors border-b border-gray-100 ${
-                  !selectedRegionId ? "text-[var(--brand-orange)] font-semibold bg-[var(--brand-orange)]/5" : "text-gray-600 hover:bg-gray-50"
+                className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors border-b border-gray-100 ${
+                  !selectedRegionId ? "text-[var(--brand-orange)] font-semibold bg-[var(--brand-orange)]/5" : "text-gray-600 active:bg-gray-50"
                 }`}
               >
-                <Icon name="map" size={13} className="text-gray-400 flex-shrink-0" />
-                <span>All Pakistan</span>
+                <Icon name="map" size={15} className="text-gray-400 flex-shrink-0" />
+                <span className="flex-1">All Pakistan</span>
+                {!selectedRegionId && <Icon name="check" size={12} className="text-[var(--brand-orange)]" />}
               </button>
               {filteredRegions.map((r) => {
-                const isActive = activeRegion?.id === r.id;
                 const isSelected = selectedRegionId === r.id;
                 return (
                   <button
                     key={r.id}
                     type="button"
                     onClick={() => selectRegion(r)}
-                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors ${
-                      isActive
-                        ? "bg-[var(--brand-blue)]/10 text-[var(--brand-blue)] font-semibold"
-                        : isSelected
+                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors border-b border-gray-100 last:border-b-0 ${
+                      isSelected
                         ? "bg-[var(--brand-orange)]/5 text-[var(--brand-orange)] font-medium"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 active:bg-gray-50"
                     }`}
                   >
-                    <Icon name={r.icon_key ?? "map"} size={13} className="text-gray-400 flex-shrink-0" />
+                    <Icon name={r.icon_key ?? "map"} size={15} className="text-gray-400 flex-shrink-0" />
                     <span className="flex-1 truncate">{r.name}</span>
-                    {subregions.length > 0 || isActive ? (
-                      <Icon name="chevron-right" size={10} className="text-gray-300 flex-shrink-0" />
-                    ) : null}
+                    <Icon name="chevron-right" size={11} className="text-gray-300 flex-shrink-0" />
                   </button>
                 );
               })}
             </div>
-          </div>
+          </>
+        )}
 
-          {/* Right: Subregions */}
-          <div className="flex-1 flex flex-col min-h-0 px-3 py-3">
-            <p className="text-[0.6rem] font-bold uppercase tracking-widest text-[var(--brand-blue)] mb-2">
-              {activeRegion ? activeRegion.name : "Subregion"}
-            </p>
-            {!activeRegion ? (
-              <div className="flex-1 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50/50">
-                <div className="text-center px-4">
-                  <Icon name="map-marker-alt" size={24} className="text-gray-300 mx-auto mb-2" />
-                  <p className="text-xs text-gray-400">Select a region to see subregions</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mb-2">
-                  <input
-                    type="text"
-                    value={subSearch}
-                    onChange={(e) => setSubSearch(e.target.value)}
-                    placeholder="Search…"
-                    className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
-                  />
-                </div>
-                <div className="flex-1 overflow-y-auto rounded-xl border border-gray-100">
-                  {loadingSubs ? (
-                    <div className="text-xs text-gray-400 text-center py-4">Loading…</div>
-                  ) : (
-                    <>
-                      {/* All of region */}
-                      <button
-                        type="button"
-                        onClick={() => { onSelect(activeRegion.id, null, activeRegion.name, null); onClose(); }}
-                        className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors border-b border-gray-100 ${
-                          selectedRegionId === activeRegion.id && !selectedSubregionId
-                            ? "text-[var(--brand-orange)] font-semibold bg-[var(--brand-orange)]/5"
-                            : "text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        <span>All of {activeRegion.name}</span>
-                        {selectedRegionId === activeRegion.id && !selectedSubregionId && (
-                          <Icon name="check" size={11} className="ml-auto text-[var(--brand-orange)]" />
-                        )}
-                      </button>
-                      {filteredSubs.map((s) => {
-                        const isSel = selectedSubregionId === s.id;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => selectSubregion(s)}
-                            className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors ${
-                              isSel
-                                ? "bg-[var(--brand-orange)]/5 text-[var(--brand-orange)] font-semibold"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="flex-1 truncate">{s.name}</span>
-                            {isSel && <Icon name="check" size={11} className="text-[var(--brand-orange)]" />}
-                          </button>
-                        );
-                      })}
-                      {filteredSubs.length === 0 && (
-                        <div className="text-xs text-gray-400 text-center py-4">No subregions</div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* ── Level 2: Subregion list ── */}
+        {activeRegion && (
+          <>
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => { setActiveRegion(null); setSubSearch(""); }}
+              className="flex items-center gap-2 text-sm text-[var(--brand-blue)] font-semibold mb-3 -ml-1 active:opacity-70"
+            >
+              <Icon name="chevron-left" size={13} className="text-[var(--brand-blue)]" />
+              All regions
+            </button>
+            <div className="mb-3">
+              <input
+                type="text"
+                value={subSearch}
+                onChange={(e) => setSubSearch(e.target.value)}
+                placeholder={`Search in ${activeRegion.name}…`}
+                className="w-full px-3 py-2.5 text-sm rounded-xl bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+              />
+            </div>
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              {/* All of region */}
+              <button
+                type="button"
+                onClick={() => { onSelect(activeRegion.id, null, activeRegion.name, null); onClose(); }}
+                className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors border-b border-gray-100 ${
+                  selectedRegionId === activeRegion.id && !selectedSubregionId
+                    ? "text-[var(--brand-orange)] font-semibold bg-[var(--brand-orange)]/5"
+                    : "text-gray-600 active:bg-gray-50"
+                }`}
+              >
+                <Icon name={activeRegion.icon_key ?? "map"} size={15} className="text-gray-400 flex-shrink-0" />
+                <span className="flex-1">All of {activeRegion.name}</span>
+                {selectedRegionId === activeRegion.id && !selectedSubregionId && (
+                  <Icon name="check" size={12} className="text-[var(--brand-orange)]" />
+                )}
+              </button>
+              {loadingSubs ? (
+                <div className="text-xs text-gray-400 text-center py-5">Loading…</div>
+              ) : filteredSubs.length === 0 ? (
+                <div className="text-xs text-gray-400 text-center py-5">No subregions</div>
+              ) : (
+                filteredSubs.map((s) => {
+                  const isSel = selectedSubregionId === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => selectSubregion(s)}
+                      className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors border-b border-gray-100 last:border-b-0 ${
+                        isSel
+                          ? "bg-[var(--brand-orange)]/5 text-[var(--brand-orange)] font-semibold"
+                          : "text-gray-700 active:bg-gray-50"
+                      }`}
+                    >
+                      <span className="flex-1 truncate">{s.name}</span>
+                      {isSel && <Icon name="check" size={12} className="text-[var(--brand-orange)]" />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
       </div>
     </BottomSheet>
   );
@@ -587,7 +639,7 @@ function TypeSheet({
   onClear: () => void;
 }) {
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="What type of site?">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="What type of site?" minHeight="55dvh">
       <div className="px-4 py-3">
         {buckets.length === 0 ? (
           <div className="text-sm text-gray-400 text-center py-8">No type buckets configured yet.</div>
@@ -610,6 +662,14 @@ function TypeSheet({
             </li>
             {buckets.map((b) => {
               const isSelected = selectedBucketId === b.id;
+              const lbl = b.label.toLowerCase();
+              const fallbackIcon = b.icon_key
+                ? b.icon_key
+                : lbl.includes("nature") || lbl.includes("natural") || lbl.includes("wildlife") || lbl.includes("forest") || lbl.includes("park")
+                ? "leaf"
+                : lbl.includes("archae") || lbl.includes("ruin") || lbl.includes("excavat") || lbl.includes("fossil")
+                ? "archive"
+                : "landmark";
               return (
                 <li
                   key={b.id}
@@ -621,11 +681,7 @@ function TypeSheet({
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-[var(--brand-orange)]/10" : "bg-gray-100"}`}>
-                    {b.icon_key ? (
-                      <Icon name={b.icon_key} size={15} className={isSelected ? "text-[var(--brand-orange)]" : "text-gray-500"} />
-                    ) : (
-                      <Icon name="landmark" size={14} className="text-gray-400" />
-                    )}
+                    <Icon name={fallbackIcon} size={15} className={isSelected ? "text-[var(--brand-orange)]" : "text-gray-500"} />
                   </div>
                   <span className="text-sm font-medium flex-1">{b.label}</span>
                   {isSelected && <Icon name="check" size={13} className="text-[var(--brand-orange)]" />}
@@ -816,8 +872,8 @@ function AdvancedSheet({
   );
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Advanced Filters">
-      <div className="px-4 py-3 space-y-4">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Advanced Filters" minHeight="78dvh">
+      <div className="px-4 py-3 space-y-4" style={{ minHeight: "calc(78dvh - 120px)" }}>
 
         {/* Domain selector */}
         <div>
@@ -1005,7 +1061,7 @@ function NearbySheet({
   const nearbyActive = isPlacesNearbyActive({ centerSiteId: filters.centerSiteId ?? null, centerLat: filters.centerLat ?? null, centerLng: filters.centerLng ?? null, radiusKm: filters.radiusKm ?? null });
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Around a Site">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Around a Site" minHeight="55dvh">
       <div className="px-4 py-3 space-y-4">
         {/* Site picker */}
         <div ref={dropdownRef} className="relative">
