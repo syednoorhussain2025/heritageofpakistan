@@ -9,6 +9,7 @@ import Icon from "@/components/Icon";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import CollapsibleSidebar, { Tool } from "@/components/CollapsibleSidebar";
 import SearchFilters, { Filters } from "@/components/SearchFilters";
+import MobileFilterBar from "@/components/MobileFilterBar";
 import NearbySearchModal from "@/components/NearbySearchModal";
 import AddToWishlistModal from "@/components/AddToWishlistModal";
 import AddToTripModal from "@/components/AddToTripModal";
@@ -322,7 +323,7 @@ export default function MapClient() {
 
   // translateX push when the search panel slides in — same pattern as Explore
   const setMapPushTransform = useCallback((value: string | null, animate: boolean) => {
-    const ids = ["map-mobile-shell", "map-mobile-header"];
+    const ids = ["map-mobile-shell", "map-mobile-header", "map-mobile-chip-bar"];
     ids.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -959,6 +960,19 @@ export default function MapClient() {
   }, [sitesQuery]);
 
   useEffect(() => setMounted(true), []);
+
+  // Measure the green header height and publish it as --map-header-bottom so the
+  // chip bar can position itself directly below without hardcoding pixel values.
+  useEffect(() => {
+    const update = () => {
+      const el = document.getElementById("map-mobile-header");
+      if (!el) return;
+      document.documentElement.style.setProperty("--map-header-bottom", `${el.getBoundingClientRect().bottom}px`);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   // Ref on the portal wrapper div — hidden imperatively (no React setState)
   // so it disappears on the same frame as the tab switch, not one render later.
@@ -1848,6 +1862,19 @@ export default function MapClient() {
           </div>
         </div>
       </button>
+
+      {/* ── Mobile chip filter bar — sits below the green header, same z-level ── */}
+      <div
+        id="map-mobile-chip-bar"
+        className="lg:hidden fixed inset-x-0 z-[1100] pointer-events-auto"
+        style={{ top: "var(--map-header-bottom)" }}
+      >
+        <MobileFilterBar
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onSearch={() => { triggerFitFiltered(); }}
+        />
+      </div>
 
       {/* ── Mobile shell: wraps ONLY the map canvas for push/shrink parallax.
           Header lives outside at z-[1101] so the map library can never bury it. ── */}
