@@ -64,7 +64,7 @@ function thumbUrl(raw?: string | null) {
 
 /* ─────────────────────────── Bottom sheet wrapper ─────────────────────────── */
 const SHEET_EASE = "cubic-bezier(0.32,0.72,0,1)";
-const SHEET_DURATION = 420;
+const SHEET_DURATION = 680;
 
 const SHEET_HEIGHT = "75dvh";
 
