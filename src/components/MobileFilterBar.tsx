@@ -66,17 +66,17 @@ function thumbUrl(raw?: string | null) {
 const SHEET_EASE = "cubic-bezier(0.32,0.72,0,1)";
 const SHEET_DURATION = 420;
 
+const SHEET_HEIGHT = "75dvh";
+
 function BottomSheet({
   isOpen,
   onClose,
   title,
-  minHeight = "55dvh",
   children,
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  minHeight?: string;
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -172,7 +172,7 @@ function BottomSheet({
       {/* Backdrop */}
       <div
         ref={backdropRef}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/30"
         style={{ opacity: 0 }}
         onClick={onClose}
       />
@@ -181,8 +181,7 @@ function BottomSheet({
         ref={sheetRef}
         className="relative w-full bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
         style={{
-          minHeight,
-          maxHeight: "88dvh",
+          height: SHEET_HEIGHT,
           transform: "translate3d(0,100%,0)",
           paddingBottom: "max(env(safe-area-inset-bottom,0px),0.75rem)",
         }}
@@ -197,12 +196,12 @@ function BottomSheet({
           <div className="w-10 h-1 bg-gray-300/80 rounded-full mx-auto" />
         </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+        <div className="relative flex items-center justify-center px-5 py-3 border-b border-gray-100 shrink-0">
           <h2 className="text-base font-bold text-gray-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+            className="absolute right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
           >
             <Icon name="times" size={13} />
           </button>
@@ -315,7 +314,7 @@ function SearchSheet({
   const showSuggestions = query.trim().length > 0;
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Sites" minHeight="62dvh">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Sites">
       <div className="px-4 pt-3 pb-4 space-y-4">
         {/* Input */}
         <div className="relative">
@@ -499,7 +498,7 @@ function LocationSheet({
   const title = activeRegion ? activeRegion.name : "Where?";
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={title} minHeight="65dvh">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="flex flex-col flex-1 min-h-0 px-4 py-3">
 
         {/* ── Level 1: Region list ── */}
@@ -639,7 +638,7 @@ function TypeSheet({
   onClear: () => void;
 }) {
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="What type of site?" minHeight="55dvh">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="What type of site?">
       <div className="px-4 py-3">
         {buckets.length === 0 ? (
           <div className="text-sm text-gray-400 text-center py-8">No type buckets configured yet.</div>
@@ -872,8 +871,8 @@ function AdvancedSheet({
   );
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Advanced Filters" minHeight="78dvh">
-      <div className="px-4 py-3 space-y-4" style={{ minHeight: "calc(78dvh - 120px)" }}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Advanced Filters">
+      <div className="px-4 py-3 space-y-4">
 
         {/* Domain selector */}
         <div>
@@ -887,7 +886,7 @@ function AdvancedSheet({
                   key={d}
                   type="button"
                   onClick={() => setDomain(domain === d ? null : d)}
-                  className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-xs font-semibold transition-all ${
+                  className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl border text-xs font-semibold transition-all ${
                     domain === d
                       ? "bg-[var(--brand-orange)] border-[var(--brand-orange)] text-white"
                       : "bg-white border-gray-200 text-gray-600 hover:border-[var(--brand-orange)]"
@@ -1061,7 +1060,7 @@ function NearbySheet({
   const nearbyActive = isPlacesNearbyActive({ centerSiteId: filters.centerSiteId ?? null, centerLat: filters.centerLat ?? null, centerLng: filters.centerLng ?? null, radiusKm: filters.radiusKm ?? null });
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Around a Site" minHeight="55dvh">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Search Around a Site">
       <div className="px-4 py-3 space-y-4">
         {/* Site picker */}
         <div ref={dropdownRef} className="relative">
