@@ -199,6 +199,12 @@ export default function AdminHome() {
       desc: "Manage visual search hint phrases shown in Discover.",
       icon: "search",
     },
+    {
+      href: "/admin/explore",
+      title: "Explore Page",
+      desc: "Curate popular sites and manage type buckets for the Explore screen.",
+      icon: "search",
+    },
     // Layouts & Templates hub
     {
       href: "/admin/layouts",

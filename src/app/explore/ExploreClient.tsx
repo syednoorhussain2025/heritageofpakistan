@@ -8,13 +8,13 @@ import {
   useRef,
   Suspense,
 } from "react";
-import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchFilters, {
   Filters,
   fetchSitesByFilters,
   hasRadius,
 } from "@/components/SearchFilters";
+import MobileFilterBar from "@/components/MobileFilterBar";
 import { clearPlacesNearby } from "@/lib/placesNearby";
 import { getPublicClient } from "@/lib/supabase/browser";
 import SitePreviewCard from "@/components/SitePreviewCard";
@@ -820,10 +820,6 @@ function ExplorePageContent() {
 
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
-  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
-  const [searchPanelClosing, setSearchPanelClosing] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const safeTop = "var(--sat, 44px)";
 
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<{ sites: Site[]; total: number }>({
@@ -1351,62 +1347,16 @@ function ExplorePageContent() {
       </div>
     ) : null;
 
-  // Mount guard for portals
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
 
-  const setPushTransform = useCallback((value: string | null, animate: boolean) => {
-    const el = document.getElementById("explore-mobile-shell");
-    if (!el) return;
-    el.style.transition = animate ? "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)" : "none";
-    el.style.transform = value === null ? "" : value;
-  }, []);
-
-  const closeSearchPanel = useCallback(() => {
-    setPushTransform("translateX(0)", true);
-    setSearchPanelClosing(true);
-  }, [setPushTransform]);
-
-  // Push parallax when panel opens.
-  // Two-step: (1) synchronously plant translateX(0) with transition:none so the
-  // element is at a known starting position regardless of any prior interrupted
-  // animation, (2) in the next frame switch to translateX(-173px) with the
-  // animated transition. Forces the browser to register a style change and run
-  // the transition instead of coalescing both writes into one recalc.
-  useEffect(() => {
-    if (!searchPanelOpen) return;
-    const el = document.getElementById("explore-mobile-shell");
-    if (!el) return;
-    // Step 1: plant start position with no transition
-    el.style.transition = "none";
-    el.style.transform = "translateX(0)";
-    // Force reflow so the browser commits step 1 before step 2
-    void el.offsetWidth;
-    // Step 2: animate to pushed position
-    el.style.transition = "transform 0.5s cubic-bezier(0.25,0.1,0.25,1)";
-    el.style.transform = "translateX(-173px)";
-  }, [searchPanelOpen]);
-
-  // Lock body scroll while panel is open
-  useEffect(() => {
-    if (searchPanelOpen) document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, [searchPanelOpen]);
-
-  // When TabShell hides this pane, force-close the panel immediately
+  // When TabShell hides this pane, close any open modals
   useEffect(() => {
     const handler = () => {
-      document.body.style.overflow = "";
-      setPushTransform(null, false);
-      setSearchPanelOpen(false);
-      setSearchPanelClosing(false);
       setShowNearbyModal(false);
     };
     document.addEventListener("tab-hidden", handler);
     return () => document.removeEventListener("tab-hidden", handler);
-  }, [setPushTransform]);
+  }, []);
 
   // Trigger stagger on tab switch to explore (only if cards are loaded)
   useEffect(() => {
@@ -1424,13 +1374,10 @@ function ExplorePageContent() {
         className="lg:hidden fixed inset-0 z-[1100] pointer-events-none bg-[var(--brand-green)] overflow-hidden"
         style={{ contain: "style" }}
       >
-      {/* ── Mobile: teal header (matches Home) ── */}
-      <button
+      {/* ── Mobile: teal header ── */}
+      <div
         id="explore-mobile-header"
-        type="button"
-        aria-label="Search & Filters"
-        onClick={() => { setSearchPanelClosing(false); setSearchPanelOpen(true); }}
-        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] text-left pointer-events-auto"
+        className="absolute inset-x-0 top-0 bg-[var(--brand-green)] pointer-events-none"
         style={{ paddingTop: "var(--tab-title-top)", paddingBottom: "8px" }}
       >
         <div className="flex items-start justify-between px-4">
@@ -1442,13 +1389,21 @@ function ExplorePageContent() {
               <span className="tab-header-title" style={{ fontSize: "15px", fontWeight: 600 }}>{headline}</span>
             )}
           </div>
-          <div className="w-[58px] flex justify-end">
-            <div className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20" style={{ marginTop: "-6px", marginRight: "8px" }}>
-              <Icon name="search" size={20} className="text-white" />
-            </div>
-          </div>
+          <div className="w-[58px]" />
         </div>
-      </button>
+      </div>
+
+      {/* ── Chip filter bar ── */}
+      <div
+        className="absolute inset-x-0 pointer-events-auto bg-[var(--brand-green)]"
+        style={{ top: `calc(var(--tab-title-top) + 48px)`, height: "48px" }}
+      >
+        <MobileFilterBar
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onSearch={executeSearch}
+        />
+      </div>
 
       {/* ── Mobile content card (inside shell, absolutely positioned so scaling
           the shell scales card + header together as one coherent surface) ── */}
@@ -1456,7 +1411,7 @@ function ExplorePageContent() {
         id="explore-mobile-content"
         data-scroll-reset
         className="absolute inset-x-0 bg-[#f2f2f2] rounded-t-[32px] overflow-y-auto px-4 pt-4 pb-8 pointer-events-auto"
-        style={{ top: `calc(var(--tab-title-top) + 48px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ top: `calc(var(--tab-title-top) + 96px)`, bottom: `calc(52px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="relative">
           {isFiltering && (
@@ -1611,94 +1566,6 @@ function ExplorePageContent() {
         }}
       />
 
-      {/* ── Mobile Search Panel — full-screen slide-in from right ── */}
-      {mounted && searchPanelOpen && createPortal(
-        <>
-          {/* Backdrop (light, same as TravelGuideSheet) */}
-          <div
-            className="lg:hidden fixed inset-0 z-[4999]"
-            style={{
-              backgroundColor: "rgba(0,0,0,0)",
-              animation: searchPanelClosing
-                ? "sideSheetBackdropOut 0.35s ease-in forwards"
-                : "sideSheetBackdropIn 0.72s ease-out forwards",
-            }}
-          />
-          {/* Full-screen panel */}
-          <div
-            className={`lg:hidden fixed inset-0 z-[5000] bg-[var(--ivory-cream)] flex flex-col ${searchPanelClosing ? "animate-side-sheet-out" : "animate-side-sheet-in"}`}
-            onAnimationEnd={() => {
-              if (searchPanelClosing) {
-                setSearchPanelOpen(false);
-                setSearchPanelClosing(false);
-                // Fully clear the transform so nothing lingers on the fixed elements
-                setPushTransform(null, false);
-              }
-            }}
-          >
-            {/* Header — back button left, title center */}
-            <div
-              className="shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-3"
-              style={{ paddingTop: "calc(var(--sat, 44px) + 10px)", paddingBottom: "14px" }}
-            >
-              <button
-                type="button"
-                onClick={closeSearchPanel}
-                aria-label="Back"
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 shrink-0"
-              >
-                <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
-                  <path d="M12.59 4.58a1 1 0 010 1.41L8.66 10l3.93 4.01a1 1 0 11-1.42 1.42l-4.64-4.72a1 1 0 010-1.42l4.64-4.71a1 1 0 011.42 0z" />
-                </svg>
-              </button>
-              <div className="flex-1 flex flex-col">
-                <span className="text-base font-extrabold text-[var(--dark-grey)] leading-tight">Search & Filters</span>
-                <span className="text-[0.7rem] text-gray-400 leading-tight">Heritage sites of Pakistan</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="text-xs text-[var(--brand-orange)] font-semibold shrink-0 px-2 py-1 rounded-lg hover:bg-[var(--brand-orange)]/10 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-
-            {/* Scrollable filter content */}
-            <div className="flex-1 min-h-0 overflow-y-auto touch-auto overscroll-contain">
-              <SearchFilters
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                onSearch={() => { pendingCardAnimRef.current = true; setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
-                onOpenNearbyModal={() => { closeSearchPanel(); setTimeout(() => setShowNearbyModal(true), 340); }}
-                hideFooter
-                hideHeading
-              />
-              {hasRadius(filters) && centerSitePreview?.subtitle ? (
-                <div className="px-4 pb-3 text-xs text-[var(--espresso-brown)]/80">
-                  {centerSitePreview.subtitle}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Fixed Search button at bottom */}
-            <div
-              className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3"
-              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 12px)" }}
-            >
-              <button
-                type="button"
-                onClick={() => { pendingCardAnimRef.current = true; setIsFiltering(true); executeSearch(); closeSearchPanel(); }}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[var(--brand-orange)] py-3.5 text-[15px] font-bold text-white shadow-md active:opacity-80 transition-opacity"
-              >
-                <Icon name="search" size={15} />
-                Search Results
-              </button>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
 
       {/* Mobile site bottom sheet */}
       <SiteBottomSheet
