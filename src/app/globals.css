@@ -561,8 +561,7 @@ code {
 }
 
 /* Block nav interaction when discover sheet is open */
-body.discover-sheet-open #bottom-nav,
-body.discover-sheet-open #bottom-nav-fill {
+body.discover-sheet-open #bottom-nav {
   pointer-events: none;
 }
 
