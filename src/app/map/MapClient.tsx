@@ -962,16 +962,24 @@ export default function MapClient() {
   useEffect(() => setMounted(true), []);
 
   // Measure the green header height and publish it as --map-header-bottom so the
-  // chip bar can position itself directly below without hardcoding pixel values.
+  // chip bar can position itself directly below. Re-runs on resize and whenever
+  // the map tab becomes visible (pane was display:none at mount time).
   useEffect(() => {
     const update = () => {
       const el = document.getElementById("map-mobile-header");
       if (!el) return;
-      document.documentElement.style.setProperty("--map-header-bottom", `${el.getBoundingClientRect().bottom}px`);
+      const bottom = el.getBoundingClientRect().bottom;
+      if (bottom > 0) {
+        document.documentElement.style.setProperty("--map-header-bottom", `${bottom}px`);
+      }
     };
     update();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    window.addEventListener("tab-shown", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("tab-shown", update);
+    };
   }, []);
 
   // Ref on the portal wrapper div — hidden imperatively (no React setState)
@@ -1866,8 +1874,8 @@ export default function MapClient() {
       {/* ── Mobile chip filter bar — sits below the green header, same z-level ── */}
       <div
         id="map-mobile-chip-bar"
-        className="lg:hidden fixed inset-x-0 z-[1100] pointer-events-auto"
-        style={{ top: "var(--map-header-bottom)" }}
+        className="lg:hidden fixed inset-x-0 z-[1100] pointer-events-auto bg-[var(--brand-green)]"
+        style={{ top: "var(--map-header-bottom, 110px)" }}
       >
         <MobileFilterBar
           filters={filters}
