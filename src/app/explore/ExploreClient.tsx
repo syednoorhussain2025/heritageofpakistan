@@ -1389,8 +1389,10 @@ function ExplorePageContent() {
               <span className="tab-header-title" style={{ fontSize: "15px", fontWeight: 600 }}>{headline}</span>
             )}
             {loading && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-full -mt-1 pointer-events-none">
-                <LottieSpinner variant="dots" color="white" size={40} />
+              <div className="absolute left-1/2 -translate-x-1/2 top-full -mt-1 pointer-events-none overflow-visible" style={{ width: 0, height: 0 }}>
+                <div style={{ transform: "translate(-50%, -50%)" }}>
+                  <LottieSpinner variant="dots" color="white" size={100} />
+                </div>
               </div>
             )}
           </div>
