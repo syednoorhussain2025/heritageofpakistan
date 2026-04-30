@@ -1382,15 +1382,17 @@ function ExplorePageContent() {
       >
         <div className="flex items-start justify-between px-4">
           <div className="w-[58px]" />
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center relative">
             {headline === "All Heritage Sites in Pakistan" ? (
               <span className="tab-header-title">Explore</span>
             ) : (
               <span className="tab-header-title" style={{ fontSize: "15px", fontWeight: 600 }}>{headline}</span>
             )}
-            <div style={{ height: "20px" }} className="flex items-center justify-center">
-              {loading && <LottieSpinner variant="dots" color="white" size={48} />}
-            </div>
+            {loading && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full -mt-1 pointer-events-none">
+                <LottieSpinner variant="dots" color="white" size={40} />
+              </div>
+            )}
           </div>
           <div className="w-[58px]" />
         </div>
@@ -1399,7 +1401,7 @@ function ExplorePageContent() {
       {/* ── Chip filter bar ── */}
       <div
         className="absolute inset-x-0 pointer-events-auto bg-[var(--brand-green)]"
-        style={{ top: `calc(var(--tab-title-top) + 68px)`, height: "48px" }}
+        style={{ top: `calc(var(--tab-title-top) + 48px)`, height: "48px" }}
       >
         <MobileFilterBar
           filters={filters}
