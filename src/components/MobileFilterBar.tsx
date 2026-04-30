@@ -326,7 +326,7 @@ function SearchSheet({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && query.trim()) commit(query.trim()); }}
             placeholder="Search by site name…"
-            className="w-full pl-9 pr-9 py-3 rounded-xl bg-gray-100 border border-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+            className="w-full pl-9 pr-9 py-3 rounded-full bg-gray-100 border border-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
           />
           {query && (
             <button
@@ -510,7 +510,7 @@ function LocationSheet({
                 value={regionSearch}
                 onChange={(e) => setRegionSearch(e.target.value)}
                 placeholder="Search regions…"
-                className="w-full px-3 py-2.5 text-sm rounded-xl bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+                className="w-full px-3 py-2.5 text-sm rounded-full bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
               />
             </div>
             <div className="rounded-xl border border-gray-100 overflow-hidden">
@@ -567,7 +567,7 @@ function LocationSheet({
                 value={subSearch}
                 onChange={(e) => setSubSearch(e.target.value)}
                 placeholder={`Search in ${activeRegion.name}…`}
-                className="w-full px-3 py-2.5 text-sm rounded-xl bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+                className="w-full px-3 py-2.5 text-sm rounded-full bg-gray-100 border border-transparent placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
               />
             </div>
             <div className="rounded-xl border border-gray-100 overflow-hidden">
@@ -1092,7 +1092,7 @@ function NearbySheet({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search a site…"
-                  className="w-full pl-9 pr-4 py-3 rounded-xl bg-gray-100 border border-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
+                  className="w-full pl-9 pr-4 py-3 rounded-full bg-gray-100 border border-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand-orange)]/30 focus:border-[var(--brand-orange)] transition-all"
                 />
               </div>
               {(searching || results.length > 0) && (
